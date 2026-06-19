@@ -43,6 +43,11 @@ export interface AuthTokens {
 }
 
 /** Respuesta de GET /auth/me */
+export interface MateoHandoffResponse {
+  code: string;
+  expiresIn: number;
+}
+
 export interface AuthSession {
   idUsuario: string;
   idAuth: string;

@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { LayoutGrid, LogOut, MessageCircle } from "lucide-react";
+import { LayoutGrid, Loader2, LogOut, MessageCircle } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 import { useLiveDate } from "@/hooks/useLiveDate";
 import {
@@ -18,6 +18,7 @@ import type { TopbarUserInfo } from "@/types/layout";
 interface AppTopbarProps {
   onMenuClick?: () => void;
   onMateoIaClick?: () => void;
+  isMateoLoading?: boolean;
 }
 
 const ICON = "h-4 w-4 shrink-0";
@@ -31,7 +32,11 @@ function buildFallbackUser(): TopbarUserInfo {
   };
 }
 
-export function AppTopbar({ onMenuClick, onMateoIaClick }: AppTopbarProps) {
+export function AppTopbar({
+  onMenuClick,
+  onMateoIaClick,
+  isMateoLoading = false,
+}: AppTopbarProps) {
   const router = useRouter();
   const session = useAuthStore((s) => s.session);
   const performLogout = useAuthStore((s) => s.performLogout);
@@ -100,13 +105,20 @@ export function AppTopbar({ onMenuClick, onMateoIaClick }: AppTopbarProps) {
             <button
               type="button"
               onClick={handleMateoIaClick}
+              disabled={isMateoLoading}
               aria-label="Abrir Mateo IA"
+              aria-busy={isMateoLoading}
               className={cn(
                 "polaria-topbar-btn polaria-topbar-btn--teal polaria-topbar-btn--label-lg",
                 TOPBAR_SHAPE,
+                isMateoLoading && "cursor-wait opacity-80",
               )}
             >
-              <MessageCircle className={ICON} />
+              {isMateoLoading ? (
+                <Loader2 className={cn(ICON, "animate-spin")} />
+              ) : (
+                <MessageCircle className={ICON} />
+              )}
               <span className="polaria-topbar-btn__label">Mateo IA</span>
             </button>
 

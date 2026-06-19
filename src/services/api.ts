@@ -47,7 +47,10 @@ export function mapApiError(status: number, fallback?: string): ApiError {
         status,
       );
     case 404:
-      return new ApiError("Usuario no encontrado o inactivo", status);
+      return new ApiError(
+        fallback ?? "Usuario no encontrado o inactivo",
+        status,
+      );
     case 422:
       return new ApiError("Debes ingresar código de empresa", status);
     default:

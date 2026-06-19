@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getMe, login, prelogin } from "@/modules/auth/services/auth.service";
+import {
+  getMe,
+  login,
+  mateoHandoff,
+  prelogin,
+} from "@/modules/auth/services/auth.service";
 
 vi.mock("@/config/env", () => ({
   env: { apiBaseUrl: "http://localhost:3000" },
@@ -16,7 +21,7 @@ describe("auth service happy path", () => {
       flow: "platform" as const,
       userPreview: {
         nombre: "Configurador",
-        identificador: "configurador",
+        identificador: "configurador@polaria.tech",
       },
     };
 
@@ -29,15 +34,20 @@ describe("auth service happy path", () => {
       }),
     );
 
-    const result = await prelogin({ identificador: "configurador" });
+    const result = await prelogin({ identificador: "configurador@polaria.tech" });
 
     expect(fetch).toHaveBeenCalledWith(
       "/api/auth/prelogin",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ identificador: "configurador" }),
+        body: JSON.stringify({ identificador: "configurador@polaria.tech" }),
       }),
     );
+
+    const call = vi.mocked(fetch).mock.calls[0];
+    const headers = call[1]?.headers as Headers;
+    expect(headers.get("X-Auth-Client")).toBe("wms");
+
     expect(result.flow).toBe("platform");
     expect(result.userPreview.nombre).toBe("Configurador");
   });
@@ -59,9 +69,13 @@ describe("auth service happy path", () => {
     );
 
     const result = await login({
-      identificador: "configurador",
+      identificador: "configurador@polaria.tech",
       password: "secret",
     });
+
+    const call = vi.mocked(fetch).mock.calls[0];
+    const headers = call[1]?.headers as Headers;
+    expect(headers.get("X-Auth-Client")).toBe("wms");
 
     expect(result.accessToken).toBe("access-token");
     expect(result.context.scope).toBe("platform");
@@ -110,5 +124,38 @@ describe("auth service happy path", () => {
     expect(session.scope).toBe("tenant");
     expect(session.nombre).toBe("Administrador");
     expect(session.username).toBe("admin.acme");
+  });
+
+  it("requests mateo handoff code with Bearer token", async () => {
+    const { setAccessTokenGetter } = await import("@/services/api");
+    setAccessTokenGetter(() => "session-token");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          code: "handoff-code-123",
+          expiresIn: 60,
+        }),
+      }),
+    );
+
+    const result = await mateoHandoff();
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/auth/mateo-handoff",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+
+    const call = vi.mocked(fetch).mock.calls[0];
+    const headers = call[1]?.headers as Headers;
+    expect(headers.get("Authorization")).toBe("Bearer session-token");
+
+    expect(result.code).toBe("handoff-code-123");
+    expect(result.expiresIn).toBe(60);
   });
 });

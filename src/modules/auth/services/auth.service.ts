@@ -3,9 +3,12 @@ import type {
   AuthSession,
   LoginRequest,
   LoginResponse,
+  MateoHandoffResponse,
   PreloginRequest,
   PreloginResponse,
 } from "@/types/auth";
+
+const WMS_AUTH_HEADERS = { "X-Auth-Client": "wms" };
 
 export async function prelogin(
   payload: PreloginRequest,
@@ -13,6 +16,7 @@ export async function prelogin(
   return apiRequest<PreloginResponse>("/auth/prelogin", {
     method: "POST",
     body: payload,
+    headers: WMS_AUTH_HEADERS,
   });
 }
 
@@ -20,6 +24,14 @@ export async function login(payload: LoginRequest): Promise<LoginResponse> {
   return apiRequest<LoginResponse>("/auth/login", {
     method: "POST",
     body: payload,
+    headers: WMS_AUTH_HEADERS,
+  });
+}
+
+export async function mateoHandoff(): Promise<MateoHandoffResponse> {
+  return apiRequest<MateoHandoffResponse>("/auth/mateo-handoff", {
+    method: "POST",
+    auth: true,
   });
 }
 
