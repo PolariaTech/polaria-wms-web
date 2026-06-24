@@ -3,7 +3,9 @@
 import { useCallback, useState } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { env } from "@/config/env";
-import { mateoHandoff } from "@/modules/auth";
+import { markMateoSsoExit } from "@/lib/mateo-sso-exit";
+import { removeAuthFromLocalStorage } from "@/lib/auth-storage";
+import { mateoHandoff, logoutWithToken } from "@/modules/auth";
 import { ApiError } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { AppTopbar } from "./AppTopbar";
@@ -17,7 +19,7 @@ interface AppShellLayoutProps {
  * Incluye topbar compartido para todos los roles y vistas.
  */
 export function AppShellLayout({ children }: AppShellLayoutProps) {
-  const performLogout = useAuthStore((s) => s.performLogout);
+  const clearAuthSilently = useAuthStore((s) => s.clearAuthSilently);
   const [mateoLoading, setMateoLoading] = useState(false);
   const [mateoError, setMateoError] = useState<string | null>(null);
 
@@ -28,12 +30,24 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
     setMateoLoading(true);
 
     try {
+      const accessToken = useAuthStore.getState().accessToken;
       const { code } = await mateoHandoff();
-      await performLogout();
       const mateoBaseUrl = env.mateoUrl.replace(/\/$/, "");
-      window.location.replace(
-        `${mateoBaseUrl}/auth/sso?code=${encodeURIComponent(code)}`,
-      );
+      const mateoUrl = `${mateoBaseUrl}/auth/sso?code=${encodeURIComponent(code)}`;
+
+      // iOS Safari: marcar salida SSO antes de limpiar sesión para que AuthGuard
+      // no gane la carrera con router.replace('/login').
+      markMateoSsoExit();
+      clearAuthSilently();
+      removeAuthFromLocalStorage();
+
+      if (accessToken) {
+        void logoutWithToken(accessToken).catch(() => {
+          // La navegación a Mateo no debe bloquearse por el logout remoto.
+        });
+      }
+
+      window.location.href = mateoUrl;
     } catch (err) {
       setMateoLoading(false);
       if (err instanceof ApiError) {
@@ -49,7 +63,7 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
         setMateoError("No se pudo abrir Mateo IA. Intenta de nuevo.");
       }
     }
-  }, [mateoLoading, performLogout]);
+  }, [clearAuthSilently, mateoLoading]);
 
   return (
     <AuthGuard>

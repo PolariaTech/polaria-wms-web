@@ -66,8 +66,10 @@ Usuario autenticado en el WMS puede abrir Mateo sin volver a iniciar sesión:
 1. Clic en **Mateo IA** en el topbar.
 2. El frontend llama `POST /auth/mateo-handoff` con el Bearer token actual.
 3. El API devuelve `{ code, expiresIn }`.
-4. El WMS cierra sesión local y redirige a `{NEXT_PUBLIC_MATEO_URL}/auth/sso?code={code}`.
+4. El WMS marca salida SSO, limpia sesión local (sin redirigir a `/login`) y navega a `{NEXT_PUBLIC_MATEO_URL}/auth/sso?code={code}`.
 5. Mateo (repo `chatbot-mateo`) canjea el código con su propio flujo.
+
+> **iOS Safari:** no usar `performLogout` + `router.replace` antes de la navegación externa; Safari puede quedarse en `/login`. Ver `lib/mateo-sso-exit.ts`.
 
 Si falla el handoff, se muestra un mensaje de error debajo del topbar. El botón muestra loading mientras se genera el código.
 

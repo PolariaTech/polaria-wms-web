@@ -30,6 +30,8 @@ interface AuthState {
   setTokens: (tokens: AuthTokens, context: AuthContext) => void;
   setSession: (session: AuthSession) => void;
   clearAuth: () => void;
+  /** Limpia sesión sin notificar (evita router.replace a /login durante SSO a Mateo). */
+  clearAuthSilently: () => void;
   setHydrated: (value: boolean) => void;
   setLoading: (value: boolean) => void;
   performLogin: (payload: LoginRequest) => Promise<AuthSession>;
@@ -73,6 +75,16 @@ export const useAuthStore = create<AuthState>()(
 
         ensureAuthOnlyInLocalStorage();
         notifyAuthChanged();
+      },
+
+      clearAuthSilently: () => {
+        set({
+          accessToken: null,
+          refreshToken: null,
+          context: null,
+          session: null,
+        });
+        ensureAuthOnlyInLocalStorage();
       },
 
       setHydrated: (value) => set({ isHydrated: value }),

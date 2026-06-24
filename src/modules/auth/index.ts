@@ -2,6 +2,7 @@ export {
   getMe,
   login,
   logout,
+  logoutWithToken,
   mateoHandoff,
   prelogin,
   wmsSsoExchange,

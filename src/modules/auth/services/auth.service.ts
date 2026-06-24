@@ -58,3 +58,10 @@ export async function logout(): Promise<void> {
     auth: true,
   });
 }
+
+export async function logoutWithToken(accessToken: string): Promise<void> {
+  return apiRequest<void>("/auth/logout", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
