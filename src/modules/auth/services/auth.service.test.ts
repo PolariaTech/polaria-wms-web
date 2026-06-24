@@ -104,6 +104,7 @@ describe("auth service happy path", () => {
           razonSocialEmpresa: "ACME Corp",
           codigoCuenta: null,
           nombreComercialCuenta: null,
+          idBodegas: ["BOD-01"],
           scope: "tenant",
         }),
       }),

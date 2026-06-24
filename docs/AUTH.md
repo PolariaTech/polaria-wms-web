@@ -14,8 +14,48 @@ cp .env.example .env.local
 |----------|-------------|---------|
 | `NEXT_PUBLIC_API_BASE_URL` | URL base del API de auth | `http://localhost:3000` |
 | `NEXT_PUBLIC_MATEO_URL` | URL base del chatbot Mateo IA | `https://chatbot-mateo.vercel.app` |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase | `https://xxx.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anon de Supabase (RLS en cliente) | `eyJ...` |
 
 En desarrollo, el frontend proxea las peticiones del navegador vía `/api/*` → backend, evitando errores de CORS cuando front y back corren en puertos distintos (ej. front `:3001`, back `:3000`).
+
+## Contexto tenant (POL-2)
+
+Tras `GET /auth/me`, el frontend persiste el contexto completo del tenant:
+
+| Campo | Uso |
+|-------|-----|
+| `scope` | `platform` (configurador) o `tenant` (operación) |
+| `codigoEmpresa` | Empresa activa del usuario |
+| `codigoCuenta` | Cuenta comercial activa (si aplica) |
+| `idBodegas` | Bodegas activas asignadas al usuario |
+| `nivelRol` | Jerarquía del rol: `platform`, `empresa`, `cuenta`, `bodega` |
+
+`CompanyProvider` (alias `TenantProvider`) expone estos valores vía `useCompany()` / `useTenant()`. Si el usuario tiene más de una bodega, el topbar muestra un selector (`TenantBodegaSelector`) y la bodega activa se recuerda en `localStorage` por usuario.
+
+## API Nest vs cliente Supabase directo
+
+| Criterio | API Nest (`polaria-wms-api`) | Supabase client (`@/lib/supabase/client`) |
+|----------|------------------------------|-------------------------------------------|
+| **Autenticación** | Bearer JWT del login WMS | Mismo JWT sincronizado con `syncSupabaseAuthSession` |
+| **Cuándo usar** | Escrituras, reglas de negocio, transacciones, integraciones | Lecturas simples filtradas por RLS en tablas expuestas |
+| **Validación** | DTOs, guards, TenantContext en servidor | Políticas RLS en Postgres |
+| **Ejemplos** | Login, prelogin, logout, SSO Mateo, ingresos, movimientos | Listados de catálogo, lookups de ubicaciones, consultas read-only |
+
+**Regla práctica:** operaciones que modifican estado o cruzan varias entidades → **API Nest**. Consultas de solo lectura donde RLS ya restringe por empresa/cuenta/bodega → **Supabase directo** con el cliente del navegador.
+
+El cliente Supabase se crea con `createSupabaseBrowserClient()` y recibe la sesión del auth store (tokens emitidos por el API). Si faltan variables `NEXT_PUBLIC_SUPABASE_*`, las lecturas directas no se inicializan; el flujo de auth por API sigue funcionando.
+
+## Guards de scope
+
+| Guard | Rutas | Comportamiento |
+|-------|-------|----------------|
+| `AuthGuard` | Shell autenticado | Sin token → `/login` |
+| `PlatformScopeGuard` | `/configurador` | Scope tenant → `/dashboard` |
+| `TenantScopeGuard` | `/dashboard` (layout) | Scope ≠ tenant o sin `codigoEmpresa` → `/login` |
+| `BodegaRequiredGuard` | Rutas que lo incluyan | Bodegas asignadas sin activa → `/dashboard` + selector |
+
+Peticiones autenticadas al API Nest incluyen headers alineados con `TenantGuard` del backend: `X-Codigo-Empresa`, `X-Codigo-Cuenta` (si aplica) y `X-Id-Bodega` (bodega activa).
 
 ## Cómo correr en local
 
@@ -97,8 +137,9 @@ Estados de error en `/auth/sso`:
 components/auth/     → UI (LoginStepUser, LoginStepPassword, LoginStepSuccess, LoginFlow)
 modules/auth/        → Servicio API (prelogin, login, me, logout, mateoHandoff, wmsSsoExchange)
 services/api.ts      → Cliente HTTP + interceptor Bearer + errores tipados
-stores/auth.store.ts → Estado de sesión (sessionStorage)
-providers/           → AuthProvider (hidrata sesión al cargar)
+stores/auth.store.ts → Estado de sesión (localStorage) + contexto tenant
+lib/supabase/client  → Cliente Supabase RLS-ready sincronizado con JWT del API
+providers/           → AuthProvider + CompanyProvider (contexto tenant / bodega activa)
 components/auth/     → AuthGuard (protege /platform y /dashboard)
 components/layouts/  → AppShellLayout conecta Mateo IA al topbar
 ```
@@ -130,4 +171,4 @@ components/layouts/  → AppShellLayout conecta Mateo IA al topbar
 npm test
 ```
 
-Incluye pruebas del mapeo de errores, del happy path del servicio de auth (con `fetch` mockeado), de `mateoHandoff`, de `wmsSsoExchange` y del flujo `/auth/sso`.
+Incluye pruebas del mapeo de errores, del happy path del servicio de auth (con `fetch` mockeado), de `mateoHandoff`, de `wmsSsoExchange`, del flujo `/auth/sso`, del contexto tenant (`CompanyProvider`) y de los tipos de auth.

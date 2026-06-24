@@ -56,6 +56,7 @@ const mockSession = {
   razonSocialEmpresa: "ACME Corp",
   codigoCuenta: null,
   nombreComercialCuenta: null,
+  idBodegas: ["BOD-01"],
   scope: "tenant" as const,
 };
 

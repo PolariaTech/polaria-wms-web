@@ -14,6 +14,10 @@ vi.mock("@/components/auth/AuthGuard", () => ({
   AuthGuard: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock("@/providers/CompanyProvider", () => ({
+  TenantBodegaSelector: () => null,
+}));
+
 vi.mock("@/modules/auth", () => ({
   mateoHandoff: () => mockMateoHandoff(),
   logoutWithToken: (token: string) => mockLogoutWithToken(token),

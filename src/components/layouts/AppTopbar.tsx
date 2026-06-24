@@ -12,6 +12,7 @@ import {
   getSessionUsername,
 } from "@/lib/auth-session";
 import { cn } from "@/lib/cn";
+import { TenantBodegaSelector } from "@/providers/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
 import type { TopbarUserInfo } from "@/types/layout";
 
@@ -102,6 +103,8 @@ export function AppTopbar({
           </div>
 
           <div className="polaria-topbar__end">
+            <TenantBodegaSelector className="hidden sm:inline-flex" />
+
             <button
               type="button"
               onClick={handleMateoIaClick}

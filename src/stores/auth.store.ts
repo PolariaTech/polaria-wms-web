@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { getMe, login, logout } from "@/modules/auth";
+import { buildAuthContextFromSession } from "@/lib/auth-context";
 import { notifyAuthChanged } from "@/lib/auth-broadcast";
 import {
   AUTH_STORAGE_KEY,
@@ -8,16 +9,20 @@ import {
   ensureAuthOnlyInLocalStorage,
   removeAuthFromLocalStorage,
 } from "@/lib/auth-storage";
+import { resolveActiveBodegaId } from "@/lib/active-bodega";
+import { syncSupabaseAuthSession } from "@/lib/supabase/client";
+import { setTenantHeadersGetter } from "@/lib/tenant-headers";
 import { setAccessTokenGetter } from "@/services/api";
 import type {
   AuthContext,
+  AuthContextInput,
   AuthFlow,
   AuthSession,
   AuthTokens,
   LoginRequest,
   UserPreview,
 } from "@/types/auth";
-
+import { createMinimalAuthContext } from "@/types/auth";
 export { AUTH_STORAGE_KEY }; 
 
 interface AuthState {
@@ -27,7 +32,7 @@ interface AuthState {
   session: AuthSession | null;
   isHydrated: boolean;
   isLoading: boolean;
-  setTokens: (tokens: AuthTokens, context: AuthContext) => void;
+  setTokens: (tokens: AuthTokens, context: AuthContextInput) => void;
   setSession: (session: AuthSession) => void;
   clearAuth: () => void;
   /** Limpia sesión sin notificar (evita router.replace a /login durante SSO a Mateo). */
@@ -53,18 +58,24 @@ export const useAuthStore = create<AuthState>()(
         set({
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
-          context,
+          context: {
+            ...createMinimalAuthContext(context.scope),
+            ...context,
+          },
         });
         ensureAuthOnlyInLocalStorage();
         notifyAuthChanged();
+        void syncSupabaseAuthSession(
+          tokens.accessToken,
+          tokens.refreshToken,
+        );
       },
 
       setSession: (session) =>
         set({
           session,
-          context: { scope: session.scope },
+          context: buildAuthContextFromSession(session),
         }),
-
       clearAuth: () => {
         set({
           accessToken: null,
@@ -75,6 +86,7 @@ export const useAuthStore = create<AuthState>()(
 
         ensureAuthOnlyInLocalStorage();
         notifyAuthChanged();
+        void syncSupabaseAuthSession(null, null);
       },
 
       clearAuthSilently: () => {
@@ -85,8 +97,8 @@ export const useAuthStore = create<AuthState>()(
           session: null,
         });
         ensureAuthOnlyInLocalStorage();
+        void syncSupabaseAuthSession(null, null);
       },
-
       setHydrated: (value) => set({ isHydrated: value }),
       setLoading: (value) => set({ isLoading: value }),
 
@@ -150,16 +162,44 @@ export const useAuthStore = create<AuthState>()(
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
         context: state.context,
+        session: state.session,
       }),
       onRehydrateStorage: () => (state) => {
         ensureAuthOnlyInLocalStorage();
         state?.setHydrated(true);
+        if (state?.accessToken) {
+          void syncSupabaseAuthSession(
+            state.accessToken,
+            state.refreshToken,
+          );
+        }
       },
     },
   ),
 );
 
 setAccessTokenGetter(() => useAuthStore.getState().accessToken);
+
+setTenantHeadersGetter(() => {
+  const state = useAuthStore.getState();
+  const source = state.session ?? state.context;
+  if (!source || source.scope !== "tenant" || !source.codigoEmpresa) {
+    return null;
+  }
+
+  const idBodegas = state.session?.idBodegas ?? state.context?.idBodegas ?? [];
+  const activeBodegaId = resolveActiveBodegaId(
+    idBodegas,
+    state.session?.idUsuario,
+    null,
+  );
+
+  return {
+    codigoEmpresa: source.codigoEmpresa,
+    ...(source.codigoCuenta ? { codigoCuenta: source.codigoCuenta } : {}),
+    ...(activeBodegaId ? { idBodega: activeBodegaId } : {}),
+  };
+});
 
 export type LoginStep = "user" | "password" | "success";
 

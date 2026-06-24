@@ -1,6 +1,9 @@
 export type AuthScope = "platform" | "tenant";
 export type AuthFlow = "platform" | "tenant";
 
+/** Nivel jerárquico del rol dentro del tenant (API /auth/me). */
+export type NivelRol = "platform" | "empresa" | "cuenta" | "bodega";
+
 export interface UserPreview {
   nombre: string;
   identificador: string;
@@ -26,15 +29,27 @@ export interface LoginRequest {
   codigoEmpresa?: string;
 }
 
-/** Contexto mínimo devuelto por POST /auth/login */
-export interface AuthContext {
+/** Contexto tenant propagado desde login y GET /auth/me. */
+export interface TenantContext {
+  codigoEmpresa: string | null;
+  codigoCuenta: string | null;
+  idBodegas: string[];
+  nivelRol: NivelRol;
+}
+
+/** Contexto devuelto por POST /auth/login y persistido tras GET /auth/me. */
+export interface AuthContext extends TenantContext {
   scope: AuthScope;
 }
+
+/** Entrada parcial desde login/SSO antes de hidratar con GET /auth/me. */
+export type AuthContextInput = Pick<AuthContext, "scope"> &
+  Partial<TenantContext>;
 
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
-  context: AuthContext;
+  context: Pick<AuthContext, "scope">;
 }
 
 export interface AuthTokens {
@@ -75,10 +90,28 @@ export interface AuthSession {
   correo: string;
   idRol: string;
   nombreRol: string;
-  nivelRol: string;
+  nivelRol: NivelRol;
   codigoEmpresa: string | null;
   razonSocialEmpresa: string | null;
   codigoCuenta: string | null;
   nombreComercialCuenta: string | null;
+  /** Bodegas activas asignadas al usuario (vacío en scope platform). */
+  idBodegas: string[];
   scope: AuthScope;
+}
+
+export function createEmptyTenantContext(): TenantContext {
+  return {
+    codigoEmpresa: null,
+    codigoCuenta: null,
+    idBodegas: [],
+    nivelRol: "platform",
+  };
+}
+
+export function createMinimalAuthContext(scope: AuthScope): AuthContext {
+  return {
+    scope,
+    ...createEmptyTenantContext(),
+  };
 }
