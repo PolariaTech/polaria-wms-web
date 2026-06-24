@@ -1,4 +1,5 @@
 import { AUTH_HASH_PREFIX } from "@/lib/auth-hash-import";
+import { MATEO_SSO_EXIT_KEY } from "@/lib/mateo-sso-exit";
 import { AUTH_STORAGE_KEY } from "@/lib/auth-storage";
 
 /**
@@ -12,6 +13,7 @@ export function AuthSessionScript() {
 (function () {
   var KEY = ${JSON.stringify(AUTH_STORAGE_KEY)};
   var HASH_PREFIX = ${JSON.stringify(AUTH_HASH_PREFIX)};
+  var SSO_EXIT_KEY = ${JSON.stringify(MATEO_SSO_EXIT_KEY)};
 
   function purgeSessionAuth() {
     try {
@@ -73,6 +75,9 @@ export function AuthSessionScript() {
 
   function guardProtectedRoute() {
     migrateToLocal();
+    try {
+      if (sessionStorage.getItem(SSO_EXIT_KEY)) return;
+    } catch (e) {}
     if (!isProtected(window.location.pathname)) return;
     if (!readToken()) {
       window.location.replace("/login");

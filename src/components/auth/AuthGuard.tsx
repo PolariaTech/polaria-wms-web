@@ -8,6 +8,7 @@ import {
   isActiveAuthSession,
   syncAuthWithPersistedStorage,
 } from "@/lib/auth-sync";
+import { isMateoSsoExitInProgress } from "@/lib/mateo-sso-exit";
 import { useAuthStore } from "@/stores/auth.store";
 
 interface AuthGuardProps {
@@ -28,6 +29,8 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
   }, []);
 
   useEffect(() => {
+    if (isMateoSsoExitInProgress()) return;
+
     if (isHydrated && !isLoading && !sessionIsActive) {
       router.replace(ROUTES.login);
     }

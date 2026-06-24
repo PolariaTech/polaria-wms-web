@@ -3,10 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/services/api";
 
-const { mockMateoHandoff, mockPerformLogout } = vi.hoisted(() => ({
-  mockMateoHandoff: vi.fn(),
-  mockPerformLogout: vi.fn(),
-}));
+const { mockMateoHandoff, mockClearAuthSilently, mockLogoutWithToken } =
+  vi.hoisted(() => ({
+    mockMateoHandoff: vi.fn(),
+    mockClearAuthSilently: vi.fn(),
+    mockLogoutWithToken: vi.fn(),
+  }));
 
 vi.mock("@/components/auth/AuthGuard", () => ({
   AuthGuard: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -14,23 +16,35 @@ vi.mock("@/components/auth/AuthGuard", () => ({
 
 vi.mock("@/modules/auth", () => ({
   mateoHandoff: () => mockMateoHandoff(),
+  logoutWithToken: (token: string) => mockLogoutWithToken(token),
+}));
+
+vi.mock("@/lib/mateo-sso-exit", () => ({
+  markMateoSsoExit: vi.fn(),
+}));
+
+vi.mock("@/lib/auth-storage", () => ({
+  removeAuthFromLocalStorage: vi.fn(),
 }));
 
 vi.mock("@/stores/auth.store", () => ({
-  useAuthStore: (
-    selector: (state: {
-      performLogout: () => Promise<void>;
-      session: { nombre: string; identificador: string; scope: string };
-    }) => unknown,
-  ) =>
-    selector({
-      performLogout: mockPerformLogout,
-      session: {
-        nombre: "Usuario Test",
-        identificador: "test@polaria.tech",
-        scope: "platform",
-      },
-    }),
+  useAuthStore: Object.assign(
+    (
+      selector: (state: {
+        clearAuthSilently: () => void;
+        session: { nombre: string; identificador: string; scope: string };
+      }) => unknown,
+    ) =>
+      selector({
+        clearAuthSilently: mockClearAuthSilently,
+        session: {
+          nombre: "Usuario Test",
+          identificador: "test@polaria.tech",
+          scope: "platform",
+        },
+      }),
+    { getState: () => ({ accessToken: "test-token" }) },
+  ),
 }));
 
 vi.mock("@/config/env", () => ({
@@ -48,21 +62,19 @@ vi.mock("next/image", () => ({
 import { AppShellLayout } from "./AppShellLayout";
 
 describe("AppShellLayout — Mateo IA", () => {
-  let locationReplace: ReturnType<typeof vi.fn>;
-
   beforeEach(() => {
     vi.clearAllMocks();
     mockMateoHandoff.mockResolvedValue({ code: "sso-code-123" });
-    mockPerformLogout.mockResolvedValue(undefined);
+    mockLogoutWithToken.mockResolvedValue(undefined);
 
-    locationReplace = vi.fn();
     Object.defineProperty(window, "location", {
       configurable: true,
-      value: { replace: locationReplace, href: "" },
+      writable: true,
+      value: { href: "" },
     });
   });
 
-  it("invoca mateoHandoff, performLogout y redirige al SSO de Mateo", async () => {
+  it("invoca mateoHandoff, limpia sesión y navega al SSO de Mateo", async () => {
     const user = userEvent.setup();
 
     render(
@@ -75,18 +87,16 @@ describe("AppShellLayout — Mateo IA", () => {
 
     await waitFor(() => {
       expect(mockMateoHandoff).toHaveBeenCalledOnce();
-      expect(mockPerformLogout).toHaveBeenCalledOnce();
+      expect(mockClearAuthSilently).toHaveBeenCalledOnce();
+      expect(mockLogoutWithToken).toHaveBeenCalledWith("test-token");
     });
 
-    expect(mockMateoHandoff.mock.invocationCallOrder[0]).toBeLessThan(
-      mockPerformLogout.mock.invocationCallOrder[0],
-    );
-    expect(locationReplace).toHaveBeenCalledWith(
+    expect(window.location.href).toBe(
       "https://mateo.example.com/auth/sso?code=sso-code-123",
     );
   });
 
-  it("no hace logout ni redirect si mateoHandoff falla", async () => {
+  it("no limpia sesión ni redirige si mateoHandoff falla", async () => {
     const user = userEvent.setup();
     mockMateoHandoff.mockRejectedValue(
       new ApiError("mateo-handoff no disponible", 404),
@@ -104,8 +114,9 @@ describe("AppShellLayout — Mateo IA", () => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
     });
 
-    expect(mockPerformLogout).not.toHaveBeenCalled();
-    expect(locationReplace).not.toHaveBeenCalled();
+    expect(mockClearAuthSilently).not.toHaveBeenCalled();
+    expect(mockLogoutWithToken).not.toHaveBeenCalled();
+    expect(window.location.href).toBe("");
     expect(
       screen.getByRole("button", { name: "Abrir Mateo IA" }),
     ).not.toBeDisabled();

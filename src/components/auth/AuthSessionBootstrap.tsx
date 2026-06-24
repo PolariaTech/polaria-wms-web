@@ -10,6 +10,7 @@ import {
   revalidateAuthSession,
   syncAuthWithPersistedStorage,
 } from "@/lib/auth-sync";
+import { isMateoSsoExitInProgress } from "@/lib/mateo-sso-exit";
 import { AUTH_STORAGE_KEY } from "@/lib/auth-storage";
 import { useAuthStore } from "@/stores/auth.store";
 
@@ -23,6 +24,8 @@ export function AuthSessionBootstrap() {
   const router = useRouter();
 
   const enforceRouteAuth = useCallback(() => {
+    if (isMateoSsoExitInProgress()) return;
+
     syncAuthWithPersistedStorage();
     const token = getPersistedAccessToken();
 
