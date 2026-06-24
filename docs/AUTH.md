@@ -46,6 +46,17 @@ Tras `GET /auth/me`, el frontend persiste el contexto completo del tenant:
 
 El cliente Supabase se crea con `createSupabaseBrowserClient()` y recibe la sesión del auth store (tokens emitidos por el API). Si faltan variables `NEXT_PUBLIC_SUPABASE_*`, las lecturas directas no se inicializan; el flujo de auth por API sigue funcionando.
 
+## Guards de scope
+
+| Guard | Rutas | Comportamiento |
+|-------|-------|----------------|
+| `AuthGuard` | Shell autenticado | Sin token → `/login` |
+| `PlatformScopeGuard` | `/configurador` | Scope tenant → `/dashboard` |
+| `TenantScopeGuard` | `/dashboard` (layout) | Scope ≠ tenant o sin `codigoEmpresa` → `/login` |
+| `BodegaRequiredGuard` | Rutas que lo incluyan | Bodegas asignadas sin activa → `/dashboard` + selector |
+
+Peticiones autenticadas al API Nest incluyen headers alineados con `TenantGuard` del backend: `X-Codigo-Empresa`, `X-Codigo-Cuenta` (si aplica) y `X-Id-Bodega` (bodega activa).
+
 ## Cómo correr en local
 
 1. Levanta el backend (`polaria-wms-api`) en el puerto **3000** (o el que configures en `.env.local`).

@@ -9,7 +9,9 @@ import {
   ensureAuthOnlyInLocalStorage,
   removeAuthFromLocalStorage,
 } from "@/lib/auth-storage";
+import { resolveActiveBodegaId } from "@/lib/active-bodega";
 import { syncSupabaseAuthSession } from "@/lib/supabase/client";
+import { setTenantHeadersGetter } from "@/lib/tenant-headers";
 import { setAccessTokenGetter } from "@/services/api";
 import type {
   AuthContext,
@@ -177,6 +179,27 @@ export const useAuthStore = create<AuthState>()(
 );
 
 setAccessTokenGetter(() => useAuthStore.getState().accessToken);
+
+setTenantHeadersGetter(() => {
+  const state = useAuthStore.getState();
+  const source = state.session ?? state.context;
+  if (!source || source.scope !== "tenant" || !source.codigoEmpresa) {
+    return null;
+  }
+
+  const idBodegas = state.session?.idBodegas ?? state.context?.idBodegas ?? [];
+  const activeBodegaId = resolveActiveBodegaId(
+    idBodegas,
+    state.session?.idUsuario,
+    null,
+  );
+
+  return {
+    codigoEmpresa: source.codigoEmpresa,
+    ...(source.codigoCuenta ? { codigoCuenta: source.codigoCuenta } : {}),
+    ...(activeBodegaId ? { idBodega: activeBodegaId } : {}),
+  };
+});
 
 export type LoginStep = "user" | "password" | "success";
 

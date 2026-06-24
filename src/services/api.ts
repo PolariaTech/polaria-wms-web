@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from "@/config/env";
+import { applyTenantHeaders } from "@/lib/tenant-headers";
 
 export class ApiError extends Error {
   constructor(
@@ -81,6 +82,7 @@ export async function apiRequest<T>(
     if (token) {
       requestHeaders.set("Authorization", `Bearer ${token}`);
     }
+    applyTenantHeaders(requestHeaders);
   }
 
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
