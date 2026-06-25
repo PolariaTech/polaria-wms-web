@@ -39,6 +39,9 @@ describe("usuarios.service", () => {
     const rows = await listUsuariosConfigurator();
 
     expect(from).toHaveBeenCalledWith("usuario");
+    expect(selectChain.select).toHaveBeenCalledWith(
+      "id_usuario,username,nombre,id_auth,rol(id_rol,nombre),cuenta!fk_usuario_cuenta(nombre_comercial)",
+    );
     expect(selectChain.eq).toHaveBeenCalledWith("esta_activo", true);
     expect(rows).toEqual([
       {
