@@ -5,6 +5,7 @@ export const ROUTES = {
   /** Dominio configurador (scope platform) */
   configurator: "/configurador",
   configuratorCreation: "/configurador/creacion",
+  configuratorCreationAccounts: "/configurador/creacion/cuentas",
   configuratorAssignment: "/configurador/asignacion",
   configuratorIntegration: "/configurador/integracion",
   /** Alias legacy — redirige a configurador */

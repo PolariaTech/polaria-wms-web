@@ -1,15 +1,22 @@
-import { ModulePlaceholder } from "@/components/shared/ModulePlaceholder";
-import { CONFIGURATOR_PLACEHOLDERS } from "@/modules/configurator";
+"use client";
 
-const content = CONFIGURATOR_PLACEHOLDERS.creation;
+import { useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  CreationPanelConnected,
+  getCreationOptionHref,
+  type CreationOptionId,
+} from "@/modules/configurator";
 
 export default function ConfiguradorCreacionPage() {
-  return (
-    <ModulePlaceholder
-      title={content.title}
-      description={content.description}
-      scope="platform"
-      futureActions={content.futureActions}
-    />
+  const router = useRouter();
+
+  const handleOptionClick = useCallback(
+    (optionId: CreationOptionId) => {
+      router.push(getCreationOptionHref(optionId));
+    },
+    [router],
   );
+
+  return <CreationPanelConnected onOptionClick={handleOptionClick} />;
 }
