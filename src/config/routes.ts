@@ -4,10 +4,19 @@ export const ROUTES = {
   sso: "/auth/sso",
   /** Dominio configurador (scope platform) */
   configurator: "/configurador",
+  configuratorCreation: "/configurador/creacion",
+  configuratorAssignment: "/configurador/asignacion",
+  configuratorIntegration: "/configurador/integracion",
   /** Alias legacy — redirige a configurador */
   platform: "/platform",
   /** Dominio tenant (scope tenant) */
   dashboard: "/dashboard",
+  dashboardIngreso: "/dashboard/ingreso",
+  dashboardMapa: "/dashboard/mapa",
+  dashboardProcesamiento: "/dashboard/procesamiento",
+  dashboardVentas: "/dashboard/ventas",
+  dashboardTransporte: "/dashboard/transporte",
+  dashboardReporteria: "/dashboard/reporteria",
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];

@@ -1,3 +1,5 @@
+import { normalizeAuthSession } from "@/lib/normalize-nivel-rol";
+import type { AuthSessionApi } from "@/lib/normalize-nivel-rol";
 import { apiRequest } from "@/services/api";
 import type {
   AuthSession,
@@ -8,6 +10,8 @@ import type {
   PreloginRequest,
   PreloginResponse,
 } from "@/types/auth";
+
+type MeApiResponse = AuthSessionApi;
 
 const WMS_AUTH_HEADERS = { "X-Auth-Client": "wms" };
 
@@ -46,10 +50,11 @@ export async function wmsSsoExchange(
 }
 
 export async function getMe(): Promise<AuthSession> {
-  return apiRequest<AuthSession>("/auth/me", {
+  const raw = await apiRequest<MeApiResponse>("/auth/me", {
     method: "GET",
     auth: true,
   });
+  return normalizeAuthSession(raw);
 }
 
 export async function logout(): Promise<void> {

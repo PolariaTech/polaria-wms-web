@@ -29,12 +29,16 @@ export function TenantScopeGuard({ children }: TenantScopeGuardProps) {
 
   useEffect(() => {
     if (!isHydrated) return;
+    if (scope === "platform") {
+      router.replace(ROUTES.configurator);
+      return;
+    }
     if (!allowed) {
       router.replace(ROUTES.login);
     }
-  }, [allowed, isHydrated, router]);
+  }, [allowed, isHydrated, router, scope]);
 
-  if (!isHydrated || !allowed) {
+  if (!isHydrated || scope === "platform" || !allowed) {
     return null;
   }
 

@@ -10,6 +10,7 @@ export interface ConfiguratorAction {
   title: string;
   description: string;
   icon: LucideIcon;
+  href: string;
 }
 
 export interface ConfiguratorPanelProps {

@@ -69,7 +69,7 @@ describe("TenantScopeGuard", () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it("redirige a login si scope no es tenant", async () => {
+  it("redirige a configurador si scope es platform", async () => {
     mockAuthState.session = {
       scope: "platform",
       codigoEmpresa: null,
@@ -82,11 +82,11 @@ describe("TenantScopeGuard", () => {
     );
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith(ROUTES.login);
+      expect(mockReplace).toHaveBeenCalledWith(ROUTES.configurator);
     });
   });
 
-  it("redirige a login si falta codigoEmpresa", async () => {
+  it("redirige a login si scope tenant sin codigoEmpresa", async () => {
     mockAuthState.session = {
       scope: "tenant",
       codigoEmpresa: null,

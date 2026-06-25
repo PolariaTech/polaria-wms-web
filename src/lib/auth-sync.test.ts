@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { AUTH_STORAGE_KEY } from "@/lib/auth-storage";
 import { useAuthStore } from "@/stores/auth.store";
 import {

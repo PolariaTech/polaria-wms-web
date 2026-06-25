@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { logout } from "@/modules/auth";
-import { AUTH_STORAGE_KEY } from "@/lib/auth-storage";
 import { getPersistedAccessToken } from "@/lib/auth-sync";
 
 vi.mock("@/modules/auth", () => ({

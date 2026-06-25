@@ -1,19 +1,22 @@
 "use client";
 
+import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   ConfiguratorPanelConnected,
+  getConfiguratorActionHref,
   type ConfiguratorActionId,
 } from "@/modules/configurator";
-import { PlatformScopeGuard } from "@/components/auth/PlatformScopeGuard";
-
-function handleActionClick(_actionId: ConfiguratorActionId) {
-  // TODO: navegar a sub-rutas del configurador según actionId
-}
 
 export default function ConfiguradorPage() {
-  return (
-    <PlatformScopeGuard>
-      <ConfiguratorPanelConnected onActionClick={handleActionClick} />
-    </PlatformScopeGuard>
+  const router = useRouter();
+
+  const handleActionClick = useCallback(
+    (actionId: ConfiguratorActionId) => {
+      router.push(getConfiguratorActionHref(actionId));
+    },
+    [router],
   );
+
+  return <ConfiguratorPanelConnected onActionClick={handleActionClick} />;
 }

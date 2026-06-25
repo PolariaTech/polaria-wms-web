@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { LayoutGrid, Loader2, LogOut, MessageCircle } from "lucide-react";
+import { Loader2, LogOut, MessageCircle } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 import { useLiveDate } from "@/hooks/useLiveDate";
 import {
@@ -17,7 +17,6 @@ import { useAuthStore } from "@/stores/auth.store";
 import type { TopbarUserInfo } from "@/types/layout";
 
 interface AppTopbarProps {
-  onMenuClick?: () => void;
   onMateoIaClick?: () => void;
   isMateoLoading?: boolean;
 }
@@ -34,7 +33,6 @@ function buildFallbackUser(): TopbarUserInfo {
 }
 
 export function AppTopbar({
-  onMenuClick,
   onMateoIaClick,
   isMateoLoading = false,
 }: AppTopbarProps) {
@@ -57,10 +55,6 @@ export function AppTopbar({
     router.replace(ROUTES.login);
   }, [performLogout, router]);
 
-  const handleMenuClick = useCallback(() => {
-    onMenuClick?.();
-  }, [onMenuClick]);
-
   const handleMateoIaClick = useCallback(() => {
     onMateoIaClick?.();
   }, [onMateoIaClick]);
@@ -77,18 +71,6 @@ export function AppTopbar({
               </time>
             </div>
 
-            <button
-              type="button"
-              onClick={handleMenuClick}
-              aria-label="Abrir menú"
-              className={cn(
-                "polaria-topbar-btn polaria-topbar-btn--menu polaria-topbar-btn--label-sm",
-                TOPBAR_SHAPE,
-              )}
-            >
-              <LayoutGrid className={cn(ICON, "text-polaria-teal")} />
-              <span className="polaria-topbar-btn__label">Menú</span>
-            </button>
           </div>
 
           <div className="polaria-topbar__center">

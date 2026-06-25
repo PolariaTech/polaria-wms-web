@@ -10,6 +10,7 @@ import {
   removeAuthFromLocalStorage,
 } from "@/lib/auth-storage";
 import { resolveActiveBodegaId } from "@/lib/active-bodega";
+import { normalizeAuthSession, type AuthSessionApi } from "@/lib/normalize-nivel-rol";
 import { syncSupabaseAuthSession } from "@/lib/supabase/client";
 import { setTenantHeadersGetter } from "@/lib/tenant-headers";
 import { setAccessTokenGetter } from "@/services/api";
@@ -71,11 +72,13 @@ export const useAuthStore = create<AuthState>()(
         );
       },
 
-      setSession: (session) =>
+      setSession: (session) => {
+        const normalized = normalizeAuthSession(session as AuthSessionApi);
         set({
-          session,
-          context: buildAuthContextFromSession(session),
-        }),
+          session: normalized,
+          context: buildAuthContextFromSession(normalized),
+        });
+      },
       clearAuth: () => {
         set({
           accessToken: null,

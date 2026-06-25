@@ -43,6 +43,23 @@ const tenantSession: AuthSession = {
   scope: "tenant",
 };
 
+const platformSession: AuthSession = {
+  idUsuario: "cfg-1",
+  idAuth: "auth-cfg",
+  nombre: "Configurador",
+  username: "configurador",
+  correo: "configurador@polaria.tech",
+  idRol: "configurador",
+  nombreRol: "Configurador",
+  nivelRol: "platform",
+  codigoEmpresa: null,
+  razonSocialEmpresa: null,
+  codigoCuenta: null,
+  nombreComercialCuenta: null,
+  idBodegas: [],
+  scope: "platform",
+};
+
 describe("LoginFlow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,6 +111,49 @@ describe("LoginFlow", () => {
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith(ROUTES.dashboard);
+    });
+  });
+
+  it("completa login platform y redirige a /configurador", async () => {
+    const user = userEvent.setup();
+
+    mockPrelogin.mockResolvedValue({
+      flow: "platform",
+      userPreview: {
+        nombre: "Configurador",
+        identificador: "configurador@polaria.tech",
+        empresa: null,
+      },
+    });
+    mockPerformLogin.mockResolvedValue(platformSession);
+
+    render(<LoginFlow />);
+
+    await user.type(
+      screen.getByLabelText(/correo/i),
+      "configurador@polaria.tech",
+    );
+    await user.click(screen.getByRole("button", { name: /continuar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText(/contraseña/i), "secret123");
+    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
+
+    await waitFor(() => {
+      expect(mockPerformLogin).toHaveBeenCalledWith({
+        identificador: "configurador@polaria.tech",
+        password: "secret123",
+      });
+    });
+
+    vi.advanceTimersByTime(2000);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(ROUTES.configurator);
+      expect(mockReplace).not.toHaveBeenCalledWith(ROUTES.platform);
     });
   });
 });

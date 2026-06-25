@@ -82,7 +82,7 @@ describe("auth service happy path", () => {
     expect(result.context.scope).toBe("platform");
   });
 
-  it("calls GET /auth/me with Bearer token", async () => {
+  it("calls GET /auth/me with Bearer token and normalizes nivelRol", async () => {
     const { setAccessTokenGetter } = await import("@/services/api");
     setAccessTokenGetter(() => "test-token");
 
@@ -97,9 +97,9 @@ describe("auth service happy path", () => {
           nombre: "Administrador",
           username: "admin.acme",
           correo: "admin@acme.com",
-          idRol: "admin",
-          nombreRol: "Administrador",
-          nivelRol: "empresa",
+          idRol: "administrador_bodega",
+          nombreRol: "Administrador de bodega",
+          nivelRol: "plataforma",
           codigoEmpresa: "ACME",
           razonSocialEmpresa: "ACME Corp",
           codigoCuenta: null,
@@ -126,6 +126,7 @@ describe("auth service happy path", () => {
     expect(session.scope).toBe("tenant");
     expect(session.nombre).toBe("Administrador");
     expect(session.username).toBe("admin.acme");
+    expect(session.nivelRol).toBe("platform");
   });
 
   it("requests mateo handoff code with Bearer token", async () => {

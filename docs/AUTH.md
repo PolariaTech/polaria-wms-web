@@ -52,7 +52,7 @@ El cliente Supabase se crea con `createSupabaseBrowserClient()` y recibe la sesi
 |-------|-------|----------------|
 | `AuthGuard` | Shell autenticado | Sin token → `/login` |
 | `PlatformScopeGuard` | `/configurador` | Scope tenant → `/dashboard` |
-| `TenantScopeGuard` | `/dashboard` (layout) | Scope ≠ tenant o sin `codigoEmpresa` → `/login` |
+| `TenantScopeGuard` | `/dashboard` (layout) | Scope platform → `/configurador`; scope ≠ tenant o sin `codigoEmpresa` → `/login` |
 | `BodegaRequiredGuard` | Rutas que lo incluyan | Bodegas asignadas sin activa → `/dashboard` + selector |
 
 Peticiones autenticadas al API Nest incluyen headers alineados con `TenantGuard` del backend: `X-Codigo-Empresa`, `X-Codigo-Cuenta` (si aplica) y `X-Id-Bodega` (bodega activa).
@@ -84,7 +84,7 @@ El campo de login valida formato de correo antes de llamar al API.
 2. Ingresar correo del configurador (ej. `configurador@polaria.tech`).
 3. Clic en **Continuar** → escena de contraseña con preview del usuario.
 4. Ingresar contraseña y **Iniciar sesión**.
-5. Ver escena de éxito → redirección automática a `/platform`.
+5. Ver escena de éxito → redirección automática a `/configurador`.
 
 ### Usuario tenant (requiere empresa)
 
@@ -140,7 +140,7 @@ services/api.ts      → Cliente HTTP + interceptor Bearer + errores tipados
 stores/auth.store.ts → Estado de sesión (localStorage) + contexto tenant
 lib/supabase/client  → Cliente Supabase RLS-ready sincronizado con JWT del API
 providers/           → AuthProvider + CompanyProvider (contexto tenant / bodega activa)
-components/auth/     → AuthGuard (protege /platform y /dashboard)
+components/auth/     → AuthGuard (protege /configurador y /dashboard)
 components/layouts/  → AppShellLayout conecta Mateo IA al topbar
 ```
 
@@ -171,4 +171,4 @@ components/layouts/  → AppShellLayout conecta Mateo IA al topbar
 npm test
 ```
 
-Incluye pruebas del mapeo de errores, del happy path del servicio de auth (con `fetch` mockeado), de `mateoHandoff`, de `wmsSsoExchange`, del flujo `/auth/sso`, del contexto tenant (`CompanyProvider`) y de los tipos de auth.
+Incluye pruebas del mapeo de errores, del happy path del servicio de auth (con `fetch` mockeado), de `mateoHandoff`, de `wmsSsoExchange`, del flujo `/auth/sso`, del contexto tenant (`CompanyProvider`), guards (`AuthGuard`, `PlatformScopeGuard`, `TenantScopeGuard`), `getPostLoginRoute`, integración nav + `ModuleRoleGate`, y del shell POL-31. Ver [POL-31-SHELL.md](./POL-31-SHELL.md).
