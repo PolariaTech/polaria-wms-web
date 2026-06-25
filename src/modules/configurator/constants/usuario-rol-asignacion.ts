@@ -11,7 +11,7 @@ export const USUARIO_ASIGNACION_POR_ROL: Record<WmsRol, UsuarioAsignacionTipo> =
   {
     [WmsRol.configurador]: "administrativo",
     [WmsRol.administrador_cuenta]: "cuenta",
-    [WmsRol.operador_cuenta]: "administrativo",
+    [WmsRol.operador_cuenta]: "cuenta",
     [WmsRol.administrador_bodega]: "bodega",
     [WmsRol.jefe_bodega]: "bodega",
     [WmsRol.custodio]: "bodega",
@@ -30,7 +30,6 @@ export const USUARIO_ASIGNACION_LABEL: Record<UsuarioAsignacionTipo, string> = {
 export const USUARIO_ASIGNACION_VALOR_FIJO: Partial<
   Record<UsuarioAsignacionTipo, string>
 > = {
-  bodega: "Bodega",
   administrativo: "Administrativo",
   transporte: "Transporte",
 };

@@ -7,7 +7,7 @@ import {
 } from "./usuario-rol-asignacion";
 
 describe("usuario-rol-asignacion", () => {
-  it("mapea roles de bodega a nivel fijo Bodega", () => {
+  it("mapea roles de bodega a selector de bodega", () => {
     expect(getUsuarioAsignacionTipo(WmsRol.custodio)).toBe("bodega");
     expect(getUsuarioAsignacionTipo(WmsRol.procesador)).toBe("bodega");
     expect(getUsuarioAsignacionLabel(WmsRol.jefe_bodega)).toBe("Bodega");
@@ -18,11 +18,10 @@ describe("usuario-rol-asignacion", () => {
     expect(getUsuarioAsignacionLabel(WmsRol.administrador_cuenta)).toBe("Cuenta");
   });
 
-  it("mapea configurador y operador a administrativo", () => {
+  it("mapea configurador a administrativo y operador a cuenta", () => {
     expect(USUARIO_ASIGNACION_POR_ROL[WmsRol.configurador]).toBe("administrativo");
-    expect(USUARIO_ASIGNACION_POR_ROL[WmsRol.operador_cuenta]).toBe(
-      "administrativo",
-    );
+    expect(USUARIO_ASIGNACION_POR_ROL[WmsRol.operador_cuenta]).toBe("cuenta");
+    expect(getUsuarioAsignacionLabel(WmsRol.operador_cuenta)).toBe("Cuenta");
   });
 
   it("mapea transportista a transporte", () => {

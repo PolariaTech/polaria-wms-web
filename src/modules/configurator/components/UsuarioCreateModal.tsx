@@ -17,8 +17,10 @@ import {
 } from "../constants/usuario-rol-asignacion";
 import {
   createUsuarioConfigurator,
+  listBodegasAssignOptions,
   listCuentasAssignOptions,
   listRolesConfigurator,
+  type BodegaAssignOption,
   type CuentaAssignOption,
   type RolOption,
 } from "../services/usuarios.service";
@@ -33,6 +35,7 @@ const INITIAL_FORM = {
   nombre: "",
   idRol: "" as WmsRol | "",
   codigoCuenta: "",
+  idBodega: "",
   correo: "",
   clave: "",
 };
@@ -45,6 +48,7 @@ export function UsuarioCreateModal({
   const [form, setForm] = useState(INITIAL_FORM);
   const [roles, setRoles] = useState<RolOption[]>([]);
   const [cuentas, setCuentas] = useState<CuentaAssignOption[]>([]);
+  const [bodegas, setBodegas] = useState<BodegaAssignOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
@@ -64,13 +68,18 @@ export function UsuarioCreateModal({
     setIsSubmitting(false);
     setIsLoadingOptions(true);
 
-    void Promise.all([listRolesConfigurator(), listCuentasAssignOptions()])
-      .then(([nextRoles, nextCuentas]) => {
+    void Promise.all([
+      listRolesConfigurator(),
+      listCuentasAssignOptions(),
+      listBodegasAssignOptions(),
+    ])
+      .then(([nextRoles, nextCuentas, nextBodegas]) => {
         setRoles(nextRoles);
         setCuentas(nextCuentas);
+        setBodegas(nextBodegas);
       })
       .catch(() => {
-        setError("No se pudieron cargar roles o cuentas.");
+        setError("No se pudieron cargar roles, cuentas o bodegas.");
       })
       .finally(() => {
         setIsLoadingOptions(false);
@@ -87,6 +96,7 @@ export function UsuarioCreateModal({
       ...current,
       idRol,
       codigoCuenta: "",
+      idBodega: "",
     }));
   };
 
@@ -110,6 +120,11 @@ export function UsuarioCreateModal({
       return;
     }
 
+    if (asignacionTipo === "bodega" && !form.idBodega) {
+      setError("Selecciona la bodega a asignar.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -118,7 +133,7 @@ export function UsuarioCreateModal({
         nombre: form.nombre,
         idRol: form.idRol,
         codigoCuenta: asignacionTipo === "cuenta" ? form.codigoCuenta : null,
-        idBodega: null,
+        idBodega: asignacionTipo === "bodega" ? form.idBodega : null,
         correo: form.correo,
         clave: form.clave,
       });
@@ -169,6 +184,29 @@ export function UsuarioCreateModal({
           options={cuentas.map((cuenta) => ({
             value: cuenta.codigoCuenta,
             label: cuenta.nombreComercial,
+          }))}
+          compact
+        />
+      );
+    }
+
+    if (asignacionTipo === "bodega") {
+      return (
+        <PolariaFormSelect
+          id="usuario-asignado"
+          label={asignacionLabel}
+          value={form.idBodega}
+          onChange={(event) =>
+            setForm((current) => ({
+              ...current,
+              idBodega: event.target.value,
+            }))
+          }
+          disabled={disabled}
+          placeholder="Selecciona una bodega"
+          options={bodegas.map((bodega) => ({
+            value: bodega.idBodega,
+            label: `${bodega.nombre} (${bodega.codigo})`,
           }))}
           compact
         />
