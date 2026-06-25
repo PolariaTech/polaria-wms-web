@@ -1,15 +1,22 @@
-import { ModulePlaceholder } from "@/components/shared/ModulePlaceholder";
-import { CONFIGURATOR_PLACEHOLDERS } from "@/modules/configurator";
+"use client";
 
-const content = CONFIGURATOR_PLACEHOLDERS["creation-assignment"];
+import { useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  AssignmentPanelConnected,
+  getAssignmentOptionHref,
+  type AssignmentOptionId,
+} from "@/modules/configurator";
 
 export default function ConfiguradorAsignacionPage() {
-  return (
-    <ModulePlaceholder
-      title={content.title}
-      description={content.description}
-      scope="platform"
-      futureActions={content.futureActions}
-    />
+  const router = useRouter();
+
+  const handleOptionClick = useCallback(
+    (optionId: AssignmentOptionId) => {
+      router.push(getAssignmentOptionHref(optionId));
+    },
+    [router],
   );
+
+  return <AssignmentPanelConnected onOptionClick={handleOptionClick} />;
 }

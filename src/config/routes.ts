@@ -6,7 +6,10 @@ export const ROUTES = {
   configurator: "/configurador",
   configuratorCreation: "/configurador/creacion",
   configuratorCreationAccounts: "/configurador/creacion/cuentas",
+  configuratorCreationInternalWarehouse: "/configurador/creacion/bodega-interna",
+  configuratorCreationExternalWarehouse: "/configurador/creacion/bodega-externa",
   configuratorAssignment: "/configurador/asignacion",
+  configuratorAssignmentUsers: "/configurador/asignacion/usuarios",
   configuratorIntegration: "/configurador/integracion",
   /** Alias legacy — redirige a configurador */
   platform: "/platform",

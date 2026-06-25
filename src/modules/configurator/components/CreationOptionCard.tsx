@@ -1,9 +1,15 @@
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { CreationOption } from "../types/creation.types";
+
+export interface ConfiguratorSelectionOption {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+}
 
 interface CreationOptionCardProps {
-  option: CreationOption;
-  onClick?: (optionId: CreationOption["id"]) => void;
+  option: ConfiguratorSelectionOption;
+  onClick?: (optionId: string) => void;
 }
 
 export function CreationOptionCard({ option, onClick }: CreationOptionCardProps) {

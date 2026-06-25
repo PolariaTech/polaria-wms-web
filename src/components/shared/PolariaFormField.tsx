@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 const INPUT_CLASS =
@@ -53,3 +53,45 @@ export function PolariaFormInput({
 }
 
 export { INPUT_CLASS as POLARIA_FORM_INPUT_CLASS };
+
+interface PolariaFormSelectOption {
+  value: string;
+  label: string;
+}
+
+interface PolariaFormSelectProps
+  extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "className" | "children"> {
+  id: string;
+  label: string;
+  hint?: string;
+  options: readonly PolariaFormSelectOption[];
+  placeholder?: string;
+  fieldClassName?: string;
+}
+
+export function PolariaFormSelect({
+  id,
+  label,
+  hint,
+  options,
+  placeholder,
+  fieldClassName,
+  ...selectProps
+}: PolariaFormSelectProps) {
+  return (
+    <PolariaFormField id={id} label={label} hint={hint} className={fieldClassName}>
+      <select id={id} className={INPUT_CLASS} {...selectProps}>
+        {placeholder ? (
+          <option value="" disabled>
+            {placeholder}
+          </option>
+        ) : null}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </PolariaFormField>
+  );
+}

@@ -31,6 +31,40 @@ function getBreadcrumbTrail(pathname: string): BreadcrumbItem[] | null {
     ];
   }
 
+  if (pathname === ROUTES.configuratorCreationInternalWarehouse) {
+    return [
+      { label: "Inicio", href: ROUTES.configurator },
+      { label: "Creación", href: ROUTES.configuratorCreation },
+      { label: "Bodega interna" },
+    ];
+  }
+
+  if (pathname === ROUTES.configuratorCreationExternalWarehouse) {
+    return [
+      { label: "Inicio", href: ROUTES.configurator },
+      { label: "Creación", href: ROUTES.configuratorCreation },
+      { label: "Bodega externa" },
+    ];
+  }
+
+  if (pathname === ROUTES.configuratorAssignment) {
+    return [
+      { label: "Inicio", href: ROUTES.configurator },
+      { label: "Creación y asignación" },
+    ];
+  }
+
+  if (pathname === ROUTES.configuratorAssignmentUsers) {
+    return [
+      { label: "Inicio", href: ROUTES.configurator },
+      {
+        label: "Creación y asignación",
+        href: ROUTES.configuratorAssignment,
+      },
+      { label: "Usuarios" },
+    ];
+  }
+
   const action = CONFIGURATOR_ACTIONS.find((item) => item.href === pathname);
   if (action) {
     return [

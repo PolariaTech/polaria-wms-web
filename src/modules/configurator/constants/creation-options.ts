@@ -18,11 +18,13 @@ export const CREATION_OPTIONS: CreationOption[] = [
     id: "bodega-interna",
     title: "Bodega interna",
     icon: Warehouse,
+    href: ROUTES.configuratorCreationInternalWarehouse,
   },
   {
     id: "bodega-externa",
     title: "Bodega externa",
     icon: ExternalLink,
+    href: ROUTES.configuratorCreationExternalWarehouse,
   },
 ] as const;
 
