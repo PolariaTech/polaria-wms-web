@@ -47,8 +47,12 @@ interface UsuarioDbRow {
   cuenta: UsuarioCuentaDbRow | UsuarioCuentaDbRow[] | null;
 }
 
+/**
+ * PostgREST: usuario↔cuenta tiene dos FK (usuario.codigo_cuenta y cuenta.id_creador).
+ * Nombrar la relación de la cuenta asignada al usuario.
+ */
 const USUARIO_LIST_COLUMNS =
-  "id_usuario,username,nombre,id_auth,rol(id_rol,nombre),cuenta(nombre_comercial)";
+  "id_usuario,username,nombre,id_auth,rol(id_rol,nombre),cuenta!fk_usuario_cuenta(nombre_comercial)";
 
 function resolveRelation<T>(value: T | T[] | null): T | null {
   if (!value) return null;
