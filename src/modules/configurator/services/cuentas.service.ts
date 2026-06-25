@@ -26,8 +26,12 @@ interface CuentaDbRow {
   usuario: CuentaUsuarioDbRow[] | null;
 }
 
+/**
+ * PostgREST: cuenta↔usuario tiene dos FK (id_creador y usuario.codigo_cuenta).
+ * Hay que nombrar la relación explícita para los usuarios de la cuenta.
+ */
 const CUENTA_LIST_COLUMNS =
-  "codigo_cuenta,nombre_comercial,bodega(nombre,esta_activa),usuario(esta_activo)";
+  "codigo_cuenta,nombre_comercial,bodega(nombre,esta_activa),usuario!fk_usuario_cuenta(esta_activo)";
 
 function mapCuentaRow(row: CuentaDbRow): CuentaListRow {
   const bodegasActivas = (row.bodega ?? []).filter((item) => item.esta_activa);
