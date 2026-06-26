@@ -71,7 +71,6 @@ describe("bodegas-internas.service", () => {
     };
     cuentaChain.select.mockReturnValue(cuentaChain);
     cuentaChain.eq.mockReturnValue(cuentaChain);
-    cuentaChain.order.mockReturnValue(cuentaChain);
     cuentaChain.limit.mockResolvedValue({
       data: [{ codigo_cuenta: "MIT00", nombre_comercial: "Mitre" }],
       error: null,
@@ -99,8 +98,11 @@ describe("bodegas-internas.service", () => {
     const row = await createBodegaInternaConfigurator({
       nombre: "Central Norte",
       capacidad: 80,
+      codigoCuenta: "MIT00",
       idCreador: "user-1",
     });
+
+    expect(cuentaChain.eq).toHaveBeenCalledWith("codigo_cuenta", "MIT00");
 
     expect(insertChain.insert).toHaveBeenCalledWith(
       expect.objectContaining({
