@@ -86,10 +86,15 @@ export {
 export { CreationOptionCard } from "./components/CreationOptionCard";
 export { CreationOptionsGrid } from "./components/CreationOptionsGrid";
 
-export type { CuentaListRow, CreateCuentaInput } from "./services/cuentas.service";
+export type {
+  CuentaListRow,
+  CreateCuentaInput,
+  EmpresaAssignOption,
+} from "./services/cuentas.service";
 export {
   createCuentaConfigurator,
   listCuentasConfigurator,
+  listEmpresasAssignOptions,
 } from "./services/cuentas.service";
 
 export type {

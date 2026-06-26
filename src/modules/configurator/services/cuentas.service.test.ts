@@ -3,7 +3,11 @@ import { ROUTES } from "@/config/routes";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
 import { getCreationOptionHref } from "../constants/creation-options";
-import { createCuentaConfigurator, listCuentasConfigurator } from "./cuentas.service";
+import {
+  createCuentaConfigurator,
+  listCuentasConfigurator,
+  listEmpresasAssignOptions,
+} from "./cuentas.service";
 
 describe("creation-options", () => {
   it("cuentas resuelve a /configurador/creacion/cuentas", () => {
@@ -46,8 +50,7 @@ describe("cuentas.service", () => {
     ]);
   });
 
-  it("createCuentaConfigurator inserta en cuenta con empresa activa", async () => {
-    let call = 0;
+  it("listEmpresasAssignOptions consulta empresas activas", async () => {
     const selectChain = {
       select: vi.fn(),
       eq: vi.fn(),
@@ -58,10 +61,23 @@ describe("cuentas.service", () => {
     selectChain.eq.mockReturnValue(selectChain);
     selectChain.order.mockReturnValue(selectChain);
     selectChain.limit.mockResolvedValue({
-      data: [{ codigo_empresa: "ACME" }],
+      data: [{ codigo_empresa: "ACME", razon_social: "ACME Corp" }],
       error: null,
     });
 
+    const from = vi.fn(() => selectChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const rows = await listEmpresasAssignOptions();
+
+    expect(from).toHaveBeenCalledWith("empresa");
+    expect(selectChain.eq).toHaveBeenCalledWith("esta_activa", true);
+    expect(rows).toEqual([
+      { codigoEmpresa: "ACME", razonSocial: "ACME Corp" },
+    ]);
+  });
+
+  it("createCuentaConfigurator inserta en cuenta con empresa seleccionada", async () => {
     const insertChain = {
       insert: vi.fn(),
     };
@@ -70,20 +86,16 @@ describe("cuentas.service", () => {
       error: null,
     });
 
-    const from = vi.fn(() => {
-      call += 1;
-      return call === 1 ? selectChain : insertChain;
-    });
-
+    const from = vi.fn(() => insertChain);
     setSupabaseClientForTests({ from } as never);
 
     const row = await createCuentaConfigurator({
       codigoCuenta: "MIT00",
       nombreComercial: "Mitre",
+      codigoEmpresa: "ACME",
       idCreador: "user-1",
     });
 
-    expect(from).toHaveBeenCalledWith("empresa");
     expect(from).toHaveBeenCalledWith("cuenta");
     expect(insertChain.insert).toHaveBeenCalledWith({
       codigo_cuenta: "MIT00",

@@ -46,10 +46,18 @@ function mapBodegaExternaRow(row: BodegaExternaDbRow): BodegaExternaListRow {
   };
 }
 
-async function resolveDefaultCodigoCuenta(): Promise<{
+async function resolveCuentaAsignada(codigoCuenta: string): Promise<{
   codigoCuenta: string;
   nombreComercial: string;
 }> {
+  const codigo = codigoCuenta.trim();
+  if (!codigo) {
+    throw new DomainServiceError(
+      "Selecciona la cuenta destino de la bodega.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
   const rows = await runDomainQuery<
     { codigo_cuenta: string; nombre_comercial: string }[]
   >((client) => {
@@ -57,7 +65,7 @@ async function resolveDefaultCodigoCuenta(): Promise<{
       .from("cuenta")
       .select("codigo_cuenta,nombre_comercial")
       .eq("esta_activa", true)
-      .order("nombre_comercial", { ascending: true })
+      .eq("codigo_cuenta", codigo)
       .limit(1);
 
     return query as unknown as Promise<{
@@ -69,7 +77,7 @@ async function resolveDefaultCodigoCuenta(): Promise<{
   const cuenta = rows[0];
   if (!cuenta?.codigo_cuenta) {
     throw new DomainServiceError(
-      "No hay cuentas activas para asociar la bodega.",
+      "La cuenta seleccionada no es válida.",
       "INVALID_ARGUMENT",
     );
   }
@@ -105,6 +113,7 @@ export async function listBodegasExternasConfigurator(): Promise<
 export interface CreateBodegaExternaInput {
   nombre: string;
   capacidad: number;
+  codigoCuenta: string;
   idCreador?: string | null;
 }
 
@@ -136,7 +145,9 @@ export async function createBodegaExternaConfigurator(
     );
   }
 
-  const { codigoCuenta, nombreComercial } = await resolveDefaultCodigoCuenta();
+  const { codigoCuenta, nombreComercial } = await resolveCuentaAsignada(
+    input.codigoCuenta,
+  );
 
   const inserted = await runDomainMutation<{ id_bodega: string }>((client) => {
     const query = client

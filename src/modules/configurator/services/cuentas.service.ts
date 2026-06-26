@@ -71,36 +71,40 @@ export async function listCuentasConfigurator(): Promise<CuentaListRow[]> {
   return rows.map(mapCuentaRow);
 }
 
+export interface EmpresaAssignOption {
+  codigoEmpresa: string;
+  razonSocial: string;
+}
+
 export interface CreateCuentaInput {
   codigoCuenta: string;
   nombreComercial: string;
+  codigoEmpresa: string;
   idCreador?: string | null;
 }
 
-async function resolveDefaultCodigoEmpresa(): Promise<string> {
-  const rows = await runDomainQuery<{ codigo_empresa: string }[]>((client) => {
+/** Empresas activas para asociar una cuenta comercial nueva. */
+export async function listEmpresasAssignOptions(): Promise<EmpresaAssignOption[]> {
+  const rows = await runDomainQuery<
+    { codigo_empresa: string; razon_social: string }[]
+  >((client) => {
     const query = client
       .from("empresa")
-      .select("codigo_empresa")
+      .select("codigo_empresa,razon_social")
       .eq("esta_activa", true)
-      .order("codigo_empresa", { ascending: true })
-      .limit(1);
+      .order("razon_social", { ascending: true })
+      .limit(DEFAULT_LIST_LIMIT);
 
     return query as unknown as Promise<{
-      data: { codigo_empresa: string }[] | null;
+      data: { codigo_empresa: string; razon_social: string }[] | null;
       error: { message: string } | null;
     }>;
   });
 
-  const codigoEmpresa = rows[0]?.codigo_empresa;
-  if (!codigoEmpresa) {
-    throw new DomainServiceError(
-      "No hay empresas activas para asociar la cuenta.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  return codigoEmpresa;
+  return rows.map((row) => ({
+    codigoEmpresa: row.codigo_empresa,
+    razonSocial: row.razon_social,
+  }));
 }
 
 /** Crea una cuenta comercial desde el configurador (scope platform). */
@@ -109,6 +113,7 @@ export async function createCuentaConfigurator(
 ): Promise<CuentaListRow> {
   const nombreComercial = input.nombreComercial.trim();
   const codigoCuenta = normalizeCodigoCuentaInput(input.codigoCuenta);
+  const codigoEmpresa = input.codigoEmpresa.trim();
 
   if (!nombreComercial) {
     throw new DomainServiceError(
@@ -124,7 +129,12 @@ export async function createCuentaConfigurator(
     );
   }
 
-  const codigoEmpresa = await resolveDefaultCodigoEmpresa();
+  if (!codigoEmpresa) {
+    throw new DomainServiceError(
+      "Selecciona la empresa a asociar.",
+      "INVALID_ARGUMENT",
+    );
+  }
 
   await runDomainMutation<{ codigo_cuenta: string } | null>((client) => {
     const query = client.from("cuenta").insert({

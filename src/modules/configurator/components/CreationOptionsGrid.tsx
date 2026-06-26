@@ -16,7 +16,11 @@ export function CreationOptionsGrid({ onOptionClick }: CreationOptionsGridProps)
         <CreationOptionCard
           key={option.id}
           option={option}
-          onClick={onOptionClick}
+          onClick={
+            onOptionClick
+              ? (optionId) => onOptionClick(optionId as CreationOptionId)
+              : undefined
+          }
         />
       ))}
     </section>
