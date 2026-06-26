@@ -16,4 +16,5 @@ export {
 
 export { fetchDashboardWidgetMetric } from "./services/dashboard-data";
 export { DashboardHome } from "./components/DashboardHome";
+export { DashboardPageContent } from "./components/DashboardPageContent";
 export { DashboardWidget } from "./components/DashboardWidget";

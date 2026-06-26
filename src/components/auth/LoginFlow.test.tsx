@@ -4,14 +4,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTES } from "@/config/routes";
 import type { AuthSession } from "@/types/auth";
 
-const { mockPerformLogin, mockReplace, mockPrelogin } = vi.hoisted(() => ({
-  mockPerformLogin: vi.fn(),
-  mockReplace: vi.fn(),
-  mockPrelogin: vi.fn(),
-}));
+const { mockPerformLogin, mockReplace, mockPrelogin, mockResolveTenantEmpresas } =
+  vi.hoisted(() => ({
+    mockPerformLogin: vi.fn(),
+    mockReplace: vi.fn(),
+    mockPrelogin: vi.fn(),
+    mockResolveTenantEmpresas: vi.fn(),
+  }));
 
 vi.mock("@/modules/auth", () => ({
   prelogin: (payload: unknown) => mockPrelogin(payload),
+}));
+
+vi.mock("@/modules/auth/services/login-tenant-context.service", () => ({
+  resolveTenantEmpresasForLogin: (correo: string) =>
+    mockResolveTenantEmpresas(correo),
 }));
 
 vi.mock("@/stores/auth.store", () => ({
@@ -65,12 +72,15 @@ describe("LoginFlow", () => {
     vi.clearAllMocks();
     vi.useFakeTimers({ shouldAdvanceTime: true });
 
+    mockResolveTenantEmpresas.mockResolvedValue([
+      { codigoEmpresa: "ACME", razonSocial: "ACME Corp" },
+    ]);
+
     mockPrelogin.mockResolvedValue({
       flow: "tenant",
       userPreview: {
         nombre: "Administrador",
         identificador: "admin@acme.com",
-        empresa: { nombre: "ACME Corp", codigo: "ACME" },
       },
     });
 
@@ -90,8 +100,18 @@ describe("LoginFlow", () => {
     await user.click(screen.getByRole("button", { name: /continuar/i }));
 
     await waitFor(() => {
+      expect(mockPrelogin).toHaveBeenCalledWith({
+        identificador: "admin@acme.com",
+        codigoEmpresa: "ACME",
+      });
+    });
+
+    await waitFor(() => {
       expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
     });
+
+    expect(screen.getByText(/Empresa:/i)).toBeInTheDocument();
+    expect(screen.getByText("ACME Corp")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/contraseña/i), "secret123");
     await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
@@ -100,6 +120,7 @@ describe("LoginFlow", () => {
       expect(mockPerformLogin).toHaveBeenCalledWith({
         identificador: "admin@acme.com",
         password: "secret123",
+        codigoEmpresa: "ACME",
       });
     });
 
@@ -116,6 +137,8 @@ describe("LoginFlow", () => {
 
   it("completa login platform y redirige a /configurador", async () => {
     const user = userEvent.setup();
+
+    mockResolveTenantEmpresas.mockResolvedValue([]);
 
     mockPrelogin.mockResolvedValue({
       flow: "platform",

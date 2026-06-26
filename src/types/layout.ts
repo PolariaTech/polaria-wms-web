@@ -1,5 +1,5 @@
 export interface TopbarUserInfo {
   nombre: string;
-  identificador: string;
+  rol: string;
   initial: string;
 }

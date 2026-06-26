@@ -19,25 +19,26 @@ const listOrdenesVenta = vi.fn();
 const listGuiasEnvio = vi.fn();
 const listEvidenciasTransporte = vi.fn();
 const listAuditoriaOperacion = vi.fn();
+const getInventarioMercanciaReport = vi.fn();
 const listWarehouseState = vi.fn();
 
-vi.mock("@/modules/purchases", () => ({
+vi.mock("@/modules/purchases/services/purchases.service", () => ({
   listSolicitudesCompra: (...args: unknown[]) => listSolicitudesCompra(...args),
   listOrdenesCompra: (...args: unknown[]) => listOrdenesCompra(...args),
   listRecepciones: (...args: unknown[]) => listRecepciones(...args),
 }));
 
-vi.mock("@/modules/processing", () => ({
+vi.mock("@/modules/processing/services/processing.service", () => ({
   listSolicitudesProcesamiento: (...args: unknown[]) =>
     listSolicitudesProcesamiento(...args),
   listTareasCola: (...args: unknown[]) => listTareasCola(...args),
 }));
 
-vi.mock("@/modules/sales", () => ({
+vi.mock("@/modules/sales/services/sales.service", () => ({
   listOrdenesVenta: (...args: unknown[]) => listOrdenesVenta(...args),
 }));
 
-vi.mock("@/modules/transport", () => ({
+vi.mock("@/modules/transport/services/transport.service", () => ({
   listGuiasEnvio: (...args: unknown[]) => listGuiasEnvio(...args),
   listEvidenciasTransporte: (...args: unknown[]) =>
     listEvidenciasTransporte(...args),
@@ -47,6 +48,23 @@ vi.mock("@/modules/audit", () => ({
   listAuditoriaOperacion: (...args: unknown[]) =>
     listAuditoriaOperacion(...args),
 }));
+
+vi.mock(
+  "@/modules/admin-panel/services/inventario-mercancia-report.service",
+  () => ({
+    getInventarioMercanciaReport: (...args: unknown[]) =>
+      getInventarioMercanciaReport(...args),
+    formatInventarioKg: (kg: number) =>
+      kg.toLocaleString("es-CO", { maximumFractionDigits: 3 }),
+    getInventarioEtapa: (
+      report: {
+        etapas: { id: string; kg: number; label: string }[];
+      },
+      id: string,
+    ) => report.etapas.find((etapa) => etapa.id === id) ?? { id, label: id, kg: 0 },
+    getInventarioEtapaDestacada: () => "bodega_externa",
+  }),
+);
 
 vi.mock("@/modules/inventory/services/inventory.service", () => ({
   listWarehouseState: (...args: unknown[]) => listWarehouseState(...args),
@@ -149,6 +167,15 @@ describe("vistas operativas dashboard", () => {
     listGuiasEnvio.mockResolvedValue([]);
     listEvidenciasTransporte.mockResolvedValue([]);
     listAuditoriaOperacion.mockResolvedValue([]);
+    getInventarioMercanciaReport.mockResolvedValue({
+      etapas: [
+        { id: "proveedor", label: "Proveedor", kg: 0 },
+        { id: "transporte", label: "Transporte", kg: 0 },
+        { id: "bodega_interna", label: "Bodega interna", kg: 0 },
+        { id: "bodega_externa", label: "Bodega externa", kg: 7884 },
+        { id: "ventas", label: "Ventas", kg: 0 },
+      ],
+    });
     listWarehouseState.mockResolvedValue([]);
 
     const realtime = createRealtimeMock();
@@ -235,7 +262,7 @@ describe("vistas operativas dashboard", () => {
     });
   });
 
-  it("reportería renderiza auditoría con nivel empresa", async () => {
+  it("reportería renderiza inventario de mercancía", async () => {
     mockSession = {
       ...baseSession,
       idRol: WmsRol.administrador_cuenta,
@@ -246,11 +273,13 @@ describe("vistas operativas dashboard", () => {
     render(<DashboardReporteriaPage />);
 
     expect(
-      screen.getByRole("heading", { name: "Reportería" }),
+      screen.getByRole("heading", { name: "Reportes" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Inventario de mercancía")).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(listAuditoriaOperacion).toHaveBeenCalled();
+      expect(getInventarioMercanciaReport).toHaveBeenCalledWith("CUENTA-01");
+      expect(screen.getByText(/Bodega externa/i)).toBeInTheDocument();
     });
   });
 

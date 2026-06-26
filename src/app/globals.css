@@ -198,6 +198,9 @@ button:disabled,
 
 /* ── Topbar ────────────────────────────────────────────────────────────────── */
 .polaria-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   background: linear-gradient(
     180deg,
     rgba(0, 0, 0, 0.55) 0%,
@@ -562,6 +565,117 @@ button.polaria-topbar-btn:focus-visible {
   background: var(--teal);
   opacity: 0.45;
   box-shadow: 0 0 10px var(--teal-glow);
+}
+
+/* ── Phone input (react-phone-number-input) ─────────────────────────────── */
+.polaria-phone-input.PhoneInput {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  border: 1px solid var(--w08);
+  border-radius: 0.75rem;
+  background-color: var(--w08);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.polaria-phone-input.PhoneInput:focus-within {
+  border-color: var(--t20);
+  box-shadow: 0 0 0 1px var(--t20);
+}
+
+.polaria-phone-input.PhoneInput--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.polaria-phone-input .PhoneInputCountry {
+  position: relative;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  margin-right: 0;
+  padding: 0 0.625rem 0 0.75rem;
+  border-right: 1px solid var(--w08);
+}
+
+.polaria-phone-input .PhoneInputCountrySelect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+.polaria-phone-input .PhoneInputCountrySelect option {
+  background-color: var(--bg);
+  color: var(--w);
+}
+
+.polaria-phone-input .PhoneInputCountrySelect option:checked {
+  background-color: var(--teal);
+  color: var(--bg);
+}
+
+.polaria-phone-input .PhoneInputCountryIcon {
+  width: 1.5rem;
+  height: 1.125rem;
+}
+
+.polaria-phone-input .PhoneInputCountryIcon--border {
+  box-shadow: none;
+  background-color: transparent;
+}
+
+.polaria-phone-input .PhoneInputCountryIconImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.polaria-phone-input .PhoneInputCountrySelectArrow {
+  display: block;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin-left: 0.4rem;
+  border: 0 solid var(--w50);
+  border-right-width: 1px;
+  border-bottom-width: 1px;
+  transform: rotate(45deg) translateY(-1px);
+  opacity: 0.75;
+}
+
+.polaria-phone-input .PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0.75rem 1rem;
+  color: var(--w);
+  font: inherit;
+  outline: none;
+}
+
+.polaria-phone-input .PhoneInputInput::placeholder {
+  color: var(--w20);
+}
+
+.polaria-phone-input--compact .PhoneInputInput {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.polaria-phone-input--compact .PhoneInputCountry {
+  padding: 0 0.5rem 0 0.625rem;
 }
 
 /* Utilidades de efecto reutilizables */

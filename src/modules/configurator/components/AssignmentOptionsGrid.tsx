@@ -1,6 +1,6 @@
 import { ASSIGNMENT_OPTIONS } from "../constants/assignment-options";
 import type { AssignmentOptionId } from "../types/assignment.types";
-import { CreationOptionCard } from "./CreationOptionCard";
+import { PolariaSelectionCard } from "@/components/shared/PolariaSelectionCard";
 
 interface AssignmentOptionsGridProps {
   onOptionClick?: (optionId: AssignmentOptionId) => void;
@@ -16,7 +16,7 @@ export function AssignmentOptionsGrid({
     >
       {ASSIGNMENT_OPTIONS.map((option) => (
         <div key={option.id} className="w-full max-w-xs sm:max-w-sm">
-          <CreationOptionCard
+          <PolariaSelectionCard
             option={option}
             onClick={(optionId) =>
               onOptionClick?.(optionId as AssignmentOptionId)

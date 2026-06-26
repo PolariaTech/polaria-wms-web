@@ -8,7 +8,7 @@ import { ApiError, apiRequest } from "@/services/api";
 import {
   WMS_ROL_LABELS,
   WMS_ROLES_ORDER,
-} from "../constants/wms-roles";
+} from "@/constants/wms-roles";
 
 export interface UsuarioListRow {
   idUsuario: string;

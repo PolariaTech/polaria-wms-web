@@ -10,3 +10,5 @@ export {
   listSolicitudesProcesamiento,
   listTareasCola,
 } from "./services/processing.service";
+
+export { ProcesamientoPageContent } from "./components/ProcesamientoPageContent";

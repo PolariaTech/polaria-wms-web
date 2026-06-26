@@ -1,18 +1,21 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-export interface ConfiguratorSelectionOption {
+export interface PolariaSelectionOption {
   id: string;
   title: string;
   icon: LucideIcon;
 }
 
-interface CreationOptionCardProps {
-  option: ConfiguratorSelectionOption;
+interface PolariaSelectionCardProps {
+  option: PolariaSelectionOption;
   onClick?: (optionId: string) => void;
 }
 
-export function CreationOptionCard({ option, onClick }: CreationOptionCardProps) {
+export function PolariaSelectionCard({
+  option,
+  onClick,
+}: PolariaSelectionCardProps) {
   const Icon = option.icon;
 
   return (

@@ -9,7 +9,7 @@ import { useLiveDate } from "@/hooks/useLiveDate";
 import {
   getSessionDisplayName,
   getSessionInitial,
-  getSessionUsername,
+  getSessionRolNombre,
 } from "@/lib/auth-session";
 import { cn } from "@/lib/cn";
 import { TenantBodegaSelector } from "@/providers/CompanyProvider";
@@ -27,7 +27,7 @@ const TOPBAR_SHAPE = "rounded-[0.625rem]";
 function buildFallbackUser(): TopbarUserInfo {
   return {
     nombre: "Usuario",
-    identificador: "usuario",
+    rol: "—",
     initial: "U",
   };
 }
@@ -45,7 +45,7 @@ export function AppTopbar({
     if (!session) return buildFallbackUser();
     return {
       nombre: getSessionDisplayName(session),
-      identificador: getSessionUsername(session),
+      rol: getSessionRolNombre(session),
       initial: getSessionInitial(session),
     };
   }, [session]);
@@ -60,7 +60,7 @@ export function AppTopbar({
   }, [onMateoIaClick]);
 
   return (
-    <header className="polaria-topbar relative z-20 w-full shrink-0">
+    <header className="polaria-topbar w-full shrink-0">
       <div className="polaria-topbar__inner mx-auto max-w-[90rem] px-2 py-2 sm:px-6 sm:py-3 lg:px-8">
         <div className="polaria-topbar__grid">
           <div className="polaria-topbar__start">
@@ -110,18 +110,15 @@ export function AppTopbar({
             <div
               className={cn("polaria-topbar-user", TOPBAR_SHAPE)}
               aria-label={`Usuario: ${user.nombre}`}
-              title={`${user.nombre} (${user.identificador})`}
+              title={`${user.nombre} · ${user.rol}`}
             >
               <span className="polaria-topbar-user__avatar">{user.initial}</span>
               <span className="polaria-topbar-user__info">
                 <span className="polaria-topbar-user__name" title={user.nombre}>
                   {user.nombre}
                 </span>
-                <span
-                  className="polaria-topbar-user__id"
-                  title={user.identificador}
-                >
-                  {user.identificador}
+                <span className="polaria-topbar-user__id" title={user.rol}>
+                  {user.rol}
                 </span>
               </span>
             </div>

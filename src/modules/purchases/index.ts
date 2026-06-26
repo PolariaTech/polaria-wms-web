@@ -11,3 +11,5 @@ export {
   listRecepciones,
   listSolicitudesCompra,
 } from "./services/purchases.service";
+
+export { IngresoPageContent } from "./components/IngresoPageContent";

@@ -74,7 +74,7 @@ describe("DashboardHome", () => {
     });
   });
 
-  it("muestra widgets de administrador de cuenta", () => {
+  it("muestra widgets de administrador de cuenta en DashboardHome", () => {
     mockPermissions.idRol = WmsRol.administrador_cuenta;
 
     render(<DashboardHome />);

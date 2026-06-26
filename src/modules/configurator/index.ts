@@ -83,8 +83,16 @@ export {
   CreationPanel,
   CreationPanelConnected,
 } from "./components/CreationPanel";
-export { CreationOptionCard } from "./components/CreationOptionCard";
 export { CreationOptionsGrid } from "./components/CreationOptionsGrid";
+export {
+  PolariaSelectionCard,
+  type PolariaSelectionOption,
+} from "@/components/shared/PolariaSelectionCard";
+/** @deprecated Usar PolariaSelectionCard desde @/components/shared */
+export {
+  PolariaSelectionCard as CreationOptionCard,
+  type PolariaSelectionOption as ConfiguratorSelectionOption,
+} from "@/components/shared/PolariaSelectionCard";
 
 export type {
   CuentaListRow,

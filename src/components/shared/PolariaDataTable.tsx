@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, RotateCw } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 export interface PolariaDataTableColumn<T> {
@@ -27,6 +27,16 @@ export interface PolariaDataTableProps<T> {
     label: string;
     onClick: () => void;
   };
+  additionalActions?: readonly {
+    label: string;
+    onClick: () => void;
+    variant?: "primary" | "outline";
+  }[];
+  search?: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+  };
   className?: string;
 }
 
@@ -42,6 +52,8 @@ export function PolariaDataTable<T>({
   onRefresh,
   isRefreshing = false,
   primaryAction,
+  additionalActions,
+  search,
   className,
 }: PolariaDataTableProps<T>) {
   const showTable = !isLoading && !error;
@@ -62,6 +74,23 @@ export function PolariaDataTable<T>({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {search ? (
+            <input
+              type="search"
+              value={search.value}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                search.onChange(event.target.value)
+              }
+              placeholder={search.placeholder ?? "Buscar…"}
+              aria-label={search.placeholder ?? "Buscar"}
+              className={cn(
+                "min-w-[12rem] rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-2",
+                "polaria-text-body-sm text-polaria-w placeholder:text-polaria-w-20 outline-none",
+                "focus:border-polaria-t-20 focus:ring-1 focus:ring-polaria-t-20",
+              )}
+            />
+          ) : null}
+
           <span className="polaria-text-body-sm text-polaria-w-50">
             Total: {isLoading ? "—" : rows.length}
           </span>
@@ -85,6 +114,23 @@ export function PolariaDataTable<T>({
               />
             </button>
           ) : null}
+
+          {additionalActions?.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              onClick={action.onClick}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 polaria-text-body-sm font-semibold transition",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                action.variant === "primary"
+                  ? "bg-polaria-teal text-polaria-bg hover:opacity-90"
+                  : "border border-polaria-t-20 text-polaria-teal hover:bg-polaria-t-08",
+              )}
+            >
+              {action.label}
+            </button>
+          ))}
 
           {primaryAction ? (
             <button

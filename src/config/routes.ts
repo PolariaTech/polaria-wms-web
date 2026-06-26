@@ -15,6 +15,21 @@ export const ROUTES = {
   platform: "/platform",
   /** Dominio tenant (scope tenant) */
   dashboard: "/dashboard",
+  dashboardAdminAssignmentCreation:
+    "/dashboard/administracion/asignacion-creacion",
+  dashboardAdminCreationSuppliers:
+    "/dashboard/administracion/asignacion-creacion/proveedores",
+  dashboardAdminCreationBuyers:
+    "/dashboard/administracion/asignacion-creacion/compradores",
+  dashboardAdminCreationTrucks:
+    "/dashboard/administracion/asignacion-creacion/camiones",
+  dashboardAdminAssignmentUsers:
+    "/dashboard/administracion/asignacion-creacion/usuarios",
+  dashboardAdminAssignmentInternalWarehouse:
+    "/dashboard/administracion/asignacion-creacion/bodega-interna",
+  dashboardAdminAssignmentExternalWarehouse:
+    "/dashboard/administracion/asignacion-creacion/bodega-externa",
+  dashboardCatalog: "/dashboard/administracion/catalogo",
   dashboardIngreso: "/dashboard/ingreso",
   dashboardMapa: "/dashboard/mapa",
   dashboardProcesamiento: "/dashboard/procesamiento",

@@ -1,6 +1,6 @@
 import { WmsRol } from "@/constants/roles";
 
-/** Etiquetas legibles para los 9 roles WMS en formularios del configurador. */
+/** Etiquetas legibles para los 9 roles WMS en formularios. */
 export const WMS_ROL_LABELS: Record<WmsRol, string> = {
   [WmsRol.configurador]: "Configurador",
   [WmsRol.administrador_cuenta]: "Administrador de cuenta",

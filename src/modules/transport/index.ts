@@ -10,3 +10,5 @@ export {
   listEvidenciasTransporte,
   listGuiasEnvio,
 } from "./services/transport.service";
+
+export { TransportePageContent } from "./components/TransportePageContent";

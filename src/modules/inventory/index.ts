@@ -5,3 +5,4 @@ export type {
 
 export { listWarehouseState } from "./services/inventory.service";
 export { useWarehouseStateSubscription } from "./hooks/useWarehouseStateSubscription";
+export { MapaInventarioPageContent } from "./components/MapaInventarioPageContent";

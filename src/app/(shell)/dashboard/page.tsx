@@ -1,5 +1,5 @@
-import { DashboardHome } from "@/modules/dashboard";
+import { DashboardPageContent } from "@/modules/dashboard";
 
 export default function DashboardPage() {
-  return <DashboardHome />;
+  return <DashboardPageContent />;
 }
