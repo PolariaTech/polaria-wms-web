@@ -16,16 +16,20 @@ describe("AdminAssignmentCreationPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("lista las seis opciones del menú", () => {
+  it("lista las ocho opciones del menú", () => {
     render(<AdminAssignmentCreationPanel />);
 
     expect(
       screen.getByRole("button", { name: /Proveedores/i }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("button", { name: /Clientes/i }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: /Compradores/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Camiones/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Plantas/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Usuarios/i })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Bodega interna/i }),

@@ -146,6 +146,7 @@ function createRealtimeMock() {
 }
 
 import DashboardIngresoPage from "@/app/(shell)/dashboard/ingreso/page";
+import DashboardComprasPage from "@/app/(shell)/dashboard/compras/page";
 import DashboardMapaPage from "@/app/(shell)/dashboard/mapa/page";
 import DashboardProcesamientoPage from "@/app/(shell)/dashboard/procesamiento/page";
 import DashboardVentasPage from "@/app/(shell)/dashboard/ventas/page";
@@ -182,16 +183,36 @@ describe("vistas operativas dashboard", () => {
     getDomainSupabaseClient.mockReturnValue(realtime.client);
   });
 
-  it("ingreso renderiza listas de compras con permiso de bodega", async () => {
+  it("ingreso renderiza recepciones con permiso de bodega", async () => {
     render(<DashboardIngresoPage />);
 
     expect(screen.getByRole("heading", { name: "Ingreso" })).toBeInTheDocument();
-    expect(screen.getByText("Solicitudes de compra")).toBeInTheDocument();
+    expect(screen.getByText("Recepciones de compra")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(listRecepciones).toHaveBeenCalled();
+    });
+
+    expect(listSolicitudesCompra).not.toHaveBeenCalled();
+    expect(listOrdenesCompra).not.toHaveBeenCalled();
+  });
+
+  it("compras renderiza solicitudes y órdenes para administrador de cuenta", async () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.administrador_cuenta,
+      nombreRol: "Administrador de cuenta",
+      nivelRol: "cuenta",
+    };
+
+    render(<DashboardComprasPage />);
+
+    expect(screen.getByRole("heading", { name: "Compras" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Solicitudes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Órdenes" })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(listSolicitudesCompra).toHaveBeenCalled();
-      expect(listOrdenesCompra).toHaveBeenCalled();
-      expect(listRecepciones).toHaveBeenCalled();
     });
   });
 

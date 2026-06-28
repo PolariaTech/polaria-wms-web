@@ -46,10 +46,14 @@ export { AdminBreadcrumb } from "./components/AdminBreadcrumb";
 export { AdminCatalogListShell } from "./components/AdminCatalogListShell";
 export { ProveedoresListView } from "./components/ProveedoresListView";
 export { ProveedorCreateModal } from "./components/ProveedorCreateModal";
+export { ClientesListView } from "./components/ClientesListView";
+export { ClienteCreateModal } from "./components/ClienteCreateModal";
 export { CompradoresListView } from "./components/CompradoresListView";
 export { CompradorCreateModal } from "./components/CompradorCreateModal";
 export { CamionesListView } from "./components/CamionesListView";
 export { CamionCreateModal } from "./components/CamionCreateModal";
+export { PlantasListView } from "./components/PlantasListView";
+export { PlantaCreateModal } from "./components/PlantaCreateModal";
 export { UsuariosAdminListView } from "./components/UsuariosAdminListView";
 export { UsuarioAdminCreateModal } from "./components/UsuarioAdminCreateModal";
 export { BodegaInternaAdminView } from "./components/BodegaInternaAdminView";
@@ -70,6 +74,13 @@ export {
   listProveedoresAdmin,
 } from "./services/proveedores.service";
 
+export type { ClienteListRow, CreateClienteInput } from "./services/clientes.service";
+export {
+  createClienteAdmin,
+  formatClienteId,
+  listClientesAdmin,
+} from "./services/clientes.service";
+
 export type { CompradorListRow, CreateCompradorInput } from "./services/compradores.service";
 export {
   createCompradorAdmin,
@@ -82,6 +93,13 @@ export {
   formatCamionId,
   listCamionesAdmin,
 } from "./services/camiones.service";
+
+export type { PlantaListRow, CreatePlantaInput } from "./services/plantas.service";
+export {
+  createPlantaAdmin,
+  formatPlantaId,
+  listPlantasAdmin,
+} from "./services/plantas.service";
 
 export type {
   UsuarioAdminListRow,
@@ -157,6 +175,11 @@ export {
   CAMIONES_PAGE_TITLE,
   CAMIONES_TABLE_SUBTITLE,
   CAMIONES_TABLE_TITLE,
+  PLANTAS_EMPTY_MESSAGE,
+  PLANTAS_PAGE_HINT,
+  PLANTAS_PAGE_TITLE,
+  PLANTAS_TABLE_SUBTITLE,
+  PLANTAS_TABLE_TITLE,
   COMPRADORES_EMPTY_MESSAGE,
   COMPRADORES_PAGE_HINT,
   COMPRADORES_PAGE_TITLE,
@@ -167,6 +190,11 @@ export {
   PROVEEDORES_PAGE_TITLE,
   PROVEEDORES_TABLE_SUBTITLE,
   PROVEEDORES_TABLE_TITLE,
+  CLIENTES_EMPTY_MESSAGE,
+  CLIENTES_PAGE_HINT,
+  CLIENTES_PAGE_TITLE,
+  CLIENTES_TABLE_SUBTITLE,
+  CLIENTES_TABLE_TITLE,
   REPORTES_PAGE_HINT,
   REPORTES_PAGE_TITLE,
   USUARIOS_EMPTY_MESSAGE,

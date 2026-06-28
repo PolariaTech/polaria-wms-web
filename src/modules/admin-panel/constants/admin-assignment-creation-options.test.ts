@@ -16,8 +16,10 @@ describe("admin-assignment-creation-options", () => {
   it("lista las opciones de creación", () => {
     expect(ADMIN_CREATION_OPTIONS.map((option) => option.title)).toEqual([
       "Proveedores",
+      "Clientes",
       "Compradores",
       "Camiones",
+      "Plantas",
     ]);
   });
 
@@ -33,11 +35,17 @@ describe("admin-assignment-creation-options", () => {
     expect(getAdminCreationOptionHref("proveedores")).toBe(
       ROUTES.dashboardAdminCreationSuppliers,
     );
+    expect(getAdminCreationOptionHref("clientes")).toBe(
+      ROUTES.dashboardAdminCreationClients,
+    );
     expect(getAdminCreationOptionHref("compradores")).toBe(
       ROUTES.dashboardAdminCreationBuyers,
     );
     expect(getAdminCreationOptionHref("camiones")).toBe(
       ROUTES.dashboardAdminCreationTrucks,
+    );
+    expect(getAdminCreationOptionHref("plantas")).toBe(
+      ROUTES.dashboardAdminCreationPlants,
     );
   });
 

@@ -7,7 +7,7 @@ export default function DashboardIngresoPage() {
   return (
     <OperationalModuleShell
       title="Ingreso"
-      description="Solicitudes, órdenes y recepciones de compra de la cuenta activa."
+      description="Recepciones de mercancía contra órdenes de compra."
       gate={{ minNivelRol: "bodega" }}
     >
       <IngresoPageContent />

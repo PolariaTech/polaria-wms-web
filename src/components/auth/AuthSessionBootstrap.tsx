@@ -35,15 +35,21 @@ export function AuthSessionBootstrap() {
     }
 
     if (pathname === ROUTES.login && token) {
-      void revalidateAuthSession().then(() => {
-        const { accessToken, session, context } = useAuthStore.getState();
-        if (!accessToken) return;
+      if (useAuthStore.getState().isLoading) return;
 
-        const scope = session?.scope ?? context?.scope;
-        if (scope) {
-          router.replace(getPostLoginRoute(scope));
-        }
-      });
+      void revalidateAuthSession()
+        .then(() => {
+          const { accessToken, session, context } = useAuthStore.getState();
+          if (!accessToken) return;
+
+          const scope = session?.scope ?? context?.scope;
+          if (scope) {
+            router.replace(getPostLoginRoute(scope));
+          }
+        })
+        .catch(() => {
+          // hydrateSession ya limpia sesión inválida; evitar overlay en dev.
+        });
     }
   }, [pathname, router]);
 

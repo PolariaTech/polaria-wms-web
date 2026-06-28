@@ -41,7 +41,7 @@ describe("isNavItemActive", () => {
 });
 
 describe("filterNavItems", () => {
-  it("operario ve mapa e ingreso pero no reportería", () => {
+  it("operario ve mapa e ingreso pero no reportería ni compras", () => {
     const items = filterNavItems(
       TENANT_NAV,
       tenantContext(WmsRol.operario, "bodega"),
@@ -51,6 +51,7 @@ describe("filterNavItems", () => {
     expect(labels).toContain("Inicio");
     expect(labels).toContain("Mapa");
     expect(labels).toContain("Ingreso");
+    expect(labels).not.toContain("Compras");
     expect(labels).not.toContain("Reportería");
   });
 
@@ -75,7 +76,7 @@ describe("filterNavItems", () => {
     expect(labels).not.toContain("Mapa");
   });
 
-  it("administrador de cuenta ve ventas e ingreso", () => {
+  it("administrador de cuenta ve ventas, compras e ingreso", () => {
     const items = filterNavItems(
       TENANT_NAV,
       tenantContext(WmsRol.administrador_cuenta, "cuenta"),
@@ -83,6 +84,7 @@ describe("filterNavItems", () => {
 
     const labels = items.map((item) => item.label);
     expect(labels).toContain("Ventas");
+    expect(labels).toContain("Compras");
     expect(labels).toContain("Ingreso");
     expect(labels).toContain("Mapa");
   });

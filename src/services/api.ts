@@ -85,11 +85,22 @@ export async function apiRequest<T>(
     applyTenantHeaders(requestHeaders);
   }
 
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
-    ...rest,
-    headers: requestHeaders,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      ...rest,
+      headers: requestHeaders,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    const isOffline =
+      typeof navigator !== "undefined" && navigator.onLine === false;
+    const hint = isOffline
+      ? "Sin conexión a internet."
+      : "No se pudo conectar con el servidor. Verifica que polaria-wms-api esté en ejecución.";
+    const detail = error instanceof Error ? error.message : "Error de red";
+    throw new ApiError(`${hint} (${detail})`, 0, "NETWORK_ERROR");
+  }
 
   if (!response.ok) {
     const message = await parseErrorMessage(response);

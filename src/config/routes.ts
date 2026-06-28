@@ -20,10 +20,14 @@ export const ROUTES = {
     "/dashboard/administracion/asignacion-creacion",
   dashboardAdminCreationSuppliers:
     "/dashboard/administracion/asignacion-creacion/proveedores",
+  dashboardAdminCreationClients:
+    "/dashboard/administracion/asignacion-creacion/clientes",
   dashboardAdminCreationBuyers:
     "/dashboard/administracion/asignacion-creacion/compradores",
   dashboardAdminCreationTrucks:
     "/dashboard/administracion/asignacion-creacion/camiones",
+  dashboardAdminCreationPlants:
+    "/dashboard/administracion/asignacion-creacion/plantas",
   dashboardAdminAssignmentUsers:
     "/dashboard/administracion/asignacion-creacion/usuarios",
   dashboardAdminAssignmentInternalWarehouse:
@@ -32,6 +36,7 @@ export const ROUTES = {
     "/dashboard/administracion/asignacion-creacion/bodega-externa",
   dashboardCatalog: "/dashboard/administracion/catalogo",
   dashboardIngreso: "/dashboard/ingreso",
+  dashboardCompras: "/dashboard/compras",
   dashboardMapa: "/dashboard/mapa",
   dashboardProcesamiento: "/dashboard/procesamiento",
   dashboardVentas: "/dashboard/ventas",

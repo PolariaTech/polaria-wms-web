@@ -24,7 +24,14 @@ import type {
   UserPreview,
 } from "@/types/auth";
 import { createMinimalAuthContext } from "@/types/auth";
-export { AUTH_STORAGE_KEY }; 
+export { AUTH_STORAGE_KEY };
+
+let hydrateSessionInFlight: Promise<AuthSession | null> | null = null;
+
+function clearAuthAndPersistedStorage(clearAuth: () => void): void {
+  clearAuth();
+  removeAuthFromLocalStorage();
+}
 
 interface AuthState {
   accessToken: string | null;
@@ -116,32 +123,53 @@ export const useAuthStore = create<AuthState>()(
             },
             response.context,
           );
-          const session = await getMe();
-          get().setSession(session);
-          return session;
+          try {
+            const session = await getMe();
+            get().setSession(session);
+            return session;
+          } catch (error) {
+            clearAuthAndPersistedStorage(get().clearAuth);
+            throw error;
+          }
         } finally {
           set({ isLoading: false });
         }
       },
 
       hydrateSession: async () => {
-        ensureAuthOnlyInLocalStorage();
-        const { accessToken } = get();
-        if (!accessToken) {
-          set({ isHydrated: true });
-          return null;
+        if (hydrateSessionInFlight) {
+          return hydrateSessionInFlight;
         }
 
-        set({ isLoading: true });
+        hydrateSessionInFlight = (async () => {
+          ensureAuthOnlyInLocalStorage();
+          const { accessToken, isLoading } = get();
+          if (!accessToken) {
+            set({ isHydrated: true });
+            return null;
+          }
+
+          if (isLoading) {
+            return get().session;
+          }
+
+          set({ isLoading: true });
+          try {
+            const session = await getMe();
+            get().setSession(session);
+            return session;
+          } catch {
+            clearAuthAndPersistedStorage(get().clearAuth);
+            return null;
+          } finally {
+            set({ isLoading: false, isHydrated: true });
+          }
+        })();
+
         try {
-          const session = await getMe();
-          get().setSession(session);
-          return session;
-        } catch {
-          get().clearAuth();
-          return null;
+          return await hydrateSessionInFlight;
         } finally {
-          set({ isLoading: false, isHydrated: true });
+          hydrateSessionInFlight = null;
         }
       },
 

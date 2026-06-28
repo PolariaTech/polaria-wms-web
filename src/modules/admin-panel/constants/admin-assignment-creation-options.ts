@@ -1,5 +1,7 @@
 import {
+  Building2,
   ExternalLink,
+  Factory,
   LayoutGrid,
   ShoppingCart,
   Truck,
@@ -31,6 +33,12 @@ export const ADMIN_CREATION_OPTIONS: readonly AdminMenuOption[] = [
     href: ROUTES.dashboardAdminCreationSuppliers,
   },
   {
+    id: "clientes",
+    title: "Clientes",
+    icon: Building2,
+    href: ROUTES.dashboardAdminCreationClients,
+  },
+  {
     id: "compradores",
     title: "Compradores",
     icon: ShoppingCart,
@@ -41,6 +49,12 @@ export const ADMIN_CREATION_OPTIONS: readonly AdminMenuOption[] = [
     title: "Camiones",
     icon: Truck,
     href: ROUTES.dashboardAdminCreationTrucks,
+  },
+  {
+    id: "plantas",
+    title: "Plantas",
+    icon: Factory,
+    href: ROUTES.dashboardAdminCreationPlants,
   },
 ] as const;
 
@@ -75,6 +89,15 @@ export const ADMIN_ASSIGNMENT_CREATION_PLACEHOLDERS = {
       "Activar o desactivar proveedor",
     ],
   },
+  clientes: {
+    title: "Clientes",
+    description: "Administra clientes vinculados a tu cuenta comercial.",
+    futureActions: [
+      "Alta de cliente",
+      "Editar datos fiscales",
+      "Activar o desactivar cliente",
+    ],
+  },
   compradores: {
     title: "Compradores",
     description: "Gestiona compradores y sus permisos operativos.",
@@ -91,6 +114,15 @@ export const ADMIN_ASSIGNMENT_CREATION_PLACEHOLDERS = {
       "Registrar camión",
       "Asignar transportista",
       "Control de capacidad",
+    ],
+  },
+  plantas: {
+    title: "Plantas",
+    description: "Administra plantas de producción o almacenamiento de la cuenta.",
+    futureActions: [
+      "Registrar planta",
+      "Editar capacidad y rango térmico",
+      "Activar o desactivar planta",
     ],
   },
   usuarios: {

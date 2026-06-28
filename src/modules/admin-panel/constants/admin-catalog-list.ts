@@ -13,6 +13,19 @@ export const PROVEEDORES_TABLE_SUBTITLE =
 export const PROVEEDORES_EMPTY_MESSAGE =
   "No hay proveedores registrados." as const;
 
+export const CLIENTES_PAGE_TITLE = "Creación de clientes" as const;
+
+export const CLIENTES_PAGE_HINT =
+  "Usá la navegación superior para volver al panel administrativo." as const;
+
+export const CLIENTES_TABLE_TITLE = "Clientes" as const;
+
+export const CLIENTES_TABLE_SUBTITLE =
+  "ID, código, nombre, NIT y acciones." as const;
+
+export const CLIENTES_EMPTY_MESSAGE =
+  "No hay clientes registrados." as const;
+
 export const COMPRADORES_PAGE_TITLE = "Creación de compradores" as const;
 
 export const COMPRADORES_PAGE_HINT =
@@ -37,6 +50,18 @@ export const CAMIONES_TABLE_SUBTITLE =
   "Flota, capacidades y estado operativo." as const;
 
 export const CAMIONES_EMPTY_MESSAGE = "No hay camiones registrados." as const;
+
+export const PLANTAS_PAGE_TITLE = "Creación de plantas" as const;
+
+export const PLANTAS_PAGE_HINT =
+  "Usá la navegación superior para volver al panel administrativo." as const;
+
+export const PLANTAS_TABLE_TITLE = "Plantas" as const;
+
+export const PLANTAS_TABLE_SUBTITLE =
+  "Nombre, dirección, capacidad y rango térmico." as const;
+
+export const PLANTAS_EMPTY_MESSAGE = "No hay plantas registradas." as const;
 
 export const USUARIOS_PAGE_TITLE = "Asignación de usuarios" as const;
 

@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Loader2, LogOut, MessageCircle } from "lucide-react";
+import { Loader2, LogOut, Snowflake } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 import { useLiveDate } from "@/hooks/useLiveDate";
 import {
@@ -94,15 +94,21 @@ export function AppTopbar({
               aria-label="Abrir Mateo IA"
               aria-busy={isMateoLoading}
               className={cn(
-                "polaria-topbar-btn polaria-topbar-btn--teal polaria-topbar-btn--label-lg",
-                TOPBAR_SHAPE,
+                "polaria-topbar-btn polaria-topbar-btn--mateo polaria-topbar-btn--label-lg",
                 isMateoLoading && "cursor-wait opacity-80",
               )}
             >
               {isMateoLoading ? (
-                <Loader2 className={cn(ICON, "animate-spin")} />
+                <Loader2
+                  className={cn(ICON, "polaria-topbar-btn__mateo-icon animate-spin")}
+                  strokeWidth={1.75}
+                />
               ) : (
-                <MessageCircle className={ICON} />
+                <Snowflake
+                  className={cn(ICON, "polaria-topbar-btn__mateo-icon")}
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
               )}
               <span className="polaria-topbar-btn__label">Mateo IA</span>
             </button>

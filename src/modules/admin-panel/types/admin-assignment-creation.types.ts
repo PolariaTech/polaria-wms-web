@@ -2,8 +2,10 @@ import type { LucideIcon } from "lucide-react";
 
 export type AdminCreationOptionId =
   | "proveedores"
+  | "clientes"
   | "compradores"
-  | "camiones";
+  | "camiones"
+  | "plantas";
 
 export type AdminAssignmentOptionId =
   | "usuarios"

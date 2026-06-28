@@ -1,11 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTES } from "@/config/routes";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
+import { ApiError, apiRequest } from "@/services/api";
 import { getCreationOptionHref } from "../constants/creation-options";
 import {
   createBodegaInternaConfigurator,
   listBodegasInternasConfigurator,
 } from "./bodegas-internas.service";
+
+vi.mock("@/services/api", () => ({
+  ApiError: class ApiError extends Error {
+    constructor(
+      message: string,
+      public readonly status: number,
+      public readonly code?: string,
+    ) {
+      super(message);
+      this.name = "ApiError";
+    }
+  },
+  apiRequest: vi.fn(),
+}));
 
 describe("creation-options bodega interna", () => {
   it("resuelve ruta de bodega interna", () => {
@@ -19,6 +34,7 @@ describe("bodegas-internas.service", () => {
   beforeEach(() => {
     setSupabaseClientForTests(null);
     vi.restoreAllMocks();
+    vi.mocked(apiRequest).mockResolvedValue(undefined);
   });
 
   it("listBodegasInternasConfigurator filtra tipo interna", async () => {
@@ -72,7 +88,13 @@ describe("bodegas-internas.service", () => {
     cuentaChain.select.mockReturnValue(cuentaChain);
     cuentaChain.eq.mockReturnValue(cuentaChain);
     cuentaChain.limit.mockResolvedValue({
-      data: [{ codigo_cuenta: "MIT00", nombre_comercial: "Mitre" }],
+      data: [
+        {
+          codigo_cuenta: "MIT00",
+          codigo_empresa: "ACME",
+          nombre_comercial: "Mitre",
+        },
+      ],
       error: null,
     });
 
@@ -120,5 +142,79 @@ describe("bodegas-internas.service", () => {
       capacidad: 80,
       bodegaAsignada: "Mitre",
     });
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/configuracion/bodegas/bodega-1/bootstrap-layout",
+      expect.objectContaining({
+        method: "POST",
+        auth: true,
+        headers: {
+          "X-Codigo-Empresa": "ACME",
+          "X-Codigo-Cuenta": "MIT00",
+          "X-Id-Bodega": "bodega-1",
+        },
+      }),
+    );
+  });
+
+  it("createBodegaInternaConfigurator propaga error de bootstrap sin revertir bodega", async () => {
+    let call = 0;
+    const cuentaChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    cuentaChain.select.mockReturnValue(cuentaChain);
+    cuentaChain.eq.mockReturnValue(cuentaChain);
+    cuentaChain.limit.mockResolvedValue({
+      data: [
+        {
+          codigo_cuenta: "MIT00",
+          codigo_empresa: "ACME",
+          nombre_comercial: "Mitre",
+        },
+      ],
+      error: null,
+    });
+
+    const insertChain = {
+      insert: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    insertChain.insert.mockReturnValue(insertChain);
+    insertChain.select.mockReturnValue(insertChain);
+    insertChain.single.mockResolvedValue({
+      data: { id_bodega: "bodega-1" },
+      error: null,
+    });
+
+    const from = vi.fn(() => {
+      call += 1;
+      return call === 1 ? cuentaChain : insertChain;
+    });
+
+    setSupabaseClientForTests({ from } as never);
+    vi.mocked(apiRequest).mockRejectedValue(
+      new ApiError("Error del servidor. Intenta de nuevo más tarde.", 500),
+    );
+
+    await expect(
+      createBodegaInternaConfigurator({
+        nombre: "Central Norte",
+        capacidad: 80,
+        codigoCuenta: "MIT00",
+        idCreador: "user-1",
+      }),
+    ).rejects.toMatchObject({
+      message:
+        "La bodega se creó, pero no se pudo inicializar el layout: Error del servidor. Intenta de nuevo más tarde.",
+    });
+
+    expect(insertChain.insert).toHaveBeenCalled();
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/configuracion/bodegas/bodega-1/bootstrap-layout",
+      expect.objectContaining({ method: "POST", auth: true }),
+    );
   });
 });

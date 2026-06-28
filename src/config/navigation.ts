@@ -82,6 +82,13 @@ export const TENANT_NAV: readonly NavItem[] = [
     minNivelRol: "bodega",
   },
   {
+    href: ROUTES.dashboardCompras,
+    label: "Compras",
+    icon: ClipboardList,
+    scopes: ["tenant"],
+    module: WMS_MODULE.PURCHASES,
+  },
+  {
     href: ROUTES.dashboardMapa,
     label: "Mapa",
     icon: Map,

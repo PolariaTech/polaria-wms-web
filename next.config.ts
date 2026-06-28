@@ -4,9 +4,14 @@ import { fileURLToPath } from "node:url";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
-const apiBaseUrl =
+function normalizeApiBaseUrl(url: string): string {
+  return url.replace(/\/+$/, "");
+}
+
+const apiBaseUrl = normalizeApiBaseUrl(
   process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "https://polaria-wms-api.onrender.com";
+    "https://polaria-wms-api.onrender.com",
+);
 
 const nextConfig: NextConfig = {
   // Evita que Turbopack use C:\Users\Daniel\Videos como root (hay package-lock.json padre).

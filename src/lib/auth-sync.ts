@@ -59,17 +59,47 @@ export function syncAuthWithPersistedStorage(): boolean {
   return true;
 }
 
+let revalidateInFlight: Promise<void> | null = null;
+
+function scheduleHydrateSession(): void {
+  void useAuthStore.getState().hydrateSession().catch(() => {
+    // hydrateSession limpia sesión inválida; evitar unhandledRejection en dev.
+  });
+}
+
 /** Relee storage y valida el token contra el API cuando corresponde. */
 export async function revalidateAuthSession(): Promise<void> {
-  syncAuthWithPersistedStorage();
-  await useAuthStore.getState().hydrateSession();
+  if (useAuthStore.getState().isLoading) {
+    return;
+  }
+
+  if (revalidateInFlight) {
+    return revalidateInFlight;
+  }
+
+  revalidateInFlight = (async () => {
+    syncAuthWithPersistedStorage();
+    await useAuthStore.getState().hydrateSession();
+  })();
+
+  try {
+    await revalidateInFlight;
+  } finally {
+    revalidateInFlight = null;
+  }
+}
+
+function scheduleRevalidateAuthSession(): void {
+  void revalidateAuthSession().catch(() => {
+    // hydrateSession limpia sesión inválida; evitar unhandledRejection en dev.
+  });
 }
 
 export function installAuthSyncListeners(): () => void {
   const onPageShow = () => {
     ensureAuthOnlyInLocalStorage();
     syncAuthWithPersistedStorage();
-    void useAuthStore.getState().hydrateSession();
+    scheduleHydrateSession();
   };
 
   const onVisibilityChange = () => {
@@ -84,18 +114,18 @@ export function installAuthSyncListeners(): () => void {
     }
 
     if (hasPersistedToken || hadToken) {
-      void useAuthStore.getState().hydrateSession();
+      scheduleHydrateSession();
     }
   };
 
   const onStorage = (event: StorageEvent) => {
     if (event.key !== AUTH_STORAGE_KEY) return;
-    void revalidateAuthSession();
+    scheduleRevalidateAuthSession();
   };
 
   const unsubscribeBroadcast = subscribeAuthChanged(() => {
     ensureAuthOnlyInLocalStorage();
-    void revalidateAuthSession();
+    scheduleRevalidateAuthSession();
   });
 
   window.addEventListener("pageshow", onPageShow);

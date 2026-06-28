@@ -20,7 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isHydrated || hasInitialValidated.current) return;
     hasInitialValidated.current = true;
-    void revalidateAuthSession();
+    void revalidateAuthSession().catch(() => {});
   }, [isHydrated]);
 
   useEffect(() => {
