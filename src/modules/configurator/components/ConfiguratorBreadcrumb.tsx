@@ -23,11 +23,26 @@ function getBreadcrumbTrail(pathname: string): BreadcrumbItem[] | null {
     ];
   }
 
+  if (pathname === ROUTES.configuratorOnboarding) {
+    return [
+      { label: "Inicio", href: ROUTES.configurator },
+      { label: "Onboarding nuevo tenant" },
+    ];
+  }
+
   if (pathname === ROUTES.configuratorCreationAccounts) {
     return [
       { label: "Inicio", href: ROUTES.configurator },
       { label: "Creación", href: ROUTES.configuratorCreation },
       { label: "Cuentas" },
+    ];
+  }
+
+  if (pathname === ROUTES.configuratorCreationCompanies) {
+    return [
+      { label: "Inicio", href: ROUTES.configurator },
+      { label: "Creación", href: ROUTES.configuratorCreation },
+      { label: "Empresas" },
     ];
   }
 

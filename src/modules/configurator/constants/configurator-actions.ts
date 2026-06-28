@@ -1,4 +1,4 @@
-import { ClipboardList, Layers, UserCheck } from "lucide-react";
+import { ClipboardList, Layers, Rocket, UserCheck } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 import { POLARIA_BRAND } from "@/constants/brand";
 import type {
@@ -9,6 +9,15 @@ import type {
 export const CONFIGURATOR_BRAND = POLARIA_BRAND;
 
 export const CONFIGURATOR_ACTIONS: ConfiguratorAction[] = [
+  {
+    id: "onboarding",
+    title: "Onboarding nuevo tenant",
+    description:
+      "Guía paso a paso: empresa, cuenta, bodega interna y administrador",
+    icon: Rocket,
+    href: ROUTES.configuratorOnboarding,
+    featured: true,
+  },
   {
     id: "creation",
     title: "Creación",
@@ -38,6 +47,17 @@ export const CONFIGURATOR_PANEL_SUBTITLE =
   "Selecciona una acción para comenzar" as const;
 
 export const CONFIGURATOR_PLACEHOLDERS = {
+  onboarding: {
+    title: "Onboarding nuevo tenant",
+    description:
+      "Flujo guiado para dar de alta un tenant completo desde el configurador.",
+    futureActions: [
+      "Registrar empresa",
+      "Crear cuenta comercial",
+      "Configurar bodega interna",
+      "Invitar administrador de cuenta",
+    ],
+  },
   creation: {
     title: "Creación",
     description:

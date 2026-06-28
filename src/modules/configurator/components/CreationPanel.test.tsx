@@ -5,7 +5,7 @@ import { CreationOptionsGrid } from "@/modules/configurator/components/CreationO
 import { CreationPanel } from "@/modules/configurator/components/CreationPanel";
 
 describe("CreationPanel", () => {
-  it("muestra título, subtítulo y las tres opciones de creación", () => {
+  it("muestra título, subtítulo y las opciones de creación", () => {
     render(<CreationPanel />);
 
     expect(
@@ -15,6 +15,7 @@ describe("CreationPanel", () => {
       screen.getByText("Selecciona el tipo de entidad que deseas crear"),
     ).toBeInTheDocument();
 
+    expect(screen.getByRole("button", { name: "Empresas" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cuentas" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Bodega interna" }),

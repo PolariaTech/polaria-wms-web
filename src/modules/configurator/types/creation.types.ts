@@ -1,6 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 
-export type CreationOptionId = "cuentas" | "bodega-interna" | "bodega-externa";
+export type CreationOptionId =
+  | "empresas"
+  | "cuentas"
+  | "bodega-interna"
+  | "bodega-externa";
 
 export interface CreationOption {
   id: CreationOptionId;

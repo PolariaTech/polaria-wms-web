@@ -24,6 +24,9 @@
   --danger: #f87171;
   --danger-bg: rgba(248, 113, 113, 0.12);
   --danger-border: rgba(248, 113, 113, 0.35);
+  --warning: #f5a524;
+  --warning-bg: rgba(245, 165, 36, 0.12);
+  --warning-border: rgba(245, 165, 36, 0.35);
   --gradient-stat: linear-gradient(
     135deg,
     #00e5cc 0%,
@@ -67,6 +70,9 @@
   --color-polaria-danger: var(--danger);
   --color-polaria-danger-bg: var(--danger-bg);
   --color-polaria-danger-border: var(--danger-border);
+  --color-polaria-warning: var(--warning);
+  --color-polaria-warning-bg: var(--warning-bg);
+  --color-polaria-warning-border: var(--warning-border);
 
   /* Alias semánticos (legado) */
   --color-polaria-card: var(--polaria-card);
@@ -468,6 +474,40 @@ button.polaria-topbar-btn:focus-visible {
 
 .polaria-topbar-btn--teal:hover {
   background: var(--t20);
+}
+
+.polaria-topbar-btn--mateo {
+  border: 1px solid var(--teal);
+  border-radius: 0.75rem;
+  background: var(--bg);
+  color: var(--teal);
+  font-weight: 600;
+  box-shadow: 0 0 14px var(--teal-glow);
+}
+
+button.polaria-topbar-btn--mateo {
+  padding-inline: 1rem;
+}
+
+.polaria-topbar-btn--mateo:hover:not(:disabled) {
+  background: var(--t08);
+  box-shadow: 0 0 18px var(--teal-glow-strong);
+}
+
+.polaria-topbar-btn--mateo .polaria-topbar-btn__mateo-icon {
+  color: var(--teal);
+  filter: drop-shadow(0 0 8px var(--teal-glow-strong));
+}
+
+.polaria-topbar-btn--mateo .polaria-topbar-btn__label {
+  display: inline;
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.polaria-topbar-btn--mateo.polaria-topbar-btn--label-lg {
+  width: auto;
+  padding-inline: 1rem;
 }
 
 .polaria-topbar-btn--danger {

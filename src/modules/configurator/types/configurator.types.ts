@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 
 export type ConfiguratorActionId =
+  | "onboarding"
   | "creation"
   | "creation-assignment"
   | "integration";
@@ -11,6 +12,7 @@ export interface ConfiguratorAction {
   description: string;
   icon: LucideIcon;
   href: string;
+  featured?: boolean;
 }
 
 export interface ConfiguratorPanelProps {

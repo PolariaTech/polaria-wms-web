@@ -1,4 +1,4 @@
-import { ExternalLink, UserPlus, Warehouse } from "lucide-react";
+import { Building2, ExternalLink, UserPlus, Warehouse } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 import type { CreationOption, CreationOptionId } from "../types/creation.types";
 
@@ -8,6 +8,12 @@ export const CREATION_SUBTITLE =
   "Selecciona el tipo de entidad que deseas crear" as const;
 
 export const CREATION_OPTIONS: CreationOption[] = [
+  {
+    id: "empresas",
+    title: "Empresas",
+    icon: Building2,
+    href: ROUTES.configuratorCreationCompanies,
+  },
   {
     id: "cuentas",
     title: "Cuentas",

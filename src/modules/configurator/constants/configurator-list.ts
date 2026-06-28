@@ -3,6 +3,13 @@ export const CONFIGURATOR_SECTION_LABEL = "Configuración" as const;
 export const CONFIGURATOR_LIST_HINT =
   "Usá el botón Menú del encabezado para volver al inicio del configurador." as const;
 
+export const EMPRESAS_TABLE_TITLE = "Empresas" as const;
+
+export const EMPRESAS_TABLE_SUBTITLE =
+  "Código, razón social y acciones." as const;
+
+export const EMPRESAS_EMPTY_MESSAGE = "No hay empresas registradas." as const;
+
 export const CUENTAS_TABLE_TITLE = "Cuentas" as const;
 
 export const CUENTAS_TABLE_SUBTITLE = "Código, nombre y acciones." as const;

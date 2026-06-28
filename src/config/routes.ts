@@ -4,7 +4,9 @@ export const ROUTES = {
   sso: "/auth/sso",
   /** Dominio configurador (scope platform) */
   configurator: "/configurador",
+  configuratorOnboarding: "/configurador/onboarding",
   configuratorCreation: "/configurador/creacion",
+  configuratorCreationCompanies: "/configurador/creacion/empresas",
   configuratorCreationAccounts: "/configurador/creacion/cuentas",
   configuratorCreationInternalWarehouse: "/configurador/creacion/bodega-interna",
   configuratorCreationExternalWarehouse: "/configurador/creacion/bodega-externa",

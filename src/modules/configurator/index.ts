@@ -54,6 +54,9 @@ export {
   BODEGA_INTERNA_TABLE_TITLE,
   CONFIGURATOR_LIST_HINT,
   CONFIGURATOR_SECTION_LABEL,
+  EMPRESAS_EMPTY_MESSAGE,
+  EMPRESAS_TABLE_SUBTITLE,
+  EMPRESAS_TABLE_TITLE,
   CUENTAS_EMPTY_MESSAGE,
   CUENTAS_TABLE_SUBTITLE,
   CUENTAS_TABLE_TITLE,
@@ -68,11 +71,15 @@ export { BodegaExternaCreateModal } from "./components/BodegaExternaCreateModal"
 export { BodegaExternaListView } from "./components/BodegaExternaListView";
 export { BodegaInternaCreateModal } from "./components/BodegaInternaCreateModal";
 export { BodegaInternaListView } from "./components/BodegaInternaListView";
+export { IntegracionView } from "./components/IntegracionView";
+export { OnboardingWizard } from "./components/OnboardingWizard";
 export { ConfiguratorBreadcrumb } from "./components/ConfiguratorBreadcrumb";
 export { ConfiguratorHeader } from "./components/ConfiguratorHeader";
 export { ConfiguratorListShell } from "./components/ConfiguratorListShell";
 export { CuentaCreateModal } from "./components/CuentaCreateModal";
 export { CuentasListView } from "./components/CuentasListView";
+export { EmpresaCreateModal } from "./components/EmpresaCreateModal";
+export { EmpresasListView } from "./components/EmpresasListView";
 export { UsuarioCreateModal } from "./components/UsuarioCreateModal";
 export { UsuariosListView } from "./components/UsuariosListView";
 export {
@@ -93,6 +100,15 @@ export {
   PolariaSelectionCard as CreationOptionCard,
   type PolariaSelectionOption as ConfiguratorSelectionOption,
 } from "@/components/shared/PolariaSelectionCard";
+
+export type {
+  CreateEmpresaInput,
+  EmpresaListRow,
+} from "./services/empresas.service";
+export {
+  createEmpresaConfigurator,
+  listEmpresasConfigurator,
+} from "./services/empresas.service";
 
 export type {
   CuentaListRow,
