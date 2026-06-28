@@ -14,13 +14,38 @@ describe("getOperadorCuentaBreadcrumbTrail", () => {
     ]);
   });
 
-  it("genera Inicio / Bodega externa", () => {
+  it("genera Inicio / Bodega externa / Integración", () => {
     expect(
-      getOperadorCuentaBreadcrumbTrail(ROUTES.dashboardIntegracionCuenta),
+      getOperadorCuentaBreadcrumbTrail(
+        ROUTES.dashboardBodegaExternaCuentaIntegracion,
+      ),
     ).toEqual([
       { label: "Inicio", href: ROUTES.dashboard },
-      { label: "Bodega externa" },
+      { label: "Bodega externa", href: ROUTES.dashboardBodegaExternaCuenta },
+      { label: "Integración" },
     ]);
+  });
+
+  it("genera Inicio / Bodega interna / Procesamiento", () => {
+    expect(
+      getOperadorCuentaBreadcrumbTrail(
+        ROUTES.dashboardBodegaInternaCuentaProcesamiento,
+      ),
+    ).toEqual([
+      { label: "Inicio", href: ROUTES.dashboard },
+      { label: "Bodega interna", href: ROUTES.dashboardBodegaInternaCuenta },
+      { label: "Procesamiento" },
+    ]);
+  });
+
+  it("genera Inicio / Ventas / Órdenes venta", () => {
+    expect(getOperadorCuentaBreadcrumbTrail(ROUTES.dashboardVentasOrdenes)).toEqual(
+      [
+        { label: "Inicio", href: ROUTES.dashboard },
+        { label: "Ventas", href: ROUTES.dashboardVentas },
+        { label: "Órdenes venta" },
+      ],
+    );
   });
 
   it("devuelve null en rutas no mapeadas", () => {

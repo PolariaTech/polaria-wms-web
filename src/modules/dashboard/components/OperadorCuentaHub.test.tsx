@@ -28,13 +28,33 @@ describe("OperadorCuentaHub", () => {
     expect(screen.getByRole("button", { name: "Ventas" })).toBeInTheDocument();
   });
 
-  it("navega al seleccionar una opción", async () => {
+  it("navega al seleccionar bodega externa", async () => {
     const user = userEvent.setup();
 
     render(<OperadorCuentaHub />);
 
     await user.click(screen.getByRole("button", { name: "Bodega externa" }));
 
-    expect(mockPush).toHaveBeenCalledWith(ROUTES.dashboardIntegracionCuenta);
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.dashboardBodegaExternaCuenta);
+  });
+
+  it("navega al seleccionar bodega interna", async () => {
+    const user = userEvent.setup();
+
+    render(<OperadorCuentaHub />);
+
+    await user.click(screen.getByRole("button", { name: "Bodega interna" }));
+
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.dashboardBodegaInternaCuenta);
+  });
+
+  it("navega al seleccionar ventas", async () => {
+    const user = userEvent.setup();
+
+    render(<OperadorCuentaHub />);
+
+    await user.click(screen.getByRole("button", { name: "Ventas" }));
+
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.dashboardVentas);
   });
 });

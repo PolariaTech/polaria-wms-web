@@ -2,17 +2,16 @@
 
 import { ROLES_NIVEL_CUENTA } from "@/constants/roles";
 import { OperationalModuleShell } from "@/components/shared/OperationalModuleShell";
+import { BodegaExternaOperadorHub } from "@/modules/account-integration";
 
-export default function DashboardIntegracionCuentaPage() {
+export default function DashboardBodegaExternaCuentaPage() {
   return (
     <OperationalModuleShell
       title="Bodega externa"
-      description="Integración operativa de bodega externa para la cuenta activa."
+      description="Selecciona un flujo operativo de bodega externa."
       gate={{ roles: ROLES_NIVEL_CUENTA }}
     >
-      <p className="polaria-text-body-sm text-polaria-w-50">
-        Próximamente: flujos de integración con bodega externa.
-      </p>
+      <BodegaExternaOperadorHub />
     </OperationalModuleShell>
   );
 }

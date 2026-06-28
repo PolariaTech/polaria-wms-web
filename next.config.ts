@@ -26,6 +26,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/dashboard/integracion-cuenta",
+        destination: "/dashboard/bodega-externa",
+        permanent: true,
+      },
+      {
+        source: "/dashboard/integracion-cuenta/integracion",
+        destination: "/dashboard/bodega-externa/integracion",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     const noStore = [
       { key: "Cache-Control", value: "no-store, must-revalidate" },

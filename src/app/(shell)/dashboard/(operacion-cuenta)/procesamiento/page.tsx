@@ -1,12 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { WMS_MODULE } from "@/constants/permissions";
 import {
   ROLES_NIVEL_CUENTA,
   WmsRol,
 } from "@/constants/roles";
+import { ROUTES } from "@/config/routes";
 import { OperationalModuleShell } from "@/components/shared/OperationalModuleShell";
 import { ProcesamientoPageContent } from "@/modules/processing";
+import { useAuthStore } from "@/stores/auth.store";
 
 const PROCESAMIENTO_ROLES = [
   WmsRol.procesador,
@@ -16,6 +20,19 @@ const PROCESAMIENTO_ROLES = [
 ] as const;
 
 export default function DashboardProcesamientoPage() {
+  const router = useRouter();
+  const idRol = useAuthStore((state) => state.session?.idRol);
+
+  useEffect(() => {
+    if (idRol === WmsRol.operador_cuenta) {
+      router.replace(ROUTES.dashboardBodegaInternaCuentaProcesamiento);
+    }
+  }, [idRol, router]);
+
+  if (idRol === WmsRol.operador_cuenta) {
+    return null;
+  }
+
   return (
     <OperationalModuleShell
       title="Procesamiento"

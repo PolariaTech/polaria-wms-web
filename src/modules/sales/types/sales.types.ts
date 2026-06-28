@@ -23,3 +23,17 @@ export interface OrdenVentaRow {
   created_at: string;
   updated_at: string;
 }
+
+export interface OrdenVentaOperadorRow {
+  idOrdenVenta: string;
+  venta: string;
+  comprador: string;
+  productos: string;
+  estado: EstadoOrdenVenta;
+  fecha: string;
+}
+
+export interface ProductoVentaOption {
+  idProducto: string;
+  label: string;
+}

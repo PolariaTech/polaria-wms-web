@@ -78,7 +78,7 @@ describe("usuarios.service", () => {
     selectChain.limit.mockResolvedValue({
       data: [
         {
-          id_bodega: "bodega-1",
+          id_bodega: "550e8400-e29b-41d4-a716-446655440000",
           nombre: "Central",
           codigo: "BOD01",
           codigo_cuenta: "MIT00",
@@ -96,7 +96,7 @@ describe("usuarios.service", () => {
     expect(selectChain.eq).toHaveBeenCalledWith("esta_activa", true);
     expect(rows).toEqual([
       {
-        idBodega: "bodega-1",
+        idBodega: "550e8400-e29b-41d4-a716-446655440000",
         nombre: "Central",
         codigo: "BOD01",
         codigoCuenta: "MIT00",
@@ -104,9 +104,54 @@ describe("usuarios.service", () => {
     ]);
   });
 
-  it("createUsuarioConfigurator envía idBodega para roles de bodega", async () => {
+  it("createUsuarioConfigurator envía idBodega y cuenta para roles de bodega", async () => {
     const { setAccessTokenGetter } = await import("@/services/api");
     setAccessTokenGetter(() => "test-token");
+
+    const bodegaLookupChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      limit: vi.fn(),
+    };
+    bodegaLookupChain.select.mockReturnValue(bodegaLookupChain);
+    bodegaLookupChain.eq.mockImplementation(function (this: typeof bodegaLookupChain) {
+      return bodegaLookupChain;
+    });
+    bodegaLookupChain.limit.mockResolvedValue({
+      data: [
+        {
+          id_bodega: "550e8400-e29b-41d4-a716-446655440000",
+          codigo_cuenta: "MIT00",
+        },
+      ],
+      error: null,
+    });
+
+    const cuentaChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      limit: vi.fn(),
+    };
+    cuentaChain.select.mockReturnValue(cuentaChain);
+    cuentaChain.eq.mockReturnValue(cuentaChain);
+    cuentaChain.limit.mockResolvedValue({
+      data: [{ codigo_empresa: "ACME" }],
+      error: null,
+    });
+
+    const cuentasChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    cuentasChain.select.mockReturnValue(cuentasChain);
+    cuentasChain.eq.mockReturnValue(cuentasChain);
+    cuentasChain.order.mockReturnValue(cuentasChain);
+    cuentasChain.limit.mockResolvedValue({
+      data: [{ codigo_cuenta: "MIT00", nombre_comercial: "Mitre" }],
+      error: null,
+    });
 
     const rolChain = {
       select: vi.fn(),
@@ -118,7 +163,14 @@ describe("usuarios.service", () => {
       error: null,
     });
 
-    const from = vi.fn(() => rolChain);
+    let call = 0;
+    const from = vi.fn(() => {
+      call += 1;
+      if (call === 1) return bodegaLookupChain;
+      if (call === 2) return cuentaChain;
+      if (call === 3) return rolChain;
+      return cuentasChain;
+    });
     setSupabaseClientForTests({ from } as never);
 
     vi.stubGlobal(
@@ -131,7 +183,7 @@ describe("usuarios.service", () => {
           username: "CUST01",
           nombre: "Custodio Demo",
           idRol: WmsRol.custodio,
-          codigoCuenta: null,
+          codigoCuenta: "MIT00",
           correo: "custodio@acme.com",
         }),
       }),
@@ -141,21 +193,21 @@ describe("usuarios.service", () => {
       codigo: "CUST01",
       nombre: "Custodio Demo",
       idRol: WmsRol.custodio,
-      codigoCuenta: null,
-      idBodega: "bodega-1",
+      codigoCuenta: "MIT00",
+      idBodega: "550e8400-e29b-41d4-a716-446655440000",
       correo: "custodio@acme.com",
       clave: "secret1",
     });
 
-    const call = vi.mocked(fetch).mock.calls[0];
-    expect(call[0]).toBe("/api/configurador/usuarios");
-    expect(JSON.parse(String(call[1]?.body))).toEqual({
+    const apiCall = vi.mocked(fetch).mock.calls[0];
+    expect(apiCall[0]).toBe("/api/configurador/usuarios");
+    expect(JSON.parse(String(apiCall[1]?.body))).toEqual({
       username: "CUST01",
       nombre: "Custodio Demo",
       idRol: WmsRol.custodio,
-      codigoCuenta: null,
-      codigoEmpresa: null,
-      idBodega: "bodega-1",
+      codigoCuenta: "MIT00",
+      codigoEmpresa: "ACME",
+      idBodega: "550e8400-e29b-41d4-a716-446655440000",
       correo: "custodio@acme.com",
       password: "secret1",
     });

@@ -132,7 +132,12 @@ export function UsuarioCreateModal({
         codigo: username,
         nombre: form.nombre,
         idRol: form.idRol,
-        codigoCuenta: asignacionTipo === "cuenta" ? form.codigoCuenta : null,
+        codigoCuenta:
+          asignacionTipo === "cuenta"
+            ? form.codigoCuenta
+            : asignacionTipo === "bodega"
+              ? form.codigoCuenta || null
+              : null,
         idBodega: asignacionTipo === "bodega" ? form.idBodega : null,
         correo: form.correo,
         clave: form.clave,
@@ -196,12 +201,16 @@ export function UsuarioCreateModal({
           id="usuario-asignado"
           label={asignacionLabel}
           value={form.idBodega}
-          onChange={(event) =>
+          onChange={(event) => {
+            const selected = bodegas.find(
+              (bodega) => bodega.idBodega === event.target.value,
+            );
             setForm((current) => ({
               ...current,
               idBodega: event.target.value,
-            }))
-          }
+              codigoCuenta: selected?.codigoCuenta ?? "",
+            }));
+          }}
           disabled={disabled}
           placeholder="Selecciona una bodega"
           options={bodegas.map((bodega) => ({

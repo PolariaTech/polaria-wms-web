@@ -10,7 +10,7 @@ export function PolariaTableCode({ children }: { children: ReactNode }) {
 
 interface PolariaTableBadgeProps {
   children: ReactNode;
-  variant?: "positive" | "neutral";
+  variant?: "positive" | "neutral" | "warning";
 }
 
 export function PolariaTableBadge({
@@ -23,7 +23,9 @@ export function PolariaTableBadge({
         "inline-flex rounded-lg border px-2.5 py-1 polaria-text-badge",
         variant === "positive"
           ? "border-polaria-t-20 bg-polaria-t-08 text-polaria-teal"
-          : "border-polaria-w-08 bg-polaria-w-08 text-polaria-w-50",
+          : variant === "warning"
+            ? "border-polaria-warning-border bg-polaria-warning-bg text-polaria-warning"
+            : "border-polaria-w-08 bg-polaria-w-08 text-polaria-w-50",
       )}
     >
       {children}

@@ -31,13 +31,13 @@ export const OPERADOR_CUENTA_HUB_OPTIONS: readonly OperadorCuentaHubOption[] = [
     id: "bodega-externa",
     title: "Bodega externa",
     icon: ExternalLink,
-    href: ROUTES.dashboardIntegracionCuenta,
+    href: ROUTES.dashboardBodegaExternaCuenta,
   },
   {
     id: "bodega-interna",
     title: "Bodega interna",
     icon: Warehouse,
-    href: ROUTES.dashboardProcesamiento,
+    href: ROUTES.dashboardBodegaInternaCuenta,
   },
   {
     id: "ventas",

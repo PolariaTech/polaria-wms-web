@@ -14,13 +14,36 @@ const listSolicitudesCompra = vi.fn();
 const listOrdenesCompra = vi.fn();
 const listRecepciones = vi.fn();
 const listSolicitudesProcesamiento = vi.fn();
+const listSolicitudesProcesamientoOperador = vi.fn();
 const listTareasCola = vi.fn();
 const listOrdenesVenta = vi.fn();
+const listOrdenesVentaOperador = vi.fn();
+const listProductosVentaCatalogo = vi.fn();
+const listCompradoresAdmin = vi.fn();
 const listGuiasEnvio = vi.fn();
 const listEvidenciasTransporte = vi.fn();
 const listAuditoriaOperacion = vi.fn();
 const getInventarioMercanciaReport = vi.fn();
 const listWarehouseState = vi.fn();
+const listSolicitudesIntegracion = vi.fn();
+const listBodegasExternasVinculadasAdmin = vi.fn();
+const listBodegasInternasVinculadasAdmin = vi.fn();
+
+vi.mock("@/modules/account-integration/services/integracion-bodega.service", () => ({
+  listSolicitudesIntegracion: (...args: unknown[]) =>
+    listSolicitudesIntegracion(...args),
+  createSolicitudIntegracion: vi.fn(),
+}));
+
+vi.mock("@/modules/admin-panel/services/bodegas-externas-admin.service", () => ({
+  listBodegasExternasVinculadasAdmin: (...args: unknown[]) =>
+    listBodegasExternasVinculadasAdmin(...args),
+}));
+
+vi.mock("@/modules/admin-panel/services/bodegas-internas-admin.service", () => ({
+  listBodegasInternasVinculadasAdmin: (...args: unknown[]) =>
+    listBodegasInternasVinculadasAdmin(...args),
+}));
 
 vi.mock("@/modules/purchases/services/purchases.service", () => ({
   listSolicitudesCompra: (...args: unknown[]) => listSolicitudesCompra(...args),
@@ -31,11 +54,25 @@ vi.mock("@/modules/purchases/services/purchases.service", () => ({
 vi.mock("@/modules/processing/services/processing.service", () => ({
   listSolicitudesProcesamiento: (...args: unknown[]) =>
     listSolicitudesProcesamiento(...args),
+  listSolicitudesProcesamientoOperador: (...args: unknown[]) =>
+    listSolicitudesProcesamientoOperador(...args),
   listTareasCola: (...args: unknown[]) => listTareasCola(...args),
+  createSolicitudProcesamiento: vi.fn(),
+  listProductosPrimariosProcesamiento: vi.fn().mockResolvedValue([]),
+  listProductosSecundariosProcesamiento: vi.fn().mockResolvedValue([]),
+  getStockProductoBodega: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock("@/modules/sales/services/sales.service", () => ({
   listOrdenesVenta: (...args: unknown[]) => listOrdenesVenta(...args),
+  listOrdenesVentaOperador: (...args: unknown[]) =>
+    listOrdenesVentaOperador(...args),
+  listProductosVentaCatalogo: (...args: unknown[]) =>
+    listProductosVentaCatalogo(...args),
+}));
+
+vi.mock("@/modules/admin-panel/services/compradores.service", () => ({
+  listCompradoresAdmin: (...args: unknown[]) => listCompradoresAdmin(...args),
 }));
 
 vi.mock("@/modules/transport/services/transport.service", () => ({
@@ -147,10 +184,14 @@ function createRealtimeMock() {
 
 import DashboardIngresoPage from "@/app/(shell)/dashboard/ingreso/page";
 import DashboardComprasPage from "@/app/(shell)/dashboard/(operacion-cuenta)/compras/page";
-import DashboardIntegracionCuentaPage from "@/app/(shell)/dashboard/(operacion-cuenta)/integracion-cuenta/page";
+import DashboardBodegaExternaCuentaPage from "@/app/(shell)/dashboard/(operacion-cuenta)/bodega-externa/page";
+import DashboardBodegaExternaCuentaIntegracionPage from "@/app/(shell)/dashboard/(operacion-cuenta)/bodega-externa/integracion/page";
+import DashboardBodegaInternaCuentaPage from "@/app/(shell)/dashboard/(operacion-cuenta)/bodega-interna/page";
+import DashboardBodegaInternaCuentaProcesamientoPage from "@/app/(shell)/dashboard/(operacion-cuenta)/bodega-interna/procesamiento/page";
 import DashboardMapaPage from "@/app/(shell)/dashboard/mapa/page";
 import DashboardProcesamientoPage from "@/app/(shell)/dashboard/(operacion-cuenta)/procesamiento/page";
 import DashboardVentasPage from "@/app/(shell)/dashboard/(operacion-cuenta)/ventas/page";
+import DashboardVentasOrdenesPage from "@/app/(shell)/dashboard/(operacion-cuenta)/ventas/ordenes/page";
 import DashboardTransportePage from "@/app/(shell)/dashboard/transporte/page";
 import DashboardReporteriaPage from "@/app/(shell)/dashboard/reporteria/page";
 
@@ -164,8 +205,12 @@ describe("vistas operativas dashboard", () => {
     listOrdenesCompra.mockResolvedValue([]);
     listRecepciones.mockResolvedValue([]);
     listSolicitudesProcesamiento.mockResolvedValue([]);
+    listSolicitudesProcesamientoOperador.mockResolvedValue([]);
     listTareasCola.mockResolvedValue([]);
     listOrdenesVenta.mockResolvedValue([]);
+    listOrdenesVentaOperador.mockResolvedValue([]);
+    listProductosVentaCatalogo.mockResolvedValue([]);
+    listCompradoresAdmin.mockResolvedValue([]);
     listGuiasEnvio.mockResolvedValue([]);
     listEvidenciasTransporte.mockResolvedValue([]);
     listAuditoriaOperacion.mockResolvedValue([]);
@@ -179,6 +224,9 @@ describe("vistas operativas dashboard", () => {
       ],
     });
     listWarehouseState.mockResolvedValue([]);
+    listSolicitudesIntegracion.mockResolvedValue([]);
+    listBodegasExternasVinculadasAdmin.mockResolvedValue([]);
+    listBodegasInternasVinculadasAdmin.mockResolvedValue([]);
 
     const realtime = createRealtimeMock();
     getDomainSupabaseClient.mockReturnValue(realtime.client);
@@ -261,7 +309,7 @@ describe("vistas operativas dashboard", () => {
     expect(listWarehouseState).not.toHaveBeenCalled();
   });
 
-  it("integracion cuenta renderiza placeholder para operador de cuenta", () => {
+  it("integracion cuenta muestra opción Integración para operador de cuenta", () => {
     mockSession = {
       ...baseSession,
       idRol: WmsRol.operador_cuenta,
@@ -269,14 +317,118 @@ describe("vistas operativas dashboard", () => {
       nivelRol: "cuenta",
     };
 
-    render(<DashboardIntegracionCuentaPage />);
+    render(<DashboardBodegaExternaCuentaPage />);
 
     expect(
       screen.getByRole("heading", { name: "Bodega externa" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Integración" })).toBeInTheDocument();
+  });
+
+  it("integracion lista solicitudes para operador de cuenta", async () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.operador_cuenta,
+      nombreRol: "Operador de cuenta",
+      nivelRol: "cuenta",
+    };
+
+    listSolicitudesIntegracion.mockResolvedValue([
+      {
+        idSolicitudIntegracion: "sol-1",
+        bodegaExternaId: "bod-1",
+        bodegaNombre: "Bodega Norte",
+        tipoIntegracion: "api",
+        estado: "activo",
+        createdAt: "2026-06-28T12:00:00.000Z",
+      },
+    ]);
+
+    render(<DashboardBodegaExternaCuentaIntegracionPage />);
+
     expect(
-      screen.getByText(/Próximamente: flujos de integración con bodega externa/i),
+      screen.getByRole("heading", { name: "Integración" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Solicitar integración" }),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(listSolicitudesIntegracion).toHaveBeenCalled();
+      expect(screen.getByText("Bodega Norte")).toBeInTheDocument();
+      expect(screen.getByText("API")).toBeInTheDocument();
+    });
+  });
+
+  it("bodega interna muestra opción Procesamiento para operador de cuenta", () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.operador_cuenta,
+      nombreRol: "Operador de cuenta",
+      nivelRol: "cuenta",
+    };
+
+    render(<DashboardBodegaInternaCuentaPage />);
+
+    expect(
+      screen.getByRole("heading", { name: "Bodega interna" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Procesamiento" }),
+    ).toBeInTheDocument();
+  });
+
+  it("procesamiento operador lista órdenes con columnas esperadas", async () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.operador_cuenta,
+      nombreRol: "Operador de cuenta",
+      nivelRol: "cuenta",
+    };
+
+    listSolicitudesProcesamientoOperador.mockResolvedValue([
+      {
+        idSolicitudProcesamiento: "sol-1",
+        orden: "OP-001",
+        primario: "Salmón (SAL-01)",
+        secundario: "Filete (FIL-01)",
+        insumoPrimario: "10",
+        estimSecundario: "20",
+        estado: "pendiente",
+        fecha: "2026-06-28T12:00:00.000Z",
+      },
+    ]);
+
+    render(<DashboardBodegaInternaCuentaProcesamientoPage />);
+
+    expect(
+      screen.getByRole("heading", { name: "Procesamiento" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nueva orden" })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(listSolicitudesProcesamientoOperador).toHaveBeenCalled();
+      expect(screen.getByText("Orden")).toBeInTheDocument();
+      expect(screen.getByText("Primario")).toBeInTheDocument();
+      expect(screen.getByText("Estim. sec.")).toBeInTheDocument();
+      expect(screen.getByText("OP-001")).toBeInTheDocument();
+      expect(screen.getByText("Salmón (SAL-01)")).toBeInTheDocument();
+    });
+  });
+
+  it("procesamiento redirige operador de cuenta desde ruta legacy", () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.operador_cuenta,
+      nombreRol: "Operador de cuenta",
+      nivelRol: "cuenta",
+    };
+
+    render(<DashboardProcesamientoPage />);
+
+    expect(mockReplace).toHaveBeenCalledWith(
+      "/dashboard/bodega-interna/procesamiento",
+    );
   });
 
   it("procesamiento renderiza solicitudes y tareas para procesador", async () => {
@@ -295,6 +447,58 @@ describe("vistas operativas dashboard", () => {
     await waitFor(() => {
       expect(listSolicitudesProcesamiento).toHaveBeenCalled();
       expect(listTareasCola).toHaveBeenCalled();
+    });
+  });
+
+  it("ventas muestra opción Órdenes venta para operador de cuenta", () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.operador_cuenta,
+      nombreRol: "Operador de cuenta",
+      nivelRol: "cuenta",
+    };
+
+    render(<DashboardVentasPage />);
+
+    expect(screen.getByRole("heading", { name: "Ventas" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Órdenes venta" }),
+    ).toBeInTheDocument();
+    expect(listOrdenesVenta).not.toHaveBeenCalled();
+  });
+
+  it("ordenes venta operador lista columnas esperadas", async () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.operador_cuenta,
+      nombreRol: "Operador de cuenta",
+      nivelRol: "cuenta",
+    };
+
+    listOrdenesVentaOperador.mockResolvedValue([
+      {
+        idOrdenVenta: "ov-1",
+        venta: "OV-001",
+        comprador: "Retail Norte",
+        productos: "2 productos",
+        estado: "borrador",
+        fecha: "2026-06-28T12:00:00.000Z",
+      },
+    ]);
+
+    render(<DashboardVentasOrdenesPage />);
+
+    expect(
+      screen.getByRole("heading", { name: "Órdenes venta" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nueva venta" })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(listOrdenesVentaOperador).toHaveBeenCalled();
+      expect(screen.getByText("Venta")).toBeInTheDocument();
+      expect(screen.getByText("Comprador")).toBeInTheDocument();
+      expect(screen.getByText("OV-001")).toBeInTheDocument();
+      expect(screen.getByText("Retail Norte")).toBeInTheDocument();
     });
   });
 

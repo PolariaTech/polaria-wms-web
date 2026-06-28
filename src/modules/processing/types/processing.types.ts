@@ -34,8 +34,41 @@ export interface SolicitudProcesamientoRow {
   kilos_primario: string;
   kilos_secundario: string | null;
   kilos_merma: string | null;
+  regla_conversion_cantidad_primario: string | null;
+  regla_conversion_unidades_secundario: string | null;
+  estimado_unidades_secundario: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface SolicitudProcesamientoOperadorRow {
+  idSolicitudProcesamiento: string;
+  orden: string;
+  primario: string;
+  secundario: string;
+  insumoPrimario: string;
+  estimSecundario: string;
+  estado: EstadoProcesamiento;
+  fecha: string;
+}
+
+export interface ProductoProcesamientoOption {
+  idProducto: string;
+  label: string;
+  reglaConversionCantidadPrimario: number | null;
+  reglaConversionUnidadesSecundario: number | null;
+}
+
+export interface CreateSolicitudProcesamientoInput {
+  codigoCuenta: string;
+  idBodega: string;
+  idSolicitante: string;
+  idProductoPrimario: string;
+  idProductoSecundario: string;
+  kilosPrimario: number;
+  reglaConversionCantidadPrimario: number;
+  reglaConversionUnidadesSecundario: number;
+  estimadoUnidadesSecundario: number;
 }
 
 export interface TareaColaRow {

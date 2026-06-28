@@ -14,6 +14,8 @@ export interface PolariaFormModalProps {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   error?: string | null;
   isSubmitting?: boolean;
+  /** Deshabilita solo el botón de envío (sin bloquear cerrar/cancelar). */
+  submitDisabled?: boolean;
   submitLabel?: string;
   cancelLabel?: string;
   closeLabel?: string;
@@ -32,6 +34,7 @@ export function PolariaFormModal({
   onSubmit,
   error,
   isSubmitting = false,
+  submitDisabled = false,
   submitLabel = "Guardar",
   cancelLabel = "Cancelar",
   closeLabel = "Cerrar",
@@ -180,7 +183,7 @@ export function PolariaFormModal({
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || submitDisabled}
               className={cn(
                 "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
                 "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",

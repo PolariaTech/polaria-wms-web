@@ -184,12 +184,14 @@ export async function listBodegasAssignOptions(): Promise<BodegaAssignOption[]> 
     }>;
   });
 
-  return rows.map((row) => ({
-    idBodega: row.id_bodega,
-    nombre: row.nombre,
-    codigo: row.codigo,
-    codigoCuenta: row.codigo_cuenta,
-  }));
+  return rows
+    .filter((row) => Boolean(row.id_bodega?.trim()))
+    .map((row) => ({
+      idBodega: row.id_bodega.trim(),
+      nombre: row.nombre,
+      codigo: row.codigo,
+      codigoCuenta: row.codigo_cuenta,
+    }));
 }
 
 export interface CreateUsuarioInput {
@@ -209,6 +211,48 @@ interface CreateUsuarioApiResponse {
   idRol: WmsRol;
   codigoCuenta: string | null;
   correo: string;
+}
+
+interface BodegaAssignRef {
+  idBodega: string;
+  codigoCuenta: string;
+}
+
+async function resolveBodegaAssignTarget(
+  idOrCodigo: string,
+): Promise<BodegaAssignRef | null> {
+  const value = idOrCodigo.trim();
+  if (!value) return null;
+
+  const lookup = async (column: "id_bodega" | "codigo") => {
+    const rows = await runDomainQuery<
+      { id_bodega: string; codigo_cuenta: string }[]
+    >((client) => {
+      const query = client
+        .from("bodega")
+        .select("id_bodega,codigo_cuenta")
+        .eq(column, value)
+        .eq("esta_activa", true)
+        .limit(1);
+
+      return query as unknown as Promise<{
+        data: { id_bodega: string; codigo_cuenta: string }[] | null;
+        error: { message: string } | null;
+      }>;
+    });
+
+    const row = rows[0];
+    if (!row?.id_bodega?.trim() || !row.codigo_cuenta?.trim()) {
+      return null;
+    }
+
+    return {
+      idBodega: row.id_bodega.trim(),
+      codigoCuenta: row.codigo_cuenta.trim(),
+    };
+  };
+
+  return (await lookup("id_bodega")) ?? (await lookup("codigo"));
 }
 
 async function resolveCodigoEmpresa(
@@ -238,8 +282,22 @@ export async function createUsuarioConfigurator(
   const nombre = input.nombre.trim();
   const correo = input.correo.trim();
   const clave = input.clave.trim();
-  const codigoCuenta = input.codigoCuenta?.trim() || null;
-  const idBodega = input.idBodega?.trim() || null;
+  let codigoCuenta = input.codigoCuenta?.trim() || null;
+  let idBodega = input.idBodega?.trim() || null;
+
+  if (idBodega) {
+    const bodega = await resolveBodegaAssignTarget(idBodega);
+    if (!bodega) {
+      throw new DomainServiceError(
+        "La bodega seleccionada no es válida.",
+        "INVALID_ARGUMENT",
+      );
+    }
+    idBodega = bodega.idBodega;
+    if (!codigoCuenta) {
+      codigoCuenta = bodega.codigoCuenta;
+    }
+  }
 
   if (!codigo) {
     throw new DomainServiceError("El código es obligatorio.", "INVALID_ARGUMENT");

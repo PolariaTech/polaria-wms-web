@@ -37,10 +37,16 @@ export const ROUTES = {
   dashboardCatalog: "/dashboard/administracion/catalogo",
   dashboardIngreso: "/dashboard/ingreso",
   dashboardCompras: "/dashboard/compras",
-  dashboardIntegracionCuenta: "/dashboard/integracion-cuenta",
+  dashboardBodegaExternaCuenta: "/dashboard/bodega-externa",
+  dashboardBodegaExternaCuentaIntegracion:
+    "/dashboard/bodega-externa/integracion",
+  dashboardBodegaInternaCuenta: "/dashboard/bodega-interna",
+  dashboardBodegaInternaCuentaProcesamiento:
+    "/dashboard/bodega-interna/procesamiento",
   dashboardMapa: "/dashboard/mapa",
   dashboardProcesamiento: "/dashboard/procesamiento",
   dashboardVentas: "/dashboard/ventas",
+  dashboardVentasOrdenes: "/dashboard/ventas/ordenes",
   dashboardTransporte: "/dashboard/transporte",
   dashboardReporteria: "/dashboard/reporteria",
 } as const;

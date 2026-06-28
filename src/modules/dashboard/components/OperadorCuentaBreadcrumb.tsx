@@ -12,29 +12,57 @@ interface BreadcrumbItem {
   href?: string;
 }
 
-const OPERADOR_CUENTA_BREADCRUMBS: Readonly<Record<string, string>> = {
-  [ROUTES.dashboardCompras]: "Compras",
-  [ROUTES.dashboardProcesamiento]: "Procesamiento",
-  [ROUTES.dashboardVentas]: "Ventas",
-  [ROUTES.dashboardIntegracionCuenta]: "Bodega externa",
+const OPERADOR_CUENTA_BREADCRUMBS: Readonly<
+  Record<string, readonly BreadcrumbItem[]>
+> = {
+  [ROUTES.dashboardCompras]: [
+    { label: "Inicio", href: ROUTES.dashboard },
+    { label: "Compras" },
+  ],
+  [ROUTES.dashboardProcesamiento]: [
+    { label: "Inicio", href: ROUTES.dashboard },
+    { label: "Procesamiento" },
+  ],
+  [ROUTES.dashboardBodegaInternaCuenta]: [
+    { label: "Inicio", href: ROUTES.dashboard },
+    { label: "Bodega interna" },
+  ],
+  [ROUTES.dashboardBodegaInternaCuentaProcesamiento]: [
+    { label: "Inicio", href: ROUTES.dashboard },
+    {
+      label: "Bodega interna",
+      href: ROUTES.dashboardBodegaInternaCuenta,
+    },
+    { label: "Procesamiento" },
+  ],
+  [ROUTES.dashboardVentas]: [
+    { label: "Inicio", href: ROUTES.dashboard },
+    { label: "Ventas" },
+  ],
+  [ROUTES.dashboardVentasOrdenes]: [
+    { label: "Inicio", href: ROUTES.dashboard },
+    { label: "Ventas", href: ROUTES.dashboardVentas },
+    { label: "Órdenes venta" },
+  ],
+  [ROUTES.dashboardBodegaExternaCuenta]: [
+    { label: "Inicio", href: ROUTES.dashboard },
+    { label: "Bodega externa" },
+  ],
+  [ROUTES.dashboardBodegaExternaCuentaIntegracion]: [
+    { label: "Inicio", href: ROUTES.dashboard },
+    { label: "Bodega externa", href: ROUTES.dashboardBodegaExternaCuenta },
+    { label: "Integración" },
+  ],
 };
 
 export function getOperadorCuentaBreadcrumbTrail(
   pathname: string,
-): BreadcrumbItem[] | null {
+): readonly BreadcrumbItem[] | null {
   if (pathname === ROUTES.dashboard) {
     return null;
   }
 
-  const currentLabel = OPERADOR_CUENTA_BREADCRUMBS[pathname];
-  if (!currentLabel) {
-    return null;
-  }
-
-  return [
-    { label: "Inicio", href: ROUTES.dashboard },
-    { label: currentLabel },
-  ];
+  return OPERADOR_CUENTA_BREADCRUMBS[pathname] ?? null;
 }
 
 export function OperadorCuentaBreadcrumb() {
