@@ -55,6 +55,35 @@ describe("DashboardPageContent", () => {
     expect(mockPush).toHaveBeenCalledWith("/dashboard/administracion/catalogo");
   });
 
+  it("muestra hub operador de cuenta sin panel admin ni widgets", () => {
+    mockPermissions.idRol = WmsRol.operador_cuenta;
+
+    render(<DashboardPageContent />);
+
+    expect(
+      screen.getByRole("heading", { name: "Operación de cuenta" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Proveedor" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bodega externa" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bodega interna" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ventas" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Panel administrativo" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("dashboard-widgets")).not.toBeInTheDocument();
+  });
+
+  it("navega desde hub operador de cuenta", async () => {
+    const user = userEvent.setup();
+    mockPermissions.idRol = WmsRol.operador_cuenta;
+
+    render(<DashboardPageContent />);
+
+    await user.click(screen.getByRole("button", { name: "Proveedor" }));
+
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/compras");
+  });
+
   it("mantiene widgets operativos para otros roles", () => {
     mockPermissions.idRol = WmsRol.operario;
 

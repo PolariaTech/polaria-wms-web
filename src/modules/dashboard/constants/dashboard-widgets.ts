@@ -45,7 +45,7 @@ export const DASHBOARD_WIDGETS: Record<
     title: "SOL compra",
     description: "Solicitudes de compra en borrador o pendientes de aprobación",
     icon: PackagePlus,
-    href: ROUTES.dashboardIngreso,
+    href: ROUTES.dashboardCompras,
     kind: "metric",
   },
   "alertas-cuenta": {
@@ -123,11 +123,7 @@ export const ROLE_DASHBOARD_WIDGETS: Readonly<
     "sol-compra",
     "alertas-cuenta",
   ],
-  [WmsRol.operador_cuenta]: [
-    "ov-pendientes",
-    "sol-compra",
-    "alertas-cuenta",
-  ],
+  [WmsRol.operador_cuenta]: [],
   [WmsRol.administrador_bodega]: [
     "stock-resumido",
     "tareas-cola",

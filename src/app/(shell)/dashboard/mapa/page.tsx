@@ -1,6 +1,6 @@
 "use client";
 
-import { PERMISSION } from "@/constants/permissions";
+import { ROLES_MAPA_BODEGA } from "@/constants/roles";
 import { OperationalModuleShell } from "@/components/shared/OperationalModuleShell";
 import { MapaInventarioPageContent } from "@/modules/inventory";
 
@@ -9,7 +9,7 @@ export default function DashboardMapaPage() {
     <OperationalModuleShell
       title="Mapa de inventario"
       description="Estado en tiempo real por ubicación en la bodega activa."
-      gate={{ permission: PERMISSION.INVENTORY_READ }}
+      gate={{ roles: ROLES_MAPA_BODEGA }}
       accessDeniedMessage="No tienes permiso para consultar el inventario de esta bodega."
     >
       <MapaInventarioPageContent />

@@ -17,9 +17,15 @@ import {
   type Permission,
   type WmsModule,
   WMS_MODULE,
-  PERMISSION,
 } from "@/constants/permissions";
-import { hasMinNivelRol, ROLES_NIVEL_CUENTA, WmsRol } from "@/constants/roles";
+import {
+  hasMinNivelRol,
+  ROLES_INGRESO_BODEGA,
+  ROLES_MAPA_BODEGA,
+  ROLES_NIVEL_CUENTA,
+  ROLES_TRANSPORTE,
+  WmsRol,
+} from "@/constants/roles";
 import { ROUTES } from "@/config/routes";
 import type { AuthScope, NivelRol } from "@/types/auth";
 
@@ -79,7 +85,7 @@ export const TENANT_NAV: readonly NavItem[] = [
     label: "Ingreso",
     icon: PackagePlus,
     scopes: ["tenant"],
-    minNivelRol: "bodega",
+    roles: ROLES_INGRESO_BODEGA,
   },
   {
     href: ROUTES.dashboardCompras,
@@ -93,7 +99,7 @@ export const TENANT_NAV: readonly NavItem[] = [
     label: "Mapa",
     icon: Map,
     scopes: ["tenant"],
-    permission: PERMISSION.INVENTORY_READ,
+    roles: ROLES_MAPA_BODEGA,
   },
   {
     href: ROUTES.dashboardProcesamiento,
@@ -121,12 +127,7 @@ export const TENANT_NAV: readonly NavItem[] = [
     icon: Truck,
     scopes: ["tenant"],
     module: WMS_MODULE.TRANSPORT,
-    roles: [
-      WmsRol.transportista,
-      ...ROLES_NIVEL_CUENTA,
-      WmsRol.administrador_bodega,
-      WmsRol.jefe_bodega,
-    ],
+    roles: ROLES_TRANSPORTE,
   },
   {
     href: ROUTES.dashboardReporteria,

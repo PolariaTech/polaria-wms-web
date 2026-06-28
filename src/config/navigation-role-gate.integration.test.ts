@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   canAccessModule,
   hasPermission,
-  type Permission,
   type WmsModule,
 } from "@/constants/permissions";
 import { hasMinNivelRol, WmsRol } from "@/constants/roles";
@@ -77,6 +76,10 @@ const scenarios: Array<{
     context: { idRol: WmsRol.administrador_cuenta, nivelRol: "cuenta" },
   },
   {
+    label: "operador cuenta",
+    context: { idRol: WmsRol.operador_cuenta, nivelRol: "cuenta" },
+  },
+  {
     label: "procesador",
     context: { idRol: WmsRol.procesador, nivelRol: "bodega" },
   },
@@ -103,20 +106,36 @@ describe("integración navigation + ModuleRoleGate", () => {
     },
   );
 
-  it("mapa exige inventory:read igual que RoleGate de la vista", () => {
+  it("mapa exige roles de bodega igual que RoleGate de la vista", () => {
     const mapa = TENANT_NAV.find((item) => item.label === "Mapa");
-    expect(mapa?.permission).toBe("inventory:read" satisfies Permission);
+    expect(mapa?.roles).toContain(WmsRol.operario);
+    expect(mapa?.roles).not.toContain(WmsRol.administrador_cuenta);
 
     const operario = { idRol: WmsRol.operario, nivelRol: "bodega" as const };
     const transportista = {
       idRol: WmsRol.transportista,
       nivelRol: "bodega" as const,
     };
+    const adminCuenta = {
+      idRol: WmsRol.administrador_cuenta,
+      nivelRol: "cuenta" as const,
+    };
 
     expect(evaluateModuleRoleGate(operario, mapa!)).toBe(true);
     expect(evaluateModuleRoleGate(transportista, mapa!)).toBe(false);
+    expect(evaluateModuleRoleGate(adminCuenta, mapa!)).toBe(false);
     expect(navVisible(operario, mapa!)).toBe(true);
     expect(navVisible(transportista, mapa!)).toBe(false);
+    expect(navVisible(adminCuenta, mapa!)).toBe(false);
+  });
+
+  it("operador cuenta no ve transporte ni ingreso", () => {
+    const ingreso = TENANT_NAV.find((item) => item.label === "Ingreso");
+    const transporte = TENANT_NAV.find((item) => item.label === "Transporte");
+    const context = { idRol: WmsRol.operador_cuenta, nivelRol: "cuenta" as const };
+
+    expect(navVisible(context, ingreso!)).toBe(false);
+    expect(navVisible(context, transporte!)).toBe(false);
   });
 
   it("reportería exige módulo audit (nivel empresa)", () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { ROLES_INGRESO_BODEGA } from "@/constants/roles";
 import { OperationalModuleShell } from "@/components/shared/OperationalModuleShell";
 import { IngresoPageContent } from "@/modules/purchases";
 
@@ -8,7 +9,7 @@ export default function DashboardIngresoPage() {
     <OperationalModuleShell
       title="Ingreso"
       description="Recepciones de mercancía contra órdenes de compra."
-      gate={{ minNivelRol: "bodega" }}
+      gate={{ roles: ROLES_INGRESO_BODEGA }}
     >
       <IngresoPageContent />
     </OperationalModuleShell>

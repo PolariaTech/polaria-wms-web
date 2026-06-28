@@ -147,6 +147,7 @@ function createRealtimeMock() {
 
 import DashboardIngresoPage from "@/app/(shell)/dashboard/ingreso/page";
 import DashboardComprasPage from "@/app/(shell)/dashboard/compras/page";
+import DashboardIntegracionCuentaPage from "@/app/(shell)/dashboard/integracion-cuenta/page";
 import DashboardMapaPage from "@/app/(shell)/dashboard/mapa/page";
 import DashboardProcesamientoPage from "@/app/(shell)/dashboard/procesamiento/page";
 import DashboardVentasPage from "@/app/(shell)/dashboard/ventas/page";
@@ -216,7 +217,7 @@ describe("vistas operativas dashboard", () => {
     });
   });
 
-  it("mapa renderiza tabla de inventario con permiso inventory:read", async () => {
+  it("mapa renderiza tabla de inventario para operario de bodega", async () => {
     render(<DashboardMapaPage />);
 
     expect(
@@ -226,6 +227,56 @@ describe("vistas operativas dashboard", () => {
     await waitFor(() => {
       expect(listWarehouseState).toHaveBeenCalled();
     });
+  });
+
+  it("bloquea ingreso para administrador de cuenta", () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.administrador_cuenta,
+      nombreRol: "Administrador de cuenta",
+      nivelRol: "cuenta",
+    };
+
+    render(<DashboardIngresoPage />);
+
+    expect(
+      screen.getByText(/No tienes permiso para acceder a este módulo operativo/i),
+    ).toBeInTheDocument();
+    expect(listRecepciones).not.toHaveBeenCalled();
+  });
+
+  it("bloquea mapa para administrador de cuenta", () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.administrador_cuenta,
+      nombreRol: "Administrador de cuenta",
+      nivelRol: "cuenta",
+    };
+
+    render(<DashboardMapaPage />);
+
+    expect(
+      screen.getByText(/No tienes permiso para consultar el inventario de esta bodega/i),
+    ).toBeInTheDocument();
+    expect(listWarehouseState).not.toHaveBeenCalled();
+  });
+
+  it("integracion cuenta renderiza placeholder para operador de cuenta", () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.operador_cuenta,
+      nombreRol: "Operador de cuenta",
+      nivelRol: "cuenta",
+    };
+
+    render(<DashboardIntegracionCuentaPage />);
+
+    expect(
+      screen.getByRole("heading", { name: "Bodega externa" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Próximamente: flujos de integración con bodega externa/i),
+    ).toBeInTheDocument();
   });
 
   it("procesamiento renderiza solicitudes y tareas para procesador", async () => {

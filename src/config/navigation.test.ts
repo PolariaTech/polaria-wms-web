@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { PERMISSION } from "@/constants/permissions";
 import { WmsRol } from "@/constants/roles";
 import { ROUTES } from "@/config/routes";
 import {
@@ -76,7 +75,7 @@ describe("filterNavItems", () => {
     expect(labels).not.toContain("Mapa");
   });
 
-  it("administrador de cuenta ve ventas, compras e ingreso", () => {
+  it("administrador de cuenta ve ventas y compras sin ingreso ni mapa", () => {
     const items = filterNavItems(
       TENANT_NAV,
       tenantContext(WmsRol.administrador_cuenta, "cuenta"),
@@ -85,19 +84,40 @@ describe("filterNavItems", () => {
     const labels = items.map((item) => item.label);
     expect(labels).toContain("Ventas");
     expect(labels).toContain("Compras");
-    expect(labels).toContain("Ingreso");
-    expect(labels).toContain("Mapa");
+    expect(labels).toContain("Transporte");
+    expect(labels).not.toContain("Ingreso");
+    expect(labels).not.toContain("Mapa");
   });
 
-  it("filtra por permiso inventory:read en mapa", () => {
-    const mapaItem = TENANT_NAV.find((item) => item.href === ROUTES.dashboardMapa);
-    expect(mapaItem?.permission).toBe(PERMISSION.INVENTORY_READ);
-
+  it("operador de cuenta ve inicio, compras, procesamiento y ventas", () => {
     const items = filterNavItems(
       TENANT_NAV,
-      tenantContext(WmsRol.transportista, "bodega"),
+      tenantContext(WmsRol.operador_cuenta, "cuenta"),
     );
-    expect(items.some((item) => item.href === ROUTES.dashboardMapa)).toBe(false);
+
+    const labels = items.map((item) => item.label);
+    expect(labels).toEqual(["Inicio", "Compras", "Procesamiento", "Ventas"]);
+  });
+
+  it("filtra mapa por roles de bodega", () => {
+    const mapaItem = TENANT_NAV.find((item) => item.href === ROUTES.dashboardMapa);
+    expect(mapaItem?.roles).toBeDefined();
+
+    const cuentaItems = filterNavItems(
+      TENANT_NAV,
+      tenantContext(WmsRol.administrador_cuenta, "cuenta"),
+    );
+    expect(cuentaItems.some((item) => item.href === ROUTES.dashboardMapa)).toBe(
+      false,
+    );
+
+    const bodegaItems = filterNavItems(
+      TENANT_NAV,
+      tenantContext(WmsRol.operario, "bodega"),
+    );
+    expect(bodegaItems.some((item) => item.href === ROUTES.dashboardMapa)).toBe(
+      true,
+    );
   });
 
   it("PLATFORM_NAV no filtra ítems para configurador", () => {

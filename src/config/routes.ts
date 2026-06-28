@@ -37,6 +37,7 @@ export const ROUTES = {
   dashboardCatalog: "/dashboard/administracion/catalogo",
   dashboardIngreso: "/dashboard/ingreso",
   dashboardCompras: "/dashboard/compras",
+  dashboardIntegracionCuenta: "/dashboard/integracion-cuenta",
   dashboardMapa: "/dashboard/mapa",
   dashboardProcesamiento: "/dashboard/procesamiento",
   dashboardVentas: "/dashboard/ventas",

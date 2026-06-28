@@ -10,6 +10,7 @@ import {
   type AdminPanelActionId,
 } from "@/modules/admin-panel";
 import { DashboardHome } from "./DashboardHome";
+import { OperadorCuentaHub } from "./OperadorCuentaHub";
 
 export function DashboardPageContent() {
   const router = useRouter();
@@ -21,6 +22,10 @@ export function DashboardPageContent() {
     },
     [router],
   );
+
+  if (idRol === WmsRol.operador_cuenta) {
+    return <OperadorCuentaHub />;
+  }
 
   if (idRol === WmsRol.administrador_cuenta) {
     return <AdminPanelConnected onActionClick={handleAdminActionClick} />;

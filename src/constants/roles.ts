@@ -24,6 +24,35 @@ export const ROLES_NIVEL_CUENTA = [
   WmsRol.operador_cuenta,
 ] as const;
 
+/** Roles operativos de bodega con acceso a ingreso/recepciones. */
+export const ROLES_INGRESO_BODEGA = [
+  WmsRol.administrador_bodega,
+  WmsRol.jefe_bodega,
+  WmsRol.custodio,
+  WmsRol.operario,
+  WmsRol.procesador,
+  WmsRol.transportista,
+] as const;
+
+/** Roles de bodega con acceso al mapa de inventario. */
+export const ROLES_MAPA_BODEGA = [
+  WmsRol.administrador_bodega,
+  WmsRol.jefe_bodega,
+  WmsRol.custodio,
+  WmsRol.operario,
+] as const;
+
+/** Roles de cuenta con acceso a transporte (sin operador_cuenta). */
+export const ROLES_TRANSPORTE_CUENTA = [WmsRol.administrador_cuenta] as const;
+
+/** Roles con acceso al módulo de transporte. */
+export const ROLES_TRANSPORTE = [
+  WmsRol.transportista,
+  ...ROLES_TRANSPORTE_CUENTA,
+  WmsRol.administrador_bodega,
+  WmsRol.jefe_bodega,
+] as const;
+
 /** Roles con alcance físico (nivel bodega). */
 export const ROLES_NIVEL_BODEGA = [
   WmsRol.administrador_bodega,

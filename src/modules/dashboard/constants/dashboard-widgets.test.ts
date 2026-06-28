@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { ROUTES } from "@/config/routes";
 import { WmsRol } from "@/constants/roles";
 import {
+  DASHBOARD_WIDGETS,
   getWidgetsForRole,
   ROLE_DASHBOARD_WIDGETS,
 } from "./dashboard-widgets";
@@ -45,6 +47,15 @@ describe("getWidgetsForRole", () => {
   it("configurador no tiene widgets en dashboard", () => {
     expect(getWidgetsForRole(WmsRol.configurador)).toEqual([]);
     expect(ROLE_DASHBOARD_WIDGETS[WmsRol.configurador]).toEqual([]);
+  });
+
+  it("operador_cuenta no ve widgets en dashboard", () => {
+    expect(getWidgetsForRole(WmsRol.operador_cuenta)).toEqual([]);
+    expect(ROLE_DASHBOARD_WIDGETS[WmsRol.operador_cuenta]).toEqual([]);
+  });
+
+  it("sol-compra apunta a compras", () => {
+    expect(DASHBOARD_WIDGETS["sol-compra"].href).toBe(ROUTES.dashboardCompras);
   });
 
   it("devuelve vacío sin rol", () => {
