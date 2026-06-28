@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
 import {
+  createOrdenVenta,
   listOrdenesVenta,
   listOrdenesVentaOperador,
   listProductosVentaCatalogo,
@@ -83,6 +84,7 @@ describe("sales.service", () => {
           id_producto: "prod-1",
           descripcion: "Filete",
           sku: "FIL-01",
+          id_cliente: "cli-1",
         },
       ],
     });
@@ -92,5 +94,149 @@ describe("sales.service", () => {
 
     expect(from).toHaveBeenCalledWith("producto");
     expect(rows[0]?.label).toContain("Filete");
+    expect(rows[0]?.idCliente).toBe("cli-1");
+  });
+
+  it("createOrdenVenta inserta OV borrador y una línea", async () => {
+    const bodegaChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    bodegaChain.select.mockReturnValue(bodegaChain);
+    bodegaChain.eq.mockReturnValue(bodegaChain);
+    bodegaChain.order.mockReturnValue(bodegaChain);
+    bodegaChain.limit.mockResolvedValue({
+      data: [{ id_bodega: "bod-1" }],
+      error: null,
+    });
+
+    const compradorChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      in: vi.fn(),
+      limit: vi.fn(),
+    };
+    compradorChain.select.mockReturnValue(compradorChain);
+    compradorChain.eq.mockReturnValue(compradorChain);
+    compradorChain.in.mockReturnValue(compradorChain);
+    compradorChain.limit.mockImplementation(function (this: typeof compradorChain) {
+      if (compradorChain.in.mock.calls.length > 0) {
+        return Promise.resolve({
+          data: [{ id_comprador: "comp-1", nombre: "Retail Norte" }],
+          error: null,
+        });
+      }
+      return Promise.resolve({
+        data: [{ id_comprador: "comp-1" }],
+        error: null,
+      });
+    });
+
+    const productoChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      limit: vi.fn(),
+    };
+    productoChain.select.mockReturnValue(productoChain);
+    productoChain.eq.mockReturnValue(productoChain);
+    productoChain.limit.mockResolvedValue({
+      data: [{ id_producto: "prod-1", id_cliente: "cli-1" }],
+      error: null,
+    });
+
+    const ordenInsertChain = {
+      insert: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    ordenInsertChain.insert.mockReturnValue(ordenInsertChain);
+    ordenInsertChain.select.mockReturnValue(ordenInsertChain);
+    ordenInsertChain.single.mockResolvedValue({
+      data: {
+        id_orden_venta: "ov-new",
+        codigo_cuenta: "CUENTA-01",
+        id_bodega: "bod-1",
+        id_cliente: "cli-1",
+        id_comprador: "comp-1",
+        id_planta: null,
+        id_creador: "usr-1",
+        id_bodega_destino: null,
+        codigo: "OV-001",
+        estado: "borrador",
+        fecha_pedido: "2026-06-28",
+        observaciones: "Nota",
+        created_at: "2026-06-28T12:00:00.000Z",
+        updated_at: "2026-06-28T12:00:00.000Z",
+      },
+      error: null,
+    });
+
+    const lineaInsertChain = {
+      insert: vi.fn(),
+    };
+    lineaInsertChain.insert.mockResolvedValue({ data: null, error: null });
+
+    const from = vi.fn((table: string) => {
+      if (table === "bodega") return bodegaChain;
+      if (table === "comprador") return compradorChain;
+      if (table === "producto") return productoChain;
+      if (table === "orden_venta") return ordenInsertChain;
+      if (table === "orden_venta_linea") return lineaInsertChain;
+      throw new Error(`unexpected table ${table}`);
+    });
+
+    setSupabaseClientForTests({ from } as never);
+
+    const row = await createOrdenVenta({
+      codigoCuenta: "CUENTA-01",
+      idComprador: "comp-1",
+      idProducto: "prod-1",
+      observaciones: "Nota",
+      idCreador: "usr-1",
+    });
+
+    expect(ordenInsertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        codigo_cuenta: "CUENTA-01",
+        id_bodega: "bod-1",
+        id_cliente: "cli-1",
+        id_comprador: "comp-1",
+        estado: "borrador",
+        observaciones: "Nota",
+      }),
+    );
+    expect(lineaInsertChain.insert).toHaveBeenCalledWith({
+      id_orden_venta: "ov-new",
+      id_producto: "prod-1",
+      cantidad_pedida: 1,
+    });
+    expect(row.venta).toBe("OV-001");
+    expect(row.comprador).toBe("Retail Norte");
+    expect(row.productos).toBe("1 producto");
+  });
+
+  it("createOrdenVenta rechaza comprador inválido", async () => {
+    const compradorChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      limit: vi.fn(),
+    };
+    compradorChain.select.mockReturnValue(compradorChain);
+    compradorChain.eq.mockReturnValue(compradorChain);
+    compradorChain.limit.mockResolvedValue({ data: [], error: null });
+
+    setSupabaseClientForTests({
+      from: vi.fn(() => compradorChain),
+    } as never);
+
+    await expect(
+      createOrdenVenta({
+        codigoCuenta: "CUENTA-01",
+        idComprador: "comp-x",
+        idProducto: "prod-1",
+      }),
+    ).rejects.toThrow("El comprador seleccionado no es válido.");
   });
 });

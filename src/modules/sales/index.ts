@@ -1,4 +1,5 @@
 export type {
+  CreateOrdenVentaInput,
   EstadoOrdenVenta,
   OrdenVentaOperadorRow,
   OrdenVentaRow,
@@ -11,6 +12,7 @@ export {
 } from "./constants/sales-status";
 
 export {
+  createOrdenVenta,
   listOrdenesVenta,
   listOrdenesVentaOperador,
   listProductosVentaCatalogo,

@@ -36,4 +36,14 @@ export interface OrdenVentaOperadorRow {
 export interface ProductoVentaOption {
   idProducto: string;
   label: string;
+  idCliente: string | null;
+}
+
+export interface CreateOrdenVentaInput {
+  codigoCuenta: string;
+  idComprador: string;
+  idProducto: string;
+  cantidadPedida?: number;
+  observaciones?: string | null;
+  idCreador?: string | null;
 }
