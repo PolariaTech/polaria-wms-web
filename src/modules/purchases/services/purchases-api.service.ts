@@ -126,7 +126,7 @@ export async function convertirSolicitudCompraAOrdenApi(
   }
 
   return postComprasApi<OrdenCompraApiRow>(
-    `/compras/solicitudes/${encodeURIComponent(id)}/convertir-orden`,
+    `/compras/solicitudes/${encodeURIComponent(id)}/convertir-oc`,
   );
 }
 

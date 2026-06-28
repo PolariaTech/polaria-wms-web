@@ -116,7 +116,7 @@ describe("purchases-api.service", () => {
     const row = await convertirSolicitudCompraAOrdenApi("sol-1");
 
     expect(apiRequest).toHaveBeenCalledWith(
-      "/compras/solicitudes/sol-1/convertir-orden",
+      "/compras/solicitudes/sol-1/convertir-oc",
       { method: "POST", auth: true, body: undefined },
     );
     expect(row.idOrdenCompra).toBe("oc-1");
