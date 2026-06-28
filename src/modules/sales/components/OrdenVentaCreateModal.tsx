@@ -6,10 +6,16 @@ import {
   PolariaFormSelect,
 } from "@/components/shared/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/PolariaFormModal";
+import { DomainServiceError } from "@/lib/domain-service-error";
 import { listCompradoresAdmin } from "@/modules/admin-panel";
 import { useCompany } from "@/providers/CompanyProvider";
+import { useAuthStore } from "@/stores/auth.store";
 import { CATALOGO_VENTA_EMPTY_MESSAGE } from "../constants/sales-status";
-import { listProductosVentaCatalogo } from "../services/sales.service";
+import {
+  createOrdenVenta,
+  listProductosVentaCatalogo,
+} from "../services/sales.service";
+import type { ProductoVentaOption } from "../types/sales.types";
 
 interface OrdenVentaCreateModalProps {
   open: boolean;
@@ -20,11 +26,14 @@ interface OrdenVentaCreateModalProps {
 export function OrdenVentaCreateModal({
   open,
   onClose,
+  onCreated,
 }: OrdenVentaCreateModalProps) {
   const { codigoCuenta } = useCompany();
+  const idCreador = useAuthStore((state) => state.session?.idUsuario ?? "");
   const [idComprador, setIdComprador] = useState("");
+  const [idProducto, setIdProducto] = useState("");
   const [observaciones, setObservaciones] = useState("");
-  const [hasProductos, setHasProductos] = useState(false);
+  const [productos, setProductos] = useState<ProductoVentaOption[]>([]);
   const [compradores, setCompradores] = useState<
     { value: string; label: string }[]
   >([]);
@@ -32,12 +41,15 @@ export function OrdenVentaCreateModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const hasProductos = productos.length > 0;
+
   useEffect(() => {
     if (!open) return;
 
     setIdComprador("");
+    setIdProducto("");
     setObservaciones("");
-    setHasProductos(false);
+    setProductos([]);
     setCompradores([]);
     setError(null);
     setIsSaving(false);
@@ -50,8 +62,9 @@ export function OrdenVentaCreateModal({
       listProductosVentaCatalogo(codigoCuenta),
       listCompradoresAdmin({ codigoCuenta }),
     ])
-      .then(([productos, compradorRows]) => {
-        setHasProductos(productos.length > 0);
+      .then(([productoRows, compradorRows]) => {
+        setProductos(productoRows);
+        setIdProducto(productoRows[0]?.idProducto ?? "");
         setCompradores(
           compradorRows.map((row) => ({
             value: row.idComprador,
@@ -72,18 +85,56 @@ export function OrdenVentaCreateModal({
   }, [codigoCuenta, open]);
 
   const handleSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
+    async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      setError(null);
 
-      if (!hasProductos) {
+      if (!codigoCuenta || !hasProductos) {
         return;
       }
 
-      setError(
-        "La creación manual de ventas estará disponible próximamente.",
-      );
+      if (!idComprador) {
+        setError("Selecciona un comprador.");
+        return;
+      }
+
+      if (!idProducto) {
+        setError("Selecciona un producto del catálogo.");
+        return;
+      }
+
+      setIsSaving(true);
+
+      try {
+        await createOrdenVenta({
+          codigoCuenta,
+          idComprador,
+          idProducto,
+          observaciones: observaciones.trim() || null,
+          idCreador: idCreador || null,
+        });
+        onCreated();
+        onClose();
+      } catch (err: unknown) {
+        setError(
+          err instanceof DomainServiceError
+            ? err.message
+            : "No se pudo crear la orden de venta.",
+        );
+      } finally {
+        setIsSaving(false);
+      }
     },
-    [hasProductos],
+    [
+      codigoCuenta,
+      hasProductos,
+      idComprador,
+      idCreador,
+      idProducto,
+      observaciones,
+      onClose,
+      onCreated,
+    ],
   );
 
   return (
@@ -92,7 +143,9 @@ export function OrdenVentaCreateModal({
       onClose={onClose}
       title="Nueva orden de venta"
       description="Venta manual de la cuenta."
-      onSubmit={handleSubmit}
+      onSubmit={(event) => {
+        void handleSubmit(event);
+      }}
       error={error}
       isSubmitting={isSaving}
       submitDisabled={isLoading || !hasProductos}
@@ -122,6 +175,19 @@ export function OrdenVentaCreateModal({
             compact
           />
 
+          <PolariaFormSelect
+            id="orden-venta-producto"
+            label="Producto"
+            value={idProducto}
+            onChange={(event) => setIdProducto(event.target.value)}
+            placeholder="Selecciona un producto"
+            options={productos.map((producto) => ({
+              value: producto.idProducto,
+              label: producto.label,
+            }))}
+            compact
+          />
+
           <PolariaFormInput
             id="orden-venta-observaciones"
             label="Observaciones"
@@ -130,11 +196,6 @@ export function OrdenVentaCreateModal({
             onChange={(event) => setObservaciones(event.target.value)}
             compact
           />
-
-          <p className="polaria-text-body-sm text-polaria-w-50">
-            Las líneas de producto se habilitarán cuando el catálogo tenga
-            artículos listos para despacho.
-          </p>
         </>
       ) : null}
     </PolariaFormModal>
