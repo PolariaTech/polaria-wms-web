@@ -2,7 +2,11 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { PolariaDataTable } from "@/components/shared/PolariaDataTable";
-import { PolariaTableCode } from "@/components/shared/PolariaTableCells";
+import {
+  PolariaTableCode,
+  PolariaTableDeleteButton,
+  PolariaTableEditButton,
+} from "@/components/shared/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/useAsyncQuery";
 import { cn } from "@/lib/cn";
 import { useCompany } from "@/providers/CompanyProvider";
@@ -15,12 +19,14 @@ import {
   CATALOGO_TABLE_TITLE,
 } from "../constants/admin-catalog-list";
 import {
+  deactivateCatalogoProducto,
   importCatalogoProductosFromFile,
   listCatalogoProductosAdmin,
   type CatalogoProductoListRow,
 } from "../services/productos-catalogo.service";
 import { AdminCatalogListShell } from "./AdminCatalogListShell";
 import { ProductoCatalogoCreateModal } from "./ProductoCatalogoCreateModal";
+import { ProductoCatalogoEditModal } from "./ProductoCatalogoEditModal";
 import { ProductoSecundarioCreateModal } from "./ProductoSecundarioCreateModal";
 
 export function CatalogoListView() {
@@ -32,6 +38,8 @@ export function CatalogoListView() {
   const [isImporting, setIsImporting] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSecundarioOpen, setIsSecundarioOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
 
   const fetchProductos = useCallback(() => {
     if (!codigoCuenta) {
@@ -47,6 +55,29 @@ export function CatalogoListView() {
   );
 
   const rows = data ?? [];
+
+  const handleDelete = useCallback(
+    async (row: CatalogoProductoListRow) => {
+      if (!codigoCuenta || deletingProductId) return;
+
+      const confirmed = window.confirm(
+        `¿Eliminar el producto "${row.titulo}" (${row.sku})?`,
+      );
+      if (!confirmed) return;
+
+      setDeletingProductId(row.idProducto);
+
+      try {
+        await deactivateCatalogoProducto(codigoCuenta, row.idProducto);
+        await reload();
+      } catch {
+        window.alert("No se pudo eliminar el producto.");
+      } finally {
+        setDeletingProductId(null);
+      }
+    },
+    [codigoCuenta, deletingProductId, reload],
+  );
 
   const handleImportExcel = () => {
     if (!codigoCuenta || isImporting) return;
@@ -67,12 +98,25 @@ export function CatalogoListView() {
 
       if (result.imported > 0) {
         await reload();
-        setImportMessage(
-          result.errors.length
-            ? `Se importaron ${result.imported} producto(s). ${result.errors.length} fila(s) con error.`
-            : `Se importaron ${result.imported} producto(s) desde ${file.name}.`,
-        );
-      } else {
+      }
+
+      const parts: string[] = [];
+
+      if (result.imported > 0) {
+        parts.push(`Se importaron ${result.imported} producto(s) desde ${file.name}.`);
+      }
+
+      if (result.skipped > 0) {
+        parts.push(`${result.skipped} fila(s) omitida(s) por datos incompletos.`);
+      }
+
+      if (result.errors.length) {
+        parts.push(`${result.errors.length} fila(s) con error.`);
+      }
+
+      if (parts.length) {
+        setImportMessage(parts.join(" "));
+      } else if (result.imported === 0) {
         setImportError("No se importó ningún producto.");
       }
 
@@ -93,11 +137,6 @@ export function CatalogoListView() {
   const columns = useMemo(
     () =>
       [
-        {
-          id: "id-num",
-          header: "ID Num",
-          cell: (row: CatalogoProductoListRow) => row.idNum,
-        },
         {
           id: "codigo",
           header: "Código",
@@ -167,8 +206,25 @@ export function CatalogoListView() {
           cell: (row: CatalogoProductoListRow) => row.trackerInventario,
         },
         { id: "stock", header: "Stock", cell: (row: CatalogoProductoListRow) => row.stock },
+        {
+          id: "acciones",
+          header: "Acciones",
+          cell: (row: CatalogoProductoListRow) => (
+            <div className="flex flex-wrap items-center gap-2">
+              <PolariaTableEditButton
+                onClick={() => setEditingProductId(row.idProducto)}
+              />
+              <PolariaTableDeleteButton
+                disabled={deletingProductId === row.idProducto}
+                onClick={() => {
+                  void handleDelete(row);
+                }}
+              />
+            </div>
+          ),
+        },
       ] as const,
-    [],
+    [deletingProductId, handleDelete],
   );
 
   return (
@@ -255,6 +311,15 @@ export function CatalogoListView() {
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
+          void reload();
+        }}
+      />
+
+      <ProductoCatalogoEditModal
+        open={Boolean(editingProductId)}
+        idProducto={editingProductId}
+        onClose={() => setEditingProductId(null)}
+        onUpdated={() => {
           void reload();
         }}
       />
