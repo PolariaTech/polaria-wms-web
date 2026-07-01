@@ -204,7 +204,7 @@ export function ProductoSecundarioCreateModal({
       sectionLabel="Alta secundario"
       title="Crear producto secundario"
       compact
-      className="max-w-lg"
+      size="lg"
       onSubmit={(event) => {
         void handleSubmit(event);
       }}

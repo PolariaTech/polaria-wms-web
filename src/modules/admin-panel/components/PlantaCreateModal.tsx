@@ -97,7 +97,7 @@ export function PlantaCreateModal({
       isSubmitting={isSubmitting}
       submitLabel="Crear"
       compact
-      className="max-w-3xl"
+      size="xl"
     >
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <PolariaFormInput

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { PolariaDataTable } from "./PolariaDataTable";
 
@@ -86,5 +87,35 @@ describe("PolariaDataTable", () => {
     );
 
     expect(screen.getByText("No hay cuentas")).toBeInTheDocument();
+  });
+
+  it("pagina filas con máximo 5 por página", async () => {
+    const user = userEvent.setup();
+    const rows = Array.from({ length: 6 }, (_, index) => ({
+      id: String(index + 1),
+      code: `C${index + 1}`,
+      name: `Item ${index + 1}`,
+    }));
+
+    render(
+      <PolariaDataTable<Row>
+        title="Cuentas"
+        isLoading={false}
+        error={null}
+        rows={rows}
+        columns={columns}
+        getRowKey={(row) => row.id}
+        emptyMessage="Sin registros"
+      />,
+    );
+
+    expect(screen.getByText("Item 1")).toBeInTheDocument();
+    expect(screen.queryByText("Item 6")).not.toBeInTheDocument();
+    expect(screen.getByText("Mostrando 1–5 de 6")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+
+    expect(screen.getByText("Item 6")).toBeInTheDocument();
+    expect(screen.queryByText("Item 1")).not.toBeInTheDocument();
   });
 });

@@ -112,7 +112,7 @@ export function CamionCreateModal({
       isSubmitting={isSubmitting}
       submitLabel="Crear"
       compact
-      className="max-w-4xl"
+      size="xl"
     >
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <PolariaFormInput

@@ -45,4 +45,20 @@ describe("PolariaFormModal", () => {
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("aplica ancho según size", () => {
+    render(
+      <PolariaFormModal
+        open
+        onClose={() => undefined}
+        title="Modal ancho"
+        size="xl"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <input aria-label="Campo demo" />
+      </PolariaFormModal>,
+    );
+
+    expect(screen.getByRole("dialog")).toHaveClass("max-w-4xl");
+  });
 });

@@ -188,7 +188,7 @@ export function ProductoCatalogoCreateModal({
       sectionLabel="Alta catálogo"
       title="Nuevo producto"
       compact
-      className="max-w-6xl"
+      size="2xl"
       onSubmit={(event) => {
         void handleSubmit(event);
       }}

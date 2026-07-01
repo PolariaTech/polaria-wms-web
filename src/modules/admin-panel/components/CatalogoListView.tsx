@@ -19,6 +19,10 @@ import {
   CATALOGO_TABLE_TITLE,
 } from "../constants/admin-catalog-list";
 import {
+  applyCatalogoColumnWidths,
+  CATALOGO_TABLE_MIN_WIDTH_CLASS,
+} from "../constants/catalogo-table-layout";
+import {
   deactivateCatalogoProducto,
   importCatalogoProductosFromFile,
   listCatalogoProductosAdmin,
@@ -136,7 +140,7 @@ export function CatalogoListView() {
 
   const columns = useMemo(
     () =>
-      [
+      applyCatalogoColumnWidths([
         {
           id: "codigo",
           header: "Código",
@@ -223,7 +227,7 @@ export function CatalogoListView() {
             </div>
           ),
         },
-      ] as const,
+      ]),
     [deletingProductId, handleDelete],
   );
 
@@ -277,6 +281,7 @@ export function CatalogoListView() {
         }
         rows={rows}
         columns={columns}
+        tableClassName={CATALOGO_TABLE_MIN_WIDTH_CLASS}
         getRowKey={(row) => row.idProducto}
         emptyMessage={CATALOGO_EMPTY_MESSAGE}
         onRefresh={() => {

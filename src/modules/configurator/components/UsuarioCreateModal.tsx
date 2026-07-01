@@ -245,6 +245,7 @@ export function UsuarioCreateModal({
       sectionLabel="Nuevo usuario"
       title="Crear usuario"
       compact
+      size="lg"
       onSubmit={(event) => {
         void handleSubmit(event);
       }}

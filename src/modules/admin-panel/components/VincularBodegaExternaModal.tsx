@@ -130,7 +130,7 @@ export function VincularBodegaExternaModal({
               No hay bodegas externas disponibles para vincular.
             </p>
           ) : (
-            <ul className="flex max-h-64 flex-col gap-2 overflow-y-auto">
+            <ul className="polaria-scrollbar flex max-h-64 flex-col gap-2 overflow-y-auto">
               {options.map((bodega) => {
                 const isSelected = selectedId === bodega.idBodega;
 

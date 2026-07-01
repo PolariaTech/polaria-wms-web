@@ -2,6 +2,15 @@
 
 import { Plus, RotateCw } from "lucide-react";
 import type { ChangeEvent, ReactNode } from "react";
+import { PolariaTablePaginationFooter } from "@/components/shared/PolariaTablePaginationFooter";
+import {
+  getPaginationPlaceholderCount,
+  getTableBodyMinHeightStyle,
+  POLARIA_TABLE_ROW_HEIGHT_CLASS,
+  POLARIA_TABLE_SCROLL_CLASS,
+} from "@/components/shared/polaria-table-layout";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/constants/table-pagination";
+import { useClientTablePagination } from "@/hooks/useClientTablePagination";
 import { cn } from "@/lib/cn";
 
 export interface PolariaDataTableColumn<T> {
@@ -43,6 +52,9 @@ export interface PolariaDataTableProps<T> {
   /** Fila clickeable (p. ej. abrir detalle). */
   onRowClick?: (row: T) => void;
   getRowAriaLabel?: (row: T) => string;
+  pageSize?: number;
+  pagination?: boolean;
+  tableClassName?: string;
 }
 
 export function PolariaDataTable<T>({
@@ -62,8 +74,27 @@ export function PolariaDataTable<T>({
   className,
   onRowClick,
   getRowAriaLabel,
+  pageSize = DEFAULT_TABLE_PAGE_SIZE,
+  pagination = true,
+  tableClassName,
 }: PolariaDataTableProps<T>) {
   const showTable = !isLoading && !error;
+  const {
+    paginatedRows,
+    page,
+    totalItems,
+    setPage,
+  } = useClientTablePagination(
+    rows,
+    pagination ? pageSize : rows.length || 1,
+    search?.value,
+  );
+  const visibleRows = pagination ? paginatedRows : rows;
+  const placeholderCount = getPaginationPlaceholderCount(
+    visibleRows.length,
+    pageSize,
+    pagination,
+  );
 
   return (
     <section
@@ -99,7 +130,7 @@ export function PolariaDataTable<T>({
           ) : null}
 
           <span className="polaria-text-body-sm text-polaria-w-50">
-            Total: {isLoading ? "—" : rows.length}
+            Total: {isLoading ? "—" : totalItems}
           </span>
 
           {onRefresh ? (
@@ -170,14 +201,20 @@ export function PolariaDataTable<T>({
       ) : null}
 
       {isLoading ? (
-        <p className="polaria-text-body-sm px-5 py-8 text-polaria-w-50 sm:px-6">
+        <p
+          className="polaria-text-body-sm px-5 py-8 text-polaria-w-50 sm:px-6"
+          style={pagination ? getTableBodyMinHeightStyle(pageSize) : undefined}
+        >
           Cargando…
         </p>
       ) : null}
 
       {showTable ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left">
+        <div
+          className={POLARIA_TABLE_SCROLL_CLASS}
+          style={pagination ? getTableBodyMinHeightStyle(pageSize) : undefined}
+        >
+          <table className={cn("w-full text-left", tableClassName)}>
             <thead className="border-b border-polaria-w-08">
               <tr>
                 {columns.map((column) => (
@@ -195,7 +232,7 @@ export function PolariaDataTable<T>({
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {visibleRows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={columns.length}
@@ -205,10 +242,11 @@ export function PolariaDataTable<T>({
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => (
+                visibleRows.map((row) => (
                   <tr
                     key={getRowKey(row)}
                     className={cn(
+                      POLARIA_TABLE_ROW_HEIGHT_CLASS,
                       "border-t border-polaria-w-08 text-polaria-w",
                       onRowClick &&
                         "cursor-pointer transition-colors hover:bg-polaria-t-08 focus-visible:bg-polaria-t-08 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-polaria-teal",
@@ -242,7 +280,7 @@ export function PolariaDataTable<T>({
                       <td
                         key={column.id}
                         className={cn(
-                          "polaria-text-body px-5 py-4 sm:px-6",
+                          "polaria-text-body align-middle px-5 py-0 sm:px-6",
                           column.cellClassName,
                         )}
                       >
@@ -252,9 +290,32 @@ export function PolariaDataTable<T>({
                   </tr>
                 ))
               )}
+              {Array.from({ length: placeholderCount }, (_, index) => (
+                <tr
+                  key={`placeholder-${index}`}
+                  aria-hidden
+                  className={cn(
+                    POLARIA_TABLE_ROW_HEIGHT_CLASS,
+                    "border-t border-polaria-w-08",
+                  )}
+                >
+                  <td colSpan={columns.length} className="px-5 py-0 sm:px-6">
+                    &nbsp;
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
+      ) : null}
+
+      {showTable && pagination ? (
+        <PolariaTablePaginationFooter
+          page={page}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setPage}
+        />
       ) : null}
     </section>
   );

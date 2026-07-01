@@ -301,7 +301,7 @@ export function OrdenProcesamientoCreateModal({
       isSubmitting={isSubmitting}
       submitLabel="Confirmar y enviar a bodega"
       compact
-      className="max-w-lg"
+      size="lg"
     >
       <div className="flex flex-col gap-2">
         <label

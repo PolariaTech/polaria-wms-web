@@ -94,6 +94,7 @@ export function UsuarioAdminCreateModal({
       sectionLabel="Asignar usuario"
       title="Asignar usuario"
       compact
+      size="lg"
       onSubmit={(event) => {
         void handleSubmit(event);
       }}

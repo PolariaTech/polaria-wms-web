@@ -213,7 +213,7 @@ export function ProductoCatalogoEditModal({
       sectionLabel="Edición catálogo"
       title="Editar producto"
       compact
-      className="max-w-6xl"
+      size="2xl"
       onSubmit={(event) => {
         void handleSubmit(event);
       }}

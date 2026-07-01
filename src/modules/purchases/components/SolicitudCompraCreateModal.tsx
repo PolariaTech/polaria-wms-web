@@ -195,7 +195,7 @@ export function SolicitudCompraCreateModal({
       isSubmitting={isSubmitting}
       submitLabel="Guardar solicitud"
       compact
-      className="max-w-lg"
+      size="md"
     >
       <p className="polaria-text-body-sm text-polaria-w-50">
         Peso kg por ítem.

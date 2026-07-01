@@ -1,6 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { PolariaTablePaginationFooter } from "@/components/shared/PolariaTablePaginationFooter";
+import {
+  getPaginationPlaceholderCount,
+  getTableBodyMinHeightStyle,
+  POLARIA_TABLE_ROW_HEIGHT_CLASS,
+  POLARIA_TABLE_SCROLL_CLASS,
+} from "@/components/shared/polaria-table-layout";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/constants/table-pagination";
+import { useClientTablePagination } from "@/hooks/useClientTablePagination";
 import { cn } from "@/lib/cn";
 
 export interface ModuleListColumn<T> {
@@ -20,6 +29,9 @@ export interface ModuleListPageProps<T> {
   emptyMessage: string;
   getRowKey: (row: T) => string;
   className?: string;
+  pageSize?: number;
+  pagination?: boolean;
+  tableClassName?: string;
 }
 
 export function ModuleListPage<T>({
@@ -31,7 +43,26 @@ export function ModuleListPage<T>({
   emptyMessage,
   getRowKey,
   className,
+  pageSize = DEFAULT_TABLE_PAGE_SIZE,
+  pagination = true,
+  tableClassName,
 }: ModuleListPageProps<T>) {
+  const {
+    paginatedRows,
+    page,
+    totalItems,
+    setPage,
+  } = useClientTablePagination(
+    rows,
+    pagination ? pageSize : rows.length || 1,
+  );
+  const visibleRows = pagination ? paginatedRows : rows;
+  const placeholderCount = getPaginationPlaceholderCount(
+    visibleRows.length,
+    pageSize,
+    pagination,
+  );
+
   return (
     <section className={cn("flex flex-col gap-3", className)}>
       {sectionTitle ? (
@@ -52,8 +83,14 @@ export function ModuleListPage<T>({
       {isLoading ? (
         <p className="polaria-text-body-sm text-polaria-w-50">Cargando…</p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-polaria-t-20 bg-polaria-t-08">
-          <table className="min-w-full text-left text-sm">
+        <div
+          className={cn(
+            POLARIA_TABLE_SCROLL_CLASS,
+            "rounded-2xl border border-polaria-t-20 bg-polaria-t-08",
+          )}
+          style={pagination ? getTableBodyMinHeightStyle(pageSize) : undefined}
+        >
+          <table className={cn("w-full text-left text-sm", tableClassName)}>
             <thead className="border-b border-polaria-w-08 text-polaria-w-50">
               <tr>
                 {columns.map((column) => (
@@ -70,7 +107,7 @@ export function ModuleListPage<T>({
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {visibleRows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={columns.length}
@@ -80,15 +117,21 @@ export function ModuleListPage<T>({
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => (
+                visibleRows.map((row) => (
                   <tr
                     key={getRowKey(row)}
-                    className="border-t border-polaria-w-08 text-polaria-w"
+                    className={cn(
+                      POLARIA_TABLE_ROW_HEIGHT_CLASS,
+                      "border-t border-polaria-w-08 text-polaria-w",
+                    )}
                   >
                     {columns.map((column) => (
                       <td
                         key={column.id}
-                        className={cn("px-4 py-3", column.cellClassName)}
+                        className={cn(
+                          "align-middle px-4 py-0",
+                          column.cellClassName,
+                        )}
                       >
                         {column.cell(row)}
                       </td>
@@ -96,8 +139,31 @@ export function ModuleListPage<T>({
                   </tr>
                 ))
               )}
+              {Array.from({ length: placeholderCount }, (_, index) => (
+                <tr
+                  key={`placeholder-${index}`}
+                  aria-hidden
+                  className={cn(
+                    POLARIA_TABLE_ROW_HEIGHT_CLASS,
+                    "border-t border-polaria-w-08",
+                  )}
+                >
+                  <td colSpan={columns.length} className="px-4 py-0">
+                    &nbsp;
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
+
+          {pagination ? (
+            <PolariaTablePaginationFooter
+              page={page}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setPage}
+            />
+          ) : null}
         </div>
       )}
     </section>

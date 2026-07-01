@@ -40,7 +40,7 @@ export function SolicitudCompraDetalleModal({
         onClose();
       }}
       compact
-      className="max-w-lg"
+      size="md"
     >
       <p className="polaria-text-label text-polaria-w-50">Productos y peso</p>
 

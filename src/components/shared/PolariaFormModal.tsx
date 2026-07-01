@@ -20,9 +20,19 @@ export interface PolariaFormModalProps {
   cancelLabel?: string;
   closeLabel?: string;
   className?: string;
-  /** Formularios largos: menos padding, cabecera compacta y scroll interno. */
+  /** Formularios largos: menos padding y cabecera compacta. */
   compact?: boolean;
+  /** Ancho máximo del panel; por defecto según `compact`. */
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
 }
+
+const MODAL_SIZE_CLASS = {
+  sm: "max-w-md",
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-4xl",
+  "2xl": "max-w-5xl",
+} as const;
 
 export function PolariaFormModal({
   open,
@@ -40,6 +50,7 @@ export function PolariaFormModal({
   closeLabel = "Cerrar",
   className,
   compact = false,
+  size,
 }: PolariaFormModalProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -67,9 +78,16 @@ export function PolariaFormModal({
     return null;
   }
 
+  const widthClass =
+    size != null
+      ? MODAL_SIZE_CLASS[size]
+      : compact
+        ? MODAL_SIZE_CLASS.sm
+        : MODAL_SIZE_CLASS.md;
+
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain">
-      <div className="flex min-h-full justify-center px-4 pb-10 pt-20 sm:px-6 sm:pb-12 sm:pt-24">
+    <div className="polaria-scrollbar fixed inset-0 z-[100] overflow-y-auto overscroll-contain">
+      <div className="flex min-h-full items-center justify-center px-4 py-10 sm:px-6 sm:py-12">
         <button
           type="button"
           aria-label="Cerrar modal"
@@ -85,8 +103,10 @@ export function PolariaFormModal({
           aria-labelledby={titleId}
           aria-describedby={description ? descriptionId : undefined}
           className={cn(
-            "polaria-card-glow relative z-10 mt-2 flex w-full max-h-[min(85dvh,calc(100dvh-7rem))] flex-col rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
-            compact ? "max-w-md p-4 sm:p-5" : "max-w-lg p-6 sm:p-8",
+            "polaria-card-glow relative z-10 flex w-full flex-col rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
+            "max-h-[min(85dvh,calc(100dvh-5rem))]",
+            widthClass,
+            compact ? "p-4 sm:p-5" : "p-6 sm:p-8",
             className,
           )}
         >
@@ -139,14 +159,12 @@ export function PolariaFormModal({
             </button>
           </div>
 
-          <form
-            onSubmit={onSubmit}
-            className="flex min-h-0 flex-1 flex-col"
-          >
+          <form onSubmit={onSubmit} className="flex flex-col">
             <div
               className={cn(
-                "min-h-0 flex-1 overflow-y-auto pr-1",
+                "polaria-scrollbar overflow-y-auto pr-1",
                 compact ? "space-y-3" : "space-y-5",
+                "max-h-[min(60dvh,calc(100dvh-14rem))]",
               )}
             >
               {children}

@@ -151,7 +151,7 @@ export function OrdenVentaCreateModal({
       submitDisabled={isLoading || !hasProductos}
       submitLabel="Crear venta"
       compact
-      className="max-w-lg"
+      size="md"
     >
       {isLoading ? (
         <p className="polaria-text-body-sm text-polaria-w-50">Cargando…</p>
