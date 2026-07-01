@@ -1,6 +1,7 @@
 import { DomainServiceError } from "@/lib/domain-service-error";
 import { ApiError, apiRequest } from "@/services/api";
 import type {
+  CreateOrdenCompraApiInput,
   CreateSolicitudCompraApiInput,
   OrdenCompraApiRow,
   SolicitudCompraApiRow,
@@ -77,6 +78,77 @@ export async function createSolicitudCompraApi(
     idBodega,
     ...(idProveedor ? { idProveedor } : {}),
     observaciones: observaciones || null,
+    lineas,
+  });
+}
+
+/** Crea una orden de compra manual vía API Nest (escritura). */
+export async function createOrdenCompraApi(
+  input: CreateOrdenCompraApiInput,
+): Promise<OrdenCompraApiRow> {
+  const codigoCuenta = input.codigoCuenta.trim();
+  const idBodega = input.idBodega.trim();
+  const idProveedor = input.idProveedor.trim();
+  const observaciones = input.observaciones?.trim() ?? "";
+  const fechaEntregaEstimada = input.fechaEntregaEstimada?.trim() ?? "";
+
+  if (!codigoCuenta) {
+    throw new DomainServiceError(
+      "No se encontró la cuenta activa.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!idBodega) {
+    throw new DomainServiceError(
+      "No se encontró la bodega activa.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!idProveedor) {
+    throw new DomainServiceError(
+      "Selecciona un proveedor para la orden.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!input.lineas.length) {
+    throw new DomainServiceError(
+      "Agrega al menos una línea de producto.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const lineas = input.lineas.map((linea, index) => {
+    const idProducto = linea.idProducto.trim();
+    const cantidad = linea.cantidad;
+
+    if (!idProducto) {
+      throw new DomainServiceError(
+        `Selecciona un producto en la línea ${index + 1}.`,
+        "INVALID_ARGUMENT",
+      );
+    }
+
+    if (!Number.isFinite(cantidad) || cantidad <= 0) {
+      throw new DomainServiceError(
+        `La cantidad de la línea ${index + 1} debe ser mayor a cero.`,
+        "INVALID_ARGUMENT",
+      );
+    }
+
+    return { idProducto, cantidad };
+  });
+
+  return postComprasApi<OrdenCompraApiRow>("/compras/ordenes", {
+    codigoCuenta,
+    idBodega,
+    idProveedor,
+    observaciones: observaciones || null,
+    ...(fechaEntregaEstimada
+      ? { fechaEntregaEstimada }
+      : {}),
     lineas,
   });
 }

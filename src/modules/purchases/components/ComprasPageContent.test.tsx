@@ -20,6 +20,7 @@ vi.mock("../services/purchases-api.service", () => ({
   aprobarSolicitudCompraApi: vi.fn(),
   convertirSolicitudCompraAOrdenApi: vi.fn(),
   createSolicitudCompraApi: vi.fn(),
+  createOrdenCompraApi: vi.fn(),
   emitirOrdenCompraApi: vi.fn(),
   enviarSolicitudCompraAprobacionApi: vi.fn(),
 }));
@@ -45,6 +46,7 @@ const ORDEN_EMITIDA: OrdenCompraRow = {
   codigo_cuenta: "CUENTA-01",
   id_bodega: "BOD-01",
   id_proveedor: "prov-1",
+  proveedor_nombre: "Pat-lafrieda",
   id_solicitud_compra: "sol-1",
   id_creador: "user-1",
   codigo: "OC-001",

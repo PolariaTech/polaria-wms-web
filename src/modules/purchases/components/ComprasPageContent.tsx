@@ -6,7 +6,6 @@ import {
   PolariaTableBadge,
   PolariaTableCode,
 } from "@/components/shared/PolariaTableCells";
-import { formatDateTime } from "@/components/shared/formatters";
 import { WmsRol } from "@/constants/roles";
 import { useAsyncQuery } from "@/hooks/useAsyncQuery";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -34,10 +33,16 @@ import {
 } from "../services/purchases.service";
 import type { OrdenCompraRow, SolicitudCompraRow } from "../types/purchases.types";
 import {
+  formatFechaOrden,
+  formatObservacionOrden,
+  nombresProductosOrden,
+} from "../utils/orden-compra-display";
+import {
   compareSolicitudCompraByCodigoDesc,
   nombresProductosSolicitud,
   pesosProductosSolicitud,
 } from "../utils/solicitud-compra-display";
+import { OrdenCompraCreateModal } from "./OrdenCompraCreateModal";
 import { SolicitudCompraCreateModal } from "./SolicitudCompraCreateModal";
 import { SolicitudCompraDetalleModal } from "./SolicitudCompraDetalleModal";
 
@@ -51,16 +56,16 @@ function formatObservacionesOrden(
   row: OrdenCompraRow,
   notifiedOrdenIds: ReadonlySet<string>,
 ): string {
-  const base = row.observaciones?.trim();
+  const base = formatObservacionOrden(row.observaciones);
   const notifiedNote = notifiedOrdenIds.has(row.id_orden_compra)
     ? "Proveedor notificado"
     : null;
 
-  if (base && notifiedNote) {
+  if (base !== "—" && notifiedNote) {
     return `${base} — ${notifiedNote}`;
   }
 
-  return base ?? notifiedNote ?? "—";
+  return base !== "—" ? base : (notifiedNote ?? "—");
 }
 
 export function ComprasPageContent() {
@@ -68,6 +73,7 @@ export function ComprasPageContent() {
   const { idRol } = usePermissions();
   const [activeTab, setActiveTab] = useState<ComprasTab>("solicitudes");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isOrdenCreateOpen, setIsOrdenCreateOpen] = useState(false);
   const [solicitudDetalle, setSolicitudDetalle] =
     useState<SolicitudCompraRow | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -265,10 +271,27 @@ export function ComprasPageContent() {
     () =>
       [
         {
-          id: "codigo",
-          header: "Código",
+          id: "orden",
+          header: "Orden",
           cell: (row: OrdenCompraRow) => (
             <PolariaTableCode>{row.codigo}</PolariaTableCode>
+          ),
+        },
+        {
+          id: "proveedor",
+          header: "Proveedor",
+          cell: (row: OrdenCompraRow) => row.proveedor_nombre ?? "—",
+        },
+        {
+          id: "productos",
+          header: "Productos",
+          cell: (row: OrdenCompraRow) => (
+            <span
+              className="line-clamp-2 font-medium"
+              title={nombresProductosOrden(row)}
+            >
+              {nombresProductosOrden(row)}
+            </span>
           ),
         },
         {
@@ -281,20 +304,14 @@ export function ComprasPageContent() {
           ),
         },
         {
-          id: "proveedor",
-          header: "Proveedor",
-          cell: (row: OrdenCompraRow) => row.id_proveedor,
-          cellClassName: "font-mono text-xs text-polaria-w-50",
+          id: "fecha",
+          header: "Fecha",
+          cell: (row: OrdenCompraRow) => formatFechaOrden(row.fecha_emision),
+          cellClassName: "text-polaria-w-50 whitespace-nowrap",
         },
         {
-          id: "emision",
-          header: "Emisión",
-          cell: (row: OrdenCompraRow) => formatDateTime(row.fecha_emision),
-          cellClassName: "text-polaria-w-50",
-        },
-        {
-          id: "observaciones",
-          header: "Observaciones",
+          id: "observacion",
+          header: "Observación",
           cell: (row: OrdenCompraRow) =>
             formatObservacionesOrden(row, notifiedOrdenIds),
           cellClassName: "text-polaria-w-50",
@@ -413,17 +430,21 @@ export function ComprasPageContent() {
       ) : (
         <PolariaDataTable
           title="Órdenes de compra"
-          subtitle="Emisión y seguimiento de OC."
+          subtitle="Orden · proveedor · productos · estado · fecha"
           isLoading={ordenes.isLoading}
           error={ordenes.error ?? tenantError}
           rows={ordenes.data ?? []}
           columns={ordenColumns}
           getRowKey={(row) => row.id_orden_compra}
-          emptyMessage="Sin órdenes de compra registradas."
+          emptyMessage="Sin órdenes de compra. Usá «Nueva orden» para crear la primera."
           onRefresh={() => {
             void ordenes.reload();
           }}
           isRefreshing={ordenes.isRefreshing}
+          primaryAction={{
+            label: "Nueva orden",
+            onClick: () => setIsOrdenCreateOpen(true),
+          }}
         />
       )}
 
@@ -432,6 +453,14 @@ export function ComprasPageContent() {
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
           void solicitudes.reload();
+        }}
+      />
+
+      <OrdenCompraCreateModal
+        open={isOrdenCreateOpen}
+        onClose={() => setIsOrdenCreateOpen(false)}
+        onCreated={() => {
+          void ordenes.reload();
         }}
       />
 

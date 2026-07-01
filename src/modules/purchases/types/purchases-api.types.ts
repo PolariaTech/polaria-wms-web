@@ -30,3 +30,17 @@ export interface OrdenCompraApiRow {
   idBodega: string;
   idSolicitudCompra: string | null;
 }
+
+export interface OrdenCompraLineaApiInput {
+  idProducto: string;
+  cantidad: number;
+}
+
+export interface CreateOrdenCompraApiInput {
+  codigoCuenta: string;
+  idBodega: string;
+  idProveedor: string;
+  observaciones?: string | null;
+  fechaEntregaEstimada?: string | null;
+  lineas: OrdenCompraLineaApiInput[];
+}
