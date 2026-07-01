@@ -52,6 +52,8 @@ export interface OrdenCompraLineaRow {
   } | null;
 }
 
+export type DestinoTipoOrden = "interna" | "externa";
+
 export interface OrdenCompraRow {
   id_orden_compra: string;
   codigo_cuenta: string;

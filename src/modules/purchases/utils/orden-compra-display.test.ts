@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { OrdenCompraRow } from "../types/purchases.types";
 import {
+  formatDestinoTipoOrden,
   formatFechaOrden,
   formatObservacionOrden,
   nombresProductosOrden,
+  parseDestinoTipoOrden,
+  toFechaOrdenInputValue,
+  fechaOrdenInputToStorage,
 } from "./orden-compra-display";
 
 const baseOrden: OrdenCompraRow = {
@@ -48,5 +52,23 @@ describe("orden-compra-display", () => {
   it("formatObservacionOrden devuelve guión si está vacío", () => {
     expect(formatObservacionOrden(null)).toBe("—");
     expect(formatObservacionOrden("Entrega muelle 3")).toBe("Entrega muelle 3");
+  });
+
+  it("formatDestinoTipoOrden normaliza etiquetas", () => {
+    expect(formatDestinoTipoOrden("interna")).toBe("Bodega interna");
+    expect(formatDestinoTipoOrden("bodega_externa")).toBe("Bodega externa");
+    expect(formatDestinoTipoOrden("bodega")).toBe("Bodega interna");
+  });
+
+  it("parseDestinoTipoOrden devuelve interna o externa", () => {
+    expect(parseDestinoTipoOrden("bodega_interna")).toBe("interna");
+    expect(parseDestinoTipoOrden("externa")).toBe("externa");
+  });
+
+  it("convierte fechas para input date", () => {
+    expect(toFechaOrdenInputValue("2026-06-30T12:00:00.000Z")).toBe("2026-06-30");
+    expect(fechaOrdenInputToStorage("2026-07-05")).toBe(
+      "2026-07-05T12:00:00.000Z",
+    );
   });
 });

@@ -3,10 +3,12 @@ import {
   DEFAULT_LIST_LIMIT,
   type TenantListParams,
   runDomainQuery,
+  runDomainMutation,
 } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/domain-service-error";
 import { decodeProveedorRazonSocial } from "@/modules/admin-panel/services/proveedores.service";
 import type {
+  DestinoTipoOrden,
   OrdenCompraLineaRow,
   OrdenCompraRow,
   RecepcionCompraRow,
@@ -271,6 +273,64 @@ export async function listOrdenCompraLineas(
   }
 
   return lineas;
+}
+
+export async function updateOrdenCompraDestino(
+  idOrdenCompra: string,
+  codigoCuenta: string,
+  patch: {
+    destinoTipo?: DestinoTipoOrden;
+    fechaEntregaEstimada?: string | null;
+  },
+): Promise<void> {
+  const ordenId = idOrdenCompra.trim();
+  const cuenta = codigoCuenta.trim();
+
+  if (!ordenId) {
+    throw new DomainServiceError(
+      "La orden de compra no es válida.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!cuenta) {
+    throw new DomainServiceError(
+      "No se encontró la cuenta activa.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const body: {
+    destino_tipo?: DestinoTipoOrden;
+    fecha_entrega_estimada?: string | null;
+  } = {};
+
+  if (patch.destinoTipo !== undefined) {
+    body.destino_tipo = patch.destinoTipo;
+  }
+
+  if (patch.fechaEntregaEstimada !== undefined) {
+    body.fecha_entrega_estimada =
+      patch.fechaEntregaEstimada === null || patch.fechaEntregaEstimada === ""
+        ? null
+        : patch.fechaEntregaEstimada.includes("T")
+          ? patch.fechaEntregaEstimada
+          : `${patch.fechaEntregaEstimada}T12:00:00.000Z`;
+  }
+
+  if (!Object.keys(body).length) {
+    return;
+  }
+
+  await runDomainMutation((client) =>
+    client
+      .from("orden_compra")
+      .update(body)
+      .eq("id_orden_compra", ordenId)
+      .eq("codigo_cuenta", cuenta)
+      .select("id_orden_compra")
+      .single(),
+  );
 }
 
 export async function listRecepciones(

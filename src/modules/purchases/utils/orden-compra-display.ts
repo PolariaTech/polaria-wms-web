@@ -1,6 +1,7 @@
 import { formatKgEs } from "@/lib/decimal-es";
 import { parseCatalogoMetadatos } from "@/modules/admin-panel/constants/catalogo-producto";
 import type {
+  DestinoTipoOrden,
   OrdenCompraLineaRow,
   OrdenCompraRow,
 } from "../types/purchases.types";
@@ -45,11 +46,76 @@ export function formatFechaOrden(value: string | null | undefined): string {
   });
 }
 
+/** Valor para `<input type="date">` desde ISO o fecha almacenada. */
+export function toFechaOrdenInputValue(
+  value: string | null | undefined,
+): string {
+  if (!value?.trim()) {
+    return "";
+  }
+
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Convierte yyyy-mm-dd del input a ISO para persistir en BD. */
+export function fechaOrdenInputToStorage(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return null;
+  }
+
+  return `${trimmed}T12:00:00.000Z`;
+}
+
 export function formatObservacionOrden(
   observaciones: string | null | undefined,
 ): string {
   const trimmed = observaciones?.trim();
   return trimmed || "—";
+}
+
+export function parseDestinoTipoOrden(destinoTipo: string): DestinoTipoOrden {
+  const normalized = destinoTipo.trim().toLowerCase();
+
+  if (normalized.includes("extern")) {
+    return "externa";
+  }
+
+  return "interna";
+}
+
+export function formatDestinoTipoOrden(destinoTipo: string | DestinoTipoOrden): string {
+  const value =
+    destinoTipo === "interna" || destinoTipo === "externa"
+      ? destinoTipo
+      : parseDestinoTipoOrden(destinoTipo);
+
+  return formatDestinoTipoOrdenValue(value);
+}
+
+export function formatDestinoTipoOrdenValue(destinoTipo: DestinoTipoOrden): string {
+  return destinoTipo === "externa" ? "Bodega externa" : "Bodega interna";
+}
+
+export function destinoTipoOrdenToStorage(destinoTipo: DestinoTipoOrden): string {
+  return destinoTipo;
 }
 
 export function formatCantidadesOrden(orden: OrdenCompraRow): string {

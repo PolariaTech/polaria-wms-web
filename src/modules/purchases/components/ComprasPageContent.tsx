@@ -30,8 +30,9 @@ import {
   listOrdenCompraLineas,
   listOrdenesCompra,
   listSolicitudesCompra,
+  updateOrdenCompraDestino,
 } from "../services/purchases.service";
-import type { OrdenCompraRow, SolicitudCompraRow } from "../types/purchases.types";
+import type { DestinoTipoOrden, OrdenCompraRow, SolicitudCompraRow } from "../types/purchases.types";
 import {
   formatFechaOrden,
   formatObservacionOrden,
@@ -43,6 +44,7 @@ import {
   pesosProductosSolicitud,
 } from "../utils/solicitud-compra-display";
 import { OrdenCompraCreateModal } from "./OrdenCompraCreateModal";
+import { OrdenCompraDetalleModal } from "./OrdenCompraDetalleModal";
 import { SolicitudCompraCreateModal } from "./SolicitudCompraCreateModal";
 import { SolicitudCompraDetalleModal } from "./SolicitudCompraDetalleModal";
 
@@ -76,12 +78,15 @@ export function ComprasPageContent() {
   const [isOrdenCreateOpen, setIsOrdenCreateOpen] = useState(false);
   const [solicitudDetalle, setSolicitudDetalle] =
     useState<SolicitudCompraRow | null>(null);
+  const [ordenDetalle, setOrdenDetalle] = useState<OrdenCompraRow | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [notifiedOrdenIds, setNotifiedOrdenIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [isSavingDestino, setIsSavingDestino] = useState(false);
+  const [destinoError, setDestinoError] = useState<string | null>(null);
 
   const puedeAprobarSolicitud =
     idRol === WmsRol.administrador_cuenta || idRol === WmsRol.configurador;
@@ -127,6 +132,7 @@ export function ComprasPageContent() {
         await action();
         await Promise.all([solicitudes.reload(), ordenes.reload()]);
         setSolicitudDetalle(null);
+        setOrdenDetalle(null);
       } catch (err: unknown) {
         setActionError(
           err instanceof DomainServiceError
@@ -174,6 +180,60 @@ export function ComprasPageContent() {
       }
     },
     [],
+  );
+
+  const handleDestinoChange = useCallback(
+    async (patch: {
+      destinoTipo?: DestinoTipoOrden;
+      fechaEntregaEstimada?: string | null;
+    }) => {
+      if (!ordenDetalle || !codigoCuenta) {
+        return;
+      }
+
+      setDestinoError(null);
+      setIsSavingDestino(true);
+
+      try {
+        await updateOrdenCompraDestino(
+          ordenDetalle.id_orden_compra,
+          codigoCuenta,
+          patch,
+        );
+
+        setOrdenDetalle((current) =>
+          current
+            ? {
+                ...current,
+                ...(patch.destinoTipo !== undefined
+                  ? { destino_tipo: patch.destinoTipo }
+                  : {}),
+                ...(patch.fechaEntregaEstimada !== undefined
+                  ? {
+                      fecha_entrega_estimada:
+                        patch.fechaEntregaEstimada === null ||
+                        patch.fechaEntregaEstimada === ""
+                          ? null
+                          : patch.fechaEntregaEstimada.includes("T")
+                            ? patch.fechaEntregaEstimada
+                            : `${patch.fechaEntregaEstimada}T12:00:00.000Z`,
+                    }
+                  : {}),
+              }
+            : current,
+        );
+        await ordenes.reload();
+      } catch (err: unknown) {
+        setDestinoError(
+          err instanceof DomainServiceError
+            ? err.message
+            : "No se pudo actualizar el destino.",
+        );
+      } finally {
+        setIsSavingDestino(false);
+      }
+    },
+    [codigoCuenta, ordenDetalle, ordenes],
   );
 
   const solicitudColumns = useMemo(
@@ -267,6 +327,50 @@ export function ComprasPageContent() {
     );
   };
 
+  const renderOrdenActions = (row: OrdenCompraRow): ReactNode => {
+    const isPending = pendingActionId?.startsWith(row.id_orden_compra);
+
+    if (row.estado === "borrador") {
+      return (
+        <ActionButton
+          label="Emitir orden"
+          primary
+          disabled={Boolean(isPending)}
+          onClick={() => {
+            void runAction(`${row.id_orden_compra}:emitir`, () =>
+              emitirOrdenCompraApi(row.id_orden_compra),
+            );
+          }}
+        />
+      );
+    }
+
+    if (row.estado === "emitida") {
+      if (notifiedOrdenIds.has(row.id_orden_compra)) {
+        return null;
+      }
+
+      return (
+        <ActionButton
+          label={
+            pendingActionId === `${row.id_orden_compra}:notificar`
+              ? "Enviando…"
+              : "Notificar proveedor"
+          }
+          primary
+          disabled={Boolean(isPending)}
+          onClick={() => {
+            void runNotifyProveedor(row);
+          }}
+        />
+      );
+    }
+
+    return notifiedOrdenIds.has(row.id_orden_compra) ? (
+      <PolariaTableBadge>Notificado</PolariaTableBadge>
+    ) : null;
+  };
+
   const ordenColumns = useMemo(
     () =>
       [
@@ -316,56 +420,8 @@ export function ComprasPageContent() {
             formatObservacionesOrden(row, notifiedOrdenIds),
           cellClassName: "text-polaria-w-50",
         },
-        {
-          id: "acciones",
-          header: "Acciones",
-          cell: (row: OrdenCompraRow) => {
-            const isPending = pendingActionId?.startsWith(row.id_orden_compra);
-
-            if (row.estado === "borrador") {
-              return (
-                <ActionButton
-                  label="Emitir OC"
-                  disabled={Boolean(isPending)}
-                  onClick={() => {
-                    void runAction(`${row.id_orden_compra}:emitir`, () =>
-                      emitirOrdenCompraApi(row.id_orden_compra),
-                    );
-                  }}
-                />
-              );
-            }
-
-            if (row.estado === "emitida") {
-              return (
-                <div className="flex flex-wrap items-center gap-2">
-                  {notifiedOrdenIds.has(row.id_orden_compra) ? (
-                    <PolariaTableBadge>Notificado</PolariaTableBadge>
-                  ) : null}
-                  <ActionButton
-                    label={
-                      pendingActionId === `${row.id_orden_compra}:notificar`
-                        ? "Enviando…"
-                        : "Notificar proveedor"
-                    }
-                    disabled={Boolean(isPending)}
-                    onClick={() => {
-                      void runNotifyProveedor(row);
-                    }}
-                  />
-                </div>
-              );
-            }
-
-            return notifiedOrdenIds.has(row.id_orden_compra) ? (
-              <PolariaTableBadge>Notificado</PolariaTableBadge>
-            ) : (
-              "—"
-            );
-          },
-        },
       ] as const,
-    [notifiedOrdenIds, pendingActionId, runAction, runNotifyProveedor],
+    [notifiedOrdenIds],
   );
 
   const tenantError =
@@ -441,6 +497,8 @@ export function ComprasPageContent() {
             void ordenes.reload();
           }}
           isRefreshing={ordenes.isRefreshing}
+          onRowClick={(row) => setOrdenDetalle(row)}
+          getRowAriaLabel={(row) => `Ver detalle de orden ${row.codigo}`}
           primaryAction={{
             label: "Nueva orden",
             onClick: () => setIsOrdenCreateOpen(true),
@@ -469,6 +527,25 @@ export function ComprasPageContent() {
           solicitud={solicitudDetalle}
           onClose={() => setSolicitudDetalle(null)}
           actions={renderSolicitudActions(solicitudDetalle)}
+        />
+      ) : null}
+
+      {ordenDetalle ? (
+        <OrdenCompraDetalleModal
+          orden={ordenDetalle}
+          onClose={() => {
+            setOrdenDetalle(null);
+            setDestinoError(null);
+          }}
+          actions={renderOrdenActions(ordenDetalle)}
+          notified={notifiedOrdenIds.has(ordenDetalle.id_orden_compra)}
+          onDestinoChange={
+            ordenDetalle.estado === "borrador"
+              ? handleDestinoChange
+              : undefined
+          }
+          isSavingDestino={isSavingDestino}
+          destinoError={destinoError}
         />
       ) : null}
     </div>
@@ -504,17 +581,24 @@ function ActionButton({
   label,
   onClick,
   disabled,
+  primary = false,
 }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  primary?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-lg border border-polaria-teal px-3 py-1.5 text-sm text-polaria-teal transition hover:bg-polaria-t-08 disabled:opacity-50"
+      className={cn(
+        "inline-flex min-w-[7rem] items-center justify-center rounded-xl px-4 py-2.5 polaria-text-body-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
+        primary
+          ? "bg-polaria-teal text-polaria-bg hover:opacity-90"
+          : "border border-polaria-teal text-polaria-teal hover:bg-polaria-t-08",
+      )}
     >
       {label}
     </button>

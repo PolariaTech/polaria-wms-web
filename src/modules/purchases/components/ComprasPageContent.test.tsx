@@ -57,6 +57,18 @@ const ORDEN_EMITIDA: OrdenCompraRow = {
   observaciones: null,
   created_at: "2026-06-28T12:00:00.000Z",
   updated_at: "2026-06-28T12:00:00.000Z",
+  lineas: [
+    {
+      id_linea_orden_compra: "line-1",
+      id_producto: "prod-1",
+      cantidad: 66,
+      producto: {
+        sku: "BPTOMFRF",
+        descripcion: "FROZEN-PRIME BEEF FRENCHED TOMAHAWK",
+        metadatos_catalogo: null,
+      },
+    },
+  ],
 };
 
 describe("ComprasPageContent", () => {
@@ -85,6 +97,17 @@ describe("ComprasPageContent", () => {
       expect(screen.getByText("OC-001")).toBeInTheDocument();
     });
 
+    await user.click(
+      screen.getByRole("button", { name: "Ver detalle de orden OC-001" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "OC-001" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      /FROZEN-PRIME BEEF FRENCHED TOMAHAWK/i,
+    );
+
     await user.click(screen.getByRole("button", { name: "Notificar proveedor" }));
 
     await waitFor(() => {
@@ -99,7 +122,9 @@ describe("ComprasPageContent", () => {
     expect(
       await screen.findByRole("status"),
     ).toHaveTextContent("Proveedor notificado");
-    expect(screen.getByText("Notificado")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      "Proveedor notificado.",
+    );
   });
 
   it("muestra error claro si la integración n8n no está configurada", async () => {
@@ -119,6 +144,17 @@ describe("ComprasPageContent", () => {
     await waitFor(() => {
       expect(screen.getByText("OC-001")).toBeInTheDocument();
     });
+
+    await user.click(
+      screen.getByRole("button", { name: "Ver detalle de orden OC-001" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "OC-001" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      /FROZEN-PRIME BEEF FRENCHED TOMAHAWK/i,
+    );
 
     await user.click(screen.getByRole("button", { name: "Notificar proveedor" }));
 

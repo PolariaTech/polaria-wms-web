@@ -24,6 +24,8 @@ export interface PolariaFormModalProps {
   compact?: boolean;
   /** Ancho máximo del panel; por defecto según `compact`. */
   size?: "sm" | "md" | "lg" | "xl" | "2xl";
+  /** Reemplaza el botón principal del pie (p. ej. acción de detalle). */
+  footerAction?: ReactNode;
 }
 
 const MODAL_SIZE_CLASS = {
@@ -51,6 +53,7 @@ export function PolariaFormModal({
   className,
   compact = false,
   size,
+  footerAction,
 }: PolariaFormModalProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -199,21 +202,23 @@ export function PolariaFormModal({
               {cancelLabel}
             </button>
 
-            <button
-              type="submit"
-              disabled={isSubmitting || submitDisabled}
-              className={cn(
-                "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
-                "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
-                "disabled:cursor-not-allowed disabled:opacity-60",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-              )}
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : null}
-              {submitLabel}
-            </button>
+            {footerAction ?? (
+              <button
+                type="submit"
+                disabled={isSubmitting || submitDisabled}
+                className={cn(
+                  "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
+                  "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
+                  "disabled:cursor-not-allowed disabled:opacity-60",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                )}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : null}
+                {submitLabel}
+              </button>
+            )}
             </div>
           </form>
         </div>
