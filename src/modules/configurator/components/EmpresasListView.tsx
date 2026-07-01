@@ -7,6 +7,7 @@ import {
   PolariaTableCode,
   PolariaTableEditButton,
 } from "@/components/shared/PolariaTableCells";
+import { formatInternationalPhoneDisplay } from "@/constants/phone-countries";
 import { useAsyncQuery } from "@/hooks/useAsyncQuery";
 import {
   EMPRESAS_EMPTY_MESSAGE,
@@ -40,6 +41,12 @@ export function EmpresasListView() {
           id: "razonSocial",
           header: "Razón social",
           cell: (row: EmpresaListRow) => row.razonSocial,
+        },
+        {
+          id: "telefono",
+          header: "Teléfono",
+          cell: (row: EmpresaListRow) =>
+            formatInternationalPhoneDisplay(row.telefono),
         },
         {
           id: "estado",

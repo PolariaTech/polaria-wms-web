@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { PolariaFormInput } from "@/components/shared/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/PolariaFormModal";
+import { PolariaPhoneInput } from "@/components/shared/PolariaPhoneInput";
+import { isValidInternationalPhone } from "@/constants/phone-countries";
 import { DomainServiceError } from "@/lib/domain-service-error";
 import { useCompany } from "@/providers/CompanyProvider";
 import { createClienteAdmin } from "../services/clientes.service";
@@ -16,6 +18,7 @@ interface ClienteCreateModalProps {
 const INITIAL_FORM = {
   nombre: "",
   nit: "",
+  telefono: "",
 };
 
 export function ClienteCreateModal({
@@ -53,10 +56,17 @@ export function ClienteCreateModal({
     setIsSubmitting(true);
 
     try {
+      if (form.telefono.trim() && !isValidInternationalPhone(form.telefono)) {
+        setError("Ingresa un número de teléfono válido.");
+        setIsSubmitting(false);
+        return;
+      }
+
       await createClienteAdmin({
         codigoCuenta,
         nombre: form.nombre,
         nit: form.nit,
+        telefono: form.telefono,
       });
       onCreated();
       onClose();
@@ -114,6 +124,21 @@ export function ClienteCreateModal({
           }))
         }
         disabled={isSubmitting}
+        compact
+      />
+
+      <PolariaPhoneInput
+        id="cliente-telefono"
+        label="Teléfono"
+        value={form.telefono}
+        onChange={(value) =>
+          setForm((current) => ({
+            ...current,
+            telefono: value,
+          }))
+        }
+        disabled={isSubmitting}
+        hint="Opcional. Formato internacional."
         compact
       />
     </PolariaFormModal>

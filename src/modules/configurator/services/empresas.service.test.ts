@@ -29,6 +29,7 @@ describe("empresas.service", () => {
         {
           codigo_empresa: "ACME0",
           razon_social: "ACME Corp",
+          telefono: "+573001112233",
           esta_activa: true,
         },
       ],
@@ -43,6 +44,7 @@ describe("empresas.service", () => {
       {
         codigoEmpresa: "ACME0",
         razonSocial: "ACME Corp",
+        telefono: "+573001112233",
         estaActiva: true,
       },
     ]);
@@ -88,12 +90,14 @@ describe("empresas.service", () => {
     expect(insertChain.insert).toHaveBeenCalledWith({
       codigo_empresa: "MIT00",
       razon_social: "Mitre S.A.",
+      telefono: null,
       id_creador: "user-1",
       esta_activa: true,
     });
     expect(row).toEqual({
       codigoEmpresa: "MIT00",
       razonSocial: "Mitre S.A.",
+      telefono: null,
       estaActiva: true,
     });
   });

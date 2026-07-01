@@ -5,25 +5,32 @@ import {
 } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/domain-service-error";
 import { normalizeCodigoCuentaInput } from "@/lib/generate-codigo-cuenta";
+import {
+  isValidInternationalPhone,
+  normalizeInternationalPhone,
+} from "@/constants/phone-countries";
 
 export interface EmpresaListRow {
   codigoEmpresa: string;
   razonSocial: string;
+  telefono: string | null;
   estaActiva: boolean;
 }
 
 interface EmpresaDbRow {
   codigo_empresa: string;
   razon_social: string;
+  telefono: string | null;
   esta_activa: boolean;
 }
 
-const EMPRESA_LIST_COLUMNS = "codigo_empresa,razon_social,esta_activa";
+const EMPRESA_LIST_COLUMNS = "codigo_empresa,razon_social,telefono,esta_activa";
 
 function mapEmpresaRow(row: EmpresaDbRow): EmpresaListRow {
   return {
     codigoEmpresa: row.codigo_empresa,
     razonSocial: row.razon_social,
+    telefono: row.telefono,
     estaActiva: row.esta_activa,
   };
 }
@@ -49,6 +56,7 @@ export async function listEmpresasConfigurator(): Promise<EmpresaListRow[]> {
 export interface CreateEmpresaInput {
   codigoEmpresa: string;
   razonSocial: string;
+  telefono?: string | null;
   idCreador?: string | null;
 }
 
@@ -80,6 +88,7 @@ export async function createEmpresaConfigurator(
 ): Promise<EmpresaListRow> {
   const razonSocial = input.razonSocial.trim();
   const codigoEmpresa = normalizeCodigoCuentaInput(input.codigoEmpresa);
+  const telefonoRaw = input.telefono?.trim() ?? "";
 
   if (!razonSocial) {
     throw new DomainServiceError(
@@ -95,12 +104,24 @@ export async function createEmpresaConfigurator(
     );
   }
 
+  if (telefonoRaw && !isValidInternationalPhone(telefonoRaw)) {
+    throw new DomainServiceError(
+      "El teléfono de la empresa no es válido.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const telefono = telefonoRaw
+    ? normalizeInternationalPhone(telefonoRaw)
+    : null;
+
   await assertCodigoEmpresaDisponible(codigoEmpresa);
 
   await runDomainMutation<{ codigo_empresa: string } | null>((client) => {
     const query = client.from("empresa").insert({
       codigo_empresa: codigoEmpresa,
       razon_social: razonSocial,
+      telefono,
       id_creador: input.idCreador ?? null,
       esta_activa: true,
     });
@@ -114,6 +135,7 @@ export async function createEmpresaConfigurator(
   return {
     codigoEmpresa,
     razonSocial,
+    telefono,
     estaActiva: true,
   };
 }

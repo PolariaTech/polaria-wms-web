@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { PolariaFormInput } from "@/components/shared/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/PolariaFormModal";
+import { PolariaPhoneInput } from "@/components/shared/PolariaPhoneInput";
+import { isValidInternationalPhone } from "@/constants/phone-countries";
 import { DomainServiceError } from "@/lib/domain-service-error";
 import {
   generateCodigoCuentaFromNombre,
@@ -20,6 +22,7 @@ interface EmpresaCreateModalProps {
 const INITIAL_FORM = {
   razonSocial: "",
   codigoEmpresa: "",
+  telefono: "",
 };
 
 export function EmpresaCreateModal({
@@ -71,9 +74,16 @@ export function EmpresaCreateModal({
     setIsSubmitting(true);
 
     try {
+      if (form.telefono.trim() && !isValidInternationalPhone(form.telefono)) {
+        setError("Ingresa un número de teléfono válido.");
+        setIsSubmitting(false);
+        return;
+      }
+
       await createEmpresaConfigurator({
         razonSocial: form.razonSocial,
         codigoEmpresa: form.codigoEmpresa,
+        telefono: form.telefono,
         idCreador,
       });
       onCreated();
@@ -121,6 +131,20 @@ export function EmpresaCreateModal({
         onChange={(event) => handleCodigoChange(event.target.value)}
         disabled={isSubmitting}
         hint="Se genera al escribir la razón social (base 36, 5 caracteres); puedes ajustarlo si lo necesitas."
+      />
+
+      <PolariaPhoneInput
+        id="empresa-telefono"
+        label="Teléfono"
+        value={form.telefono}
+        onChange={(value) =>
+          setForm((current) => ({
+            ...current,
+            telefono: value,
+          }))
+        }
+        disabled={isSubmitting}
+        hint="Opcional. Formato internacional."
       />
     </PolariaFormModal>
   );

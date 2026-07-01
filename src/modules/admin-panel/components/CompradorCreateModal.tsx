@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { PolariaFormInput } from "@/components/shared/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/PolariaFormModal";
+import { PolariaPhoneInput } from "@/components/shared/PolariaPhoneInput";
+import { isValidInternationalPhone } from "@/constants/phone-countries";
 import { DomainServiceError } from "@/lib/domain-service-error";
 import { useCompany } from "@/providers/CompanyProvider";
 import { createCompradorAdmin } from "../services/compradores.service";
@@ -15,6 +17,7 @@ interface CompradorCreateModalProps {
 
 const INITIAL_FORM = {
   nombre: "",
+  telefono: "",
 };
 
 export function CompradorCreateModal({
@@ -52,9 +55,16 @@ export function CompradorCreateModal({
     setIsSubmitting(true);
 
     try {
+      if (form.telefono.trim() && !isValidInternationalPhone(form.telefono)) {
+        setError("Ingresa un número de teléfono válido.");
+        setIsSubmitting(false);
+        return;
+      }
+
       await createCompradorAdmin({
         codigoCuenta,
         nombre: form.nombre,
+        telefono: form.telefono,
       });
       onCreated();
       onClose();
@@ -97,6 +107,21 @@ export function CompradorCreateModal({
         }
         disabled={isSubmitting}
         autoFocus
+        compact
+      />
+
+      <PolariaPhoneInput
+        id="comprador-telefono"
+        label="Teléfono"
+        value={form.telefono}
+        onChange={(value) =>
+          setForm((current) => ({
+            ...current,
+            telefono: value,
+          }))
+        }
+        disabled={isSubmitting}
+        hint="Opcional. Formato internacional."
         compact
       />
     </PolariaFormModal>

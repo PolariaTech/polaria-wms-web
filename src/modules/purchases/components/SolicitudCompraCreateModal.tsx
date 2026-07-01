@@ -12,6 +12,7 @@ import { DomainServiceError } from "@/lib/domain-service-error";
 import {
   listBodegasInternasVinculadasAdmin,
   listCatalogoProductosAdmin,
+  listProveedoresAdmin,
 } from "@/modules/admin-panel";
 import { useCompany } from "@/providers/CompanyProvider";
 import { createSolicitudCompraApi } from "../services/purchases-api.service";
@@ -35,6 +36,11 @@ interface ProductoOption {
   sku?: string;
 }
 
+interface ProveedorOption {
+  value: string;
+  label: string;
+}
+
 export function SolicitudCompraCreateModal({
   open,
   onClose,
@@ -44,7 +50,9 @@ export function SolicitudCompraCreateModal({
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [pickProductId, setPickProductId] = useState("");
   const [pickPesoKg, setPickPesoKg] = useState("");
+  const [idProveedor, setIdProveedor] = useState("");
   const [productos, setProductos] = useState<ProductoOption[]>([]);
+  const [proveedores, setProveedores] = useState<ProveedorOption[]>([]);
   const [resolvedBodegaId, setResolvedBodegaId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,6 +66,7 @@ export function SolicitudCompraCreateModal({
     setLines([]);
     setPickProductId("");
     setPickPesoKg("");
+    setIdProveedor("");
     setError(null);
     setIsSubmitting(false);
     setResolvedBodegaId(activeBodegaId);
@@ -70,11 +79,12 @@ export function SolicitudCompraCreateModal({
 
     void Promise.all([
       listCatalogoProductosAdmin({ codigoCuenta }),
+      listProveedoresAdmin({ codigoCuenta }),
       activeBodegaId
         ? Promise.resolve(null)
         : listBodegasInternasVinculadasAdmin({ codigoCuenta }),
     ])
-      .then(([productoRows, bodegaRows]) => {
+      .then(([productoRows, proveedorRows, bodegaRows]) => {
         setProductos(
           productoRows.map((row) => ({
             value: row.idProducto,
@@ -83,12 +93,21 @@ export function SolicitudCompraCreateModal({
           })),
         );
 
+        setProveedores(
+          proveedorRows.map((row) => ({
+            value: row.idProveedor,
+            label: row.nombre
+              ? `${row.proveedor} — ${row.nombre}`
+              : row.proveedor,
+          })),
+        );
+
         if (!activeBodegaId && bodegaRows?.length) {
           setResolvedBodegaId(bodegaRows[0]?.idBodega ?? null);
         }
       })
       .catch(() => {
-        setError("No se pudieron cargar los productos del catálogo.");
+        setError("No se pudieron cargar productos o proveedores.");
       })
       .finally(() => {
         setIsLoadingOptions(false);
@@ -155,12 +174,18 @@ export function SolicitudCompraCreateModal({
       return;
     }
 
+    if (!idProveedor) {
+      setError("Selecciona un proveedor para la solicitud.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       await createSolicitudCompraApi({
         codigoCuenta,
         idBodega: resolvedBodegaId,
+        idProveedor,
         lineas: lines.map((linea) => ({
           idProducto: linea.idProducto,
           cantidad: linea.pesoKg,
@@ -200,6 +225,24 @@ export function SolicitudCompraCreateModal({
       <p className="polaria-text-body-sm text-polaria-w-50">
         Peso kg por ítem.
       </p>
+
+      <PolariaFormSelect
+        id="sol-proveedor"
+        label="Proveedor"
+        value={idProveedor}
+        onChange={(event) => setIdProveedor(event.target.value)}
+        disabled={disabled || proveedores.length === 0}
+        placeholder="Elegí proveedor…"
+        options={proveedores}
+        compact
+      />
+
+      {proveedores.length === 0 && !isLoadingOptions ? (
+        <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
+          Tu administrador de cuenta debe registrar proveedores antes de crear
+          solicitudes de compra.
+        </p>
+      ) : null}
 
       {productos.length === 0 && !isLoadingOptions ? (
         <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">

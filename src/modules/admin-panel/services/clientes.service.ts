@@ -9,12 +9,17 @@ import {
   generateCodigoCuentaFromNombre,
   normalizeCodigoCuentaInput,
 } from "@/lib/generate-codigo-cuenta";
+import {
+  isValidInternationalPhone,
+  normalizeInternationalPhone,
+} from "@/constants/phone-countries";
 
 export interface ClienteListRow {
   idCliente: string;
   codigo: string;
   nombre: string;
   nit: string;
+  telefono: string | null;
 }
 
 interface ClienteDbRow {
@@ -22,9 +27,10 @@ interface ClienteDbRow {
   codigo: string;
   nombre: string;
   nit: string;
+  telefono: string | null;
 }
 
-const CLIENTE_LIST_COLUMNS = "id_cliente,codigo,nombre,nit";
+const CLIENTE_LIST_COLUMNS = "id_cliente,codigo,nombre,nit,telefono";
 
 function mapClienteRow(row: ClienteDbRow): ClienteListRow {
   return {
@@ -32,6 +38,7 @@ function mapClienteRow(row: ClienteDbRow): ClienteListRow {
     codigo: row.codigo,
     nombre: row.nombre,
     nit: row.nit,
+    telefono: row.telefono,
   };
 }
 
@@ -81,6 +88,7 @@ export interface CreateClienteInput {
   codigoCuenta: string;
   nombre: string;
   nit: string;
+  telefono?: string | null;
 }
 
 /** Crea un cliente para la cuenta activa (scope tenant). */
@@ -90,6 +98,7 @@ export async function createClienteAdmin(
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
   const nombre = input.nombre.trim();
   const nit = normalizeNitInput(input.nit);
+  const telefonoRaw = input.telefono?.trim() ?? "";
   const codigo = normalizeCodigoCuentaInput(
     generateCodigoCuentaFromNombre(nombre),
   );
@@ -122,6 +131,17 @@ export async function createClienteAdmin(
     );
   }
 
+  if (telefonoRaw && !isValidInternationalPhone(telefonoRaw)) {
+    throw new DomainServiceError(
+      "El teléfono del cliente no es válido.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const telefono = telefonoRaw
+    ? normalizeInternationalPhone(telefonoRaw)
+    : null;
+
   const inserted = await runDomainMutation<ClienteDbRow | null>((client) => {
     const query = client
       .from("cliente")
@@ -130,6 +150,7 @@ export async function createClienteAdmin(
         codigo,
         nombre,
         nit,
+        telefono,
         esta_activo: true,
       })
       .select(CLIENTE_LIST_COLUMNS)

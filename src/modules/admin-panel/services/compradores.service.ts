@@ -9,26 +9,33 @@ import {
   generateCodigoCuentaFromNombre,
   normalizeCodigoCuentaInput,
 } from "@/lib/generate-codigo-cuenta";
+import {
+  isValidInternationalPhone,
+  normalizeInternationalPhone,
+} from "@/constants/phone-countries";
 
 export interface CompradorListRow {
   idComprador: string;
   codigo: string;
   comprador: string;
+  telefono: string | null;
 }
 
 interface CompradorDbRow {
   id_comprador: string;
   codigo: string;
   nombre: string;
+  telefono: string | null;
 }
 
-const COMPRADOR_LIST_COLUMNS = "id_comprador,codigo,nombre";
+const COMPRADOR_LIST_COLUMNS = "id_comprador,codigo,nombre,telefono";
 
 function mapCompradorRow(row: CompradorDbRow): CompradorListRow {
   return {
     idComprador: row.id_comprador,
     codigo: row.codigo,
     comprador: row.nombre,
+    telefono: row.telefono,
   };
 }
 
@@ -65,6 +72,7 @@ export async function listCompradoresAdmin(
 export interface CreateCompradorInput {
   codigoCuenta: string;
   nombre: string;
+  telefono?: string | null;
 }
 
 /** Crea un comprador para la cuenta activa (scope tenant). */
@@ -73,6 +81,7 @@ export async function createCompradorAdmin(
 ): Promise<CompradorListRow> {
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
   const nombre = input.nombre.trim();
+  const telefonoRaw = input.telefono?.trim() ?? "";
   const codigo = normalizeCodigoCuentaInput(
     generateCodigoCuentaFromNombre(nombre),
   );
@@ -91,6 +100,17 @@ export async function createCompradorAdmin(
     );
   }
 
+  if (telefonoRaw && !isValidInternationalPhone(telefonoRaw)) {
+    throw new DomainServiceError(
+      "El teléfono del comprador no es válido.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const telefono = telefonoRaw
+    ? normalizeInternationalPhone(telefonoRaw)
+    : null;
+
   const inserted = await runDomainMutation<CompradorDbRow | null>((client) => {
     const query = client
       .from("comprador")
@@ -98,6 +118,7 @@ export async function createCompradorAdmin(
         codigo_cuenta: codigoCuenta,
         codigo,
         nombre,
+        telefono,
         esta_activo: true,
       })
       .select(COMPRADOR_LIST_COLUMNS)
