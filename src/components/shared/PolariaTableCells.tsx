@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export function PolariaTableCode({ children }: { children: ReactNode }) {
@@ -53,6 +53,35 @@ export function PolariaTableEditButton({
       )}
     >
       <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+      {label}
+    </button>
+  );
+}
+
+interface PolariaTableDeleteButtonProps {
+  label?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}
+
+export function PolariaTableDeleteButton({
+  label = "Eliminar",
+  onClick,
+  disabled = false,
+}: PolariaTableDeleteButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-lg border border-polaria-warning-border px-3 py-1.5",
+        "polaria-text-body-sm text-polaria-warning transition hover:bg-polaria-warning-bg",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-warning focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+        disabled && "cursor-not-allowed opacity-50",
+      )}
+    >
+      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
       {label}
     </button>
   );

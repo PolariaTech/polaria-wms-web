@@ -332,6 +332,126 @@ async function insertCatalogoProducto(
   return mapProductoRow(inserted, 0);
 }
 
+export interface UpdateCatalogoProductoInput {
+  codigoCuenta: string;
+  idProducto: string;
+  sku: string;
+  titulo: string;
+  unidadMedida: string;
+  unidadVisualizacion: string;
+  esPrimario: boolean;
+  esSecundario: boolean;
+  metadatos: CatalogoProductoMetadatos;
+}
+
+/** Obtiene un producto del catálogo para edición. */
+export async function getCatalogoProductoById(
+  codigoCuenta: string,
+  idProducto: string,
+): Promise<ProductoDbRow | null> {
+  const cuenta = requireCodigoCuenta(codigoCuenta);
+  const id = idProducto.trim();
+
+  if (!id) {
+    throw new DomainServiceError("Producto no válido.", "INVALID_ARGUMENT");
+  }
+
+  const rows = await queryProductosCatalogo((selectColumns) =>
+    runDomainQuery<ProductoDbRow[]>((client) => {
+      const query = client
+        .from("producto")
+        .select(selectColumns)
+        .eq("codigo_cuenta", cuenta)
+        .eq("id_producto", id)
+        .eq("esta_activo", true)
+        .limit(1);
+
+      return query as unknown as Promise<{
+        data: ProductoDbRow[] | null;
+        error: { message: string } | null;
+      }>;
+    }),
+  );
+
+  return rows[0] ?? null;
+}
+
+/** Actualiza metadatos y campos base de un producto del catálogo. */
+export async function updateCatalogoProducto(
+  input: UpdateCatalogoProductoInput,
+): Promise<CatalogoProductoListRow> {
+  const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
+  const idProducto = input.idProducto.trim();
+  const sku = input.sku.trim();
+  const titulo = input.titulo.trim();
+
+  if (!idProducto) {
+    throw new DomainServiceError("Producto no válido.", "INVALID_ARGUMENT");
+  }
+  if (!sku) {
+    throw new DomainServiceError("El SKU es obligatorio.", "INVALID_ARGUMENT");
+  }
+  if (!titulo) {
+    throw new DomainServiceError("El título es obligatorio.", "INVALID_ARGUMENT");
+  }
+
+  const codigo = generateCodigoCuentaFromNombre(titulo) || sku;
+
+  const updated = await runDomainMutation<ProductoDbRow>((client) => {
+    const body: Record<string, unknown> = {
+      sku,
+      descripcion: titulo,
+      codigo_almacen: codigo,
+      unidad_medida: input.unidadMedida,
+      unidad_visualizacion: input.unidadVisualizacion,
+      es_primario: input.esPrimario,
+      es_secundario: input.esSecundario,
+      metadatos_catalogo: input.metadatos,
+    };
+
+    const query = client
+      .from("producto")
+      .update(body)
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_producto", idProducto)
+      .select(`${PRODUCTO_LIST_COLUMNS},metadatos_catalogo`)
+      .single();
+
+    return query as unknown as Promise<{
+      data: ProductoDbRow | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  return mapProductoRow(updated, 0);
+}
+
+/** Desactiva un producto del catálogo (baja lógica). */
+export async function deactivateCatalogoProducto(
+  codigoCuenta: string,
+  idProducto: string,
+): Promise<void> {
+  const cuenta = requireCodigoCuenta(codigoCuenta);
+  const id = idProducto.trim();
+
+  if (!id) {
+    throw new DomainServiceError("Producto no válido.", "INVALID_ARGUMENT");
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("producto")
+      .update({ esta_activo: false })
+      .eq("codigo_cuenta", cuenta)
+      .eq("id_producto", id);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
+}
+
 /** Crea un producto primario del catálogo. */
 export async function createCatalogoProductoPrimario(
   input: Omit<CreateCatalogoProductoInput, "esPrimario" | "esSecundario">,
@@ -365,6 +485,7 @@ export async function createCatalogoProductoSecundario(
 export interface CatalogoImportResult {
   imported: number;
   errors: string[];
+  skipped: number;
 }
 
 async function createImportRow(
@@ -401,6 +522,8 @@ async function createImportRow(
     unidadMedida,
     unidadVisualizacion: row.unidadVisualizacion,
     idProductoPrimario,
+    esPrimario: false,
+    esSecundario: true,
     metadatos: row.metadatos,
   });
 }
@@ -411,10 +534,11 @@ export async function importCatalogoProductosFromFile(
   file: File,
 ): Promise<CatalogoImportResult> {
   const cuenta = requireCodigoCuenta(codigoCuenta);
-  const { rows, errors: parseErrors } = await parseCatalogoSpreadsheetFile(file);
+  const { rows, errors: parseErrors, skipped } =
+    await parseCatalogoSpreadsheetFile(file);
 
   if (!rows.length) {
-    return { imported: 0, errors: parseErrors };
+    return { imported: 0, errors: parseErrors, skipped };
   }
 
   const primarios = rows.filter((row) => row.tipo === "primario");
@@ -470,5 +594,5 @@ export async function importCatalogoProductosFromFile(
     }
   }
 
-  return { imported, errors };
+  return { imported, errors, skipped };
 }

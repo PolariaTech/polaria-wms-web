@@ -11,13 +11,16 @@ import { generateCodigoCuentaFromNombre } from "@/lib/generate-codigo-cuenta";
 import { useCompany } from "@/providers/CompanyProvider";
 import {
   CATALOGO_ESTADO_DEFAULT,
+  CATALOGO_TIPO_OPTIONS,
   CATALOGO_TIPO_PRIMARIO,
+  CATALOGO_TIPO_SECUNDARIO,
   CATALOGO_UNIDAD_VISUALIZACION_OPTIONS,
   createEmptyCatalogoMetadatos,
   type CatalogoProductoMetadatos,
 } from "../constants/catalogo-producto";
 import {
   createCatalogoProductoPrimario,
+  createCatalogoProductoSecundario,
   listProductosPrimariosCatalogo,
   type ProductoPrimarioOption,
 } from "../services/productos-catalogo.service";
@@ -113,6 +116,25 @@ export function ProductoCatalogoCreateModal({
       setError("La categoría es obligatoria.");
       return;
     }
+    const tipo = form.tipo?.trim() || CATALOGO_TIPO_PRIMARIO;
+    if (!tipo) {
+      setError("El tipo es obligatorio.");
+      return;
+    }
+    if (!form.estado?.trim()) {
+      setError("El estado es obligatorio.");
+      return;
+    }
+    if (!form.precio?.trim()) {
+      setError("El precio es obligatorio.");
+      return;
+    }
+
+    const esSecundario = tipo.toLowerCase().includes("secund");
+    if (esSecundario && !form.incluidoPrimarioId) {
+      setError("Selecciona el producto primario incluido.");
+      return;
+    }
 
     const primarioLabel =
       primarios.find((item) => item.idProducto === form.incluidoPrimarioId)
@@ -122,8 +144,7 @@ export function ProductoCatalogoCreateModal({
 
     try {
       const { titulo: _t, sku: _s, unidadVisualizacion, ...metadatos } = form;
-
-      await createCatalogoProductoPrimario({
+      const payload = {
         codigoCuenta,
         sku,
         titulo,
@@ -132,10 +153,21 @@ export function ProductoCatalogoCreateModal({
         metadatos: {
           ...metadatos,
           titulo,
-          tipo: CATALOGO_TIPO_PRIMARIO,
+          tipo: esSecundario ? CATALOGO_TIPO_SECUNDARIO : CATALOGO_TIPO_PRIMARIO,
           incluidoPrimarioLabel: primarioLabel ?? undefined,
         },
-      });
+      };
+
+      if (esSecundario) {
+        await createCatalogoProductoSecundario({
+          ...payload,
+          idProductoPrimario: form.incluidoPrimarioId,
+          esPrimario: false,
+          esSecundario: true,
+        });
+      } else {
+        await createCatalogoProductoPrimario(payload);
+      }
       onCreated();
       onClose();
     } catch (err: unknown) {
@@ -212,12 +244,16 @@ export function ProductoCatalogoCreateModal({
           disabled={isSubmitting}
           compact
         />
-        <PolariaFormInput
+        <PolariaFormSelect
           id="producto-tipo"
           label="Tipo *"
           value={form.tipo ?? CATALOGO_TIPO_PRIMARIO}
-          readOnly
-          disabled
+          onChange={(event) => patch({ tipo: event.target.value })}
+          disabled={isSubmitting}
+          options={CATALOGO_TIPO_OPTIONS.map((option) => ({
+            value: option.value,
+            label: option.label,
+          }))}
           compact
         />
 
@@ -295,7 +331,7 @@ export function ProductoCatalogoCreateModal({
         />
         <PolariaFormInput
           id="producto-precio"
-          label="Precio"
+          label="Precio *"
           value={form.precio ?? ""}
           placeholder="Ingresá precio"
           onChange={(event) => patch({ precio: event.target.value })}

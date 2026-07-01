@@ -62,6 +62,7 @@ export { BodegaExternaAdminView } from "./components/BodegaExternaAdminView";
 export { VincularBodegaExternaModal } from "./components/VincularBodegaExternaModal";
 export { CatalogoListView } from "./components/CatalogoListView";
 export { ProductoCatalogoCreateModal } from "./components/ProductoCatalogoCreateModal";
+export { ProductoCatalogoEditModal } from "./components/ProductoCatalogoEditModal";
 export { ProductoSecundarioCreateModal } from "./components/ProductoSecundarioCreateModal";
 export { InventarioMercanciaReportView } from "./components/InventarioMercanciaReportView";
 export { InventarioMercanciaFlow } from "./components/InventarioMercanciaFlow";
@@ -143,8 +144,12 @@ export type {
 export {
   createCatalogoProductoPrimario,
   createCatalogoProductoSecundario,
+  deactivateCatalogoProducto,
+  getCatalogoProductoById,
+  importCatalogoProductosFromFile,
   listCatalogoProductosAdmin,
   listProductosPrimariosCatalogo,
+  updateCatalogoProducto,
 } from "./services/productos-catalogo.service";
 
 export type {

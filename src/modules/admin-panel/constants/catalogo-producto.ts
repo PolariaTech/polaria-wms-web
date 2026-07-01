@@ -48,6 +48,11 @@ export const CATALOGO_UNIDAD_VISUALIZACION_OPTIONS = [
 export const CATALOGO_TIPO_PRIMARIO = "Primario" as const;
 export const CATALOGO_TIPO_SECUNDARIO = "Secundario" as const;
 
+export const CATALOGO_TIPO_OPTIONS = [
+  { value: CATALOGO_TIPO_PRIMARIO, label: CATALOGO_TIPO_PRIMARIO },
+  { value: CATALOGO_TIPO_SECUNDARIO, label: CATALOGO_TIPO_SECUNDARIO },
+] as const;
+
 export function createEmptyCatalogoMetadatos(): CatalogoProductoMetadatos {
   return {
     estado: CATALOGO_ESTADO_DEFAULT,
