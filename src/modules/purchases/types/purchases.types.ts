@@ -45,6 +45,7 @@ export interface OrdenCompraLineaRow {
   id_linea_orden_compra: string;
   id_producto: string;
   cantidad: number;
+  cantidad_recibida?: number;
   producto?: {
     sku: string | null;
     descripcion: string | null;

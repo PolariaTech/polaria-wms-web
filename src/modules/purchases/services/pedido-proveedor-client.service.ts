@@ -1,7 +1,7 @@
 import { DomainServiceError } from "@/lib/domain-service-error";
 import type { PedidoProveedorBody } from "@/lib/pedido-proveedor/pedido-proveedor.schema";
 import type { OrdenCompraRow } from "../types/purchases.types";
-import type { OrdenCompraLineaRow } from "./purchases.service";
+import type { OrdenCompraNotifyLineaRow } from "./purchases.service";
 
 export interface PedidoProveedorRouteResponse {
   ok: boolean;
@@ -12,7 +12,7 @@ export interface PedidoProveedorRouteResponse {
 
 export function buildPedidoProveedorRequest(
   orden: OrdenCompraRow,
-  lineas: OrdenCompraLineaRow[],
+  lineas: OrdenCompraNotifyLineaRow[],
 ): PedidoProveedorBody {
   const observacionesParts = [
     orden.observaciones?.trim(),

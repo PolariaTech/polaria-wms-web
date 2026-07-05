@@ -44,3 +44,29 @@ export interface CreateOrdenCompraApiInput {
   fechaEntregaEstimada?: string | null;
   lineas: OrdenCompraLineaApiInput[];
 }
+
+export interface RecepcionLineaApiInput {
+  idLineaOrdenCompra: string;
+  cantidadRecibida: number;
+  temperaturaRegistrada?: number;
+}
+
+export interface CerrarRecepcionCompraApiInput {
+  idOrdenCompra: string;
+  codigoCuenta: string;
+  idBodega: string;
+  lineas: RecepcionLineaApiInput[];
+  idUbicacionIngreso?: string;
+  notas?: string | null;
+}
+
+export interface RecepcionCompraApiRow {
+  idRecepcion: string;
+  codigoCuenta: string;
+  idBodega: string;
+  idOrdenCompra: string;
+  sinDiferencias: boolean;
+  notas: string | null;
+  cerradaAt: string;
+  estadoOrdenCompra: EstadoOrdenCompra;
+}

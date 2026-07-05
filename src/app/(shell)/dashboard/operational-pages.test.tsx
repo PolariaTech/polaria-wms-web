@@ -236,14 +236,17 @@ describe("vistas operativas dashboard", () => {
     render(<DashboardIngresoPage />);
 
     expect(screen.getByRole("heading", { name: "Ingreso" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Órdenes pendientes de recepción"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Recepciones de compra")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(listRecepciones).toHaveBeenCalled();
+      expect(listOrdenesCompra).toHaveBeenCalled();
     });
 
     expect(listSolicitudesCompra).not.toHaveBeenCalled();
-    expect(listOrdenesCompra).not.toHaveBeenCalled();
   });
 
   it("compras renderiza solicitudes y órdenes para administrador de cuenta", async () => {
@@ -291,6 +294,7 @@ describe("vistas operativas dashboard", () => {
       screen.getByText(/No tienes permiso para acceder a este módulo operativo/i),
     ).toBeInTheDocument();
     expect(listRecepciones).not.toHaveBeenCalled();
+    expect(listOrdenesCompra).not.toHaveBeenCalled();
   });
 
   it("bloquea mapa para administrador de cuenta", () => {

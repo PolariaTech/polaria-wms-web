@@ -7,8 +7,11 @@ export type {
 } from "./types/purchases.types";
 
 export type {
+  CerrarRecepcionCompraApiInput,
   CreateSolicitudCompraApiInput,
   OrdenCompraApiRow,
+  RecepcionCompraApiRow,
+  RecepcionLineaApiInput,
   SolicitudCompraLineaInput,
   SolicitudCompraApiRow,
 } from "./types/purchases-api.types";
@@ -19,7 +22,7 @@ export {
   listRecepciones,
   listSolicitudesCompra,
 } from "./services/purchases.service";
-export type { OrdenCompraLineaRow } from "./services/purchases.service";
+export type { OrdenCompraLineaRow } from "./types/purchases.types";
 
 export {
   buildPedidoProveedorRequest,
@@ -29,6 +32,7 @@ export type { PedidoProveedorRouteResponse } from "./services/pedido-proveedor-c
 
 export {
   aprobarSolicitudCompraApi,
+  cerrarRecepcionCompraApi,
   convertirSolicitudCompraAOrdenApi,
   createSolicitudCompraApi,
   emitirOrdenCompraApi,
