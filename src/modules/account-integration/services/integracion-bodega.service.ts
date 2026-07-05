@@ -1,12 +1,11 @@
 import {
   DEFAULT_LIST_LIMIT,
   requireCodigoCuenta,
-  runDomainMutation,
   runDomainQuery,
   type TenantListParams,
 } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/domain-service-error";
-import { listClientesAdmin } from "@/modules/admin-panel/services/clientes.service";
+import { apiRequest } from "@/services/api";
 import type { TipoIntegracion } from "../constants/integration-types";
 import type {
   CreateSolicitudIntegracionInput,
@@ -42,14 +41,6 @@ function resolveTipoIntegracion(row: Pick<
   return null;
 }
 
-function mapTipoIntegracionToFlags(tipoIntegracion: TipoIntegracion) {
-  return {
-    scraping: tipoIntegracion === "scraping",
-    api: tipoIntegracion === "api",
-    csv_plano: tipoIntegracion === "csv_plano",
-  };
-}
-
 export function mapSolicitudIntegracionRow(
   row: SolicitudIntegracionDbRow,
 ): SolicitudIntegracionRow {
@@ -63,40 +54,64 @@ export function mapSolicitudIntegracionRow(
   };
 }
 
-async function resolveClienteId(codigoCuenta: string): Promise<string> {
-  const clientes = await listClientesAdmin({ codigoCuenta, limit: 1 });
-
-  if (clientes.length === 0) {
-    throw new DomainServiceError(
-      "No hay clientes activos en la cuenta para registrar la solicitud.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  return clientes[0].idCliente;
+function mapApiSolicitudIntegracionRow(row: {
+  idSolicitudIntegracion: string;
+  bodegaExternaId: string;
+  bodegaNombre: string;
+  tipoIntegracion: TipoIntegracion | null;
+  estado: string;
+  createdAt: string;
+}): SolicitudIntegracionRow {
+  return {
+    idSolicitudIntegracion: row.idSolicitudIntegracion,
+    bodegaExternaId: row.bodegaExternaId,
+    bodegaNombre: row.bodegaNombre,
+    tipoIntegracion: row.tipoIntegracion,
+    estado: row.estado,
+    createdAt: row.createdAt,
+  };
 }
 
 export async function listSolicitudesIntegracion(
   params: TenantListParams,
 ): Promise<SolicitudIntegracionRow[]> {
   const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
-  const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 
-  const rows = await runDomainQuery<SolicitudIntegracionDbRow[]>((client) => {
-    const query = client
-      .from("solicitud_integracion")
-      .select(SOLICITUD_INTEGRACION_COLUMNS)
-      .eq("codigo_cuenta", codigoCuenta)
-      .order("created_at", { ascending: false })
-      .limit(limit);
+  try {
+    const rows = await apiRequest<
+      {
+        idSolicitudIntegracion: string;
+        bodegaExternaId: string;
+        bodegaNombre: string;
+        tipoIntegracion: TipoIntegracion | null;
+        estado: string;
+        createdAt: string;
+      }[]
+    >("/integracion/solicitudes", {
+      method: "GET",
+      auth: true,
+    });
 
-    return query as unknown as Promise<{
-      data: SolicitudIntegracionDbRow[] | null;
-      error: { message: string } | null;
-    }>;
-  });
+    return rows.map(mapApiSolicitudIntegracionRow);
+  } catch {
+    const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 
-  return rows.map(mapSolicitudIntegracionRow);
+    const rows = await runDomainQuery<SolicitudIntegracionDbRow[]>((client) => {
+      const query = client
+        .from("solicitud_integracion")
+        .select(SOLICITUD_INTEGRACION_COLUMNS)
+        .eq("codigo_cuenta", codigoCuenta)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      return query as unknown as Promise<{
+        data: SolicitudIntegracionDbRow[] | null;
+        error: { message: string } | null;
+      }>;
+    });
+
+    return rows.map(mapSolicitudIntegracionRow);
+  }
 }
 
 export async function createSolicitudIntegracion(
@@ -105,7 +120,6 @@ export async function createSolicitudIntegracion(
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
   const bodegaExternaId = input.bodegaExternaId.trim();
   const bodegaExternaNombre = input.bodegaExternaNombre.trim();
-  const idSolicitante = input.idSolicitante.trim();
 
   if (!bodegaExternaId || !bodegaExternaNombre) {
     throw new DomainServiceError(
@@ -114,37 +128,24 @@ export async function createSolicitudIntegracion(
     );
   }
 
-  if (!idSolicitante) {
-    throw new DomainServiceError(
-      "No se encontró el usuario solicitante.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  const idCliente = input.idCliente?.trim() || (await resolveClienteId(codigoCuenta));
-  const flags = mapTipoIntegracionToFlags(input.tipoIntegracion);
-
-  const row = await runDomainMutation<SolicitudIntegracionDbRow>((client) => {
-    const query = client
-      .from("solicitud_integracion")
-      .insert({
-        codigo_cuenta: codigoCuenta,
-        id_cliente: idCliente,
-        bodega_externa_id: bodegaExternaId,
-        bodega_externa_nombre: bodegaExternaNombre,
-        scraping: flags.scraping,
-        api: flags.api,
-        csv_plano: flags.csv_plano,
-        id_solicitante: idSolicitante,
-      })
-      .select(SOLICITUD_INTEGRACION_COLUMNS)
-      .single();
-
-    return query as unknown as Promise<{
-      data: SolicitudIntegracionDbRow | null;
-      error: { message: string } | null;
-    }>;
+  const created = await apiRequest<{
+    idSolicitudIntegracion: string;
+    bodegaExternaId: string;
+    bodegaNombre: string;
+    tipoIntegracion: TipoIntegracion | null;
+    estado: string;
+    createdAt: string;
+  }>("/integracion/solicitudes", {
+    method: "POST",
+    auth: true,
+    body: {
+      codigoCuenta,
+      bodegaExternaId,
+      bodegaExternaNombre,
+      tipoIntegracion: input.tipoIntegracion,
+      ...(input.idCliente ? { idCliente: input.idCliente } : {}),
+    },
   });
 
-  return mapSolicitudIntegracionRow(row);
+  return mapApiSolicitudIntegracionRow(created);
 }

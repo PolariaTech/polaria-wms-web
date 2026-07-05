@@ -42,6 +42,10 @@ describe("integracion.service (configurator)", () => {
               created_at: "2026-06-28T12:00:00.000Z",
               id_solicitante: "usr-1",
               cuenta: { nombre_comercial: "Mitre" },
+              solicitante: {
+                correo: "ops@mitre.com",
+                nombre: "Operador Mitre",
+              },
             },
           ],
           error: null,
@@ -61,6 +65,8 @@ describe("integracion.service (configurator)", () => {
         tipoIntegracion: "api",
         estado: "activo",
         createdAt: "2026-06-28T12:00:00.000Z",
+        solicitanteCorreo: "ops@mitre.com",
+        solicitanteNombre: "Operador Mitre",
       },
     ]);
   });

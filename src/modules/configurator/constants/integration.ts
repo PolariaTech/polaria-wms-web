@@ -10,3 +10,6 @@ export const INTEGRACION_EMPTY_MESSAGE =
 
 export const INTEGRACION_EMPTY_HINT =
   "Las nuevas solicitudes aparecerán aquí automáticamente." as const;
+
+export const INTEGRACION_CARD_HINT =
+  "Solicitud de integración · tocá para ejecutar y cerrar (queda Finalizado en la cuenta)" as const;

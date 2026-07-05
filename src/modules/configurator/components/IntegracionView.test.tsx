@@ -40,7 +40,7 @@ describe("IntegracionView", () => {
     ).toBeInTheDocument();
   });
 
-  it("lista solicitudes en solo lectura y muestra badge de pendientes", async () => {
+  it("lista solicitudes en tarjetas y muestra badge de pendientes", async () => {
     listSolicitudesIntegracionConfigurator.mockResolvedValue([
       {
         idSolicitudIntegracion: "sol-1",
@@ -51,6 +51,7 @@ describe("IntegracionView", () => {
         tipoIntegracion: "api",
         estado: "activo",
         createdAt: "2026-06-28T12:00:00.000Z",
+        solicitanteCorreo: "ops@mitre.com",
       },
       {
         idSolicitudIntegracion: "sol-2",
@@ -70,11 +71,15 @@ describe("IntegracionView", () => {
       expect(screen.getByText("2 solicitudes")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("1 pendiente")).toBeInTheDocument();
+    expect(screen.getByText("1 Pendiente")).toBeInTheDocument();
     expect(screen.getByText("Mitre")).toBeInTheDocument();
     expect(screen.getByText("Bodega Norte")).toBeInTheDocument();
     expect(screen.getByText("API")).toBeInTheDocument();
     expect(screen.getByText("Acme")).toBeInTheDocument();
+    expect(screen.getByText("Bodega Sur")).toBeInTheDocument();
+    expect(screen.getByText("Scraping")).toBeInTheDocument();
+    expect(screen.getByText("ops@mitre.com")).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Solicitar integración/i })).not
       .toBeInTheDocument();
   });

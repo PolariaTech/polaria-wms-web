@@ -1,17 +1,10 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { AlertCircle, Box } from "lucide-react";
-import { ModuleListPage } from "@/components/shared/ModuleListPage";
-import { PolariaTableBadge } from "@/components/shared/PolariaTableCells";
-import { formatDateTime } from "@/components/shared/formatters";
 import { useAsyncQuery } from "@/hooks/useAsyncQuery";
 import { cn } from "@/lib/cn";
-import {
-  formatEstadoIntegracion,
-  formatTipoIntegracion,
-  isSolicitudIntegracionPendiente,
-} from "@/modules/account-integration/constants/integration-types";
+import { isSolicitudIntegracionPendiente } from "@/modules/account-integration/constants/integration-types";
 import {
   INTEGRACION_EMPTY_HINT,
   INTEGRACION_EMPTY_MESSAGE,
@@ -19,21 +12,8 @@ import {
   INTEGRACION_PAGE_TITLE,
   INTEGRACION_PANEL_TITLE,
 } from "../constants/integration";
-import {
-  listSolicitudesIntegracionConfigurator,
-  type ConfiguratorSolicitudIntegracionRow,
-} from "../services/integracion.service";
-
-function renderEstadoBadge(estado: string) {
-  const normalized = estado.toLowerCase();
-  const variant = normalized === "activo" ? "positive" : "neutral";
-
-  return (
-    <PolariaTableBadge variant={variant}>
-      {formatEstadoIntegracion(estado)}
-    </PolariaTableBadge>
-  );
-}
+import { listSolicitudesIntegracionConfigurator } from "../services/integracion.service";
+import { IntegracionSolicitudCard } from "./IntegracionSolicitudCard";
 
 export function IntegracionView() {
   const fetchSolicitudes = useCallback(
@@ -47,41 +27,6 @@ export function IntegracionView() {
   const pendientesCount = rows.filter((row) =>
     isSolicitudIntegracionPendiente(row.estado),
   ).length;
-
-  const columns = useMemo(
-    () =>
-      [
-        {
-          id: "cuenta",
-          header: "Cuenta",
-          cell: (row: ConfiguratorSolicitudIntegracionRow) => row.cuentaNombre,
-        },
-        {
-          id: "bodega",
-          header: "Bodega externa",
-          cell: (row: ConfiguratorSolicitudIntegracionRow) => row.bodegaNombre,
-        },
-        {
-          id: "tipo",
-          header: "Tipo de integración",
-          cell: (row: ConfiguratorSolicitudIntegracionRow) =>
-            formatTipoIntegracion(row.tipoIntegracion),
-        },
-        {
-          id: "fecha",
-          header: "Fecha",
-          cell: (row: ConfiguratorSolicitudIntegracionRow) =>
-            formatDateTime(row.createdAt),
-        },
-        {
-          id: "estado",
-          header: "Estado",
-          cell: (row: ConfiguratorSolicitudIntegracionRow) =>
-            renderEstadoBadge(row.estado),
-        },
-      ] as const,
-    [],
-  );
 
   return (
     <main className="flex flex-1 flex-col justify-start gap-8 pt-8 pb-10 sm:gap-10 sm:pt-12 sm:pb-14 lg:gap-12 lg:pt-16 lg:pb-20">
@@ -127,7 +72,7 @@ export function IntegracionView() {
                       strokeWidth={2}
                       aria-hidden
                     />
-                    {pendientesCount} pendiente
+                    {pendientesCount} Pendiente
                     {pendientesCount === 1 ? "" : "s"}
                   </span>
                 ) : null}
@@ -171,15 +116,13 @@ export function IntegracionView() {
               </p>
             </div>
           ) : (
-            <div className="px-5 py-4 sm:px-6">
-              <ModuleListPage
-                isLoading={false}
-                error={null}
-                rows={rows}
-                columns={columns}
-                emptyMessage={INTEGRACION_EMPTY_MESSAGE}
-                getRowKey={(row) => row.idSolicitudIntegracion}
-              />
+            <div className="flex flex-col gap-4 px-5 py-5 sm:px-6 sm:py-6">
+              {rows.map((row) => (
+                <IntegracionSolicitudCard
+                  key={row.idSolicitudIntegracion}
+                  row={row}
+                />
+              ))}
             </div>
           )}
         </section>
