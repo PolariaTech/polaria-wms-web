@@ -11,7 +11,7 @@ import type {
 const WAREHOUSE_STATE_COLUMNS =
   "id_warehouse_state,codigo_cuenta,id_bodega,id_ubicacion,id_producto,id_lote,cantidad,cantidad_reservada,temperatura,locked_by,locked_at,version,updated_at";
 
-// TODO POL-5+: escrituras de inventario vía apiRequest al API Nest.
+// Escrituras de inventario (lock/unlock) vía inventory-api.service al API Nest.
 
 /** Lista posiciones de inventario (`warehouse_state`) para una bodega. */
 export async function listWarehouseState(

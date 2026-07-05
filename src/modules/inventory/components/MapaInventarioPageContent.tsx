@@ -1,14 +1,130 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { ModuleListPage } from "@/components/shared/ModuleListPage";
 import { formatDateTime } from "@/components/shared/formatters";
 import { useWarehouseStateRealtime } from "@/hooks/useWarehouseStateRealtime";
+import { usePermissions } from "@/hooks/usePermissions";
+import { DomainServiceError } from "@/lib/domain-service-error";
 import { useCompany } from "@/providers/CompanyProvider";
+import { useAuthStore } from "@/stores/auth.store";
+import {
+  canForceUnlockWarehouseState,
+  canLockWarehouseState,
+} from "../constants/inventory-lock.constants";
+import {
+  lockWarehouseStateApi,
+  unlockWarehouseStateApi,
+} from "../services/inventory-api.service";
+import type { WarehouseStateRow } from "../types/inventory.types";
+
+function formatLockLabel(
+  row: WarehouseStateRow,
+  currentUserId: string | null | undefined,
+): string {
+  if (!row.locked_by) {
+    return "Libre";
+  }
+
+  if (currentUserId && row.locked_by === currentUserId) {
+    return "Bloqueado por ti";
+  }
+
+  return `Bloqueado (${row.locked_by.slice(0, 8)}…)`;
+}
 
 export function MapaInventarioPageContent() {
-  const { activeBodegaId } = useCompany();
+  const { activeBodegaId, codigoCuenta } = useCompany();
+  const { idRol } = usePermissions();
+  const currentUserId = useAuthStore((state) => state.session?.idUsuario);
   const { rows, isConnected, isLoading, error, lastEventAt } =
     useWarehouseStateRealtime();
+
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingRowId, setPendingRowId] = useState<string | null>(null);
+
+  const puedeBloquear = canLockWarehouseState(idRol);
+  const puedeForzarUnlock = canForceUnlockWarehouseState(idRol);
+
+  const runLockAction = useCallback(
+    async (
+      row: WarehouseStateRow,
+      action: "lock" | "unlock",
+    ) => {
+      if (!codigoCuenta || !activeBodegaId) {
+        setActionError("Falta cuenta o bodega activa.");
+        return;
+      }
+
+      setActionError(null);
+      setPendingRowId(row.id_warehouse_state);
+
+      try {
+        const input = {
+          codigoCuenta,
+          idBodega: activeBodegaId,
+          expectedVersion: row.version,
+        };
+
+        if (action === "lock") {
+          await lockWarehouseStateApi(row.id_warehouse_state, input);
+        } else {
+          await unlockWarehouseStateApi(row.id_warehouse_state, input);
+        }
+      } catch (err: unknown) {
+        setActionError(
+          err instanceof DomainServiceError
+            ? err.message
+            : "No se pudo actualizar el bloqueo.",
+        );
+      } finally {
+        setPendingRowId(null);
+      }
+    },
+    [activeBodegaId, codigoCuenta],
+  );
+
+  const renderLockActions = (row: WarehouseStateRow) => {
+    if (!puedeBloquear) {
+      return <span className="polaria-text-body-sm text-polaria-w-50">—</span>;
+    }
+
+    const isPending = pendingRowId === row.id_warehouse_state;
+    const lockedByMe = Boolean(
+      row.locked_by && currentUserId && row.locked_by === currentUserId,
+    );
+    const lockedByOther = Boolean(row.locked_by && !lockedByMe);
+
+    if (!row.locked_by) {
+      return (
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => void runLockAction(row, "lock")}
+          className="rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-3 py-1.5 polaria-text-body-sm font-medium text-polaria-teal hover:bg-polaria-t-20 transition-colors disabled:opacity-50"
+        >
+          {isPending ? "…" : "Bloquear"}
+        </button>
+      );
+    }
+
+    if (lockedByMe || (lockedByOther && puedeForzarUnlock)) {
+      return (
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => void runLockAction(row, "unlock")}
+          className="rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-3 py-1.5 polaria-text-body-sm font-medium text-polaria-w hover:bg-polaria-w-20 transition-colors disabled:opacity-50"
+        >
+          {isPending ? "…" : lockedByOther ? "Forzar liberar" : "Liberar"}
+        </button>
+      );
+    }
+
+    return (
+      <span className="polaria-text-body-sm text-polaria-w-50">Ocupado</span>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -38,6 +154,15 @@ export function MapaInventarioPageContent() {
             dateStyle: "short",
             timeStyle: "medium",
           })}
+        </p>
+      ) : null}
+
+      {actionError ? (
+        <p
+          role="alert"
+          className="rounded-xl border border-polaria-danger-border bg-polaria-danger-bg px-4 py-3 polaria-text-body-sm text-polaria-danger"
+        >
+          {actionError}
         </p>
       ) : null}
 
@@ -80,10 +205,21 @@ export function MapaInventarioPageContent() {
             cellClassName: "text-polaria-w-50",
           },
           {
+            id: "bloqueo",
+            header: "Bloqueo",
+            cell: (row) => formatLockLabel(row, currentUserId),
+            cellClassName: "text-polaria-w-50",
+          },
+          {
             id: "updated",
             header: "Actualizado",
             cell: (row) => formatDateTime(row.updated_at),
             cellClassName: "text-polaria-w-50",
+          },
+          {
+            id: "acciones",
+            header: "Acciones",
+            cell: (row) => renderLockActions(row),
           },
         ]}
       />

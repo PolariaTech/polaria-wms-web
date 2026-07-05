@@ -3,6 +3,7 @@ import { DomainServiceError } from "@/lib/domain-service-error";
 import { ApiError, apiRequest } from "@/services/api";
 import {
   aprobarSolicitudCompraApi,
+  cerrarRecepcionCompraApi,
   convertirSolicitudCompraAOrdenApi,
   createSolicitudCompraApi,
   emitirOrdenCompraApi,
@@ -138,6 +139,63 @@ describe("purchases-api.service", () => {
       "/compras/ordenes/oc-1/emitir",
       { method: "POST", auth: true, body: undefined },
     );
+  });
+
+  it("cerrarRecepcionCompraApi cierra recepción contra OC", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      idRecepcion: "rec-1",
+      codigoCuenta: "CUENTA-01",
+      idBodega: "bod-1",
+      idOrdenCompra: "oc-1",
+      sinDiferencias: true,
+      notas: null,
+      cerradaAt: "2026-07-05T12:00:00.000Z",
+      estadoOrdenCompra: "recibida",
+    });
+
+    const row = await cerrarRecepcionCompraApi({
+      idOrdenCompra: "oc-1",
+      codigoCuenta: "CUENTA-01",
+      idBodega: "bod-1",
+      lineas: [
+        {
+          idLineaOrdenCompra: "linea-1",
+          cantidadRecibida: 10,
+          temperaturaRegistrada: -18,
+        },
+      ],
+    });
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/compras/recepciones/ordenes/oc-1/cerrar",
+      {
+        method: "POST",
+        auth: true,
+        body: {
+          codigoCuenta: "CUENTA-01",
+          idBodega: "bod-1",
+          lineas: [
+            {
+              idLineaOrdenCompra: "linea-1",
+              cantidadRecibida: 10,
+              temperaturaRegistrada: -18,
+            },
+          ],
+        },
+      },
+    );
+    expect(row.idRecepcion).toBe("rec-1");
+  });
+
+  it("cerrarRecepcionCompraApi valida líneas", async () => {
+    await expect(
+      cerrarRecepcionCompraApi({
+        idOrdenCompra: "oc-1",
+        codigoCuenta: "CUENTA-01",
+        idBodega: "bod-1",
+        lineas: [],
+      }),
+    ).rejects.toBeInstanceOf(DomainServiceError);
   });
 
   it("propaga ApiError como DomainServiceError", async () => {

@@ -23,7 +23,7 @@ const SOLICITUD_COLUMNS =
 const ORDEN_COLUMNS =
   "id_orden_compra,codigo_cuenta,id_bodega,id_proveedor,id_solicitud_compra,id_creador,codigo,estado,fecha_emision,fecha_entrega_estimada,destino_tipo,observaciones,created_at,updated_at," +
   "proveedor(razon_social)," +
-  "orden_compra_linea(id_linea_orden_compra,id_producto,cantidad,producto(sku,descripcion,metadatos_catalogo))";
+  "orden_compra_linea(id_linea_orden_compra,id_producto,cantidad,cantidad_recibida,producto(sku,descripcion,metadatos_catalogo))";
 
 const RECEPCION_COLUMNS =
   "id_recepcion,codigo_cuenta,id_bodega,id_orden_compra,sin_diferencias,notas,cerrada_at,cerrada_por,created_at";
@@ -40,6 +40,7 @@ interface OrdenCompraLineaListDbRow {
   id_linea_orden_compra: string;
   id_producto: string;
   cantidad: string | number;
+  cantidad_recibida?: string | number | null;
   producto:
     | {
         sku: string | null;
@@ -113,6 +114,8 @@ function mapOrdenCompraLineaListRow(
     id_linea_orden_compra: row.id_linea_orden_compra,
     id_producto: row.id_producto,
     cantidad: Number(row.cantidad),
+    cantidad_recibida:
+      row.cantidad_recibida != null ? Number(row.cantidad_recibida) : 0,
     producto: resolveOrdenLineaProducto(row.producto),
   };
 }
@@ -256,7 +259,7 @@ export async function listOrdenCompraLineas(
       .eq("id_orden_compra", ordenId);
 
     return query as unknown as Promise<{
-      data: OrdenCompraLineaDbRow[] | null;
+      data: OrdenCompraLineaNotifyDbRow[] | null;
       error: { message: string } | null;
     }>;
   });
@@ -329,7 +332,10 @@ export async function updateOrdenCompraDestino(
       .eq("id_orden_compra", ordenId)
       .eq("codigo_cuenta", cuenta)
       .select("id_orden_compra")
-      .single(),
+      .single() as unknown as Promise<{
+      data: { id_orden_compra: string } | null;
+      error: { message: string } | null;
+    }>,
   );
 }
 
