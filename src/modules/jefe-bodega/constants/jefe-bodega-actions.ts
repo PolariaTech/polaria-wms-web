@@ -49,9 +49,8 @@ export const JEFE_BODEGA_ACTIONS: readonly JefeBodegaAction[] = [
   {
     id: "procesamiento",
     title: "Procesamiento",
-    subtitle: "Próximamente",
+    subtitle: "Nueva solicitud",
     icon: Cpu,
-    disabled: true,
   },
   {
     id: "crear-salida",

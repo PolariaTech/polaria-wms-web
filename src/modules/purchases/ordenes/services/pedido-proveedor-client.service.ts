@@ -1,7 +1,7 @@
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import type { PedidoProveedorBody } from "@/lib/pedido-proveedor/pedido-proveedor.schema";
 import type { OrdenCompraRow } from "../../shared/types/purchases.types";
-import type { OrdenCompraNotifyLineaRow } from "./purchases.service";
+import type { OrdenCompraNotifyLineaRow } from "../../shared/services/purchases.service";
 
 export interface PedidoProveedorRouteResponse {
   ok: boolean;

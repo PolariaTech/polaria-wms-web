@@ -1,5 +1,5 @@
-import { listTareasCola } from "@/modules/processing";
-import type { TareaColaRow } from "@/modules/processing";
+import { listTareasColaApi } from "@/modules/operations";
+import type { TareaColaRow } from "@/modules/processing/shared/types/processing.types";
 
 export interface ListTareasOperarioABodegaParams {
   codigoCuenta: string | null;
@@ -7,7 +7,7 @@ export interface ListTareasOperarioABodegaParams {
   idUsuario: string | null;
 }
 
-/** Tareas de movimiento / traslado pendientes asignadas al operario. */
+/** Tareas de movimiento / traslado pendientes asignadas al operario (API Nest). */
 export async function listTareasOperarioABodega(
   params: ListTareasOperarioABodegaParams,
 ): Promise<TareaColaRow[]> {
@@ -17,15 +17,17 @@ export async function listTareasOperarioABodega(
     return [];
   }
 
-  const rows = await listTareasCola({
+  const rows = await listTareasColaApi({
     codigoCuenta,
     idBodega,
+    idAsignado: idUsuario,
+    estado: "pendiente",
   });
 
   return rows.filter(
     (row) =>
-      row.id_asignado === idUsuario &&
-      row.estado === "pendiente" &&
-      row.tipo === "movimiento",
+      row.tipo === "movimiento" ||
+      row.tipo === "despacho" ||
+      row.tipo === "revision",
   );
 }

@@ -9,6 +9,11 @@ import {
   PolariaRequestPanel,
 } from "@/components/shared/requests";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
+import {
+  completarTareaColaApi,
+  crearLlamadaJefeApi,
+  listAlertasOperativasApi,
+} from "@/modules/operations";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
 import {
@@ -24,6 +29,7 @@ export function OperarioOperacionPageContent() {
   const { codigoCuenta, activeBodegaId } = useCompany();
   const idUsuario = useAuthStore((state) => state.session?.idUsuario ?? null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
 
   const fetchTareas = useCallback(
     () =>
@@ -35,10 +41,74 @@ export function OperarioOperacionPageContent() {
     [activeBodegaId, codigoCuenta, idUsuario],
   );
 
-  const { data, isLoading, error } = useAsyncQuery(
+  const { data, isLoading, error, reload } = useAsyncQuery(
     fetchTareas,
     Boolean(codigoCuenta && activeBodegaId && idUsuario),
   );
+
+  const handleCompletarTarea = useCallback(
+    async (idTarea: string) => {
+      if (!codigoCuenta || !activeBodegaId) return;
+      setIsMutating(true);
+      setActionNotice(null);
+      try {
+        await completarTareaColaApi(idTarea, {
+          codigoCuenta,
+          idBodega: activeBodegaId,
+        });
+        setActionNotice("Tarea completada.");
+        await reload();
+      } catch (err) {
+        setActionNotice(
+          err instanceof Error ? err.message : "No se pudo completar la tarea.",
+        );
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [activeBodegaId, codigoCuenta, reload],
+  );
+
+  const handleLlamarJefe = useCallback(async () => {
+    if (!codigoCuenta || !activeBodegaId) return;
+    setIsMutating(true);
+    setActionNotice(null);
+    try {
+      await crearLlamadaJefeApi({ codigoCuenta, idBodega: activeBodegaId });
+      setActionNotice("Llamada enviada al jefe de bodega.");
+    } catch (err) {
+      setActionNotice(
+        err instanceof Error ? err.message : "No se pudo llamar al jefe.",
+      );
+    } finally {
+      setIsMutating(false);
+    }
+  }, [activeBodegaId, codigoCuenta]);
+
+  const handleVerAlertas = useCallback(async () => {
+    if (!codigoCuenta || !activeBodegaId) return;
+    setIsMutating(true);
+    setActionNotice(null);
+    try {
+      const alertas = await listAlertasOperativasApi({
+        codigoCuenta,
+        idBodega: activeBodegaId,
+        estado: "abierta",
+      });
+      const asignadas = alertas.filter((a) => a.idResponsable === idUsuario);
+      setActionNotice(
+        asignadas.length > 0
+          ? `Tienes ${asignadas.length} alerta(s) asignada(s).`
+          : "No tienes alertas asignadas.",
+      );
+    } catch (err) {
+      setActionNotice(
+        err instanceof Error ? err.message : "No se pudieron cargar alertas.",
+      );
+    } finally {
+      setIsMutating(false);
+    }
+  }, [activeBodegaId, codigoCuenta, idUsuario]);
 
   const tareas = data ?? [];
   const tareasCount = tareas.length;
@@ -59,6 +129,11 @@ export function OperarioOperacionPageContent() {
               `Traslado ${tarea.id_tarea.slice(0, 8)}`
             }
             subtitle={tarea.descripcion?.trim() || undefined}
+            onClick={
+              isMutating
+                ? undefined
+                : () => void handleCompletarTarea(tarea.id_tarea)
+            }
           />
         ))}
       </div>
@@ -74,9 +149,7 @@ export function OperarioOperacionPageContent() {
           icon: AlertCircle,
           tone: "teal",
           onClick: () => {
-            setActionNotice(
-              "Las alertas de bodega estarán disponibles próximamente.",
-            );
+            void handleVerAlertas();
           },
         },
         {
@@ -85,10 +158,9 @@ export function OperarioOperacionPageContent() {
           icon: Phone,
           tone: "warning",
           onClick: () => {
-            setActionNotice(
-              "La llamada al jefe de bodega estará disponible próximamente.",
-            );
+            void handleLlamarJefe();
           },
+          disabled: isMutating,
         },
       ]}
     />
