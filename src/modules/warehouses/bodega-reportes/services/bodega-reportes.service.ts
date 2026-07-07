@@ -1,3 +1,4 @@
+import { getBodegaReportesApi } from "@/modules/operations";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BODEGA_REPORTES_BAR_LABELS } from "../constants/bodega-reportes-config";
 import type {
@@ -38,7 +39,7 @@ async function sumMermaKg(idBodega: string): Promise<number> {
       .from("solicitud_procesamiento")
       .select("kilos_merma")
       .eq("id_bodega", idBodega)
-      .eq("estado", "cerrada");
+      .eq("estado", "terminada");
 
     if (error || !data) return 0;
 
@@ -65,14 +66,16 @@ function buildChartData(resumen: BodegaReportesResumen): {
     value: resumen[id],
   }));
 
-  const donutChart: BodegaReporteCategoriaMetric[] = [
-    { id: "ingresos", total: resumen.ingresos },
-    { id: "salidas", total: resumen.salidas },
-    { id: "movimientos", total: resumen.movimientos },
-    { id: "despachados", total: resumen.despachados },
-    { id: "alertas", total: resumen.alertas },
-    { id: "merma", total: resumen.mermaKg },
-  ].filter((item) => item.total > 0);
+  const donutChart: BodegaReporteCategoriaMetric[] = (
+    [
+      { id: "ingresos" as const, total: resumen.ingresos },
+      { id: "salidas" as const, total: resumen.salidas },
+      { id: "movimientos" as const, total: resumen.movimientos },
+      { id: "despachados" as const, total: resumen.despachados },
+      { id: "alertas" as const, total: resumen.alertas },
+      { id: "merma" as const, total: resumen.mermaKg },
+    ] as BodegaReporteCategoriaMetric[]
+  ).filter((item) => item.total > 0);
 
   return { barChart, donutChart };
 }
@@ -94,6 +97,22 @@ export async function getBodegaReportesData(
   if (!codigoCuenta || !idBodega) {
     const charts = buildChartData(EMPTY_RESUMEN);
     return { resumen: EMPTY_RESUMEN, ...charts };
+  }
+
+  try {
+    const apiResumen = await getBodegaReportesApi({ codigoCuenta, idBodega });
+    const resumen: BodegaReportesResumen = {
+      ingresos: apiResumen.ingresos,
+      salidas: apiResumen.salidas,
+      movimientos: apiResumen.movimientos,
+      despachados: apiResumen.despachados,
+      alertas: apiResumen.alertas,
+      mermaKg: apiResumen.mermaKg,
+    };
+    const charts = buildChartData(resumen);
+    return { resumen, ...charts };
+  } catch {
+    // fallback Supabase abajo
   }
 
   const [

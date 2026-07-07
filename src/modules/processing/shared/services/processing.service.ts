@@ -8,6 +8,11 @@ import {
   type TenantListParams,
 } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
+import { listTareasColaApi } from "@/modules/operations";
+import {
+  createSolicitudProcesamientoApi,
+  listSolicitudesProcesamientoApi,
+} from "./processing-api.service";
 import type {
   CreateSolicitudProcesamientoInput,
   ProductoProcesamientoOption,
@@ -112,6 +117,20 @@ function mapSolicitudOperadorRow(
 export async function listSolicitudesProcesamiento(
   params: TenantListParams,
 ): Promise<SolicitudProcesamientoRow[]> {
+  const codigoCuenta = params.codigoCuenta?.trim();
+  const idBodega = params.idBodega?.trim();
+
+  if (codigoCuenta && idBodega) {
+    try {
+      return await listSolicitudesProcesamientoApi({
+        codigoCuenta,
+        idBodega,
+      });
+    } catch {
+      // fallback lectura Supabase
+    }
+  }
+
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 
   return runDomainQuery((client) => {
@@ -145,6 +164,13 @@ export async function listSolicitudesProcesamientoOperador(
 export async function listTareasCola(
   params: TenantListParams,
 ): Promise<TareaColaRow[]> {
+  const codigoCuenta = params.codigoCuenta?.trim();
+  const idBodega = params.idBodega?.trim();
+
+  if (codigoCuenta && idBodega) {
+    return listTareasColaApi({ codigoCuenta, idBodega });
+  }
+
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 
   return runDomainQuery((client) => {
@@ -308,6 +334,29 @@ export async function createSolicitudProcesamiento(
       "La cantidad a procesar supera el stock del mapa.",
       "INVALID_ARGUMENT",
     );
+  }
+
+  try {
+    const row = await createSolicitudProcesamientoApi({
+      codigoCuenta,
+      idBodega,
+      idSolicitante,
+      idProductoPrimario,
+      idProductoSecundario,
+      kilosPrimario: input.kilosPrimario,
+      reglaConversionCantidadPrimario: input.reglaConversionCantidadPrimario,
+      reglaConversionUnidadesSecundario: input.reglaConversionUnidadesSecundario,
+      estimadoUnidadesSecundario: input.estimadoUnidadesSecundario,
+    });
+
+    const productLabels = await fetchProductoLabels([
+      row.id_producto_primario,
+      row.id_producto_secundario,
+    ]);
+
+    return mapSolicitudOperadorRow(row, productLabels);
+  } catch {
+    // fallback Supabase si API no disponible
   }
 
   const row = await runDomainMutation<SolicitudProcesamientoRow>((client) => {
