@@ -2,13 +2,13 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { WMS_MODULE } from "@/constants/permissions";
+import { WMS_MODULE } from "@/constants/wms/permissions";
 import {
   ROLES_NIVEL_CUENTA,
   WmsRol,
-} from "@/constants/roles";
+} from "@/constants/wms/roles";
 import { ROUTES } from "@/config/routes";
-import { OperationalModuleShell } from "@/components/shared/OperationalModuleShell";
+import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { ProcesamientoPageContent } from "@/modules/processing";
 import { useAuthStore } from "@/stores/auth.store";
 

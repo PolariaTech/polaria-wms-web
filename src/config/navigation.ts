@@ -17,7 +17,7 @@ import {
   type Permission,
   type WmsModule,
   WMS_MODULE,
-} from "@/constants/permissions";
+} from "@/constants/wms/permissions";
 import {
   hasMinNivelRol,
   ROLES_INGRESO_BODEGA,
@@ -25,9 +25,9 @@ import {
   ROLES_NIVEL_CUENTA,
   ROLES_TRANSPORTE,
   WmsRol,
-} from "@/constants/roles";
+} from "@/constants/wms/roles";
 import { ROUTES } from "@/config/routes";
-import type { AuthScope, NivelRol } from "@/types/auth";
+import type { AuthScope, NivelRol } from "@/types/auth/auth";
 
 export interface NavItem {
   href: string;
@@ -86,6 +86,20 @@ export const TENANT_NAV: readonly NavItem[] = [
     icon: PackagePlus,
     scopes: ["tenant"],
     roles: ROLES_INGRESO_BODEGA,
+  },
+  {
+    href: ROUTES.dashboardOperarioOperacion,
+    label: "Operación",
+    icon: PackagePlus,
+    scopes: ["tenant"],
+    roles: [WmsRol.operario],
+  },
+  {
+    href: ROUTES.dashboardProcesadorOperacion,
+    label: "Operación",
+    icon: PackagePlus,
+    scopes: ["tenant"],
+    roles: [WmsRol.procesador],
   },
   {
     href: ROUTES.dashboardCompras,

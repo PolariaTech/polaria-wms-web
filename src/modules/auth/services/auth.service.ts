@@ -1,6 +1,6 @@
-import { normalizeAuthSession } from "@/lib/normalize-nivel-rol";
-import type { AuthSessionApi } from "@/lib/normalize-nivel-rol";
-import { apiRequest } from "@/services/api";
+import { normalizeAuthSession } from "@/lib/utils/normalize-nivel-rol";
+import type { AuthSessionApi } from "@/lib/utils/normalize-nivel-rol";
+import { apiRequest } from "@/services/api/api";
 import type {
   AuthSession,
   LoginRequest,
@@ -9,7 +9,7 @@ import type {
   MateoHandoffResponse,
   PreloginRequest,
   PreloginResponse,
-} from "@/types/auth";
+} from "@/types/auth/auth";
 
 type MeApiResponse = AuthSessionApi;
 

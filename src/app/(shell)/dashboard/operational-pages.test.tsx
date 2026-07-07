@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { WmsRol } from "@/constants/roles";
-import type { AuthSession } from "@/types/auth";
+import { WmsRol } from "@/constants/wms/roles";
+import type { AuthSession } from "@/types/auth/auth";
 
 const mockReplace = vi.fn();
 
@@ -29,29 +29,29 @@ const listSolicitudesIntegracion = vi.fn();
 const listBodegasExternasVinculadasAdmin = vi.fn();
 const listBodegasInternasVinculadasAdmin = vi.fn();
 
-vi.mock("@/modules/account-integration/services/integracion-bodega.service", () => ({
+vi.mock("@/modules/account-integration/integracion/services/integracion-bodega.service", () => ({
   listSolicitudesIntegracion: (...args: unknown[]) =>
     listSolicitudesIntegracion(...args),
   createSolicitudIntegracion: vi.fn(),
 }));
 
-vi.mock("@/modules/admin-panel/services/bodegas-externas-admin.service", () => ({
+vi.mock("@/modules/admin-panel/bodega-externa/services/bodegas-externas-admin.service", () => ({
   listBodegasExternasVinculadasAdmin: (...args: unknown[]) =>
     listBodegasExternasVinculadasAdmin(...args),
 }));
 
-vi.mock("@/modules/admin-panel/services/bodegas-internas-admin.service", () => ({
+vi.mock("@/modules/admin-panel/bodega-interna/services/bodegas-internas-admin.service", () => ({
   listBodegasInternasVinculadasAdmin: (...args: unknown[]) =>
     listBodegasInternasVinculadasAdmin(...args),
 }));
 
-vi.mock("@/modules/purchases/services/purchases.service", () => ({
+vi.mock("@/modules/purchases/shared/services/purchases.service", () => ({
   listSolicitudesCompra: (...args: unknown[]) => listSolicitudesCompra(...args),
   listOrdenesCompra: (...args: unknown[]) => listOrdenesCompra(...args),
   listRecepciones: (...args: unknown[]) => listRecepciones(...args),
 }));
 
-vi.mock("@/modules/processing/services/processing.service", () => ({
+vi.mock("@/modules/processing/shared/services/processing.service", () => ({
   listSolicitudesProcesamiento: (...args: unknown[]) =>
     listSolicitudesProcesamiento(...args),
   listSolicitudesProcesamientoOperador: (...args: unknown[]) =>
@@ -63,7 +63,7 @@ vi.mock("@/modules/processing/services/processing.service", () => ({
   getStockProductoBodega: vi.fn().mockResolvedValue(0),
 }));
 
-vi.mock("@/modules/sales/services/sales.service", () => ({
+vi.mock("@/modules/sales/shared/services/sales.service", () => ({
   listOrdenesVenta: (...args: unknown[]) => listOrdenesVenta(...args),
   listOrdenesVentaOperador: (...args: unknown[]) =>
     listOrdenesVentaOperador(...args),
@@ -71,11 +71,11 @@ vi.mock("@/modules/sales/services/sales.service", () => ({
     listProductosVentaCatalogo(...args),
 }));
 
-vi.mock("@/modules/admin-panel/services/compradores.service", () => ({
+vi.mock("@/modules/admin-panel/compradores/services/compradores.service", () => ({
   listCompradoresAdmin: (...args: unknown[]) => listCompradoresAdmin(...args),
 }));
 
-vi.mock("@/modules/transport/services/transport.service", () => ({
+vi.mock("@/modules/transport/shared/services/transport.service", () => ({
   listGuiasEnvio: (...args: unknown[]) => listGuiasEnvio(...args),
   listEvidenciasTransporte: (...args: unknown[]) =>
     listEvidenciasTransporte(...args),
@@ -87,7 +87,7 @@ vi.mock("@/modules/audit", () => ({
 }));
 
 vi.mock(
-  "@/modules/admin-panel/services/inventario-mercancia-report.service",
+  "@/modules/admin-panel/inventario-mercancia/services/inventario-mercancia-report.service",
   () => ({
     getInventarioMercanciaReport: (...args: unknown[]) =>
       getInventarioMercanciaReport(...args),
@@ -103,7 +103,7 @@ vi.mock(
   }),
 );
 
-vi.mock("@/modules/inventory/services/inventory.service", () => ({
+vi.mock("@/modules/inventory/shared/services/inventory.service", () => ({
   listWarehouseState: (...args: unknown[]) => listWarehouseState(...args),
 }));
 
@@ -133,7 +133,7 @@ vi.mock("@/stores/auth.store", () => ({
     }),
 }));
 
-vi.mock("@/providers/CompanyProvider", () => ({
+vi.mock("@/providers/tenant/CompanyProvider", () => ({
   useCompany: () => ({
     codigoCuenta: "CUENTA-01",
     activeBodegaId: "BOD-01",
@@ -483,10 +483,12 @@ describe("vistas operativas dashboard", () => {
       {
         idOrdenVenta: "ov-1",
         venta: "OV-001",
+        cuenta: "CUENTA-01",
         comprador: "Retail Norte",
         productos: "2 productos",
         estado: "borrador",
         fecha: "2026-06-28T12:00:00.000Z",
+        destino: "—",
       },
     ]);
 

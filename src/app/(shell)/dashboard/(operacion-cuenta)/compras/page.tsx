@@ -1,7 +1,7 @@
 "use client";
 
-import { WMS_MODULE } from "@/constants/permissions";
-import { OperationalModuleShell } from "@/components/shared/OperationalModuleShell";
+import { WMS_MODULE } from "@/constants/wms/permissions";
+import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { ComprasPageContent } from "@/modules/purchases";
 
 export default function DashboardComprasPage() {

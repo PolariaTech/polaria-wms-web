@@ -1,5 +1,5 @@
-import { BodegaRequiredGuard } from "@/components/auth/BodegaRequiredGuard";
-import { TenantScopeGuard } from "@/components/auth/TenantScopeGuard";
+import { BodegaRequiredGuard } from "@/components/auth/guards/BodegaRequiredGuard";
+import { TenantScopeGuard } from "@/components/auth/guards/TenantScopeGuard";
 
 export default function DashboardLayout({
   children,

@@ -1,8 +1,8 @@
 "use client";
 
-import { WMS_MODULE } from "@/constants/permissions";
-import { WmsRol } from "@/constants/roles";
-import { OperationalModuleShell } from "@/components/shared/OperationalModuleShell";
+import { WMS_MODULE } from "@/constants/wms/permissions";
+import { WmsRol } from "@/constants/wms/roles";
+import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { VentasOperadorHub, VentasPageContent } from "@/modules/sales";
 import { useAuthStore } from "@/stores/auth.store";
 

@@ -7,13 +7,13 @@ export type {
   SolicitudProcesamientoRow,
   TareaColaRow,
   TipoTarea,
-} from "./types/processing.types";
+} from "./shared/types/processing.types";
 
 export {
   formatEstadoProcesamiento,
   formatKilos,
   formatUnidades,
-} from "./constants/processing-status";
+} from "./shared/constants/processing-status";
 
 export {
   createSolicitudProcesamiento,
@@ -23,9 +23,9 @@ export {
   listSolicitudesProcesamiento,
   listSolicitudesProcesamientoOperador,
   listTareasCola,
-} from "./services/processing.service";
+} from "./shared/services/processing.service";
 
-export { BodegaInternaOperadorHub } from "./components/BodegaInternaOperadorHub";
-export { OperadorProcesamientoPageContent } from "./components/OperadorProcesamientoPageContent";
-export { OrdenProcesamientoCreateModal } from "./components/OrdenProcesamientoCreateModal";
-export { ProcesamientoPageContent } from "./components/ProcesamientoPageContent";
+export { BodegaInternaOperadorHub } from "./operador/components/BodegaInternaOperadorHub";
+export { OperadorProcesamientoPageContent } from "./operador/components/OperadorProcesamientoPageContent";
+export { OrdenProcesamientoCreateModal } from "./solicitudes/components/OrdenProcesamientoCreateModal";
+export { ProcesamientoPageContent } from "./solicitudes/components/ProcesamientoPageContent";

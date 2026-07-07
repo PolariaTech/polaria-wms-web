@@ -36,6 +36,10 @@ export const ROUTES = {
     "/dashboard/administracion/asignacion-creacion/bodega-externa",
   dashboardCatalog: "/dashboard/administracion/catalogo",
   dashboardIngreso: "/dashboard/ingreso",
+  /** Operario — ingresos, salidas, traslados y tareas */
+  dashboardOperarioOperacion: "/dashboard/operario/operacion",
+  /** Procesador — misma vista operativa que operario (por ahora) */
+  dashboardProcesadorOperacion: "/dashboard/procesador/operacion",
   dashboardCompras: "/dashboard/compras",
   dashboardBodegaExternaCuenta: "/dashboard/bodega-externa",
   dashboardBodegaExternaCuentaIntegracion:
@@ -49,6 +53,24 @@ export const ROUTES = {
   dashboardVentasOrdenes: "/dashboard/ventas/ordenes",
   dashboardTransporte: "/dashboard/transporte",
   dashboardReporteria: "/dashboard/reporteria",
+  /** Administrador de bodega — operación (independiente del jefe de bodega) */
+  dashboardAdministradorBodegaEstado:
+    "/dashboard/administrador-bodega/estado-bodega",
+  dashboardAdministradorBodegaReportes:
+    "/dashboard/administrador-bodega/reportes-bodega",
+  /** Jefe de bodega — operación (extensible con opciones propias) */
+  dashboardJefeBodegaEstado: "/dashboard/jefe-bodega/estado-bodega",
+  dashboardJefeBodegaBodegaABodega: "/dashboard/jefe-bodega/bodega-a-bodega",
+  /** Custodio — ingreso / salida operativa */
+  dashboardCustodioIngreso: "/dashboard/custodio/ingreso",
+  dashboardCustodioOrdenCompra: "/dashboard/custodio/orden-compra",
+  dashboardCustodioOrdenVenta: "/dashboard/custodio/orden-venta",
+  /** @deprecated El jefe de bodega usa solo estado de bodega como vista principal */
+  dashboardJefeBodegaReportes: "/dashboard/jefe-bodega/reportes-bodega",
+  /** @deprecated Usar rutas por rol (administrador-bodega / jefe-bodega) */
+  dashboardEstadoBodega: "/dashboard/estado-bodega",
+  /** @deprecated Usar rutas por rol (administrador-bodega / jefe-bodega) */
+  dashboardReportesBodega: "/dashboard/reportes-bodega",
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];

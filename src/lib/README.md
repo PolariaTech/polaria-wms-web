@@ -1,20 +1,18 @@
 # src/lib/
 
-Utilidades y funciones helper compartidas.
+Utilidades y lógica compartida sin UI.
 
-## Propósito
+## Subcarpetas
 
-Funciones puras sin dependencia de React: formateo, validación, manipulación de datos, helpers de fechas, etc.
-
-## Ejemplos previstos
-
-- `cn()` — combinar clases de Tailwind (clsx + tailwind-merge)
-- `formatCurrency()` — formatear montos según locale
-- `formatDate()` — formatear fechas consistentemente
-- `parseSearchParams()` — parsear query strings de URL
+| Carpeta | Contenido |
+|---------|-----------|
+| `auth/` | Sesión, sync, storage, rutas protegidas, SSO |
+| `utils/` | `cn`, errores de dominio, decimales, headers de tenant, etc. |
+| `supabase/` | Cliente y helpers de consultas |
+| `pedido-proveedor/` | Schemas del pedido a proveedor |
+| `solicitud-compra-n8n/` | Schemas n8n de solicitudes de compra |
 
 ## Convención
 
-- Solo funciones puras o utilidades sin efectos secundarios.
-- Sin imports de React ni hooks.
-- Sin llamadas directas a API (eso va en `src/services/`).
+- `@/lib/auth/auth-sync`, `@/lib/utils/cn`, `@/lib/supabase/domain-query`
+- No duplicar archivos en la raíz de `lib/`; usar subcarpetas.

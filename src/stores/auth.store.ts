@@ -1,19 +1,19 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { getMe, login, logout } from "@/modules/auth";
-import { buildAuthContextFromSession } from "@/lib/auth-context";
-import { notifyAuthChanged } from "@/lib/auth-broadcast";
+import { buildAuthContextFromSession } from "@/lib/auth/auth-context";
+import { notifyAuthChanged } from "@/lib/auth/auth-broadcast";
 import {
   AUTH_STORAGE_KEY,
   authPersistStorage,
   ensureAuthOnlyInLocalStorage,
   removeAuthFromLocalStorage,
-} from "@/lib/auth-storage";
-import { resolveActiveBodegaId } from "@/lib/active-bodega";
-import { normalizeAuthSession, type AuthSessionApi } from "@/lib/normalize-nivel-rol";
+} from "@/lib/auth/auth-storage";
+import { resolveActiveBodegaId } from "@/lib/utils/active-bodega";
+import { normalizeAuthSession, type AuthSessionApi } from "@/lib/utils/normalize-nivel-rol";
 import { syncSupabaseAuthSession } from "@/lib/supabase/client";
-import { setTenantHeadersGetter } from "@/lib/tenant-headers";
-import { setAccessTokenGetter } from "@/services/api";
+import { setTenantHeadersGetter } from "@/lib/utils/tenant-headers";
+import { setAccessTokenGetter } from "@/services/api/api";
 import type {
   AuthContext,
   AuthContextInput,
@@ -22,8 +22,8 @@ import type {
   AuthTokens,
   LoginRequest,
   UserPreview,
-} from "@/types/auth";
-import { createMinimalAuthContext } from "@/types/auth";
+} from "@/types/auth/auth";
+import { createMinimalAuthContext } from "@/types/auth/auth";
 export { AUTH_STORAGE_KEY };
 
 let hydrateSessionInFlight: Promise<AuthSession | null> | null = null;

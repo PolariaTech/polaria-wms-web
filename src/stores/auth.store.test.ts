@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { logout } from "@/modules/auth";
-import { getPersistedAccessToken } from "@/lib/auth-sync";
+import { getPersistedAccessToken } from "@/lib/auth/auth-sync";
 
 vi.mock("@/modules/auth", () => ({
   logout: vi.fn(),
 }));
 
-vi.mock("@/services/api", () => ({
+vi.mock("@/services/api/api", () => ({
   setAccessTokenGetter: vi.fn(),
 }));
 

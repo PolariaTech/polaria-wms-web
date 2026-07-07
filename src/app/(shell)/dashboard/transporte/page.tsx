@@ -1,8 +1,8 @@
 "use client";
 
-import { WMS_MODULE } from "@/constants/permissions";
-import { ROLES_TRANSPORTE } from "@/constants/roles";
-import { OperationalModuleShell } from "@/components/shared/OperationalModuleShell";
+import { WMS_MODULE } from "@/constants/wms/permissions";
+import { ROLES_TRANSPORTE } from "@/constants/wms/roles";
+import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { TransportePageContent } from "@/modules/transport";
 
 export default function DashboardTransportePage() {

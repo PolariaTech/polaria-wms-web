@@ -3,9 +3,9 @@ import {
   canAccessModule,
   hasPermission,
   type WmsModule,
-} from "@/constants/permissions";
-import { hasMinNivelRol, WmsRol } from "@/constants/roles";
-import type { NivelRol } from "@/types/auth";
+} from "@/constants/wms/permissions";
+import { hasMinNivelRol, WmsRol } from "@/constants/wms/roles";
+import type { NivelRol } from "@/types/auth/auth";
 import { filterNavItems, TENANT_NAV, type NavItem } from "./navigation";
 
 interface AccessContext {

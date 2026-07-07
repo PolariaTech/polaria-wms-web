@@ -1,7 +1,7 @@
 "use client";
 
-import { ROLES_NIVEL_CUENTA } from "@/constants/roles";
-import { OperationalModuleShell } from "@/components/shared/OperationalModuleShell";
+import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
+import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { OperadorOrdenesVentaPageContent } from "@/modules/sales";
 
 export default function DashboardVentasOrdenesPage() {

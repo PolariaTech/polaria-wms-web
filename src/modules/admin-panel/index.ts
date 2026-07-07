@@ -2,14 +2,14 @@ export type {
   AdminPanelAction,
   AdminPanelActionId,
   AdminPanelProps,
-} from "./types/admin-panel.types";
+} from "./shared/types/admin-panel.types";
 
 export type {
   AdminAssignmentCreationPanelProps,
   AdminAssignmentOptionId,
   AdminCreationOptionId,
   AdminMenuOption,
-} from "./types/admin-assignment-creation.types";
+} from "./shared/types/admin-assignment-creation.types";
 
 export {
   ADMIN_PANEL_ACTIONS,
@@ -17,7 +17,7 @@ export {
   ADMIN_PANEL_SUBTITLE,
   ADMIN_PANEL_TITLE,
   getAdminPanelActionHref,
-} from "./constants/admin-panel-actions";
+} from "./shared/constants/admin-panel-actions";
 
 export {
   ADMIN_ASSIGNMENT_CREATION_PLACEHOLDERS,
@@ -29,118 +29,118 @@ export {
   ADMIN_CREATION_SECTION_TITLE,
   getAdminAssignmentOptionHref,
   getAdminCreationOptionHref,
-} from "./constants/admin-assignment-creation-options";
+} from "./shared/constants/admin-assignment-creation-options";
 
 export {
   AdminPanel,
   AdminPanelConnected,
-} from "./components/AdminPanel";
+} from "./shared/components/AdminPanel";
 
 export {
   AdminAssignmentCreationPanel,
   AdminAssignmentCreationPanelConnected,
-} from "./components/AdminAssignmentCreationPanel";
+} from "./shared/components/AdminAssignmentCreationPanel";
 
-export { AdminBreadcrumb } from "./components/AdminBreadcrumb";
+export { AdminBreadcrumb } from "./shared/components/AdminBreadcrumb";
 
-export { AdminCatalogListShell } from "./components/AdminCatalogListShell";
-export { ProveedoresListView } from "./components/ProveedoresListView";
-export { ProveedorCreateModal } from "./components/ProveedorCreateModal";
-export { ClientesListView } from "./components/ClientesListView";
-export { ClienteCreateModal } from "./components/ClienteCreateModal";
-export { CompradoresListView } from "./components/CompradoresListView";
-export { CompradorCreateModal } from "./components/CompradorCreateModal";
-export { CamionesListView } from "./components/CamionesListView";
-export { CamionCreateModal } from "./components/CamionCreateModal";
-export { PlantasListView } from "./components/PlantasListView";
-export { PlantaCreateModal } from "./components/PlantaCreateModal";
-export { UsuariosAdminListView } from "./components/UsuariosAdminListView";
-export { UsuarioAdminCreateModal } from "./components/UsuarioAdminCreateModal";
-export { BodegaInternaAdminView } from "./components/BodegaInternaAdminView";
-export { VincularBodegaInternaModal } from "./components/VincularBodegaInternaModal";
-export { BodegaExternaAdminView } from "./components/BodegaExternaAdminView";
-export { VincularBodegaExternaModal } from "./components/VincularBodegaExternaModal";
-export { CatalogoListView } from "./components/CatalogoListView";
-export { ProductoCatalogoCreateModal } from "./components/ProductoCatalogoCreateModal";
-export { ProductoCatalogoEditModal } from "./components/ProductoCatalogoEditModal";
-export { ProductoSecundarioCreateModal } from "./components/ProductoSecundarioCreateModal";
-export { InventarioMercanciaReportView } from "./components/InventarioMercanciaReportView";
-export { InventarioMercanciaFlow } from "./components/InventarioMercanciaFlow";
+export { AdminCatalogListShell } from "./shared/components/AdminCatalogListShell";
+export { ProveedoresListView } from "./proveedores/components/ProveedoresListView";
+export { ProveedorCreateModal } from "./proveedores/components/ProveedorCreateModal";
+export { ClientesListView } from "./clientes/components/ClientesListView";
+export { ClienteCreateModal } from "./clientes/components/ClienteCreateModal";
+export { CompradoresListView } from "./compradores/components/CompradoresListView";
+export { CompradorCreateModal } from "./compradores/components/CompradorCreateModal";
+export { CamionesListView } from "./camiones/components/CamionesListView";
+export { CamionCreateModal } from "./camiones/components/CamionCreateModal";
+export { PlantasListView } from "./plantas/components/PlantasListView";
+export { PlantaCreateModal } from "./plantas/components/PlantaCreateModal";
+export { UsuariosAdminListView } from "./usuarios/components/UsuariosAdminListView";
+export { UsuarioAdminCreateModal } from "./usuarios/components/UsuarioAdminCreateModal";
+export { BodegaInternaAdminView } from "./bodega-interna/components/BodegaInternaAdminView";
+export { VincularBodegaInternaModal } from "./bodega-interna/components/VincularBodegaInternaModal";
+export { BodegaExternaAdminView } from "./bodega-externa/components/BodegaExternaAdminView";
+export { VincularBodegaExternaModal } from "./bodega-externa/components/VincularBodegaExternaModal";
+export { CatalogoListView } from "./catalogo/components/CatalogoListView";
+export { ProductoCatalogoCreateModal } from "./catalogo/components/ProductoCatalogoCreateModal";
+export { ProductoCatalogoEditModal } from "./catalogo/components/ProductoCatalogoEditModal";
+export { ProductoSecundarioCreateModal } from "./catalogo/components/ProductoSecundarioCreateModal";
+export { InventarioMercanciaReportView } from "./inventario-mercancia/components/InventarioMercanciaReportView";
+export { InventarioMercanciaFlow } from "./inventario-mercancia/components/InventarioMercanciaFlow";
 
-export type { ProveedorListRow, CreateProveedorInput } from "./services/proveedores.service";
+export type { ProveedorListRow, CreateProveedorInput } from "./proveedores/services/proveedores.service";
 export {
   createProveedorAdmin,
   decodeProveedorRazonSocial,
   formatProveedorId,
   listProveedoresAdmin,
-} from "./services/proveedores.service";
+} from "./proveedores/services/proveedores.service";
 
-export type { ClienteListRow, CreateClienteInput } from "./services/clientes.service";
+export type { ClienteListRow, CreateClienteInput } from "./clientes/services/clientes.service";
 export {
   createClienteAdmin,
   formatClienteId,
   listClientesAdmin,
-} from "./services/clientes.service";
+} from "./clientes/services/clientes.service";
 
-export type { CompradorListRow, CreateCompradorInput } from "./services/compradores.service";
+export type { CompradorListRow, CreateCompradorInput } from "./compradores/services/compradores.service";
 export {
   createCompradorAdmin,
   listCompradoresAdmin,
-} from "./services/compradores.service";
+} from "./compradores/services/compradores.service";
 
-export type { CamionListRow, CreateCamionInput } from "./services/camiones.service";
+export type { CamionListRow, CreateCamionInput } from "./camiones/services/camiones.service";
 export {
   createCamionAdmin,
   formatCamionId,
   listCamionesAdmin,
-} from "./services/camiones.service";
+} from "./camiones/services/camiones.service";
 
-export type { PlantaListRow, CreatePlantaInput } from "./services/plantas.service";
+export type { PlantaListRow, CreatePlantaInput } from "./plantas/services/plantas.service";
 export {
   createPlantaAdmin,
   formatPlantaId,
   listPlantasAdmin,
-} from "./services/plantas.service";
+} from "./plantas/services/plantas.service";
 
 export type {
   UsuarioAdminListRow,
   CreateUsuarioAdminInput,
-} from "./services/usuarios-admin.service";
+} from "./usuarios/services/usuarios-admin.service";
 export {
   createUsuarioAdmin,
   formatUsuarioAdminCreatedAt,
   listUsuariosAdmin,
-} from "./services/usuarios-admin.service";
+} from "./usuarios/services/usuarios-admin.service";
 
 export type {
   BodegaInternaDisponibleRow,
   BodegaInternaVinculadaRow,
   VincularBodegaInternaInput,
-} from "./services/bodegas-internas-admin.service";
+} from "./bodega-interna/services/bodegas-internas-admin.service";
 export {
   formatBodegaInternaId,
   listBodegasInternasDisponiblesAdmin,
   listBodegasInternasVinculadasAdmin,
   vincularBodegaInternaAdmin,
-} from "./services/bodegas-internas-admin.service";
+} from "./bodega-interna/services/bodegas-internas-admin.service";
 
 export type {
   BodegaExternaDisponibleRow,
   BodegaExternaVinculadaRow,
   VincularBodegaExternaInput,
-} from "./services/bodegas-externas-admin.service";
+} from "./bodega-externa/services/bodegas-externas-admin.service";
 export {
   formatBodegaExternaId,
   listBodegasExternasDisponiblesAdmin,
   listBodegasExternasVinculadasAdmin,
   vincularBodegaExternaAdmin,
-} from "./services/bodegas-externas-admin.service";
+} from "./bodega-externa/services/bodegas-externas-admin.service";
 
 export type {
   CatalogoProductoListRow,
   CreateCatalogoProductoInput,
   ProductoPrimarioOption,
-} from "./services/productos-catalogo.service";
+} from "./catalogo/services/productos-catalogo.service";
 export {
   createCatalogoProductoPrimario,
   createCatalogoProductoSecundario,
@@ -150,19 +150,19 @@ export {
   listCatalogoProductosAdmin,
   listProductosPrimariosCatalogo,
   updateCatalogoProducto,
-} from "./services/productos-catalogo.service";
+} from "./catalogo/services/productos-catalogo.service";
 
 export type {
   InventarioMercanciaEtapa,
   InventarioMercanciaEtapaId,
   InventarioMercanciaReport,
-} from "./services/inventario-mercancia-report.service";
+} from "./inventario-mercancia/services/inventario-mercancia-report.service";
 export {
   formatInventarioKg,
   getInventarioEtapa,
   getInventarioEtapaDestacada,
   getInventarioMercanciaReport,
-} from "./services/inventario-mercancia-report.service";
+} from "./inventario-mercancia/services/inventario-mercancia-report.service";
 
 export {
   ADMIN_CATALOG_SECTION_LABEL,
@@ -207,4 +207,4 @@ export {
   USUARIOS_PAGE_TITLE,
   USUARIOS_TABLE_SUBTITLE,
   USUARIOS_TABLE_TITLE,
-} from "./constants/admin-catalog-list";
+} from "./shared/constants/admin-catalog-list";

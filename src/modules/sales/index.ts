@@ -4,21 +4,21 @@ export type {
   OrdenVentaOperadorRow,
   OrdenVentaRow,
   ProductoVentaOption,
-} from "./types/sales.types";
+} from "./shared/types/sales.types";
 
 export {
   CATALOGO_VENTA_EMPTY_MESSAGE,
   formatEstadoOrdenVenta,
-} from "./constants/sales-status";
+} from "./shared/constants/sales-status";
 
 export {
   createOrdenVenta,
   listOrdenesVenta,
   listOrdenesVentaOperador,
   listProductosVentaCatalogo,
-} from "./services/sales.service";
+} from "./shared/services/sales.service";
 
-export { OperadorOrdenesVentaPageContent } from "./components/OperadorOrdenesVentaPageContent";
-export { OrdenVentaCreateModal } from "./components/OrdenVentaCreateModal";
-export { VentasOperadorHub } from "./components/VentasOperadorHub";
-export { VentasPageContent } from "./components/VentasPageContent";
+export { OperadorOrdenesVentaPageContent } from "./ordenes/components/OperadorOrdenesVentaPageContent";
+export { OrdenVentaCreateModal } from "./ordenes/components/OrdenVentaCreateModal";
+export { VentasOperadorHub } from "./operador/components/VentasOperadorHub";
+export { VentasPageContent } from "./ordenes/components/VentasPageContent";

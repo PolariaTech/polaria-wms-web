@@ -3,15 +3,15 @@ export {
   formatTipoIntegracion,
   TIPOS_INTEGRACION,
   type TipoIntegracion,
-} from "./constants/integration-types";
-export { BodegaExternaOperadorHub } from "./components/BodegaExternaOperadorHub";
-export { IntegracionBodegaPageContent } from "./components/IntegracionBodegaPageContent";
-export { SolicitudIntegracionCreateModal } from "./components/SolicitudIntegracionCreateModal";
+} from "./integracion/constants/integration-types";
+export { BodegaExternaOperadorHub } from "./operador/components/BodegaExternaOperadorHub";
+export { IntegracionBodegaPageContent } from "./integracion/components/IntegracionBodegaPageContent";
+export { SolicitudIntegracionCreateModal } from "./integracion/components/SolicitudIntegracionCreateModal";
 export {
   createSolicitudIntegracion,
   listSolicitudesIntegracion,
-} from "./services/integracion-bodega.service";
+} from "./integracion/services/integracion-bodega.service";
 export type {
   CreateSolicitudIntegracionInput,
   SolicitudIntegracionRow,
-} from "./types/integration.types";
+} from "./shared/types/integration.types";

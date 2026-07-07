@@ -1,4 +1,4 @@
-import { PlatformScopeGuard } from "@/components/auth/PlatformScopeGuard";
+import { PlatformScopeGuard } from "@/components/auth/guards/PlatformScopeGuard";
 import { ConfiguratorBreadcrumb } from "@/modules/configurator";
 
 export default function ConfiguradorLayout({

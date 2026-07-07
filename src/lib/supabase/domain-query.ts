@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { DomainServiceError } from "@/lib/domain-service-error";
+import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 let clientOverride: SupabaseClient | null = null;

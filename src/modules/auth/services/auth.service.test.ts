@@ -83,7 +83,7 @@ describe("auth service happy path", () => {
   });
 
   it("calls GET /auth/me with Bearer token and normalizes nivelRol", async () => {
-    const { setAccessTokenGetter } = await import("@/services/api");
+    const { setAccessTokenGetter } = await import("@/services/api/api");
     setAccessTokenGetter(() => "test-token");
 
     vi.stubGlobal(
@@ -130,7 +130,7 @@ describe("auth service happy path", () => {
   });
 
   it("requests mateo handoff code with Bearer token", async () => {
-    const { setAccessTokenGetter } = await import("@/services/api");
+    const { setAccessTokenGetter } = await import("@/services/api/api");
     setAccessTokenGetter(() => "session-token");
 
     vi.stubGlobal(

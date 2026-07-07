@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WmsRol } from "@/constants/roles";
+import { WmsRol } from "@/constants/wms/roles";
 import { ROUTES } from "@/config/routes";
 import {
   filterNavItems,
@@ -40,7 +40,7 @@ describe("isNavItemActive", () => {
 });
 
 describe("filterNavItems", () => {
-  it("operario ve mapa e ingreso pero no reportería ni compras", () => {
+  it("operario ve mapa y operación pero no ingreso ni reportería", () => {
     const items = filterNavItems(
       TENANT_NAV,
       tenantContext(WmsRol.operario, "bodega"),
@@ -49,7 +49,8 @@ describe("filterNavItems", () => {
     const labels = items.map((item) => item.label);
     expect(labels).toContain("Inicio");
     expect(labels).toContain("Mapa");
-    expect(labels).toContain("Ingreso");
+    expect(labels).toContain("Operación");
+    expect(labels).not.toContain("Ingreso");
     expect(labels).not.toContain("Compras");
     expect(labels).not.toContain("Reportería");
   });
@@ -64,7 +65,7 @@ describe("filterNavItems", () => {
     expect(labels).toEqual(["Inicio", "Ingreso", "Transporte"]);
   });
 
-  it("procesador ve inicio, ingreso y procesamiento", () => {
+  it("procesador ve inicio, ingreso, operación y procesamiento", () => {
     const items = filterNavItems(
       TENANT_NAV,
       tenantContext(WmsRol.procesador, "bodega"),
@@ -72,6 +73,7 @@ describe("filterNavItems", () => {
 
     const labels = items.map((item) => item.label);
     expect(labels).toContain("Procesamiento");
+    expect(labels).toContain("Operación");
     expect(labels).not.toContain("Mapa");
   });
 

@@ -2,22 +2,17 @@
 
 Componentes React reutilizables de la interfaz de usuario.
 
-## Propósito
-
-Centraliza la UI compartida entre módulos. Los componentes aquí no contienen lógica de negocio del WMS; esa vive en `src/modules/`.
-
 ## Subcarpetas
 
-| Carpeta    | Descripción                                              |
-|------------|----------------------------------------------------------|
-| `ui/`      | Primitivos de UI: botones, inputs, modales, tablas       |
-| `forms/`   | Componentes de formulario compuestos y validación        |
-| `layouts/` | Estructuras de página: sidebar, header, contenedores     |
-| `shared/`  | Componentes compartidos entre módulos (badges, cards)    |
-| `auth/`    | Componentes específicos de autenticación (login form)    |
+| Carpeta | Subcarpetas | Contenido |
+|---------|-------------|-----------|
+| `auth/` | `guards`, `login`, `sso`, `session` | Guards, flujo de login, SSO, bootstrap de sesión |
+| `layouts/` | `shell`, `auth` | App shell, topbar, layout de autenticación |
+| `shared/` | `table`, `form`, `module`, `cards`, `utils` | Tablas, formularios, shells de módulo, tarjetas |
+| `forms/` | — | Formularios compuestos (futuro) |
+| `ui/` | — | Primitivos de UI (futuro) |
 
 ## Convención
 
-- Un componente por archivo, exportación nombrada o por defecto según el patrón del proyecto.
-- Los componentes de `ui/` son agnósticos al dominio; no conocen inventario, ventas, etc.
-- Importa desde `@/components/ui/button`, no con rutas relativas profundas.
+- Importar con rutas explícitas: `@/components/auth/guards/RoleGate`, `@/components/shared/form/PolariaFormModal`.
+- La lógica de negocio vive en `src/modules/`; aquí solo presentación e interacción.

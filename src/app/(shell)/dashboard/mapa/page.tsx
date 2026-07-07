@@ -1,7 +1,7 @@
 "use client";
 
-import { ROLES_MAPA_BODEGA } from "@/constants/roles";
-import { OperationalModuleShell } from "@/components/shared/OperationalModuleShell";
+import { ROLES_MAPA_BODEGA } from "@/constants/wms/roles";
+import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { MapaInventarioPageContent } from "@/modules/inventory";
 
 export default function DashboardMapaPage() {

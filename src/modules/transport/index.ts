@@ -4,11 +4,11 @@ export type {
   GuiaEnvioRow,
   TipoEvidenciaTransporte,
   TransportListParams,
-} from "./types/transport.types";
+} from "./shared/types/transport.types";
 
 export {
   listEvidenciasTransporte,
   listGuiasEnvio,
-} from "./services/transport.service";
+} from "./shared/services/transport.service";
 
-export { TransportePageContent } from "./components/TransportePageContent";
+export { TransportePageContent } from "./guias/components/TransportePageContent";

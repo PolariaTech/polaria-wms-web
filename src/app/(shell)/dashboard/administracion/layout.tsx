@@ -1,4 +1,4 @@
-import { AdminAccountGuard } from "@/components/auth/AdminAccountGuard";
+import { AdminAccountGuard } from "@/components/auth/guards/AdminAccountGuard";
 import { AdminBreadcrumb } from "@/modules/admin-panel";
 
 export default function DashboardAdministracionLayout({
