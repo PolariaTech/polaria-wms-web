@@ -4,6 +4,7 @@ import {
   formatDestinoTipoOrden,
   formatFechaOrden,
   formatObservacionOrden,
+  isOrdenDestinoListoParaEmitir,
   nombresProductosOrden,
   parseDestinoTipoOrden,
   toFechaOrdenInputValue,
@@ -70,5 +71,12 @@ describe("orden-compra-display", () => {
     expect(fechaOrdenInputToStorage("2026-07-05")).toBe(
       "2026-07-05T12:00:00.000Z",
     );
+  });
+
+  it("isOrdenDestinoListoParaEmitir exige bodega destino", () => {
+    expect(isOrdenDestinoListoParaEmitir(baseOrden)).toBe(true);
+    expect(
+      isOrdenDestinoListoParaEmitir({ ...baseOrden, id_bodega: "" }),
+    ).toBe(false);
   });
 });

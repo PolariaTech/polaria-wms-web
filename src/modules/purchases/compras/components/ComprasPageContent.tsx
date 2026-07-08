@@ -27,6 +27,7 @@ import {
   convertirSolicitudCompraAOrdenApi,
   emitirOrdenCompraApi,
   enviarSolicitudCompraAprobacionApi,
+  updateOrdenCompraDestinoApi,
 } from "../../shared/services/purchases-api.service";
 import {
   buildPedidoProveedorRequest,
@@ -36,14 +37,17 @@ import {
   listOrdenCompraLineas,
   listOrdenesCompra,
   listSolicitudesCompra,
-  updateOrdenCompraDestino,
 } from "../../shared/services/purchases.service";
-import type { DestinoTipoOrden, OrdenCompraRow, SolicitudCompraRow } from "../../shared/types/purchases.types";
+import type { OrdenCompraRow, SolicitudCompraRow } from "../../shared/types/purchases.types";
+import type { OrdenCompraDestinoPatch } from "../../ordenes/components/OrdenCompraDetalleModal";
 import {
   formatFechaOrden,
   formatObservacionOrden,
+  isOrdenDestinoListoParaEmitir,
   nombresProductosOrden,
+  parseDestinoTipoOrden,
   productosOrdenTablaResumen,
+  toFechaOrdenInputValue,
 } from "../../ordenes/utils/orden-compra-display";
 import {
   compareSolicitudCompraByCodigoDesc,
@@ -191,42 +195,74 @@ export function ComprasPageContent() {
   );
 
   const handleDestinoChange = useCallback(
-    async (patch: {
-      destinoTipo?: DestinoTipoOrden;
-      fechaEntregaEstimada?: string | null;
-    }) => {
+    async (patch: OrdenCompraDestinoPatch) => {
       if (!ordenDetalle || !codigoCuenta) {
         return;
       }
 
+      const nextTipo =
+        patch.destinoTipo !== undefined
+          ? patch.destinoTipo
+          : parseDestinoTipoOrden(ordenDetalle.destino_tipo);
+      const nextBodegaId =
+        patch.idBodega !== undefined
+          ? patch.idBodega
+          : (ordenDetalle.id_bodega?.trim() ?? "");
+      const nextFechaInput =
+        patch.fechaEntregaEstimada !== undefined
+          ? patch.fechaEntregaEstimada === null
+            ? ""
+            : patch.fechaEntregaEstimada
+          : toFechaOrdenInputValue(ordenDetalle.fecha_entrega_estimada);
+
       setDestinoError(null);
+      setOrdenDetalle((current) =>
+        current
+          ? {
+              ...current,
+              ...(patch.destinoTipo !== undefined
+                ? { destino_tipo: patch.destinoTipo }
+                : {}),
+              ...(patch.idBodega !== undefined
+                ? { id_bodega: patch.idBodega }
+                : {}),
+              ...(patch.fechaEntregaEstimada !== undefined
+                ? {
+                    fecha_entrega_estimada:
+                      patch.fechaEntregaEstimada === null ||
+                      patch.fechaEntregaEstimada === ""
+                        ? null
+                        : patch.fechaEntregaEstimada.includes("T")
+                          ? patch.fechaEntregaEstimada
+                          : `${patch.fechaEntregaEstimada}T12:00:00.000Z`,
+                  }
+                : {}),
+            }
+          : current,
+      );
+
+      if (!nextBodegaId.trim()) {
+        return;
+      }
+
       setIsSavingDestino(true);
 
       try {
-        await updateOrdenCompraDestino(
+        const updated = await updateOrdenCompraDestinoApi(
           ordenDetalle.id_orden_compra,
-          codigoCuenta,
-          patch,
+          {
+            destinoTipo: nextTipo,
+            idBodega: nextBodegaId,
+            fechaEntregaEstimada: nextFechaInput || null,
+          },
         );
 
         setOrdenDetalle((current) =>
           current
             ? {
                 ...current,
-                ...(patch.destinoTipo !== undefined
-                  ? { destino_tipo: patch.destinoTipo }
-                  : {}),
-                ...(patch.fechaEntregaEstimada !== undefined
-                  ? {
-                      fecha_entrega_estimada:
-                        patch.fechaEntregaEstimada === null ||
-                        patch.fechaEntregaEstimada === ""
-                          ? null
-                          : patch.fechaEntregaEstimada.includes("T")
-                            ? patch.fechaEntregaEstimada
-                            : `${patch.fechaEntregaEstimada}T12:00:00.000Z`,
-                    }
-                  : {}),
+                id_bodega: updated.idBodega,
+                destino_tipo: nextTipo,
               }
             : current,
         );
@@ -345,11 +381,18 @@ export function ComprasPageContent() {
     const isPending = pendingActionId?.startsWith(row.id_orden_compra);
 
     if (row.estado === "borrador") {
+      const destinoListo = isOrdenDestinoListoParaEmitir(row);
+
       return (
         <ActionButton
           label="Emitir orden"
           primary
-          disabled={Boolean(isPending)}
+          disabled={Boolean(isPending) || !destinoListo}
+          title={
+            destinoListo
+              ? undefined
+              : "Selecciona tipo y bodega destino con capacidad disponible."
+          }
           onClick={() => {
             void runAction(`${row.id_orden_compra}:emitir`, () =>
               emitirOrdenCompraApi(row.id_orden_compra),
@@ -571,6 +614,7 @@ export function ComprasPageContent() {
       {ordenDetalle ? (
         <OrdenCompraDetalleModal
           orden={ordenDetalle}
+          codigoCuenta={codigoCuenta}
           onClose={() => {
             setOrdenDetalle(null);
             setDestinoError(null);
@@ -639,17 +683,20 @@ function ActionButton({
   onClick,
   disabled,
   primary = false,
+  title,
 }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
   primary?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className={cn(
         "inline-flex min-w-[7rem] items-center justify-center rounded-xl px-4 py-2.5 polaria-text-body-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
         primary

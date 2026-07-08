@@ -2,6 +2,7 @@
 
 import { ArrowRightFromLine, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { POLARIA_FORM_SELECT_CLASS_COMPACT } from "@/components/shared/form/PolariaFormField";
 import type { OrdenVentaOperadorRow } from "@/modules/sales";
 import { CustodioSidePanel } from "./CustodioSidePanel";
 
@@ -82,25 +83,28 @@ export function CustodioOrdenSalidaColumn({
       </p>
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
-        <label className="polaria-text-caption text-polaria-w-50">
+        <label
+          htmlFor="custodio-orden-salida-select"
+          className="polaria-text-caption text-polaria-w-50"
+        >
           Venta para detalle y registro línea a línea
         </label>
         <select
+          id="custodio-orden-salida-select"
           value={selectedVentaId}
           onChange={(event) => onSelectVenta(event.target.value)}
           disabled={isLoading || ventasActivas.length === 0}
-          className={cn(
-            "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-2.5",
-            "polaria-text-body-sm text-polaria-w",
-            "focus:border-polaria-t-20 focus:outline-none focus:ring-1 focus:ring-polaria-t-20",
-            "disabled:cursor-not-allowed disabled:opacity-60",
-          )}
+          className={POLARIA_FORM_SELECT_CLASS_COMPACT}
         >
-          <option value="">
+          <option value="" className="polaria-form-select__option">
             {isLoading ? "Cargando ventas…" : "Elegí una venta (opcional)"}
           </option>
           {ventasActivas.map((venta) => (
-            <option key={venta.idOrdenVenta} value={venta.idOrdenVenta}>
+            <option
+              key={venta.idOrdenVenta}
+              value={venta.idOrdenVenta}
+              className="polaria-form-select__option"
+            >
               {venta.venta} — {venta.comprador}
             </option>
           ))}

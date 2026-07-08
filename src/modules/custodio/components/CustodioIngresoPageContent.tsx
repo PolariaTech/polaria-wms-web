@@ -14,6 +14,10 @@ import {
   mapEstadoBodegaLayout,
   type EstadoBodegaSectionView,
 } from "@/modules/warehouses";
+import {
+  countUbicacionesEntrada,
+  resolveUbicacionIngresoDisponible,
+} from "@/modules/warehouses/estado-bodega/utils/estado-bodega-ingreso";
 import { EstadoBodegaLegend } from "@/modules/warehouses/estado-bodega/components/EstadoBodegaLegend";
 import { EstadoBodegaSectionPanel } from "@/modules/warehouses/estado-bodega/components/EstadoBodegaSectionPanel";
 import {
@@ -79,6 +83,7 @@ export function CustodioIngresoPageContent() {
     isConnected,
     isLoading: isLoadingWarehouse,
     error: warehouseError,
+    refetch: refetchWarehouseState,
   } = useWarehouseStateRealtime();
 
   const loadUbicaciones = useCallback(async () => {
@@ -161,6 +166,24 @@ export function CustodioIngresoPageContent() {
     [ubicaciones, warehouseRows],
   );
 
+  const slotsIngresoCount = useMemo(
+    () => countUbicacionesEntrada(ubicaciones),
+    [ubicaciones],
+  );
+
+  const resolveUbicacionIngreso = useCallback(
+    () => resolveUbicacionIngresoDisponible(ubicaciones, warehouseRows),
+    [ubicaciones, warehouseRows],
+  );
+
+  const handleIngresoRegistrado = useCallback(async () => {
+    await Promise.all([
+      loadOrdenes(),
+      loadUbicaciones(),
+      refetchWarehouseState(),
+    ]);
+  }, [loadOrdenes, loadUbicaciones, refetchWarehouseState]);
+
   const zonaIngreso =
     layout.sections.find((section) => section.id === "entrada") ??
     buildEmptySection("entrada");
@@ -224,9 +247,14 @@ export function CustodioIngresoPageContent() {
             >
               <CustodioOrdenIngresoColumn
                 ordenes={ordenes}
+                codigoCuenta={codigoCuenta}
+                idBodega={activeBodegaId}
+                resolveUbicacionIngreso={resolveUbicacionIngreso}
+                slotsIngresoCount={slotsIngresoCount}
                 selectedOrdenId={selectedOrdenId}
                 onSelectOrden={setSelectedOrdenId}
                 onRefresh={() => void loadOrdenes()}
+                onIngresoRegistrado={handleIngresoRegistrado}
                 isLoading={isLoadingOrdenes}
                 slotSize={slotSize}
               />

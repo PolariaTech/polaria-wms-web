@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable react-hooks/set-state-in-effect -- carga async y suscripción Realtime */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { listWarehouseState } from "@/modules/inventory/shared/services/inventory.service";
 import type { WarehouseStateRow } from "@/modules/inventory/shared/types/inventory.types";
 import { getDomainSupabaseClient } from "@/lib/supabase/domain-query";
@@ -27,6 +27,7 @@ export interface UseWarehouseStateRealtimeResult {
   isLoading: boolean;
   error: string | null;
   lastEventAt: Date | null;
+  refetch: () => Promise<void>;
 }
 
 /** Fusiona un evento Realtime en el snapshot local de `warehouse_state`. */
@@ -80,6 +81,26 @@ export function useWarehouseStateRealtime(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastEventAt, setLastEventAt] = useState<Date | null>(null);
+
+  const refetch = useCallback(async () => {
+    if (!idBodega) {
+      setRows([]);
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const data = await listWarehouseState({ idBodega, codigoCuenta });
+      setRows(data);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo cargar el estado de inventario.",
+      );
+    }
+  }, [codigoCuenta, idBodega]);
 
   useEffect(() => {
     if (!idBodega) return;
@@ -187,5 +208,6 @@ export function useWarehouseStateRealtime(
     isLoading: canSync ? isLoading : false,
     error: canSync ? error : null,
     lastEventAt: canSync ? lastEventAt : null,
+    refetch: canSync ? refetch : async () => {},
   };
 }

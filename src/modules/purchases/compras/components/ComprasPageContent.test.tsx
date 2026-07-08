@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import type { OrdenCompraRow } from "../../shared/types/purchases.types";
 import { ComprasPageContent } from "./ComprasPageContent";
+import { listBodegasDestinoCompraApi } from "../../shared/services/purchases-api.service";
 
 const listSolicitudesCompra = vi.fn();
 const listOrdenesCompra = vi.fn();
@@ -23,6 +24,8 @@ vi.mock("../../shared/services/purchases-api.service", () => ({
   createOrdenCompraApi: vi.fn(),
   emitirOrdenCompraApi: vi.fn(),
   enviarSolicitudCompraAprobacionApi: vi.fn(),
+  listBodegasDestinoCompraApi: vi.fn(),
+  updateOrdenCompraDestinoApi: vi.fn(),
 }));
 
 vi.mock("../../ordenes/services/pedido-proveedor-client.service", () => ({
@@ -84,6 +87,17 @@ describe("ComprasPageContent", () => {
       n8nStatus: 200,
       correlationId: "corr-12345678",
     });
+    vi.mocked(listBodegasDestinoCompraApi).mockResolvedValue([
+      {
+        idBodega: "BOD-01",
+        codigoCuenta: "CUENTA-01",
+        codigo: "BOD-CENTRAL",
+        nombre: "Bodega Central",
+        tipo: "interna",
+        capacidadSlots: 50,
+        slotsLibres: 12,
+      },
+    ]);
   });
 
   it("notifica al proveedor en OC emitida", async () => {

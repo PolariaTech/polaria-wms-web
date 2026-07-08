@@ -82,6 +82,7 @@ export function PolariaFormInput({
 }
 
 export { INPUT_CLASS as POLARIA_FORM_INPUT_CLASS };
+export { SELECT_CLASS_COMPACT as POLARIA_FORM_SELECT_CLASS_COMPACT };
 
 interface PolariaFormSelectOption {
   value: string;

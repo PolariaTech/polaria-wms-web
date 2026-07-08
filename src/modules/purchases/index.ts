@@ -18,6 +18,7 @@ export type {
 
 export {
   listOrdenCompraLineas,
+  listOrdenCompraLineasRecepcion,
   listOrdenesCompra,
   listRecepciones,
   listSolicitudesCompra,
@@ -37,6 +38,8 @@ export {
   createSolicitudCompraApi,
   emitirOrdenCompraApi,
   enviarSolicitudCompraAprobacionApi,
+  listBodegasDestinoCompraApi,
+  updateOrdenCompraDestinoApi,
 } from "./shared/services/purchases-api.service";
 
 export {

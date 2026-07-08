@@ -8,6 +8,8 @@ import {
   createSolicitudCompraApi,
   emitirOrdenCompraApi,
   enviarSolicitudCompraAprobacionApi,
+  listBodegasDestinoCompraApi,
+  updateOrdenCompraDestinoApi,
 } from "./purchases-api.service";
 
 vi.mock("@/services/api/api", () => ({
@@ -139,6 +141,59 @@ describe("purchases-api.service", () => {
       "/compras/ordenes/oc-1/emitir",
       { method: "POST", auth: true, body: undefined },
     );
+  });
+
+  it("listBodegasDestinoCompraApi consulta bodegas con slots", async () => {
+    vi.mocked(apiRequest).mockResolvedValue([
+      {
+        idBodega: "bod-1",
+        codigoCuenta: "CUENTA-01",
+        codigo: "BOD-CENTRAL",
+        nombre: "Bodega Central",
+        tipo: "interna",
+        capacidadSlots: 50,
+        slotsLibres: 12,
+      },
+    ]);
+
+    const rows = await listBodegasDestinoCompraApi({
+      codigoCuenta: "CUENTA-01",
+      tipo: "interna",
+    });
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/compras/bodegas-destino?codigoCuenta=CUENTA-01&tipo=interna",
+      { method: "GET", auth: true, body: undefined },
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.slotsLibres).toBe(12);
+  });
+
+  it("updateOrdenCompraDestinoApi actualiza destino", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      idOrdenCompra: "oc-1",
+      codigo: "OC-001",
+      estado: "borrador",
+      idProveedor: "prov-1",
+      idBodega: "bod-1",
+      idSolicitudCompra: null,
+    });
+
+    await updateOrdenCompraDestinoApi("oc-1", {
+      destinoTipo: "interna",
+      idBodega: "bod-1",
+      fechaEntregaEstimada: "2026-07-15",
+    });
+
+    expect(apiRequest).toHaveBeenCalledWith("/compras/ordenes/oc-1/destino", {
+      method: "PATCH",
+      auth: true,
+      body: {
+        destinoTipo: "interna",
+        idBodega: "bod-1",
+        fechaEntregaEstimada: "2026-07-15T12:00:00.000Z",
+      },
+    });
   });
 
   it("cerrarRecepcionCompraApi cierra recepción contra OC", async () => {

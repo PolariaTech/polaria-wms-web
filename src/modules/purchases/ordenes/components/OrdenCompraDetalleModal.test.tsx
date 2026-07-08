@@ -1,8 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OrdenCompraRow } from "../../shared/types/purchases.types";
 import { OrdenCompraDetalleModal } from "../../ordenes/components/OrdenCompraDetalleModal";
+
+const listBodegasDestinoCompraApi = vi.fn();
+
+vi.mock("../../shared/services/purchases-api.service", () => ({
+  listBodegasDestinoCompraApi: (...args: unknown[]) =>
+    listBodegasDestinoCompraApi(...args),
+}));
 
 const ORDEN_BORRADOR: OrdenCompraRow = {
   id_orden_compra: "oc-1",
@@ -40,10 +47,26 @@ const ORDEN_EMITIDA: OrdenCompraRow = {
 };
 
 describe("OrdenCompraDetalleModal", () => {
-  it("muestra resumen, destino y productos sin icono", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    listBodegasDestinoCompraApi.mockResolvedValue([
+      {
+        idBodega: "BOD-01",
+        codigoCuenta: "CUENTA-01",
+        codigo: "BOD-CENTRAL",
+        nombre: "Bodega Central",
+        tipo: "interna",
+        capacidadSlots: 50,
+        slotsLibres: 12,
+      },
+    ]);
+  });
+
+  it("muestra resumen, destino y productos sin icono", async () => {
     render(
       <OrdenCompraDetalleModal
         orden={ORDEN_EMITIDA}
+        codigoCuenta="CUENTA-01"
         onClose={() => undefined}
         actions={<button type="button">Emitir orden</button>}
       />,
@@ -57,6 +80,10 @@ describe("OrdenCompraDetalleModal", () => {
     expect(screen.getByText(/60/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Cerrar" })).toHaveLength(1);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Bodega Central/i)).toBeInTheDocument();
+    });
   });
 
   it("permite elegir destino interna o externa en borrador", async () => {
@@ -66,17 +93,55 @@ describe("OrdenCompraDetalleModal", () => {
     render(
       <OrdenCompraDetalleModal
         orden={ORDEN_BORRADOR}
+        codigoCuenta="CUENTA-01"
         onClose={() => undefined}
         onDestinoChange={onDestinoChange}
       />,
     );
+
+    await waitFor(() => {
+      expect(listBodegasDestinoCompraApi).toHaveBeenCalledWith({
+        codigoCuenta: "CUENTA-01",
+        tipo: "interna",
+      });
+    });
 
     await user.selectOptions(
       screen.getByLabelText("Tipo"),
       screen.getByRole("option", { name: "Bodega externa" }),
     );
 
-    expect(onDestinoChange).toHaveBeenCalledWith({ destinoTipo: "externa" });
+    expect(onDestinoChange).toHaveBeenCalledWith({
+      destinoTipo: "externa",
+      idBodega: "",
+    });
+  });
+
+  it("permite elegir bodega destino con slots libres", async () => {
+    const user = userEvent.setup();
+    const onDestinoChange = vi.fn();
+
+    render(
+      <OrdenCompraDetalleModal
+        orden={{ ...ORDEN_BORRADOR, id_bodega: "" }}
+        codigoCuenta="CUENTA-01"
+        onClose={() => undefined}
+        onDestinoChange={onDestinoChange}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("option", { name: /Bodega Central · 12 slots libres/i }),
+      ).toBeInTheDocument();
+    });
+
+    await user.selectOptions(
+      screen.getByLabelText("Bodega destino"),
+      screen.getByRole("option", { name: /Bodega Central · 12 slots libres/i }),
+    );
+
+    expect(onDestinoChange).toHaveBeenCalledWith({ idBodega: "BOD-01" });
   });
 
   it("permite cambiar la fecha de llegada en borrador", async () => {
@@ -86,6 +151,7 @@ describe("OrdenCompraDetalleModal", () => {
     render(
       <OrdenCompraDetalleModal
         orden={ORDEN_BORRADOR}
+        codigoCuenta="CUENTA-01"
         onClose={() => undefined}
         onDestinoChange={onDestinoChange}
       />,

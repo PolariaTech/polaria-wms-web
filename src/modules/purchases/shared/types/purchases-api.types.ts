@@ -1,4 +1,8 @@
-import type { EstadoOrdenCompra, EstadoSolicitudCompra } from "./purchases.types";
+import type {
+  DestinoTipoOrden,
+  EstadoOrdenCompra,
+  EstadoSolicitudCompra,
+} from "./purchases.types";
 
 export interface SolicitudCompraLineaInput {
   idProducto: string;
@@ -69,4 +73,20 @@ export interface RecepcionCompraApiRow {
   notas: string | null;
   cerradaAt: string;
   estadoOrdenCompra: EstadoOrdenCompra;
+}
+
+export interface BodegaDestinoCompraRow {
+  idBodega: string;
+  codigoCuenta: string;
+  codigo: string;
+  nombre: string;
+  tipo: DestinoTipoOrden;
+  capacidadSlots: number;
+  slotsLibres: number;
+}
+
+export interface UpdateOrdenDestinoApiInput {
+  destinoTipo: DestinoTipoOrden;
+  idBodega: string;
+  fechaEntregaEstimada?: string | null;
 }

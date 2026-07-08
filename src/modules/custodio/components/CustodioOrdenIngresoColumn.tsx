@@ -1,28 +1,51 @@
 "use client";
 
 import { Box, RefreshCw } from "lucide-react";
+import { useMemo } from "react";
 import { cn } from "@/lib/utils/cn";
+import { POLARIA_FORM_SELECT_CLASS_COMPACT } from "@/components/shared/form/PolariaFormField";
+import { formatOrdenIngresoSelectLabel } from "@/modules/purchases/ingreso/utils/recepcion-compra-draft";
 import type { OrdenCompraRow } from "@/modules/purchases";
+import { CustodioOrdenIngresoForm } from "./CustodioOrdenIngresoForm";
 import { CustodioSidePanel } from "./CustodioSidePanel";
 
 interface CustodioOrdenIngresoColumnProps {
   ordenes: OrdenCompraRow[];
+  codigoCuenta: string | null;
+  idBodega: string | null;
+  resolveUbicacionIngreso: () => string | null;
+  slotsIngresoCount: number;
   selectedOrdenId: string;
   onSelectOrden: (id: string) => void;
   onRefresh: () => void;
+  onIngresoRegistrado?: () => void | Promise<void>;
   isLoading: boolean;
   slotSize: number;
 }
 
 export function CustodioOrdenIngresoColumn({
   ordenes,
+  codigoCuenta,
+  idBodega,
+  resolveUbicacionIngreso,
+  slotsIngresoCount,
   selectedOrdenId,
   onSelectOrden,
   onRefresh,
+  onIngresoRegistrado,
   isLoading,
   slotSize,
 }: CustodioOrdenIngresoColumnProps) {
   const ordenCount = ordenes.length;
+
+  const ordenSeleccionada = useMemo(
+    () => ordenes.find((orden) => orden.id_orden_compra === selectedOrdenId) ?? null,
+    [ordenes, selectedOrdenId],
+  );
+
+  const puedeRegistrar = Boolean(
+    ordenSeleccionada && codigoCuenta && idBodega,
+  );
 
   return (
     <CustodioSidePanel
@@ -46,27 +69,30 @@ export function CustodioOrdenIngresoColumn({
         </span>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <label className="polaria-text-caption text-polaria-w-50">
+      <div className="flex shrink-0 flex-col gap-3">
+        <label
+          htmlFor="custodio-orden-ingreso-select"
+          className="polaria-text-caption text-polaria-w-50"
+        >
           Orden de compra
         </label>
         <select
+          id="custodio-orden-ingreso-select"
           value={selectedOrdenId}
           onChange={(event) => onSelectOrden(event.target.value)}
           disabled={isLoading || ordenCount === 0}
-          className={cn(
-            "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-2.5",
-            "polaria-text-body-sm text-polaria-w",
-            "focus:border-polaria-t-20 focus:outline-none focus:ring-1 focus:ring-polaria-t-20",
-            "disabled:cursor-not-allowed disabled:opacity-60",
-          )}
+          className={POLARIA_FORM_SELECT_CLASS_COMPACT}
         >
-          <option value="">
+          <option value="" className="polaria-form-select__option">
             {isLoading ? "Cargando órdenes…" : "Seleccioná una orden"}
           </option>
           {ordenes.map((orden) => (
-            <option key={orden.id_orden_compra} value={orden.id_orden_compra}>
-              {orden.codigo}
+            <option
+              key={orden.id_orden_compra}
+              value={orden.id_orden_compra}
+              className="polaria-form-select__option"
+            >
+              {formatOrdenIngresoSelectLabel(orden)}
             </option>
           ))}
         </select>
@@ -90,6 +116,20 @@ export function CustodioOrdenIngresoColumn({
           Actualizar
         </button>
       </div>
+
+      {puedeRegistrar && ordenSeleccionada && codigoCuenta && idBodega ? (
+        <CustodioOrdenIngresoForm
+          key={ordenSeleccionada.id_orden_compra}
+          orden={ordenSeleccionada}
+          codigoCuenta={codigoCuenta}
+          resolveUbicacionIngreso={resolveUbicacionIngreso}
+          slotsIngresoCount={slotsIngresoCount}
+          onRegistered={async () => {
+            onSelectOrden("");
+            await onIngresoRegistrado?.();
+          }}
+        />
+      ) : null}
 
       {ordenCount === 0 && !isLoading ? (
         <p className="mt-auto w-full shrink-0 pt-2 text-center polaria-text-caption text-polaria-w-50">

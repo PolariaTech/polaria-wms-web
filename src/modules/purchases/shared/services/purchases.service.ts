@@ -30,6 +30,9 @@ const RECEPCION_COLUMNS =
 
 const ORDEN_LINEA_COLUMNS = "cantidad,producto(sku,unidad_medida)";
 
+const ORDEN_LINEA_RECEPCION_COLUMNS =
+  "id_linea_orden_compra,id_producto,cantidad,cantidad_recibida,producto(sku,descripcion,metadatos_catalogo)";
+
 export interface OrdenCompraNotifyLineaRow {
   sku: string;
   cantidad: number;
@@ -276,6 +279,34 @@ export async function listOrdenCompraLineas(
   }
 
   return lineas;
+}
+
+/** Líneas completas de una orden de compra para recepción física (custodio / ingreso). */
+export async function listOrdenCompraLineasRecepcion(
+  idOrdenCompra: string,
+): Promise<OrdenCompraLineaRow[]> {
+  const ordenId = idOrdenCompra.trim();
+
+  if (!ordenId) {
+    throw new DomainServiceError(
+      "La orden de compra no es válida.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const rows = await runDomainQuery<OrdenCompraLineaListDbRow[]>((client) => {
+    const query = client
+      .from("orden_compra_linea")
+      .select(ORDEN_LINEA_RECEPCION_COLUMNS)
+      .eq("id_orden_compra", ordenId);
+
+    return query as unknown as Promise<{
+      data: OrdenCompraLineaListDbRow[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  return rows.map(mapOrdenCompraLineaListRow);
 }
 
 export async function updateOrdenCompraDestino(

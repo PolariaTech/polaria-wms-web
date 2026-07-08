@@ -122,6 +122,26 @@ export function formatDestinoTipoOrdenValue(destinoTipo: DestinoTipoOrden): stri
   return destinoTipo === "externa" ? "Bodega externa" : "Bodega interna";
 }
 
+export function isOrdenDestinoListoParaEmitir(
+  orden: Pick<OrdenCompraRow, "destino_tipo" | "id_bodega">,
+): boolean {
+  const tipo = parseDestinoTipoOrden(orden.destino_tipo);
+  return Boolean(orden.id_bodega?.trim()) && (tipo === "interna" || tipo === "externa");
+}
+
+export function formatBodegaDestinoLabel(bodega: {
+  nombre: string;
+  codigo: string;
+  slotsLibres: number;
+}): string {
+  const nombre = bodega.nombre.trim() || bodega.codigo.trim() || "Bodega";
+  const slotsLabel =
+    bodega.slotsLibres === 1
+      ? "1 slot libre"
+      : `${bodega.slotsLibres} slots libres`;
+  return `${nombre} · ${slotsLabel}`;
+}
+
 export function destinoTipoOrdenToStorage(destinoTipo: DestinoTipoOrden): string {
   return destinoTipo;
 }
