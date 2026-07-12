@@ -1,7 +1,9 @@
 export type {
+  CreateOrdenesPostCierreInput,
   CreateSolicitudProcesamientoInput,
   EstadoProcesamiento,
   EstadoTarea,
+  OrdenesPostCierreResult,
   ProductoProcesamientoOption,
   SolicitudProcesamientoOperadorRow,
   SolicitudProcesamientoRow,
@@ -16,13 +18,22 @@ export {
 } from "./shared/constants/processing-status";
 
 export {
+  aplicarOrdenProcesamiento,
+  asignarOperarioProcesamiento,
+  asignarProcesadorProcesamiento,
+  cerrarSolicitudProcesamiento,
+  crearOrdenesPostCierre,
   createSolicitudProcesamiento,
+  getDesperdicioSugerido,
+  getSolicitudProcesamiento,
   getStockProductoBodega,
+  iniciarProcesamiento,
   listProductosPrimariosProcesamiento,
   listProductosSecundariosProcesamiento,
   listSolicitudesProcesamiento,
   listSolicitudesProcesamientoOperador,
   listTareasCola,
+  terminarSolicitudProcesamiento,
 } from "./shared/services/processing.service";
 
 export { BodegaInternaOperadorHub } from "./operador/components/BodegaInternaOperadorHub";
