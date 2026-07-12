@@ -7,7 +7,9 @@ describe("decimal-es", () => {
     expect(parseDecimalEs("15.6")).toBe(15.6);
   });
 
-  it("formatKgEs formatea peso", () => {
+  it("formatKgEs formatea peso sin decimales innecesarios", () => {
+    expect(formatKgEs(60)).toBe("60");
+    expect(formatKgEs(60.5)).toContain("60");
     expect(formatKgEs(1500)).toContain("1");
   });
 });

@@ -17,6 +17,7 @@ export interface OrdenTrabajoApiRow {
   idLote: string | null;
   idUbicacionOrigen: string | null;
   idUbicacionDestino: string | null;
+  idOrdenVenta?: string | null;
   observaciones: string | null;
   createdAt: string;
   updatedAt: string;
@@ -83,10 +84,21 @@ export interface CreateOrdenTrabajoApiInput extends TenantBodegaApiParams {
   idProducto?: string;
   cantidad?: number;
   idAsignado?: string;
+  idOrdenVenta?: string;
   observaciones?: string;
 }
 
 export interface EjecutarOrdenTrabajoApiInput extends TenantBodegaApiParams {
   idWarehouseState?: string;
   version?: number;
+}
+
+/** Operario de bodega con carga de tareas y estado de sesión (token activo). */
+export interface OperarioDisponibleApiRow {
+  idUsuario: string;
+  nombre: string;
+  username: string;
+  tareasPendientes: number;
+  disponible: boolean;
+  ultimoPing?: string | null;
 }

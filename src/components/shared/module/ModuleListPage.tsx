@@ -32,6 +32,8 @@ export interface ModuleListPageProps<T> {
   pageSize?: number;
   pagination?: boolean;
   tableClassName?: string;
+  onRowClick?: (row: T) => void;
+  getRowAriaLabel?: (row: T) => string;
 }
 
 export function ModuleListPage<T>({
@@ -46,6 +48,8 @@ export function ModuleListPage<T>({
   pageSize = DEFAULT_TABLE_PAGE_SIZE,
   pagination = true,
   tableClassName,
+  onRowClick,
+  getRowAriaLabel,
 }: ModuleListPageProps<T>) {
   const {
     paginatedRows,
@@ -123,7 +127,33 @@ export function ModuleListPage<T>({
                     className={cn(
                       POLARIA_TABLE_ROW_HEIGHT_CLASS,
                       "border-t border-polaria-w-08 text-polaria-w",
+                      onRowClick &&
+                        "cursor-pointer transition-colors hover:bg-polaria-t-08 focus-visible:bg-polaria-t-08 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-polaria-teal",
                     )}
+                    onClick={
+                      onRowClick
+                        ? () => {
+                            onRowClick(row);
+                          }
+                        : undefined
+                    }
+                    onKeyDown={
+                      onRowClick
+                        ? (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              onRowClick(row);
+                            }
+                          }
+                        : undefined
+                    }
+                    tabIndex={onRowClick ? 0 : undefined}
+                    role={onRowClick ? "button" : undefined}
+                    aria-label={
+                      onRowClick && getRowAriaLabel
+                        ? getRowAriaLabel(row)
+                        : undefined
+                    }
                   >
                     {columns.map((column) => (
                       <td

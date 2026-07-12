@@ -827,3 +827,120 @@ body::-webkit-scrollbar-corner,
 .overflow-auto::-webkit-scrollbar-corner {
   background: var(--bg);
 }
+
+/* Toast notifications (estilo elegante, paleta Polaria) */
+.polaria-toast-stack {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  width: min(320px, calc(100vw - 40px));
+}
+
+.polaria-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--t20);
+  background-color: var(--t08);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  transform: translate(0, -150%);
+  opacity: 0;
+  transition:
+    transform 0.45s ease,
+    opacity 0.35s ease;
+}
+
+.polaria-toast--visible {
+  transform: translate(0, 0);
+  opacity: 1;
+}
+
+.polaria-toast__wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.polaria-toast__header {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--w);
+}
+
+.polaria-toast__content {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--w50);
+  word-break: break-word;
+}
+
+.polaria-toast__close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.35rem;
+  line-height: 1;
+  padding: 0;
+  color: var(--w20);
+  transition: color 0.15s ease;
+}
+
+.polaria-toast__close:hover {
+  color: var(--w50);
+}
+
+.polaria-toast--success {
+  border-left: 4px solid var(--teal);
+  background-color: var(--t08);
+}
+
+.polaria-toast--success .polaria-toast__header {
+  color: var(--teal);
+}
+
+.polaria-toast--success .polaria-toast__content {
+  color: var(--w);
+}
+
+.polaria-toast--error {
+  border-left: 4px solid var(--danger);
+  background-color: var(--danger-bg);
+}
+
+.polaria-toast--error .polaria-toast__header,
+.polaria-toast--error .polaria-toast__content {
+  color: var(--danger);
+}
+
+.polaria-toast--info {
+  border-left: 4px solid var(--teal);
+  background-color: var(--t08);
+}
+
+.polaria-toast--info .polaria-toast__header {
+  color: var(--teal);
+}
+
+.polaria-toast--dark {
+  background-color: var(--t08);
+  border-color: var(--t20);
+}
+
+.polaria-toast--dark .polaria-toast__header {
+  color: var(--w);
+}
+
+.polaria-toast--dark .polaria-toast__content {
+  color: var(--w50);
+}

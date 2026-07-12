@@ -30,6 +30,7 @@ interface JefeBodegaModalSearchFieldProps {
   value?: string;
   placeholder: string;
   readOnly?: boolean;
+  ariaLabel?: string;
   onSearchClick?: () => void;
 }
 
@@ -38,6 +39,7 @@ export function JefeBodegaModalSearchField({
   value = "",
   placeholder,
   readOnly = true,
+  ariaLabel,
   onSearchClick,
 }: JefeBodegaModalSearchFieldProps) {
   return (
@@ -48,24 +50,28 @@ export function JefeBodegaModalSearchField({
         value={value}
         readOnly={readOnly}
         placeholder={placeholder}
+        aria-label={ariaLabel ?? placeholder}
         className={cn(
-          "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-3 pl-4 pr-12",
+          "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-3 pl-4",
+          onSearchClick ? "pr-12" : "pr-4",
           "text-polaria-w placeholder:text-polaria-w-20 outline-none",
           "focus:border-polaria-t-20 focus:ring-1 focus:ring-polaria-t-20",
         )}
       />
-      <button
-        type="button"
-        onClick={onSearchClick}
-        aria-label="Buscar"
-        className={cn(
-          "absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg",
-          "border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition hover:bg-polaria-t-20",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
-        )}
-      >
-        <Search className="h-4 w-4" aria-hidden />
-      </button>
+      {onSearchClick ? (
+        <button
+          type="button"
+          onClick={onSearchClick}
+          aria-label={`Buscar ${ariaLabel ?? placeholder}`}
+          className={cn(
+            "absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg",
+            "border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition hover:bg-polaria-t-08",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+          )}
+        >
+          <Search className="h-4 w-4" aria-hidden />
+        </button>
+      ) : null}
     </div>
   );
 }

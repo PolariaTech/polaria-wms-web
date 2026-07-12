@@ -35,7 +35,7 @@ export const BODEGA_REPORTES_RESUMEN_CARDS: readonly BodegaReporteResumenCardCon
     {
       id: "salidas",
       label: "Salidas",
-      description: "Órdenes completadas",
+      description: "OT a zona de salida ejecutadas",
       icon: LogOut,
       panelClassName: "border-polaria-t-20 bg-polaria-t-08",
       iconWrapClassName:

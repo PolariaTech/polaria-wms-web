@@ -9,6 +9,7 @@ import type {
   UbicacionEstadoBodegaDbRow,
 } from "../types/estado-bodega.types";
 import type { WarehouseStateRow } from "@/modules/inventory/shared/types/inventory.types";
+import { buildSlotDetalleFromRows } from "./estado-bodega-slot-content";
 
 interface UbicacionNormalizada {
   idUbicacion: string;
@@ -68,7 +69,7 @@ function resolveSlotVisual(
   ubicacion: UbicacionNormalizada,
   hasStock: boolean,
 ): EstadoBodegaSlot["visual"] {
-  if (!hasStock && ubicacion.estadoSlot === "libre") {
+  if (!hasStock) {
     return "vacia";
   }
 
@@ -92,6 +93,7 @@ function buildEmptySlots(
     codigo: null,
     visual: "vacia" as const,
     productoLabel: null,
+    detalle: null,
   }));
 }
 
@@ -114,29 +116,11 @@ function padSectionSlots(
       codigo: null,
       visual: "vacia",
       productoLabel: null,
+      detalle: null,
     });
   }
 
   return padded;
-}
-
-function buildStockLabel(
-  warehouseRows: WarehouseStateRow[],
-  idUbicacion: string,
-): string | null {
-  const rows = warehouseRows.filter((row) => row.id_ubicacion === idUbicacion);
-  if (rows.length === 0) return null;
-
-  const total = rows.reduce(
-    (sum, row) => sum + Number.parseFloat(row.cantidad || "0"),
-    0,
-  );
-
-  if (!Number.isFinite(total) || total <= 0) {
-    return rows.length > 1 ? `${rows.length} ítems` : "Ocupada";
-  }
-
-  return `${total.toLocaleString("es-CL", { maximumFractionDigits: 2 })} kg`;
 }
 
 export function mapEstadoBodegaLayout(
@@ -162,18 +146,25 @@ export function mapEstadoBodegaLayout(
   for (const ubicacion of normalized) {
     const sectionId = resolveSectionId(ubicacion);
     const stockRows = stockByUbicacion.get(ubicacion.idUbicacion) ?? [];
-    const hasStock = stockRows.length > 0 || ubicacion.estadoSlot !== "libre";
+    const activeStockRows = stockRows.filter((row) => {
+      const cantidad = Number.parseFloat(row.cantidad || "0");
+      return Number.isFinite(cantidad) && cantidad > 0;
+    });
+    const hasStock = activeStockRows.length > 0;
     const visual = resolveSlotVisual(ubicacion, hasStock);
+
+    const detalle =
+      visual === "vacia"
+        ? null
+        : buildSlotDetalleFromRows(activeStockRows, ubicacion.codigo);
 
     grouped.get(sectionId)?.push({
       slotNumber: (grouped.get(sectionId)?.length ?? 0) + 1,
       idUbicacion: ubicacion.idUbicacion,
       codigo: ubicacion.codigo,
       visual,
-      productoLabel:
-        visual === "vacia"
-          ? null
-          : buildStockLabel(warehouseRows, ubicacion.idUbicacion),
+      productoLabel: detalle?.productoNombre ?? null,
+      detalle,
     });
   }
 

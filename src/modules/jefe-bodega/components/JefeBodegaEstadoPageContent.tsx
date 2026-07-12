@@ -4,9 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { EstadoBodegaPageContent } from "@/modules/warehouses";
 import { listUbicacionesEstadoBodega } from "@/modules/warehouses/estado-bodega/services/estado-bodega.service";
 import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bodega/types/estado-bodega.types";
+import { isUbicacionEntrada } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-ingreso";
 import { OrdenProcesamientoCreateModal } from "@/modules/processing";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
+import type { EstadoBodegaZonePanelItem } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-zone-panel";
 import type { JefeBodegaActionId } from "../constants/jefe-bodega-actions";
+import type { JefeBodegaSalidaOrdenVentaPrefill } from "../types/jefe-bodega-salida.types";
 import { JefeBodegaActionBar } from "./JefeBodegaActionBar";
 import { JefeBodegaActionModals } from "./JefeBodegaActionModals";
 
@@ -30,11 +33,17 @@ function filterPicking(rows: UbicacionEstadoBodegaDbRow[]) {
   return rows.filter((u) => tipoUbicacionFlags(u.tipo_ubicacion).es_picking);
 }
 
+function filterIngreso(rows: UbicacionEstadoBodegaDbRow[]) {
+  return rows.filter(isUbicacionEntrada);
+}
+
 export function JefeBodegaEstadoPageContent() {
   const { codigoCuenta, activeBodegaId } = useCompany();
   const [activeModal, setActiveModal] = useState<JefeBodegaActionId | null>(
     null,
   );
+  const [salidaPrefill, setSalidaPrefill] =
+    useState<JefeBodegaSalidaOrdenVentaPrefill | null>(null);
   const [ubicaciones, setUbicaciones] = useState<UbicacionEstadoBodegaDbRow[]>(
     [],
   );
@@ -58,10 +67,35 @@ export function JefeBodegaEstadoPageContent() {
   }, [loadUbicaciones, layoutNonce]);
 
   const almacen = useMemo(() => filterAlmacenamiento(ubicaciones), [ubicaciones]);
+  const ingreso = useMemo(() => filterIngreso(ubicaciones), [ubicaciones]);
   const picking = useMemo(() => filterPicking(ubicaciones), [ubicaciones]);
 
   const handleOrdenCreated = useCallback(() => {
     setLayoutNonce((n) => n + 1);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setActiveModal(null);
+    setSalidaPrefill(null);
+  }, []);
+
+  const handleSelectOvSalidaTarea = useCallback(
+    (item: EstadoBodegaZonePanelItem) => {
+      if (!item.ovSalida) return;
+
+      setSalidaPrefill({
+        idOrdenVenta: item.ovSalida.idOrdenVenta,
+        ovCodigo: item.ovSalida.ovCodigo,
+        idUbicacionOrigen: item.ovSalida.idUbicacionOrigen,
+      });
+      setActiveModal("crear-salida");
+    },
+    [],
+  );
+
+  const handleActionClick = useCallback((actionId: JefeBodegaActionId) => {
+    setSalidaPrefill(null);
+    setActiveModal(actionId);
   }, []);
 
   return (
@@ -69,22 +103,25 @@ export function JefeBodegaEstadoPageContent() {
       <EstadoBodegaPageContent
         key={layoutNonce}
         operacionTabs={
-          <JefeBodegaActionBar onActionClick={setActiveModal} />
+          <JefeBodegaActionBar onActionClick={handleActionClick} />
         }
+        onSelectOvSalidaTarea={handleSelectOvSalidaTarea}
       />
       <JefeBodegaActionModals
         activeModal={activeModal}
-        onClose={() => setActiveModal(null)}
+        onClose={handleCloseModal}
         codigoCuenta={codigoCuenta}
         idBodega={activeBodegaId}
         ubicacionesAlmacen={almacen}
+        ubicacionesIngreso={ingreso}
         ubicacionesPicking={picking}
+        salidaPrefillOrdenVenta={salidaPrefill}
         onOrdenCreated={handleOrdenCreated}
       />
       {activeModal === "procesamiento" ? (
         <OrdenProcesamientoCreateModal
           open
-          onClose={() => setActiveModal(null)}
+          onClose={handleCloseModal}
           onCreated={handleOrdenCreated}
         />
       ) : null}

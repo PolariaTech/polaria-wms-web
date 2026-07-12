@@ -17,18 +17,18 @@ export const ESTADO_BODEGA_ZONE_ALERTAS_DESCRIPTION: Record<
   EstadoBodegaSectionId,
   string
 > = {
-  entrada: "Detalles de alertas activas en esta zona.",
-  almacenamiento: "Detalles de alertas activas en almacenamiento.",
-  procesamiento: "Detalles de alertas activas en procesamiento.",
-  salida: "Detalles de alertas activas en salida.",
+  entrada: "Temperatura alta y tareas con más de 5 minutos sin cumplir.",
+  almacenamiento: "Tareas con más de 5 minutos sin cumplir en almacenamiento.",
+  procesamiento: "Tareas con más de 5 minutos sin cumplir en procesamiento.",
+  salida: "Tareas con más de 5 minutos sin cumplir en salida.",
 };
 
 export const ESTADO_BODEGA_ZONE_TAREAS_DESCRIPTION: Record<
   EstadoBodegaSectionId,
   string
 > = {
-  entrada: "Órdenes y entradas pendientes en esta zona (sin demora).",
-  almacenamiento: "Movimientos y revisiones pendientes en almacenamiento.",
-  procesamiento: "Órdenes de procesamiento pendientes en esta zona.",
-  salida: "Despachos y salidas pendientes en esta zona (sin demora).",
+  entrada: "Ingresos pendientes o asignados al operario.",
+  almacenamiento: "Movimientos y revisiones pendientes o asignados al operario.",
+  procesamiento: "Procesamiento pendiente o asignado al operario.",
+  salida: "Despachos y salidas pendientes o asignados al operario.",
 };

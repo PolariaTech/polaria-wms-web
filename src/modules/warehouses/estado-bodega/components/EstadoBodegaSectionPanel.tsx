@@ -10,7 +10,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import type { EstadoBodegaSectionView } from "../types/estado-bodega.types";
+import type { EstadoBodegaSectionView, EstadoBodegaSlot } from "../types/estado-bodega.types";
 import { EstadoBodegaSlotGrid } from "./EstadoBodegaSlotGrid";
 
 const SECTION_THEME: Record<
@@ -64,6 +64,7 @@ interface EstadoBodegaSectionPanelProps {
   variant?: "operativo" | "custodio";
   titleOverride?: string;
   emptyHintOverride?: string;
+  onSelectSlot?: (slot: EstadoBodegaSlot) => void;
 }
 
 export function EstadoBodegaSectionPanel({
@@ -77,6 +78,7 @@ export function EstadoBodegaSectionPanel({
   variant = "operativo",
   titleOverride,
   emptyHintOverride,
+  onSelectSlot,
 }: EstadoBodegaSectionPanelProps) {
   const theme = SECTION_THEME[section.id];
   const Icon = theme.icon;
@@ -192,6 +194,7 @@ export function EstadoBodegaSectionPanel({
           section={section}
           accentClassName={theme.accentClassName}
           slotSize={slotSize}
+          onSelectSlot={onSelectSlot}
         />
       </div>
 

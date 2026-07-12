@@ -1,5 +1,7 @@
 import { listTareasColaApi } from "@/modules/operations";
 import type { TareaColaRow } from "@/modules/processing/shared/types/processing.types";
+import type { OperarioTareaView } from "../types/operario-tarea.types";
+import { enrichOperarioTareas } from "./operario-tareas-enrich.service";
 
 export interface ListTareasOperarioABodegaParams {
   codigoCuenta: string | null;
@@ -7,10 +9,17 @@ export interface ListTareasOperarioABodegaParams {
   idUsuario: string | null;
 }
 
-/** Tareas de movimiento / traslado pendientes asignadas al operario (API Nest). */
+const OPERARIO_TAREA_TIPOS: readonly TareaColaRow["tipo"][] = [
+  "movimiento",
+  "despacho",
+  "revision",
+  "ingreso",
+];
+
+/** Tareas pendientes asignadas al operario, enriquecidas con orden y ubicaciones. */
 export async function listTareasOperarioABodega(
   params: ListTareasOperarioABodegaParams,
-): Promise<TareaColaRow[]> {
+): Promise<OperarioTareaView[]> {
   const { codigoCuenta, idBodega, idUsuario } = params;
 
   if (!codigoCuenta || !idBodega || !idUsuario) {
@@ -24,10 +33,11 @@ export async function listTareasOperarioABodega(
     estado: "pendiente",
   });
 
-  return rows.filter(
-    (row) =>
-      row.tipo === "movimiento" ||
-      row.tipo === "despacho" ||
-      row.tipo === "revision",
-  );
+  const filtered = rows.filter((row) => OPERARIO_TAREA_TIPOS.includes(row.tipo));
+
+  return enrichOperarioTareas({
+    codigoCuenta,
+    idBodega,
+    tareas: filtered,
+  });
 }

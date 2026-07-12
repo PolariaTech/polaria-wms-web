@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { AuthSessionBootstrap } from "@/components/auth/session/AuthSessionBootstrap";
 import { AuthSessionScript } from "@/components/auth/session/AuthSessionScript";
 import { AuthProvider } from "@/providers/auth/AuthProvider";
+import { PolariaToastProvider } from "@/components/shared/toast/PolariaToastProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,8 +34,10 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col">
         <AuthSessionScript />
         <AuthProvider>
-          <AuthSessionBootstrap />
-          {children}
+          <PolariaToastProvider>
+            <AuthSessionBootstrap />
+            {children}
+          </PolariaToastProvider>
         </AuthProvider>
       </body>
     </html>

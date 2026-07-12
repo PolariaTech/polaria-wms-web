@@ -27,6 +27,8 @@ import {
 import { CustodioOperacionTabs } from "./CustodioOperacionTabs";
 import { CustodioOrdenIngresoColumn } from "./CustodioOrdenIngresoColumn";
 import { CustodioOrdenSalidaColumn } from "./CustodioOrdenSalidaColumn";
+import type { EstadoBodegaSlot } from "@/modules/warehouses/estado-bodega/types/estado-bodega.types";
+import { EstadoBodegaSlotDetalleModal } from "@/modules/warehouses/estado-bodega/components/EstadoBodegaSlotDetalleModal";
 
 const ORDENES_EN_TRANSPORTE = new Set<OrdenCompraRow["estado"]>([
   "emitida",
@@ -55,6 +57,7 @@ function buildEmptySection(
       codigo: null,
       visual: "vacia" as const,
       productoLabel: null,
+      detalle: null,
     })),
   };
 }
@@ -78,6 +81,10 @@ export function CustodioIngresoPageContent() {
   const [isLoadingVentas, setIsLoadingVentas] = useState(false);
   const [selectedVentaId, setSelectedVentaId] = useState("");
 
+  const [selectedSlot, setSelectedSlot] = useState<EstadoBodegaSlot | null>(
+    null,
+  );
+
   const {
     rows: warehouseRows,
     isConnected,
@@ -85,6 +92,11 @@ export function CustodioIngresoPageContent() {
     error: warehouseError,
     refetch: refetchWarehouseState,
   } = useWarehouseStateRealtime();
+
+  const handleSelectSlot = useCallback((slot: EstadoBodegaSlot) => {
+    if (slot.visual === "vacia" || !slot.detalle) return;
+    setSelectedSlot(slot);
+  }, []);
 
   const loadUbicaciones = useCallback(async () => {
     if (!activeBodegaId) {
@@ -273,6 +285,7 @@ export function CustodioIngresoPageContent() {
                 titleOverride="Zona de ingreso"
                 emptyHintOverride="No hay cajas en ingresos."
                 className="h-full min-h-0"
+                onSelectSlot={handleSelectSlot}
               />
             </div>
 
@@ -289,6 +302,7 @@ export function CustodioIngresoPageContent() {
                 titleOverride="Zona de salida"
                 emptyHintOverride="No hay cajas en salida."
                 className="h-full min-h-0"
+                onSelectSlot={handleSelectSlot}
               />
             </div>
 
@@ -311,6 +325,13 @@ export function CustodioIngresoPageContent() {
           <EstadoBodegaLegend />
         </div>
       )}
+
+      <EstadoBodegaSlotDetalleModal
+        open={Boolean(selectedSlot?.detalle)}
+        onClose={() => setSelectedSlot(null)}
+        detalle={selectedSlot?.detalle ?? null}
+        slotNumber={selectedSlot?.slotNumber ?? null}
+      />
     </main>
   );
 }

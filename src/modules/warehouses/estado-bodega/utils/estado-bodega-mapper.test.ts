@@ -53,9 +53,41 @@ describe("mapEstadoBodegaLayout", () => {
 
     expect(almacenamiento?.occupiedCount).toBe(1);
     expect(almacenamiento?.slots[0]?.visual).toBe("ocupada_primario");
-    expect(almacenamiento?.slots[0]?.productoLabel).toBe("12,5 kg");
+    expect(almacenamiento?.slots[0]?.productoLabel).toBe("Producto");
+    expect(almacenamiento?.slots[0]?.detalle).toMatchObject({
+      cantidad: "12,5 kg",
+      posicion: "SLOT-001",
+    });
     expect(almacenamiento?.slots[1]?.visual).toBe("vacia");
+    expect(almacenamiento?.slots[1]?.detalle).toBeNull();
     expect(layout.sections.find((section) => section.id === "entrada")?.capacity)
       .toBe(8);
+  });
+
+  it("muestra slot vacío si no hay stock aunque estado_slot diga ocupado", () => {
+    const ubicaciones: UbicacionEstadoBodegaDbRow[] = [
+      {
+        id_ubicacion: "u-1",
+        codigo: "SLOT-001",
+        estado_slot: "ocupado",
+        tipo_ubicacion: {
+          codigo: "ALMACEN",
+          es_recepcion: false,
+          es_almacenamiento: true,
+          es_picking: false,
+        },
+      },
+    ];
+
+    const layout = mapEstadoBodegaLayout(ubicaciones, []);
+
+    const almacenamiento = layout.sections.find(
+      (section) => section.id === "almacenamiento",
+    );
+
+    expect(almacenamiento?.occupiedCount).toBe(0);
+    expect(almacenamiento?.slots[0]?.visual).toBe("vacia");
+    expect(almacenamiento?.slots[0]?.productoLabel).toBeNull();
+    expect(almacenamiento?.slots[0]?.detalle).toBeNull();
   });
 });

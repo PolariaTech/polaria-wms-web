@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { AlertCircle, Box, Phone } from "lucide-react";
+import { usePolariaToast } from "@/components/shared/toast/PolariaToastProvider";
 import {
   PolariaRequestActionBar,
-  PolariaRequestInboxItem,
   PolariaRequestPageLayout,
   PolariaRequestPanel,
 } from "@/components/shared/requests";
@@ -18,17 +18,19 @@ import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
 import {
   formatOperarioTareasCount,
+  OPERARIO_A_BODEGA_EMPTY_HINT,
   OPERARIO_A_BODEGA_EMPTY_MESSAGE,
   OPERARIO_A_BODEGA_PANEL_TITLE,
   OPERARIO_PAGE_HINT,
   OPERARIO_PAGE_TITLE,
 } from "../constants/operario-a-bodega";
 import { listTareasOperarioABodega } from "../services/operario-a-bodega.service";
+import { OperarioTareaCard } from "./OperarioTareaCard";
 
 export function OperarioOperacionPageContent() {
   const { codigoCuenta, activeBodegaId } = useCompany();
   const idUsuario = useAuthStore((state) => state.session?.idUsuario ?? null);
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const { showToast } = usePolariaToast();
   const [isMutating, setIsMutating] = useState(false);
 
   const fetchTareas = useCallback(
@@ -50,45 +52,60 @@ export function OperarioOperacionPageContent() {
     async (idTarea: string) => {
       if (!codigoCuenta || !activeBodegaId) return;
       setIsMutating(true);
-      setActionNotice(null);
       try {
         await completarTareaColaApi(idTarea, {
           codigoCuenta,
           idBodega: activeBodegaId,
         });
-        setActionNotice("Tarea completada.");
+        showToast({
+          title: "Tarea completada",
+          content: "El movimiento se registró en bodega.",
+          variant: "success",
+          durationMs: 3000,
+        });
         await reload();
       } catch (err) {
-        setActionNotice(
-          err instanceof Error ? err.message : "No se pudo completar la tarea.",
-        );
+        showToast({
+          title: "No se pudo completar",
+          content:
+            err instanceof Error ? err.message : "No se pudo completar la tarea.",
+          variant: "error",
+          durationMs: 3000,
+        });
       } finally {
         setIsMutating(false);
       }
     },
-    [activeBodegaId, codigoCuenta, reload],
+    [activeBodegaId, codigoCuenta, reload, showToast],
   );
 
   const handleLlamarJefe = useCallback(async () => {
     if (!codigoCuenta || !activeBodegaId) return;
     setIsMutating(true);
-    setActionNotice(null);
     try {
       await crearLlamadaJefeApi({ codigoCuenta, idBodega: activeBodegaId });
-      setActionNotice("Llamada enviada al jefe de bodega.");
+      showToast({
+        title: "Llamada enviada",
+        content: "El jefe de bodega fue notificado.",
+        variant: "info",
+        durationMs: 3000,
+      });
     } catch (err) {
-      setActionNotice(
-        err instanceof Error ? err.message : "No se pudo llamar al jefe.",
-      );
+      showToast({
+        title: "Error",
+        content:
+          err instanceof Error ? err.message : "No se pudo llamar al jefe.",
+        variant: "error",
+        durationMs: 3000,
+      });
     } finally {
       setIsMutating(false);
     }
-  }, [activeBodegaId, codigoCuenta]);
+  }, [activeBodegaId, codigoCuenta, showToast]);
 
   const handleVerAlertas = useCallback(async () => {
     if (!codigoCuenta || !activeBodegaId) return;
     setIsMutating(true);
-    setActionNotice(null);
     try {
       const alertas = await listAlertasOperativasApi({
         codigoCuenta,
@@ -96,49 +113,31 @@ export function OperarioOperacionPageContent() {
         estado: "abierta",
       });
       const asignadas = alertas.filter((a) => a.idResponsable === idUsuario);
-      setActionNotice(
-        asignadas.length > 0
-          ? `Tienes ${asignadas.length} alerta(s) asignada(s).`
-          : "No tienes alertas asignadas.",
-      );
+      showToast({
+        title: "Alertas",
+        content:
+          asignadas.length > 0
+            ? `Tienes ${asignadas.length} alerta(s) asignada(s).`
+            : "No tienes alertas asignadas.",
+        variant: "info",
+        durationMs: 3000,
+      });
     } catch (err) {
-      setActionNotice(
-        err instanceof Error ? err.message : "No se pudieron cargar alertas.",
-      );
+      showToast({
+        title: "Error",
+        content:
+          err instanceof Error ? err.message : "No se pudieron cargar alertas.",
+        variant: "error",
+        durationMs: 3000,
+      });
     } finally {
       setIsMutating(false);
     }
-  }, [activeBodegaId, codigoCuenta, idUsuario]);
+  }, [activeBodegaId, codigoCuenta, idUsuario, showToast]);
 
   const tareas = data ?? [];
   const tareasCount = tareas.length;
   const pendientesCount = tareasCount;
-
-  const panelContent = useMemo(() => {
-    if (isLoading || error || tareasCount === 0) {
-      return null;
-    }
-
-    return (
-      <div className="flex flex-col gap-3">
-        {tareas.map((tarea) => (
-          <PolariaRequestInboxItem
-            key={tarea.id_tarea}
-            title={
-              tarea.titulo?.trim() ||
-              `Traslado ${tarea.id_tarea.slice(0, 8)}`
-            }
-            subtitle={tarea.descripcion?.trim() || undefined}
-            onClick={
-              isMutating
-                ? undefined
-                : () => void handleCompletarTarea(tarea.id_tarea)
-            }
-          />
-        ))}
-      </div>
-    );
-  }, [error, isLoading, tareas, tareasCount]);
 
   const actionBar = (
     <PolariaRequestActionBar
@@ -180,23 +179,23 @@ export function OperarioOperacionPageContent() {
             pendingCount={pendientesCount}
             totalCount={tareasCount}
             formatTotalCount={formatOperarioTareasCount}
-            showPendingStatus
             isLoading={isLoading}
             error={error}
             emptyMessage={OPERARIO_A_BODEGA_EMPTY_MESSAGE}
+            emptyHint={OPERARIO_A_BODEGA_EMPTY_HINT}
             footer={actionBar}
           >
-            {panelContent}
+            {tareas.length > 0
+              ? tareas.map((tarea) => (
+                  <OperarioTareaCard
+                    key={tarea.id_tarea}
+                    tarea={tarea}
+                    disabled={isMutating}
+                    onComplete={() => void handleCompletarTarea(tarea.id_tarea)}
+                  />
+                ))
+              : null}
           </PolariaRequestPanel>
-
-          {actionNotice ? (
-            <p
-              role="status"
-              className="mt-4 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50"
-            >
-              {actionNotice}
-            </p>
-          ) : null}
         </>
       )}
     </PolariaRequestPageLayout>

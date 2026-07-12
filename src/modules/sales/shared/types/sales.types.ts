@@ -30,6 +30,8 @@ export interface OrdenVentaOperadorRow {
   cuenta: string;
   comprador: string;
   productos: string;
+  cantidadKg: number;
+  total: number;
   estado: EstadoOrdenVenta;
   fecha: string;
   destino: string;
@@ -39,12 +41,47 @@ export interface ProductoVentaOption {
   idProducto: string;
   label: string;
   idCliente: string | null;
+  idBodega: string;
+  codigo: string;
+  nombre: string;
+  kgDisponible: number;
+  precioUnitario: number;
+}
+
+export interface OrdenVentaLineaInput {
+  idProducto: string;
+  cantidadPedida: number;
+  idBodega?: string | null;
+}
+
+export interface OrdenVentaLineaRow {
+  id_linea_orden_venta: string;
+  id_producto: string;
+  cantidad_pedida: number;
+  precio_unitario: number;
+  producto: {
+    sku: string | null;
+    descripcion: string | null;
+    metadatos_catalogo?: unknown;
+  } | null;
+}
+
+export interface OrdenVentaDetalleRow extends OrdenVentaRow {
+  comprador_nombre: string | null;
+  comprador_codigo: string | null;
+  bodega_nombre: string | null;
+  bodega_destino_nombre: string | null;
+  lineas: OrdenVentaLineaRow[];
 }
 
 export interface CreateOrdenVentaInput {
   codigoCuenta: string;
+  idBodega?: string | null;
   idComprador: string;
-  idProducto: string;
+  lineas?: OrdenVentaLineaInput[];
+  /** @deprecated Usar `lineas`. Se mantiene por compatibilidad. */
+  idProducto?: string;
+  /** @deprecated Usar `lineas`. */
   cantidadPedida?: number;
   observaciones?: string | null;
   idCreador?: string | null;

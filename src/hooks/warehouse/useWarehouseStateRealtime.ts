@@ -159,6 +159,12 @@ export function useWarehouseStateRealtime(
         ),
       );
       setLastEventAt(new Date());
+      // Realtime trae filas planas; reconsulta enriquecida (producto/lote/OC).
+      void listWarehouseState({ idBodega, codigoCuenta })
+        .then((data) => setRows(data))
+        .catch(() => {
+          /* Se mantiene el snapshot mergeado si falla el enrich. */
+        });
     };
 
     // El builder encadenado pierde tipos tras el segundo `.on` en Supabase JS.
@@ -200,7 +206,7 @@ export function useWarehouseStateRealtime(
       setIsConnected(false);
       void client.removeChannel(rtChannel);
     };
-  }, [idBodega, accessToken]);
+  }, [idBodega, codigoCuenta, accessToken]);
 
   return {
     rows: canSync ? rows : [],

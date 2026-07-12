@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { AUTH_HASH_PREFIX } from "@/lib/auth/auth-hash-import";
 import { MATEO_SSO_EXIT_KEY } from "@/lib/auth/mateo-sso-exit";
 import { AUTH_STORAGE_KEY } from "@/lib/auth/auth-storage";
@@ -99,8 +100,9 @@ export function AuthSessionScript() {
 `;
 
   return (
-    <script
+    <Script
       id="polaria-auth-session-guard"
+      strategy="beforeInteractive"
       dangerouslySetInnerHTML={{ __html: script }}
     />
   );

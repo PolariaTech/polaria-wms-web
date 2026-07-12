@@ -1,6 +1,9 @@
 "use client";
 
-import type { EstadoBodegaSectionView } from "../types/estado-bodega.types";
+import type {
+  EstadoBodegaSectionView,
+  EstadoBodegaSlot,
+} from "../types/estado-bodega.types";
 import { EstadoBodegaSlotCell } from "./EstadoBodegaSlotCell";
 
 const GAP_PX = 8;
@@ -10,7 +13,7 @@ export const ESTADO_BODEGA_SLOT_GAP_PX = GAP_PX_SM;
 export const ESTADO_BODEGA_PANEL_WIDTH_CHROME_PX = 20;
 export const ESTADO_BODEGA_MAP_COLUMN_GAP_PX = 12;
 export const ESTADO_BODEGA_SIDE_PANEL_CHROME_PX = 96;
-export const ESTADO_BODEGA_MIN_SLOT_SIZE_PX = 56;
+export const ESTADO_BODEGA_MIN_SLOT_SIZE_PX = 72;
 
 export function getEstadoBodegaSlotGap(containerWidth: number) {
   return containerWidth >= 640 ? GAP_PX_SM : GAP_PX;
@@ -137,12 +140,14 @@ interface EstadoBodegaSlotGridProps {
   section: EstadoBodegaSectionView;
   accentClassName: string;
   slotSize: number;
+  onSelectSlot?: (slot: EstadoBodegaSlot) => void;
 }
 
 export function EstadoBodegaSlotGrid({
   section,
   accentClassName,
   slotSize,
+  onSelectSlot,
 }: EstadoBodegaSlotGridProps) {
   if (slotSize <= 0) {
     return null;
@@ -169,6 +174,7 @@ export function EstadoBodegaSlotGrid({
           slot={slot}
           accentClassName={accentClassName}
           size={slotSize}
+          onSelect={onSelectSlot}
         />
       ))}
     </div>

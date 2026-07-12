@@ -7,7 +7,11 @@ export interface CreateJefeOrdenInput {
   tipoFlujo: FlujoOrdenTrabajoApi;
   idUbicacionOrigen?: string;
   idUbicacionDestino?: string;
+  idLote?: string;
+  idProducto?: string;
+  cantidad?: number;
   idAsignado?: string;
+  idOrdenVenta?: string;
   observaciones?: string;
 }
 

@@ -16,3 +16,6 @@ export function formatEstadoOrdenVenta(estado: string): string {
 
 export const CATALOGO_VENTA_EMPTY_MESSAGE =
   "Necesitás productos en el catálogo de la cuenta para crear ventas manuales." as const;
+
+export const CATALOGO_VENTA_SIN_STOCK_MESSAGE =
+  "No hay productos con kilos disponibles en stock para vender." as const;

@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { ModuleListPage } from "@/components/shared/module/ModuleListPage";
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
+import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { cn } from "@/lib/utils/cn";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -12,6 +13,7 @@ import { formatEstadoOrdenVenta } from "../../shared/constants/sales-status";
 import { listOrdenesVentaOperador } from "../../shared/services/sales.service";
 import type { OrdenVentaOperadorRow } from "../../shared/types/sales.types";
 import { OrdenVentaCreateModal } from "./OrdenVentaCreateModal";
+import { OrdenVentaDetalleModal } from "./OrdenVentaDetalleModal";
 
 function renderEstadoBadge(estado: string) {
   const normalized = estado.toLowerCase();
@@ -34,6 +36,7 @@ function renderEstadoBadge(estado: string) {
 export function OperadorOrdenesVentaPageContent() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [detalleId, setDetalleId] = useState<string | null>(null);
 
   const fetchOrdenes = useCallback(() => {
     if (!codigoCuenta) {
@@ -67,6 +70,18 @@ export function OperadorOrdenesVentaPageContent() {
         header: "Productos",
         cell: (row: OrdenVentaOperadorRow) => row.productos,
         cellClassName: "text-polaria-w-50",
+      },
+      {
+        id: "cantidadKg",
+        header: "Cantidad (kg)",
+        cell: (row: OrdenVentaOperadorRow) => `${formatKgEs(row.cantidadKg)} kg`,
+        cellClassName: "text-polaria-w-50",
+      },
+      {
+        id: "total",
+        header: "Total",
+        cell: (row: OrdenVentaOperadorRow) => `$${formatPrecioEs(row.total)}`,
+        cellClassName: "font-medium text-polaria-teal",
       },
       {
         id: "estado",
@@ -113,6 +128,17 @@ export function OperadorOrdenesVentaPageContent() {
         columns={columns}
         emptyMessage="Sin órdenes de venta registradas."
         getRowKey={(row) => row.idOrdenVenta}
+        onRowClick={(row) => setDetalleId(row.idOrdenVenta)}
+        getRowAriaLabel={(row) => `Ver detalle de venta ${row.venta}`}
+      />
+
+      <OrdenVentaDetalleModal
+        idOrdenVenta={detalleId}
+        codigoCuenta={codigoCuenta}
+        onClose={() => setDetalleId(null)}
+        onEmitted={() => {
+          void reload();
+        }}
       />
 
       <OrdenVentaCreateModal

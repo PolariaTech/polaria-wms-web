@@ -8,6 +8,12 @@ export interface EstadoBodegaZonePanelItem {
   id: string;
   title: string;
   subtitle?: string;
+  /** Tarea de salida vinculada a una OV (seleccionable desde almacenamiento). */
+  ovSalida?: {
+    idOrdenVenta: string | null;
+    ovCodigo: string | null;
+    idUbicacionOrigen: string | null;
+  };
 }
 
 export interface AlertaOperativaListRow {

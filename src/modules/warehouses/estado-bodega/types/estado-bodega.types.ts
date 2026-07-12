@@ -3,12 +3,24 @@ import type {
   EstadoBodegaSlotVisual,
 } from "../constants/estado-bodega-layout";
 
+export interface EstadoBodegaSlotDetalleView {
+  productoNombre: string;
+  idPaquete: string | null;
+  cliente: string | null;
+  cantidad: string;
+  posicion: string | null;
+  temperatura: string | null;
+  ordenCompraCodigo: string | null;
+}
+
 export interface EstadoBodegaSlot {
   slotNumber: number;
   idUbicacion: string | null;
   codigo: string | null;
   visual: EstadoBodegaSlotVisual;
+  /** @deprecated Preferir `detalle.productoNombre`. */
   productoLabel: string | null;
+  detalle: EstadoBodegaSlotDetalleView | null;
 }
 
 export interface EstadoBodegaSectionView {

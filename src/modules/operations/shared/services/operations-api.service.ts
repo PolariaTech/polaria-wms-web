@@ -7,10 +7,11 @@ import type {
   CreateOrdenTrabajoApiInput,
   EjecutarOrdenTrabajoApiInput,
   LlamadaOperativaApiRow,
+  OperarioDisponibleApiRow,
   OrdenTrabajoApiRow,
-  TareaColaApiRow,
   TenantBodegaApiParams,
 } from "../types/operations-api.types";
+import { mapOrdenTrabajoApiRow, mapTareaColaApiRow } from "../utils/orden-trabajo-api.mapper";
 
 function tenantQuery(params: TenantBodegaApiParams): string {
   const codigoCuenta = encodeURIComponent(params.codigoCuenta.trim());
@@ -33,20 +34,8 @@ async function mutateApi<T>(
   }
 }
 
-function mapTareaColaRow(row: TareaColaApiRow): TareaColaRow {
-  return {
-    id_tarea: row.idTarea,
-    codigo_cuenta: row.codigoCuenta,
-    id_bodega: row.idBodega,
-    tipo: row.tipo as TareaColaRow["tipo"],
-    estado: row.estado as TareaColaRow["estado"],
-    id_asignado: row.idAsignado,
-    id_orden_trabajo: row.idOrdenTrabajo,
-    titulo: row.titulo,
-    descripcion: row.descripcion,
-    created_at: row.createdAt,
-    updated_at: row.updatedAt,
-  };
+function mapTareaColaRow(row: Record<string, unknown>): TareaColaRow {
+  return mapTareaColaApiRow(row);
 }
 
 export async function listOrdenesTrabajoApi(
@@ -60,31 +49,35 @@ export async function listOrdenesTrabajoApi(
     .filter(Boolean)
     .join("&");
 
-  return apiRequest<OrdenTrabajoApiRow[]>(
+  const rows = await apiRequest<Record<string, unknown>[]>(
     `/operaciones/ordenes-trabajo?${qs}${extra ? `&${extra}` : ""}`,
     { auth: true },
   );
+
+  return rows.map(mapOrdenTrabajoApiRow);
 }
 
 export async function createOrdenTrabajoApi(
   input: CreateOrdenTrabajoApiInput,
 ): Promise<OrdenTrabajoApiRow> {
-  return mutateApi<OrdenTrabajoApiRow>(
+  const row = await mutateApi<Record<string, unknown>>(
     "/operaciones/ordenes-trabajo",
     "POST",
     input,
   );
+  return mapOrdenTrabajoApiRow(row);
 }
 
 export async function ejecutarOrdenTrabajoApi(
   idOrdenTrabajo: string,
   input: EjecutarOrdenTrabajoApiInput,
 ): Promise<OrdenTrabajoApiRow> {
-  return mutateApi<OrdenTrabajoApiRow>(
+  const row = await mutateApi<Record<string, unknown>>(
     `/operaciones/ordenes-trabajo/${encodeURIComponent(idOrdenTrabajo)}/ejecutar`,
     "POST",
     input,
   );
+  return mapOrdenTrabajoApiRow(row);
 }
 
 export async function listTareasColaApi(
@@ -100,7 +93,7 @@ export async function listTareasColaApi(
     .filter(Boolean)
     .join("&");
 
-  const rows = await apiRequest<TareaColaApiRow[]>(
+  const rows = await apiRequest<Record<string, unknown>[]>(
     `/operaciones/tareas?${qs}${extra ? `&${extra}` : ""}`,
     { auth: true },
   );
@@ -112,7 +105,7 @@ export async function asignarTareaColaApi(
   idTarea: string,
   params: TenantBodegaApiParams & { idAsignado?: string },
 ): Promise<TareaColaRow> {
-  const row = await mutateApi<TareaColaApiRow>(
+  const row = await mutateApi<Record<string, unknown>>(
     `/operaciones/tareas/${encodeURIComponent(idTarea)}/asignar`,
     "PATCH",
     params,
@@ -124,7 +117,7 @@ export async function completarTareaColaApi(
   idTarea: string,
   params: TenantBodegaApiParams,
 ): Promise<TareaColaRow> {
-  const row = await mutateApi<TareaColaApiRow>(
+  const row = await mutateApi<Record<string, unknown>>(
     `/operaciones/tareas/${encodeURIComponent(idTarea)}/completar`,
     "POST",
     params,
@@ -161,6 +154,15 @@ export async function getBodegaReportesApi(
 ): Promise<BodegaReportesApiResumen> {
   return apiRequest<BodegaReportesApiResumen>(
     `/operaciones/reportes/bodega?${tenantQuery(params)}`,
+    { auth: true },
+  );
+}
+
+export async function listOperariosDisponiblesApi(
+  params: TenantBodegaApiParams,
+): Promise<OperarioDisponibleApiRow[]> {
+  return apiRequest<OperarioDisponibleApiRow[]>(
+    `/operaciones/operarios-disponibles?${tenantQuery(params)}`,
     { auth: true },
   );
 }

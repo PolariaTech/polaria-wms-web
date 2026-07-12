@@ -2,6 +2,7 @@ export type {
   BodegaReportesApiResumen,
   CreateOrdenTrabajoApiInput,
   FlujoOrdenTrabajoApi,
+  OperarioDisponibleApiRow,
   OrdenTrabajoApiRow,
 } from "./shared/types/operations-api.types";
 
@@ -13,6 +14,7 @@ export {
   ejecutarOrdenTrabajoApi,
   getBodegaReportesApi,
   listAlertasOperativasApi,
+  listOperariosDisponiblesApi,
   listOrdenesTrabajoApi,
   listTareasColaApi,
 } from "./shared/services/operations-api.service";

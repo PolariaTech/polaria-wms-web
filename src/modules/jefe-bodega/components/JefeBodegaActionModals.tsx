@@ -4,6 +4,7 @@ import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bod
 import type { JefeBodegaActionId } from "../constants/jefe-bodega-actions";
 import { JefeBodegaIngresoModal } from "./modals/JefeBodegaIngresoModal";
 import { JefeBodegaRevisarModal } from "./modals/JefeBodegaRevisarModal";
+import type { JefeBodegaSalidaOrdenVentaPrefill } from "../types/jefe-bodega-salida.types";
 import { JefeBodegaSalidaModal } from "./modals/JefeBodegaSalidaModal";
 import { JefeBodegaTransferenciaModal } from "./modals/JefeBodegaTransferenciaModal";
 
@@ -13,7 +14,9 @@ interface JefeBodegaActionModalsProps {
   codigoCuenta: string | null;
   idBodega: string | null;
   ubicacionesAlmacen: UbicacionEstadoBodegaDbRow[];
+  ubicacionesIngreso: UbicacionEstadoBodegaDbRow[];
   ubicacionesPicking: UbicacionEstadoBodegaDbRow[];
+  salidaPrefillOrdenVenta?: JefeBodegaSalidaOrdenVentaPrefill | null;
   onOrdenCreated?: () => void;
 }
 
@@ -23,7 +26,9 @@ export function JefeBodegaActionModals({
   codigoCuenta,
   idBodega,
   ubicacionesAlmacen,
+  ubicacionesIngreso,
   ubicacionesPicking,
+  salidaPrefillOrdenVenta = null,
   onOrdenCreated,
 }: JefeBodegaActionModalsProps) {
   return (
@@ -34,6 +39,7 @@ export function JefeBodegaActionModals({
         codigoCuenta={codigoCuenta}
         idBodega={idBodega}
         ubicacionesAlmacen={ubicacionesAlmacen}
+        ubicacionesIngreso={ubicacionesIngreso}
         onCreated={onOrdenCreated}
       />
       <JefeBodegaTransferenciaModal
@@ -59,6 +65,7 @@ export function JefeBodegaActionModals({
         idBodega={idBodega}
         ubicacionesAlmacen={ubicacionesAlmacen}
         ubicacionesPicking={ubicacionesPicking}
+        prefillOrdenVenta={salidaPrefillOrdenVenta}
         onCreated={onOrdenCreated}
       />
     </>

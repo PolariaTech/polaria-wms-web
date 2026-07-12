@@ -26,6 +26,12 @@ export interface PolariaFormModalProps {
   size?: "sm" | "md" | "lg" | "xl" | "2xl";
   /** Reemplaza el botón principal del pie (p. ej. acción de detalle). */
   footerAction?: ReactNode;
+  /** Oculta por completo la barra de acciones del pie (p. ej. modales de solo lectura). */
+  hideFooter?: boolean;
+  /** Oculta el botón Cerrar de la cabecera (deja el del pie). */
+  hideHeaderClose?: boolean;
+  /** false = panel sin <form> (p. ej. picker anidado dentro de otro modal). */
+  asForm?: boolean;
 }
 
 const MODAL_SIZE_CLASS = {
@@ -54,6 +60,9 @@ export function PolariaFormModal({
   compact = false,
   size,
   footerAction,
+  hideFooter = false,
+  hideHeaderClose = false,
+  asForm = true,
 }: PolariaFormModalProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -87,6 +96,79 @@ export function PolariaFormModal({
       : compact
         ? MODAL_SIZE_CLASS.sm
         : MODAL_SIZE_CLASS.md;
+
+  const bodyClassName = cn("flex flex-col");
+  const scrollClassName = cn(
+    "polaria-scrollbar overflow-y-auto pr-1",
+    compact ? "space-y-3" : "space-y-5",
+    "max-h-[min(60dvh,calc(100dvh-14rem))]",
+  );
+  const footerClassName = cn(
+    "flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-polaria-w-08",
+    compact ? "mt-3 pt-3" : "mt-4 pt-4",
+  );
+
+  const bodyContent = (
+    <>
+      <div className={scrollClassName}>
+        {children}
+
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-3 py-2 polaria-text-body-sm text-polaria-danger"
+          >
+            {error}
+          </p>
+        ) : null}
+      </div>
+
+      {hideFooter ? null : (
+        <div className={footerClassName}>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className={cn(
+              "rounded-xl border border-polaria-w-08 px-4 py-2.5",
+              "polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+            )}
+          >
+            {cancelLabel}
+          </button>
+
+          {footerAction ?? (
+            <button
+              type={asForm ? "submit" : "button"}
+              disabled={isSubmitting || submitDisabled}
+              onClick={
+                asForm
+                  ? undefined
+                  : (event) => {
+                      onSubmit(
+                        event as unknown as FormEvent<HTMLFormElement>,
+                      );
+                    }
+              }
+              className={cn(
+                "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
+                "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
+                "disabled:cursor-not-allowed disabled:opacity-60",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+              )}
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : null}
+              {submitLabel}
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div className="polaria-scrollbar fixed inset-0 z-[100] overflow-y-auto overscroll-contain">
@@ -147,80 +229,30 @@ export function PolariaFormModal({
               ) : null}
             </div>
 
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className={cn(
-                "shrink-0 rounded-lg border border-polaria-w-08 px-3 py-1.5",
-                "polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-              )}
-            >
-              {closeLabel}
-            </button>
-          </div>
-
-          <form onSubmit={onSubmit} className="flex flex-col">
-            <div
-              className={cn(
-                "polaria-scrollbar overflow-y-auto pr-1",
-                compact ? "space-y-3" : "space-y-5",
-                "max-h-[min(60dvh,calc(100dvh-14rem))]",
-              )}
-            >
-              {children}
-
-              {error ? (
-                <p
-                  role="alert"
-                  className="rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-3 py-2 polaria-text-body-sm text-polaria-danger"
-                >
-                  {error}
-                </p>
-              ) : null}
-            </div>
-
-            <div
-              className={cn(
-                "flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-polaria-w-08",
-                compact ? "mt-3 pt-3" : "mt-4 pt-4",
-              )}
-            >
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className={cn(
-                "rounded-xl border border-polaria-w-08 px-4 py-2.5",
-                "polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-              )}
-            >
-              {cancelLabel}
-            </button>
-
-            {footerAction ?? (
+            {hideHeaderClose ? null : (
               <button
-                type="submit"
-                disabled={isSubmitting || submitDisabled}
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
                 className={cn(
-                  "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
-                  "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
-                  "disabled:cursor-not-allowed disabled:opacity-60",
+                  "shrink-0 rounded-lg border border-polaria-w-08 px-3 py-1.5",
+                  "polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
                 )}
               >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                ) : null}
-                {submitLabel}
+                {closeLabel}
               </button>
             )}
-            </div>
-          </form>
+          </div>
+
+          {asForm ? (
+            <form onSubmit={onSubmit} className={bodyClassName}>
+              {bodyContent}
+            </form>
+          ) : (
+            <div className={bodyClassName}>{bodyContent}</div>
+          )}
         </div>
       </div>
     </div>
