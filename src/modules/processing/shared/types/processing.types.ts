@@ -6,12 +6,6 @@ export type EstadoProcesamiento =
   | "terminada"
   | "cancelada";
 
-export type EstadoTarea =
-  | "pendiente"
-  | "en_proceso"
-  | "completada"
-  | "cancelada";
-
 export type TipoTarea =
   | "ingreso"
   | "movimiento"
@@ -19,6 +13,12 @@ export type TipoTarea =
   | "procesamiento"
   | "revision"
   | "otro";
+
+export type EstadoTarea =
+  | "pendiente"
+  | "en_proceso"
+  | "completada"
+  | "cancelada";
 
 export interface SolicitudProcesamientoRow {
   id_solicitud_procesamiento: string;
@@ -34,9 +34,14 @@ export interface SolicitudProcesamientoRow {
   kilos_primario: string;
   kilos_secundario: string | null;
   kilos_merma: string | null;
+  sobrante_kg: string | null;
   regla_conversion_cantidad_primario: string | null;
   regla_conversion_unidades_secundario: string | null;
+  perdida_procesamiento_pct: string | null;
   estimado_unidades_secundario: string | null;
+  kg_primario_descontado: string | null;
+  cierre_desde_procesador: boolean;
+  observaciones: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -68,7 +73,21 @@ export interface CreateSolicitudProcesamientoInput {
   kilosPrimario: number;
   reglaConversionCantidadPrimario: number;
   reglaConversionUnidadesSecundario: number;
-  estimadoUnidadesSecundario: number;
+  estimadoUnidadesSecundario?: number;
+  perdidaProcesamientoPct?: number;
+  observaciones?: string;
+}
+
+export interface CreateOrdenesPostCierreInput {
+  codigoCuenta: string;
+  idBodega: string;
+  idUbicacionDestinoProcesado?: string;
+  idUbicacionDestinoDesperdicio?: string;
+}
+
+export interface OrdenesPostCierreResult {
+  ordenProcesadoId: string | null;
+  ordenDesperdicioId: string | null;
 }
 
 export interface TareaColaRow {

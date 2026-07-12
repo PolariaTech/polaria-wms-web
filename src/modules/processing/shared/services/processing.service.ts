@@ -10,11 +10,22 @@ import {
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { listTareasColaApi } from "@/modules/operations";
 import {
+  aplicarOrdenProcesamientoApi,
+  asignarOperarioProcesamientoApi,
+  asignarProcesadorApi,
+  cerrarSolicitudProcesamientoApi,
+  crearOrdenesPostCierreApi,
   createSolicitudProcesamientoApi,
+  getDesperdicioSugeridoApi,
+  getSolicitudProcesamientoApi,
+  iniciarProcesamientoApi,
   listSolicitudesProcesamientoApi,
+  terminarSolicitudProcesamientoApi,
 } from "./processing-api.service";
 import type {
+  CreateOrdenesPostCierreInput,
   CreateSolicitudProcesamientoInput,
+  OrdenesPostCierreResult,
   ProductoProcesamientoOption,
   SolicitudProcesamientoOperadorRow,
   SolicitudProcesamientoRow,
@@ -112,7 +123,74 @@ function mapSolicitudOperadorRow(
   };
 }
 
-// TODO POL-5+: cerrar solicitudes de procesamiento vía apiRequest al API Nest.
+// Flujo frio: mutaciones vía API Nest (sin cambios de UI).
+
+export async function getSolicitudProcesamiento(
+  idSolicitud: string,
+): Promise<SolicitudProcesamientoRow> {
+  return getSolicitudProcesamientoApi(idSolicitud);
+}
+
+export async function getDesperdicioSugerido(
+  idSolicitud: string,
+): Promise<number | null> {
+  const result = await getDesperdicioSugeridoApi(idSolicitud);
+  return result.desperdicioKgSugerido;
+}
+
+export async function asignarOperarioProcesamiento(
+  idSolicitud: string,
+  params: { codigoCuenta: string; idBodega: string; idOperario: string },
+): Promise<SolicitudProcesamientoRow> {
+  return asignarOperarioProcesamientoApi(idSolicitud, params);
+}
+
+export async function iniciarProcesamiento(
+  idSolicitud: string,
+  params: { codigoCuenta: string; idBodega: string; idProcesador?: string },
+): Promise<SolicitudProcesamientoRow> {
+  return iniciarProcesamientoApi(idSolicitud, params);
+}
+
+export async function asignarProcesadorProcesamiento(
+  idSolicitud: string,
+  params: { codigoCuenta: string; idBodega: string; idProcesador: string },
+): Promise<SolicitudProcesamientoRow> {
+  return asignarProcesadorApi(idSolicitud, params);
+}
+
+export async function cerrarSolicitudProcesamiento(
+  idSolicitud: string,
+  params: {
+    codigoCuenta: string;
+    idBodega: string;
+    kilosMerma: number;
+    kilosSecundario?: number;
+  },
+): Promise<SolicitudProcesamientoRow> {
+  return cerrarSolicitudProcesamientoApi(idSolicitud, params);
+}
+
+export async function crearOrdenesPostCierre(
+  idSolicitud: string,
+  input: CreateOrdenesPostCierreInput,
+): Promise<OrdenesPostCierreResult> {
+  return crearOrdenesPostCierreApi(idSolicitud, input);
+}
+
+export async function aplicarOrdenProcesamiento(
+  idSolicitud: string,
+  idOrden: string,
+): Promise<{ ok: true }> {
+  return aplicarOrdenProcesamientoApi(idSolicitud, idOrden);
+}
+
+export async function terminarSolicitudProcesamiento(
+  idSolicitud: string,
+  params: { codigoCuenta: string; idBodega: string },
+): Promise<SolicitudProcesamientoRow> {
+  return terminarSolicitudProcesamientoApi(idSolicitud, params);
+}
 
 export async function listSolicitudesProcesamiento(
   params: TenantListParams,

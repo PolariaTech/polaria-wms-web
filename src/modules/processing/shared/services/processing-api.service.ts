@@ -1,7 +1,9 @@
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { ApiError, apiRequest } from "@/services/api/api";
 import type {
+  CreateOrdenesPostCierreInput,
   CreateSolicitudProcesamientoInput,
+  OrdenesPostCierreResult,
   SolicitudProcesamientoRow,
 } from "../types/processing.types";
 
@@ -34,9 +36,14 @@ interface SolicitudProcesamientoApiRow {
   kilosPrimario: string;
   kilosSecundario: string | null;
   kilosMerma: string | null;
+  sobranteKg: string | null;
   reglaConversionCantidadPrimario: string | null;
   reglaConversionUnidadesSecundario: string | null;
+  perdidaProcesamientoPct: string | null;
   estimadoUnidadesSecundario: string | null;
+  kgPrimarioDescontado: string | null;
+  cierreDesdeProcesador: boolean;
+  observaciones: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,9 +63,14 @@ function mapSolicitudRow(row: SolicitudProcesamientoApiRow): SolicitudProcesamie
     kilos_primario: row.kilosPrimario,
     kilos_secundario: row.kilosSecundario,
     kilos_merma: row.kilosMerma,
+    sobrante_kg: row.sobranteKg,
     regla_conversion_cantidad_primario: row.reglaConversionCantidadPrimario,
     regla_conversion_unidades_secundario: row.reglaConversionUnidadesSecundario,
+    perdida_procesamiento_pct: row.perdidaProcesamientoPct,
     estimado_unidades_secundario: row.estimadoUnidadesSecundario,
+    kg_primario_descontado: row.kgPrimarioDescontado,
+    cierre_desde_procesador: row.cierreDesdeProcesador,
+    observaciones: row.observaciones,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
   };
@@ -85,6 +97,25 @@ export async function listSolicitudesProcesamientoApi(params: {
   return rows.map(mapSolicitudRow);
 }
 
+export async function getSolicitudProcesamientoApi(
+  idSolicitud: string,
+): Promise<SolicitudProcesamientoRow> {
+  const row = await apiRequest<SolicitudProcesamientoApiRow>(
+    `/procesamiento/solicitudes/${encodeURIComponent(idSolicitud)}`,
+    { auth: true },
+  );
+  return mapSolicitudRow(row);
+}
+
+export async function getDesperdicioSugeridoApi(
+  idSolicitud: string,
+): Promise<{ desperdicioKgSugerido: number | null }> {
+  return apiRequest<{ desperdicioKgSugerido: number | null }>(
+    `/procesamiento/solicitudes/${encodeURIComponent(idSolicitud)}/desperdicio-sugerido`,
+    { auth: true },
+  );
+}
+
 export async function createSolicitudProcesamientoApi(
   input: Omit<CreateSolicitudProcesamientoInput, "idSolicitante"> & {
     idSolicitante?: string;
@@ -102,11 +133,39 @@ export async function createSolicitudProcesamientoApi(
       reglaConversionCantidadPrimario: input.reglaConversionCantidadPrimario,
       reglaConversionUnidadesSecundario:
         input.reglaConversionUnidadesSecundario,
-      perdidaProcesamientoPct: undefined,
-      observaciones: undefined,
+      perdidaProcesamientoPct: input.perdidaProcesamientoPct,
+      observaciones: input.observaciones,
     },
   );
 
+  return mapSolicitudRow(row);
+}
+
+export async function asignarOperarioProcesamientoApi(
+  idSolicitud: string,
+  params: { codigoCuenta: string; idBodega: string; idOperario: string },
+): Promise<SolicitudProcesamientoRow> {
+  const row = await mutateApi<SolicitudProcesamientoApiRow>(
+    `/procesamiento/solicitudes/${encodeURIComponent(idSolicitud)}/asignar-operario`,
+    "PATCH",
+    params,
+  );
+  return mapSolicitudRow(row);
+}
+
+export async function iniciarProcesamientoApi(
+  idSolicitud: string,
+  params: {
+    codigoCuenta: string;
+    idBodega: string;
+    idProcesador?: string;
+  },
+): Promise<SolicitudProcesamientoRow> {
+  const row = await mutateApi<SolicitudProcesamientoApiRow>(
+    `/procesamiento/solicitudes/${encodeURIComponent(idSolicitud)}/iniciar`,
+    "POST",
+    params,
+  );
   return mapSolicitudRow(row);
 }
 
@@ -127,13 +186,45 @@ export async function cerrarSolicitudProcesamientoApi(
   params: {
     codigoCuenta: string;
     idBodega: string;
-    kilosSecundario: number;
     kilosMerma: number;
-    sobranteKg?: number;
+    kilosSecundario?: number;
   },
 ): Promise<SolicitudProcesamientoRow> {
   const row = await mutateApi<SolicitudProcesamientoApiRow>(
     `/procesamiento/solicitudes/${encodeURIComponent(idSolicitud)}/cerrar`,
+    "POST",
+    params,
+  );
+  return mapSolicitudRow(row);
+}
+
+export async function crearOrdenesPostCierreApi(
+  idSolicitud: string,
+  input: CreateOrdenesPostCierreInput,
+): Promise<OrdenesPostCierreResult> {
+  return mutateApi<OrdenesPostCierreResult>(
+    `/procesamiento/solicitudes/${encodeURIComponent(idSolicitud)}/ordenes-post-cierre`,
+    "POST",
+    input,
+  );
+}
+
+export async function aplicarOrdenProcesamientoApi(
+  idSolicitud: string,
+  idOrden: string,
+): Promise<{ ok: true }> {
+  return mutateApi<{ ok: true }>(
+    `/procesamiento/solicitudes/${encodeURIComponent(idSolicitud)}/ordenes/${encodeURIComponent(idOrden)}/aplicar`,
+    "POST",
+  );
+}
+
+export async function terminarSolicitudProcesamientoApi(
+  idSolicitud: string,
+  params: { codigoCuenta: string; idBodega: string },
+): Promise<SolicitudProcesamientoRow> {
+  const row = await mutateApi<SolicitudProcesamientoApiRow>(
+    `/procesamiento/solicitudes/${encodeURIComponent(idSolicitud)}/terminar`,
     "POST",
     params,
   );
