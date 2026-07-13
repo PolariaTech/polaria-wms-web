@@ -1,6 +1,8 @@
 import type { FlujoOrdenTrabajoApi } from "@/modules/operations";
 import type { TipoTarea } from "@/modules/processing/shared/types/processing.types";
 import type { OperarioTareaView } from "../types/operario-tarea.types";
+import { resolvePostCierreRolLabel } from "../services/operario-completar-tarea.service";
+import { parseRolDevolucionProcesamiento } from "@/modules/processing/shared/constants/procesamiento-post-cierre";
 
 export interface OperarioTareaFlowView {
   sourceLabel: string;
@@ -24,6 +26,7 @@ const FLUJO_LABELS: Record<FlujoOrdenTrabajoApi, string> = {
   bodega_a_bodega: "Movimiento interno",
   revisar: "Revisión",
   a_salida: "Salida",
+  a_procesamiento: "Procesamiento",
 };
 
 function parseFlowValues(text: string): { from: string; to: string } | null {
@@ -92,6 +95,14 @@ function resolveFromEnrichedOrden(tarea: OperarioTareaView): OperarioTareaFlowVi
         destinationValue: tarea.destinoCodigo ?? "Asignación automática",
         typeLabel: FLUJO_LABELS.a_salida,
       };
+    case "a_procesamiento":
+      return {
+        sourceLabel: "Origen",
+        sourceValue: tarea.origenCodigo ?? "Almacenamiento",
+        destinationLabel: "Procesamiento",
+        destinationValue: tarea.destinoCodigo ?? "Zona procesamiento",
+        typeLabel: FLUJO_LABELS.a_procesamiento,
+      };
     default:
       return null;
   }
@@ -128,6 +139,31 @@ export function resolveOperarioTareaFlow(
       destinationLabel: "Destino",
       destinationValue: parsed.to,
       typeLabel,
+    };
+  }
+
+  if (tarea.tipo === "procesamiento") {
+    return {
+      sourceLabel: "Origen",
+      sourceValue: tarea.origenCodigo ?? "Almacenamiento",
+      destinationLabel: "Procesamiento",
+      destinationValue: tarea.destinoCodigo ?? "Zona procesamiento",
+      typeLabel: "Procesamiento",
+    };
+  }
+
+  const rolPostCierre = parseRolDevolucionProcesamiento(
+    tarea.ordenObservaciones,
+    tarea.descripcion,
+    tarea.titulo,
+  );
+  if (rolPostCierre) {
+    return {
+      sourceLabel: "Procesamiento",
+      sourceValue: tarea.origenCodigo ?? "Zona procesamiento",
+      destinationLabel: "Almacenamiento",
+      destinationValue: tarea.destinoCodigo ?? "Casillero libre",
+      typeLabel: resolvePostCierreRolLabel(tarea),
     };
   }
 

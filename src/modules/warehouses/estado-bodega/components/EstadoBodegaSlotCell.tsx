@@ -24,6 +24,13 @@ export function EstadoBodegaSlotCell({
 }: EstadoBodegaSlotCellProps) {
   const isEmpty = slot.visual === "vacia";
   const detalle = slot.detalle;
+  const rol = detalle?.rolProcesamiento;
+  const rolLabel =
+    rol === "sobrante"
+      ? "Sobrante"
+      : rol === "procesado"
+        ? "Resultado"
+        : null;
   const canOpen = !isEmpty && Boolean(detalle) && Boolean(onSelect);
   const compact = size < 88;
   const nameMax = compact ? 8 : 12;
@@ -92,6 +99,22 @@ export function EstadoBodegaSlotCell({
               ? truncateLabel(detalle.idPaquete, idMax)
               : "—"}
           </span>
+
+          {rolLabel ? (
+            <span
+              className={cn(
+                "mx-auto inline-flex max-w-full truncate rounded-full border font-bold",
+                rol === "sobrante"
+                  ? "border-polaria-t-20 bg-polaria-t-08 text-polaria-teal"
+                  : "border-polaria-t-20 bg-polaria-w-08 text-polaria-w",
+                compact
+                  ? "px-1.5 py-0.5 text-[8px] leading-none"
+                  : "px-2 py-0.5 polaria-text-caption",
+              )}
+            >
+              {rolLabel}
+            </span>
+          ) : null}
 
           {detalle?.temperatura ? (
             <span

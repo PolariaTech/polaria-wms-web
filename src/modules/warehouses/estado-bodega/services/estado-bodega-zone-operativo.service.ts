@@ -4,6 +4,13 @@ import {
   listTareasColaApi,
 } from "@/modules/operations";
 import { listWarehouseState } from "@/modules/inventory/shared/services/inventory.service";
+import { listSolicitudesProcesamientoOperador, listSolicitudesProcesamiento } from "@/modules/processing";
+import {
+  appendProcesamientoSolicitudesOperadorToPanel,
+  appendPendientesCierreToProcesamientoPanel,
+  appendEnProcesoToProcesamientoPanel,
+  filterSolicitudesOperadorPendientesJefe,
+} from "@/modules/processing/shared/utils/procesamiento-jefe-panel";
 import { listUbicacionesEstadoBodega } from "./estado-bodega.service";
 import {
   buildEstadoBodegaZonePanels,
@@ -33,7 +40,8 @@ export async function loadEstadoBodegaZoneOperativoData(params: {
 }): Promise<EstadoBodegaZoneOperativoData> {
   const { codigoCuenta, idBodega } = params;
 
-  const [tareasRaw, alertasApi, ordenes, ubicaciones, stock] = await Promise.all([
+  const [tareasRaw, alertasApi, ordenes, ubicaciones, stock, solicitudesRaw, solicitudesDb] =
+    await Promise.all([
     listTareasColaApi({ codigoCuenta, idBodega }),
     listAlertasOperativasApi({ codigoCuenta, idBodega, estado: "abierta" }).catch(
       () => [],
@@ -41,6 +49,10 @@ export async function loadEstadoBodegaZoneOperativoData(params: {
     listOrdenesTrabajoApi({ codigoCuenta, idBodega }),
     listUbicacionesEstadoBodega(idBodega),
     listWarehouseState({ idBodega, codigoCuenta, limit: 500 }),
+    listSolicitudesProcesamientoOperador({ codigoCuenta, idBodega }).catch(
+      () => [],
+    ),
+    listSolicitudesProcesamiento({ codigoCuenta, idBodega }).catch(() => []),
   ]);
 
   const tareas = tareasRaw.filter(isTareaPendienteOperativa);
@@ -73,7 +85,7 @@ export async function loadEstadoBodegaZoneOperativoData(params: {
 
   void syncDemoraAlertasHistorial({ codigoCuenta, idBodega }).catch(() => {});
 
-  return buildEstadoBodegaZonePanels({
+  const panels = buildEstadoBodegaZonePanels({
     alertasDb,
     tareas: tareasEnriquecidas,
     ordenes,
@@ -84,4 +96,47 @@ export async function loadEstadoBodegaZoneOperativoData(params: {
     salidaUbicacionIds,
     codigoByUbicacion,
   });
+
+  const solicitudIdsConOperario = new Set(
+    solicitudesDb
+      .filter((solicitud) => Boolean(solicitud.id_operario?.trim()))
+      .map((solicitud) => solicitud.id_solicitud_procesamiento),
+  );
+
+  const solicitudesPendientes = filterSolicitudesOperadorPendientesJefe(
+    solicitudesRaw,
+    tareas,
+    solicitudIdsConOperario,
+  );
+
+  panels.tareasBySection.almacenamiento =
+    appendProcesamientoSolicitudesOperadorToPanel(
+      panels.tareasBySection.almacenamiento,
+      solicitudesPendientes,
+    );
+
+  const pendientesCierre = solicitudesRaw.filter(
+    (s) => s.estado === "pendiente_cierre",
+  );
+  const enProceso = solicitudesRaw.filter((s) => s.estado === "en_proceso");
+  const sobranteById = new Map(
+    solicitudesDb.map((s) => [
+      s.id_solicitud_procesamiento,
+      s.sobrante_kg,
+    ]),
+  );
+
+  panels.tareasBySection.procesamiento = appendEnProcesoToProcesamientoPanel(
+    panels.tareasBySection.procesamiento,
+    enProceso,
+  );
+
+  panels.tareasBySection.procesamiento =
+    appendPendientesCierreToProcesamientoPanel(
+      panels.tareasBySection.procesamiento,
+      pendientesCierre,
+      sobranteById,
+    );
+
+  return panels;
 }

@@ -44,7 +44,7 @@ export function mapApiError(status: number, fallback?: string): ApiError {
       return new ApiError("Credenciales inválidas", status);
     case 403:
       return new ApiError(
-        "No autorizado para esta empresa/cuenta",
+        fallback ?? "No autorizado para esta empresa/cuenta",
         status,
       );
     case 404:

@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { cn } from "@/lib/utils/cn";
 import { useWarehouseStateRealtime } from "@/hooks/warehouse/useWarehouseStateRealtime";
 import { mapEstadoBodegaLayout } from "../utils/estado-bodega-mapper";
+import {
+  applyProcesamientoZonaLayout,
+  loadProcesamientoZonaParams,
+  type ProcesamientoZonaParams,
+} from "../utils/estado-bodega-procesamiento-slot";
 import { listUbicacionesEstadoBodega } from "../services/estado-bodega.service";
 import { loadEstadoBodegaZoneOperativoData } from "../services/estado-bodega-zone-operativo.service";
 import type {
@@ -48,9 +53,11 @@ function enrichSectionsWithZoneCounts(
 export function EstadoBodegaPageContent({
   operacionTabs,
   onSelectOvSalidaTarea,
+  onSelectProcesamientoSolicitud,
 }: {
   operacionTabs: ReactNode;
   onSelectOvSalidaTarea?: (item: EstadoBodegaZonePanelItem) => void;
+  onSelectProcesamientoSolicitud?: (item: EstadoBodegaZonePanelItem) => void;
 }) {
   const { activeBodegaId, codigoCuenta } = useCompany();
   const [ubicaciones, setUbicaciones] = useState<UbicacionEstadoBodegaDbRow[]>(
@@ -65,6 +72,8 @@ export function EstadoBodegaPageContent({
   const [selectedSlot, setSelectedSlot] = useState<EstadoBodegaSlot | null>(
     null,
   );
+  const [procesamientoZonaParams, setProcesamientoZonaParams] =
+    useState<ProcesamientoZonaParams | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -153,10 +162,33 @@ export function EstadoBodegaPageContent({
     };
   }, [loadZonePanelData]);
 
-  const layout = useMemo(
-    () => mapEstadoBodegaLayout(ubicaciones, warehouseRows),
-    [ubicaciones, warehouseRows],
-  );
+  const loadProcesamientoZona = useCallback(async () => {
+    if (!activeBodegaId || !codigoCuenta) {
+      setProcesamientoZonaParams(null);
+      return;
+    }
+
+    try {
+      const params = await loadProcesamientoZonaParams({
+        codigoCuenta,
+        idBodega: activeBodegaId,
+        warehouseRows,
+      });
+      setProcesamientoZonaParams(params);
+    } catch {
+      setProcesamientoZonaParams(null);
+    }
+  }, [activeBodegaId, codigoCuenta, warehouseRows]);
+
+  useEffect(() => {
+    void loadProcesamientoZona();
+  }, [loadProcesamientoZona]);
+
+  const layout = useMemo(() => {
+    const base = mapEstadoBodegaLayout(ubicaciones, warehouseRows);
+    if (!procesamientoZonaParams) return base;
+    return applyProcesamientoZonaLayout(base, procesamientoZonaParams);
+  }, [ubicaciones, warehouseRows, procesamientoZonaParams]);
 
   const sections = useMemo(
     () => enrichSectionsWithZoneCounts(layout.sections, zoneOperativo),
@@ -197,6 +229,14 @@ export function EstadoBodegaPageContent({
       onSelectOvSalidaTarea?.(item);
     },
     [onSelectOvSalidaTarea],
+  );
+
+  const handleSelectProcesamientoSolicitud = useCallback(
+    (item: EstadoBodegaZonePanelItem) => {
+      setZonePanel(null);
+      onSelectProcesamientoSolicitud?.(item);
+    },
+    [onSelectProcesamientoSolicitud],
   );
 
   const renderSectionPanel = (
@@ -302,6 +342,11 @@ export function EstadoBodegaPageContent({
           isLoading={isLoadingZonePanel}
           onSelectOvSalidaTarea={
             onSelectOvSalidaTarea ? handleSelectOvSalidaTarea : undefined
+          }
+          onSelectProcesamientoSolicitud={
+            onSelectProcesamientoSolicitud
+              ? handleSelectProcesamientoSolicitud
+              : undefined
           }
         />
       ) : null}

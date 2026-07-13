@@ -1,3 +1,4 @@
+import { parseProcesamientoSolicitudRef } from "@/modules/processing/shared/constants/procesamiento-solicitud-ref";
 import type {
   FlujoOrdenTrabajoApi,
   OrdenTrabajoApiRow,
@@ -29,6 +30,7 @@ export function parseTipoFlujoFromObservaciones(
     if (
       value === "a_bodega" ||
       value === "a_salida" ||
+      value === "a_procesamiento" ||
       value === "revisar" ||
       value === "bodega_a_bodega"
     ) {
@@ -124,6 +126,15 @@ export function mapOrdenTrabajoApiRow(
 export function mapTareaColaApiRow(raw: Record<string, unknown>): TareaColaRow {
   const tipo = readString(raw, "tipo") ?? "despacho";
   const estado = readString(raw, "estado") ?? "pendiente";
+  const titulo = readString(raw, "titulo");
+  const descripcion = readString(raw, "descripcion");
+  const observaciones = readString(raw, "observaciones");
+
+  const idSolicitudExplicito = readString(
+    raw,
+    "idSolicitudProcesamiento",
+    "id_solicitud_procesamiento",
+  );
 
   return {
     id_tarea: readString(raw, "idTarea", "id_tarea") ?? "",
@@ -133,8 +144,11 @@ export function mapTareaColaApiRow(raw: Record<string, unknown>): TareaColaRow {
     estado: estado as TareaColaRow["estado"],
     id_asignado: readString(raw, "idAsignado", "id_asignado"),
     id_orden_trabajo: readString(raw, "idOrdenTrabajo", "id_orden_trabajo"),
-    titulo: readString(raw, "titulo"),
-    descripcion: readString(raw, "descripcion"),
+    id_solicitud_procesamiento:
+      idSolicitudExplicito ??
+      parseProcesamientoSolicitudRef(titulo, descripcion, observaciones),
+    titulo,
+    descripcion,
     created_at: readString(raw, "createdAt", "created_at") ?? "",
     updated_at: readString(raw, "updatedAt", "updated_at") ?? "",
   };

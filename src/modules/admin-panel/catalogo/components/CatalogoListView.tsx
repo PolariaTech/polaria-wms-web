@@ -209,12 +209,11 @@ export function CatalogoListView() {
           header: "Tracker inv.",
           cell: (row: CatalogoProductoListRow) => row.trackerInventario,
         },
-        { id: "stock", header: "Stock", cell: (row: CatalogoProductoListRow) => row.stock },
         {
           id: "acciones",
           header: "Acciones",
           cell: (row: CatalogoProductoListRow) => (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-nowrap items-center gap-2">
               <PolariaTableEditButton
                 onClick={() => setEditingProductId(row.idProducto)}
               />

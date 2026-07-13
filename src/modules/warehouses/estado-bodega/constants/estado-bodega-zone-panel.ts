@@ -8,8 +8,8 @@ export const ESTADO_BODEGA_SECTION_TASK_TYPES: Record<
   readonly TipoTarea[]
 > = {
   entrada: ["ingreso"],
-  almacenamiento: ["movimiento", "revision", "otro"],
-  procesamiento: ["procesamiento"],
+  almacenamiento: ["movimiento", "revision", "procesamiento", "otro"],
+  procesamiento: [],
   salida: ["despacho"],
 };
 
@@ -28,7 +28,7 @@ export const ESTADO_BODEGA_ZONE_TAREAS_DESCRIPTION: Record<
   string
 > = {
   entrada: "Ingresos pendientes o asignados al operario.",
-  almacenamiento: "Movimientos y revisiones pendientes o asignados al operario.",
-  procesamiento: "Procesamiento pendiente o asignado al operario.",
+  almacenamiento: "Movimientos, retiros a procesamiento y revisiones pendientes o asignados al operario.",
+  procesamiento: "Órdenes en curso dentro de la zona de procesamiento (sin tareas de retiro).",
   salida: "Despachos y salidas pendientes o asignados al operario.",
 };

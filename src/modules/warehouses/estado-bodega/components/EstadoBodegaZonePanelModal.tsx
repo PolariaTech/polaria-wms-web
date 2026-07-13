@@ -35,6 +35,19 @@ interface EstadoBodegaZonePanelModalProps {
   items: EstadoBodegaZonePanelItem[];
   isLoading?: boolean;
   onSelectOvSalidaTarea?: (item: EstadoBodegaZonePanelItem) => void;
+  onSelectProcesamientoSolicitud?: (item: EstadoBodegaZonePanelItem) => void;
+}
+
+function isProcesamientoSolicitudSelectable(
+  kind: EstadoBodegaZonePanelKind,
+  sectionId: EstadoBodegaSectionId,
+  item: EstadoBodegaZonePanelItem,
+): boolean {
+  return (
+    kind === "tareas" &&
+    sectionId === "almacenamiento" &&
+    Boolean(item.procesamientoSolicitud)
+  );
 }
 
 function isOvSalidaTareaSelectable(
@@ -58,6 +71,7 @@ export function EstadoBodegaZonePanelModal({
   items,
   isLoading = false,
   onSelectOvSalidaTarea,
+  onSelectProcesamientoSolicitud,
 }: EstadoBodegaZonePanelModalProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -148,13 +162,18 @@ export function EstadoBodegaZonePanelModal({
           ) : items.length > 0 ? (
             <ul className="space-y-2">
               {items.map((item) => {
-                const selectable = isOvSalidaTareaSelectable(
+                const selectableOv = isOvSalidaTareaSelectable(
+                  kind,
+                  sectionId,
+                  item,
+                );
+                const selectableProc = isProcesamientoSolicitudSelectable(
                   kind,
                   sectionId,
                   item,
                 );
 
-                if (selectable && onSelectOvSalidaTarea) {
+                if (selectableOv && onSelectOvSalidaTarea) {
                   return (
                     <li key={item.id}>
                       <button
@@ -176,6 +195,32 @@ export function EstadoBodegaZonePanelModal({
                           </p>
                         ) : null}
                        
+                      </button>
+                    </li>
+                  );
+                }
+
+                if (selectableProc && onSelectProcesamientoSolicitud) {
+                  return (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() => onSelectProcesamientoSolicitud(item)}
+                        className={cn(
+                          "w-full rounded-xl border px-3 py-2.5 text-left transition",
+                          "border-polaria-t-20 bg-polaria-w-08 hover:border-polaria-teal hover:bg-polaria-t-08",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                        )}
+                        aria-label={`Asignar operario a ${item.title}`}
+                      >
+                        <p className="polaria-text-body-sm text-polaria-w">
+                          {item.title}
+                        </p>
+                        {item.subtitle ? (
+                          <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                            {item.subtitle}
+                          </p>
+                        ) : null}
                       </button>
                     </li>
                   );

@@ -29,6 +29,7 @@ export interface SolicitudProcesamientoRow {
   id_producto_primario: string;
   id_producto_secundario: string;
   id_solicitante: string;
+  id_operario: string | null;
   id_procesador: string | null;
   estado: EstadoProcesamiento;
   kilos_primario: string;
@@ -60,8 +61,11 @@ export interface SolicitudProcesamientoOperadorRow {
 export interface ProductoProcesamientoOption {
   idProducto: string;
   label: string;
+  descripcion: string;
+  sku: string;
   reglaConversionCantidadPrimario: number | null;
   reglaConversionUnidadesSecundario: number | null;
+  mermaPct: number | null;
 }
 
 export interface CreateSolicitudProcesamientoInput {
@@ -98,6 +102,7 @@ export interface TareaColaRow {
   estado: EstadoTarea;
   id_asignado: string | null;
   id_orden_trabajo: string | null;
+  id_solicitud_procesamiento: string | null;
   titulo: string | null;
   descripcion: string | null;
   created_at: string;

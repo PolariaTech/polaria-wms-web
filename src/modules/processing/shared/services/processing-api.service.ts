@@ -31,6 +31,7 @@ interface SolicitudProcesamientoApiRow {
   idProductoPrimario: string;
   idProductoSecundario: string;
   idSolicitante: string;
+  idOperario: string | null;
   idProcesador: string | null;
   estado: string;
   kilosPrimario: string;
@@ -58,6 +59,7 @@ function mapSolicitudRow(row: SolicitudProcesamientoApiRow): SolicitudProcesamie
     id_producto_primario: row.idProductoPrimario,
     id_producto_secundario: row.idProductoSecundario,
     id_solicitante: row.idSolicitante,
+    id_operario: row.idOperario,
     id_procesador: row.idProcesador,
     estado: row.estado as SolicitudProcesamientoRow["estado"],
     kilos_primario: row.kilosPrimario,

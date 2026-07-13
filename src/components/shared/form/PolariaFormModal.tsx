@@ -32,7 +32,16 @@ export interface PolariaFormModalProps {
   hideHeaderClose?: boolean;
   /** false = panel sin <form> (p. ej. picker anidado dentro de otro modal). */
   asForm?: boolean;
+  /** Capa de apilamiento cuando el modal se abre sobre otro modal. */
+  stackLevel?: "base" | "elevated";
+  /** Permite desactivar cierre con Escape (p. ej. si hay un picker hijo abierto). */
+  closeOnEscape?: boolean;
 }
+
+const MODAL_STACK_CLASS = {
+  base: "z-[100]",
+  elevated: "z-[110]",
+} as const;
 
 const MODAL_SIZE_CLASS = {
   sm: "max-w-md",
@@ -63,28 +72,42 @@ export function PolariaFormModal({
   hideFooter = false,
   hideHeaderClose = false,
   asForm = true,
+  stackLevel = "base",
+  closeOnEscape = true,
 }: PolariaFormModalProps) {
   const titleId = useId();
   const descriptionId = useId();
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !closeOnEscape) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !isSubmitting) {
+        if (stackLevel === "elevated") {
+          event.stopPropagation();
+        }
         onClose();
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
+    const useCapture = stackLevel === "elevated";
+    document.addEventListener("keydown", handleKeyDown, useCapture);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, useCapture);
+    };
+  }, [closeOnEscape, isSubmitting, onClose, open, stackLevel]);
+
+  useEffect(() => {
+    if (!open) return;
+
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isSubmitting, onClose, open]);
+  }, [open]);
 
   if (!open) {
     return null;
@@ -171,7 +194,12 @@ export function PolariaFormModal({
   );
 
   return (
-    <div className="polaria-scrollbar fixed inset-0 z-[100] overflow-y-auto overscroll-contain">
+    <div
+      className={cn(
+        "polaria-scrollbar fixed inset-0 overflow-y-auto overscroll-contain",
+        MODAL_STACK_CLASS[stackLevel],
+      )}
+    >
       <div className="flex min-h-full items-center justify-center px-4 py-10 sm:px-6 sm:py-12">
         <button
           type="button"

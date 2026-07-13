@@ -1,15 +1,20 @@
 "use client";
 
 import { useCallback } from "react";
+import { WmsRol } from "@/constants/wms/roles";
 import { ModuleListPage } from "@/components/shared/module/ModuleListPage";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { useTenantList } from "@/hooks/shared/useTenantList";
+import { ProcesadorOperacionPageContent } from "@/modules/procesador";
+import { useAuthStore } from "@/stores/auth.store";
 import {
   listSolicitudesProcesamiento,
   listTareasCola,
 } from "../../shared/services/processing.service";
 
 export function ProcesamientoPageContent() {
+  const idRol = useAuthStore((state) => state.session?.idRol);
+
   const loadSolicitudes = useCallback(
     (params: { codigoCuenta: string; idBodega: string | null }) =>
       listSolicitudesProcesamiento({
@@ -30,6 +35,10 @@ export function ProcesamientoPageContent() {
 
   const solicitudes = useTenantList(loadSolicitudes);
   const tareas = useTenantList(loadTareas);
+
+  if (idRol === WmsRol.procesador) {
+    return <ProcesadorOperacionPageContent />;
+  }
 
   return (
     <div className="flex flex-col gap-8">

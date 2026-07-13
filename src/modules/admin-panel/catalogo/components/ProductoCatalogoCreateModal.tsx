@@ -11,6 +11,7 @@ import { generateCodigoCuentaFromNombre } from "@/lib/utils/generate-codigo-cuen
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   CATALOGO_ESTADO_DEFAULT,
+  CATALOGO_ESTADO_OPTIONS,
   CATALOGO_TIPO_OPTIONS,
   CATALOGO_TIPO_PRIMARIO,
   CATALOGO_TIPO_SECUNDARIO,
@@ -273,13 +274,13 @@ export function ProductoCatalogoCreateModal({
           onChange={(checked) => patch({ publicadoTienda: checked })}
           disabled={isSubmitting}
         />
-        <PolariaFormInput
+        <PolariaFormSelect
           id="producto-estado"
           label="Estado *"
           value={form.estado ?? CATALOGO_ESTADO_DEFAULT}
-          placeholder="draft"
           onChange={(event) => patch({ estado: event.target.value })}
           disabled={isSubmitting}
+          options={CATALOGO_ESTADO_OPTIONS}
           compact
         />
 

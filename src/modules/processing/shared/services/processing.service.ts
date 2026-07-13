@@ -8,7 +8,11 @@ import {
   type TenantListParams,
 } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
+import { parseCatalogoMetadatos } from "@/modules/admin-panel/catalogo/constants/catalogo-producto";
+import { listWarehouseState } from "@/modules/inventory/shared/services/inventory.service";
 import { listTareasColaApi } from "@/modules/operations";
+import { listUbicacionesEstadoBodega } from "@/modules/warehouses/estado-bodega/services/estado-bodega.service";
+import { listAlmacenamientoVentaUbicacionIds } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-zone-ubicaciones";
 import {
   aplicarOrdenProcesamientoApi,
   asignarOperarioProcesamientoApi,
@@ -31,28 +35,34 @@ import type {
   SolicitudProcesamientoRow,
   TareaColaRow,
 } from "../types/processing.types";
+import {
+  buildDesperdicioSugeridoDetalle,
+} from "../utils/desperdicio-kg-sugerido";
+import type { DesperdicioSugeridoDetalle } from "../utils/desperdicio-kg-sugerido";
 
-const SOLICITUD_PROC_COLUMNS =
-  "id_solicitud_procesamiento,codigo_cuenta,id_bodega,codigo,id_cliente,id_producto_primario,id_producto_secundario,id_solicitante,id_procesador,estado,kilos_primario,kilos_secundario,kilos_merma,regla_conversion_cantidad_primario,regla_conversion_unidades_secundario,estimado_unidades_secundario,created_at,updated_at";
+const SOLICITUD_PROC_COLUMNS_API =
+  "id_solicitud_procesamiento,codigo_cuenta,id_bodega,codigo,id_cliente,id_producto_primario,id_producto_secundario,id_solicitante,id_operario,id_procesador,estado,kilos_primario,kilos_secundario,kilos_merma,sobrante_kg,regla_conversion_cantidad_primario,regla_conversion_unidades_secundario,perdida_procesamiento_pct,estimado_unidades_secundario,created_at,updated_at";
 
-const TAREA_COLA_COLUMNS =
-  "id_tarea,codigo_cuenta,id_bodega,tipo,estado,id_asignado,id_orden_trabajo,titulo,descripcion,created_at,updated_at";
+/** Lectura directa Supabase cuando el API Nest no está disponible. */
+const SOLICITUD_PROC_COLUMNS_SUPABASE = SOLICITUD_PROC_COLUMNS_API;
+
+const TAREA_COLA_COLUMNS_API =
+  "id_tarea,codigo_cuenta,id_bodega,tipo,estado,id_asignado,id_orden_trabajo,id_solicitud_procesamiento,titulo,descripcion,created_at,updated_at";
+
+const TAREA_COLA_COLUMNS_SUPABASE = TAREA_COLA_COLUMNS_API;
 
 const PRODUCTO_PROC_COLUMNS =
-  "id_producto,descripcion,sku,regla_conversion_cantidad_primario,regla_conversion_unidades_secundario,id_producto_primario";
+  "id_producto,descripcion,sku,regla_conversion_cantidad_primario,regla_conversion_unidades_secundario,id_producto_primario,merma_pct,metadatos_catalogo";
 
 interface ProductoProcesamientoDbRow {
   id_producto: string;
   descripcion: string;
   sku: string;
-  regla_conversion_cantidad_primario: string | null;
-  regla_conversion_unidades_secundario: string | null;
+  regla_conversion_cantidad_primario: string | number | null;
+  regla_conversion_unidades_secundario: string | number | null;
   id_producto_primario: string | null;
-}
-
-interface WarehouseStockDbRow {
-  id_producto: string;
-  cantidad: string;
+  merma_pct: string | number | null;
+  metadatos_catalogo?: unknown;
 }
 
 function resolveProductoLabel(row: ProductoProcesamientoDbRow): string {
@@ -60,22 +70,44 @@ function resolveProductoLabel(row: ProductoProcesamientoDbRow): string {
   return titulo ? `${titulo} (${row.sku})` : row.sku;
 }
 
-function parseDecimal(value: string | null): number | null {
-  if (value === null || value.trim() === "") return null;
-  const parsed = Number(value);
+function parseDecimal(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+
+  if (typeof value === "number") {
+    return Number.isNaN(value) ? null : value;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+
+  const parsed = Number(trimmed);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function resolveMermaPct(row: ProductoProcesamientoDbRow): number | null {
+  const fromColumn = parseDecimal(row.merma_pct);
+  if (fromColumn !== null && fromColumn >= 0) return Math.min(100, fromColumn);
+
+  const meta = parseCatalogoMetadatos(row.metadatos_catalogo);
+  const fromMeta = parseDecimal(meta.mermaPct ?? null);
+  if (fromMeta !== null && fromMeta >= 0) return Math.min(100, fromMeta);
+
+  return null;
 }
 
 function mapProductoOption(row: ProductoProcesamientoDbRow): ProductoProcesamientoOption {
   return {
     idProducto: row.id_producto,
     label: resolveProductoLabel(row),
+    descripcion: row.descripcion.trim(),
+    sku: row.sku,
     reglaConversionCantidadPrimario: parseDecimal(
       row.regla_conversion_cantidad_primario,
     ),
     reglaConversionUnidadesSecundario: parseDecimal(
       row.regla_conversion_unidades_secundario,
     ),
+    mermaPct: resolveMermaPct(row),
   };
 }
 
@@ -134,8 +166,70 @@ export async function getSolicitudProcesamiento(
 export async function getDesperdicioSugerido(
   idSolicitud: string,
 ): Promise<number | null> {
-  const result = await getDesperdicioSugeridoApi(idSolicitud);
-  return result.desperdicioKgSugerido;
+  const detalle = await getDesperdicioSugeridoDetalle(idSolicitud);
+  return detalle.desperdicioKg;
+}
+
+async function resolvePerdidaPctSolicitud(
+  solicitud: SolicitudProcesamientoRow,
+): Promise<number | null> {
+  const fromSolicitud = parseDecimal(solicitud.perdida_procesamiento_pct);
+  if (fromSolicitud !== null && fromSolicitud > 0) {
+    return Math.min(100, fromSolicitud);
+  }
+
+  const idSecundario = solicitud.id_producto_secundario?.trim();
+  if (!idSecundario) return null;
+
+  const rows = await runDomainQuery<ProductoProcesamientoDbRow[]>((client) => {
+    const query = client
+      .from("producto")
+      .select(PRODUCTO_PROC_COLUMNS)
+      .eq("id_producto", idSecundario)
+      .limit(1);
+
+    return query as unknown as Promise<{
+      data: ProductoProcesamientoDbRow[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  const producto = rows[0];
+  if (!producto) return null;
+
+  const fromProducto = resolveMermaPct(producto);
+  return fromProducto !== null && fromProducto > 0 ? fromProducto : null;
+}
+
+/** Detalle de merma sugerida para UI del procesador (referencia frio). */
+export async function getDesperdicioSugeridoDetalle(
+  idSolicitud: string,
+): Promise<DesperdicioSugeridoDetalle> {
+  try {
+    const api = await getDesperdicioSugeridoApi(idSolicitud);
+    if (
+      api.desperdicioKgSugerido !== null &&
+      Number.isFinite(api.desperdicioKgSugerido)
+    ) {
+      const solicitud = await getSolicitudProcesamiento(idSolicitud);
+      const perdidaPct = await resolvePerdidaPctSolicitud(solicitud);
+      return {
+        desperdicioKg: api.desperdicioKgSugerido,
+        perdidaPct,
+        kilosPrimario: parseDecimal(solicitud.kilos_primario),
+      };
+    }
+  } catch {
+    // fallback cliente
+  }
+
+  const solicitud = await getSolicitudProcesamiento(idSolicitud);
+  const perdidaPct = await resolvePerdidaPctSolicitud(solicitud);
+
+  return buildDesperdicioSugeridoDetalle({
+    kilosPrimario: solicitud.kilos_primario,
+    perdidaProcesamientoPct: perdidaPct,
+  });
 }
 
 export async function asignarOperarioProcesamiento(
@@ -192,6 +286,12 @@ export async function terminarSolicitudProcesamiento(
   return terminarSolicitudProcesamientoApi(idSolicitud, params);
 }
 
+export async function fetchProductoLabelsProcesamiento(
+  ids: string[],
+): Promise<Map<string, string>> {
+  return fetchProductoLabels(ids);
+}
+
 export async function listSolicitudesProcesamiento(
   params: TenantListParams,
 ): Promise<SolicitudProcesamientoRow[]> {
@@ -213,7 +313,9 @@ export async function listSolicitudesProcesamiento(
 
   return runDomainQuery((client) => {
     const query = applyTenantFilters(
-      client.from("solicitud_procesamiento").select(SOLICITUD_PROC_COLUMNS),
+      client
+        .from("solicitud_procesamiento")
+        .select(SOLICITUD_PROC_COLUMNS_SUPABASE),
       params,
     )
       .order("created_at", { ascending: false })
@@ -253,7 +355,7 @@ export async function listTareasCola(
 
   return runDomainQuery((client) => {
     const query = applyTenantFilters(
-      client.from("tarea_cola").select(TAREA_COLA_COLUMNS),
+      client.from("tarea_cola").select(TAREA_COLA_COLUMNS_SUPABASE),
       params,
     )
       .order("created_at", { ascending: false })
@@ -290,6 +392,59 @@ export async function listProductosPrimariosProcesamiento(
   return rows.map(mapProductoOption);
 }
 
+export async function listProductosPrimariosConSecundarioProcesamiento(
+  codigoCuenta: string,
+): Promise<ProductoProcesamientoOption[]> {
+  const cuenta = requireCodigoCuenta(codigoCuenta);
+
+  const secundarioRows = await runDomainQuery<
+    { id_producto_primario: string | null }[]
+  >((client) => {
+    const query = client
+      .from("producto")
+      .select("id_producto_primario")
+      .eq("codigo_cuenta", cuenta)
+      .eq("esta_activo", true)
+      .eq("es_secundario", true)
+      .not("id_producto_primario", "is", null)
+      .limit(DEFAULT_LIST_LIMIT);
+
+    return query as unknown as Promise<{
+      data: { id_producto_primario: string | null }[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  const primarioIds = [
+    ...new Set(
+      secundarioRows
+        .map((row) => row.id_producto_primario?.trim())
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  if (primarioIds.length === 0) return [];
+
+  const rows = await runDomainQuery<ProductoProcesamientoDbRow[]>((client) => {
+    const query = client
+      .from("producto")
+      .select(PRODUCTO_PROC_COLUMNS)
+      .eq("codigo_cuenta", cuenta)
+      .eq("esta_activo", true)
+      .eq("es_primario", true)
+      .in("id_producto", primarioIds)
+      .order("descripcion", { ascending: true })
+      .limit(DEFAULT_LIST_LIMIT);
+
+    return query as unknown as Promise<{
+      data: ProductoProcesamientoDbRow[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  return rows.map(mapProductoOption);
+}
+
 export async function listProductosSecundariosProcesamiento(
   codigoCuenta: string,
   idProductoPrimario: string,
@@ -310,7 +465,6 @@ export async function listProductosSecundariosProcesamiento(
       .select(PRODUCTO_PROC_COLUMNS)
       .eq("codigo_cuenta", cuenta)
       .eq("esta_activo", true)
-      .eq("es_secundario", true)
       .eq("id_producto_primario", idPrimario)
       .order("descripcion", { ascending: true })
       .limit(DEFAULT_LIST_LIMIT);
@@ -324,6 +478,7 @@ export async function listProductosSecundariosProcesamiento(
   return rows.map(mapProductoOption);
 }
 
+/** Stock procesable en el mapa: suma de almacenamiento (misma regla que el mapa de bodega). */
 export async function getStockProductoBodega(
   idBodega: string,
   idProducto: string,
@@ -334,27 +489,29 @@ export async function getStockProductoBodega(
 
   if (!productoId) return 0;
 
-  const rows = await runDomainQuery<WarehouseStockDbRow[]>((client) => {
-    let query = client
-      .from("warehouse_state")
-      .select("id_producto,cantidad")
-      .eq("id_bodega", bodegaId)
-      .eq("id_producto", productoId);
+  const cuenta = codigoCuenta?.trim() || undefined;
 
-    if (codigoCuenta) {
-      query = query.eq("codigo_cuenta", codigoCuenta);
-    }
+  const [warehouseRows, ubicaciones] = await Promise.all([
+    listWarehouseState({
+      idBodega: bodegaId,
+      codigoCuenta: cuenta,
+      limit: 500,
+    }),
+    listUbicacionesEstadoBodega(bodegaId),
+  ]);
 
-    return query as unknown as Promise<{
-      data: WarehouseStockDbRow[] | null;
-      error: { message: string } | null;
-    }>;
-  });
+  const almacenUbicacionIds = listAlmacenamientoVentaUbicacionIds(ubicaciones);
 
-  return rows.reduce((total, row) => {
-    const cantidad = Number(row.cantidad);
-    return total + (Number.isNaN(cantidad) ? 0 : cantidad);
-  }, 0);
+  return warehouseRows
+    .filter(
+      (row) =>
+        row.id_producto === productoId &&
+        almacenUbicacionIds.has(row.id_ubicacion),
+    )
+    .reduce((total, row) => {
+      const cantidad = Number(row.cantidad);
+      return total + (Number.isNaN(cantidad) ? 0 : cantidad);
+    }, 0);
 }
 
 export async function createSolicitudProcesamiento(
@@ -454,7 +611,7 @@ export async function createSolicitudProcesamiento(
           input.reglaConversionUnidadesSecundario,
         estimado_unidades_secundario: input.estimadoUnidadesSecundario,
       })
-      .select(SOLICITUD_PROC_COLUMNS)
+      .select(SOLICITUD_PROC_COLUMNS_API)
       .single();
 
     return query as unknown as Promise<{

@@ -256,12 +256,29 @@ export async function listCatalogoProductosAdmin(
 export interface ProductoPrimarioOption {
   idProducto: string;
   label: string;
+  titulo: string;
+  codigo: string;
+  sku: string;
+  categoria: string;
+  proveedor: string;
+}
+
+const PRIMARIO_PICKER_LIMIT = 500;
+
+export interface ListProductosPrimariosCatalogoParams {
+  codigoCuenta: string;
+  limit?: number;
 }
 
 export async function listProductosPrimariosCatalogo(
-  codigoCuenta: string,
+  codigoCuentaOrParams: string | ListProductosPrimariosCatalogoParams,
 ): Promise<ProductoPrimarioOption[]> {
-  const cuenta = requireCodigoCuenta(codigoCuenta);
+  const params =
+    typeof codigoCuentaOrParams === "string"
+      ? { codigoCuenta: codigoCuentaOrParams }
+      : codigoCuentaOrParams;
+  const cuenta = requireCodigoCuenta(params.codigoCuenta);
+  const limit = params.limit ?? PRIMARIO_PICKER_LIMIT;
 
   const rows = await queryProductosCatalogo((selectColumns) =>
     runDomainQuery<
@@ -269,12 +286,13 @@ export async function listProductosPrimariosCatalogo(
         id_producto: string;
         descripcion: string;
         sku: string;
+        codigo_almacen: string | null;
         metadatos_catalogo?: unknown;
       }[]
     >((client) => {
       const primarioColumns = selectColumns.includes("metadatos_catalogo")
-        ? "id_producto,descripcion,sku,metadatos_catalogo"
-        : "id_producto,descripcion,sku";
+        ? "id_producto,descripcion,sku,codigo_almacen,metadatos_catalogo"
+        : "id_producto,descripcion,sku,codigo_almacen";
 
       const query = client
         .from("producto")
@@ -283,7 +301,7 @@ export async function listProductosPrimariosCatalogo(
         .eq("esta_activo", true)
         .eq("es_primario", true)
         .order("descripcion", { ascending: true })
-        .limit(DEFAULT_LIST_LIMIT);
+        .limit(limit);
 
       return query as unknown as Promise<{
         data:
@@ -291,6 +309,7 @@ export async function listProductosPrimariosCatalogo(
               id_producto: string;
               descripcion: string;
               sku: string;
+              codigo_almacen: string | null;
               metadatos_catalogo?: unknown;
             }[]
           | null;
@@ -299,14 +318,25 @@ export async function listProductosPrimariosCatalogo(
     }),
   );
 
-  return rows.map((row) => {
+  const mapped = rows.map((row) => {
     const meta = parseCatalogoMetadatos(row.metadatos_catalogo);
     const titulo = meta.titulo?.trim() || row.descripcion.trim();
+    const sku = row.sku.trim();
+    const codigo = row.codigo_almacen?.trim() || sku;
+    const categoria = meta.categoria?.trim() ?? "";
+    const proveedor = meta.proveedor?.trim() ?? "";
     return {
       idProducto: row.id_producto,
-      label: titulo ? `${titulo} (${row.sku})` : row.sku,
+      label: titulo ? `${titulo} (${sku})` : sku,
+      titulo,
+      codigo,
+      sku,
+      categoria,
+      proveedor,
     };
   });
+
+  return mapped;
 }
 
 async function insertCatalogoProducto(

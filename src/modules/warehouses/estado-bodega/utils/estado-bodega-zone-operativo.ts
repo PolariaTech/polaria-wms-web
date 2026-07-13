@@ -1,3 +1,4 @@
+import { parseRolDevolucionProcesamiento } from "@/modules/processing/shared/constants/procesamiento-post-cierre";
 import type { FlujoOrdenTrabajoApi, OrdenTrabajoApiRow } from "@/modules/operations";
 import {
   extractOvCodigoFromText,
@@ -368,11 +369,23 @@ export function resolveTareaSectionId(
     return "almacenamiento";
   }
 
+  if (
+    parseRolDevolucionProcesamiento(
+      tarea.ordenObservaciones,
+      tarea.descripcion,
+      tarea.titulo,
+    )
+  ) {
+    return "procesamiento";
+  }
+
   switch (tarea.tipoFlujo) {
     case "a_bodega":
       return "entrada";
     case "a_salida":
       return "salida";
+    case "a_procesamiento":
+      return "almacenamiento";
     case "bodega_a_bodega":
     case "revisar":
       return "almacenamiento";
@@ -402,7 +415,7 @@ export function resolveTareaSectionId(
     case "despacho":
       return "salida";
     case "procesamiento":
-      return "procesamiento";
+      return "almacenamiento";
     case "movimiento":
     case "revision":
     case "otro":

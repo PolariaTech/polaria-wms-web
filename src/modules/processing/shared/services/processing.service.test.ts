@@ -4,6 +4,7 @@ import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
 import {
   createSolicitudProcesamiento,
+  listProductosSecundariosProcesamiento,
   listSolicitudesProcesamiento,
   listSolicitudesProcesamientoOperador,
   listTareasCola,
@@ -127,5 +128,39 @@ describe("processing.service", () => {
     });
 
     expect(from).toHaveBeenCalledWith("tarea_cola");
+  });
+
+  it("listProductosSecundariosProcesamiento mapea reglas numericas de Postgres", async () => {
+    const productoMock = createSupabaseMock({
+      data: [
+        {
+          id_producto: "sec-1",
+          descripcion: "Chuleta",
+          sku: "94Z5T",
+          regla_conversion_cantidad_primario: 1,
+          regla_conversion_unidades_secundario: 5,
+          id_producto_primario: "prim-1",
+          merma_pct: 12,
+          metadatos_catalogo: null,
+        },
+      ],
+    });
+
+    const client = {
+      from: vi.fn(() => productoMock.chain),
+    } as unknown as SupabaseClient;
+
+    setSupabaseClientForTests(client);
+
+    const rows = await listProductosSecundariosProcesamiento(
+      "CUENTA-01",
+      "prim-1",
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.label).toContain("Chuleta");
+    expect(rows[0]?.reglaConversionCantidadPrimario).toBe(1);
+    expect(rows[0]?.reglaConversionUnidadesSecundario).toBe(5);
+    expect(rows[0]?.mermaPct).toBe(12);
   });
 });

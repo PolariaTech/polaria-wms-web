@@ -14,6 +14,7 @@ const OPERARIO_TAREA_TIPOS: readonly TareaColaRow["tipo"][] = [
   "despacho",
   "revision",
   "ingreso",
+  "procesamiento",
 ];
 
 /** Tareas pendientes asignadas al operario, enriquecidas con orden y ubicaciones. */

@@ -60,6 +60,7 @@ export async function enrichOperarioTareas(
       origenCodigo,
       destinoCodigo,
       ordenCodigo: orden?.codigo?.trim() || null,
+      ordenObservaciones: orden?.observaciones ?? null,
     };
   });
 }

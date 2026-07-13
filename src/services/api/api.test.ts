@@ -18,6 +18,11 @@ describe("mapApiError", () => {
     const error = mapApiError(500);
     expect(error.message).toContain("Error del servidor");
   });
+
+  it("maps 403 usando mensaje del backend si existe", () => {
+    const error = mapApiError(403, "No tiene permisos para inventory:write");
+    expect(error.message).toBe("No tiene permisos para inventory:write");
+  });
 });
 
 describe("apiRequest tenant headers", () => {

@@ -8,6 +8,18 @@ export interface EstadoBodegaZonePanelItem {
   id: string;
   title: string;
   subtitle?: string;
+  /** Solicitud de procesamiento pendiente de asignar operario (seleccionable en jefe). */
+  procesamientoSolicitud?: {
+    idSolicitudProcesamiento: string;
+    codigo: string;
+    idProductoPrimario: string;
+    idProductoSecundario: string;
+    kilosPrimario: string;
+    primarioLabel?: string;
+    secundarioLabel?: string;
+    pendienteCierre?: boolean;
+    enProceso?: boolean;
+  };
   /** Tarea de salida vinculada a una OV (seleccionable desde almacenamiento). */
   ovSalida?: {
     idOrdenVenta: string | null;

@@ -10,8 +10,10 @@ import { useCompany } from "@/providers/tenant/CompanyProvider";
 import type { EstadoBodegaZonePanelItem } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-zone-panel";
 import type { JefeBodegaActionId } from "../constants/jefe-bodega-actions";
 import type { JefeBodegaSalidaOrdenVentaPrefill } from "../types/jefe-bodega-salida.types";
+import type { JefeBodegaProcesamientoSolicitudPrefill } from "../types/jefe-bodega-procesamiento.types";
 import { JefeBodegaActionBar } from "./JefeBodegaActionBar";
 import { JefeBodegaActionModals } from "./JefeBodegaActionModals";
+import { JefeBodegaProcesamientoAsignarModal } from "./modals/JefeBodegaProcesamientoAsignarModal";
 
 function tipoUbicacionFlags(
   tipo: UbicacionEstadoBodegaDbRow["tipo_ubicacion"],
@@ -44,6 +46,8 @@ export function JefeBodegaEstadoPageContent() {
   );
   const [salidaPrefill, setSalidaPrefill] =
     useState<JefeBodegaSalidaOrdenVentaPrefill | null>(null);
+  const [procesamientoPrefill, setProcesamientoPrefill] =
+    useState<JefeBodegaProcesamientoSolicitudPrefill | null>(null);
   const [ubicaciones, setUbicaciones] = useState<UbicacionEstadoBodegaDbRow[]>(
     [],
   );
@@ -77,6 +81,7 @@ export function JefeBodegaEstadoPageContent() {
   const handleCloseModal = useCallback(() => {
     setActiveModal(null);
     setSalidaPrefill(null);
+    setProcesamientoPrefill(null);
   }, []);
 
   const handleSelectOvSalidaTarea = useCallback(
@@ -93,8 +98,26 @@ export function JefeBodegaEstadoPageContent() {
     [],
   );
 
+  const handleSelectProcesamientoSolicitud = useCallback(
+    (item: EstadoBodegaZonePanelItem) => {
+      const solicitud = item.procesamientoSolicitud;
+      if (!solicitud) return;
+
+      setProcesamientoPrefill({
+        idSolicitudProcesamiento: solicitud.idSolicitudProcesamiento,
+        codigo: solicitud.codigo,
+        primarioLabel: solicitud.primarioLabel ?? "Insumo",
+        secundarioLabel: solicitud.secundarioLabel ?? "Resultado",
+        kilosPrimario: solicitud.kilosPrimario,
+      });
+      setActiveModal(null);
+    },
+    [],
+  );
+
   const handleActionClick = useCallback((actionId: JefeBodegaActionId) => {
     setSalidaPrefill(null);
+    setProcesamientoPrefill(null);
     setActiveModal(actionId);
   }, []);
 
@@ -106,6 +129,7 @@ export function JefeBodegaEstadoPageContent() {
           <JefeBodegaActionBar onActionClick={handleActionClick} />
         }
         onSelectOvSalidaTarea={handleSelectOvSalidaTarea}
+        onSelectProcesamientoSolicitud={handleSelectProcesamientoSolicitud}
       />
       <JefeBodegaActionModals
         activeModal={activeModal}
@@ -125,6 +149,14 @@ export function JefeBodegaEstadoPageContent() {
           onCreated={handleOrdenCreated}
         />
       ) : null}
+      <JefeBodegaProcesamientoAsignarModal
+        open={Boolean(procesamientoPrefill)}
+        onClose={() => setProcesamientoPrefill(null)}
+        codigoCuenta={codigoCuenta}
+        idBodega={activeBodegaId}
+        prefill={procesamientoPrefill}
+        onAssigned={handleOrdenCreated}
+      />
     </>
   );
 }

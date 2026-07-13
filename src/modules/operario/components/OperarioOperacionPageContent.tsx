@@ -10,10 +10,10 @@ import {
 } from "@/components/shared/requests";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import {
-  completarTareaColaApi,
   crearLlamadaJefeApi,
   listAlertasOperativasApi,
 } from "@/modules/operations";
+import { completarTareaOperario, isTareaPostCierreRetorno, isTareaProcesamientoMovimiento } from "../services/operario-completar-tarea.service";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
 import {
@@ -48,18 +48,28 @@ export function OperarioOperacionPageContent() {
     Boolean(codigoCuenta && activeBodegaId && idUsuario),
   );
 
+  const tareas = data ?? [];
+
   const handleCompletarTarea = useCallback(
     async (idTarea: string) => {
       if (!codigoCuenta || !activeBodegaId) return;
+      const tarea = tareas.find((row) => row.id_tarea === idTarea);
+      if (!tarea) return;
+
       setIsMutating(true);
       try {
-        await completarTareaColaApi(idTarea, {
+        await completarTareaOperario({
+          tarea,
           codigoCuenta,
           idBodega: activeBodegaId,
         });
         showToast({
           title: "Tarea completada",
-          content: "El movimiento se registró en bodega.",
+          content: isTareaProcesamientoMovimiento(tarea)
+            ? "El insumo se movió a la zona de procesamiento."
+            : isTareaPostCierreRetorno(tarea)
+              ? "El producto se ubicó en almacenamiento."
+              : "El movimiento se registró en bodega.",
           variant: "success",
           durationMs: 3000,
         });
@@ -76,7 +86,7 @@ export function OperarioOperacionPageContent() {
         setIsMutating(false);
       }
     },
-    [activeBodegaId, codigoCuenta, reload, showToast],
+    [activeBodegaId, codigoCuenta, reload, showToast, tareas],
   );
 
   const handleLlamarJefe = useCallback(async () => {
@@ -135,7 +145,6 @@ export function OperarioOperacionPageContent() {
     }
   }, [activeBodegaId, codigoCuenta, idUsuario, showToast]);
 
-  const tareas = data ?? [];
   const tareasCount = tareas.length;
   const pendientesCount = tareasCount;
 

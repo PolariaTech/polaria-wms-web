@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   PolariaFormInput,
   PolariaFormSelect,
@@ -17,6 +17,7 @@ import {
   CATALOGO_UNIDAD_VISUALIZACION_OPTIONS,
   createEmptyCatalogoMetadatos,
   parseCatalogoMetadatos,
+  resolveCatalogoEstadoOptions,
   type CatalogoProductoMetadatos,
 } from "../constants/catalogo-producto";
 import {
@@ -120,6 +121,11 @@ export function ProductoCatalogoEditModal({
   const patch = (partial: Partial<ProductoCatalogoForm>) => {
     setForm((current) => ({ ...current, ...partial }));
   };
+
+  const estadoOptions = useMemo(
+    () => resolveCatalogoEstadoOptions(form.estado),
+    [form.estado],
+  );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -296,12 +302,13 @@ export function ProductoCatalogoEditModal({
             onChange={(checked) => patch({ publicadoTienda: checked })}
             disabled={isSubmitting}
           />
-          <PolariaFormInput
+          <PolariaFormSelect
             id="edit-producto-estado"
             label="Estado *"
             value={form.estado ?? CATALOGO_ESTADO_DEFAULT}
             onChange={(event) => patch({ estado: event.target.value })}
             disabled={isSubmitting}
+            options={estadoOptions}
             compact
           />
 

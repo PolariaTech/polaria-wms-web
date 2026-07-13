@@ -1,6 +1,6 @@
 import { WmsRol } from "@/constants/wms/roles";
 import { RoleGate } from "@/components/auth/guards/RoleGate";
-import { OperarioOperacionPageContent } from "@/modules/operario";
+import { ProcesadorOperacionPageContent } from "@/modules/procesador";
 
 export default function DashboardProcesadorOperacionPage() {
   return (
@@ -12,7 +12,7 @@ export default function DashboardProcesadorOperacionPage() {
         </p>
       }
     >
-      <OperarioOperacionPageContent />
+      <ProcesadorOperacionPageContent />
     </RoleGate>
   );
 }

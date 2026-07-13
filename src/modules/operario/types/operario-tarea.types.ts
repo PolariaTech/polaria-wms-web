@@ -7,4 +7,5 @@ export interface OperarioTareaView extends TareaColaRow {
   origenCodigo: string | null;
   destinoCodigo: string | null;
   ordenCodigo: string | null;
+  ordenObservaciones: string | null;
 }

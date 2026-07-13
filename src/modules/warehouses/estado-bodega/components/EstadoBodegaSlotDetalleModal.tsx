@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { formatKilos } from "@/modules/processing/shared/constants/processing-status";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import type { EstadoBodegaSlotDetalleView } from "../types/estado-bodega.types";
 
@@ -38,6 +39,10 @@ export function EstadoBodegaSlotDetalleModal({
     return null;
   }
 
+  const rol = detalle.rolProcesamiento;
+  const esSobrante = rol === "sobrante";
+  const esResultado = rol === "procesado";
+
   return (
     <PolariaFormModal
       open={open}
@@ -46,7 +51,13 @@ export function EstadoBodegaSlotDetalleModal({
         slotNumber != null ? `Slot ${slotNumber}` : "Detalle de slot"
       }
       title={detalle.productoNombre}
-      description="Información del producto en esta ubicación."
+      description={
+        esSobrante
+          ? "Sobrante del primario pendiente de devolver a almacenamiento."
+          : esResultado
+            ? "Producto procesado pendiente de ubicar en almacenamiento."
+            : "Información del producto en esta ubicación."
+      }
       isSubmitting={false}
       onSubmit={(event) => {
         event.preventDefault();
@@ -69,6 +80,32 @@ export function EstadoBodegaSlotDetalleModal({
         <MetaField label="Orden de compra">
           {detalle.ordenCompraCodigo ?? "—"}
         </MetaField>
+        {esResultado || detalle.resultadoNombre ? (
+          <MetaField label={esResultado ? "Producto procesado" : "Resultado"}>
+            <span className="text-polaria-teal">
+              {esResultado
+                ? detalle.productoNombre
+                : detalle.resultadoNombre}
+            </span>
+          </MetaField>
+        ) : null}
+        {esSobrante && detalle.sobranteKg != null && detalle.sobranteKg > 0 ? (
+          <MetaField label="Sobrante (primario)">
+            <span className="text-polaria-teal">
+              {formatKilos(detalle.sobranteKg)}
+            </span>
+          </MetaField>
+        ) : null}
+        {!esSobrante &&
+        !esResultado &&
+        detalle.sobranteKg != null &&
+        detalle.sobranteKg > 0 ? (
+          <MetaField label="Sobrante (primario)">
+            <span className="text-polaria-teal">
+              {formatKilos(detalle.sobranteKg)}
+            </span>
+          </MetaField>
+        ) : null}
       </div>
     </PolariaFormModal>
   );

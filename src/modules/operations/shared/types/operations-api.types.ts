@@ -1,6 +1,7 @@
 export type FlujoOrdenTrabajoApi =
   | "a_bodega"
   | "a_salida"
+  | "a_procesamiento"
   | "revisar"
   | "bodega_a_bodega";
 
