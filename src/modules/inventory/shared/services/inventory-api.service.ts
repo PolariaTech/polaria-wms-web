@@ -90,3 +90,43 @@ export async function unlockWarehouseStateApi(
     body,
   );
 }
+
+export interface MovimientoInventarioApiRow {
+  idMovimientoInventario: string;
+  codigoCuenta: string;
+  idBodega: string;
+  idUbicacionOrigen: string | null;
+  idUbicacionDestino: string | null;
+  idProducto: string;
+  idLote: string | null;
+  cantidad: string;
+  tipoMovimiento: string;
+  idUsuario: string;
+  idReferencia: string | null;
+  tipoReferencia: string | null;
+  createdAt: string;
+}
+
+/** Historial de movimientos de inventario (POL-106). */
+export async function listMovimientosInventarioApi(params: {
+  codigoCuenta: string;
+  idBodega: string;
+  idProducto?: string;
+  idUbicacion?: string;
+  tipoMovimiento?: string;
+  idReferencia?: string;
+}): Promise<MovimientoInventarioApiRow[]> {
+  const qs = new URLSearchParams({
+    codigoCuenta: params.codigoCuenta,
+    idBodega: params.idBodega,
+  });
+  if (params.idProducto) qs.set("idProducto", params.idProducto);
+  if (params.idUbicacion) qs.set("idUbicacion", params.idUbicacion);
+  if (params.tipoMovimiento) qs.set("tipoMovimiento", params.tipoMovimiento);
+  if (params.idReferencia) qs.set("idReferencia", params.idReferencia);
+
+  return apiRequest<MovimientoInventarioApiRow[]>(
+    `/inventario/movimientos?${qs.toString()}`,
+    { auth: true },
+  );
+}

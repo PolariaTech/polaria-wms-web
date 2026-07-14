@@ -225,7 +225,7 @@ export function CustodioOrdenIngresoForm({
                     {formatLineaIngresoTitulo(linea)}
                   </span>
                   <span className="mt-1 block polaria-text-caption text-polaria-w-50">
-                    Pedido: {formatKgEs(linea.cantidadPedida)} kg
+                    Conciliación ciega — ingrese peso y temperatura
                   </span>
                 </span>
               </label>

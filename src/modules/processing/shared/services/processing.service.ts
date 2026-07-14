@@ -166,6 +166,7 @@ export async function getSolicitudProcesamiento(
 export async function getDesperdicioSugerido(
   idSolicitud: string,
 ): Promise<number | null> {
+<<<<<<< ours
   const detalle = await getDesperdicioSugeridoDetalle(idSolicitud);
   return detalle.desperdicioKg;
 }
@@ -230,6 +231,10 @@ export async function getDesperdicioSugeridoDetalle(
     kilosPrimario: solicitud.kilos_primario,
     perdidaProcesamientoPct: perdidaPct,
   });
+=======
+  const result = await getDesperdicioSugeridoApi(idSolicitud);
+  return result.desperdicioKgSugerido;
+>>>>>>> theirs
 }
 
 export async function asignarOperarioProcesamiento(
@@ -285,12 +290,15 @@ export async function terminarSolicitudProcesamiento(
 ): Promise<SolicitudProcesamientoRow> {
   return terminarSolicitudProcesamientoApi(idSolicitud, params);
 }
+<<<<<<< ours
 
 export async function fetchProductoLabelsProcesamiento(
   ids: string[],
 ): Promise<Map<string, string>> {
   return fetchProductoLabels(ids);
 }
+=======
+>>>>>>> theirs
 
 export async function listSolicitudesProcesamiento(
   params: TenantListParams,

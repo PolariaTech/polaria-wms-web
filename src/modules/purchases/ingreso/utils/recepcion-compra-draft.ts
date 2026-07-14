@@ -66,7 +66,7 @@ export function buildRecepcionLineasDraft(
       cantidadPedida: linea.cantidad,
       cantidadYaRecibida: linea.cantidad_recibida ?? 0,
       incluida: tienePendiente,
-      cantidadRecibidaInput: tienePendiente ? String(pendiente) : "0",
+      cantidadRecibidaInput: "",
       temperaturaInput: "",
     };
   });

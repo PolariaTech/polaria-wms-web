@@ -84,6 +84,7 @@ export interface EstadoBodegaSlotDetalle {
   posicion: string | null;
   temperatura: string | null;
   ordenCompraCodigo: string | null;
+  lockedBy: string | null;
 }
 
 /** Agrega el stock de una ubicación en un detalle de slot para UI/modal. */
@@ -107,6 +108,8 @@ export function buildSlotDetalleFromRows(
     return sum + (Number.isFinite(parsed) ? parsed : 0);
   }, 0);
 
+  const lockedRow = rows.find((row) => row.locked_by?.trim()) ?? null;
+
   return {
     productoNombre,
     idPaquete:
@@ -117,5 +120,6 @@ export function buildSlotDetalleFromRows(
     posicion: posicionCodigo,
     temperatura: temperaturas[0] ?? null,
     ordenCompraCodigo: resolveOrdenCompraCodigo(primary),
+    lockedBy: lockedRow?.locked_by ?? null,
   };
 }

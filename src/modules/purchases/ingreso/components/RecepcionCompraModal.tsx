@@ -42,7 +42,7 @@ function buildDraftLineas(lineas: OrdenCompraLineaRow[]): DraftLinea[] {
       titulo: resolveOrdenLineaTitulo(linea),
       cantidadPedida: linea.cantidad,
       cantidadYaRecibida: linea.cantidad_recibida ?? 0,
-      cantidadRecibidaInput: pendiente > 0 ? String(pendiente) : "0",
+      cantidadRecibidaInput: "",
       temperaturaInput: "",
     };
   });
@@ -120,10 +120,19 @@ export function RecepcionCompraModal({
           );
         }
 
-        const temperatura =
-          linea.temperaturaInput.trim() === ""
-            ? undefined
-            : parseDecimalEs(linea.temperaturaInput);
+        const temperatura = parseDecimalEs(linea.temperaturaInput);
+
+        if (
+          cantidadRecibida > 0 &&
+          (temperatura == null ||
+            !Number.isFinite(temperatura) ||
+            Number.isNaN(temperatura))
+        ) {
+          throw new DomainServiceError(
+            `La temperatura de la línea ${index + 1} es obligatoria cuando hay cantidad recibida.`,
+            "INVALID_ARGUMENT",
+          );
+        }
 
         if (
           temperatura != null &&
@@ -194,8 +203,7 @@ export function RecepcionCompraModal({
             >
               <p className="font-medium text-polaria-w">{linea.titulo}</p>
               <p className="mt-1 polaria-text-body-sm text-polaria-w-50">
-                Pedido: {formatKgEs(linea.cantidadPedida)} kg · Ya recibido:{" "}
-                {formatKgEs(linea.cantidadYaRecibida)} kg
+                Conciliación ciega — ingrese cantidad y temperatura recibidas
               </p>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <PolariaFormInput
@@ -213,7 +221,7 @@ export function RecepcionCompraModal({
                 />
                 <PolariaFormInput
                   id={`rec-temp-${linea.idLineaOrdenCompra}`}
-                  label="Temperatura (°C, opcional)"
+                  label="Temperatura (°C)"
                   inputMode="decimal"
                   value={linea.temperaturaInput}
                   onChange={(event) =>

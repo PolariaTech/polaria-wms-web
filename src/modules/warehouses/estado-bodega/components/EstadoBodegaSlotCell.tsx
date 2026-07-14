@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Plus } from "lucide-react";
+import { Box, Lock, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { EstadoBodegaSlot } from "../types/estado-bodega.types";
 
@@ -100,6 +100,7 @@ export function EstadoBodegaSlotCell({
               : "—"}
           </span>
 
+<<<<<<< ours
           {rolLabel ? (
             <span
               className={cn(
@@ -113,6 +114,20 @@ export function EstadoBodegaSlotCell({
               )}
             >
               {rolLabel}
+=======
+          {detalle?.lockedBy ? (
+            <span
+              className={cn(
+                "mx-auto inline-flex max-w-full items-center gap-0.5 truncate rounded-full border border-amber-400/40 bg-amber-500/15 font-bold text-amber-200",
+                compact
+                  ? "mt-0.5 px-1 py-0.5 text-[8px] leading-none"
+                  : "mt-0.5 px-1.5 py-0.5 polaria-text-caption",
+              )}
+              title={`Bloqueado (${detalle.lockedBy})`}
+            >
+              <Lock className={compact ? "h-2 w-2" : "h-2.5 w-2.5"} aria-hidden />
+              Lock
+>>>>>>> theirs
             </span>
           ) : null}
 
