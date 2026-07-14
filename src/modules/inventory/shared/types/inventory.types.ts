@@ -73,5 +73,6 @@ export interface WarehouseStateRow {
 export interface WarehouseStateListParams {
   idBodega: string;
   codigoCuenta?: string | null;
+  idUbicacion?: string | null;
   limit?: number;
 }

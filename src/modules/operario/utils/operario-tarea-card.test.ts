@@ -18,9 +18,12 @@ function buildTarea(
     created_at: "2026-07-01T20:04:00.000Z",
     updated_at: "2026-07-01T20:04:00.000Z",
     tipoFlujo: null,
+    idUbicacionOrigen: null,
+    idLoteOrden: null,
     origenCodigo: null,
     destinoCodigo: null,
     ordenCodigo: null,
+    ordenObservaciones: null,
     ...overrides,
   };
 }

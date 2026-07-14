@@ -61,10 +61,13 @@ export function syncAuthWithPersistedStorage(): boolean {
 
 let revalidateInFlight: Promise<void> | null = null;
 
-function scheduleHydrateSession(): void {
-  void useAuthStore.getState().hydrateSession().catch(() => {
-    // hydrateSession limpia sesión inválida; evitar unhandledRejection en dev.
-  });
+/**
+ * Al volver a la pestaña solo alineamos storage (logout en otra pestaña).
+ * No llamamos getMe / hydrateSession: eso ponía isLoading y desmontaba la UI.
+ */
+function syncOnForeground(): void {
+  ensureAuthOnlyInLocalStorage();
+  syncAuthWithPersistedStorage();
 }
 
 /** Relee storage y valida el token contra el API cuando corresponde. */
@@ -97,25 +100,12 @@ function scheduleRevalidateAuthSession(): void {
 
 export function installAuthSyncListeners(): () => void {
   const onPageShow = () => {
-    ensureAuthOnlyInLocalStorage();
-    syncAuthWithPersistedStorage();
-    scheduleHydrateSession();
+    syncOnForeground();
   };
 
   const onVisibilityChange = () => {
     if (document.visibilityState !== "visible") return;
-
-    ensureAuthOnlyInLocalStorage();
-    const hadToken = Boolean(useAuthStore.getState().accessToken);
-    const hasPersistedToken = syncAuthWithPersistedStorage();
-
-    if (hadToken && !hasPersistedToken) {
-      return;
-    }
-
-    if (hasPersistedToken || hadToken) {
-      scheduleHydrateSession();
-    }
+    syncOnForeground();
   };
 
   const onStorage = (event: StorageEvent) => {

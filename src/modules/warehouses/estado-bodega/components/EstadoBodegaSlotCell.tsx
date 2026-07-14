@@ -100,7 +100,6 @@ export function EstadoBodegaSlotCell({
               : "—"}
           </span>
 
-<<<<<<< ours
           {rolLabel ? (
             <span
               className={cn(
@@ -114,7 +113,9 @@ export function EstadoBodegaSlotCell({
               )}
             >
               {rolLabel}
-=======
+            </span>
+          ) : null}
+
           {detalle?.lockedBy ? (
             <span
               className={cn(
@@ -127,7 +128,6 @@ export function EstadoBodegaSlotCell({
             >
               <Lock className={compact ? "h-2 w-2" : "h-2.5 w-2.5"} aria-hidden />
               Lock
->>>>>>> theirs
             </span>
           ) : null}
 

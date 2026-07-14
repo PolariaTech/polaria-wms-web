@@ -10,7 +10,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { InventarioMercanciaEtapaId } from "../services/inventario-mercancia-report.service";
-import { formatInventarioKg } from "../services/inventario-mercancia-report.service";
+import {
+  etapaInventarioPermiteEntrada,
+  formatInventarioKg,
+} from "../services/inventario-mercancia-report.service";
 
 const STAGE_ICONS: Record<InventarioMercanciaEtapaId, LucideIcon> = {
   proveedor: LayoutGrid,
@@ -22,13 +25,7 @@ const STAGE_ICONS: Record<InventarioMercanciaEtapaId, LucideIcon> = {
 
 function FlowLine({ className }: { className?: string }) {
   return (
-    <div
-      className={cn(
-        "border-polaria-w-20",
-        className,
-      )}
-      aria-hidden
-    />
+    <div className={cn("border-polaria-w-20", className)} aria-hidden />
   );
 }
 
@@ -37,6 +34,7 @@ interface InventarioStageCardProps {
   label: string;
   kg: number;
   highlighted?: boolean;
+  onSelect?: (id: InventarioMercanciaEtapaId) => void;
 }
 
 function InventarioStageCard({
@@ -44,18 +42,13 @@ function InventarioStageCard({
   label,
   kg,
   highlighted = false,
+  onSelect,
 }: InventarioStageCardProps) {
   const Icon = STAGE_ICONS[id];
+  const canEnter = etapaInventarioPermiteEntrada(kg) && Boolean(onSelect);
 
-  return (
-    <div
-      className={cn(
-        "flex w-full min-w-[10rem] max-w-[14rem] items-center gap-3 rounded-xl border bg-polaria-w-08 px-4 py-3",
-        highlighted
-          ? "border-polaria-teal shadow-[0_0_20px_var(--teal-glow)]"
-          : "border-polaria-w-08",
-      )}
-    >
+  const content = (
+    <>
       <div
         className={cn(
           "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border",
@@ -79,6 +72,38 @@ function InventarioStageCard({
           ({formatInventarioKg(kg)} Kg)
         </span>
       </p>
+    </>
+  );
+
+  const cardClassName = cn(
+    "flex w-full min-w-[10rem] max-w-[14rem] items-center gap-3 rounded-xl border bg-polaria-w-08 px-4 py-3 text-left transition",
+    highlighted
+      ? "border-polaria-teal shadow-[0_0_20px_var(--teal-glow)]"
+      : "border-polaria-w-08",
+    canEnter
+      ? "cursor-pointer hover:border-polaria-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal"
+      : "cursor-default opacity-80",
+  );
+
+  if (canEnter) {
+    return (
+      <button
+        type="button"
+        onClick={() => onSelect?.(id)}
+        aria-label={`Ver inventario de ${label}`}
+        className={cardClassName}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={cardClassName}
+      title="No aplica: no hay kg en esta etapa"
+    >
+      {content}
     </div>
   );
 }
@@ -89,7 +114,8 @@ interface InventarioMercanciaFlowProps {
   bodegaInternaKg: number;
   bodegaExternaKg: number;
   ventasKg: number;
-  highlightedStageId: InventarioMercanciaEtapaId | null;
+  highlightedStageIds: readonly InventarioMercanciaEtapaId[];
+  onSelectStage?: (id: InventarioMercanciaEtapaId) => void;
 }
 
 export function InventarioMercanciaFlow({
@@ -98,14 +124,19 @@ export function InventarioMercanciaFlow({
   bodegaInternaKg,
   bodegaExternaKg,
   ventasKg,
-  highlightedStageId,
+  highlightedStageIds,
+  onSelectStage,
 }: InventarioMercanciaFlowProps) {
+  const highlighted = new Set(highlightedStageIds);
+
   return (
     <div className="flex flex-col items-center py-2">
       <InventarioStageCard
         id="proveedor"
         label="Proveedor"
         kg={proveedorKg}
+        highlighted={highlighted.has("proveedor")}
+        onSelect={onSelectStage}
       />
 
       <FlowLine className="my-1 h-8 w-px border-l border-dashed" />
@@ -114,6 +145,8 @@ export function InventarioMercanciaFlow({
         id="transporte"
         label="Transporte"
         kg={transporteKg}
+        highlighted={highlighted.has("transporte")}
+        onSelect={onSelectStage}
       />
 
       <FlowLine className="my-1 h-8 w-px border-l border-dashed" />
@@ -127,7 +160,8 @@ export function InventarioMercanciaFlow({
             id="bodega_interna"
             label="Bodega interna"
             kg={bodegaInternaKg}
-            highlighted={highlightedStageId === "bodega_interna"}
+            highlighted={highlighted.has("bodega_interna")}
+            onSelect={onSelectStage}
           />
         </div>
 
@@ -137,14 +171,21 @@ export function InventarioMercanciaFlow({
             id="bodega_externa"
             label="Bodega externa"
             kg={bodegaExternaKg}
-            highlighted={highlightedStageId === "bodega_externa"}
+            highlighted={highlighted.has("bodega_externa")}
+            onSelect={onSelectStage}
           />
         </div>
       </div>
 
       <FlowLine className="my-1 h-8 w-px border-l border-dashed" />
 
-      <InventarioStageCard id="ventas" label="Ventas" kg={ventasKg} />
+      <InventarioStageCard
+        id="ventas"
+        label="Ventas"
+        kg={ventasKg}
+        highlighted={highlighted.has("ventas")}
+        onSelect={onSelectStage}
+      />
     </div>
   );
 }

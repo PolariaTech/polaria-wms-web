@@ -32,6 +32,7 @@ const baseLayout: EstadoBodegaLayoutView = {
             posicion: "PROC-01",
             temperatura: "0 °C",
             ordenCompraCodigo: "OC-001",
+            lockedBy: null,
           },
         },
         {
@@ -164,5 +165,212 @@ describe("estado-bodega-procesamiento-slot", () => {
 
     expect(occupied).toHaveLength(1);
     expect(occupied[0]?.detalle?.rolProcesamiento).toBe("procesado");
+  });
+
+  it("oculta sobrante si el primario ya no está en procesamiento", () => {
+    const layout = applyProcesamientoZonaLayout(baseLayout, {
+      ...zonaParams,
+      warehouseRows: [
+        {
+          id_ubicacion: "u-proc-1",
+          id_producto: "prod-secundario",
+          cantidad: "17",
+        } as never,
+      ],
+    });
+    const occupied = (layout.sections[0]?.slots ?? []).filter(
+      (slot) => slot.visual !== "vacia",
+    );
+
+    expect(occupied).toHaveLength(1);
+    expect(occupied[0]?.detalle?.rolProcesamiento).toBe("procesado");
+    expect(occupied[0]?.detalle?.productoNombre).toBe("Secundario B");
+  });
+
+  it("oculta sobrante si la OT de desperdicio ya está completada", () => {
+    const layout = applyProcesamientoZonaLayout(baseLayout, {
+      ...zonaParams,
+      ordenes: [
+        ...zonaParams.ordenes,
+        {
+          idOrdenTrabajo: "ord-desp",
+          estado: "completada",
+          tipoFlujo: "bodega_a_bodega",
+          observaciones:
+            "solicitudProcesamiento:sol-1|rolDevolucion:desperdicio",
+        } as never,
+      ],
+    });
+    const occupied = (layout.sections[0]?.slots ?? []).filter(
+      (slot) => slot.visual !== "vacia",
+    );
+
+    expect(occupied).toHaveLength(1);
+    expect(occupied[0]?.detalle?.rolProcesamiento).toBe("procesado");
+  });
+
+  it("mantiene Resultado en pendiente_cierre aunque el slot físico quedó vacío", () => {
+    const emptyLayout: EstadoBodegaLayoutView = {
+      sections: [
+        {
+          ...baseLayout.sections[0]!,
+          occupiedCount: 0,
+          slots: [
+            {
+              slotNumber: 1,
+              idUbicacion: "u-proc-1",
+              codigo: "PROC-01",
+              visual: "vacia",
+              productoLabel: null,
+              detalle: null,
+            },
+            ...baseLayout.sections[0]!.slots.slice(1),
+          ],
+        },
+      ],
+    };
+
+    const layout = applyProcesamientoZonaLayout(emptyLayout, {
+      ...zonaParams,
+      warehouseRows: [],
+    });
+    const occupied = (layout.sections[0]?.slots ?? []).filter(
+      (slot) => slot.visual !== "vacia",
+    );
+
+    expect(occupied).toHaveLength(1);
+    expect(occupied[0]?.detalle?.rolProcesamiento).toBe("procesado");
+    expect(occupied[0]?.detalle?.productoNombre).toBe("Secundario B");
+  });
+
+  it("oculta Resultado si la OT de procesado ya está completada", () => {
+    const emptyLayout: EstadoBodegaLayoutView = {
+      sections: [
+        {
+          ...baseLayout.sections[0]!,
+          occupiedCount: 0,
+          slots: [
+            {
+              slotNumber: 1,
+              idUbicacion: "u-proc-1",
+              codigo: "PROC-01",
+              visual: "vacia",
+              productoLabel: null,
+              detalle: null,
+            },
+            ...baseLayout.sections[0]!.slots.slice(1),
+          ],
+        },
+      ],
+    };
+
+    const layout = applyProcesamientoZonaLayout(emptyLayout, {
+      ...zonaParams,
+      warehouseRows: [],
+      ordenes: [
+        ...zonaParams.ordenes,
+        {
+          idOrdenTrabajo: "ord-res",
+          estado: "completada",
+          tipoFlujo: "bodega_a_bodega",
+          observaciones:
+            "solicitudProcesamiento:sol-1|rolDevolucion:procesado",
+        } as never,
+        {
+          idOrdenTrabajo: "ord-desp",
+          estado: "completada",
+          tipoFlujo: "bodega_a_bodega",
+          observaciones:
+            "solicitudProcesamiento:sol-1|rolDevolucion:desperdicio",
+        } as never,
+      ],
+    });
+    const occupied = (layout.sections[0]?.slots ?? []).filter(
+      (slot) => slot.visual !== "vacia",
+    );
+
+    expect(occupied).toHaveLength(0);
+  });
+
+  it("en almacenamiento marca resultado (secundario) distinto al primario", () => {
+    const layoutWithAlmacen: EstadoBodegaLayoutView = {
+      sections: [
+        ...baseLayout.sections,
+        {
+          id: "almacenamiento",
+          title: "Almacenamiento",
+          cols: 4,
+          rows: 3,
+          capacity: 12,
+          occupiedCount: 2,
+          alertCount: 0,
+          pendingTaskCount: 0,
+          slots: [
+            {
+              slotNumber: 1,
+              idUbicacion: "u-slot-1",
+              codigo: "SLOT-001",
+              visual: "ocupada_primario",
+              productoLabel: "Secundario B",
+              detalle: {
+                productoNombre: "Secundario B",
+                idPaquete: null,
+                cliente: null,
+                cantidad: "17 ud.",
+                posicion: "SLOT-001",
+                temperatura: "0 °C",
+                ordenCompraCodigo: null,
+                lockedBy: null,
+              },
+            },
+            {
+              slotNumber: 2,
+              idUbicacion: "u-slot-2",
+              codigo: "SLOT-002",
+              visual: "ocupada_primario",
+              productoLabel: "Primario A",
+              detalle: {
+                productoNombre: "Primario A",
+                idPaquete: "OC-001",
+                cliente: null,
+                cantidad: "40 kg",
+                posicion: "SLOT-002",
+                temperatura: "0 °C",
+                ordenCompraCodigo: "OC-001",
+                lockedBy: null,
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const layout = applyProcesamientoZonaLayout(layoutWithAlmacen, {
+      ...zonaParams,
+      solicitudesDb: [
+        {
+          ...zonaParams.solicitudesDb[0]!,
+          id_producto_secundario: "prod-b",
+        } as never,
+      ],
+      warehouseRows: [
+        {
+          id_ubicacion: "u-slot-1",
+          id_producto: "prod-b",
+          cantidad: "17",
+        } as never,
+        {
+          id_ubicacion: "u-slot-2",
+          id_producto: "prod-a",
+          cantidad: "40",
+        } as never,
+      ],
+    });
+
+    const almacen = layout.sections.find((s) => s.id === "almacenamiento");
+    expect(almacen?.slots[0]?.visual).toBe("ocupada_procesado");
+    expect(almacen?.slots[0]?.detalle?.rolProcesamiento).toBeUndefined();
+    expect(almacen?.slots[1]?.visual).toBe("ocupada_primario");
+    expect(almacen?.slots[1]?.detalle?.rolProcesamiento).toBeUndefined();
   });
 });

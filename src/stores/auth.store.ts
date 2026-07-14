@@ -143,7 +143,7 @@ export const useAuthStore = create<AuthState>()(
 
         hydrateSessionInFlight = (async () => {
           ensureAuthOnlyInLocalStorage();
-          const { accessToken, isLoading } = get();
+          const { accessToken, isLoading, isHydrated, session } = get();
           if (!accessToken) {
             set({ isHydrated: true });
             return null;
@@ -153,12 +153,20 @@ export const useAuthStore = create<AuthState>()(
             return get().session;
           }
 
-          set({ isLoading: true });
+          /** Solo spinner en carga inicial; revalidar no debe vaciar la UI. */
+          const showLoadingOverlay = !isHydrated || !session;
+          if (showLoadingOverlay) {
+            set({ isLoading: true });
+          }
           try {
-            const session = await getMe();
-            get().setSession(session);
-            return session;
+            const nextSession = await getMe();
+            get().setSession(nextSession);
+            return nextSession;
           } catch {
+            // Error de red al volver a la pestaña: no borrar sesión válida.
+            if (get().session && get().isHydrated) {
+              return get().session;
+            }
             clearAuthAndPersistedStorage(get().clearAuth);
             return null;
           } finally {

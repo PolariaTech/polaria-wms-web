@@ -158,11 +158,25 @@ export type {
   InventarioMercanciaReport,
 } from "./inventario-mercancia/services/inventario-mercancia-report.service";
 export {
+  etapaInventarioPermiteEntrada,
   formatInventarioKg,
   getInventarioEtapa,
   getInventarioEtapaDestacada,
+  getInventarioEtapasConKg,
   getInventarioMercanciaReport,
 } from "./inventario-mercancia/services/inventario-mercancia-report.service";
+export type {
+  InventarioMercanciaBodegaOption,
+  InventarioMercanciaFila,
+} from "./inventario-mercancia/services/inventario-mercancia-listado.service";
+export {
+  listBodegasParaInventarioEtapa,
+  listInventarioMercanciaFilas,
+  tipoBodegaParaEtapa,
+  tituloListadoParaEtapa,
+} from "./inventario-mercancia/services/inventario-mercancia-listado.service";
+export { InventarioMercanciaBodegaPicker } from "./inventario-mercancia/components/InventarioMercanciaBodegaPicker";
+export { InventarioMercanciaListadoTable } from "./inventario-mercancia/components/InventarioMercanciaListadoTable";
 
 export {
   ADMIN_CATALOG_SECTION_LABEL,

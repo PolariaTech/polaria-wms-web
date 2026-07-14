@@ -80,6 +80,7 @@ describe("estado-bodega-slot-content", () => {
       posicion: "ING-01",
       temperatura: "0 °C",
       ordenCompraCodigo: "OC-000005",
+      lockedBy: null,
     });
   });
 

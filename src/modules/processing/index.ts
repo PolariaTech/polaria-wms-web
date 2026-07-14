@@ -18,10 +18,7 @@ export {
 } from "./shared/constants/processing-status";
 
 export {
-<<<<<<< ours
   fetchProductoLabelsProcesamiento,
-=======
->>>>>>> theirs
   aplicarOrdenProcesamiento,
   asignarOperarioProcesamiento,
   asignarProcesadorProcesamiento,
@@ -29,10 +26,7 @@ export {
   crearOrdenesPostCierre,
   createSolicitudProcesamiento,
   getDesperdicioSugerido,
-<<<<<<< ours
   getDesperdicioSugeridoDetalle,
-=======
->>>>>>> theirs
   getSolicitudProcesamiento,
   getStockProductoBodega,
   iniciarProcesamiento,

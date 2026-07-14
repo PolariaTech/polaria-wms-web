@@ -54,10 +54,13 @@ export function EstadoBodegaPageContent({
   operacionTabs,
   onSelectOvSalidaTarea,
   onSelectProcesamientoSolicitud,
+  reloadToken = 0,
 }: {
   operacionTabs: ReactNode;
   onSelectOvSalidaTarea?: (item: EstadoBodegaZonePanelItem) => void;
   onSelectProcesamientoSolicitud?: (item: EstadoBodegaZonePanelItem) => void;
+  /** Incrementar para refrescar datos sin remount (conserva modales). */
+  reloadToken?: number;
 }) {
   const { activeBodegaId, codigoCuenta } = useCompany();
   const [ubicaciones, setUbicaciones] = useState<UbicacionEstadoBodegaDbRow[]>(
@@ -118,15 +121,18 @@ export function EstadoBodegaPageContent({
 
   useEffect(() => {
     void loadUbicaciones();
-  }, [loadUbicaciones]);
+  }, [loadUbicaciones, reloadToken]);
 
-  const loadZonePanelData = useCallback(async () => {
+  const loadZonePanelData = useCallback(async (options?: { silent?: boolean }) => {
     if (!activeBodegaId || !codigoCuenta) {
       setZoneOperativo(null);
       return;
     }
 
-    setIsLoadingZonePanel(true);
+    const silent = options?.silent === true;
+    if (!silent) {
+      setIsLoadingZonePanel(true);
+    }
 
     try {
       const data = await loadEstadoBodegaZoneOperativoData({
@@ -135,30 +141,27 @@ export function EstadoBodegaPageContent({
       });
       setZoneOperativo(data);
     } catch {
-      setZoneOperativo(null);
+      if (!silent) {
+        setZoneOperativo(null);
+      }
     } finally {
-      setIsLoadingZonePanel(false);
+      if (!silent) {
+        setIsLoadingZonePanel(false);
+      }
     }
   }, [activeBodegaId, codigoCuenta]);
 
   useEffect(() => {
-    void loadZonePanelData();
-  }, [loadZonePanelData, warehouseRows.length]);
+    void loadZonePanelData({ silent: reloadToken > 0 });
+  }, [loadZonePanelData, warehouseRows.length, reloadToken]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      void loadZonePanelData();
+      void loadZonePanelData({ silent: true });
     }, 60_000);
-
-    const handleFocus = () => {
-      void loadZonePanelData();
-    };
-
-    window.addEventListener("focus", handleFocus);
 
     return () => {
       window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleFocus);
     };
   }, [loadZonePanelData]);
 
@@ -182,7 +185,7 @@ export function EstadoBodegaPageContent({
 
   useEffect(() => {
     void loadProcesamientoZona();
-  }, [loadProcesamientoZona]);
+  }, [loadProcesamientoZona, reloadToken]);
 
   const layout = useMemo(() => {
     const base = mapEstadoBodegaLayout(ubicaciones, warehouseRows);

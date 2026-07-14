@@ -39,6 +39,18 @@ function filterIngreso(rows: UbicacionEstadoBodegaDbRow[]) {
   return rows.filter(isUbicacionEntrada);
 }
 
+function filterProcesamiento(rows: UbicacionEstadoBodegaDbRow[]) {
+  return rows.filter((u) => {
+    const tipo = Array.isArray(u.tipo_ubicacion)
+      ? u.tipo_ubicacion[0]
+      : u.tipo_ubicacion;
+    const codigo = tipo?.codigo?.toUpperCase() ?? "";
+    return (
+      (u.estado_slot ?? "") === "en_proceso" || codigo.includes("PROCES")
+    );
+  });
+}
+
 export function JefeBodegaEstadoPageContent() {
   const { codigoCuenta, activeBodegaId } = useCompany();
   const [activeModal, setActiveModal] = useState<JefeBodegaActionId | null>(
@@ -73,6 +85,10 @@ export function JefeBodegaEstadoPageContent() {
   const almacen = useMemo(() => filterAlmacenamiento(ubicaciones), [ubicaciones]);
   const ingreso = useMemo(() => filterIngreso(ubicaciones), [ubicaciones]);
   const picking = useMemo(() => filterPicking(ubicaciones), [ubicaciones]);
+  const procesamiento = useMemo(
+    () => filterProcesamiento(ubicaciones),
+    [ubicaciones],
+  );
 
   const handleOrdenCreated = useCallback(() => {
     setLayoutNonce((n) => n + 1);
@@ -124,7 +140,7 @@ export function JefeBodegaEstadoPageContent() {
   return (
     <>
       <EstadoBodegaPageContent
-        key={layoutNonce}
+        reloadToken={layoutNonce}
         operacionTabs={
           <JefeBodegaActionBar onActionClick={handleActionClick} />
         }
@@ -139,6 +155,7 @@ export function JefeBodegaEstadoPageContent() {
         ubicacionesAlmacen={almacen}
         ubicacionesIngreso={ingreso}
         ubicacionesPicking={picking}
+        ubicacionesProcesamiento={procesamiento}
         salidaPrefillOrdenVenta={salidaPrefill}
         onOrdenCreated={handleOrdenCreated}
       />

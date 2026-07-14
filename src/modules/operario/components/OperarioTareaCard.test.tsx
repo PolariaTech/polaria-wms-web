@@ -17,9 +17,12 @@ const baseTarea: OperarioTareaView = {
   created_at: "2026-07-01T20:04:00.000Z",
   updated_at: "2026-07-01T20:04:00.000Z",
   tipoFlujo: "a_bodega",
+  idUbicacionOrigen: "u-ing",
+  idLoteOrden: null,
   origenCodigo: "ING-02",
   destinoCodigo: "A-14",
   ordenCodigo: "OT-000001",
+  ordenObservaciones: null,
 };
 
 describe("OperarioTareaCard", () => {

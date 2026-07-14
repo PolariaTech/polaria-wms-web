@@ -102,6 +102,7 @@ describe("listTareasOperarioABodega", () => {
     expect(rows[0]).toMatchObject({
       id_tarea: "t-1",
       tipoFlujo: "a_bodega",
+      idUbicacionOrigen: "u-ing",
       origenCodigo: "ING-02",
       destinoCodigo: "A-14",
       ordenCodigo: "OT-000001",

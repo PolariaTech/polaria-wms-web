@@ -11,16 +11,13 @@ export interface EstadoBodegaSlotDetalleView {
   posicion: string | null;
   temperatura: string | null;
   ordenCompraCodigo: string | null;
-<<<<<<< ours
+  lockedBy: string | null;
   /** Producto secundario esperado (solo slots en zona procesamiento). */
   resultadoNombre?: string | null;
   /** Kg de primario a devolver al mapa tras el cierre (frio: sobrante). */
   sobranteKg?: number | null;
   /** Caja lógica en zona procesamiento (referencia frio). */
   rolProcesamiento?: "en_proceso" | "sobrante" | "procesado";
-=======
-  lockedBy: string | null;
->>>>>>> theirs
 }
 
 export interface EstadoBodegaSlot {

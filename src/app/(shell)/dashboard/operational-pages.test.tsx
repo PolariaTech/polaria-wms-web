@@ -100,6 +100,10 @@ vi.mock(
       id: string,
     ) => report.etapas.find((etapa) => etapa.id === id) ?? { id, label: id, kg: 0 },
     getInventarioEtapaDestacada: () => "bodega_externa",
+    getInventarioEtapasConKg: (
+      report: { etapas: { id: string; kg: number }[] },
+    ) => report.etapas.filter((etapa) => etapa.kg > 0).map((etapa) => etapa.id),
+    etapaInventarioPermiteEntrada: (kg: number) => kg > 0,
   }),
 );
 

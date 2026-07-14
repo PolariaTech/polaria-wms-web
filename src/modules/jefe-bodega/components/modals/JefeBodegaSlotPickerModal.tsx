@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { EstadoBodegaSlotCell } from "@/modules/warehouses/estado-bodega/components/EstadoBodegaSlotCell";
 import type {
@@ -27,6 +28,7 @@ interface JefeBodegaSlotPickerModalProps {
   options: JefeBodegaSlotPickerOption[];
   selectedId?: string | null;
   emptyMessage?: string;
+  toolbar?: ReactNode;
   onSelect: (option: JefeBodegaSlotPickerOption) => void;
 }
 
@@ -49,6 +51,7 @@ function toEstadoSlot(
         posicion: option.codigo ?? null,
         temperatura: option.meta ?? null,
         ordenCompraCodigo: null,
+        lockedBy: null,
       } satisfies EstadoBodegaSlotDetalleView));
 
   return {
@@ -69,6 +72,7 @@ export function JefeBodegaSlotPickerModal({
   options,
   selectedId = null,
   emptyMessage = "No hay opciones disponibles.",
+  toolbar,
   onSelect,
 }: JefeBodegaSlotPickerModalProps) {
   return (
@@ -84,6 +88,8 @@ export function JefeBodegaSlotPickerModal({
       compact
       size="md"
     >
+      {toolbar ? <div className="mb-3">{toolbar}</div> : null}
+
       {options.length === 0 ? (
         <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
           {emptyMessage}

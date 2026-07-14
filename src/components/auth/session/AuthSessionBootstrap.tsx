@@ -63,17 +63,20 @@ export function AuthSessionBootstrap() {
       enforceRouteAuth();
     };
 
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      // Solo alinea storage / logout; no revalida getMe (evita remount de la UI).
+      enforceRouteAuth();
+    };
+
     const unsubscribeBroadcast = subscribeAuthChanged(enforceRouteAuth);
 
     window.addEventListener("storage", onStorage);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") {
-        enforceRouteAuth();
-      }
-    });
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       unsubscribeBroadcast();
     };
   }, [enforceRouteAuth]);

@@ -16,6 +16,7 @@ interface JefeBodegaActionModalsProps {
   ubicacionesAlmacen: UbicacionEstadoBodegaDbRow[];
   ubicacionesIngreso: UbicacionEstadoBodegaDbRow[];
   ubicacionesPicking: UbicacionEstadoBodegaDbRow[];
+  ubicacionesProcesamiento: UbicacionEstadoBodegaDbRow[];
   salidaPrefillOrdenVenta?: JefeBodegaSalidaOrdenVentaPrefill | null;
   onOrdenCreated?: () => void;
 }
@@ -28,6 +29,7 @@ export function JefeBodegaActionModals({
   ubicacionesAlmacen,
   ubicacionesIngreso,
   ubicacionesPicking,
+  ubicacionesProcesamiento,
   salidaPrefillOrdenVenta = null,
   onOrdenCreated,
 }: JefeBodegaActionModalsProps) {
@@ -48,6 +50,7 @@ export function JefeBodegaActionModals({
         codigoCuenta={codigoCuenta}
         idBodega={idBodega}
         ubicacionesAlmacen={ubicacionesAlmacen}
+        ubicacionesProcesamiento={ubicacionesProcesamiento}
         onCreated={onOrdenCreated}
       />
       <JefeBodegaRevisarModal

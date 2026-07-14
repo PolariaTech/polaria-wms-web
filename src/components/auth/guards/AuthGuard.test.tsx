@@ -77,6 +77,21 @@ describe("AuthGuard", () => {
     expect(screen.queryByText("contenido protegido")).not.toBeInTheDocument();
   });
 
+  it("no desmonta la UI al revalidar sesión si ya hay sesión activa", () => {
+    mockAuthState.accessToken = "token-abc";
+    mockAuthState.isLoading = true;
+    mockGetPersistedToken.mockReturnValue("token-abc");
+    mockIsActiveSession.mockReturnValue(true);
+
+    render(
+      <AuthGuard>
+        <span>contenido protegido</span>
+      </AuthGuard>,
+    );
+
+    expect(screen.getByText("contenido protegido")).toBeInTheDocument();
+  });
+
   it("redirige a login sin sesión activa", async () => {
     mockAuthState.accessToken = null;
     mockGetPersistedToken.mockReturnValue(null);

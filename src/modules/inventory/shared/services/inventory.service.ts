@@ -47,6 +47,10 @@ export async function listWarehouseState(
       query = query.eq("codigo_cuenta", params.codigoCuenta);
     }
 
+    if (params.idUbicacion?.trim()) {
+      query = query.eq("id_ubicacion", params.idUbicacion.trim());
+    }
+
     return query as unknown as Promise<{
       data: WarehouseStateRow[] | null;
       error: { message: string } | null;

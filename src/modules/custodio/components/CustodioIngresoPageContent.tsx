@@ -79,7 +79,6 @@ export function CustodioIngresoPageContent() {
 
   const [ventas, setVentas] = useState<OrdenVentaOperadorRow[]>([]);
   const [isLoadingVentas, setIsLoadingVentas] = useState(false);
-  const [selectedVentaId, setSelectedVentaId] = useState("");
 
   const [selectedSlot, setSelectedSlot] = useState<EstadoBodegaSlot | null>(
     null,
@@ -313,8 +312,7 @@ export function CustodioIngresoPageContent() {
               <CustodioOrdenSalidaColumn
                 ventas={ventas}
                 cajasEnSalida={cajasEnSalida}
-                selectedVentaId={selectedVentaId}
-                onSelectVenta={setSelectedVentaId}
+                codigoCuenta={codigoCuenta}
                 onRefresh={() => void loadVentas()}
                 isLoading={isLoadingVentas}
                 slotSize={slotSize}

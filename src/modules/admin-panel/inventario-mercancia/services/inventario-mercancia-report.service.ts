@@ -221,18 +221,20 @@ export function getInventarioEtapa(
   return etapa ?? { id, label: id, kg: 0 };
 }
 
-/** Etapa con mayor stock para resaltar en el diagrama. */
+/** Etapas con kg > 0 (aplican y se resaltan en el diagrama, como en frio). */
+export function getInventarioEtapasConKg(
+  report: InventarioMercanciaReport,
+): InventarioMercanciaEtapaId[] {
+  return report.etapas.filter((etapa) => etapa.kg > 0).map((etapa) => etapa.id);
+}
+
+/** @deprecated Preferir `getInventarioEtapasConKg`. */
 export function getInventarioEtapaDestacada(
   report: InventarioMercanciaReport,
 ): InventarioMercanciaEtapaId | null {
-  const candidatas = report.etapas.filter(
-    (etapa) =>
-      etapa.id === "bodega_interna" || etapa.id === "bodega_externa",
-  );
-  const max = candidatas.reduce(
-    (best, current) => (current.kg > best.kg ? current : best),
-    candidatas[0] ?? { id: "bodega_interna" as const, label: "", kg: 0 },
-  );
+  return getInventarioEtapasConKg(report)[0] ?? null;
+}
 
-  return max.kg > 0 ? max.id : null;
+export function etapaInventarioPermiteEntrada(kg: number): boolean {
+  return kg > 0;
 }

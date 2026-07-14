@@ -57,6 +57,8 @@ export async function enrichOperarioTareas(
     return {
       ...tarea,
       tipoFlujo: orden?.tipoFlujo ?? null,
+      idUbicacionOrigen: orden?.idUbicacionOrigen?.trim() || null,
+      idLoteOrden: orden?.idLote?.trim() || null,
       origenCodigo,
       destinoCodigo,
       ordenCodigo: orden?.codigo?.trim() || null,
