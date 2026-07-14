@@ -18,7 +18,13 @@ describe("useAuthStore.performLogout", () => {
     useAuthStore.setState({
       accessToken: "token-abc",
       refreshToken: "refresh-xyz",
-      context: { scope: "platform" },
+      context: {
+        scope: "platform",
+        codigoEmpresa: null,
+        codigoCuenta: null,
+        idBodegas: [],
+        nivelRol: "platform",
+      },
       session: null,
       isHydrated: true,
       isLoading: false,

@@ -95,12 +95,12 @@ describe("processing.service", () => {
 
   it("createSolicitudProcesamiento valida stock", async () => {
     const { client, from } = createSupabaseMock({ data: [] });
-    from.mockImplementation((table: string) => {
-      if (table === "warehouse_state") {
+    from.mockImplementation(((_table?: string) => {
+      if (_table === "warehouse_state") {
         return createSupabaseMock({ data: [] }).chain;
       }
       return createSupabaseMock({ data: [] }).chain;
-    });
+    }) as typeof from);
     setSupabaseClientForTests(client);
 
     await expect(

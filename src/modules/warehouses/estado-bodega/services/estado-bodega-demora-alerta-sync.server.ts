@@ -230,7 +230,7 @@ export async function syncDemoraAlertasHistorialServer(params: {
   const tareasVisibles = filterTareasOvDuplicadas(
     tareasEnriquecidas,
     ordenes,
-    stock,
+    stock as unknown as import("@/modules/inventory/shared/types/inventory.types").WarehouseStateRow[],
     almacenUbicacionIds,
   );
 

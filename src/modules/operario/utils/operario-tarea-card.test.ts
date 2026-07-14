@@ -13,6 +13,7 @@ function buildTarea(
     estado: "pendiente",
     id_asignado: "usr-1",
     id_orden_trabajo: "ord-1",
+    id_solicitud_procesamiento: null,
     titulo: "OT-000001",
     descripcion: null,
     created_at: "2026-07-01T20:04:00.000Z",

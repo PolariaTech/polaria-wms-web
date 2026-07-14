@@ -152,6 +152,7 @@ export function JefeBodegaIngresoModal({
                 posicion: u.codigo,
                 temperatura: null,
                 ordenCompraCodigo: null,
+                lockedBy: null,
               },
         };
       }),
@@ -193,6 +194,7 @@ export function JefeBodegaIngresoModal({
             posicion: codigoSlot,
             temperatura: temp,
             ordenCompraCodigo: orden,
+            lockedBy: row.locked_by?.trim() || null,
           },
         };
       });

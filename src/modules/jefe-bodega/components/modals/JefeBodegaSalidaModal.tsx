@@ -307,6 +307,7 @@ export function JefeBodegaSalidaModal({
                 posicion: ubicacion.codigo,
                 temperatura: null,
                 ordenCompraCodigo: null,
+                lockedBy: null,
               },
         };
       });

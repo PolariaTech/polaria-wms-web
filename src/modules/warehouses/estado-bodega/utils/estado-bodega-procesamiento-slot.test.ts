@@ -3,6 +3,7 @@ import {
   applyProcesamientoZonaLayout,
   buildProcesamientoEnriquecimientoByUbicacion,
   buildResultadoByUbicacionProcesamiento,
+  type ProcesamientoZonaParams,
 } from "./estado-bodega-procesamiento-slot";
 import type { EstadoBodegaLayoutView } from "../types/estado-bodega.types";
 
@@ -84,7 +85,7 @@ const zonaParams = {
       estado: "pendiente_cierre",
       sobrante_kg: "0.8",
       kilos_secundario: "17",
-    } as never,
+    },
   ],
   ordenes: [
     {
@@ -92,16 +93,16 @@ const zonaParams = {
       tipoFlujo: "a_procesamiento",
       idUbicacionDestino: "u-proc-1",
       observaciones: "solicitudProcesamiento:sol-1",
-    } as never,
+    },
   ],
   warehouseRows: [
     {
       id_ubicacion: "u-proc-1",
       id_producto: "prod-a",
       cantidad: "10",
-    } as never,
+    },
   ],
-};
+} as unknown as ProcesamientoZonaParams;
 
 describe("estado-bodega-procesamiento-slot", () => {
   it("resuelve resultado por ubicación destino de OT a_procesamiento", () => {
@@ -118,7 +119,7 @@ describe("estado-bodega-procesamiento-slot", () => {
           ...zonaParams.solicitudesDb[0]!,
           estado: "en_proceso",
           sobrante_kg: null,
-        } as never,
+        },
       ],
     });
 
@@ -156,7 +157,7 @@ describe("estado-bodega-procesamiento-slot", () => {
         {
           ...zonaParams.solicitudesDb[0]!,
           sobrante_kg: "0",
-        } as never,
+        },
       ],
     });
     const occupied = (layout.sections[0]?.slots ?? []).filter(
@@ -175,7 +176,7 @@ describe("estado-bodega-procesamiento-slot", () => {
           id_ubicacion: "u-proc-1",
           id_producto: "prod-secundario",
           cantidad: "17",
-        } as never,
+        },
       ],
     });
     const occupied = (layout.sections[0]?.slots ?? []).filter(
@@ -198,7 +199,7 @@ describe("estado-bodega-procesamiento-slot", () => {
           tipoFlujo: "bodega_a_bodega",
           observaciones:
             "solicitudProcesamiento:sol-1|rolDevolucion:desperdicio",
-        } as never,
+        },
       ],
     });
     const occupied = (layout.sections[0]?.slots ?? []).filter(
@@ -275,14 +276,14 @@ describe("estado-bodega-procesamiento-slot", () => {
           tipoFlujo: "bodega_a_bodega",
           observaciones:
             "solicitudProcesamiento:sol-1|rolDevolucion:procesado",
-        } as never,
+        },
         {
           idOrdenTrabajo: "ord-desp",
           estado: "completada",
           tipoFlujo: "bodega_a_bodega",
           observaciones:
             "solicitudProcesamiento:sol-1|rolDevolucion:desperdicio",
-        } as never,
+        },
       ],
     });
     const occupied = (layout.sections[0]?.slots ?? []).filter(
@@ -351,19 +352,19 @@ describe("estado-bodega-procesamiento-slot", () => {
         {
           ...zonaParams.solicitudesDb[0]!,
           id_producto_secundario: "prod-b",
-        } as never,
+        },
       ],
       warehouseRows: [
         {
           id_ubicacion: "u-slot-1",
           id_producto: "prod-b",
           cantidad: "17",
-        } as never,
+        },
         {
           id_ubicacion: "u-slot-2",
           id_producto: "prod-a",
           cantidad: "40",
-        } as never,
+        },
       ],
     });
 

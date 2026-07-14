@@ -180,6 +180,7 @@ export function JefeBodegaRevisarModal({
           posicion: ubicacion.codigo,
           temperatura: temp,
           ordenCompraCodigo: orden,
+          lockedBy: null,
         },
       };
     });

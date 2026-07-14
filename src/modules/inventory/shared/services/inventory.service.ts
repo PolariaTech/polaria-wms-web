@@ -14,7 +14,7 @@ const WAREHOUSE_STATE_COLUMNS =
 
 const WAREHOUSE_STATE_ENRICHED_SELECT =
   `${WAREHOUSE_STATE_COLUMNS},` +
-  "producto:producto(id_producto,sku,descripcion,metadatos_catalogo)," +
+  "producto:producto(id_producto,sku,descripcion,id_cliente,metadatos_catalogo)," +
   "cuenta:cuenta(codigo_cuenta,nombre_comercial)," +
   "lote:lote(" +
   "id_lote,codigo_lote,id_cliente,id_proveedor,id_linea_orden_compra," +

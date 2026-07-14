@@ -2,6 +2,7 @@ export interface WarehouseStateProductoRel {
   id_producto: string;
   sku: string | null;
   descripcion: string | null;
+  id_cliente?: string | null;
   metadatos_catalogo?: unknown;
 }
 

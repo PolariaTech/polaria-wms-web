@@ -3,7 +3,8 @@ export type DomainServiceErrorCode =
   | "TENANT_CONTEXT_MISSING"
   | "QUERY_FAILED"
   | "MUTATION_FAILED"
-  | "INVALID_ARGUMENT";
+  | "INVALID_ARGUMENT"
+  | "NOT_FOUND";
 
 export class DomainServiceError extends Error {
   readonly code: DomainServiceErrorCode;

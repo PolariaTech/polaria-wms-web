@@ -174,8 +174,8 @@ export function ProcesadorCerrarModal({
         ) : null}
 
         {!loadingSugerido &&
-        mermaSugerida !== null &&
-        perdidaPct !== null &&
+        mermaSugerida != null &&
+        perdidaPct != null &&
         perdidaPct > 0 ? (
           <p className="polaria-text-caption text-polaria-w-50">
             Sugerido:{" "}
@@ -189,7 +189,7 @@ export function ProcesadorCerrarModal({
           </p>
         ) : null}
 
-        {!loadingSugerido && (perdidaPct === null || perdidaPct <= 0) ? (
+        {!loadingSugerido && (perdidaPct == null || perdidaPct <= 0) ? (
           <JefeBodegaModalHint>Ingresá la merma en kg.</JefeBodegaModalHint>
         ) : null}
 

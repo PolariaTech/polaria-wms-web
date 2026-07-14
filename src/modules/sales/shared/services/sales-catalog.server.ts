@@ -39,7 +39,14 @@ function unwrapProductoRel(
 } | null {
   if (!value) return null;
   const row = Array.isArray(value) ? value[0] : value;
-  return row ?? null;
+  if (!row) return null;
+  return {
+    id_producto: row.id_producto,
+    sku: row.sku,
+    descripcion: row.descripcion,
+    id_cliente: row.id_cliente ?? null,
+    metadatos_catalogo: row.metadatos_catalogo,
+  };
 }
 
 function mapStockRowToProductoOption(
@@ -108,7 +115,7 @@ export async function listProductosVentaCatalogoServer(
       throw new Error(error.message);
     }
 
-    stockRows = (data ?? []) as WarehouseStockVentaRow[];
+    stockRows = (data ?? []) as unknown as WarehouseStockVentaRow[];
   }
 
   if (stockRows.length === 0) {
@@ -122,7 +129,7 @@ export async function listProductosVentaCatalogoServer(
       throw new Error(error.message);
     }
 
-    stockRows = (data ?? []) as WarehouseStockVentaRow[];
+    stockRows = (data ?? []) as unknown as WarehouseStockVentaRow[];
   }
 
   let ubicaciones: UbicacionEstadoBodegaDbRow[] = [];
@@ -138,7 +145,7 @@ export async function listProductosVentaCatalogoServer(
       throw new Error(error.message);
     }
 
-    ubicaciones = (data ?? []) as UbicacionEstadoBodegaDbRow[];
+    ubicaciones = (data ?? []) as unknown as UbicacionEstadoBodegaDbRow[];
   }
 
   const almacenamientoUbicacionIds =

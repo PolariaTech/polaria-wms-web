@@ -128,9 +128,11 @@ export function JefeBodegaProcesamientoAsignarModal({
       <JefeBodegaModalSection
         icon={Send}
         label="Retiro en bodega"
-        hint="La tarea pasará a la cola del operario asignado."
       >
         <JefeBodegaOperarioPicker asignacion={operarioAsignacion} />
+        <JefeBodegaModalHint>
+          La tarea pasará a la cola del operario asignado.
+        </JefeBodegaModalHint>
       </JefeBodegaModalSection>
 
       {error ? (

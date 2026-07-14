@@ -114,7 +114,14 @@ function unwrapProductoRel(
 } | null {
   if (!value) return null;
   const row = Array.isArray(value) ? value[0] : value;
-  return row ?? null;
+  if (!row) return null;
+  return {
+    id_producto: row.id_producto,
+    sku: row.sku,
+    descripcion: row.descripcion,
+    id_cliente: row.id_cliente ?? null,
+    metadatos_catalogo: row.metadatos_catalogo,
+  };
 }
 
 async function resolveBodegaIdsForCuenta(

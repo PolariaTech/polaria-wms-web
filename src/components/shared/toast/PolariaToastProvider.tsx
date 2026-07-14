@@ -85,7 +85,7 @@ function PolariaToastStack({ toasts, onDismiss }: {
 export function PolariaToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<PolariaToastItem[]>([]);
   const [mounted, setMounted] = useState(false);
-  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const timersRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     setMounted(true);
