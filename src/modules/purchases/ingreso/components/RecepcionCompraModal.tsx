@@ -6,7 +6,7 @@ import {
   PolariaFormInput,
 } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
-import { formatKgEs, parseDecimalEs } from "@/lib/utils/decimal-es";
+import { parseDecimalEs } from "@/lib/utils/decimal-es";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { cerrarRecepcionCompraApi } from "../../shared/services/purchases-api.service";
@@ -28,15 +28,8 @@ interface DraftLinea {
   temperaturaInput: string;
 }
 
-function pendingCantidad(linea: OrdenCompraLineaRow): number {
-  const pedida = linea.cantidad;
-  const recibida = linea.cantidad_recibida ?? 0;
-  return Math.max(0, pedida - recibida);
-}
-
 function buildDraftLineas(lineas: OrdenCompraLineaRow[]): DraftLinea[] {
   return lineas.map((linea) => {
-    const pendiente = pendingCantidad(linea);
     return {
       idLineaOrdenCompra: linea.id_linea_orden_compra,
       titulo: resolveOrdenLineaTitulo(linea),

@@ -87,25 +87,6 @@ async function loadOrdenesTrabajoForBodega(
   );
 }
 
-async function loadOrdenesTrabajo(
-  client: SupabaseClient,
-  ordenIds: string[],
-): Promise<OrdenTrabajoApiRow[]> {
-  if (ordenIds.length === 0) return [];
-
-  const { data, error } = await client
-    .from("orden_trabajo")
-    .select(
-      "id_orden_trabajo,codigo_cuenta,id_bodega,codigo,estado,tipo,id_asignado,id_solicitante,id_lote,id_ubicacion_origen,id_ubicacion_destino,observaciones,created_at,updated_at",
-    )
-    .in("id_orden_trabajo", ordenIds);
-
-  if (error || !data) return [];
-  return (data as OrdenTrabajoDbRow[]).map((row) =>
-    mapOrdenTrabajoApiRow(row as unknown as Record<string, unknown>),
-  );
-}
-
 async function loadUbicaciones(
   client: SupabaseClient,
   idBodega: string,

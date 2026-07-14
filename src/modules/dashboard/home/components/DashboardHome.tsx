@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect -- métricas async del dashboard */
 import { useEffect, useMemo, useState } from "react";
 import { usePermissions } from "@/hooks/auth/usePermissions";
 import { useCompany } from "@/providers/tenant/CompanyProvider";

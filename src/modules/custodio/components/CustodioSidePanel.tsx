@@ -9,7 +9,7 @@ import {
 
 export const CUSTODIO_PANEL_CHROME_PX = ESTADO_BODEGA_PANEL_WIDTH_CHROME_PX;
 
-export function custodioPanelWidth(slotSize: number, cols = 2, rows = 4) {
+export function custodioPanelWidth(slotSize: number, cols = 2, _rows = 4) {
   const gap = ESTADO_BODEGA_SLOT_GAP_PX;
   return cols * slotSize + (cols - 1) * gap + CUSTODIO_PANEL_CHROME_PX;
 }

@@ -31,11 +31,15 @@ export function JefeBodegaOperarioPicker({
 
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const operariosElegibles = disponibles.length > 0
-    ? disponibles
-    : operarioUnico?.disponible
-      ? [operarioUnico]
-      : [];
+  const operariosElegibles = useMemo(
+    () =>
+      disponibles.length > 0
+        ? disponibles
+        : operarioUnico?.disponible
+          ? [operarioUnico]
+          : [],
+    [disponibles, operarioUnico],
+  );
 
   const operarioSeleccionado = useMemo(
     () =>

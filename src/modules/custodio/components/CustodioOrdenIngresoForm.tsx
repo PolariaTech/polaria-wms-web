@@ -6,7 +6,6 @@ import {
   POLARIA_FORM_INPUT_CLASS,
   POLARIA_FORM_SELECT_CLASS_COMPACT,
 } from "@/components/shared/form/PolariaFormField";
-import { formatKgEs } from "@/lib/utils/decimal-es";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { listCatalogoProductosAdmin } from "@/modules/admin-panel";
 import type { CatalogoProductoListRow } from "@/modules/admin-panel/catalogo/services/productos-catalogo.service";

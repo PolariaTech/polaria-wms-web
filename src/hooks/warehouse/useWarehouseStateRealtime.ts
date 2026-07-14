@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect -- carga async y suscripción Realtime */
 import { useCallback, useEffect, useState } from "react";
 import { listWarehouseState } from "@/modules/inventory/shared/services/inventory.service";
 import type { WarehouseStateRow } from "@/modules/inventory/shared/types/inventory.types";

@@ -100,6 +100,8 @@ export function AuthSessionScript() {
 `;
 
   return (
+    // beforeInteractive: el guard de sesión debe correr antes de hidratar rutas protegidas.
+    // eslint-disable-next-line @next/next/no-before-interactive-script-outside-document
     <Script
       id="polaria-auth-session-guard"
       strategy="beforeInteractive"

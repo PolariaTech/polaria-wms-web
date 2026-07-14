@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AlertCircle, Box, Phone } from "lucide-react";
 import { usePolariaToast } from "@/components/shared/toast/PolariaToastProvider";
 import {
@@ -48,7 +48,7 @@ export function OperarioOperacionPageContent() {
     Boolean(codigoCuenta && activeBodegaId && idUsuario),
   );
 
-  const tareas = data ?? [];
+  const tareas = useMemo(() => data ?? [], [data]);
 
   const handleCompletarTarea = useCallback(
     async (idTarea: string) => {

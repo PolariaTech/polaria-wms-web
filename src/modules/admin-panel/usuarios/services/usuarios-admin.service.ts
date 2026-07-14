@@ -100,7 +100,7 @@ interface CreateUsuarioAdminApiResponse {
 export async function createUsuarioAdmin(
   input: CreateUsuarioAdminInput,
 ): Promise<UsuarioAdminListRow> {
-  const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
+  requireCodigoCuenta(input.codigoCuenta);
   const codigoEmpresa = input.codigoEmpresa.trim();
   const nombre = input.nombre.trim();
   const correo = input.correo.trim();

@@ -290,12 +290,6 @@ async function resolveBodegaVenta(
   return resolved;
 }
 
-async function resolveBodegaVentaForCuenta(
-  codigoCuenta: string,
-): Promise<string> {
-  return resolveBodegaVenta(codigoCuenta);
-}
-
 async function resolveClienteVenta(
   codigoCuenta: string,
   idProducto: string,

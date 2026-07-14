@@ -40,6 +40,8 @@ export function useJefeBodegaUbicacionesBloqueadas(params: {
     return () => {
       cancelled = true;
     };
+    // tipoFlujosKey refleja el contenido de params.tipoFlujos sin re-disparar por identidad de array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver tipoFlujosKey
   }, [params.open, params.codigoCuenta, params.idBodega, tipoFlujosKey]);
 
   return { bloqueadas, loading };

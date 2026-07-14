@@ -45,7 +45,7 @@ export function useJefeBodegaOperarioAsignacion({
 
   const { data, isLoading, error: loadError } = useAsyncQuery(fetcher, enabled);
 
-  const operarios = data ?? [];
+  const operarios = useMemo(() => data ?? [], [data]);
   const disponibles = useMemo(
     () => operarios.filter((operario) => operario.disponible),
     [operarios],

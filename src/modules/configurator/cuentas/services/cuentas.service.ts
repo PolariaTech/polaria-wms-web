@@ -4,10 +4,7 @@ import {
   runDomainQuery,
 } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import {
-  generateCodigoCuentaFromNombre,
-  normalizeCodigoCuentaInput,
-} from "@/lib/utils/generate-codigo-cuenta";
+import { normalizeCodigoCuentaInput } from "@/lib/utils/generate-codigo-cuenta";
 
 export interface CuentaListRow {
   codigoCuenta: string;
