@@ -5,6 +5,12 @@ export type EstadoGuiaEnvio =
   | "entregada"
   | "anulada";
 
+export type EstadoViajeTransporte =
+  | "programado"
+  | "en_ruta"
+  | "entregado"
+  | "cancelado";
+
 export type TipoEvidenciaTransporte = "foto" | "firma";
 
 export interface GuiaEnvioRow {
@@ -29,6 +35,18 @@ export interface EvidenciaTransporteRow {
   incidencia: string | null;
   entrega_conforme: boolean | null;
   created_at: string;
+}
+
+/** Fila de la tabla de viajes del rol transportista (referencia frio). */
+export interface ViajeEntregaRow {
+  idViaje: string;
+  codigoViaje: string;
+  idGuia: string | null;
+  idOrdenVenta: string | null;
+  codigoVenta: string;
+  clienteNombre: string;
+  kgVenta: number;
+  estado: EstadoViajeTransporte;
 }
 
 export interface TransportListParams {

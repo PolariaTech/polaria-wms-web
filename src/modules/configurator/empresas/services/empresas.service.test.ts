@@ -4,10 +4,22 @@ import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
 import { getCreationOptionHref } from "@/modules/configurator/shared/constants/creation-options";
+import { apiRequest } from "@/services/api/api";
 import {
   createEmpresaConfigurator,
   listEmpresasConfigurator,
+  updateEmpresaConfigurator,
 } from "./empresas.service";
+
+vi.mock("@/services/api/api", async () => {
+  const actual = await vi.importActual<typeof import("@/services/api/api")>(
+    "@/services/api/api",
+  );
+  return {
+    ...actual,
+    apiRequest: vi.fn(),
+  };
+});
 
 describe("creation-options", () => {
   it("empresas resuelve a /configurador/creacion/empresas", () => {
@@ -139,5 +151,40 @@ describe("empresas.service", () => {
       message: "La razón social es obligatoria.",
       code: "INVALID_ARGUMENT",
     } satisfies Partial<DomainServiceError>);
+  });
+
+  it("updateEmpresaConfigurator llama PATCH /configuracion/empresas/:codigo", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      codigoEmpresa: "EVU53",
+      razonSocial: "Tecno SpA",
+      telefono: null,
+      estaActiva: false,
+    });
+
+    const row = await updateEmpresaConfigurator({
+      codigoEmpresa: "EVU53",
+      razonSocial: "Tecno SpA",
+      telefono: "",
+      estaActiva: false,
+    });
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/configuracion/empresas/EVU53",
+      expect.objectContaining({
+        method: "PATCH",
+        auth: true,
+        body: {
+          razonSocial: "Tecno SpA",
+          telefono: null,
+          estaActiva: false,
+        },
+      }),
+    );
+    expect(row).toEqual({
+      codigoEmpresa: "EVU53",
+      razonSocial: "Tecno SpA",
+      telefono: null,
+      estaActiva: false,
+    });
   });
 });

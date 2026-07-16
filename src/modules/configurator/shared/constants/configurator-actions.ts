@@ -12,21 +12,18 @@ export const CONFIGURATOR_ACTIONS: ConfiguratorAction[] = [
   {
     id: "creation",
     title: "Creación",
-    description: "Crea y gestiona configuraciones",
     icon: Layers,
     href: ROUTES.configuratorCreation,
   },
   {
     id: "creation-assignment",
     title: "Creación y asignación",
-    description: "Crea recursos y asígnalos a usuarios",
     icon: UserCheck,
     href: ROUTES.configuratorAssignment,
   },
   {
     id: "integration",
     title: "Integración",
-    description: "Gestiona integraciones externas",
     icon: ClipboardList,
     href: ROUTES.configuratorIntegration,
   },

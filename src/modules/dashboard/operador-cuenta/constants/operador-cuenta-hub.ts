@@ -28,10 +28,10 @@ export const OPERADOR_CUENTA_HUB_OPTIONS: readonly OperadorCuentaHubOption[] = [
     href: ROUTES.dashboardCompras,
   },
   {
-    id: "bodega-externa",
-    title: "Bodega externa",
-    icon: ExternalLink,
-    href: ROUTES.dashboardBodegaExternaCuenta,
+    id: "ventas",
+    title: "Ventas",
+    icon: ShoppingCart,
+    href: ROUTES.dashboardVentas,
   },
   {
     id: "bodega-interna",
@@ -40,10 +40,10 @@ export const OPERADOR_CUENTA_HUB_OPTIONS: readonly OperadorCuentaHubOption[] = [
     href: ROUTES.dashboardBodegaInternaCuenta,
   },
   {
-    id: "ventas",
-    title: "Ventas",
-    icon: ShoppingCart,
-    href: ROUTES.dashboardVentas,
+    id: "bodega-externa",
+    title: "Bodega externa",
+    icon: ExternalLink,
+    href: ROUTES.dashboardBodegaExternaCuenta,
   },
 ] as const;
 

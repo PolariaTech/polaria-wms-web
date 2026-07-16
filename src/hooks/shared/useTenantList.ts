@@ -18,6 +18,7 @@ export interface UseTenantListResult<T> {
 export function useTenantList<T>(
   fetcher: (params: TenantListParams) => Promise<T[]>,
   enabled = true,
+  refreshKey = 0,
 ): UseTenantListResult<T> {
   const { codigoCuenta, activeBodegaId } = useCompany();
   const fetcherRef = useRef(fetcher);
@@ -60,7 +61,7 @@ export function useTenantList<T>(
     return () => {
       cancelled = true;
     };
-  }, [activeBodegaId, canFetch, codigoCuenta]);
+  }, [activeBodegaId, canFetch, codigoCuenta, refreshKey]);
 
   if (!enabled) {
     return { rows: [], isLoading: false, error: null };

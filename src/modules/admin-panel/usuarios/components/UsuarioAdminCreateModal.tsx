@@ -104,16 +104,6 @@ export function UsuarioAdminCreateModal({
     >
       <div className="flex flex-col gap-3">
         <PolariaFormInput
-          id="usuario-admin-id"
-          label="ID único"
-          value=""
-          placeholder="Se genera al guardar"
-          readOnly
-          disabled
-          compact
-        />
-
-        <PolariaFormInput
           id="usuario-admin-codigo"
           label="Código"
           value={codigoPreview}

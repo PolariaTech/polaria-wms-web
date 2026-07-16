@@ -9,7 +9,7 @@ export default function DashboardTransportePage() {
   return (
     <OperationalModuleShell
       title="Transporte"
-      description="Guías de envío y evidencias de entrega."
+      description="Viajes de entrega en curso."
       gate={{
         module: WMS_MODULE.TRANSPORT,
         roles: ROLES_TRANSPORTE,

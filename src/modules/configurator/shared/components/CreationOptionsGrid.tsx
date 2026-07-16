@@ -1,6 +1,7 @@
 import { CREATION_OPTIONS } from "@/modules/configurator/shared/constants/creation-options";
 import type { CreationOptionId } from "@/modules/configurator/shared/types/creation.types";
 import { PolariaSelectionCard } from "@/components/shared/cards/PolariaSelectionCard";
+import { PolariaSelectionGrid } from "@/components/shared/cards/PolariaSelectionGrid";
 
 interface CreationOptionsGridProps {
   onOptionClick?: (optionId: CreationOptionId) => void;
@@ -8,10 +9,7 @@ interface CreationOptionsGridProps {
 
 export function CreationOptionsGrid({ onOptionClick }: CreationOptionsGridProps) {
   return (
-    <section
-      aria-label="Tipos de entidad a crear"
-      className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-4 px-4 sm:grid-cols-2 sm:gap-5 sm:px-6 lg:grid-cols-3 lg:gap-6"
-    >
+    <PolariaSelectionGrid aria-label="Tipos de entidad a crear">
       {CREATION_OPTIONS.map((option) => (
         <PolariaSelectionCard
           key={option.id}
@@ -23,6 +21,6 @@ export function CreationOptionsGrid({ onOptionClick }: CreationOptionsGridProps)
           }
         />
       ))}
-    </section>
+    </PolariaSelectionGrid>
   );
 }

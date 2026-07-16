@@ -5,8 +5,8 @@ import { ArrowRightFromLine, Eye, Package, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { formatKgEs } from "@/lib/utils/decimal-es";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
-import { POLARIA_FORM_SELECT_CLASS_COMPACT } from "@/components/shared/form/PolariaFormField";
 import { usePolariaToast } from "@/components/shared/toast/PolariaToastProvider";
+import { CamionCatalogTablePickerModal } from "@/modules/admin-panel/camiones/components/CamionCatalogTablePickerModal";
 import {
   formatCamionId,
   listCamionesAdmin,
@@ -19,18 +19,21 @@ import {
   type OrdenVentaDetalleRow,
   type OrdenVentaOperadorRow,
 } from "@/modules/sales";
+import { crearPaqueteDespachoApi } from "@/modules/transport";
 import { CustodioSidePanel } from "./CustodioSidePanel";
 
 interface CustodioOrdenSalidaColumnProps {
   ventas: OrdenVentaOperadorRow[];
   cajasEnSalida: number;
   codigoCuenta: string | null;
+  idBodega: string | null;
   onRefresh: () => void;
+  onPaqueteEnviado?: () => void;
   isLoading: boolean;
   slotSize: number;
 }
 
-type PickerKind = "paquete" | "detalle" | null;
+type PickerKind = "paquete" | "detalle" | "camion" | null;
 
 interface PreviewProductoRow {
   key: string;
@@ -59,7 +62,9 @@ export function CustodioOrdenSalidaColumn({
   ventas,
   cajasEnSalida,
   codigoCuenta,
+  idBodega,
   onRefresh,
+  onPaqueteEnviado,
   isLoading,
   slotSize,
 }: CustodioOrdenSalidaColumnProps) {
@@ -68,9 +73,12 @@ export function CustodioOrdenSalidaColumn({
   const ventasActivas = useMemo(
     () =>
       ventas.filter((venta) =>
-        ["confirmada", "en_preparacion", "parcialmente_despachada"].includes(
-          venta.estado,
-        ),
+        [
+          "confirmada",
+          "en_preparacion",
+          "parcialmente_despachada",
+          "despachada",
+        ].includes(venta.estado),
       ),
     [ventas],
   );
@@ -135,6 +143,17 @@ export function CustodioOrdenSalidaColumn({
     if (!ventaDetalle) return "";
     return `${ventaDetalle.venta} · ${ventaDetalle.comprador}`;
   }, [ventaDetalle]);
+
+  const camionFieldLabel = useMemo(() => {
+    if (!selectedCamion) return "";
+    return truckLabel(selectedCamion);
+  }, [selectedCamion]);
+
+  const camionPickerPlaceholder = loadingCamiones
+    ? "Cargando camiones…"
+    : camiones.length === 0
+      ? "Sin camiones disponibles"
+      : "Buscar camión disponible";
 
   const previewIds = useMemo(() => {
     if (paqueteArmado && paqueteIds?.length) return paqueteIds;
@@ -277,6 +296,15 @@ export function CustodioOrdenSalidaColumn({
 
   const handleEnviarPaquete = async () => {
     if (!paqueteIds?.length || !selectedCamion) return;
+    if (!codigoCuenta?.trim() || !idBodega?.trim()) {
+      showToast({
+        title: "Sin contexto",
+        content: "Seleccioná cuenta y bodega activas para enviar el paquete.",
+        variant: "error",
+        durationMs: 3500,
+      });
+      return;
+    }
     if (cajasEnSalida <= 0) {
       showToast({
         title: "Sin cajas en salida",
@@ -290,15 +318,37 @@ export function CustodioOrdenSalidaColumn({
 
     setEnviando(true);
     try {
+      const resultado = await crearPaqueteDespachoApi({
+        codigoCuenta,
+        idBodega,
+        idCamion: selectedCamion.idCamion,
+        idOrdenesVenta: paqueteIds,
+      });
+
       showToast({
-        title: "Paquete listo (UI)",
-        content: `Se enviarán ${cajasEnSalida} caja(s) con ${selectedCamion.placa}. El despacho al transporte se conecta en el siguiente paso.`,
-        variant: "info",
-        durationMs: 4000,
+        title: "Paquete enviado al transporte",
+        content: `Viaje ${resultado.codigoViaje} · camión ${resultado.placaCamion}. Ya aparece para el transportista.`,
+        variant: "success",
+        durationMs: 4500,
       });
       setPaqueteIds(null);
       setSelectedKeys([]);
       setCamionId("");
+      setCamiones((prev) =>
+        prev.filter((camion) => camion.idCamion !== selectedCamion.idCamion),
+      );
+      onPaqueteEnviado?.();
+      onRefresh();
+    } catch (error) {
+      showToast({
+        title: "No se pudo enviar el paquete",
+        content:
+          error instanceof Error
+            ? error.message
+            : "Error al crear el viaje de transporte.",
+        variant: "error",
+        durationMs: 4500,
+      });
     } finally {
       setEnviando(false);
     }
@@ -507,32 +557,20 @@ export function CustodioOrdenSalidaColumn({
                   >
                     Camión asignado
                   </label>
-                  <select
+                  <JefeBodegaModalSearchField
                     id="custodio-orden-salida-camion"
-                    value={camionId}
-                    onChange={(event) => setCamionId(event.target.value)}
-                    disabled={
-                      loadingCamiones || camiones.length === 0 || enviando
+                    value={camionFieldLabel}
+                    placeholder={camionPickerPlaceholder}
+                    ariaLabel="Camión asignado"
+                    onSearchClick={
+                      enviando || loadingCamiones || camiones.length === 0
+                        ? undefined
+                        : () => {
+                            void loadCamiones();
+                            setPicker("camion");
+                          }
                     }
-                    className={POLARIA_FORM_SELECT_CLASS_COMPACT}
-                  >
-                    <option value="" className="polaria-form-select__option">
-                      {loadingCamiones
-                        ? "Cargando camiones…"
-                        : camiones.length === 0
-                          ? "Sin camiones disponibles"
-                          : "Seleccioná un camión"}
-                    </option>
-                    {camiones.map((camion) => (
-                      <option
-                        key={camion.idCamion}
-                        value={camion.idCamion}
-                        className="polaria-form-select__option"
-                      >
-                        {truckLabel(camion)}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
 
@@ -588,6 +626,74 @@ export function CustodioOrdenSalidaColumn({
           setDetalleVentaId(orden.idOrdenVenta);
           setPicker(null);
         }}
+      />
+
+      <CamionCatalogTablePickerModal
+        open={picker === "camion"}
+        onClose={() => setPicker(null)}
+        title="Seleccionar camión"
+        description="Camiones disponibles para el paquete de despacho."
+        rows={camiones}
+        getRowKey={(row) => row.idCamion}
+        getSearchHaystack={(row) =>
+          [
+            row.placa,
+            row.codigo,
+            row.marca,
+            row.modelo,
+            row.tipo,
+            row.rangoTemperatura,
+          ]
+            .filter(Boolean)
+            .join(" ")
+        }
+        selectedKey={camionId || null}
+        onSelect={(row) => {
+          setCamionId(row.idCamion);
+          setPicker(null);
+        }}
+        searchPlaceholder="Buscar por placa, código, marca o modelo"
+        emptyMessage="No hay camiones disponibles."
+        columns={[
+          {
+            id: "placa",
+            header: "Placa",
+            className: "w-[22%]",
+            cell: (row) => (
+              <span className="font-medium text-polaria-teal">{row.placa}</span>
+            ),
+          },
+          {
+            id: "codigo",
+            header: "Código",
+            className: "w-[18%]",
+            cell: (row) => row.codigo?.trim() || formatCamionId(row.idCamion),
+          },
+          {
+            id: "vehiculo",
+            header: "Vehículo",
+            className: "w-[34%]",
+            cell: (row) => {
+              const marca = row.marca?.trim();
+              const modelo = row.modelo?.trim();
+              if (marca && modelo) return `${marca} ${modelo}`;
+              return marca || modelo || "—";
+            },
+          },
+          {
+            id: "tipo",
+            header: "Tipo",
+            className: "w-[14%]",
+            cell: (row) => String(row.tipo ?? "—"),
+          },
+          {
+            id: "capacidad",
+            header: "Kg máx.",
+            className: "w-[12%] whitespace-nowrap",
+            cell: (row) =>
+              row.capacidadKg != null ? formatKgEs(row.capacidadKg) : "—",
+          },
+        ]}
       />
 
       <PolariaFormModal

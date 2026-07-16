@@ -15,7 +15,7 @@ const apiBaseUrl = normalizeApiBaseUrl(
 
 /** Excluye route handlers locales de n8n; el resto de /api/* se proxya a Nest. */
 export const NEST_API_REWRITE_SOURCE =
-  "/api/:path((?!pedido-proveedor$)(?!solicitud-compra$).*)";
+  "/api/:path((?!pedido-proveedor$)(?!solicitud-compra$)(?!evidencia-transporte$).*)";
 
 const nextConfig: NextConfig = {
   // Evita que Turbopack use C:\Users\Daniel\Videos como root (hay package-lock.json padre).

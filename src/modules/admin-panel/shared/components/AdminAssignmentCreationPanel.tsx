@@ -28,7 +28,7 @@ export function AdminAssignmentCreationPanel({
         </p>
       </section>
 
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 sm:px-6">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 sm:gap-10 sm:px-6">
         <AdminMenuSection
           title={ADMIN_CREATION_SECTION_TITLE}
           options={ADMIN_CREATION_OPTIONS}
@@ -37,10 +37,7 @@ export function AdminAssignmentCreationPanel({
           }
         />
 
-        <div
-          aria-hidden
-          className="h-px w-full bg-polaria-w-08"
-        />
+        <div aria-hidden className="mx-auto h-px w-full max-w-md bg-polaria-w-08" />
 
         <AdminMenuSection
           title={ADMIN_ASSIGNMENT_SECTION_TITLE}

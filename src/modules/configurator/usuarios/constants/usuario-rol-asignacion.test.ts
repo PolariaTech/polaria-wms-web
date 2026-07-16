@@ -24,8 +24,8 @@ describe("usuario-rol-asignacion", () => {
     expect(getUsuarioAsignacionLabel(WmsRol.operador_cuenta)).toBe("Cuenta");
   });
 
-  it("mapea transportista a transporte", () => {
-    expect(getUsuarioAsignacionTipo(WmsRol.transportista)).toBe("transporte");
-    expect(getUsuarioAsignacionLabel(WmsRol.transportista)).toBe("Transporte");
+  it("mapea transportista a selector de bodega", () => {
+    expect(getUsuarioAsignacionTipo(WmsRol.transportista)).toBe("bodega");
+    expect(getUsuarioAsignacionLabel(WmsRol.transportista)).toBe("Bodega");
   });
 });

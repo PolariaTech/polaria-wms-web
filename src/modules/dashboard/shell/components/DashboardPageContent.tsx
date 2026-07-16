@@ -14,6 +14,7 @@ import { CUSTODIO_HOME_ROUTE } from "@/modules/custodio";
 import { JEFE_BODEGA_HOME_ROUTE } from "@/modules/jefe-bodega";
 import { OPERARIO_HOME_ROUTE } from "@/modules/operario";
 import { PROCESADOR_HOME_ROUTE } from "@/modules/procesador";
+import { TRANSPORTISTA_HOME_ROUTE } from "@/modules/transport";
 import { DashboardHome } from "../../home/components/DashboardHome";
 import { OperadorCuentaHub } from "../../operador-cuenta/components/OperadorCuentaHub";
 
@@ -33,6 +34,7 @@ export function DashboardPageContent() {
   const isCustodio = idRol === WmsRol.custodio;
   const isOperario = idRol === WmsRol.operario;
   const isProcesador = idRol === WmsRol.procesador;
+  const isTransportista = idRol === WmsRol.transportista;
 
   useEffect(() => {
     if (isAdministradorBodega) {
@@ -57,6 +59,11 @@ export function DashboardPageContent() {
 
     if (isProcesador) {
       router.replace(PROCESADOR_HOME_ROUTE);
+      return;
+    }
+
+    if (isTransportista) {
+      router.replace(TRANSPORTISTA_HOME_ROUTE);
     }
   }, [
     isAdministradorBodega,
@@ -64,6 +71,7 @@ export function DashboardPageContent() {
     isJefeBodega,
     isOperario,
     isProcesador,
+    isTransportista,
     router,
   ]);
 
@@ -72,7 +80,8 @@ export function DashboardPageContent() {
     isJefeBodega ||
     isCustodio ||
     isOperario ||
-    isProcesador
+    isProcesador ||
+    isTransportista
   ) {
     return null;
   }

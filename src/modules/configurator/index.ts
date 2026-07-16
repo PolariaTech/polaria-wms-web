@@ -103,21 +103,26 @@ export {
 export type {
   CreateEmpresaInput,
   EmpresaListRow,
+  UpdateEmpresaInput,
 } from "./empresas/services/empresas.service";
 export {
   createEmpresaConfigurator,
   listEmpresasConfigurator,
+  updateEmpresaConfigurator,
 } from "./empresas/services/empresas.service";
 
 export type {
+  CuentaBodegaAsignada,
   CuentaListRow,
   CreateCuentaInput,
   EmpresaAssignOption,
+  UpdateCuentaInput,
 } from "./cuentas/services/cuentas.service";
 export {
   createCuentaConfigurator,
   listCuentasConfigurator,
   listEmpresasAssignOptions,
+  updateCuentaConfigurator,
 } from "./cuentas/services/cuentas.service";
 
 export type {

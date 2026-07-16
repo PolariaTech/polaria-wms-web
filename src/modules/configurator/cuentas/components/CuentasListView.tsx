@@ -7,6 +7,7 @@ import {
   PolariaTableCode,
   PolariaTableEditButton,
 } from "@/components/shared/table/PolariaTableCells";
+import { cn } from "@/lib/utils/cn";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import {
   CUENTAS_EMPTY_MESSAGE,
@@ -16,10 +17,17 @@ import {
 import { listCuentasConfigurator } from "../services/cuentas.service";
 import type { CuentaListRow } from "../services/cuentas.service";
 import { ConfiguratorListShell } from "@/modules/configurator/shared/components/ConfiguratorListShell";
+import { CuentaBodegasAsignadasModal } from "./CuentaBodegasAsignadasModal";
 import { CuentaCreateModal } from "./CuentaCreateModal";
+import { CuentaEditModal } from "./CuentaEditModal";
 
 export function CuentasListView() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingCuenta, setEditingCuenta] = useState<CuentaListRow | null>(
+    null,
+  );
+  const [bodegasModalCuenta, setBodegasModalCuenta] =
+    useState<CuentaListRow | null>(null);
   const fetchCuentas = useCallback(() => listCuentasConfigurator(), []);
   const { data, isLoading, isRefreshing, error, reload } =
     useAsyncQuery(fetchCuentas);
@@ -44,13 +52,40 @@ export function CuentasListView() {
         {
           id: "bodega",
           header: "Bodega asignada",
-          cell: (row: CuentaListRow) => row.bodegaAsignada,
+          cell: (row: CuentaListRow) => {
+            const principal = row.bodegaInternaPrincipal;
+            if (!principal) {
+              return <span className="text-polaria-w-50">—</span>;
+            }
+
+            const resto = Math.max(0, row.bodegasAsignadas.length - 1);
+
+            return (
+              <div className="flex items-center gap-1.5">
+                <PolariaTableBadge>{principal.nombre}</PolariaTableBadge>
+                {resto > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setBodegasModalCuenta(row)}
+                    aria-label={`Ver ${resto} bodegas más de ${row.nombreComercial}`}
+                    className={cn(
+                      "inline-flex rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2.5 py-1",
+                      "polaria-text-badge font-semibold text-polaria-teal transition hover:bg-polaria-t-20",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                    )}
+                  >
+                    +{resto}
+                  </button>
+                ) : null}
+              </div>
+            );
+          },
         },
         {
           id: "credenciales",
           header: "Credenciales",
           cell: (row: CuentaListRow) =>
-            row.tieneCredenciales ? (
+            row.estaActiva ? (
               <PolariaTableBadge>Sí</PolariaTableBadge>
             ) : (
               <PolariaTableBadge variant="neutral">No</PolariaTableBadge>
@@ -59,7 +94,9 @@ export function CuentasListView() {
         {
           id: "acciones",
           header: "Acciones",
-          cell: () => <PolariaTableEditButton />,
+          cell: (row: CuentaListRow) => (
+            <PolariaTableEditButton onClick={() => setEditingCuenta(row)} />
+          ),
         },
       ] as const,
     [],
@@ -92,6 +129,22 @@ export function CuentasListView() {
         onCreated={() => {
           void reload();
         }}
+      />
+
+      <CuentaEditModal
+        open={Boolean(editingCuenta)}
+        cuenta={editingCuenta}
+        onClose={() => setEditingCuenta(null)}
+        onUpdated={() => {
+          void reload();
+        }}
+      />
+
+      <CuentaBodegasAsignadasModal
+        open={Boolean(bodegasModalCuenta)}
+        onClose={() => setBodegasModalCuenta(null)}
+        cuentaNombre={bodegasModalCuenta?.nombreComercial ?? ""}
+        bodegas={bodegasModalCuenta?.bodegasAsignadas ?? []}
       />
     </ConfiguratorListShell>
   );

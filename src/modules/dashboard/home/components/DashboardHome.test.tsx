@@ -84,12 +84,12 @@ describe("DashboardHome", () => {
     expect(screen.queryByText("Stock resumido")).not.toBeInTheDocument();
   });
 
-  it("muestra widgets de transportista", () => {
+  it("no muestra widgets de transportista en el home", () => {
     mockPermissions.idRol = WmsRol.transportista;
 
     render(<DashboardHome />);
 
-    expect(screen.getByText("Guías transporte")).toBeInTheDocument();
+    expect(screen.queryByText("Guías transporte")).not.toBeInTheDocument();
     expect(screen.queryByText("Tareas asignadas")).not.toBeInTheDocument();
   });
 });

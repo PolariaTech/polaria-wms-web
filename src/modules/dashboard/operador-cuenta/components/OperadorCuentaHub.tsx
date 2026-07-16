@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { PolariaSelectionCard } from "@/components/shared/cards/PolariaSelectionCard";
+import { PolariaSelectionGrid } from "@/components/shared/cards/PolariaSelectionGrid";
 import {
   OPERADOR_CUENTA_HUB_OPTIONS,
   type OperadorCuentaHubOptionId,
@@ -32,9 +33,9 @@ export function OperadorCuentaHub() {
         </p>
       </header>
 
-      <section
+      <PolariaSelectionGrid
         aria-label="Accesos operador de cuenta"
-        className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6"
+        className="px-0 sm:px-0"
       >
         {OPERADOR_CUENTA_HUB_OPTIONS.map((option) => (
           <PolariaSelectionCard
@@ -49,7 +50,7 @@ export function OperadorCuentaHub() {
             }
           />
         ))}
-      </section>
+      </PolariaSelectionGrid>
     </main>
   );
 }

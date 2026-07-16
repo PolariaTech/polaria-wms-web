@@ -1,4 +1,5 @@
 import { PolariaSelectionCard } from "@/components/shared/cards/PolariaSelectionCard";
+import { PolariaSelectionGrid } from "@/components/shared/cards/PolariaSelectionGrid";
 import { ADMIN_PANEL_ACTIONS } from "@/modules/admin-panel/shared/constants/admin-panel-actions";
 import type { AdminPanelActionId } from "@/modules/admin-panel/shared/types/admin-panel.types";
 
@@ -10,10 +11,7 @@ export function AdminPanelActionsGrid({
   onActionClick,
 }: AdminPanelActionsGridProps) {
   return (
-    <section
-      aria-label="Acciones del panel administrativo"
-      className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-4 px-4 sm:grid-cols-2 sm:gap-5 sm:px-6 lg:grid-cols-3 lg:gap-6"
-    >
+    <PolariaSelectionGrid aria-label="Acciones del panel administrativo">
       {ADMIN_PANEL_ACTIONS.map((action) => (
         <PolariaSelectionCard
           key={action.id}
@@ -27,6 +25,6 @@ export function AdminPanelActionsGrid({
           }
         />
       ))}
-    </section>
+    </PolariaSelectionGrid>
   );
 }

@@ -39,9 +39,9 @@ describe("getWidgetsForRole", () => {
     expect(widgets.map((w) => w.id)).toEqual(["cola-procesamiento"]);
   });
 
-  it("transportista ve guías de transporte", () => {
+  it("transportista no tiene widgets de dashboard (redirige a /dashboard/transporte)", () => {
     const widgets = getWidgetsForRole(WmsRol.transportista);
-    expect(widgets.map((w) => w.id)).toEqual(["guias-transporte"]);
+    expect(widgets).toEqual([]);
   });
 
   it("configurador no tiene widgets en dashboard", () => {

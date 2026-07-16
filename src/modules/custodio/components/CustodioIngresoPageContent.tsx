@@ -8,6 +8,7 @@ import { listOrdenesCompra } from "@/modules/purchases";
 import type { OrdenCompraRow } from "@/modules/purchases";
 import { listOrdenesVentaOperador } from "@/modules/sales";
 import type { OrdenVentaOperadorRow } from "@/modules/sales";
+import { listViajesEntrega } from "@/modules/transport";
 import {
   getEstadoBodegaSectionConfig,
   listUbicacionesEstadoBodega,
@@ -151,8 +152,18 @@ export function CustodioIngresoPageContent() {
     setIsLoadingVentas(true);
 
     try {
-      const rows = await listOrdenesVentaOperador({ codigoCuenta });
-      setVentas(rows);
+      const [rows, viajes] = await Promise.all([
+        listOrdenesVentaOperador({ codigoCuenta }),
+        listViajesEntrega({ codigoCuenta }).catch(() => []),
+      ]);
+      const enTransporte = new Set(
+        viajes
+          .map((viaje) => viaje.idOrdenVenta?.trim())
+          .filter((id): id is string => Boolean(id)),
+      );
+      setVentas(
+        rows.filter((row) => !enTransporte.has(row.idOrdenVenta)),
+      );
     } catch {
       setVentas([]);
     } finally {
@@ -194,6 +205,14 @@ export function CustodioIngresoPageContent() {
       refetchWarehouseState(),
     ]);
   }, [loadOrdenes, loadUbicaciones, refetchWarehouseState]);
+
+  const handlePaqueteEnviado = useCallback(async () => {
+    await Promise.all([
+      loadVentas(),
+      loadUbicaciones(),
+      refetchWarehouseState(),
+    ]);
+  }, [loadUbicaciones, loadVentas, refetchWarehouseState]);
 
   const zonaIngreso =
     layout.sections.find((section) => section.id === "entrada") ??
@@ -313,7 +332,9 @@ export function CustodioIngresoPageContent() {
                 ventas={ventas}
                 cajasEnSalida={cajasEnSalida}
                 codigoCuenta={codigoCuenta}
+                idBodega={activeBodegaId}
                 onRefresh={() => void loadVentas()}
+                onPaqueteEnviado={() => void handlePaqueteEnviado()}
                 isLoading={isLoadingVentas}
                 slotSize={slotSize}
               />

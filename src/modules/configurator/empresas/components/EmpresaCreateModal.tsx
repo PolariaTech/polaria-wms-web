@@ -6,10 +6,7 @@ import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaPhoneInput } from "@/components/shared/form/PolariaPhoneInput";
 import { isValidInternationalPhone } from "@/constants/ui/phone-countries";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import {
-  generateCodigoCuentaFromNombre,
-  normalizeCodigoCuentaInput,
-} from "@/lib/utils/generate-codigo-cuenta";
+import { generateCodigoCuentaFromNombre } from "@/lib/utils/generate-codigo-cuenta";
 import { useAuthStore } from "@/stores/auth.store";
 import { createEmpresaConfigurator } from "../services/empresas.service";
 
@@ -32,7 +29,6 @@ export function EmpresaCreateModal({
 }: EmpresaCreateModalProps) {
   const idCreador = useAuthStore((state) => state.session?.idUsuario ?? null);
   const [form, setForm] = useState(INITIAL_FORM);
-  const [codigoManual, setCodigoManual] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -40,7 +36,6 @@ export function EmpresaCreateModal({
     if (!open) return;
 
     setForm(INITIAL_FORM);
-    setCodigoManual(false);
     setError(null);
     setIsSubmitting(false);
   }, [open]);
@@ -54,17 +49,7 @@ export function EmpresaCreateModal({
     setForm((current) => ({
       ...current,
       razonSocial: value,
-      codigoEmpresa: codigoManual
-        ? current.codigoEmpresa
-        : generateCodigoCuentaFromNombre(value),
-    }));
-  };
-
-  const handleCodigoChange = (value: string) => {
-    setCodigoManual(true);
-    setForm((current) => ({
-      ...current,
-      codigoEmpresa: normalizeCodigoCuentaInput(value),
+      codigoEmpresa: generateCodigoCuentaFromNombre(value),
     }));
   };
 
@@ -112,6 +97,7 @@ export function EmpresaCreateModal({
       error={error}
       isSubmitting={isSubmitting}
       submitLabel="Crear"
+      hideHeaderClose
     >
       <PolariaFormInput
         id="empresa-razon-social"
@@ -128,9 +114,8 @@ export function EmpresaCreateModal({
         label="Código empresa"
         value={form.codigoEmpresa}
         placeholder="Código generado"
-        onChange={(event) => handleCodigoChange(event.target.value)}
-        disabled={isSubmitting}
-        hint="Se genera al escribir la razón social (base 36, 5 caracteres); puedes ajustarlo si lo necesitas."
+        readOnly
+        disabled
       />
 
       <PolariaPhoneInput

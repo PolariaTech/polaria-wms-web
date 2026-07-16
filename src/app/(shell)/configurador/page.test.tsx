@@ -21,9 +21,7 @@ describe("ConfiguradorPage", () => {
 
     render(<ConfiguradorPage />);
 
-    await user.click(
-      screen.getByRole("button", { name: /Creación Crea y gestiona/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /^Creación$/i }));
 
     expect(mockPush).toHaveBeenCalledWith(ROUTES.configuratorCreation);
   });
@@ -34,9 +32,7 @@ describe("ConfiguradorPage", () => {
     render(<ConfiguradorPage />);
 
     await user.click(
-      screen.getByRole("button", {
-        name: /Creación y asignación Crea recursos/i,
-      }),
+      screen.getByRole("button", { name: /^Creación y asignación$/i }),
     );
 
     expect(mockPush).toHaveBeenCalledWith(ROUTES.configuratorAssignment);

@@ -108,15 +108,6 @@ export function BodegaInternaCreateModal({
       isSubmitting={isSubmitting}
       submitLabel="Crear"
     >
-      <PolariaFormInput
-        id="bodega-interna-id"
-        label="ID único"
-        value=""
-        placeholder="Se genera al guardar"
-        readOnly
-        disabled
-      />
-
       <PolariaFormSelect
         id="bodega-interna-cuenta"
         label="Cuenta destino"

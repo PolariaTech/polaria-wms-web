@@ -1,22 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import {
-  PolariaFormInput,
-  PolariaFormSelect,
-} from "@/components/shared/form/PolariaFormField";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { PolariaFormField, PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import {
-  generateCodigoCuentaFromNombre,
-  normalizeCodigoCuentaInput,
-} from "@/lib/utils/generate-codigo-cuenta";
+import { generateCodigoCuentaFromNombre } from "@/lib/utils/generate-codigo-cuenta";
+import { JefeBodegaModalSearchField } from "@/modules/jefe-bodega/components/modals/jefe-bodega-modal-ui";
 import { useAuthStore } from "@/stores/auth.store";
 import {
   createCuentaConfigurator,
   listEmpresasAssignOptions,
   type EmpresaAssignOption,
 } from "../services/cuentas.service";
+import { EmpresaAssignPickerModal } from "./EmpresaAssignPickerModal";
 
 interface CuentaCreateModalProps {
   open: boolean;
@@ -38,7 +34,7 @@ export function CuentaCreateModal({
   const idCreador = useAuthStore((state) => state.session?.idUsuario ?? null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [empresas, setEmpresas] = useState<EmpresaAssignOption[]>([]);
-  const [codigoManual, setCodigoManual] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
@@ -47,7 +43,7 @@ export function CuentaCreateModal({
     if (!open) return;
 
     setForm(INITIAL_FORM);
-    setCodigoManual(false);
+    setPickerOpen(false);
     setError(null);
     setIsSubmitting(false);
     setIsLoadingOptions(true);
@@ -71,19 +67,18 @@ export function CuentaCreateModal({
     setForm((current) => ({
       ...current,
       nombre: value,
-      codigo: codigoManual
-        ? current.codigo
-        : generateCodigoCuentaFromNombre(value),
+      codigo: generateCodigoCuentaFromNombre(value),
     }));
   };
 
-  const handleCodigoChange = (value: string) => {
-    setCodigoManual(true);
-    setForm((current) => ({
-      ...current,
-      codigo: normalizeCodigoCuentaInput(value),
-    }));
-  };
+  const empresaLabel = useMemo(() => {
+    if (!form.codigoEmpresa) return "";
+    const selected = empresas.find(
+      (empresa) => empresa.codigoEmpresa === form.codigoEmpresa,
+    );
+    if (!selected) return form.codigoEmpresa;
+    return `${selected.razonSocial} (${selected.codigoEmpresa})`;
+  }, [empresas, form.codigoEmpresa]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -119,65 +114,74 @@ export function CuentaCreateModal({
   const disabled = isSubmitting || isLoadingOptions;
 
   return (
-    <PolariaFormModal
-      open={open}
-      onClose={handleClose}
-      sectionLabel="Nueva cuenta"
-      title="Crear cuenta"
-      description="Completa los campos para registrar una cuenta."
-      onSubmit={(event) => {
-        void handleSubmit(event);
-      }}
-      error={error}
-      isSubmitting={isSubmitting}
-      submitLabel="Crear"
-    >
-      <PolariaFormInput
-        id="cuenta-id-automatico"
-        label="ID automático"
-        value=""
-        placeholder="Se genera al guardar"
-        readOnly
-        disabled
-      />
+    <>
+      <PolariaFormModal
+        open={open}
+        onClose={handleClose}
+        sectionLabel="Nueva cuenta"
+        title="Crear cuenta"
+        description="Completa los campos para registrar una cuenta."
+        onSubmit={(event) => {
+          void handleSubmit(event);
+        }}
+        error={error}
+        isSubmitting={isSubmitting}
+        submitLabel="Crear"
+        hideHeaderClose
+      >
+        <PolariaFormField id="cuenta-empresa" label="Empresa">
+          <JefeBodegaModalSearchField
+            id="cuenta-empresa"
+            value={empresaLabel}
+            placeholder={
+              isLoadingOptions
+                ? "Cargando empresas…"
+                : "Selecciona una empresa"
+            }
+            ariaLabel="Empresa"
+            onSearchClick={
+              disabled
+                ? undefined
+                : () => {
+                    setPickerOpen(true);
+                  }
+            }
+          />
+        </PolariaFormField>
 
-      <PolariaFormSelect
-        id="cuenta-empresa"
-        label="Empresa"
-        value={form.codigoEmpresa}
-        onChange={(event) =>
+        <PolariaFormInput
+          id="cuenta-nombre"
+          label="Nombre"
+          value={form.nombre}
+          placeholder="Nombre de la cuenta"
+          onChange={(event) => handleNombreChange(event.target.value)}
+          disabled={disabled}
+          autoFocus
+        />
+
+        <PolariaFormInput
+          id="cuenta-codigo"
+          label="Código"
+          value={form.codigo}
+          placeholder="Código generado"
+          readOnly
+          disabled
+        />
+      </PolariaFormModal>
+
+      <EmpresaAssignPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        empresas={empresas}
+        selectedCodigo={form.codigoEmpresa || null}
+        onSelect={(empresa) => {
           setForm((current) => ({
             ...current,
-            codigoEmpresa: event.target.value,
-          }))
-        }
-        disabled={disabled}
-        placeholder="Selecciona una empresa"
-        options={empresas.map((empresa) => ({
-          value: empresa.codigoEmpresa,
-          label: `${empresa.razonSocial} (${empresa.codigoEmpresa})`,
-        }))}
+            codigoEmpresa: empresa.codigoEmpresa,
+          }));
+          setError(null);
+        }}
       />
-
-      <PolariaFormInput
-        id="cuenta-nombre"
-        label="Nombre"
-        value={form.nombre}
-        placeholder="Nombre de la cuenta"
-        onChange={(event) => handleNombreChange(event.target.value)}
-        disabled={disabled}
-        autoFocus
-      />
-
-      <PolariaFormInput
-        id="cuenta-codigo"
-        label="Código"
-        value={form.codigo}
-        placeholder="Código generado"
-        onChange={(event) => handleCodigoChange(event.target.value)}
-        disabled={disabled}
-        hint="Se genera al escribir el nombre (base 36, 5 caracteres); puedes ajustarlo si lo necesitas."
-      />
-    </PolariaFormModal>
+    </>
   );
 }

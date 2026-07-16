@@ -133,14 +133,12 @@ describe("DashboardPageContent", () => {
     expect(screen.queryByText("dashboard-widgets")).not.toBeInTheDocument();
   });
 
-  it("mantiene widgets operativos para otros roles", () => {
+  it("redirige transportista a viajes de entrega", () => {
     mockPermissions.idRol = WmsRol.transportista;
 
     render(<DashboardPageContent />);
 
-    expect(screen.getByText("dashboard-widgets")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Panel administrativo" }),
-    ).not.toBeInTheDocument();
+    expect(mockReplace).toHaveBeenCalledWith("/dashboard/transporte");
+    expect(screen.queryByText("dashboard-widgets")).not.toBeInTheDocument();
   });
 });

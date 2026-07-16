@@ -8,7 +8,6 @@ export type ConfiguratorActionId =
 export interface ConfiguratorAction {
   id: ConfiguratorActionId;
   title: string;
-  description: string;
   icon: LucideIcon;
   href: string;
 }

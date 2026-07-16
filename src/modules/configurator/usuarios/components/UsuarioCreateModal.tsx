@@ -255,16 +255,6 @@ export function UsuarioCreateModal({
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PolariaFormInput
-          id="usuario-id"
-          label="ID único"
-          value=""
-          placeholder="Se genera al guardar"
-          readOnly
-          disabled
-          compact
-        />
-
-        <PolariaFormInput
           id="usuario-codigo"
           label="Código"
           value={codigoCuentaDisplay}

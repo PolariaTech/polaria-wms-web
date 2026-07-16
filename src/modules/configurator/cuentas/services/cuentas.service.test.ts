@@ -3,11 +3,23 @@ import { ROUTES } from "@/config/routes";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
 import { getCreationOptionHref } from "@/modules/configurator/shared/constants/creation-options";
+import { apiRequest } from "@/services/api/api";
 import {
   createCuentaConfigurator,
   listCuentasConfigurator,
   listEmpresasAssignOptions,
+  updateCuentaConfigurator,
 } from "./cuentas.service";
+
+vi.mock("@/services/api/api", async () => {
+  const actual = await vi.importActual<typeof import("@/services/api/api")>(
+    "@/services/api/api",
+  );
+  return {
+    ...actual,
+    apiRequest: vi.fn(),
+  };
+});
 
 describe("creation-options", () => {
   it("cuentas resuelve a /configurador/creacion/cuentas", () => {
@@ -24,13 +36,22 @@ describe("cuentas.service", () => {
   });
 
   it("listCuentasConfigurator consulta tabla cuenta con relaciones", async () => {
-    const { client, from, chain } = createSupabaseMock({
+    const { client, from } = createSupabaseMock({
       data: [
         {
           codigo_cuenta: "MIT00",
+          codigo_empresa: "ACME",
           nombre_comercial: "Mitre",
-          bodega: [{ nombre: "Bodega Central", esta_activa: true }],
-          usuario: [{ esta_activo: true }],
+          esta_activa: true,
+          bodega: [
+            {
+              id_bodega: "bod-1",
+              nombre: "Bodega Central",
+              tipo: "interna",
+              capacidad_slots: 120,
+              esta_activa: true,
+            },
+          ],
         },
       ],
     });
@@ -39,13 +60,26 @@ describe("cuentas.service", () => {
     const rows = await listCuentasConfigurator();
 
     expect(from).toHaveBeenCalledWith("cuenta");
-    expect(chain.eq).toHaveBeenCalledWith("esta_activa", true);
     expect(rows).toEqual([
       {
         codigoCuenta: "MIT00",
+        codigoEmpresa: "ACME",
         nombreComercial: "Mitre",
-        bodegaAsignada: "Bodega Central",
-        tieneCredenciales: true,
+        bodegasAsignadas: [
+          {
+            idBodega: "bod-1",
+            nombre: "Bodega Central",
+            tipo: "interna",
+            capacidad: 120,
+          },
+        ],
+        bodegaInternaPrincipal: {
+          idBodega: "bod-1",
+          nombre: "Bodega Central",
+          tipo: "interna",
+          capacidad: 120,
+        },
+        estaActiva: true,
       },
     ]);
   });
@@ -61,7 +95,13 @@ describe("cuentas.service", () => {
     selectChain.eq.mockReturnValue(selectChain);
     selectChain.order.mockReturnValue(selectChain);
     selectChain.limit.mockResolvedValue({
-      data: [{ codigo_empresa: "ACME", razon_social: "ACME Corp" }],
+      data: [
+        {
+          codigo_empresa: "ACME",
+          razon_social: "ACME Corp",
+          telefono: "+57 300 111 2233",
+        },
+      ],
       error: null,
     });
 
@@ -71,9 +111,16 @@ describe("cuentas.service", () => {
     const rows = await listEmpresasAssignOptions();
 
     expect(from).toHaveBeenCalledWith("empresa");
+    expect(selectChain.select).toHaveBeenCalledWith(
+      "codigo_empresa,razon_social,telefono",
+    );
     expect(selectChain.eq).toHaveBeenCalledWith("esta_activa", true);
     expect(rows).toEqual([
-      { codigoEmpresa: "ACME", razonSocial: "ACME Corp" },
+      {
+        codigoEmpresa: "ACME",
+        razonSocial: "ACME Corp",
+        telefono: "+57 300 111 2233",
+      },
     ]);
   });
 
@@ -106,9 +153,39 @@ describe("cuentas.service", () => {
     });
     expect(row).toEqual({
       codigoCuenta: "MIT00",
+      codigoEmpresa: "ACME",
       nombreComercial: "Mitre",
-      bodegaAsignada: "—",
-      tieneCredenciales: false,
+      bodegasAsignadas: [],
+      bodegaInternaPrincipal: null,
+      estaActiva: true,
     });
+  });
+
+  it("updateCuentaConfigurator llama PATCH /configuracion/cuentas/:codigo", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      codigoCuenta: "49M04",
+      codigoEmpresa: "EVU53",
+      nombreComercial: "Tecno-Tech",
+      estaActiva: false,
+    });
+
+    const row = await updateCuentaConfigurator({
+      codigoCuenta: "49M04",
+      nombreComercial: "Tecno-Tech",
+      estaActiva: false,
+    });
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/configuracion/cuentas/49M04",
+      expect.objectContaining({
+        method: "PATCH",
+        auth: true,
+        body: {
+          nombreComercial: "Tecno-Tech",
+          estaActiva: false,
+        },
+      }),
+    );
+    expect(row.estaActiva).toBe(false);
   });
 });

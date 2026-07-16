@@ -22,13 +22,19 @@ describe("CuentaCreateModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listEmpresasAssignOptions.mockResolvedValue([
-      { codigoEmpresa: "ACME", razonSocial: "ACME Corp" },
+      {
+        codigoEmpresa: "ACME",
+        razonSocial: "ACME Corp",
+        telefono: "+57 300 111 2233",
+      },
     ]);
     createCuentaConfigurator.mockResolvedValue({
       codigoCuenta: "MIT00",
+      codigoEmpresa: "ACME",
       nombreComercial: "Mitre",
-      bodegaAsignada: "—",
-      tieneCredenciales: false,
+      bodegasAsignadas: [],
+      bodegaInternaPrincipal: null,
+      estaActiva: true,
     });
   });
 
@@ -45,10 +51,8 @@ describe("CuentaCreateModal", () => {
       expect(listEmpresasAssignOptions).toHaveBeenCalled();
     });
 
-    await user.selectOptions(
-      screen.getByLabelText("Empresa"),
-      "ACME",
-    );
+    await user.click(screen.getByRole("button", { name: /Buscar Empresa/i }));
+    await user.click(screen.getByRole("button", { name: /Seleccionar ACME Corp/i }));
     await user.type(screen.getByLabelText("Nombre"), "Mitre");
     await user.click(screen.getByRole("button", { name: "Crear" }));
 

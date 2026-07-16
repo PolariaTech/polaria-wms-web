@@ -22,6 +22,7 @@ const listProductosVentaCatalogo = vi.fn();
 const listCompradoresAdmin = vi.fn();
 const listGuiasEnvio = vi.fn();
 const listEvidenciasTransporte = vi.fn();
+const listViajesEntrega = vi.fn();
 const listAuditoriaOperacion = vi.fn();
 const getInventarioMercanciaReport = vi.fn();
 const listWarehouseState = vi.fn();
@@ -79,6 +80,7 @@ vi.mock("@/modules/transport/shared/services/transport.service", () => ({
   listGuiasEnvio: (...args: unknown[]) => listGuiasEnvio(...args),
   listEvidenciasTransporte: (...args: unknown[]) =>
     listEvidenciasTransporte(...args),
+  listViajesEntrega: (...args: unknown[]) => listViajesEntrega(...args),
 }));
 
 vi.mock("@/modules/audit", () => ({
@@ -217,6 +219,7 @@ describe("vistas operativas dashboard", () => {
     listCompradoresAdmin.mockResolvedValue([]);
     listGuiasEnvio.mockResolvedValue([]);
     listEvidenciasTransporte.mockResolvedValue([]);
+    listViajesEntrega.mockResolvedValue([]);
     listAuditoriaOperacion.mockResolvedValue([]);
     getInventarioMercanciaReport.mockResolvedValue({
       etapas: [
@@ -529,7 +532,7 @@ describe("vistas operativas dashboard", () => {
     });
   });
 
-  it("transporte renderiza guías para transportista", async () => {
+  it("transporte renderiza viajes para transportista", async () => {
     mockSession = {
       ...baseSession,
       idRol: WmsRol.transportista,
@@ -543,8 +546,11 @@ describe("vistas operativas dashboard", () => {
     ).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(listGuiasEnvio).toHaveBeenCalled();
-      expect(listEvidenciasTransporte).toHaveBeenCalled();
+      expect(listViajesEntrega).toHaveBeenCalled();
+      expect(screen.getByText("Viajes de entrega")).toBeInTheDocument();
+      expect(screen.getByText("Viaje")).toBeInTheDocument();
+      expect(screen.getByText("Kg (venta)")).toBeInTheDocument();
+      expect(screen.getByText("Acción")).toBeInTheDocument();
     });
   });
 

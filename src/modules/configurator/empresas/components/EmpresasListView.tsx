@@ -18,9 +18,13 @@ import { listEmpresasConfigurator } from "../services/empresas.service";
 import type { EmpresaListRow } from "../services/empresas.service";
 import { ConfiguratorListShell } from "@/modules/configurator/shared/components/ConfiguratorListShell";
 import { EmpresaCreateModal } from "./EmpresaCreateModal";
+import { EmpresaEditModal } from "./EmpresaEditModal";
 
 export function EmpresasListView() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingEmpresa, setEditingEmpresa] = useState<EmpresaListRow | null>(
+    null,
+  );
   const fetchEmpresas = useCallback(() => listEmpresasConfigurator(), []);
   const { data, isLoading, isRefreshing, error, reload } =
     useAsyncQuery(fetchEmpresas);
@@ -61,7 +65,9 @@ export function EmpresasListView() {
         {
           id: "acciones",
           header: "Acciones",
-          cell: () => <PolariaTableEditButton />,
+          cell: (row: EmpresaListRow) => (
+            <PolariaTableEditButton onClick={() => setEditingEmpresa(row)} />
+          ),
         },
       ] as const,
     [],
@@ -92,6 +98,15 @@ export function EmpresasListView() {
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
+          void reload();
+        }}
+      />
+
+      <EmpresaEditModal
+        open={Boolean(editingEmpresa)}
+        empresa={editingEmpresa}
+        onClose={() => setEditingEmpresa(null)}
+        onUpdated={() => {
           void reload();
         }}
       />

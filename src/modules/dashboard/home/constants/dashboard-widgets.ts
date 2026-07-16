@@ -137,7 +137,7 @@ export const ROLE_DASHBOARD_WIDGETS: Readonly<
   [WmsRol.operario]: ["tareas-asignadas", "accesos-picking"],
   [WmsRol.custodio]: ["tareas-asignadas", "accesos-picking"],
   [WmsRol.procesador]: ["cola-procesamiento"],
-  [WmsRol.transportista]: ["guias-transporte"],
+  [WmsRol.transportista]: [],
 };
 
 export function getWidgetsForRole(
