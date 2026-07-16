@@ -5,6 +5,10 @@ export const env = {
   mateoUrl:
     process.env.NEXT_PUBLIC_MATEO_URL ??
     "https://chatbot-mateo.vercel.app",
+  mateoWidgetScriptUrl:
+    process.env.NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL ??
+    "/assets/mateo-widget.js",
+  mateoN8nWebhookUrl: process.env.NEXT_PUBLIC_MATEO_N8N_WEBHOOK_URL ?? "",
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
 } as const;

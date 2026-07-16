@@ -14,6 +14,10 @@ vi.mock("@/components/auth/guards/AuthGuard", () => ({
   AuthGuard: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock("@/components/mateo/MateoWidgetHost", () => ({
+  MateoWidgetHost: () => null,
+}));
+
 vi.mock("@/providers/tenant/CompanyProvider", () => ({
   TenantBodegaSelector: () => null,
 }));

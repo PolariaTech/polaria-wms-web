@@ -13,7 +13,8 @@ cp .env.example .env.local
 | Variable | Descripción | Ejemplo |
 |----------|-------------|---------|
 | `NEXT_PUBLIC_API_BASE_URL` | URL base del API de auth | `http://localhost:3000` |
-| `NEXT_PUBLIC_MATEO_URL` | URL base del chatbot Mateo IA | `https://chatbot-mateo.vercel.app` |
+| `NEXT_PUBLIC_MATEO_URL` | URL base del chatbot Mateo IA (SSO full-page) | `https://chatbot-mateo.vercel.app` |
+| `NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL` | Bundle IIFE del chat flotante | `/assets/mateo-widget.js` |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase | `https://xxx.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anon de Supabase (RLS en cliente) | `eyJ...` |
 
@@ -99,6 +100,8 @@ El campo de login valida formato de correo antes de llamar al API.
 
 Integración bidireccional entre WMS y Mateo usando códigos de un solo uso (`POST /auth/mateo-exchange`).
 
+> **Widget flotante (distinto del SSO):** chat embebido en el shell. Ver [MATEO-WIDGET.md](./MATEO-WIDGET.md).
+
 ### WMS → Mateo (salida)
 
 Usuario autenticado en el WMS puede abrir Mateo sin volver a iniciar sesión:
@@ -141,9 +144,11 @@ stores/auth.store.ts → Estado de sesión (localStorage) + contexto tenant
 lib/supabase/client  → Cliente Supabase RLS-ready sincronizado con JWT del API
 providers/           → AuthProvider + CompanyProvider (contexto tenant / bodega activa)
 components/auth/     → AuthGuard (protege /configurador y /dashboard)
-components/layouts/  → AppShellLayout conecta Mateo IA al topbar
+components/layouts/  → AppShellLayout: Mateo IA (SSO) + MateoWidgetHost (chat flotante)
+components/mateo/    → Host del widget embebido (script + token + conversaciones)
 ```
 
+Ver también [MATEO-WIDGET.md](./MATEO-WIDGET.md).
 ## Endpoints consumidos
 
 | Método | Ruta | Uso |
@@ -154,6 +159,8 @@ components/layouts/  → AppShellLayout conecta Mateo IA al topbar
 | POST | `/auth/logout` | Cerrar sesión |
 | POST | `/auth/mateo-handoff` | Generar código SSO para Mateo IA (Bearer) |
 | POST | `/auth/mateo-exchange` | Canjear código SSO desde Mateo IA (público) |
+| POST | `/auth/mateo/widget-token` | JWT del widget embebido para n8n (Bearer WMS) |
+| * | `/mateo/conversaciones` | CRUD historial del widget (vía proxy `/api`) |
 
 ## Errores manejados en UI
 

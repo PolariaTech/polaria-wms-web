@@ -20,10 +20,11 @@ Abre [http://localhost:3001/login](http://localhost:3001/login) en el navegador.
 |----------|-------------|
 | `NEXT_PUBLIC_API_BASE_URL` | URL del backend `polaria-wms-api` |
 | `NEXT_PUBLIC_MATEO_URL` | URL del chatbot Mateo IA (SSO handoff) |
+| `NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL` | Bundle del chat flotante (ver [docs/MATEO-WIDGET.md](docs/MATEO-WIDGET.md)) |
 | `NEXT_PUBLIC_SUPABASE_URL` | Proyecto Supabase (lecturas con RLS) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima de Supabase |
 
-Ver [docs/AUTH.md](docs/AUTH.md) para el flujo de login y pruebas manuales.
+Ver [docs/AUTH.md](docs/AUTH.md) (login + SSO) y [docs/MATEO-WIDGET.md](docs/MATEO-WIDGET.md) (widget embebido).
 
 ## Scripts disponibles
 

@@ -9,6 +9,7 @@ import { mateoHandoff, logoutWithToken } from "@/modules/auth";
 import { ApiError } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { AppTopbar } from "./AppTopbar";
+import { MateoWidgetHost } from "@/components/mateo/MateoWidgetHost";
 
 interface AppShellLayoutProps {
   children: React.ReactNode;
@@ -87,6 +88,7 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
           </div>
         )}
         <div className="relative z-10 flex flex-1 flex-col">{children}</div>
+        <MateoWidgetHost />
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-polaria-teal opacity-40"

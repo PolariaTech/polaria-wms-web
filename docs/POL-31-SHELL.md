@@ -91,8 +91,9 @@ Errores: `DomainServiceError`. Escrituras vía API Nest: **POL-5+** (comentarios
 
 | Variable | Obligatoria | Uso |
 |----------|-------------|-----|
-| `NEXT_PUBLIC_API_BASE_URL` | Sí (auth) | Login, `/auth/me`, logout, SSO Mateo |
-| `NEXT_PUBLIC_MATEO_URL` | SSO Mateo | Handoff bidireccional |
+| `NEXT_PUBLIC_API_BASE_URL` | Sí (auth) | Login, `/auth/me`, logout, SSO Mateo, widget-token |
+| `NEXT_PUBLIC_MATEO_URL` | SSO Mateo | Handoff bidireccional (topbar) |
+| `NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL` | Widget flotante | Bundle IIFE; ver [MATEO-WIDGET.md](./MATEO-WIDGET.md) |
 | `NEXT_PUBLIC_SUPABASE_URL` | Lecturas / Realtime | Cliente browser + canales Realtime |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Lecturas / Realtime | JWT sincronizado con sesión WMS |
 
