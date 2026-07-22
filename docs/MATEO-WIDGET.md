@@ -74,3 +74,14 @@ src/components/mateo/load-mateo-widget.ts
 src/components/mateo/mateo-widget.types.ts
 src/components/layouts/shell/AppShellLayout.tsx  # monta MateoWidgetHost
 ```
+
+## Cierre POL-137
+
+| Escenario | Comportamiento esperado |
+|-----------|-------------------------|
+| Sin login | `MateoWidgetHost` retorna `null`; no carga script |
+| Sesión expirada | Desmonta widget; `onAuthError` → toast sin logout del shell |
+| Token widget rechazado | `configureTokenFetcher` falla → widget no envía mensajes a n8n |
+| Historial ajeno | API `/mateo/conversaciones` responde 404 (ownership por `id_usuario`) |
+
+Tests: `src/components/mateo/MateoWidgetHost.test.tsx`.
