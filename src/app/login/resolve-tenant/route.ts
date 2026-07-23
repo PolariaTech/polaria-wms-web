@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { getServerSupabaseServiceRoleKey } from "@/lib/security/server-secrets";
 
 interface TenantEmpresaOption {
   codigoEmpresa: string;
@@ -20,11 +22,7 @@ function resolveRelation<T>(value: T | T[] | null): T | null {
 }
 
 function getServiceRoleKey(): string | null {
-  return (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ??
-    null
-  );
+  return getServerSupabaseServiceRoleKey();
 }
 
 async function resolveEmpresas(correo: string): Promise<TenantEmpresaOption[]> {
@@ -88,6 +86,18 @@ async function resolveEmpresas(correo: string): Promise<TenantEmpresaOption[]> {
 }
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const rate = checkRateLimit(`resolve-tenant:${ip}`, 20, 60_000);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { message: "Demasiados intentos. Intente de nuevo en unos segundos." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rate.retryAfterSeconds) },
+      },
+    );
+  }
+
   let correo = "";
 
   try {

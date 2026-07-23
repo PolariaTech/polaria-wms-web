@@ -65,6 +65,7 @@ export const ROLES_ESCRITURA_INVENTARIO = [
   WmsRol.configurador,
   WmsRol.administrador_bodega,
   WmsRol.jefe_bodega,
+  WmsRol.operario,
 ] as const;
 
 export type RolEscrituraInventario =
