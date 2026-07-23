@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
+  PolariaFormField,
   PolariaFormInput,
-  PolariaFormSelect,
 } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { formatKgEs, parseDecimalEs } from "@/lib/utils/decimal-es";
@@ -13,8 +13,13 @@ import {
   listBodegasInternasVinculadasAdmin,
   listCatalogoProductosAdmin,
   listProveedoresAdmin,
+  type CatalogoProductoListRow,
+  type ProveedorListRow,
 } from "@/modules/admin-panel";
+import { JefeBodegaModalSearchField } from "@/modules/jefe-bodega/components/modals/jefe-bodega-modal-ui";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
+import { SolicitudProductoPickerModal } from "../../solicitudes/components/SolicitudProductoPickerModal";
+import { SolicitudProveedorPickerModal } from "../../solicitudes/components/SolicitudProveedorPickerModal";
 import { createOrdenCompraApi } from "../../shared/services/purchases-api.service";
 
 interface OrdenCompraCreateModalProps {
@@ -30,18 +35,24 @@ interface DraftLine {
   skuSnapshot?: string;
 }
 
-interface ProductoOption {
-  value: string;
-  label: string;
-  sku?: string;
-}
-
 function todayInputValue(): string {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function proveedorLabel(row: ProveedorListRow): string {
+  return row.nombre && row.nombre !== row.proveedor
+    ? `${row.proveedor} — ${row.nombre}`
+    : row.proveedor;
+}
+
+function productoLabel(row: CatalogoProductoListRow): string {
+  return row.sku && row.sku !== "—"
+    ? `${row.titulo} · SKU ${row.sku}`
+    : row.titulo;
 }
 
 export function OrdenCompraCreateModal({
@@ -56,14 +67,26 @@ export function OrdenCompraCreateModal({
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [pickProductId, setPickProductId] = useState("");
   const [pickPesoKg, setPickPesoKg] = useState("");
-  const [productos, setProductos] = useState<ProductoOption[]>([]);
-  const [proveedores, setProveedores] = useState<
-    { value: string; label: string }[]
-  >([]);
+  const [productos, setProductos] = useState<CatalogoProductoListRow[]>([]);
+  const [proveedores, setProveedores] = useState<ProveedorListRow[]>([]);
+  const [proveedorPickerOpen, setProveedorPickerOpen] = useState(false);
+  const [productoPickerOpen, setProductoPickerOpen] = useState(false);
   const [resolvedBodegaId, setResolvedBodegaId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
+
+  const selectedProveedorLabel = useMemo(() => {
+    if (!idProveedor) return "";
+    const selected = proveedores.find((row) => row.idProveedor === idProveedor);
+    return selected ? proveedorLabel(selected) : "";
+  }, [idProveedor, proveedores]);
+
+  const selectedProductoLabel = useMemo(() => {
+    if (!pickProductId) return "";
+    const selected = productos.find((row) => row.idProducto === pickProductId);
+    return selected ? productoLabel(selected) : "";
+  }, [pickProductId, productos]);
 
   useEffect(() => {
     if (!open) {
@@ -76,6 +99,8 @@ export function OrdenCompraCreateModal({
     setLines([]);
     setPickProductId("");
     setPickPesoKg("");
+    setProveedorPickerOpen(false);
+    setProductoPickerOpen(false);
     setError(null);
     setIsSubmitting(false);
     setResolvedBodegaId(activeBodegaId);
@@ -94,22 +119,8 @@ export function OrdenCompraCreateModal({
         : listBodegasInternasVinculadasAdmin({ codigoCuenta }),
     ])
       .then(([productoRows, proveedorRows, bodegaRows]) => {
-        setProductos(
-          productoRows.map((row) => ({
-            value: row.idProducto,
-            label: row.sku ? `${row.titulo} · SKU ${row.sku}` : row.titulo,
-            sku: row.sku !== "—" ? row.sku : undefined,
-          })),
-        );
-
-        setProveedores(
-          proveedorRows.map((row) => ({
-            value: row.idProveedor,
-            label: row.nombre
-              ? `${row.proveedor} — ${row.nombre}`
-              : row.proveedor,
-          })),
-        );
+        setProductos(productoRows);
+        setProveedores(proveedorRows);
 
         if (!activeBodegaId && bodegaRows?.length) {
           setResolvedBodegaId(bodegaRows[0]?.idBodega ?? null);
@@ -133,8 +144,8 @@ export function OrdenCompraCreateModal({
   const addLine = () => {
     setError(null);
 
-    const producto = productos.find((item) => item.value === pickProductId);
-    if (!producto?.value) {
+    const producto = productos.find((item) => item.idProducto === pickProductId);
+    if (!producto) {
       setError("Selecciona un producto del catálogo.");
       return;
     }
@@ -145,15 +156,16 @@ export function OrdenCompraCreateModal({
       return;
     }
 
-    const [titleSnapshot] = producto.label.split(" · SKU ");
+    const sku =
+      producto.sku && producto.sku !== "—" ? producto.sku : undefined;
 
     setLines((current) => [
       ...current,
       {
-        idProducto: producto.value,
+        idProducto: producto.idProducto,
         pesoKg: pesoNum,
-        titleSnapshot: titleSnapshot || producto.label,
-        ...(producto.sku ? { skuSnapshot: producto.sku } : {}),
+        titleSnapshot: producto.titulo || producto.sku || "Producto",
+        ...(sku ? { skuSnapshot: sku } : {}),
       },
     ]);
     setPickProductId("");
@@ -216,142 +228,186 @@ export function OrdenCompraCreateModal({
   };
 
   const disabled = isSubmitting || isLoadingOptions;
+  const anyPickerOpen = proveedorPickerOpen || productoPickerOpen;
 
   return (
-    <PolariaFormModal
-      open={open}
-      onClose={handleClose}
-      sectionLabel="Nueva orden"
-      title="Nueva orden de compra"
-      description="Orden manual · proveedor · productos"
-      onSubmit={(event) => {
-        void handleSubmit(event);
-      }}
-      error={error}
-      isSubmitting={isSubmitting}
-      submitLabel="Guardar orden"
-      compact
-      size="md"
-    >
-      <PolariaFormSelect
-        id="oc-proveedor"
-        label="Proveedor"
-        value={idProveedor}
-        onChange={(event) => setIdProveedor(event.target.value)}
-        disabled={disabled || proveedores.length === 0}
-        placeholder="Elegí proveedor…"
-        options={proveedores}
+    <>
+      <PolariaFormModal
+        open={open}
+        onClose={handleClose}
+        sectionLabel="Nueva orden"
+        title="Nueva orden de compra"
+        description="Orden manual · proveedor · productos"
+        onSubmit={(event) => {
+          void handleSubmit(event);
+        }}
+        error={error}
+        isSubmitting={isSubmitting}
+        submitLabel="Guardar orden"
         compact
-      />
+        size="md"
+        closeOnEscape={!anyPickerOpen}
+      >
+        <PolariaFormField id="oc-proveedor" label="Proveedor" compact>
+          <JefeBodegaModalSearchField
+            id="oc-proveedor"
+            value={selectedProveedorLabel}
+            placeholder={
+              isLoadingOptions
+                ? "Cargando proveedores…"
+                : proveedores.length === 0
+                  ? "Sin proveedores"
+                  : "Elegí proveedor…"
+            }
+            ariaLabel="Proveedor"
+            onSearchClick={
+              disabled || proveedores.length === 0
+                ? undefined
+                : () => setProveedorPickerOpen(true)
+            }
+          />
+        </PolariaFormField>
 
-      <PolariaFormInput
-        id="oc-fecha"
-        label="Fecha"
-        type="date"
-        value={fechaEntrega}
-        onChange={(event) => setFechaEntrega(event.target.value)}
-        disabled={disabled}
-        compact
-      />
+        <PolariaFormInput
+          id="oc-fecha"
+          label="Fecha"
+          type="date"
+          value={fechaEntrega}
+          onChange={(event) => setFechaEntrega(event.target.value)}
+          disabled={disabled}
+          compact
+        />
 
-      <PolariaFormInput
-        id="oc-observaciones"
-        label="Observación"
-        value={observaciones}
-        onChange={(event) => setObservaciones(event.target.value)}
-        placeholder="Opcional"
-        disabled={disabled}
-        compact
-        hint="Opcional."
-      />
+        <PolariaFormInput
+          id="oc-observaciones"
+          label="Observación"
+          value={observaciones}
+          onChange={(event) => setObservaciones(event.target.value)}
+          placeholder="Opcional"
+          disabled={disabled}
+          compact
+          hint="Opcional."
+        />
 
-      {proveedores.length === 0 && !isLoadingOptions ? (
-        <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
-          Registrá proveedores en administración antes de crear órdenes.
-        </p>
-      ) : null}
-
-      {productos.length === 0 && !isLoadingOptions ? (
-        <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
-          Tu administrador de cuenta debe registrar productos en el catálogo.
-        </p>
-      ) : null}
-
-      <div className="rounded-xl border border-dashed border-polaria-t-20 bg-polaria-t-08 p-3">
-        <p className="polaria-text-label mb-2 text-polaria-w-50">Productos</p>
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-          <div className="min-w-0 flex-1 sm:min-w-[200px]">
-            <PolariaFormSelect
-              id="oc-catalogo"
-              label="Producto"
-              value={pickProductId}
-              onChange={(event) => setPickProductId(event.target.value)}
-              disabled={disabled || productos.length === 0}
-              placeholder="Elegí producto…"
-              options={productos}
-              compact
-            />
-          </div>
-
-          <div className="w-full sm:w-32">
-            <PolariaFormInput
-              id="oc-peso-kg"
-              label="Peso (kg)"
-              type="text"
-              inputMode="decimal"
-              value={pickPesoKg}
-              onChange={(event) => setPickPesoKg(event.target.value)}
-              placeholder="Ej. 15,6"
-              disabled={disabled || productos.length === 0}
-              compact
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={addLine}
-            disabled={disabled || productos.length === 0}
-            className="inline-flex items-center justify-center gap-1 rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90 disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Agregar
-          </button>
-        </div>
-
-        {lines.length === 0 ? (
-          <p className="mt-3 text-center polaria-text-caption text-polaria-w-50">
-            Sin líneas.
+        {proveedores.length === 0 && !isLoadingOptions ? (
+          <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
+            Registrá proveedores en administración antes de crear órdenes.
           </p>
-        ) : (
-          <ul className="mt-3 space-y-2">
-            {lines.map((linea, index) => (
-              <li
-                key={`${linea.idProducto}-${index}`}
-                className="flex items-center justify-between gap-2 rounded-lg border border-polaria-w-08 bg-polaria-bg px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-polaria-w">
-                    {linea.titleSnapshot}
-                  </p>
-                  <p className="polaria-text-caption text-polaria-w-50">
-                    {linea.skuSnapshot ? `SKU ${linea.skuSnapshot} · ` : null}
-                    {formatKgEs(linea.pesoKg)} kg
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeLine(index)}
-                  className="shrink-0 rounded-lg p-2 text-polaria-w-50 transition hover:bg-polaria-w-08"
-                  aria-label="Quitar línea"
+        ) : null}
+
+        {productos.length === 0 && !isLoadingOptions ? (
+          <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
+            Tu administrador de cuenta debe registrar productos en el catálogo.
+          </p>
+        ) : null}
+
+        <div className="rounded-xl border border-dashed border-polaria-t-20 bg-polaria-t-08 p-3">
+          <p className="polaria-text-label mb-2 text-polaria-w-50">Productos</p>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="min-w-0 flex-1 sm:min-w-[200px]">
+              <PolariaFormField id="oc-catalogo" label="Producto" compact>
+                <JefeBodegaModalSearchField
+                  id="oc-catalogo"
+                  value={selectedProductoLabel}
+                  placeholder={
+                    isLoadingOptions
+                      ? "Cargando productos…"
+                      : productos.length === 0
+                        ? "Sin productos"
+                        : "Elegí producto…"
+                  }
+                  ariaLabel="Producto"
+                  onSearchClick={
+                    disabled || productos.length === 0
+                      ? undefined
+                      : () => setProductoPickerOpen(true)
+                  }
+                />
+              </PolariaFormField>
+            </div>
+
+            <div className="w-full sm:w-32">
+              <PolariaFormInput
+                id="oc-peso-kg"
+                label="Peso (kg)"
+                type="text"
+                inputMode="decimal"
+                value={pickPesoKg}
+                onChange={(event) => setPickPesoKg(event.target.value)}
+                placeholder="Ej. 15,6"
+                disabled={disabled || productos.length === 0}
+                compact
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={addLine}
+              disabled={disabled || productos.length === 0}
+              className="inline-flex items-center justify-center gap-1 rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90 disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Agregar
+            </button>
+          </div>
+
+          {lines.length === 0 ? (
+            <p className="mt-3 text-center polaria-text-caption text-polaria-w-50">
+              Sin líneas.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {lines.map((linea, index) => (
+                <li
+                  key={`${linea.idProducto}-${index}`}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-polaria-w-08 bg-polaria-bg px-3 py-2"
                 >
-                  <Trash2 className="h-4 w-4" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </PolariaFormModal>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-polaria-w">
+                      {linea.titleSnapshot}
+                    </p>
+                    <p className="polaria-text-caption text-polaria-w-50">
+                      {linea.skuSnapshot ? `SKU ${linea.skuSnapshot} · ` : null}
+                      {formatKgEs(linea.pesoKg)} kg
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeLine(index)}
+                    className="shrink-0 rounded-lg p-2 text-polaria-w-50 transition hover:bg-polaria-w-08"
+                    aria-label="Quitar línea"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </PolariaFormModal>
+
+      <SolicitudProveedorPickerModal
+        open={proveedorPickerOpen}
+        onClose={() => setProveedorPickerOpen(false)}
+        proveedores={proveedores}
+        selectedId={idProveedor || null}
+        onSelect={(proveedor) => {
+          setIdProveedor(proveedor.idProveedor);
+          setError(null);
+        }}
+      />
+
+      <SolicitudProductoPickerModal
+        open={productoPickerOpen}
+        onClose={() => setProductoPickerOpen(false)}
+        productos={productos}
+        selectedId={pickProductId || null}
+        onSelect={(producto) => {
+          setPickProductId(producto.idProducto);
+          setError(null);
+        }}
+      />
+    </>
   );
 }

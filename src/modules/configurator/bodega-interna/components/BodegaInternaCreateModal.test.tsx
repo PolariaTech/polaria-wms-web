@@ -52,10 +52,10 @@ describe("BodegaInternaCreateModal", () => {
       expect(listCuentasAssignOptions).toHaveBeenCalled();
     });
 
-    await user.selectOptions(
-      screen.getByLabelText("Cuenta destino"),
-      "MIT00",
+    await user.click(
+      screen.getByRole("button", { name: "Buscar Cuenta destino" }),
     );
+    await user.click(screen.getByRole("button", { name: "Seleccionar Mitre" }));
     await user.type(screen.getByLabelText("Nombre"), "Central Norte");
     await user.type(screen.getByLabelText("Capacidad"), "80");
     await user.click(screen.getByRole("button", { name: "Crear" }));

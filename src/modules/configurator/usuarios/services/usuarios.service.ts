@@ -16,6 +16,7 @@ export interface UsuarioListRow {
   rol: string;
   nombre: string;
   cuenta: string;
+  telefono: string;
   tieneCredenciales: boolean;
 }
 
@@ -50,6 +51,7 @@ interface UsuarioDbRow {
   username: string;
   codigo_cuenta: string | null;
   nombre: string;
+  telefono: string | null;
   id_auth: string;
   rol: UsuarioRolDbRow | UsuarioRolDbRow[] | null;
   cuenta: UsuarioCuentaDbRow | UsuarioCuentaDbRow[] | null;
@@ -60,7 +62,7 @@ interface UsuarioDbRow {
  * Nombrar la relación de la cuenta asignada al usuario.
  */
 const USUARIO_LIST_COLUMNS =
-  "id_usuario,username,codigo_cuenta,nombre,id_auth,rol(id_rol,nombre),cuenta!fk_usuario_cuenta(nombre_comercial)";
+  "id_usuario,username,codigo_cuenta,nombre,telefono,id_auth,rol(id_rol,nombre),cuenta!fk_usuario_cuenta(nombre_comercial)";
 
 function resolveRelation<T>(value: T | T[] | null): T | null {
   if (!value) return null;
@@ -77,6 +79,7 @@ function mapUsuarioRow(row: UsuarioDbRow): UsuarioListRow {
     rol: rol?.nombre ?? rol?.id_rol ?? "—",
     nombre: row.nombre,
     cuenta: cuenta?.nombre_comercial ?? "—",
+    telefono: row.telefono?.trim() || "—",
     tieneCredenciales: Boolean(row.id_auth),
   };
 }
@@ -201,6 +204,7 @@ export interface CreateUsuarioInput {
   codigoCuenta: string | null;
   idBodega: string | null;
   correo: string;
+  telefono?: string | null;
   clave: string;
 }
 
@@ -211,6 +215,7 @@ interface CreateUsuarioApiResponse {
   idRol: WmsRol;
   codigoCuenta: string | null;
   correo: string;
+  telefono?: string | null;
 }
 
 interface BodegaAssignRef {
@@ -282,6 +287,7 @@ export async function createUsuarioConfigurator(
   const nombre = input.nombre.trim();
   const correo = input.correo.trim();
   const clave = input.clave.trim();
+  const telefono = input.telefono?.trim() || null;
   let codigoCuenta = input.codigoCuenta?.trim() || null;
   let idBodega = input.idBodega?.trim() || null;
 
@@ -308,9 +314,9 @@ export async function createUsuarioConfigurator(
   if (!correo) {
     throw new DomainServiceError("El correo es obligatorio.", "INVALID_ARGUMENT");
   }
-  if (clave.length < 6) {
+  if (clave.length < 8) {
     throw new DomainServiceError(
-      "La clave debe tener al menos 6 caracteres.",
+      "La clave debe tener al menos 8 caracteres.",
       "INVALID_ARGUMENT",
     );
   }
@@ -340,6 +346,7 @@ export async function createUsuarioConfigurator(
           codigoEmpresa,
           idBodega,
           correo,
+          telefono,
           password: clave,
         },
       },
@@ -363,6 +370,7 @@ export async function createUsuarioConfigurator(
       rol: rolNombre,
       nombre: created.nombre,
       cuenta: cuentaNombre,
+      telefono: created.telefono?.trim() || telefono || "—",
       tieneCredenciales: true,
     };
   } catch (error) {

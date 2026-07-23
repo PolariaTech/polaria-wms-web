@@ -7,6 +7,7 @@ import {
   PolariaTableCode,
   PolariaTableEditButton,
 } from "@/components/shared/table/PolariaTableCells";
+import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import {
   USUARIOS_EMPTY_MESSAGE,
@@ -17,7 +18,6 @@ import { listUsuariosConfigurator } from "@/modules/configurator/usuarios/servic
 import type { UsuarioListRow } from "@/modules/configurator/usuarios/services/usuarios.service";
 import { ConfiguratorListShell } from "@/modules/configurator/shared/components/ConfiguratorListShell";
 import { UsuarioCreateModal } from "./UsuarioCreateModal";
-
 export function UsuariosListView() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const fetchUsuarios = useCallback(() => listUsuariosConfigurator(), []);
@@ -50,6 +50,14 @@ export function UsuariosListView() {
           id: "cuenta",
           header: "Cuenta",
           cell: (row: UsuarioListRow) => row.cuenta,
+        },
+        {
+          id: "telefono",
+          header: "Teléfono",
+          cell: (row: UsuarioListRow) =>
+            formatInternationalPhoneDisplay(
+              row.telefono === "—" ? null : row.telefono,
+            ),
         },
         {
           id: "credenciales",

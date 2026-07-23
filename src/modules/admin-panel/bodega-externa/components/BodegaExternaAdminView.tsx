@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from "react";
 import { Plus } from "lucide-react";
-import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { cn } from "@/lib/utils/cn";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -43,8 +42,8 @@ export function BodegaExternaAdminView() {
       title={BODEGA_EXTERNA_PAGE_TITLE}
       hint={BODEGA_EXTERNA_PAGE_HINT}
     >
-      <section className="polaria-card-glow rounded-2xl border border-polaria-t-20 bg-polaria-t-08 p-5 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <section className="polaria-card-glow mx-auto w-full max-w-md rounded-2xl border border-polaria-t-20 bg-polaria-t-08 p-5">
+        <div className="flex flex-col gap-4">
           <div>
             <h2 className="polaria-text-card-title text-polaria-w">
               Infraestructura
@@ -63,7 +62,7 @@ export function BodegaExternaAdminView() {
             onClick={() => setIsLinkOpen(true)}
             disabled={!codigoCuenta}
             className={cn(
-              "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-polaria-teal px-4 py-2.5",
+              "inline-flex w-full items-center justify-center gap-2 rounded-xl border border-polaria-teal px-4 py-2.5",
               "polaria-text-body-sm font-medium text-polaria-teal transition hover:bg-polaria-t-08",
               "disabled:cursor-not-allowed disabled:opacity-50",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
@@ -96,21 +95,18 @@ export function BodegaExternaAdminView() {
             No hay bodegas externas vinculadas a tu cuenta.
           </p>
         ) : (
-          <ul className="mt-6 flex flex-col gap-4">
+          <ul className="mt-6 flex w-full flex-col gap-3">
             {vinculadas.map((bodega) => (
               <li
                 key={bodega.idBodega}
-                className="relative rounded-xl border border-polaria-w-08 bg-polaria-w-08 p-4 sm:p-5"
+                className="w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 p-4"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <PolariaTableBadge>BODEGA EXTERNA</PolariaTableBadge>
-                  <span className="polaria-text-body-sm text-polaria-w-50">
-                    ID: {formatBodegaExternaId(bodega.idBodega)}
-                  </span>
-                </div>
-                <p className="polaria-text-card-title mt-4 text-polaria-w">
+                <p className="polaria-text-card-title text-polaria-w">
                   {bodega.nombre}
                 </p>
+                <span className="polaria-text-body-sm mt-1 block text-polaria-w-50">
+                  ID: {formatBodegaExternaId(bodega.idBodega)}
+                </span>
               </li>
             ))}
           </ul>

@@ -1,16 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { Search } from "lucide-react";
-import { ROUTES } from "@/config/routes";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { BODEGA_REPORTES_RESUMEN_CARDS } from "../constants/bodega-reportes-config";
-import { getBodegaReportesData, createEmptyBodegaReportesData } from "../services/bodega-reportes.service";
+import {
+  getBodegaReportesData,
+  createEmptyBodegaReportesData,
+} from "../services/bodega-reportes.service";
 import type { BodegaReportesData } from "../types/bodega-reportes.types";
 import { BodegaReportesBarChart } from "./BodegaReportesBarChart";
 import { BodegaReportesDonutChart } from "./BodegaReportesDonutChart";
 import { BodegaReportesResumenCard } from "./BodegaReportesResumenCard";
+import { RastrearCajaModal } from "./RastrearCajaModal";
 
 const EMPTY_DATA = createEmptyBodegaReportesData();
 
@@ -23,6 +25,7 @@ export function BodegaReportesPageContent({
   const [data, setData] = useState<BodegaReportesData>(EMPTY_DATA);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rastrearOpen, setRastrearOpen] = useState(false);
 
   const loadReportes = useCallback(async () => {
     setIsLoading(true);
@@ -62,13 +65,14 @@ export function BodegaReportesPageContent({
       <div className="flex flex-wrap items-center justify-between gap-2">
         {operacionTabs}
 
-        <Link
-          href={ROUTES.dashboardMapa}
+        <button
+          type="button"
+          onClick={() => setRastrearOpen(true)}
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-polaria-t-20 px-4 py-2 text-sm font-medium text-polaria-teal transition hover:bg-polaria-t-08"
         >
           <Search className="h-4 w-4" aria-hidden />
           Rastrear caja
-        </Link>
+        </button>
       </div>
 
       {error ? (
@@ -112,6 +116,13 @@ export function BodegaReportesPageContent({
           </section>
         </>
       )}
+
+      <RastrearCajaModal
+        open={rastrearOpen}
+        onClose={() => setRastrearOpen(false)}
+        codigoCuenta={codigoCuenta}
+        idBodega={activeBodegaId}
+      />
     </main>
   );
 }

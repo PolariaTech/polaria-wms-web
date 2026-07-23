@@ -158,15 +158,6 @@ export function CuentaCreateModal({
           disabled={disabled}
           autoFocus
         />
-
-        <PolariaFormInput
-          id="cuenta-codigo"
-          label="Código"
-          value={form.codigo}
-          placeholder="Código generado"
-          readOnly
-          disabled
-        />
       </PolariaFormModal>
 
       <EmpresaAssignPickerModal

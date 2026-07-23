@@ -1,12 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaPasswordStrengthField } from "@/components/shared/form/PolariaPasswordStrengthField";
+import { PolariaPhoneInput } from "@/components/shared/form/PolariaPhoneInput";
+import {
+  isValidInternationalPhone,
+  normalizeInternationalPhone,
+} from "@/constants/ui/phone-countries";
 import { WMS_ROL_LABELS } from "@/constants/wms/wms-roles";
 import { WmsRol } from "@/constants/wms/roles";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import { generateCodigoCuentaFromNombre } from "@/lib/utils/generate-codigo-cuenta";
+import {
+  analyzePassword,
+  normalizePasswordInput,
+} from "@/lib/utils/password-strength";
 import { useAuthStore } from "@/stores/auth.store";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { createUsuarioAdmin } from "../services/usuarios-admin.service";
@@ -20,6 +29,7 @@ interface UsuarioAdminCreateModalProps {
 const INITIAL_FORM = {
   nombre: "",
   correo: "",
+  telefono: "",
   clave: "",
 };
 
@@ -33,11 +43,6 @@ export function UsuarioAdminCreateModal({
   const [form, setForm] = useState(INITIAL_FORM);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const codigoPreview = useMemo(
-    () => generateCodigoCuentaFromNombre(form.nombre),
-    [form.nombre],
-  );
 
   const empresaAsignada =
     session?.razonSocialEmpresa ?? codigoEmpresa ?? "—";
@@ -64,6 +69,21 @@ export function UsuarioAdminCreateModal({
       return;
     }
 
+    const clave = normalizePasswordInput(form.clave);
+    const passwordAnalysis = analyzePassword(clave);
+    if (!passwordAnalysis.isValid) {
+      setError(passwordAnalysis.errors[0] ?? "La contraseña no es válida.");
+      return;
+    }
+
+    const telefono = form.telefono.trim()
+      ? normalizeInternationalPhone(form.telefono)
+      : "";
+    if (telefono && !isValidInternationalPhone(telefono)) {
+      setError("Ingresa un número de teléfono válido.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -72,7 +92,8 @@ export function UsuarioAdminCreateModal({
         codigoEmpresa,
         nombre: form.nombre,
         correo: form.correo,
-        clave: form.clave,
+        telefono: telefono || null,
+        clave,
       });
       onCreated();
       onClose();
@@ -93,8 +114,7 @@ export function UsuarioAdminCreateModal({
       onClose={handleClose}
       sectionLabel="Asignar usuario"
       title="Asignar usuario"
-      compact
-      size="lg"
+      size="md"
       onSubmit={(event) => {
         void handleSubmit(event);
       }}
@@ -103,16 +123,6 @@ export function UsuarioAdminCreateModal({
       submitLabel="Asignar"
     >
       <div className="flex flex-col gap-3">
-        <PolariaFormInput
-          id="usuario-admin-codigo"
-          label="Código"
-          value={codigoPreview}
-          placeholder="Según el nombre"
-          readOnly
-          disabled
-          compact
-        />
-
         <PolariaFormInput
           id="usuario-admin-nombre"
           label="Nombre"
@@ -123,7 +133,6 @@ export function UsuarioAdminCreateModal({
           }
           disabled={isSubmitting}
           autoFocus
-          compact
         />
 
         <PolariaFormInput
@@ -132,7 +141,6 @@ export function UsuarioAdminCreateModal({
           value={WMS_ROL_LABELS[WmsRol.operador_cuenta]}
           readOnly
           disabled
-          compact
         />
 
         <PolariaFormInput
@@ -141,7 +149,6 @@ export function UsuarioAdminCreateModal({
           value={empresaAsignada}
           readOnly
           disabled
-          compact
         />
 
         <PolariaFormInput
@@ -155,21 +162,27 @@ export function UsuarioAdminCreateModal({
             setForm((current) => ({ ...current, correo: event.target.value }))
           }
           disabled={isSubmitting}
-          compact
         />
 
-        <PolariaFormInput
-          id="usuario-admin-clave"
-          label="Clave"
-          type="password"
-          autoComplete="new-password"
-          value={form.clave}
-          placeholder="Contraseña inicial"
-          onChange={(event) =>
-            setForm((current) => ({ ...current, clave: event.target.value }))
+        <PolariaPhoneInput
+          id="usuario-admin-telefono"
+          label="Teléfono"
+          value={form.telefono}
+          onChange={(value) =>
+            setForm((current) => ({ ...current, telefono: value }))
           }
           disabled={isSubmitting}
-          compact
+          hint="Opcional. Formato internacional."
+        />
+
+        <PolariaPasswordStrengthField
+          id="usuario-admin-clave"
+          label="Clave"
+          value={form.clave}
+          onChange={(value) =>
+            setForm((current) => ({ ...current, clave: value }))
+          }
+          disabled={isSubmitting}
         />
       </div>
     </PolariaFormModal>

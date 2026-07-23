@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import { PolariaTableCode } from "@/components/shared/table/PolariaTableCells";
+import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
@@ -52,6 +53,14 @@ export function UsuariosAdminListView() {
           id: "correo",
           header: "Correo",
           cell: (row: UsuarioAdminListRow) => row.correo,
+        },
+        {
+          id: "telefono",
+          header: "Teléfono",
+          cell: (row: UsuarioAdminListRow) =>
+            formatInternationalPhoneDisplay(
+              row.telefono === "—" ? null : row.telefono,
+            ),
         },
         {
           id: "codigo",

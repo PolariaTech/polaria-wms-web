@@ -12,6 +12,7 @@ export interface UsuarioAdminListRow {
   idUsuario: string;
   nombre: string;
   correo: string;
+  telefono: string;
   codigo: string;
   createdAt: string;
 }
@@ -21,17 +22,19 @@ interface UsuarioAdminDbRow {
   username: string;
   nombre: string;
   correo: string;
+  telefono: string | null;
   created_at: string;
 }
 
 const USUARIO_ADMIN_LIST_COLUMNS =
-  "id_usuario,username,nombre,correo,created_at";
+  "id_usuario,username,nombre,correo,telefono,created_at";
 
 function mapUsuarioAdminRow(row: UsuarioAdminDbRow): UsuarioAdminListRow {
   return {
     idUsuario: row.id_usuario,
     nombre: row.nombre,
     correo: row.correo,
+    telefono: row.telefono?.trim() || "—",
     codigo: row.username,
     createdAt: row.created_at,
   };
@@ -84,6 +87,7 @@ export interface CreateUsuarioAdminInput {
   codigoEmpresa: string;
   nombre: string;
   correo: string;
+  telefono?: string | null;
   clave: string;
 }
 
@@ -94,6 +98,7 @@ interface CreateUsuarioAdminApiResponse {
   idRol: WmsRol;
   codigoCuenta: string | null;
   correo: string;
+  telefono: string | null;
 }
 
 /** Crea un operador de cuenta vía API Nest (auth + registro en `usuario`). */
@@ -104,6 +109,7 @@ export async function createUsuarioAdmin(
   const codigoEmpresa = input.codigoEmpresa.trim();
   const nombre = input.nombre.trim();
   const correo = input.correo.trim();
+  const telefono = input.telefono?.trim() || null;
   const clave = input.clave.trim();
   const username = generateCodigoCuentaFromNombre(nombre);
 
@@ -119,9 +125,9 @@ export async function createUsuarioAdmin(
   if (!correo) {
     throw new DomainServiceError("El correo es obligatorio.", "INVALID_ARGUMENT");
   }
-  if (clave.length < 6) {
+  if (clave.length < 8) {
     throw new DomainServiceError(
-      "La clave debe tener al menos 6 caracteres.",
+      "La clave debe tener al menos 8 caracteres.",
       "INVALID_ARGUMENT",
     );
   }
@@ -136,6 +142,7 @@ export async function createUsuarioAdmin(
           username,
           nombre,
           correo,
+          telefono,
           password: clave,
           idRol: WmsRol.operador_cuenta,
         },
@@ -146,6 +153,7 @@ export async function createUsuarioAdmin(
       idUsuario: created.idUsuario,
       nombre: created.nombre,
       correo: created.correo,
+      telefono: created.telefono?.trim() || telefono || "—",
       codigo: created.username,
       createdAt: new Date().toISOString(),
     };

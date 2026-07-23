@@ -50,7 +50,7 @@ describe("usuarios.service", () => {
 
     expect(from).toHaveBeenCalledWith("usuario");
     expect(selectChain.select).toHaveBeenCalledWith(
-      "id_usuario,username,codigo_cuenta,nombre,id_auth,rol(id_rol,nombre),cuenta!fk_usuario_cuenta(nombre_comercial)",
+      "id_usuario,username,codigo_cuenta,nombre,telefono,id_auth,rol(id_rol,nombre),cuenta!fk_usuario_cuenta(nombre_comercial)",
     );
     expect(selectChain.eq).toHaveBeenCalledWith("esta_activo", true);
     expect(rows).toEqual([
@@ -60,6 +60,7 @@ describe("usuarios.service", () => {
         rol: "Administrador de cuenta",
         nombre: "Admin Demo",
         cuenta: "Mitre",
+        telefono: "—",
         tieneCredenciales: true,
       },
     ]);
@@ -196,7 +197,7 @@ describe("usuarios.service", () => {
       codigoCuenta: "MIT00",
       idBodega: "550e8400-e29b-41d4-a716-446655440000",
       correo: "custodio@acme.com",
-      clave: "secret1",
+      clave: "Secret1!a",
     });
 
     const apiCall = vi.mocked(fetch).mock.calls[0];
@@ -209,7 +210,8 @@ describe("usuarios.service", () => {
       codigoEmpresa: "ACME",
       idBodega: "550e8400-e29b-41d4-a716-446655440000",
       correo: "custodio@acme.com",
-      password: "secret1",
+      telefono: null,
+      password: "Secret1!a",
     });
   });
 
@@ -285,7 +287,7 @@ describe("usuarios.service", () => {
       codigoCuenta: "MIT00",
       idBodega: null,
       correo: "operador@acme.com",
-      clave: "secret1",
+      clave: "Secret1!a",
     });
 
     const apiCall = vi.mocked(fetch).mock.calls[0];
@@ -336,7 +338,7 @@ describe("usuarios.service", () => {
       codigoCuenta: null,
       idBodega: null,
       correo: "conf@acme.com",
-      clave: "secret1",
+      clave: "Secret1!a",
     });
 
     const apiCall = vi.mocked(fetch).mock.calls[0];
@@ -439,7 +441,7 @@ describe("usuarios.service", () => {
       codigoCuenta: "MIT00",
       idBodega: "550e8400-e29b-41d4-a716-446655440000",
       correo: "trans@acme.com",
-      clave: "secret1",
+      clave: "Secret1!a",
     });
 
     const apiCall = vi.mocked(fetch).mock.calls[0];

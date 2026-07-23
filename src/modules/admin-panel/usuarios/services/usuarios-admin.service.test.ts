@@ -34,6 +34,7 @@ describe("usuarios-admin.service", () => {
           username: "OPER01",
           nombre: "Operador Demo",
           correo: "operador@empresa.com",
+          telefono: "+573001112233",
           created_at: "2026-01-15T10:00:00.000Z",
         },
       ],
@@ -47,7 +48,7 @@ describe("usuarios-admin.service", () => {
 
     expect(from).toHaveBeenCalledWith("usuario");
     expect(selectChain.select).toHaveBeenCalledWith(
-      "id_usuario,username,nombre,correo,created_at",
+      "id_usuario,username,nombre,correo,telefono,created_at",
     );
     expect(selectChain.eq).toHaveBeenCalledWith("codigo_cuenta", "MIT00");
     expect(selectChain.eq).toHaveBeenCalledWith(
@@ -60,6 +61,7 @@ describe("usuarios-admin.service", () => {
         idUsuario: "usr-1",
         nombre: "Operador Demo",
         correo: "operador@empresa.com",
+        telefono: "+573001112233",
         codigo: "OPER01",
         createdAt: "2026-01-15T10:00:00.000Z",
       },
@@ -76,6 +78,7 @@ describe("usuarios-admin.service", () => {
           idRol: WmsRol.operador_cuenta,
           codigoCuenta: "MIT00",
           correo: "nuevo@empresa.com",
+          telefono: "+573009998877",
         }),
         { status: 201, headers: { "Content-Type": "application/json" } },
       ),
@@ -86,15 +89,24 @@ describe("usuarios-admin.service", () => {
       codigoEmpresa: "ACME",
       nombre: "Nuevo Operador",
       correo: "nuevo@empresa.com",
-      clave: "secreto123",
+      telefono: "+573009998877",
+      clave: "ClaveSegura1!",
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/administracion/usuarios",
       expect.objectContaining({ method: "POST" }),
     );
+    const body = JSON.parse(
+      String(vi.mocked(fetch).mock.calls[0]?.[1]?.body),
+    ) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      telefono: "+573009998877",
+      password: "ClaveSegura1!",
+    });
     expect(created.idUsuario).toBe("usr-2");
     expect(created.codigo).toBe("OPER02");
     expect(created.nombre).toBe("Nuevo Operador");
+    expect(created.telefono).toBe("+573009998877");
   });
 });

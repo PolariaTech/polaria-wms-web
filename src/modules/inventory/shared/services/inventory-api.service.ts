@@ -112,6 +112,7 @@ export async function listMovimientosInventarioApi(params: {
   codigoCuenta: string;
   idBodega: string;
   idProducto?: string;
+  idLote?: string;
   idUbicacion?: string;
   tipoMovimiento?: string;
   idReferencia?: string;
@@ -121,6 +122,7 @@ export async function listMovimientosInventarioApi(params: {
     idBodega: params.idBodega,
   });
   if (params.idProducto) qs.set("idProducto", params.idProducto);
+  if (params.idLote) qs.set("idLote", params.idLote);
   if (params.idUbicacion) qs.set("idUbicacion", params.idUbicacion);
   if (params.tipoMovimiento) qs.set("tipoMovimiento", params.tipoMovimiento);
   if (params.idReferencia) qs.set("idReferencia", params.idReferencia);

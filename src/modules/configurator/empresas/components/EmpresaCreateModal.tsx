@@ -109,15 +109,6 @@ export function EmpresaCreateModal({
         autoFocus
       />
 
-      <PolariaFormInput
-        id="empresa-codigo"
-        label="Código empresa"
-        value={form.codigoEmpresa}
-        placeholder="Código generado"
-        readOnly
-        disabled
-      />
-
       <PolariaPhoneInput
         id="empresa-telefono"
         label="Teléfono"

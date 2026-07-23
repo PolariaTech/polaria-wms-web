@@ -1,18 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
+  PolariaFormField,
   PolariaFormInput,
-  PolariaFormSelect,
 } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
+import { JefeBodegaModalSearchField } from "@/modules/jefe-bodega/components/modals/jefe-bodega-modal-ui";
 import { useAuthStore } from "@/stores/auth.store";
 import { createBodegaInternaConfigurator } from "../services/bodegas-internas.service";
 import {
   listCuentasAssignOptions,
   type CuentaAssignOption,
 } from "@/modules/configurator/usuarios/services/usuarios.service";
+import { CuentaAssignPickerModal } from "./CuentaAssignPickerModal";
 
 interface BodegaInternaCreateModalProps {
   open: boolean;
@@ -34,6 +36,7 @@ export function BodegaInternaCreateModal({
   const idCreador = useAuthStore((state) => state.session?.idUsuario ?? null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [cuentas, setCuentas] = useState<CuentaAssignOption[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
@@ -42,6 +45,7 @@ export function BodegaInternaCreateModal({
     if (!open) return;
 
     setForm(INITIAL_FORM);
+    setPickerOpen(false);
     setError(null);
     setIsSubmitting(false);
     setIsLoadingOptions(true);
@@ -60,6 +64,15 @@ export function BodegaInternaCreateModal({
     if (isSubmitting) return;
     onClose();
   }, [isSubmitting, onClose]);
+
+  const cuentaLabel = useMemo(() => {
+    if (!form.codigoCuenta) return "";
+    const selected = cuentas.find(
+      (cuenta) => cuenta.codigoCuenta === form.codigoCuenta,
+    );
+    if (!selected) return form.codigoCuenta;
+    return `${selected.nombreComercial} (${selected.codigoCuenta})`;
+  }, [cuentas, form.codigoCuenta]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -95,62 +108,78 @@ export function BodegaInternaCreateModal({
   const disabled = isSubmitting || isLoadingOptions;
 
   return (
-    <PolariaFormModal
-      open={open}
-      onClose={handleClose}
-      sectionLabel="Nueva bodega interna"
-      title="Crear bodega interna"
-      description="Completa los campos para registrar una bodega interna."
-      onSubmit={(event) => {
-        void handleSubmit(event);
-      }}
-      error={error}
-      isSubmitting={isSubmitting}
-      submitLabel="Crear"
-    >
-      <PolariaFormSelect
-        id="bodega-interna-cuenta"
-        label="Cuenta destino"
-        value={form.codigoCuenta}
-        onChange={(event) =>
+    <>
+      <PolariaFormModal
+        open={open}
+        onClose={handleClose}
+        sectionLabel="Nueva bodega interna"
+        title="Crear bodega interna"
+        description="Completa los campos para registrar una bodega interna."
+        onSubmit={(event) => {
+          void handleSubmit(event);
+        }}
+        error={error}
+        isSubmitting={isSubmitting}
+        submitLabel="Crear"
+      >
+        <PolariaFormField id="bodega-interna-cuenta" label="Cuenta destino">
+          <JefeBodegaModalSearchField
+            id="bodega-interna-cuenta"
+            value={cuentaLabel}
+            placeholder={
+              isLoadingOptions ? "Cargando cuentas…" : "Selecciona una cuenta"
+            }
+            ariaLabel="Cuenta destino"
+            onSearchClick={
+              disabled
+                ? undefined
+                : () => {
+                    setPickerOpen(true);
+                  }
+            }
+          />
+        </PolariaFormField>
+
+        <PolariaFormInput
+          id="bodega-interna-nombre"
+          label="Nombre"
+          value={form.nombre}
+          placeholder="Nombre de la bodega"
+          onChange={(event) =>
+            setForm((current) => ({ ...current, nombre: event.target.value }))
+          }
+          disabled={disabled}
+          autoFocus
+        />
+
+        <PolariaFormInput
+          id="bodega-interna-capacidad"
+          label="Capacidad"
+          type="number"
+          min={1}
+          inputMode="numeric"
+          value={form.capacidad}
+          placeholder="Capacidad en slots"
+          onChange={(event) =>
+            setForm((current) => ({ ...current, capacidad: event.target.value }))
+          }
+          disabled={disabled}
+        />
+      </PolariaFormModal>
+
+      <CuentaAssignPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        cuentas={cuentas}
+        selectedCodigo={form.codigoCuenta || null}
+        onSelect={(cuenta) => {
           setForm((current) => ({
             ...current,
-            codigoCuenta: event.target.value,
-          }))
-        }
-        disabled={disabled}
-        placeholder="Selecciona una cuenta"
-        options={cuentas.map((cuenta) => ({
-          value: cuenta.codigoCuenta,
-          label: cuenta.nombreComercial,
-        }))}
+            codigoCuenta: cuenta.codigoCuenta,
+          }));
+          setError(null);
+        }}
       />
-
-      <PolariaFormInput
-        id="bodega-interna-nombre"
-        label="Nombre"
-        value={form.nombre}
-        placeholder="Nombre de la bodega"
-        onChange={(event) =>
-          setForm((current) => ({ ...current, nombre: event.target.value }))
-        }
-        disabled={disabled}
-        autoFocus
-      />
-
-      <PolariaFormInput
-        id="bodega-interna-capacidad"
-        label="Capacidad"
-        type="number"
-        min={1}
-        inputMode="numeric"
-        value={form.capacidad}
-        placeholder="Capacidad en slots"
-        onChange={(event) =>
-          setForm((current) => ({ ...current, capacidad: event.target.value }))
-        }
-        disabled={disabled}
-      />
-    </PolariaFormModal>
+    </>
   );
 }
