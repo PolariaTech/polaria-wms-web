@@ -88,6 +88,7 @@ export function EstadoBodegaPageContent({
     isConnected,
     isLoading: isLoadingWarehouse,
     error: warehouseError,
+    lastEventAt,
   } = useWarehouseStateRealtime();
 
   const handleSelectSlot = useCallback((slot: EstadoBodegaSlot) => {
@@ -122,6 +123,19 @@ export function EstadoBodegaPageContent({
   useEffect(() => {
     void loadUbicaciones();
   }, [loadUbicaciones, reloadToken]);
+
+  // POL-182: alinear estado_slot con cambios de stock vía Realtime.
+  useEffect(() => {
+    if (!lastEventAt) return;
+
+    const timeoutId = window.setTimeout(() => {
+      void loadUbicaciones();
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [lastEventAt, loadUbicaciones]);
 
   const loadZonePanelData = useCallback(async (options?: { silent?: boolean }) => {
     if (!activeBodegaId || !codigoCuenta) {
