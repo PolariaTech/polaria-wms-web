@@ -46,7 +46,11 @@ export const ROLE_PERMISSIONS: Readonly<
     PERMISSION.COUNTERS_WRITE,
   ],
   [WmsRol.custodio]: [PERMISSION.INVENTORY_READ],
-  [WmsRol.operario]: [PERMISSION.INVENTORY_READ],
+  [WmsRol.operario]: [
+    PERMISSION.INVENTORY_WRITE,
+    PERMISSION.INVENTORY_READ,
+    PERMISSION.WAREHOUSE_STATE_WRITE,
+  ],
   [WmsRol.procesador]: [],
   [WmsRol.transportista]: [],
 };

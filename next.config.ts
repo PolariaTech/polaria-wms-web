@@ -17,6 +17,17 @@ const apiBaseUrl = normalizeApiBaseUrl(
 export const NEST_API_REWRITE_SOURCE =
   "/api/:path((?!pedido-proveedor$)(?!solicitud-compra$)(?!evidencia-transporte$).*)";
 
+const SECURITY_HEADERS = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=()",
+  },
+  { key: "Cross-Origin-Resource-Policy", value: "same-site" },
+];
+
 const nextConfig: NextConfig = {
   // Evita que Turbopack use C:\Users\Daniel\Videos como root (hay package-lock.json padre).
   turbopack: {
@@ -51,13 +62,18 @@ const nextConfig: NextConfig = {
       { key: "Cache-Control", value: "no-store, must-revalidate" },
     ];
 
+    const shellHeaders = [...noStore, ...SECURITY_HEADERS];
+
     return [
-      { source: "/configurador", headers: noStore },
-      { source: "/configurador/:path*", headers: noStore },
-      { source: "/dashboard", headers: noStore },
-      { source: "/dashboard/:path*", headers: noStore },
-      { source: "/platform", headers: noStore },
-      { source: "/platform/:path*", headers: noStore },
+      { source: "/:path*", headers: SECURITY_HEADERS },
+      { source: "/configurador", headers: shellHeaders },
+      { source: "/configurador/:path*", headers: shellHeaders },
+      { source: "/dashboard", headers: shellHeaders },
+      { source: "/dashboard/:path*", headers: shellHeaders },
+      { source: "/platform", headers: shellHeaders },
+      { source: "/platform/:path*", headers: shellHeaders },
+      { source: "/login", headers: shellHeaders },
+      { source: "/auth/:path*", headers: shellHeaders },
     ];
   },
 };
