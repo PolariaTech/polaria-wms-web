@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BarChart3 } from "lucide-react";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { cn } from "@/lib/utils/cn";
@@ -23,12 +23,23 @@ import {
   type InventarioMercanciaBodegaOption,
   type InventarioMercanciaFila,
 } from "../services/inventario-mercancia-listado.service";
+import {
+  getBodegaExternaEmbedEligible,
+  mintBodegaExternaEmbedViewUrl,
+} from "../services/cuenta-reporte-embed.client";
 import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { InventarioMercanciaFlow } from "./InventarioMercanciaFlow";
 import { InventarioMercanciaBodegaPicker } from "./InventarioMercanciaBodegaPicker";
 import { InventarioMercanciaListadoTable } from "./InventarioMercanciaListadoTable";
 
-type Step = "flow" | "bodegas" | "detalle";
+type Step = "flow" | "bodegas" | "detalle" | "reportes";
+
+const toolbarButtonClassName = cn(
+  "inline-flex items-center gap-2 rounded-xl border border-polaria-t-20 bg-polaria-w-08 px-4 py-2.5",
+  "polaria-text-body-sm font-medium text-polaria-w",
+  "transition hover:border-polaria-teal hover:text-polaria-teal",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+);
 
 export function InventarioMercanciaReportView() {
   const { codigoCuenta } = useCompany();
@@ -47,6 +58,11 @@ export function InventarioMercanciaReportView() {
   const [filasLoading, setFilasLoading] = useState(false);
   const [filasError, setFilasError] = useState<string | null>(null);
 
+  const [embedEligible, setEmbedEligible] = useState(false);
+  const [embedViewUrl, setEmbedViewUrl] = useState<string | null>(null);
+  const [embedLoading, setEmbedLoading] = useState(false);
+  const [embedError, setEmbedError] = useState<string | null>(null);
+
   const fetchReport = useCallback(() => {
     if (!codigoCuenta) {
       return Promise.resolve({
@@ -64,6 +80,29 @@ export function InventarioMercanciaReportView() {
 
   const report = data ?? { etapas: [] };
   const highlightedStageIds = getInventarioEtapasConKg(report);
+  const showReportesExterna =
+    Boolean(codigoCuenta) &&
+    (embedEligible || codigoCuenta === "023WA") &&
+    activeEtapa === "bodega_externa" &&
+    selectedBodega?.tipo === "externa" &&
+    (step === "detalle" || step === "reportes");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!codigoCuenta?.trim()) {
+      setEmbedEligible(false);
+      return;
+    }
+
+    void getBodegaExternaEmbedEligible().then((eligible) => {
+      if (!cancelled) setEmbedEligible(eligible);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [codigoCuenta]);
 
   const loadBodegas = useCallback(
     async (etapaId: InventarioMercanciaEtapaId) => {
@@ -128,6 +167,38 @@ export function InventarioMercanciaReportView() {
     }
   }, [loadFilas, selectedBodega, step]);
 
+  useEffect(() => {
+    if (step !== "reportes") {
+      return;
+    }
+
+    let cancelled = false;
+    setEmbedLoading(true);
+    setEmbedError(null);
+    setEmbedViewUrl(null);
+
+    void mintBodegaExternaEmbedViewUrl()
+      .then((viewUrl) => {
+        if (!cancelled) setEmbedViewUrl(viewUrl);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setEmbedError(
+            err instanceof Error
+              ? err.message
+              : "No se pudo obtener el enlace del reporte.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setEmbedLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step]);
+
   const handleSelectStage = (id: InventarioMercanciaEtapaId) => {
     setActiveEtapa(id);
     setSelectedBodega(null);
@@ -140,7 +211,20 @@ export function InventarioMercanciaReportView() {
     setStep("detalle");
   };
 
+  const handleOpenReportesExterna = () => {
+    if (!selectedBodega || selectedBodega.tipo !== "externa") {
+      return;
+    }
+    setStep("reportes");
+  };
+
   const handleBack = () => {
+    if (step === "reportes") {
+      setEmbedViewUrl(null);
+      setEmbedError(null);
+      setStep("detalle");
+      return;
+    }
     if (step === "detalle") {
       setSelectedBodega(null);
       setFilas([]);
@@ -164,19 +248,30 @@ export function InventarioMercanciaReportView() {
     >
       <section className="polaria-card-glow rounded-2xl border border-polaria-t-20 bg-polaria-t-08 p-6 sm:p-8">
         {step !== "flow" ? (
-          <button
-            type="button"
-            onClick={handleBack}
-            className={cn(
-              "mb-6 inline-flex items-center gap-2 rounded-xl border border-polaria-t-20 bg-polaria-w-08 px-4 py-2.5",
-              "polaria-text-body-sm font-medium text-polaria-w",
-              "transition hover:border-polaria-teal hover:text-polaria-teal",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
-            )}
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-            Regresar
-          </button>
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleBack}
+              className={toolbarButtonClassName}
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+              Regresar
+            </button>
+
+            {showReportesExterna ? (
+              <button
+                type="button"
+                onClick={handleOpenReportesExterna}
+                className={cn(
+                  toolbarButtonClassName,
+                  "border-polaria-teal text-polaria-teal shadow-[0_0_20px_var(--teal-glow)]",
+                )}
+              >
+                <BarChart3 className="h-4 w-4" aria-hidden />
+                Reportes
+              </button>
+            ) : null}
+          </div>
         ) : (
           <h2 className="polaria-text-label text-center text-polaria-w-50">
             Inventario de mercancía
@@ -236,6 +331,37 @@ export function InventarioMercanciaReportView() {
             error={filasError}
             onRefresh={() => void loadFilas()}
           />
+        ) : null}
+
+        {step === "reportes" ? (
+          <div className="w-full overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-bg">
+            {embedLoading ? (
+              <p className="px-4 py-10 text-center polaria-text-body-sm text-polaria-w-50">
+                Preparando reporte seguro…
+              </p>
+            ) : null}
+
+            {embedError ? (
+              <p
+                role="alert"
+                className="m-4 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-3 py-2 polaria-text-body-sm text-polaria-danger"
+              >
+                {embedError}
+              </p>
+            ) : null}
+
+            {embedViewUrl ? (
+              <iframe
+                title="Reportes bodega externa"
+                src={embedViewUrl}
+                className="block w-full border-0"
+                style={{ height: "42rem" }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            ) : null}
+          </div>
         ) : null}
       </section>
     </AdminCatalogListShell>

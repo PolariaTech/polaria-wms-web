@@ -17,17 +17,20 @@ describe("inventario-mercancia highlights", () => {
     ],
   };
 
-  it("resalta todas las etapas con kg > 0", () => {
+  it("resalta etapas con kg > 0 y siempre bodega externa", () => {
     expect(getInventarioEtapasConKg(report)).toEqual([
       "proveedor",
       "bodega_interna",
+      "bodega_externa",
       "ventas",
     ]);
   });
 
-  it("permite entrar solo si hay kg", () => {
+  it("permite entrar solo si hay kg, excepto bodega externa", () => {
     expect(etapaInventarioPermiteEntrada(10)).toBe(true);
     expect(etapaInventarioPermiteEntrada(0)).toBe(false);
+    expect(etapaInventarioPermiteEntrada(0, "bodega_externa")).toBe(true);
+    expect(etapaInventarioPermiteEntrada(0, "bodega_interna")).toBe(false);
   });
 
   it("filtra tipo de bodega según etapa", () => {

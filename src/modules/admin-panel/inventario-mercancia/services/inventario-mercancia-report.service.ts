@@ -221,11 +221,19 @@ export function getInventarioEtapa(
   return etapa ?? { id, label: id, kg: 0 };
 }
 
-/** Etapas con kg > 0 (aplican y se resaltan en el diagrama, como en frio). */
+/** Etapas resaltadas: kg > 0, y bodega externa siempre (siempre habilitada). */
 export function getInventarioEtapasConKg(
   report: InventarioMercanciaReport,
 ): InventarioMercanciaEtapaId[] {
-  return report.etapas.filter((etapa) => etapa.kg > 0).map((etapa) => etapa.id);
+  const ids = report.etapas
+    .filter((etapa) => etapa.kg > 0 || etapa.id === "bodega_externa")
+    .map((etapa) => etapa.id);
+
+  if (!ids.includes("bodega_externa")) {
+    ids.push("bodega_externa");
+  }
+
+  return ids;
 }
 
 /** @deprecated Preferir `getInventarioEtapasConKg`. */
@@ -235,6 +243,11 @@ export function getInventarioEtapaDestacada(
   return getInventarioEtapasConKg(report)[0] ?? null;
 }
 
-export function etapaInventarioPermiteEntrada(kg: number): boolean {
+export function etapaInventarioPermiteEntrada(
+  kg: number,
+  etapaId?: InventarioMercanciaEtapaId,
+): boolean {
+  // Bodega externa siempre navegable (aunque no haya kg todavía).
+  if (etapaId === "bodega_externa") return true;
   return kg > 0;
 }

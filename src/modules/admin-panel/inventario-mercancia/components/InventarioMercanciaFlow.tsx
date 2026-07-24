@@ -45,7 +45,8 @@ function InventarioStageCard({
   onSelect,
 }: InventarioStageCardProps) {
   const Icon = STAGE_ICONS[id];
-  const canEnter = etapaInventarioPermiteEntrada(kg) && Boolean(onSelect);
+  const canEnter =
+    etapaInventarioPermiteEntrada(kg, id) && Boolean(onSelect);
 
   const content = (
     <>

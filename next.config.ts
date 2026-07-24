@@ -15,7 +15,7 @@ const apiBaseUrl = normalizeApiBaseUrl(
 
 /** Excluye route handlers locales de n8n; el resto de /api/* se proxya a Nest. */
 export const NEST_API_REWRITE_SOURCE =
-  "/api/:path((?!pedido-proveedor$)(?!solicitud-compra$)(?!evidencia-transporte$).*)";
+  "/api/:path((?!pedido-proveedor$)(?!solicitud-compra$)(?!evidencia-transporte$)(?!reportes/).*)";
 
 const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -26,6 +26,15 @@ const SECURITY_HEADERS = [
     value: "camera=(), microphone=(), geolocation=()",
   },
   { key: "Cross-Origin-Resource-Policy", value: "same-site" },
+];
+
+/** Permite embeber la vista de reportes en el mismo origen (dashboard). */
+const EMBED_FRAME_HEADERS = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Cache-Control", value: "no-store, must-revalidate" },
 ];
 
 const nextConfig: NextConfig = {
@@ -65,6 +74,8 @@ const nextConfig: NextConfig = {
     const shellHeaders = [...noStore, ...SECURITY_HEADERS];
 
     return [
+      { source: "/reportes-embed", headers: EMBED_FRAME_HEADERS },
+      { source: "/reportes-embed/:path*", headers: EMBED_FRAME_HEADERS },
       { source: "/:path*", headers: SECURITY_HEADERS },
       { source: "/configurador", headers: shellHeaders },
       { source: "/configurador/:path*", headers: shellHeaders },
