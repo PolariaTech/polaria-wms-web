@@ -138,7 +138,7 @@ describe("integración navigation + ModuleRoleGate", () => {
     expect(navVisible(context, transporte!)).toBe(false);
   });
 
-  it("reportería exige módulo audit (nivel empresa)", () => {
+  it("reportería exige módulo audit (nivel cuenta)", () => {
     const reporteria = TENANT_NAV.find((item) => item.label === "Reportería");
     expect(reporteria?.module).toBe("audit" satisfies WmsModule);
 
@@ -147,13 +147,20 @@ describe("integración navigation + ModuleRoleGate", () => {
         { idRol: WmsRol.administrador_cuenta, nivelRol: "cuenta" },
         reporteria!,
       ),
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
       navVisible(
-        { idRol: WmsRol.administrador_cuenta, nivelRol: "empresa" },
+        { idRol: WmsRol.operador_cuenta, nivelRol: "cuenta" },
         reporteria!,
       ),
     ).toBe(true);
+
+    expect(
+      navVisible(
+        { idRol: WmsRol.operario, nivelRol: "bodega" },
+        reporteria!,
+      ),
+    ).toBe(false);
   });
 });

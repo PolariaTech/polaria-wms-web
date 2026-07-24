@@ -44,3 +44,5 @@ next-env.d.ts
 # Copia local de referencia; no desplegar
 .tmp-frio/
 
+.vercel
+.env*

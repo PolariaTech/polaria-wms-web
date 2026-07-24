@@ -29,7 +29,7 @@ describe("login-tenant-context.service", () => {
     ]);
   });
 
-  it("devuelve arreglo vacío si el endpoint falla", async () => {
+  it("lanza error si el endpoint falla", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -37,8 +37,8 @@ describe("login-tenant-context.service", () => {
       }),
     );
 
-    await expect(resolveTenantEmpresasForLogin("foods@polaria.tech")).resolves.toEqual(
-      [],
-    );
+    await expect(
+      resolveTenantEmpresasForLogin("foods@polaria.tech"),
+    ).rejects.toThrow("No se pudo resolver la empresa");
   });
 });

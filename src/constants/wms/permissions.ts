@@ -86,7 +86,9 @@ const MODULE_MIN_NIVEL_ROL: Readonly<Record<WmsModule, NivelRol>> = {
   [WMS_MODULE.SALES]: "cuenta",
   [WMS_MODULE.PROCESSING]: "bodega",
   [WMS_MODULE.TRANSPORT]: "bodega",
-  [WMS_MODULE.AUDIT]: "empresa",
+  // Reportería operativa de cuenta (inventario mercancía). Nivel cuenta:
+  // administrador_cuenta y operador_cuenta. No hay roles con nivel "empresa".
+  [WMS_MODULE.AUDIT]: "cuenta",
   [WMS_MODULE.WAREHOUSES]: "empresa",
   [WMS_MODULE.ACCOUNTS]: "empresa",
   [WMS_MODULE.COMPANIES]: "platform",

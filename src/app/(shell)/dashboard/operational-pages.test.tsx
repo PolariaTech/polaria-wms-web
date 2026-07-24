@@ -559,7 +559,7 @@ describe("vistas operativas dashboard", () => {
       ...baseSession,
       idRol: WmsRol.administrador_cuenta,
       nombreRol: "Administrador de cuenta",
-      nivelRol: "empresa",
+      nivelRol: "cuenta",
     };
 
     render(<DashboardReporteriaPage />);

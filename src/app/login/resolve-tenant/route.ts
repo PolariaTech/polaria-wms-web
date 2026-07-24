@@ -13,6 +13,7 @@ interface UsuarioCuentaDbRow {
 }
 
 interface UsuarioLoginDbRow {
+  codigo_empresa: string | null;
   cuenta: UsuarioCuentaDbRow | UsuarioCuentaDbRow[] | null;
 }
 
@@ -21,29 +22,30 @@ function resolveRelation<T>(value: T | T[] | null): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
-function getServiceRoleKey(): string | null {
-  return getServerSupabaseServiceRoleKey();
-}
-
 async function resolveEmpresas(correo: string): Promise<TenantEmpresaOption[]> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = getServiceRoleKey();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceRoleKey = getServerSupabaseServiceRoleKey();
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return [];
+    throw new Error("Configuración de Supabase incompleta en el servidor.");
   }
 
   const client = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // Preferir codigo_empresa del usuario; la cuenta es respaldo (roles sin cuenta).
   const { data, error } = await client
     .from("usuario")
-    .select("cuenta!fk_usuario_cuenta(codigo_empresa)")
+    .select("codigo_empresa,cuenta!fk_usuario_cuenta(codigo_empresa)")
     .eq("correo", correo)
     .eq("esta_activo", true);
 
-  if (error || !data?.length) {
+  if (error) {
+    throw new Error(`No se pudo resolver el tenant: ${error.message}`);
+  }
+
+  if (!data?.length) {
     return [];
   }
 
@@ -51,7 +53,8 @@ async function resolveEmpresas(correo: string): Promise<TenantEmpresaOption[]> {
 
   for (const row of data as UsuarioLoginDbRow[]) {
     const cuenta = resolveRelation(row.cuenta);
-    const codigoEmpresa = cuenta?.codigo_empresa?.trim();
+    const codigoEmpresa =
+      row.codigo_empresa?.trim() || cuenta?.codigo_empresa?.trim();
     if (!codigoEmpresa) continue;
 
     byCodigo.set(codigoEmpresa, {
@@ -111,6 +114,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ empresas: [] satisfies TenantEmpresaOption[] });
   }
 
-  const empresas = await resolveEmpresas(correo);
-  return NextResponse.json({ empresas });
+  try {
+    const empresas = await resolveEmpresas(correo);
+    return NextResponse.json({ empresas });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo resolver la empresa del usuario.";
+    console.error("[resolve-tenant]", message);
+    return NextResponse.json(
+      { message: "No se pudo resolver la empresa. Revisa la configuración del servidor." },
+      { status: 503 },
+    );
+  }
 }

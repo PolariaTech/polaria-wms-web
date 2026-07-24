@@ -77,7 +77,7 @@ describe("filterNavItems", () => {
     expect(labels).not.toContain("Mapa");
   });
 
-  it("administrador de cuenta ve ventas y compras sin ingreso ni mapa", () => {
+  it("administrador de cuenta ve ventas, compras y reportería sin ingreso ni mapa", () => {
     const items = filterNavItems(
       TENANT_NAV,
       tenantContext(WmsRol.administrador_cuenta, "cuenta"),
@@ -87,18 +87,25 @@ describe("filterNavItems", () => {
     expect(labels).toContain("Ventas");
     expect(labels).toContain("Compras");
     expect(labels).toContain("Transporte");
+    expect(labels).toContain("Reportería");
     expect(labels).not.toContain("Ingreso");
     expect(labels).not.toContain("Mapa");
   });
 
-  it("operador de cuenta ve inicio, compras, procesamiento y ventas", () => {
+  it("operador de cuenta ve inicio, compras, procesamiento, ventas y reportería", () => {
     const items = filterNavItems(
       TENANT_NAV,
       tenantContext(WmsRol.operador_cuenta, "cuenta"),
     );
 
     const labels = items.map((item) => item.label);
-    expect(labels).toEqual(["Inicio", "Compras", "Procesamiento", "Ventas"]);
+    expect(labels).toEqual([
+      "Inicio",
+      "Compras",
+      "Procesamiento",
+      "Ventas",
+      "Reportería",
+    ]);
   });
 
   it("filtra mapa por roles de bodega", () => {

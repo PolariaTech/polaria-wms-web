@@ -4,7 +4,10 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getPostLoginRoute } from "@/config/routes";
 import { prelogin } from "@/modules/auth";
-import { resolveTenantEmpresasForLogin } from "@/modules/auth/services/login-tenant-context.service";
+import {
+  ResolveTenantError,
+  resolveTenantEmpresasForLogin,
+} from "@/modules/auth/services/login-tenant-context.service";
 import type { TenantEmpresaOption } from "@/modules/auth/services/login-tenant-context.service";
 import { ApiError } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
@@ -114,7 +117,7 @@ export function LoginFlow() {
       setStep("password");
       setPassword("");
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ResolveTenantError || err instanceof ApiError) {
         setError(err.message);
       } else {
         setError("Ocurrió un error inesperado");
