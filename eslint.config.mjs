@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Copia local de referencia (frio); no forma parte de la app.
     ".tmp-frio/**",
+    // Bundle minificado del widget Mateo (asset estático, no fuente de la app).
+    "public/assets/mateo-widget.js",
   ]),
   {
     rules: {

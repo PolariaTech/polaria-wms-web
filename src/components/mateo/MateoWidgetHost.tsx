@@ -30,6 +30,7 @@ export function MateoWidgetHost() {
     }
 
     let cancelled = false;
+    let mountedHost: HTMLDivElement | null = null;
     const wmsToken = accessToken;
 
     const fetchWidgetToken = () =>
@@ -60,6 +61,7 @@ export function MateoWidgetHost() {
         console.warn("[MateoWidgetHost] contenedor no montado");
         return;
       }
+      mountedHost = hostEl;
 
       try {
         const api = await loadMateoWidgetApi(env.mateoWidgetScriptUrl);
@@ -98,9 +100,8 @@ export function MateoWidgetHost() {
     return () => {
       cancelled = true;
       const api = apiRef.current;
-      const hostEl = hostRef.current;
-      if (api && hostEl) {
-        api.unmount?.(hostEl);
+      if (api && mountedHost) {
+        api.unmount?.(mountedHost);
         api.close?.();
       }
       apiRef.current = null;
