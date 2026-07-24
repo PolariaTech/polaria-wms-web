@@ -219,7 +219,7 @@ export async function listCajasRastreables(params: {
     new Set(
       movimientos
         .map((mov) => mov.idLote)
-        .filter((id): id is string => Boolean(id) && !lotesEnStock.has(id)),
+        .filter((id): id is string => id != null && !lotesEnStock.has(id)),
     ),
   );
 
