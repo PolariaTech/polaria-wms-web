@@ -9,7 +9,8 @@
     "start": "next start -p 3001",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sim:polaria": "node scripts/polaria-sim/run-polaria-sim.cjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -38,6 +39,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "jsdom": "^29.1.1",
+    "playwright": "^1.62.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.9"
