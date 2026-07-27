@@ -7,11 +7,11 @@ import {
 
 describe("embed-report-token", () => {
   it("emite token verificable con codigo de cuenta", () => {
-    const token = mintEmbedReportToken("023WA");
+    const token = mintEmbedReportToken("JBR");
     const payload = verifyEmbedReportToken(token);
 
     expect(payload).not.toBeNull();
-    expect(payload?.c).toBe("023WA");
+    expect(payload?.c).toBe("JBR");
     expect(payload?.exp).toBeGreaterThan(Date.now());
     expect(payload?.exp).toBeLessThanOrEqual(
       Date.now() + EMBED_REPORT_TOKEN_TTL_MS + 1000,
@@ -19,7 +19,7 @@ describe("embed-report-token", () => {
   });
 
   it("rechaza token alterado", () => {
-    const token = mintEmbedReportToken("023WA");
+    const token = mintEmbedReportToken("JBR");
     const tampered = `${token.slice(0, -4)}xxxx`;
     expect(verifyEmbedReportToken(tampered)).toBeNull();
   });

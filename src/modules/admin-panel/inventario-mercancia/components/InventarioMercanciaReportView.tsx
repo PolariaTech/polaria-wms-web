@@ -80,9 +80,10 @@ export function InventarioMercanciaReportView() {
 
   const report = data ?? { etapas: [] };
   const highlightedStageIds = getInventarioEtapasConKg(report);
+  // Solo cuentas con fila activa en `cuenta_reporte_embed` (p. ej. JBR → TCI).
   const showReportesExterna =
     Boolean(codigoCuenta) &&
-    (embedEligible || codigoCuenta === "023WA") &&
+    embedEligible &&
     activeEtapa === "bodega_externa" &&
     selectedBodega?.tipo === "externa" &&
     (step === "detalle" || step === "reportes");
