@@ -1,8 +1,15 @@
 import { useAuthStore } from "@/stores/auth.store";
 
+export interface BodegaExternaEmbedReportOption {
+  id: string;
+  descripcion: string | null;
+  reporteId: string | null;
+}
+
 export interface BodegaExternaEmbedEligibleResponse {
   eligible: boolean;
   codigoCuenta?: string;
+  reports?: BodegaExternaEmbedReportOption[];
 }
 
 export interface BodegaExternaEmbedMintResponse {
@@ -62,10 +69,23 @@ export async function getBodegaExternaEmbedEligible(): Promise<boolean> {
   }
 }
 
+/** Lista reportes activos de la cuenta (elegibles para embeber). */
+export async function listBodegaExternaEmbedReports(): Promise<
+  BodegaExternaEmbedReportOption[]
+> {
+  const data = await embedFetch<BodegaExternaEmbedEligibleResponse>("", {
+    method: "GET",
+  });
+  return data.reports ?? [];
+}
+
 /** Emite URL enmascarada con token de 12 h para el iframe. */
-export async function mintBodegaExternaEmbedViewUrl(): Promise<string> {
+export async function mintBodegaExternaEmbedViewUrl(
+  idCuentaReporteEmbed: string,
+): Promise<string> {
   const data = await embedFetch<BodegaExternaEmbedMintResponse>("", {
     method: "POST",
+    body: JSON.stringify({ idCuentaReporteEmbed }),
   });
   return data.viewUrl;
 }

@@ -25,7 +25,9 @@ import {
 } from "../services/inventario-mercancia-listado.service";
 import {
   getBodegaExternaEmbedEligible,
+  listBodegaExternaEmbedReports,
   mintBodegaExternaEmbedViewUrl,
+  type BodegaExternaEmbedReportOption,
 } from "../services/cuenta-reporte-embed.client";
 import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { InventarioMercanciaFlow } from "./InventarioMercanciaFlow";
@@ -59,6 +61,12 @@ export function InventarioMercanciaReportView() {
   const [filasError, setFilasError] = useState<string | null>(null);
 
   const [embedEligible, setEmbedEligible] = useState(false);
+  const [embedReports, setEmbedReports] = useState<
+    BodegaExternaEmbedReportOption[]
+  >([]);
+  const [selectedEmbedReportId, setSelectedEmbedReportId] = useState<
+    string | null
+  >(null);
   const [embedViewUrl, setEmbedViewUrl] = useState<string | null>(null);
   const [embedLoading, setEmbedLoading] = useState(false);
   const [embedError, setEmbedError] = useState<string | null>(null);
@@ -177,8 +185,46 @@ export function InventarioMercanciaReportView() {
     setEmbedLoading(true);
     setEmbedError(null);
     setEmbedViewUrl(null);
+    setSelectedEmbedReportId(null);
+    setEmbedReports([]);
 
-    void mintBodegaExternaEmbedViewUrl()
+    void listBodegaExternaEmbedReports()
+      .then((reports) => {
+        if (cancelled) return;
+        setEmbedReports(reports);
+        if (reports.length === 1) {
+          setSelectedEmbedReportId(reports[0].id);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setEmbedError(
+            err instanceof Error
+              ? err.message
+              : "No se pudieron cargar los reportes.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setEmbedLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== "reportes" || !selectedEmbedReportId) {
+      return;
+    }
+
+    let cancelled = false;
+    setEmbedLoading(true);
+    setEmbedError(null);
+    setEmbedViewUrl(null);
+
+    void mintBodegaExternaEmbedViewUrl(selectedEmbedReportId)
       .then((viewUrl) => {
         if (!cancelled) setEmbedViewUrl(viewUrl);
       })
@@ -198,7 +244,7 @@ export function InventarioMercanciaReportView() {
     return () => {
       cancelled = true;
     };
-  }, [step]);
+  }, [selectedEmbedReportId, step]);
 
   const handleSelectStage = (id: InventarioMercanciaEtapaId) => {
     setActiveEtapa(id);
@@ -223,6 +269,8 @@ export function InventarioMercanciaReportView() {
     if (step === "reportes") {
       setEmbedViewUrl(null);
       setEmbedError(null);
+      setSelectedEmbedReportId(null);
+      setEmbedReports([]);
       setStep("detalle");
       return;
     }
@@ -335,33 +383,69 @@ export function InventarioMercanciaReportView() {
         ) : null}
 
         {step === "reportes" ? (
-          <div className="w-full overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-bg">
-            {embedLoading ? (
-              <p className="px-4 py-10 text-center polaria-text-body-sm text-polaria-w-50">
-                Preparando reporte seguro…
-              </p>
+          <div className="space-y-4">
+            {embedReports.length > 1 ? (
+              <div className="flex flex-wrap gap-2">
+                {embedReports.map((report) => {
+                  const selected = report.id === selectedEmbedReportId;
+                  return (
+                    <button
+                      key={report.id}
+                      type="button"
+                      onClick={() => setSelectedEmbedReportId(report.id)}
+                      className={cn(
+                        toolbarButtonClassName,
+                        selected &&
+                          "border-polaria-teal text-polaria-teal shadow-[0_0_20px_var(--teal-glow)]",
+                      )}
+                    >
+                      {report.descripcion?.trim() || "Reporte"}
+                    </button>
+                  );
+                })}
+              </div>
             ) : null}
 
-            {embedError ? (
-              <p
-                role="alert"
-                className="m-4 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-3 py-2 polaria-text-body-sm text-polaria-danger"
-              >
-                {embedError}
-              </p>
-            ) : null}
+            <div className="w-full overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-bg">
+              {embedLoading ? (
+                <p className="px-4 py-10 text-center polaria-text-body-sm text-polaria-w-50">
+                  Preparando reporte seguro…
+                </p>
+              ) : null}
 
-            {embedViewUrl ? (
-              <iframe
-                title="Reportes bodega externa"
-                src={embedViewUrl}
-                className="block w-full border-0"
-                style={{ height: "42rem" }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            ) : null}
+              {embedError ? (
+                <p
+                  role="alert"
+                  className="m-4 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-3 py-2 polaria-text-body-sm text-polaria-danger"
+                >
+                  {embedError}
+                </p>
+              ) : null}
+
+              {!embedLoading &&
+              !embedError &&
+              embedReports.length > 1 &&
+              !selectedEmbedReportId ? (
+                <p className="px-4 py-10 text-center polaria-text-body-sm text-polaria-w-50">
+                  Elige un reporte para visualizarlo.
+                </p>
+              ) : null}
+
+              {embedViewUrl ? (
+                <iframe
+                  title={
+                    embedReports.find((r) => r.id === selectedEmbedReportId)
+                      ?.descripcion || "Reportes bodega externa"
+                  }
+                  src={embedViewUrl}
+                  className="block w-full border-0"
+                  style={{ height: "42rem" }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              ) : null}
+            </div>
           </div>
         ) : null}
       </section>

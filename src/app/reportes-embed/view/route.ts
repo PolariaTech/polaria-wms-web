@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     return errorPage("El enlace del reporte expiró o no es válido.", 401);
   }
 
-  const embedUrl = await getCuentaReporteEmbedUrl(payload.c);
+  const embedUrl = await getCuentaReporteEmbedUrl(payload.c, payload.r);
   if (!embedUrl) {
     return errorPage("Reporte no configurado para esta cuenta.", 403);
   }
