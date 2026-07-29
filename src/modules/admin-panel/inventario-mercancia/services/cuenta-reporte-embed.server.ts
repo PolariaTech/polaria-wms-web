@@ -5,9 +5,25 @@ export interface EmbedReportSession {
   idUsuario: string;
 }
 
+export interface CuentaReporteEmbedRow {
+  idCuentaReporteEmbed: string;
+  codigoCuenta: string;
+  descripcion: string | null;
+  reporteId: string | null;
+  embedUrl: string;
+}
+
 interface UsuarioCuentaRow {
   id_usuario: string;
   codigo_cuenta: string | null;
+}
+
+interface CuentaReporteEmbedDbRow {
+  id_cuenta_reporte_embed: string;
+  codigo_cuenta: string;
+  descripcion: string | null;
+  reporte_id: string | null;
+  embed_url: string;
 }
 
 /** Resuelve sesión WMS desde el JWT (Supabase Auth + tabla usuario). */
@@ -40,9 +56,43 @@ export async function resolveEmbedReportSession(
   return { codigoCuenta, idUsuario: row.id_usuario };
 }
 
-/** URL activa de embed para la cuenta, o null si no aplica. */
+function mapEmbedRow(row: CuentaReporteEmbedDbRow): CuentaReporteEmbedRow {
+  return {
+    idCuentaReporteEmbed: row.id_cuenta_reporte_embed,
+    codigoCuenta: row.codigo_cuenta,
+    descripcion: row.descripcion?.trim() || null,
+    reporteId: row.reporte_id,
+    embedUrl: row.embed_url.trim(),
+  };
+}
+
+/** Reportes activos de la cuenta (uno o varios). */
+export async function listCuentaReporteEmbeds(
+  codigoCuenta: string,
+): Promise<CuentaReporteEmbedRow[]> {
+  const client = getSupabaseAdminClient();
+  if (!client) return [];
+
+  const { data, error } = await client
+    .from("cuenta_reporte_embed")
+    .select(
+      "id_cuenta_reporte_embed,codigo_cuenta,descripcion,reporte_id,embed_url",
+    )
+    .eq("codigo_cuenta", codigoCuenta.trim())
+    .eq("esta_activo", true)
+    .order("descripcion", { ascending: true });
+
+  if (error || !data?.length) return [];
+
+  return (data as CuentaReporteEmbedDbRow[])
+    .map(mapEmbedRow)
+    .filter((row) => Boolean(row.embedUrl));
+}
+
+/** URL activa de un embed concreto, o null si no aplica. */
 export async function getCuentaReporteEmbedUrl(
   codigoCuenta: string,
+  idCuentaReporteEmbed: string,
 ): Promise<string | null> {
   const client = getSupabaseAdminClient();
   if (!client) return null;
@@ -51,11 +101,12 @@ export async function getCuentaReporteEmbedUrl(
     .from("cuenta_reporte_embed")
     .select("embed_url")
     .eq("codigo_cuenta", codigoCuenta.trim())
+    .eq("id_cuenta_reporte_embed", idCuentaReporteEmbed.trim())
     .eq("esta_activo", true)
     .maybeSingle();
 
   if (error || !data?.embed_url?.trim()) return null;
-  return data.embed_url.trim();
+  return (data.embed_url as string).trim();
 }
 
 export function extractBearerToken(request: Request): string | null {

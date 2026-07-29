@@ -29,9 +29,6 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           priority
           className="h-auto w-44 sm:w-52"
         />
-        <p className="mt-3 text-sm text-polaria-w-50">
-          Sistema de autenticación seguro
-        </p>
       </header>
 
       <main className="relative z-10 w-full max-w-md">{children}</main>

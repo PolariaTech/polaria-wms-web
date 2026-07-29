@@ -6,6 +6,8 @@ export const EMBED_REPORT_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 export interface EmbedReportTokenPayload {
   /** codigo_cuenta */
   c: string;
+  /** id_cuenta_reporte_embed */
+  r: string;
   /** epoch ms de expiración */
   exp: number;
   /** id único del token */
@@ -42,9 +44,13 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 /** Emite un token opaco (no incluye la URL de Looker). */
-export function mintEmbedReportToken(codigoCuenta: string): string {
+export function mintEmbedReportToken(
+  codigoCuenta: string,
+  idCuentaReporteEmbed: string,
+): string {
   const payload: EmbedReportTokenPayload = {
     c: codigoCuenta.trim(),
+    r: idCuentaReporteEmbed.trim(),
     exp: Date.now() + EMBED_REPORT_TOKEN_TTL_MS,
     jti: randomBytes(12).toString("hex"),
   };
@@ -73,7 +79,13 @@ export function verifyEmbedReportToken(
   try {
     const json = Buffer.from(payloadB64, "base64url").toString("utf8");
     const payload = JSON.parse(json) as EmbedReportTokenPayload;
-    if (!payload?.c?.trim() || typeof payload.exp !== "number") return null;
+    if (
+      !payload?.c?.trim() ||
+      !payload?.r?.trim() ||
+      typeof payload.exp !== "number"
+    ) {
+      return null;
+    }
     if (Date.now() > payload.exp) return null;
     return payload;
   } catch {
