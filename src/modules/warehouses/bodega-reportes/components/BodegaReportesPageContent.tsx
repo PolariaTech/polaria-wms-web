@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Search } from "lucide-react";
+import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { BODEGA_REPORTES_RESUMEN_CARDS } from "../constants/bodega-reportes-config";
 import {
@@ -9,6 +10,7 @@ import {
   createEmptyBodegaReportesData,
 } from "../services/bodega-reportes.service";
 import type { BodegaReportesData } from "../types/bodega-reportes.types";
+import { todayIsoDateBogota } from "../utils/bodega-reportes-fecha";
 import { BodegaReportesBarChart } from "./BodegaReportesBarChart";
 import { BodegaReportesDonutChart } from "./BodegaReportesDonutChart";
 import { BodegaReportesResumenCard } from "./BodegaReportesResumenCard";
@@ -22,6 +24,8 @@ export function BodegaReportesPageContent({
   operacionTabs: ReactNode;
 }) {
   const { codigoCuenta, activeBodegaId } = useCompany();
+  const [fechaDesde, setFechaDesde] = useState(todayIsoDateBogota);
+  const [fechaHasta, setFechaHasta] = useState(todayIsoDateBogota);
   const [data, setData] = useState<BodegaReportesData>(EMPTY_DATA);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +35,19 @@ export function BodegaReportesPageContent({
     setIsLoading(true);
     setError(null);
 
+    if (fechaDesde > fechaHasta) {
+      setError("La fecha desde no puede ser posterior a la fecha hasta.");
+      setData(EMPTY_DATA);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const next = await getBodegaReportesData({
         codigoCuenta,
         idBodega: activeBodegaId,
+        fechaDesde,
+        fechaHasta,
       });
       setData(next);
     } catch (loadError) {
@@ -47,7 +60,7 @@ export function BodegaReportesPageContent({
     } finally {
       setIsLoading(false);
     }
-  }, [activeBodegaId, codigoCuenta]);
+  }, [activeBodegaId, codigoCuenta, fechaDesde, fechaHasta]);
 
   useEffect(() => {
     void loadReportes();
@@ -74,6 +87,28 @@ export function BodegaReportesPageContent({
           Rastrear caja
         </button>
       </div>
+
+      <section
+        aria-label="Filtros de reportes"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4"
+      >
+        <PolariaFormInput
+          id="reportes-fecha-desde"
+          label="Desde"
+          type="date"
+          value={fechaDesde}
+          onChange={(event) => setFechaDesde(event.target.value)}
+          compact
+        />
+        <PolariaFormInput
+          id="reportes-fecha-hasta"
+          label="Hasta"
+          type="date"
+          value={fechaHasta}
+          onChange={(event) => setFechaHasta(event.target.value)}
+          compact
+        />
+      </section>
 
       {error ? (
         <p

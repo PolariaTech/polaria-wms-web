@@ -38,6 +38,16 @@ async function parseErrorMessage(response: Response): Promise<string> {
   return response.statusText || "Error desconocido";
 }
 
+const RATE_LIMIT_USER_MESSAGE =
+  "Hay demasiadas peticiones en poco tiempo. Espera 1 minuto e inténtalo de nuevo.";
+
+function isRateLimitMessage(message?: string): boolean {
+  if (!message) return false;
+  return /throttler|too many requests|too_many_requests|demasiad[oa]s (solicitudes|peticiones|intentos)|rate.?limit|429/i.test(
+    message,
+  );
+}
+
 export function mapApiError(status: number, fallback?: string): ApiError {
   switch (status) {
     case 401:
@@ -54,7 +64,12 @@ export function mapApiError(status: number, fallback?: string): ApiError {
       );
     case 422:
       return new ApiError("Debes ingresar código de empresa", status);
+    case 429:
+      return new ApiError(RATE_LIMIT_USER_MESSAGE, status, "RATE_LIMITED");
     default:
+      if (isRateLimitMessage(fallback)) {
+        return new ApiError(RATE_LIMIT_USER_MESSAGE, status, "RATE_LIMITED");
+      }
       if (status >= 500) {
         return new ApiError(
           "Error del servidor. Intenta de nuevo más tarde.",
