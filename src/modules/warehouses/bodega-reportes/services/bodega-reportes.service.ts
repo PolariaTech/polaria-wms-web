@@ -3,6 +3,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BODEGA_REPORTES_BAR_LABELS } from "../constants/bodega-reportes-config";
 import { syncDemoraAlertasHistorial } from "@/modules/warehouses/estado-bodega/services/estado-bodega-demora-alerta-sync.service";
 import { countOrdenesTrabajoSalidaEjecutadas } from "../utils/bodega-reportes-salidas";
+import { todayIsoDateBogota } from "../utils/bodega-reportes-fecha";
 import type {
   BodegaReporteCategoriaMetric,
   BodegaReportesChartPoint,
@@ -16,6 +17,30 @@ type CountQuery = any;
 interface ReportesQueryContext {
   codigoCuenta: string | null;
   idBodega: string | null;
+  fechaDesde?: string;
+  fechaHasta?: string;
+}
+
+function resolveFechaParams(context: ReportesQueryContext): {
+  fechaDesde: string;
+  fechaHasta: string;
+} {
+  const today = todayIsoDateBogota();
+  return {
+    fechaDesde: context.fechaDesde?.slice(0, 10) || today,
+    fechaHasta: context.fechaHasta?.slice(0, 10) || today,
+  };
+}
+
+/** Inicio/fin inclusivos del día calendario Bogotá para filtros Supabase. */
+function bogotaDayBounds(fechaDesde: string, fechaHasta: string): {
+  desdeIso: string;
+  hastaIso: string;
+} {
+  return {
+    desdeIso: new Date(`${fechaDesde}T00:00:00.000-05:00`).toISOString(),
+    hastaIso: new Date(`${fechaHasta}T23:59:59.999-05:00`).toISOString(),
+  };
 }
 
 async function countRows(
@@ -37,10 +62,22 @@ async function countRows(
 async function countSalidasOperativasCompletadas(
   codigoCuenta: string,
   idBodega: string,
+  fechaDesde: string,
+  fechaHasta: string,
 ): Promise<number> {
+  const { desdeIso, hastaIso } = bogotaDayBounds(fechaDesde, fechaHasta);
+
   try {
     const ordenes = await listOrdenesTrabajoApi({ codigoCuenta, idBodega });
-    const fromApi = countOrdenesTrabajoSalidaEjecutadas(ordenes);
+    const inRange = ordenes.filter((ot) => {
+      const created = ot.createdAt ? new Date(ot.createdAt).getTime() : NaN;
+      if (!Number.isFinite(created)) return false;
+      return (
+        created >= new Date(desdeIso).getTime() &&
+        created <= new Date(hastaIso).getTime()
+      );
+    });
+    const fromApi = countOrdenesTrabajoSalidaEjecutadas(inRange);
     if (fromApi > 0) return fromApi;
   } catch {
     // fallback Supabase abajo
@@ -51,6 +88,8 @@ async function countSalidasOperativasCompletadas(
       .eq("codigo_cuenta", codigoCuenta)
       .eq("id_bodega", idBodega)
       .not("id_ubicacion_destino", "is", null)
+      .gte("created_at", desdeIso)
+      .lte("created_at", hastaIso)
       .in("estado", [
         "completada",
         "completado",
@@ -62,14 +101,19 @@ async function countSalidasOperativasCompletadas(
   );
 }
 
-async function sumMermaKg(idBodega: string): Promise<number> {
+async function sumMermaKg(
+  idBodega: string,
+  fechaDesde: string,
+  fechaHasta: string,
+): Promise<number> {
   try {
     const supabase = createSupabaseBrowserClient();
     const { data, error } = await supabase
-      .from("solicitud_procesamiento")
+      .from("registro_merma")
       .select("kilos_merma")
       .eq("id_bodega", idBodega)
-      .eq("estado", "terminada");
+      .gte("periodo", fechaDesde)
+      .lte("periodo", fechaHasta);
 
     if (error || !data) return 0;
 
@@ -123,30 +167,32 @@ export async function getBodegaReportesData(
   context: ReportesQueryContext,
 ): Promise<BodegaReportesData> {
   const { codigoCuenta, idBodega } = context;
+  const { fechaDesde, fechaHasta } = resolveFechaParams(context);
 
   if (!codigoCuenta || !idBodega) {
     const charts = buildChartData(EMPTY_RESUMEN);
     return { resumen: EMPTY_RESUMEN, ...charts };
   }
 
-  const syncResult = await syncDemoraAlertasHistorial({ codigoCuenta, idBodega }).catch(
-    () => ({
-      persisted: 0,
-      alertasTotal: 0,
-    }),
-  );
+  // Sync demoras (side-effect). No infla métricas del rango: la fuente es la API.
+  await syncDemoraAlertasHistorial({ codigoCuenta, idBodega }).catch(() => ({
+    persisted: 0,
+    alertasTotal: 0,
+  }));
 
   try {
-    const [apiResumen, salidasOperativas] = await Promise.all([
-      getBodegaReportesApi({ codigoCuenta, idBodega }),
-      countSalidasOperativasCompletadas(codigoCuenta, idBodega),
-    ]);
+    const apiResumen = await getBodegaReportesApi({
+      codigoCuenta,
+      idBodega,
+      fechaDesde,
+      fechaHasta,
+    });
     const resumen: BodegaReportesResumen = {
       ingresos: apiResumen.ingresos,
-      salidas: Math.max(apiResumen.salidas, salidasOperativas),
+      salidas: apiResumen.salidas,
       movimientos: apiResumen.movimientos,
       despachados: apiResumen.despachados,
-      alertas: Math.max(apiResumen.alertas, syncResult.alertasTotal),
+      alertas: apiResumen.alertas,
       mermaKg: apiResumen.mermaKg,
     };
     const charts = buildChartData(resumen);
@@ -154,6 +200,8 @@ export async function getBodegaReportesData(
   } catch {
     // fallback Supabase abajo
   }
+
+  const { desdeIso, hastaIso } = bogotaDayBounds(fechaDesde, fechaHasta);
 
   const [
     ingresos,
@@ -165,27 +213,49 @@ export async function getBodegaReportesData(
     mermaKg,
   ] = await Promise.all([
     countRows("recepcion_compra", (query) =>
-      query.eq("codigo_cuenta", codigoCuenta).eq("id_bodega", idBodega),
+      query
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_bodega", idBodega)
+        .gte("cerrada_at", desdeIso)
+        .lte("cerrada_at", hastaIso),
     ),
     countRows("orden_venta", (query) =>
       query
         .eq("codigo_cuenta", codigoCuenta)
-        .in("estado", ["despachada", "cerrada"]),
+        .eq("id_bodega", idBodega)
+        .in("estado", ["despachada", "cerrada"])
+        .gte("updated_at", desdeIso)
+        .lte("updated_at", hastaIso),
     ),
-    countSalidasOperativasCompletadas(codigoCuenta, idBodega),
-    countRows("auditoria_operacion", (query) =>
+    countSalidasOperativasCompletadas(
+      codigoCuenta,
+      idBodega,
+      fechaDesde,
+      fechaHasta,
+    ),
+    countRows("movimiento_inventario", (query) =>
       query
         .eq("codigo_cuenta", codigoCuenta)
         .eq("id_bodega", idBodega)
-        .eq("accion", "movimiento_inventario"),
+        .eq("tipo_movimiento", "transferencia")
+        .gte("created_at", desdeIso)
+        .lte("created_at", hastaIso),
     ),
     countRows("guia_envio", (query) =>
-      query.eq("codigo_cuenta", codigoCuenta).eq("estado", "entregada"),
+      query
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("estado", "entregada")
+        .gte("updated_at", desdeIso)
+        .lte("updated_at", hastaIso),
     ),
     countRows("alerta_operativa", (query) =>
-      query.eq("codigo_cuenta", codigoCuenta).eq("id_bodega", idBodega),
+      query
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_bodega", idBodega)
+        .gte("created_at", desdeIso)
+        .lte("created_at", hastaIso),
     ),
-    sumMermaKg(idBodega),
+    sumMermaKg(idBodega, fechaDesde, fechaHasta),
   ]);
 
   const resumen: BodegaReportesResumen = {
@@ -193,7 +263,7 @@ export async function getBodegaReportesData(
     salidas: Math.max(salidasOv, salidasOt),
     movimientos,
     despachados,
-    alertas: Math.max(alertas, syncResult.alertasTotal),
+    alertas,
     mermaKg: Math.round(mermaKg * 10) / 10,
   };
 

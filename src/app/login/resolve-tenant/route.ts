@@ -93,7 +93,10 @@ export async function POST(request: Request) {
   const rate = checkRateLimit(`resolve-tenant:${ip}`, 20, 60_000);
   if (!rate.allowed) {
     return NextResponse.json(
-      { message: "Demasiados intentos. Intente de nuevo en unos segundos." },
+      {
+        message:
+          "Hay demasiadas peticiones en poco tiempo. Espera 1 minuto e inténtalo de nuevo.",
+      },
       {
         status: 429,
         headers: { "Retry-After": String(rate.retryAfterSeconds) },

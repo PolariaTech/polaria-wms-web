@@ -23,6 +23,20 @@ describe("mapApiError", () => {
     const error = mapApiError(403, "No tiene permisos para inventory:write");
     expect(error.message).toBe("No tiene permisos para inventory:write");
   });
+
+  it("maps 429 a mensaje de espera de 1 minuto", () => {
+    const error = mapApiError(429, "ThrottlerException: Too Many Requests");
+    expect(error.message).toBe(
+      "Hay demasiadas peticiones en poco tiempo. Espera 1 minuto e inténtalo de nuevo.",
+    );
+    expect(error.code).toBe("RATE_LIMITED");
+  });
+
+  it("normaliza mensajes de throttle aunque el status no sea 429", () => {
+    const error = mapApiError(400, "Too Many Requests");
+    expect(error.message).toContain("Espera 1 minuto");
+    expect(error.code).toBe("RATE_LIMITED");
+  });
 });
 
 describe("apiRequest tenant headers", () => {

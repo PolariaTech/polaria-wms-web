@@ -3,6 +3,7 @@ import { ApiError, apiRequest } from "@/services/api/api";
 import type { TareaColaRow } from "@/modules/processing/shared/types/processing.types";
 import type {
   AlertaOperativaApiRow,
+  BodegaReportesApiParams,
   BodegaReportesApiResumen,
   CreateOrdenTrabajoApiInput,
   EjecutarOrdenTrabajoApiInput,
@@ -17,6 +18,17 @@ function tenantQuery(params: TenantBodegaApiParams): string {
   const codigoCuenta = encodeURIComponent(params.codigoCuenta.trim());
   const idBodega = encodeURIComponent(params.idBodega.trim());
   return `codigoCuenta=${codigoCuenta}&idBodega=${idBodega}`;
+}
+
+function reportesQuery(params: BodegaReportesApiParams): string {
+  const parts = [tenantQuery(params)];
+  if (params.fechaDesde) {
+    parts.push(`fechaDesde=${encodeURIComponent(params.fechaDesde)}`);
+  }
+  if (params.fechaHasta) {
+    parts.push(`fechaHasta=${encodeURIComponent(params.fechaHasta)}`);
+  }
+  return parts.join("&");
 }
 
 async function mutateApi<T>(
@@ -150,10 +162,10 @@ export async function crearLlamadaJefeApi(
 }
 
 export async function getBodegaReportesApi(
-  params: TenantBodegaApiParams,
+  params: BodegaReportesApiParams,
 ): Promise<BodegaReportesApiResumen> {
   return apiRequest<BodegaReportesApiResumen>(
-    `/operaciones/reportes/bodega?${tenantQuery(params)}`,
+    `/operaciones/reportes/bodega?${reportesQuery(params)}`,
     { auth: true },
   );
 }

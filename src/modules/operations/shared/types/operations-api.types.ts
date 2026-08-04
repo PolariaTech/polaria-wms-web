@@ -77,6 +77,13 @@ export interface TenantBodegaApiParams {
   idBodega: string;
 }
 
+export interface BodegaReportesApiParams extends TenantBodegaApiParams {
+  /** YYYY-MM-DD. Si se omite, la API usa hoy (America/Bogota). */
+  fechaDesde?: string;
+  /** YYYY-MM-DD. Si se omite, la API usa hoy (America/Bogota). */
+  fechaHasta?: string;
+}
+
 export interface CreateOrdenTrabajoApiInput extends TenantBodegaApiParams {
   tipoFlujo: FlujoOrdenTrabajoApi;
   idUbicacionOrigen?: string;
