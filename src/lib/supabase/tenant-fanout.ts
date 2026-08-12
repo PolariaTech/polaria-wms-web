@@ -85,7 +85,7 @@ export async function findCuentaAcrossSchemas(
       continue;
     }
 
-    const row = (data as CuentaFanoutRow[] | null)?.[0];
+    const row = (data as unknown as CuentaFanoutRow[] | null)?.[0];
     if (row) return row;
   }
 
@@ -135,7 +135,7 @@ export async function listCuentasAcrossSchemas(): Promise<CuentaFanoutRow[]> {
       continue;
     }
 
-    for (const row of (data as CuentaFanoutRow[] | null) ?? []) {
+    for (const row of (data as unknown as CuentaFanoutRow[] | null) ?? []) {
       byCodigo.set(row.codigo_cuenta, row);
     }
   }
@@ -215,7 +215,7 @@ export async function listBodegasAcrossSchemas(
       continue;
     }
 
-    for (const row of (data as BodegaFanoutRow[] | null) ?? []) {
+    for (const row of (data as unknown as BodegaFanoutRow[] | null) ?? []) {
       if (!row.id_bodega?.trim()) continue;
       byId.set(row.id_bodega.trim(), row);
     }
@@ -269,7 +269,7 @@ export async function resolveNombresCuentaAcrossSchemas(
 
     if (error) continue;
 
-    for (const row of (data as
+    for (const row of (data as unknown as
       | { codigo_cuenta: string; nombre_comercial: string }[]
       | null) ?? []) {
       nombreByCodigo.set(row.codigo_cuenta, row.nombre_comercial);
