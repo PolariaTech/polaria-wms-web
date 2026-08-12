@@ -5,6 +5,10 @@ import {
   type InventarioMercanciaReport,
 } from "./inventario-mercancia-report.service";
 import { tipoBodegaParaEtapa } from "./inventario-mercancia-listado.service";
+import {
+  usaInventarioMitSchema,
+  usaKgMitInventarioExterna,
+} from "../constants/mit-inventario-fridem";
 
 describe("inventario-mercancia highlights", () => {
   const report: InventarioMercanciaReport = {
@@ -37,5 +41,14 @@ describe("inventario-mercancia highlights", () => {
     expect(tipoBodegaParaEtapa("bodega_interna")).toBe("interna");
     expect(tipoBodegaParaEtapa("bodega_externa")).toBe("externa");
     expect(tipoBodegaParaEtapa("proveedor")).toBe("ambas");
+  });
+
+  it("usa mit.inventario solo para cuenta Mit + bodega Fridem", () => {
+    expect(usaInventarioMitSchema("02808", "Fridem")).toBe(true);
+    expect(usaInventarioMitSchema("02808", "fridem")).toBe(true);
+    expect(usaInventarioMitSchema("02808", "TCI")).toBe(false);
+    expect(usaInventarioMitSchema("JBR", "Fridem")).toBe(false);
+    expect(usaKgMitInventarioExterna("02808")).toBe(true);
+    expect(usaKgMitInventarioExterna("JBR")).toBe(false);
   });
 });

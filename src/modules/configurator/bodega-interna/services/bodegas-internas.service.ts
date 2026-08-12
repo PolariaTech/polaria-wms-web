@@ -1,7 +1,8 @@
 import {
-  DEFAULT_LIST_LIMIT,
-  runDomainQuery,
-} from "@/lib/supabase/domain-query";
+  findCuentaAcrossSchemas,
+  listBodegasAcrossSchemas,
+  resolveNombresCuentaAcrossSchemas,
+} from "@/lib/supabase/tenant-fanout";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { generateCodigoCuentaFromNombre } from "@/lib/utils/generate-codigo-cuenta";
 import { TENANT_HEADER_NAMES } from "@/lib/utils/tenant-headers";
@@ -12,39 +13,6 @@ export interface BodegaInternaListRow {
   nombre: string;
   capacidad: number | null;
   bodegaAsignada: string;
-}
-
-interface BodegaInternaCuentaDbRow {
-  nombre_comercial: string;
-}
-
-interface BodegaInternaDbRow {
-  id_bodega: string;
-  nombre: string;
-  capacidad_slots: number | null;
-  cuenta: BodegaInternaCuentaDbRow | BodegaInternaCuentaDbRow[] | null;
-}
-
-const BODEGA_INTERNA_LIST_COLUMNS =
-  "id_bodega,nombre,capacidad_slots,cuenta(nombre_comercial)";
-
-function resolveCuentaNombre(
-  cuenta: BodegaInternaDbRow["cuenta"],
-): string {
-  if (!cuenta) return "—";
-  if (Array.isArray(cuenta)) {
-    return cuenta[0]?.nombre_comercial ?? "—";
-  }
-  return cuenta.nombre_comercial ?? "—";
-}
-
-function mapBodegaInternaRow(row: BodegaInternaDbRow): BodegaInternaListRow {
-  return {
-    idBodega: row.id_bodega,
-    nombre: row.nombre,
-    capacidad: row.capacidad_slots,
-    bodegaAsignada: resolveCuentaNombre(row.cuenta),
-  };
 }
 
 export interface CreateBodegaInternaInput {
@@ -59,33 +27,7 @@ async function resolveCuentaAsignada(codigoCuenta: string): Promise<{
   codigoEmpresa: string;
   nombreComercial: string;
 }> {
-  const codigo = codigoCuenta.trim();
-  if (!codigo) {
-    throw new DomainServiceError(
-      "Selecciona la cuenta destino de la bodega.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  const rows = await runDomainQuery<
-    { codigo_cuenta: string; codigo_empresa: string; nombre_comercial: string }[]
-  >((client) => {
-    const query = client
-      .from("cuenta")
-      .select("codigo_cuenta,codigo_empresa,nombre_comercial")
-      .eq("esta_activa", true)
-      .eq("codigo_cuenta", codigo)
-      .limit(1);
-
-    return query as unknown as Promise<{
-      data:
-        | { codigo_cuenta: string; codigo_empresa: string; nombre_comercial: string }[]
-        | null;
-      error: { message: string } | null;
-    }>;
-  });
-
-  const cuenta = rows[0];
+  const cuenta = await findCuentaAcrossSchemas(codigoCuenta);
   if (!cuenta?.codigo_cuenta || !cuenta.codigo_empresa) {
     throw new DomainServiceError(
       "La cuenta seleccionada no es válida.",
@@ -102,7 +44,7 @@ async function resolveCuentaAsignada(codigoCuenta: string): Promise<{
 
 /**
  * Inicializa el layout operativo de la bodega vía API Nest.
- * Si falla, la bodega ya persistida en Supabase NO se revierte (sin rollback).
+ * Si falla, la bodega ya persistida NO se revierte (sin rollback).
  */
 async function bootstrapBodegaLayout(params: {
   idBodega: string;
@@ -135,26 +77,21 @@ async function bootstrapBodegaLayout(params: {
   }
 }
 
-/** Lista bodegas internas activas para el configurador (scope platform). */
+/** Lista bodegas internas activas (public + emp_*). */
 export async function listBodegasInternasConfigurator(): Promise<
   BodegaInternaListRow[]
 > {
-  const rows = await runDomainQuery<BodegaInternaDbRow[]>((client) => {
-    const query = client
-      .from("bodega")
-      .select(BODEGA_INTERNA_LIST_COLUMNS)
-      .eq("tipo", "interna")
-      .eq("esta_activa", true)
-      .order("nombre", { ascending: true })
-      .limit(DEFAULT_LIST_LIMIT);
+  const rows = await listBodegasAcrossSchemas({ tipo: "interna" });
+  const nombres = await resolveNombresCuentaAcrossSchemas([
+    ...new Set(rows.map((row) => row.codigo_cuenta).filter(Boolean)),
+  ]);
 
-    return query as unknown as Promise<{
-      data: BodegaInternaDbRow[] | null;
-      error: { message: string } | null;
-    }>;
-  });
-
-  return rows.map(mapBodegaInternaRow);
+  return rows.map((row) => ({
+    idBodega: row.id_bodega,
+    nombre: row.nombre,
+    capacidad: row.capacidad_slots,
+    bodegaAsignada: nombres.get(row.codigo_cuenta) ?? row.codigo_cuenta ?? "—",
+  }));
 }
 
 /** Crea una bodega interna desde el configurador (scope platform). */
@@ -188,24 +125,35 @@ export async function createBodegaInternaConfigurator(
   const { codigoCuenta, codigoEmpresa, nombreComercial } =
     await resolveCuentaAsignada(input.codigoCuenta);
 
-  const created = await apiRequest<{
+  let created: {
     idBodega: string;
     capacidadSlots: number | null;
-  }>("/configuracion/bodegas", {
-    method: "POST",
-    auth: true,
-    headers: {
-      [TENANT_HEADER_NAMES.codigoEmpresa]: codigoEmpresa,
-      [TENANT_HEADER_NAMES.codigoCuenta]: codigoCuenta,
-    },
-    body: {
-      codigoCuenta,
-      codigo,
-      nombre,
-      tipo: "interna",
-      capacidadSlots: Math.trunc(input.capacidad),
-    },
-  });
+  };
+  try {
+    created = await apiRequest<{
+      idBodega: string;
+      capacidadSlots: number | null;
+    }>("/configuracion/bodegas", {
+      method: "POST",
+      auth: true,
+      headers: {
+        [TENANT_HEADER_NAMES.codigoEmpresa]: codigoEmpresa,
+        [TENANT_HEADER_NAMES.codigoCuenta]: codigoCuenta,
+      },
+      body: {
+        codigoCuenta,
+        codigo,
+        nombre,
+        tipo: "interna",
+        capacidadSlots: Math.trunc(input.capacidad),
+      },
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
+    }
+    throw error;
+  }
 
   const idBodega = created.idBodega;
 

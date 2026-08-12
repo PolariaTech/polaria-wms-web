@@ -8,18 +8,9 @@ interface TenantEmpresaOption {
   razonSocial: string;
 }
 
-interface UsuarioCuentaDbRow {
-  codigo_empresa: string | null;
-}
-
 interface UsuarioLoginDbRow {
   codigo_empresa: string | null;
-  cuenta: UsuarioCuentaDbRow | UsuarioCuentaDbRow[] | null;
-}
-
-function resolveRelation<T>(value: T | T[] | null): T | null {
-  if (!value) return null;
-  return Array.isArray(value) ? (value[0] ?? null) : value;
+  codigo_cuenta: string | null;
 }
 
 async function resolveEmpresas(correo: string): Promise<TenantEmpresaOption[]> {
@@ -34,10 +25,11 @@ async function resolveEmpresas(correo: string): Promise<TenantEmpresaOption[]> {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // Preferir codigo_empresa del usuario; la cuenta es respaldo (roles sin cuenta).
+  // Sin embed a cuenta: el FK fk_usuario_cuenta se eliminó (schema-per-empresa).
+  // codigo_empresa en usuario basta; configurador llega con ambos null → [].
   const { data, error } = await client
     .from("usuario")
-    .select("codigo_empresa,cuenta!fk_usuario_cuenta(codigo_empresa)")
+    .select("codigo_empresa,codigo_cuenta")
     .eq("correo", correo)
     .eq("esta_activo", true);
 
@@ -52,9 +44,7 @@ async function resolveEmpresas(correo: string): Promise<TenantEmpresaOption[]> {
   const byCodigo = new Map<string, TenantEmpresaOption>();
 
   for (const row of data as UsuarioLoginDbRow[]) {
-    const cuenta = resolveRelation(row.cuenta);
-    const codigoEmpresa =
-      row.codigo_empresa?.trim() || cuenta?.codigo_empresa?.trim();
+    const codigoEmpresa = row.codigo_empresa?.trim();
     if (!codigoEmpresa) continue;
 
     byCodigo.set(codigoEmpresa, {

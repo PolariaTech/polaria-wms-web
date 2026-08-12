@@ -29,5 +29,6 @@ export function normalizeAuthSession(session: AuthSessionApi): AuthSession {
   return {
     ...session,
     nivelRol: normalizeNivelRol(session.nivelRol),
+    schemaName: session.schemaName ?? null,
   };
 }

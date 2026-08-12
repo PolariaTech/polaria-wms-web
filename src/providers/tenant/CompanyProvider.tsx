@@ -66,6 +66,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       codigoCuenta: tenantSource?.codigoCuenta ?? null,
       idBodegas,
       nivelRol: tenantSource?.nivelRol ?? "platform",
+      schemaName: tenantSource?.schemaName ?? null,
       activeBodegaId,
       hasMultipleBodegas: idBodegas.length > 1,
       setActiveBodegaId,

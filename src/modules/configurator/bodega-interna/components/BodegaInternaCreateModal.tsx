@@ -8,6 +8,7 @@ import {
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { JefeBodegaModalSearchField } from "@/modules/jefe-bodega/components/modals/jefe-bodega-modal-ui";
+import { ApiError } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { createBodegaInternaConfigurator } from "../services/bodegas-internas.service";
 import {
@@ -96,9 +97,11 @@ export function BodegaInternaCreateModal({
       onClose();
     } catch (err: unknown) {
       setError(
-        err instanceof DomainServiceError
+        err instanceof DomainServiceError || err instanceof ApiError
           ? err.message
-          : "No se pudo crear la bodega interna.",
+          : err instanceof Error && err.message
+            ? err.message
+            : "No se pudo crear la bodega interna.",
       );
     } finally {
       setIsSubmitting(false);

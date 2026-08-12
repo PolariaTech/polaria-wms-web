@@ -16,6 +16,7 @@ export interface EmpresaListRow {
   razonSocial: string;
   telefono: string | null;
   estaActiva: boolean;
+  schemaName: string | null;
 }
 
 interface EmpresaDbRow {
@@ -23,9 +24,11 @@ interface EmpresaDbRow {
   razon_social: string;
   telefono: string | null;
   esta_activa: boolean;
+  schema_name: string | null;
 }
 
-const EMPRESA_LIST_COLUMNS = "codigo_empresa,razon_social,telefono,esta_activa";
+const EMPRESA_LIST_COLUMNS =
+  "codigo_empresa,razon_social,telefono,esta_activa,schema_name";
 
 function mapEmpresaRow(row: EmpresaDbRow): EmpresaListRow {
   return {
@@ -33,6 +36,7 @@ function mapEmpresaRow(row: EmpresaDbRow): EmpresaListRow {
     razonSocial: row.razon_social,
     telefono: row.telefono,
     estaActiva: row.esta_activa,
+    schemaName: row.schema_name,
   };
 }
 
@@ -83,7 +87,7 @@ async function assertCodigoEmpresaDisponible(codigoEmpresa: string): Promise<voi
   }
 }
 
-/** Crea una empresa desde el configurador (scope platform). */
+/** Crea una empresa vía API Nest (provisiona schema emp_* automáticamente). */
 export async function createEmpresaConfigurator(
   input: CreateEmpresaInput,
 ): Promise<EmpresaListRow> {
@@ -118,27 +122,23 @@ export async function createEmpresaConfigurator(
 
   await assertCodigoEmpresaDisponible(codigoEmpresa);
 
-  await runDomainMutation<{ codigo_empresa: string } | null>((client) => {
-    const query = client.from("empresa").insert({
-      codigo_empresa: codigoEmpresa,
-      razon_social: razonSocial,
-      telefono,
-      id_creador: input.idCreador ?? null,
-      esta_activa: true,
+  try {
+    return await apiRequest<EmpresaListRow>("/configuracion/empresas", {
+      method: "POST",
+      auth: true,
+      body: {
+        codigoEmpresa,
+        razonSocial,
+        telefono,
+        idCreador: input.idCreador ?? null,
+      },
     });
-
-    return query as unknown as Promise<{
-      data: { codigo_empresa: string } | null;
-      error: { message: string } | null;
-    }>;
-  });
-
-  return {
-    codigoEmpresa,
-    razonSocial,
-    telefono,
-    estaActiva: true,
-  };
+  } catch (error: unknown) {
+    if (error instanceof ApiError) {
+      throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
+    }
+    throw error;
+  }
 }
 
 export interface UpdateEmpresaInput {

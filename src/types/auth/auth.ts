@@ -35,6 +35,8 @@ export interface TenantContext {
   codigoCuenta: string | null;
   idBodegas: string[];
   nivelRol: NivelRol;
+  /** Schema Postgres emp_* (null = legacy public). */
+  schemaName: string | null;
 }
 
 /** Contexto devuelto por POST /auth/login y persistido tras GET /auth/me. */
@@ -98,6 +100,8 @@ export interface AuthSession {
   /** Bodegas activas asignadas al usuario (vacío en scope platform). */
   idBodegas: string[];
   scope: AuthScope;
+  /** Schema Postgres emp_* (null = legacy public). */
+  schemaName: string | null;
 }
 
 export function createEmptyTenantContext(): TenantContext {
@@ -106,6 +110,7 @@ export function createEmptyTenantContext(): TenantContext {
     codigoCuenta: null,
     idBodegas: [],
     nivelRol: "platform",
+    schemaName: null,
   };
 }
 

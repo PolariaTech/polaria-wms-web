@@ -19,16 +19,16 @@ describe("usuarios.service", () => {
   });
 
   it("listUsuariosConfigurator consulta tabla usuario con rol y cuenta", async () => {
-    const selectChain = {
+    const usuarioChain = {
       select: vi.fn(),
       eq: vi.fn(),
       order: vi.fn(),
       limit: vi.fn(),
     };
-    selectChain.select.mockReturnValue(selectChain);
-    selectChain.eq.mockReturnValue(selectChain);
-    selectChain.order.mockReturnValue(selectChain);
-    selectChain.limit.mockResolvedValue({
+    usuarioChain.select.mockReturnValue(usuarioChain);
+    usuarioChain.eq.mockReturnValue(usuarioChain);
+    usuarioChain.order.mockReturnValue(usuarioChain);
+    usuarioChain.limit.mockResolvedValue({
       data: [
         {
           id_usuario: "usr-1",
@@ -36,23 +36,38 @@ describe("usuarios.service", () => {
           codigo_cuenta: "MIT00",
           nombre: "Admin Demo",
           id_auth: "auth-1",
-          rol: { id_rol: WmsRol.administrador_cuenta, nombre: "Administrador de cuenta" },
-          cuenta: { nombre_comercial: "Mitre" },
+          rol: {
+            id_rol: WmsRol.administrador_cuenta,
+            nombre: "Administrador de cuenta",
+          },
         },
       ],
       error: null,
     });
 
-    const from = vi.fn(() => selectChain);
+    const cuentaChain = {
+      select: vi.fn(),
+      in: vi.fn(),
+    };
+    cuentaChain.select.mockReturnValue(cuentaChain);
+    cuentaChain.in.mockResolvedValue({
+      data: [{ codigo_cuenta: "MIT00", nombre_comercial: "Mitre" }],
+      error: null,
+    });
+
+    const from = vi.fn((table: string) =>
+      table === "cuenta" ? cuentaChain : usuarioChain,
+    );
     setSupabaseClientForTests({ from } as never);
 
     const rows = await listUsuariosConfigurator();
 
     expect(from).toHaveBeenCalledWith("usuario");
-    expect(selectChain.select).toHaveBeenCalledWith(
-      "id_usuario,username,codigo_cuenta,nombre,telefono,id_auth,rol(id_rol,nombre),cuenta!fk_usuario_cuenta(nombre_comercial)",
+    expect(usuarioChain.select).toHaveBeenCalledWith(
+      "id_usuario,username,codigo_cuenta,nombre,telefono,id_auth,rol(id_rol,nombre)",
     );
-    expect(selectChain.eq).toHaveBeenCalledWith("esta_activo", true);
+    expect(usuarioChain.eq).toHaveBeenCalledWith("esta_activo", true);
+    expect(from).toHaveBeenCalledWith("cuenta");
     expect(rows).toEqual([
       {
         idUsuario: "usr-1",

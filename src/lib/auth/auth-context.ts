@@ -8,5 +8,6 @@ export function buildAuthContextFromSession(session: AuthSession): AuthContext {
     codigoCuenta: session.codigoCuenta,
     idBodegas: session.idBodegas,
     nivelRol: session.nivelRol,
+    schemaName: session.schemaName ?? null,
   };
 }

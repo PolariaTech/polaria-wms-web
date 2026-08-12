@@ -85,7 +85,7 @@ export function CuentasListView() {
           id: "credenciales",
           header: "Credenciales",
           cell: (row: CuentaListRow) =>
-            row.estaActiva ? (
+            row.tieneCredenciales ? (
               <PolariaTableBadge>Sí</PolariaTableBadge>
             ) : (
               <PolariaTableBadge variant="neutral">No</PolariaTableBadge>

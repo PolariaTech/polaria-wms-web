@@ -1,7 +1,9 @@
 import {
   DEFAULT_LIST_LIMIT,
+  getDomainSupabaseClient,
   runDomainMutation,
   runDomainQuery,
+  setTenantSchemaGetter,
 } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { normalizeCodigoCuentaInput } from "@/lib/utils/generate-codigo-cuenta";
@@ -24,10 +26,14 @@ export interface CuentaListRow {
   /** Primera bodega interna activa; si no hay, la primera bodega activa. */
   bodegaInternaPrincipal: CuentaBodegaAsignada | null;
   /**
-   * Acceso / credenciales de la cuenta (`cuenta.esta_activa`).
+   * Acceso de la cuenta (`cuenta.esta_activa`).
    * false → los usuarios de la cuenta no pueden iniciar sesión.
    */
   estaActiva: boolean;
+  /**
+   * Tiene al menos un usuario con Auth (correo + clave → `usuario.id_auth`).
+   */
+  tieneCredenciales: boolean;
 }
 
 interface CuentaBodegaDbRow {
@@ -43,15 +49,13 @@ interface CuentaDbRow {
   codigo_empresa: string;
   nombre_comercial: string;
   esta_activa: boolean;
-  bodega: CuentaBodegaDbRow[] | null;
 }
 
-/**
- * PostgREST: cuenta↔usuario tiene dos FK (id_creador y usuario.codigo_cuenta).
- * Hay que nombrar la relación explícita para los usuarios de la cuenta.
- */
 const CUENTA_LIST_COLUMNS =
-  "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,bodega(id_bodega,nombre,tipo,capacidad_slots,esta_activa)";
+  "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa";
+
+const BODEGA_LIST_COLUMNS =
+  "id_bodega,nombre,tipo,capacidad_slots,esta_activa,codigo_cuenta";
 
 function mapBodegaAsignada(row: CuentaBodegaDbRow): CuentaBodegaAsignada {
   return {
@@ -70,11 +74,18 @@ function resolveBodegaInternaPrincipal(
     .filter((item) => item.tipo === "interna")
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
   if (internas[0]) return internas[0];
-  return [...bodegas].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))[0] ?? null;
+  return (
+    [...bodegas].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))[0] ??
+    null
+  );
 }
 
-function mapCuentaRow(row: CuentaDbRow): CuentaListRow {
-  const bodegasAsignadas = (row.bodega ?? [])
+function mapCuentaRow(
+  row: CuentaDbRow,
+  bodegas: CuentaBodegaDbRow[] = [],
+  tieneCredenciales = false,
+): CuentaListRow {
+  const bodegasAsignadas = bodegas
     .filter((item) => item.esta_activa)
     .map(mapBodegaAsignada)
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
@@ -86,12 +97,131 @@ function mapCuentaRow(row: CuentaDbRow): CuentaListRow {
     bodegasAsignadas,
     bodegaInternaPrincipal: resolveBodegaInternaPrincipal(bodegasAsignadas),
     estaActiva: row.esta_activa,
+    tieneCredenciales,
   };
+}
+
+/** Cuentas con al menos un usuario ligado a Supabase Auth (correo/clave). */
+async function loadCuentasConCredencialesAuth(
+  codigosCuenta: string[],
+): Promise<Set<string>> {
+  const withAuth = new Set<string>();
+  if (codigosCuenta.length === 0) return withAuth;
+
+  const rows = await runDomainQuery<{ codigo_cuenta: string | null }[]>(
+    (client) => {
+      const query = client
+        .from("usuario")
+        .select("codigo_cuenta")
+        .in("codigo_cuenta", codigosCuenta)
+        .not("id_auth", "is", null)
+        .limit(DEFAULT_LIST_LIMIT);
+
+      return query as unknown as Promise<{
+        data: { codigo_cuenta: string | null }[] | null;
+        error: { message: string } | null;
+      }>;
+    },
+  );
+
+  for (const row of rows) {
+    const codigo = row.codigo_cuenta?.trim();
+    if (codigo) withAuth.add(codigo);
+  }
+
+  return withAuth;
+}
+
+async function loadBodegasByCuenta(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fromFn: (table: string) => any,
+  codigosCuenta: string[],
+): Promise<Map<string, CuentaBodegaDbRow[]>> {
+  const byCuenta = new Map<string, CuentaBodegaDbRow[]>();
+  if (codigosCuenta.length === 0) return byCuenta;
+
+  const { data, error } = await fromFn("bodega")
+    .select(BODEGA_LIST_COLUMNS)
+    .in("codigo_cuenta", codigosCuenta)
+    .eq("esta_activa", true);
+
+  if (error) {
+    throw new DomainServiceError(
+      error.message || "Error al consultar bodegas.",
+      "QUERY_FAILED",
+      error,
+    );
+  }
+
+  for (const row of (data as (CuentaBodegaDbRow & {
+    codigo_cuenta: string;
+  })[] | null) ?? []) {
+    const list = byCuenta.get(row.codigo_cuenta) ?? [];
+    list.push(row);
+    byCuenta.set(row.codigo_cuenta, list);
+  }
+
+  return byCuenta;
+}
+
+async function resolveEmpresaSchemaName(
+  codigoEmpresa: string,
+): Promise<string | null> {
+  const rows = await runDomainQuery<{ schema_name: string | null }[]>(
+    (client) => {
+      const query = client
+        .from("empresa")
+        .select("schema_name")
+        .eq("codigo_empresa", codigoEmpresa)
+        .limit(1);
+
+      return query as unknown as Promise<{
+        data: { schema_name: string | null }[] | null;
+        error: { message: string } | null;
+      }>;
+    },
+  );
+  return rows[0]?.schema_name ?? null;
+}
+
+/** Ejecuta trabajo con search_path/schema emp_* de la empresa (configurador). */
+async function withEmpresaSchema<T>(
+  codigoEmpresa: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const schemaName = await resolveEmpresaSchemaName(codigoEmpresa);
+  if (!schemaName) {
+    return fn();
+  }
+
+  const previous = setTenantSchemaGetter(() => schemaName);
+  try {
+    return await fn();
+  } finally {
+    setTenantSchemaGetter(previous);
+  }
 }
 
 /** Lista cuentas comerciales para el configurador (scope platform). */
 export async function listCuentasConfigurator(): Promise<CuentaListRow[]> {
-  const rows = await runDomainQuery<CuentaDbRow[]>((client) => {
+  const empresas = await runDomainQuery<
+    { codigo_empresa: string; schema_name: string | null }[]
+  >((client) => {
+    const query = client
+      .from("empresa")
+      .select("codigo_empresa,schema_name")
+      .limit(DEFAULT_LIST_LIMIT);
+
+    return query as unknown as Promise<{
+      data: { codigo_empresa: string; schema_name: string | null }[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  const byCodigo = new Map<string, CuentaDbRow>();
+  const bodegasByCodigo = new Map<string, CuentaBodegaDbRow[]>();
+
+  const publicRows = await runDomainQuery<CuentaDbRow[]>((client) => {
     const query = client
       .from("cuenta")
       .select(CUENTA_LIST_COLUMNS)
@@ -104,7 +234,67 @@ export async function listCuentasConfigurator(): Promise<CuentaListRow[]> {
     }>;
   });
 
-  return rows.map(mapCuentaRow);
+  const publicBodegas = await loadBodegasByCuenta(
+    (table) => getDomainSupabaseClient().from(table),
+    publicRows.map((row) => row.codigo_cuenta),
+  );
+  for (const row of publicRows) {
+    byCodigo.set(row.codigo_cuenta, row);
+    bodegasByCodigo.set(
+      row.codigo_cuenta,
+      publicBodegas.get(row.codigo_cuenta) ?? [],
+    );
+  }
+
+  const client = getDomainSupabaseClient();
+  for (const empresa of empresas) {
+    if (!empresa.schema_name) continue;
+
+    const { data, error } = await client
+      .schema(empresa.schema_name)
+      .from("cuenta")
+      .select(CUENTA_LIST_COLUMNS)
+      .order("nombre_comercial", { ascending: true })
+      .limit(DEFAULT_LIST_LIMIT);
+
+    if (error) {
+      console.warn(`[cuentas] schema ${empresa.schema_name}:`, error.message);
+      continue;
+    }
+
+    const rows = (data as CuentaDbRow[] | null) ?? [];
+    let bodegas = new Map<string, CuentaBodegaDbRow[]>();
+    try {
+      bodegas = await loadBodegasByCuenta(
+        (table) => client.schema(empresa.schema_name!).from(table),
+        rows.map((row) => row.codigo_cuenta),
+      );
+    } catch (bodegaError) {
+      console.warn(`[cuentas] bodegas ${empresa.schema_name}:`, bodegaError);
+    }
+
+    for (const row of rows) {
+      byCodigo.set(row.codigo_cuenta, row);
+      bodegasByCodigo.set(
+        row.codigo_cuenta,
+        bodegas.get(row.codigo_cuenta) ?? [],
+      );
+    }
+  }
+
+  const conCredenciales = await loadCuentasConCredencialesAuth([
+    ...byCodigo.keys(),
+  ]);
+
+  return [...byCodigo.values()]
+    .map((row) =>
+      mapCuentaRow(
+        row,
+        bodegasByCodigo.get(row.codigo_cuenta) ?? [],
+        conCredenciales.has(row.codigo_cuenta),
+      ),
+    )
+    .sort((a, b) => a.nombreComercial.localeCompare(b.nombreComercial, "es"));
 }
 
 export interface EmpresaAssignOption {
@@ -184,19 +374,21 @@ export async function createCuentaConfigurator(
     );
   }
 
-  await runDomainMutation<{ codigo_cuenta: string } | null>((client) => {
-    const query = client.from("cuenta").insert({
-      codigo_cuenta: codigoCuenta,
-      codigo_empresa: codigoEmpresa,
-      nombre_comercial: nombreComercial,
-      id_creador: input.idCreador ?? null,
-      esta_activa: true,
-    });
+  await withEmpresaSchema(codigoEmpresa, async () => {
+    await runDomainMutation<{ codigo_cuenta: string } | null>((client) => {
+      const query = client.from("cuenta").insert({
+        codigo_cuenta: codigoCuenta,
+        codigo_empresa: codigoEmpresa,
+        nombre_comercial: nombreComercial,
+        id_creador: input.idCreador ?? null,
+        esta_activa: true,
+      });
 
-    return query as unknown as Promise<{
-      data: { codigo_cuenta: string } | null;
-      error: { message: string } | null;
-    }>;
+      return query as unknown as Promise<{
+        data: { codigo_cuenta: string } | null;
+        error: { message: string } | null;
+      }>;
+    });
   });
 
   return {
@@ -206,13 +398,14 @@ export async function createCuentaConfigurator(
     bodegasAsignadas: [],
     bodegaInternaPrincipal: null,
     estaActiva: true,
+    tieneCredenciales: false,
   };
 }
 
 export interface UpdateCuentaInput {
   codigoCuenta: string;
   nombreComercial: string;
-  /** Credenciales / acceso: false bloquea login de usuarios de la cuenta. */
+  /** Acceso: false bloquea login de usuarios de la cuenta. */
   estaActiva: boolean;
 }
 

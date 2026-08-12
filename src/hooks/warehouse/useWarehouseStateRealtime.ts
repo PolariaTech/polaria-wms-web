@@ -68,7 +68,8 @@ export function applyWarehouseStateRealtimeEvent(
 export function useWarehouseStateRealtime(
   options: UseWarehouseStateRealtimeOptions = {},
 ): UseWarehouseStateRealtimeResult {
-  const { activeBodegaId, codigoCuenta: tenantCodigoCuenta } = useCompany();
+  const { activeBodegaId, codigoCuenta: tenantCodigoCuenta, schemaName } =
+    useCompany();
   const accessToken = useAuthStore((s) => s.accessToken);
 
   const idBodega = options.idBodega ?? activeBodegaId;
@@ -146,7 +147,7 @@ export function useWarehouseStateRealtime(
     }
 
     const filter = `id_bodega=eq.${idBodega}`;
-    const channelName = `warehouse_state:${idBodega}`;
+    const channelName = `warehouse_state:${schemaName ?? "public"}:${idBodega}`;
 
     const handlePayload = (payload: PostgresChangesPayload) => {
       setRows((current) =>
@@ -175,7 +176,7 @@ export function useWarehouseStateRealtime(
         "postgres_changes",
         {
           event,
-          schema: "public",
+          schema: schemaName ?? "public",
           table: "warehouse_state",
           filter,
         },
@@ -205,7 +206,7 @@ export function useWarehouseStateRealtime(
       setIsConnected(false);
       void client.removeChannel(rtChannel);
     };
-  }, [idBodega, codigoCuenta, accessToken]);
+  }, [idBodega, codigoCuenta, accessToken, schemaName]);
 
   return {
     rows: canSync ? rows : [],

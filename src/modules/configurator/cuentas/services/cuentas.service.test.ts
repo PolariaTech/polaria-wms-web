@@ -35,32 +35,85 @@ describe("cuentas.service", () => {
     vi.restoreAllMocks();
   });
 
-  it("listCuentasConfigurator consulta tabla cuenta con relaciones", async () => {
-    const { client, from } = createSupabaseMock({
-      data: [
+  it("listCuentasConfigurator marca credenciales según usuarios con id_auth", async () => {
+    const responsesByTable: Record<string, unknown> = {
+      empresa: [{ codigo_empresa: "ACME", schema_name: null }],
+      cuenta: [
         {
           codigo_cuenta: "MIT00",
           codigo_empresa: "ACME",
           nombre_comercial: "Mitre",
           esta_activa: true,
-          bodega: [
-            {
-              id_bodega: "bod-1",
-              nombre: "Bodega Central",
-              tipo: "interna",
-              capacidad_slots: 120,
-              esta_activa: true,
-            },
-          ],
+        },
+        {
+          codigo_cuenta: "AND01",
+          codigo_empresa: "ACME",
+          nombre_comercial: "Andino",
+          esta_activa: true,
         },
       ],
+      bodega: [
+        {
+          id_bodega: "bod-1",
+          nombre: "Bodega Central",
+          tipo: "interna",
+          capacidad_slots: 120,
+          esta_activa: true,
+          codigo_cuenta: "MIT00",
+        },
+      ],
+      usuario: [{ codigo_cuenta: "MIT00" }],
+    };
+
+    const chain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+      in: vi.fn(),
+      not: vi.fn(),
+    };
+    chain.select.mockReturnValue(chain);
+    chain.eq.mockReturnValue(chain);
+    chain.order.mockReturnValue(chain);
+    chain.in.mockReturnValue(chain);
+    chain.not.mockReturnValue(chain);
+
+    const from = vi.fn((table: string) => {
+      chain.limit.mockResolvedValue({
+        data: responsesByTable[table] ?? [],
+        error: null,
+      });
+      // bodega termina en .eq() sin limit
+      chain.eq.mockImplementation(() => {
+        if (table === "bodega") {
+          return Promise.resolve({
+            data: responsesByTable.bodega,
+            error: null,
+          });
+        }
+        return chain;
+      });
+      return chain;
     });
-    setSupabaseClientForTests(client);
+
+    setSupabaseClientForTests({ from } as never);
 
     const rows = await listCuentasConfigurator();
 
+    expect(from).toHaveBeenCalledWith("empresa");
     expect(from).toHaveBeenCalledWith("cuenta");
+    expect(from).toHaveBeenCalledWith("usuario");
     expect(rows).toEqual([
+      {
+        codigoCuenta: "AND01",
+        codigoEmpresa: "ACME",
+        nombreComercial: "Andino",
+        bodegasAsignadas: [],
+        bodegaInternaPrincipal: null,
+        estaActiva: true,
+        tieneCredenciales: false,
+      },
       {
         codigoCuenta: "MIT00",
         codigoEmpresa: "ACME",
@@ -80,6 +133,7 @@ describe("cuentas.service", () => {
           capacidad: 120,
         },
         estaActiva: true,
+        tieneCredenciales: true,
       },
     ]);
   });
@@ -133,7 +187,22 @@ describe("cuentas.service", () => {
       error: null,
     });
 
-    const from = vi.fn(() => insertChain);
+    const schemaChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      limit: vi.fn(),
+    };
+    schemaChain.select.mockReturnValue(schemaChain);
+    schemaChain.eq.mockReturnValue(schemaChain);
+    schemaChain.limit.mockResolvedValue({
+      data: [{ schema_name: null }],
+      error: null,
+    });
+
+    const from = vi.fn((table: string) => {
+      if (table === "empresa") return schemaChain;
+      return insertChain;
+    });
     setSupabaseClientForTests({ from } as never);
 
     const row = await createCuentaConfigurator({
@@ -158,6 +227,7 @@ describe("cuentas.service", () => {
       bodegasAsignadas: [],
       bodegaInternaPrincipal: null,
       estaActiva: true,
+      tieneCredenciales: false,
     });
   });
 

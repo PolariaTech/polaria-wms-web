@@ -3,6 +3,12 @@ import {
   DEFAULT_LIST_LIMIT,
   runDomainQuery,
 } from "@/lib/supabase/domain-query";
+import {
+  findCuentaAcrossSchemas,
+  listBodegasAcrossSchemas,
+  listCuentasAcrossSchemas,
+  resolveNombresCuentaAcrossSchemas,
+} from "@/lib/supabase/tenant-fanout";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { ApiError, apiRequest } from "@/services/api/api";
 import {
@@ -42,10 +48,6 @@ interface UsuarioRolDbRow {
   nombre: string;
 }
 
-interface UsuarioCuentaDbRow {
-  nombre_comercial: string | null;
-}
-
 interface UsuarioDbRow {
   id_usuario: string;
   username: string;
@@ -54,31 +56,35 @@ interface UsuarioDbRow {
   telefono: string | null;
   id_auth: string;
   rol: UsuarioRolDbRow | UsuarioRolDbRow[] | null;
-  cuenta: UsuarioCuentaDbRow | UsuarioCuentaDbRow[] | null;
 }
 
 /**
- * PostgREST: usuario↔cuenta tiene dos FK (usuario.codigo_cuenta y cuenta.id_creador).
- * Nombrar la relación de la cuenta asignada al usuario.
+ * Sin embed a cuenta: fk_usuario_cuenta se eliminó (schema-per-empresa).
+ * El nombre comercial se resuelve en public + schemas emp_*.
  */
 const USUARIO_LIST_COLUMNS =
-  "id_usuario,username,codigo_cuenta,nombre,telefono,id_auth,rol(id_rol,nombre),cuenta!fk_usuario_cuenta(nombre_comercial)";
+  "id_usuario,username,codigo_cuenta,nombre,telefono,id_auth,rol(id_rol,nombre)";
 
 function resolveRelation<T>(value: T | T[] | null): T | null {
   if (!value) return null;
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
-function mapUsuarioRow(row: UsuarioDbRow): UsuarioListRow {
+function mapUsuarioRow(
+  row: UsuarioDbRow,
+  nombreCuentaByCodigo: Map<string, string>,
+): UsuarioListRow {
   const rol = resolveRelation(row.rol);
-  const cuenta = resolveRelation(row.cuenta);
+  const codigoCuenta = row.codigo_cuenta?.trim() || null;
 
   return {
     idUsuario: row.id_usuario,
-    codigo: row.codigo_cuenta ?? "—",
+    codigo: codigoCuenta ?? "—",
     rol: rol?.nombre ?? rol?.id_rol ?? "—",
     nombre: row.nombre,
-    cuenta: cuenta?.nombre_comercial ?? "—",
+    cuenta: codigoCuenta
+      ? (nombreCuentaByCodigo.get(codigoCuenta) ?? codigoCuenta)
+      : "—",
     telefono: row.telefono?.trim() || "—",
     tieneCredenciales: Boolean(row.id_auth),
   };
@@ -100,7 +106,18 @@ export async function listUsuariosConfigurator(): Promise<UsuarioListRow[]> {
     }>;
   });
 
-  return rows.map(mapUsuarioRow);
+  const codigosCuenta = [
+    ...new Set(
+      rows
+        .map((row) => row.codigo_cuenta?.trim())
+        .filter((codigo): codigo is string => Boolean(codigo)),
+    ),
+  ];
+
+  const nombreCuentaByCodigo =
+    await resolveNombresCuentaAcrossSchemas(codigosCuenta);
+
+  return rows.map((row) => mapUsuarioRow(row, nombreCuentaByCodigo));
 }
 
 /** Opciones de rol para formularios (9 roles WMS). */
@@ -133,68 +150,24 @@ export async function listRolesConfigurator(): Promise<RolOption[]> {
   }));
 }
 
-/** Cuentas activas para el campo Asignado. */
+/** Cuentas activas para el campo Asignado (public + emp_*). */
 export async function listCuentasAssignOptions(): Promise<CuentaAssignOption[]> {
-  const rows = await runDomainQuery<
-    { codigo_cuenta: string; nombre_comercial: string }[]
-  >((client) => {
-    const query = client
-      .from("cuenta")
-      .select("codigo_cuenta,nombre_comercial")
-      .eq("esta_activa", true)
-      .order("nombre_comercial", { ascending: true })
-      .limit(DEFAULT_LIST_LIMIT);
-
-    return query as unknown as Promise<{
-      data: { codigo_cuenta: string; nombre_comercial: string }[] | null;
-      error: { message: string } | null;
-    }>;
-  });
-
+  const rows = await listCuentasAcrossSchemas();
   return rows.map((row) => ({
     codigoCuenta: row.codigo_cuenta,
     nombreComercial: row.nombre_comercial,
   }));
 }
 
-/** Bodegas activas para asignación de roles de nivel bodega. */
+/** Bodegas activas para asignación de roles de nivel bodega (public + emp_*). */
 export async function listBodegasAssignOptions(): Promise<BodegaAssignOption[]> {
-  const rows = await runDomainQuery<
-    {
-      id_bodega: string;
-      nombre: string;
-      codigo: string;
-      codigo_cuenta: string;
-    }[]
-  >((client) => {
-    const query = client
-      .from("bodega")
-      .select("id_bodega,nombre,codigo,codigo_cuenta")
-      .eq("esta_activa", true)
-      .order("nombre", { ascending: true })
-      .limit(DEFAULT_LIST_LIMIT);
-
-    return query as unknown as Promise<{
-      data:
-        | {
-            id_bodega: string;
-            nombre: string;
-            codigo: string;
-            codigo_cuenta: string;
-          }[]
-        | null;
-      error: { message: string } | null;
-    }>;
-  });
-
-  return rows
-    .filter((row) => Boolean(row.id_bodega?.trim()))
-    .map((row) => ({
-      idBodega: row.id_bodega.trim(),
-      nombre: row.nombre,
-      codigo: row.codigo,
-      codigoCuenta: row.codigo_cuenta,
-    }));
+  const rows = await listBodegasAcrossSchemas();
+  return rows.map((row) => ({
+    idBodega: row.id_bodega.trim(),
+    nombre: row.nombre,
+    codigo: row.codigo,
+    codigoCuenta: row.codigo_cuenta,
+  }));
 }
 
 export interface CreateUsuarioInput {
@@ -229,24 +202,28 @@ async function resolveBodegaAssignTarget(
   const value = idOrCodigo.trim();
   if (!value) return null;
 
-  const lookup = async (column: "id_bodega" | "codigo") => {
-    const rows = await runDomainQuery<
-      { id_bodega: string; codigo_cuenta: string }[]
-    >((client) => {
-      const query = client
-        .from("bodega")
-        .select("id_bodega,codigo_cuenta")
-        .eq(column, value)
-        .eq("esta_activa", true)
-        .limit(1);
+  const lookup = async (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fromFn: (table: string) => any,
+    column: "id_bodega" | "codigo",
+  ): Promise<BodegaAssignRef | null> => {
+    const { data, error } = await fromFn("bodega")
+      .select("id_bodega,codigo_cuenta")
+      .eq(column, value)
+      .eq("esta_activa", true)
+      .limit(1);
 
-      return query as unknown as Promise<{
-        data: { id_bodega: string; codigo_cuenta: string }[] | null;
-        error: { message: string } | null;
-      }>;
-    });
+    if (error) {
+      throw new DomainServiceError(
+        error.message || "Error al consultar bodegas.",
+        "QUERY_FAILED",
+        error,
+      );
+    }
 
-    const row = rows[0];
+    const row = (
+      data as { id_bodega: string; codigo_cuenta: string }[] | null
+    )?.[0];
     if (!row?.id_bodega?.trim() || !row.codigo_cuenta?.trim()) {
       return null;
     }
@@ -257,26 +234,41 @@ async function resolveBodegaAssignTarget(
     };
   };
 
-  return (await lookup("id_bodega")) ?? (await lookup("codigo"));
+  const { getDomainSupabaseClient } = await import(
+    "@/lib/supabase/domain-query"
+  );
+  const { listEmpresaSchemas } = await import("@/lib/supabase/tenant-fanout");
+  const client = getDomainSupabaseClient();
+
+  for (const column of ["id_bodega", "codigo"] as const) {
+    const found = await lookup((table) => client.from(table), column);
+    if (found) return found;
+  }
+
+  const empresas = await listEmpresaSchemas();
+  for (const empresa of empresas) {
+    if (!empresa.schema_name) continue;
+    for (const column of ["id_bodega", "codigo"] as const) {
+      try {
+        const found = await lookup(
+          (table) => client.schema(empresa.schema_name!).from(table),
+          column,
+        );
+        if (found) return found;
+      } catch {
+        // continuar
+      }
+    }
+  }
+
+  return null;
 }
 
 async function resolveCodigoEmpresa(
   codigoCuenta: string,
 ): Promise<string | null> {
-  const rows = await runDomainQuery<{ codigo_empresa: string }[]>((client) => {
-    const query = client
-      .from("cuenta")
-      .select("codigo_empresa")
-      .eq("codigo_cuenta", codigoCuenta)
-      .limit(1);
-
-    return query as unknown as Promise<{
-      data: { codigo_empresa: string }[] | null;
-      error: { message: string } | null;
-    }>;
-  });
-
-  return rows[0]?.codigo_empresa ?? null;
+  const cuenta = await findCuentaAcrossSchemas(codigoCuenta);
+  return cuenta?.codigo_empresa ?? null;
 }
 
 /** Crea un usuario vía API Nest (auth + registro en `usuario`). */

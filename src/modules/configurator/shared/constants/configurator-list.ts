@@ -12,7 +12,8 @@ export const EMPRESAS_EMPTY_MESSAGE = "No hay empresas registradas." as const;
 
 export const CUENTAS_TABLE_TITLE = "Cuentas" as const;
 
-export const CUENTAS_TABLE_SUBTITLE = "Código, nombre y acciones." as const;
+export const CUENTAS_TABLE_SUBTITLE =
+  "Código, nombre, bodega y credenciales Auth." as const;
 
 export const CUENTAS_EMPTY_MESSAGE = "No hay cuentas registradas." as const;
 

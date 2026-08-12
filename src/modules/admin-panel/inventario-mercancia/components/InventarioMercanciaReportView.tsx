@@ -150,6 +150,7 @@ export function InventarioMercanciaReportView() {
       const rows = await listInventarioMercanciaFilas({
         codigoCuenta,
         idBodega: selectedBodega.idBodega,
+        bodegaNombre: selectedBodega.nombre,
       });
       setFilas(rows);
     } catch (err) {

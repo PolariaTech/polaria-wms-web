@@ -19,9 +19,9 @@ interface CuentaEditModalProps {
   onUpdated: () => void;
 }
 
-const CREDENCIALES_OPTIONS = [
-  { value: "si", label: "Sí" },
-  { value: "no", label: "No" },
+const ACCESO_OPTIONS = [
+  { value: "activo", label: "Activo" },
+  { value: "inactivo", label: "Inactivo" },
 ] as const;
 
 export function CuentaEditModal({
@@ -31,7 +31,7 @@ export function CuentaEditModal({
   onUpdated,
 }: CuentaEditModalProps) {
   const [nombre, setNombre] = useState("");
-  const [credenciales, setCredenciales] = useState<"si" | "no">("si");
+  const [acceso, setAcceso] = useState<"activo" | "inactivo">("activo");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,7 +39,7 @@ export function CuentaEditModal({
     if (!open || !cuenta) return;
 
     setNombre(cuenta.nombreComercial);
-    setCredenciales(cuenta.estaActiva ? "si" : "no");
+    setAcceso(cuenta.estaActiva ? "activo" : "inactivo");
     setError(null);
     setIsSubmitting(false);
   }, [cuenta, open]);
@@ -60,7 +60,7 @@ export function CuentaEditModal({
       await updateCuentaConfigurator({
         codigoCuenta: cuenta.codigoCuenta,
         nombreComercial: nombre,
-        estaActiva: credenciales === "si",
+        estaActiva: acceso === "activo",
       });
       onUpdated();
       onClose();
@@ -81,7 +81,7 @@ export function CuentaEditModal({
       onClose={handleClose}
       sectionLabel="Editar cuenta"
       title="Editar cuenta"
-      description="Actualiza el nombre y las credenciales de acceso."
+      description="Actualiza el nombre y el acceso de la cuenta."
       onSubmit={(event) => {
         void handleSubmit(event);
       }}
@@ -108,16 +108,25 @@ export function CuentaEditModal({
         disabled
       />
 
-      <PolariaFormSelect
+      <PolariaFormInput
         id="edit-cuenta-credenciales"
-        label="Credenciales"
-        value={credenciales}
+        label="Credenciales (Auth)"
+        value={cuenta?.tieneCredenciales ? "Sí" : "No"}
+        readOnly
+        disabled
+        hint="Correo y clave de Auth. Se crean al dar de alta usuarios de esta cuenta."
+      />
+
+      <PolariaFormSelect
+        id="edit-cuenta-acceso"
+        label="Acceso"
+        value={acceso}
         onChange={(event) =>
-          setCredenciales(event.target.value === "no" ? "no" : "si")
+          setAcceso(event.target.value === "inactivo" ? "inactivo" : "activo")
         }
         disabled={isSubmitting}
-        options={[...CREDENCIALES_OPTIONS]}
-        hint="Si eliges No, los usuarios de esta cuenta no podrán iniciar sesión."
+        options={[...ACCESO_OPTIONS]}
+        hint="Si eliges Inactivo, los usuarios de esta cuenta no podrán iniciar sesión."
       />
     </PolariaFormModal>
   );

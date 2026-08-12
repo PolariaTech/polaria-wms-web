@@ -1,7 +1,8 @@
 import {
-  DEFAULT_LIST_LIMIT,
-  runDomainQuery,
-} from "@/lib/supabase/domain-query";
+  findCuentaAcrossSchemas,
+  listBodegasAcrossSchemas,
+  resolveNombresCuentaAcrossSchemas,
+} from "@/lib/supabase/tenant-fanout";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { generateCodigoCuentaFromNombre } from "@/lib/utils/generate-codigo-cuenta";
 import { TENANT_HEADER_NAMES } from "@/lib/utils/tenant-headers";
@@ -14,69 +15,20 @@ export interface BodegaExternaListRow {
   bodegaAsignada: string;
 }
 
-interface BodegaExternaCuentaDbRow {
-  nombre_comercial: string;
-}
-
-interface BodegaExternaDbRow {
-  id_bodega: string;
+export interface CreateBodegaExternaInput {
   nombre: string;
-  capacidad_slots: number | null;
-  cuenta: BodegaExternaCuentaDbRow | BodegaExternaCuentaDbRow[] | null;
-}
-
-const BODEGA_EXTERNA_LIST_COLUMNS =
-  "id_bodega,nombre,capacidad_slots,cuenta(nombre_comercial)";
-
-function resolveCuentaNombre(
-  cuenta: BodegaExternaDbRow["cuenta"],
-): string {
-  if (!cuenta) return "—";
-  if (Array.isArray(cuenta)) {
-    return cuenta[0]?.nombre_comercial ?? "—";
-  }
-  return cuenta.nombre_comercial ?? "—";
-}
-
-function mapBodegaExternaRow(row: BodegaExternaDbRow): BodegaExternaListRow {
-  return {
-    idBodega: row.id_bodega,
-    nombre: row.nombre,
-    capacidad: row.capacidad_slots,
-    bodegaAsignada: resolveCuentaNombre(row.cuenta),
-  };
+  capacidad: number;
+  codigoCuenta: string;
+  idCreador?: string | null;
 }
 
 async function resolveCuentaAsignada(codigoCuenta: string): Promise<{
   codigoCuenta: string;
+  codigoEmpresa: string;
   nombreComercial: string;
 }> {
-  const codigo = codigoCuenta.trim();
-  if (!codigo) {
-    throw new DomainServiceError(
-      "Selecciona la cuenta destino de la bodega.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  const rows = await runDomainQuery<
-    { codigo_cuenta: string; nombre_comercial: string }[]
-  >((client) => {
-    const query = client
-      .from("cuenta")
-      .select("codigo_cuenta,nombre_comercial")
-      .eq("esta_activa", true)
-      .eq("codigo_cuenta", codigo)
-      .limit(1);
-
-    return query as unknown as Promise<{
-      data: { codigo_cuenta: string; nombre_comercial: string }[] | null;
-      error: { message: string } | null;
-    }>;
-  });
-
-  const cuenta = rows[0];
-  if (!cuenta?.codigo_cuenta) {
+  const cuenta = await findCuentaAcrossSchemas(codigoCuenta);
+  if (!cuenta?.codigo_cuenta || !cuenta.codigo_empresa) {
     throw new DomainServiceError(
       "La cuenta seleccionada no es válida.",
       "INVALID_ARGUMENT",
@@ -85,37 +37,26 @@ async function resolveCuentaAsignada(codigoCuenta: string): Promise<{
 
   return {
     codigoCuenta: cuenta.codigo_cuenta,
+    codigoEmpresa: cuenta.codigo_empresa,
     nombreComercial: cuenta.nombre_comercial,
   };
 }
 
-/** Lista bodegas externas activas para el configurador (scope platform). */
+/** Lista bodegas externas activas (public + emp_*). */
 export async function listBodegasExternasConfigurator(): Promise<
   BodegaExternaListRow[]
 > {
-  const rows = await runDomainQuery<BodegaExternaDbRow[]>((client) => {
-    const query = client
-      .from("bodega")
-      .select(BODEGA_EXTERNA_LIST_COLUMNS)
-      .eq("tipo", "externa")
-      .eq("esta_activa", true)
-      .order("nombre", { ascending: true })
-      .limit(DEFAULT_LIST_LIMIT);
+  const rows = await listBodegasAcrossSchemas({ tipo: "externa" });
+  const nombres = await resolveNombresCuentaAcrossSchemas([
+    ...new Set(rows.map((row) => row.codigo_cuenta).filter(Boolean)),
+  ]);
 
-    return query as unknown as Promise<{
-      data: BodegaExternaDbRow[] | null;
-      error: { message: string } | null;
-    }>;
-  });
-
-  return rows.map(mapBodegaExternaRow);
-}
-
-export interface CreateBodegaExternaInput {
-  nombre: string;
-  capacidad: number;
-  codigoCuenta: string;
-  idCreador?: string | null;
+  return rows.map((row) => ({
+    idBodega: row.id_bodega,
+    nombre: row.nombre,
+    capacidad: row.capacidad_slots,
+    bodegaAsignada: nombres.get(row.codigo_cuenta) ?? row.codigo_cuenta ?? "—",
+  }));
 }
 
 /** Crea una bodega externa desde el configurador (scope platform). */
@@ -146,9 +87,8 @@ export async function createBodegaExternaConfigurator(
     );
   }
 
-  const { codigoCuenta, nombreComercial } = await resolveCuentaAsignada(
-    input.codigoCuenta,
-  );
+  const { codigoCuenta, codigoEmpresa, nombreComercial } =
+    await resolveCuentaAsignada(input.codigoCuenta);
 
   const created = await apiRequest<{
     idBodega: string;
@@ -157,6 +97,7 @@ export async function createBodegaExternaConfigurator(
     method: "POST",
     auth: true,
     headers: {
+      [TENANT_HEADER_NAMES.codigoEmpresa]: codigoEmpresa,
       [TENANT_HEADER_NAMES.codigoCuenta]: codigoCuenta,
     },
     body: {

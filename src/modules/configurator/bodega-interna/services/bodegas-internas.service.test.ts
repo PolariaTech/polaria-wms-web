@@ -43,23 +43,46 @@ describe("bodegas-internas.service", () => {
       eq: vi.fn(),
       order: vi.fn(),
       limit: vi.fn(),
+      in: vi.fn(),
     };
     selectChain.select.mockReturnValue(selectChain);
     selectChain.eq.mockReturnValue(selectChain);
     selectChain.order.mockReturnValue(selectChain);
-    selectChain.limit.mockResolvedValue({
-      data: [
-        {
-          id_bodega: "bodega-1",
-          nombre: "Central",
-          capacidad_slots: 120,
-          cuenta: { nombre_comercial: "Mitre" },
-        },
-      ],
-      error: null,
+    selectChain.in.mockReturnValue(selectChain);
+    selectChain.limit.mockImplementation(() => {
+      // empresa / cuenta / bodega: devolver según última tabla pedida vía from
+      return Promise.resolve({ data: [], error: null });
     });
 
-    const from = vi.fn(() => selectChain);
+    const from = vi.fn((table: string) => {
+      if (table === "empresa") {
+        selectChain.limit.mockResolvedValueOnce({
+          data: [{ codigo_empresa: "ACME", schema_name: null }],
+          error: null,
+        });
+      } else if (table === "bodega") {
+        selectChain.limit.mockResolvedValueOnce({
+          data: [
+            {
+              id_bodega: "bodega-1",
+              nombre: "Central",
+              codigo: "BOD1",
+              codigo_cuenta: "MIT00",
+              capacidad_slots: 120,
+              tipo: "interna",
+              esta_activa: true,
+            },
+          ],
+          error: null,
+        });
+      } else if (table === "cuenta") {
+        selectChain.in.mockResolvedValueOnce({
+          data: [{ codigo_cuenta: "MIT00", nombre_comercial: "Mitre" }],
+          error: null,
+        });
+      }
+      return selectChain;
+    });
     setSupabaseClientForTests({ from } as never);
 
     const rows = await listBodegasInternasConfigurator();

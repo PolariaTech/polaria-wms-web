@@ -2,6 +2,7 @@ import {
   requireCodigoCuenta,
   runDomainQuery,
 } from "@/lib/supabase/domain-query";
+import { usaKgMitInventarioExterna } from "../constants/mit-inventario-fridem";
 
 export type InventarioMercanciaEtapaId =
   | "proveedor"
@@ -69,96 +70,116 @@ export async function getInventarioMercanciaReport(
 ): Promise<InventarioMercanciaReport> {
   const codigoCuenta = requireCodigoCuenta(codigoCuentaInput);
 
-  const [stockRows, ordenCompraLineas, ordenVentaLineas, guiasEnTransito] =
-    await Promise.all([
-      runDomainQuery<
-        {
-          cantidad: string | number;
-          bodega: { tipo: string } | { tipo: string }[] | null;
-        }[]
-      >((client) => {
-        const query = client
-          .from("warehouse_state")
-          .select("cantidad,bodega!inner(tipo,codigo_cuenta)")
-          .eq("codigo_cuenta", codigoCuenta);
+  const useMitExterna = usaKgMitInventarioExterna(codigoCuenta);
 
-        return query as unknown as Promise<{
-          data:
-            | {
-                cantidad: string | number;
-                bodega: { tipo: string } | { tipo: string }[] | null;
-              }[]
-            | null;
-          error: { message: string } | null;
-        }>;
-      }),
-      runDomainQuery<
-        {
-          cantidad: string | number;
-          cantidad_recibida: string | number;
-          orden_compra: { estado: string; codigo_cuenta: string } | { estado: string; codigo_cuenta: string }[] | null;
-        }[]
-      >((client) => {
-        const query = client
-          .from("orden_compra_linea")
-          .select(
-            "cantidad,cantidad_recibida,orden_compra!inner(estado,codigo_cuenta)",
-          )
-          .eq("orden_compra.codigo_cuenta", codigoCuenta);
+  const [
+    stockRows,
+    ordenCompraLineas,
+    ordenVentaLineas,
+    guiasEnTransito,
+    mitInventarioRows,
+  ] = await Promise.all([
+    runDomainQuery<
+      {
+        cantidad: string | number;
+        bodega: { tipo: string } | { tipo: string }[] | null;
+      }[]
+    >((client) => {
+      const query = client
+        .from("warehouse_state")
+        .select("cantidad,bodega!inner(tipo,codigo_cuenta)")
+        .eq("codigo_cuenta", codigoCuenta);
 
-        return query as unknown as Promise<{
-          data:
-            | {
-                cantidad: string | number;
-                cantidad_recibida: string | number;
-                orden_compra:
-                  | { estado: string; codigo_cuenta: string }
-                  | { estado: string; codigo_cuenta: string }[]
-                  | null;
-              }[]
-            | null;
-          error: { message: string } | null;
-        }>;
-      }),
-      runDomainQuery<
-        {
-          cantidad_pedida: string | number;
-          orden_venta: { estado: string; codigo_cuenta: string } | { estado: string; codigo_cuenta: string }[] | null;
-        }[]
-      >((client) => {
-        const query = client
-          .from("orden_venta_linea")
-          .select(
-            "cantidad_pedida,orden_venta!inner(estado,codigo_cuenta)",
-          )
-          .eq("orden_venta.codigo_cuenta", codigoCuenta);
+      return query as unknown as Promise<{
+        data:
+          | {
+              cantidad: string | number;
+              bodega: { tipo: string } | { tipo: string }[] | null;
+            }[]
+          | null;
+        error: { message: string } | null;
+      }>;
+    }),
+    runDomainQuery<
+      {
+        cantidad: string | number;
+        cantidad_recibida: string | number;
+        orden_compra: { estado: string; codigo_cuenta: string } | { estado: string; codigo_cuenta: string }[] | null;
+      }[]
+    >((client) => {
+      const query = client
+        .from("orden_compra_linea")
+        .select(
+          "cantidad,cantidad_recibida,orden_compra!inner(estado,codigo_cuenta)",
+        )
+        .eq("orden_compra.codigo_cuenta", codigoCuenta);
 
-        return query as unknown as Promise<{
-          data:
-            | {
-                cantidad_pedida: string | number;
-                orden_venta:
-                  | { estado: string; codigo_cuenta: string }
-                  | { estado: string; codigo_cuenta: string }[]
-                  | null;
-              }[]
-            | null;
-          error: { message: string } | null;
-        }>;
-      }),
-      runDomainQuery<{ id_guia: string }[]>((client) => {
-        const query = client
-          .from("guia_envio")
-          .select("id_guia")
-          .eq("codigo_cuenta", codigoCuenta)
-          .eq("estado", "en_transito");
+      return query as unknown as Promise<{
+        data:
+          | {
+              cantidad: string | number;
+              cantidad_recibida: string | number;
+              orden_compra:
+                | { estado: string; codigo_cuenta: string }
+                | { estado: string; codigo_cuenta: string }[]
+                | null;
+            }[]
+          | null;
+        error: { message: string } | null;
+      }>;
+    }),
+    runDomainQuery<
+      {
+        cantidad_pedida: string | number;
+        orden_venta: { estado: string; codigo_cuenta: string } | { estado: string; codigo_cuenta: string }[] | null;
+      }[]
+    >((client) => {
+      const query = client
+        .from("orden_venta_linea")
+        .select(
+          "cantidad_pedida,orden_venta!inner(estado,codigo_cuenta)",
+        )
+        .eq("orden_venta.codigo_cuenta", codigoCuenta);
 
-        return query as unknown as Promise<{
-          data: { id_guia: string }[] | null;
-          error: { message: string } | null;
-        }>;
-      }),
-    ]);
+      return query as unknown as Promise<{
+        data:
+          | {
+              cantidad_pedida: string | number;
+              orden_venta:
+                | { estado: string; codigo_cuenta: string }
+                | { estado: string; codigo_cuenta: string }[]
+                | null;
+            }[]
+          | null;
+        error: { message: string } | null;
+      }>;
+    }),
+    runDomainQuery<{ id_guia: string }[]>((client) => {
+      const query = client
+        .from("guia_envio")
+        .select("id_guia")
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("estado", "en_transito");
+
+      return query as unknown as Promise<{
+        data: { id_guia: string }[] | null;
+        error: { message: string } | null;
+      }>;
+    }),
+    useMitExterna
+      ? runDomainQuery<{ kilosactual: string | number | null }[]>((client) => {
+          const query = client
+            .schema("mit")
+            .from("inventario")
+            .select("kilosactual");
+
+          return query as unknown as Promise<{
+            data: { kilosactual: string | number | null }[] | null;
+            error: { message: string } | null;
+          }>;
+        })
+      : Promise.resolve([] as { kilosactual: string | number | null }[]),
+  ]);
 
   let bodegaInternaKg = 0;
   let bodegaExternaKg = 0;
@@ -167,7 +188,16 @@ export async function getInventarioMercanciaReport(
     const bodega = Array.isArray(row.bodega) ? row.bodega[0] : row.bodega;
     const cantidad = parseCantidad(row.cantidad);
     if (bodega?.tipo === "interna") bodegaInternaKg += cantidad;
-    if (bodega?.tipo === "externa") bodegaExternaKg += cantidad;
+    if (bodega?.tipo === "externa" && !useMitExterna) {
+      bodegaExternaKg += cantidad;
+    }
+  }
+
+  if (useMitExterna) {
+    bodegaExternaKg = mitInventarioRows.reduce(
+      (total, row) => total + parseCantidad(row.kilosactual),
+      0,
+    );
   }
 
   const proveedorKg = sumCantidadPendienteOrdenCompra(ordenCompraLineas);

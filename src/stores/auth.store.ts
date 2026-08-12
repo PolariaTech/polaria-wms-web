@@ -12,6 +12,7 @@ import {
 import { resolveActiveBodegaId } from "@/lib/utils/active-bodega";
 import { normalizeAuthSession, type AuthSessionApi } from "@/lib/utils/normalize-nivel-rol";
 import { syncSupabaseAuthSession } from "@/lib/supabase/client";
+import { setTenantSchemaGetter } from "@/lib/supabase/domain-query";
 import { setTenantHeadersGetter } from "@/lib/utils/tenant-headers";
 import { setAccessTokenGetter } from "@/services/api/api";
 import type {
@@ -238,6 +239,12 @@ setTenantHeadersGetter(() => {
     ...(source.codigoCuenta ? { codigoCuenta: source.codigoCuenta } : {}),
     ...(activeBodegaId ? { idBodega: activeBodegaId } : {}),
   };
+});
+
+setTenantSchemaGetter(() => {
+  const state = useAuthStore.getState();
+  const source = state.session ?? state.context;
+  return source?.schemaName ?? null;
 });
 
 export type LoginStep = "user" | "password" | "success";

@@ -13,10 +13,30 @@ import {
   listBodegasInternasVinculadasAdmin,
   type BodegaInternaVinculadaRow,
 } from "@/modules/admin-panel/bodega-interna/services/bodegas-internas-admin.service";
+import {
+  requireCodigoCuenta,
+  runDomainQuery,
+} from "@/lib/supabase/domain-query";
+import { usaInventarioMitSchema } from "../constants/mit-inventario-fridem";
 import type { InventarioMercanciaEtapaId } from "./inventario-mercancia-report.service";
 
 const TEMP_ESTABLE_MAX_C = 5;
 const INVENTARIO_LISTADO_LIMIT = 500;
+
+interface MitInventarioDbRow {
+  id_inventario: string;
+  rd: string;
+  renglon: number;
+  fecha_ingreso: string | null;
+  descripcion: string | null;
+  marca: string | null;
+  embalaje: string | null;
+  lote: string | null;
+  caducidad: string | null;
+  peso_unitario: string | number | null;
+  piezas: number | null;
+  kilosactual: string | number | null;
+}
 
 export interface InventarioMercanciaBodegaOption {
   idBodega: string;
@@ -109,6 +129,51 @@ function mapWarehouseStateToFila(
   };
 }
 
+function mapMitInventarioToFila(row: MitInventarioDbRow): InventarioMercanciaFila {
+  return {
+    key: row.id_inventario,
+    rd: row.rd?.trim() || null,
+    renglon: row.renglon,
+    lote: row.lote?.trim() || null,
+    descripcion: row.descripcion?.trim() || "Sin nombre",
+    marca: row.marca?.trim() || null,
+    embalaje: row.embalaje?.trim() || null,
+    pesoUnitario: parseCantidad(row.peso_unitario),
+    piezas: row.piezas,
+    kilosActual: parseCantidad(row.kilosactual),
+    caducidad: row.caducidad?.trim() || null,
+    fechaIngreso: formatFechaCorta(row.fecha_ingreso),
+    llaveUnica: row.id_inventario,
+    estadoTexto: "En bodega",
+    esAlerta: false,
+  };
+}
+
+/** Inventario Fridem desde schema `mit` (cuenta Mit 02808). */
+async function listInventarioMitFilas(): Promise<InventarioMercanciaFila[]> {
+  const rows = await runDomainQuery<MitInventarioDbRow[]>((client) => {
+    const query = client
+      .schema("mit")
+      .from("inventario")
+      .select(
+        "id_inventario,rd,renglon,fecha_ingreso,descripcion,marca,embalaje,lote,caducidad,peso_unitario,piezas,kilosactual",
+      )
+      .order("fecha_ingreso", { ascending: true, nullsFirst: false })
+      .order("rd", { ascending: true })
+      .order("renglon", { ascending: true })
+      .limit(INVENTARIO_LISTADO_LIMIT);
+
+    return query as unknown as Promise<{
+      data: MitInventarioDbRow[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  return rows
+    .filter((row) => (parseCantidad(row.kilosactual) ?? 0) > 0)
+    .map(mapMitInventarioToFila);
+}
+
 export function tipoBodegaParaEtapa(
   etapaId: InventarioMercanciaEtapaId,
 ): "interna" | "externa" | "ambas" {
@@ -175,10 +240,17 @@ export async function listBodegasParaInventarioEtapa(params: {
 export async function listInventarioMercanciaFilas(params: {
   codigoCuenta: string;
   idBodega: string;
+  bodegaNombre?: string | null;
 }): Promise<InventarioMercanciaFila[]> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+
+  if (usaInventarioMitSchema(codigoCuenta, params.bodegaNombre)) {
+    return listInventarioMitFilas();
+  }
+
   const rows = await listWarehouseState({
     idBodega: params.idBodega,
-    codigoCuenta: params.codigoCuenta,
+    codigoCuenta,
     limit: INVENTARIO_LISTADO_LIMIT,
   });
 

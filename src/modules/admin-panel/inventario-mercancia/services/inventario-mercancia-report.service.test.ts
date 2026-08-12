@@ -60,4 +60,51 @@ describe("inventario-mercancia-report.service", () => {
     expect(externa?.kg).toBe(1000);
     expect(interna?.kg).toBe(500);
   });
+
+  it("getInventarioMercanciaReport usa mit.inventario para cuenta Mit", async () => {
+    function createQueryChain(result: { data: unknown; error: null }) {
+      const chain = {
+        select: vi.fn(),
+        eq: vi.fn(),
+        order: vi.fn(),
+        limit: vi.fn(),
+        then: (
+          onFulfilled: (value: typeof result) => unknown,
+          onRejected?: (reason: unknown) => unknown,
+        ) => Promise.resolve(result).then(onFulfilled, onRejected),
+      };
+      chain.select.mockReturnValue(chain);
+      chain.eq.mockReturnValue(chain);
+      chain.order.mockReturnValue(chain);
+      chain.limit.mockReturnValue(chain);
+      return chain;
+    }
+
+    const stockChain = createQueryChain({
+      data: [{ cantidad: "10", bodega: { tipo: "interna" } }],
+      error: null,
+    });
+    const emptyChain = createQueryChain({ data: [], error: null });
+    const mitChain = createQueryChain({
+      data: [{ kilosactual: "4000" }, { kilosactual: "3884" }],
+      error: null,
+    });
+
+    const from = vi.fn((table: string) => {
+      if (table === "warehouse_state") return stockChain;
+      if (table === "inventario") return mitChain;
+      return emptyChain;
+    });
+    const schema = vi.fn(() => ({ from }));
+
+    setSupabaseClientForTests({ from, schema } as never);
+
+    const report = await getInventarioMercanciaReport("02808");
+    const externa = report.etapas.find((e) => e.id === "bodega_externa");
+    const interna = report.etapas.find((e) => e.id === "bodega_interna");
+
+    expect(schema).toHaveBeenCalledWith("mit");
+    expect(externa?.kg).toBe(7884);
+    expect(interna?.kg).toBe(10);
+  });
 });

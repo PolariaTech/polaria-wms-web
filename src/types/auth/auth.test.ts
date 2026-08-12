@@ -21,6 +21,7 @@ const tenantSession: AuthSession = {
   nombreComercialCuenta: "ACME Norte",
   idBodegas: ["BOD-01", "BOD-02"],
   scope: "tenant",
+  schemaName: null,
 };
 
 describe("auth tenant types", () => {
@@ -30,6 +31,7 @@ describe("auth tenant types", () => {
       codigoCuenta: null,
       idBodegas: [],
       nivelRol: "platform",
+      schemaName: null,
     });
   });
 
@@ -37,6 +39,7 @@ describe("auth tenant types", () => {
     expect(createMinimalAuthContext("tenant")).toMatchObject({
       scope: "tenant",
       idBodegas: [],
+      schemaName: null,
     });
   });
 
@@ -47,6 +50,7 @@ describe("auth tenant types", () => {
       codigoCuenta: "CUENTA-01",
       idBodegas: ["BOD-01", "BOD-02"],
       nivelRol: "bodega",
+      schemaName: null,
     });
   });
 });
