@@ -11,6 +11,10 @@ import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { usePermissions } from "@/hooks/auth/usePermissions";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { cn } from "@/lib/utils/cn";
+import {
+  listProveedoresAdmin,
+  type ProveedorListRow,
+} from "@/modules/admin-panel";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   ESTADO_ORDEN_LABELS,
@@ -59,6 +63,7 @@ import { OrdenCompraCreateModal } from "../../ordenes/components/OrdenCompraCrea
 import { OrdenCompraDetalleModal } from "../../ordenes/components/OrdenCompraDetalleModal";
 import { SolicitudCompraCreateModal } from "../../solicitudes/components/SolicitudCompraCreateModal";
 import { SolicitudCompraDetalleModal } from "../../solicitudes/components/SolicitudCompraDetalleModal";
+import { SolicitudProveedorPickerModal } from "../../solicitudes/components/SolicitudProveedorPickerModal";
 
 type ComprasTab = "solicitudes" | "ordenes";
 
@@ -99,6 +104,11 @@ export function ComprasPageContent() {
   );
   const [isSavingDestino, setIsSavingDestino] = useState(false);
   const [destinoError, setDestinoError] = useState<string | null>(null);
+  const [pickingSolicitud, setPickingSolicitud] =
+    useState<SolicitudCompraRow | null>(null);
+  const [proveedoresPicker, setProveedoresPicker] = useState<
+    ProveedorListRow[]
+  >([]);
 
   const puedeAprobarSolicitud =
     idRol === WmsRol.administrador_cuenta || idRol === WmsRol.configurador;
@@ -156,6 +166,70 @@ export function ComprasPageContent() {
       }
     },
     [ordenes, solicitudes],
+  );
+
+  const startEnviarAprobacion = useCallback(
+    (row: SolicitudCompraRow) => {
+      const existingProveedor = row.id_proveedor?.trim() ?? "";
+      if (existingProveedor) {
+        void runAction(`${row.id_solicitud_compra}:enviar`, () =>
+          enviarSolicitudCompraAprobacionApi(row.id_solicitud_compra),
+        );
+        return;
+      }
+
+      if (!codigoCuenta) {
+        setActionError("No se encontró la cuenta activa.");
+        return;
+      }
+
+      setActionError(null);
+      setActionSuccess(null);
+      setPendingActionId(`${row.id_solicitud_compra}:enviar`);
+
+      void listProveedoresAdmin({ codigoCuenta })
+        .then((rows) => {
+          if (rows.length === 0) {
+            setActionError(
+              "Registra un proveedor en Administración antes de enviar a aprobación.",
+            );
+            return;
+          }
+
+          setProveedoresPicker(rows);
+          setPickingSolicitud(row);
+        })
+        .catch((err: unknown) => {
+          setActionError(
+            err instanceof DomainServiceError
+              ? err.message
+              : "No se pudieron cargar los proveedores.",
+          );
+        })
+        .finally(() => {
+          setPendingActionId((current) =>
+            current === `${row.id_solicitud_compra}:enviar` ? null : current,
+          );
+        });
+    },
+    [codigoCuenta, runAction],
+  );
+
+  const handleProveedorPicked = useCallback(
+    (proveedor: ProveedorListRow) => {
+      const row = pickingSolicitud;
+      setPickingSolicitud(null);
+      if (!row) {
+        return;
+      }
+
+      void runAction(`${row.id_solicitud_compra}:enviar`, () =>
+        enviarSolicitudCompraAprobacionApi(row.id_solicitud_compra, {
+          idProveedor: proveedor.idProveedor,
+        }),
+      );
+    },
+    [pickingSolicitud, runAction],
   );
 
   const runNotifyProveedor = useCallback(
@@ -324,17 +398,17 @@ export function ComprasPageContent() {
 
   const renderSolicitudActions = (row: SolicitudCompraRow): ReactNode => {
     const isPending = pendingActionId?.startsWith(row.id_solicitud_compra);
+    const isPickingProveedor =
+      pickingSolicitud?.id_solicitud_compra === row.id_solicitud_compra;
 
     if (row.estado === "borrador") {
       return (
         <ActionButton
           label="Enviar aprobación"
           primary
-          disabled={Boolean(isPending)}
+          disabled={Boolean(isPending) || isPickingProveedor}
           onClick={() => {
-            void runAction(`${row.id_solicitud_compra}:enviar`, () =>
-              enviarSolicitudCompraAprobacionApi(row.id_solicitud_compra),
-            );
+            startEnviarAprobacion(row);
           }}
         />
       );
@@ -608,6 +682,7 @@ export function ComprasPageContent() {
           solicitud={solicitudDetalle}
           onClose={() => setSolicitudDetalle(null)}
           actions={renderSolicitudActions(solicitudDetalle)}
+          closeOnEscape={!pickingSolicitud}
         />
       ) : null}
 
@@ -630,6 +705,14 @@ export function ComprasPageContent() {
           destinoError={destinoError}
         />
       ) : null}
+
+      <SolicitudProveedorPickerModal
+        open={Boolean(pickingSolicitud)}
+        onClose={() => setPickingSolicitud(null)}
+        proveedores={proveedoresPicker}
+        selectedId={pickingSolicitud?.id_proveedor}
+        onSelect={handleProveedorPicked}
+      />
     </div>
   );
 }
