@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTES } from "@/config/routes";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
+import { createSupabaseMock } from "@/test/create-supabase-mock";
 import { getCreationOptionHref } from "@/modules/configurator/shared/constants/creation-options";
 import { apiRequest } from "@/services/api/api";
 import {

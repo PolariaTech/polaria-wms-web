@@ -72,22 +72,24 @@ describe("empresas.service", () => {
     selectChain.eq.mockReturnValue(selectChain);
     selectChain.limit.mockResolvedValue({ data: [], error: null });
 
+    const insertChain = {
+      insert: vi.fn(),
+    };
+    insertChain.insert.mockResolvedValue({
+      data: { codigo_empresa: "MIT00" },
+      error: null,
+    });
+
     const from = vi.fn((table: string) => {
       if (table === "empresa") {
         return {
           select: selectChain.select,
+          insert: insertChain.insert,
         };
       }
       throw new Error(`Tabla inesperada: ${table}`);
     });
     setSupabaseClientForTests({ from } as never);
-
-    vi.mocked(apiRequest).mockResolvedValue({
-      codigoEmpresa: "MIT00",
-      razonSocial: "Mitre S.A.",
-      telefono: null,
-      estaActiva: true,
-    });
 
     const row = await createEmpresaConfigurator({
       codigoEmpresa: "MIT00",
@@ -97,19 +99,13 @@ describe("empresas.service", () => {
 
     expect(from).toHaveBeenCalledWith("empresa");
     expect(selectChain.eq).toHaveBeenCalledWith("codigo_empresa", "MIT00");
-    expect(apiRequest).toHaveBeenCalledWith(
-      "/configuracion/empresas",
-      expect.objectContaining({
-        method: "POST",
-        auth: true,
-        body: {
-          codigoEmpresa: "MIT00",
-          razonSocial: "Mitre S.A.",
-          telefono: null,
-          idCreador: "user-1",
-        },
-      }),
-    );
+    expect(insertChain.insert).toHaveBeenCalledWith({
+      codigo_empresa: "MIT00",
+      razon_social: "Mitre S.A.",
+      telefono: null,
+      id_creador: "user-1",
+      esta_activa: true,
+    });
     expect(row).toEqual({
       codigoEmpresa: "MIT00",
       razonSocial: "Mitre S.A.",

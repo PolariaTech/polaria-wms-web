@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { ModuleListPage } from "@/components/shared/module/ModuleListPage";
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
@@ -10,7 +10,6 @@ import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { cn } from "@/lib/utils/cn";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { formatEstadoOrdenVenta } from "../../shared/constants/sales-status";
-import { useOrdenesVentaSubscription } from "../../shared/hooks/useOrdenesVentaSubscription";
 import { listOrdenesVentaOperador } from "../../shared/services/sales.service";
 import type { OrdenVentaOperadorRow } from "../../shared/types/sales.types";
 import { OrdenVentaCreateModal } from "./OrdenVentaCreateModal";
@@ -51,27 +50,6 @@ export function OperadorOrdenesVentaPageContent() {
     fetchOrdenes,
     Boolean(codigoCuenta),
   );
-
-  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const reloadRealtime = useCallback(() => {
-    if (reloadTimerRef.current) {
-      clearTimeout(reloadTimerRef.current);
-    }
-    reloadTimerRef.current = setTimeout(() => {
-      void reload();
-    }, 250);
-  }, [reload]);
-
-  useOrdenesVentaSubscription(codigoCuenta, reloadRealtime);
-
-  useEffect(() => {
-    return () => {
-      if (reloadTimerRef.current) {
-        clearTimeout(reloadTimerRef.current);
-      }
-    };
-  }, []);
 
   const rows = data ?? [];
 
@@ -122,7 +100,11 @@ export function OperadorOrdenesVentaPageContent() {
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="polaria-text-body-sm text-polaria-w-50">
+          Órdenes de venta manuales de la cuenta.
+        </p>
+
         <button
           type="button"
           onClick={() => setIsCreateOpen(true)}

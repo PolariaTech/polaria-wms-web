@@ -77,7 +77,7 @@ function DetalleContent({ orden }: { orden: OrdenVentaDetalleRow }) {
           {formatCompradorOrdenVenta(orden)}
         </MetaField>
         <MetaField label="Fecha">
-          {formatDateTime(orden.created_at || orden.fecha_pedido)}
+          {formatDateTime(orden.fecha_pedido || orden.created_at)}
         </MetaField>
         <MetaField label="Estado">{renderEstadoBadge(orden.estado)}</MetaField>
       </div>

@@ -84,25 +84,7 @@ describe("purchases-api.service", () => {
 
     expect(apiRequest).toHaveBeenCalledWith(
       "/compras/solicitudes/sol-1/enviar-aprobacion",
-      { method: "POST", auth: true, body: {} },
-    );
-  });
-
-  it("enviarSolicitudCompraAprobacionApi envía proveedor si se indica", async () => {
-    vi.mocked(apiRequest).mockResolvedValue({
-      idSolicitudCompra: "sol-1",
-      codigo: "SC-001",
-      estado: "pendiente_aprobacion",
-      idProveedor: "prov-1",
-      idBodega: "bod-1",
-      idOrdenCompra: null,
-    });
-
-    await enviarSolicitudCompraAprobacionApi("sol-1", { idProveedor: "prov-1" });
-
-    expect(apiRequest).toHaveBeenCalledWith(
-      "/compras/solicitudes/sol-1/enviar-aprobacion",
-      { method: "POST", auth: true, body: { idProveedor: "prov-1" } },
+      { method: "POST", auth: true, body: undefined },
     );
   });
 

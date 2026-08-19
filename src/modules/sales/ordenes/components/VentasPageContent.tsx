@@ -42,7 +42,7 @@ export function VentasPageContent() {
         {
           id: "pedido",
           header: "Fecha pedido",
-          cell: (row) => formatDateTime(row.created_at || row.fecha_pedido),
+          cell: (row) => formatDateTime(row.fecha_pedido),
           cellClassName: "text-polaria-w-50",
         },
         {

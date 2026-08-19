@@ -1,5 +1,6 @@
 import {
   DEFAULT_LIST_LIMIT,
+  runDomainMutation,
   runDomainQuery,
 } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
