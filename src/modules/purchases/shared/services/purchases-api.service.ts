@@ -167,9 +167,10 @@ export async function createOrdenCompraApi(
   });
 }
 
-/** Envía una solicitud a aprobación. */
+/** Envía una solicitud a aprobación. Puede asignar proveedor si la SOL no lo traía. */
 export async function enviarSolicitudCompraAprobacionApi(
   idSolicitudCompra: string,
+  input?: { idProveedor?: string | null },
 ): Promise<SolicitudCompraApiRow> {
   const id = idSolicitudCompra.trim();
   if (!id) {
@@ -179,8 +180,11 @@ export async function enviarSolicitudCompraAprobacionApi(
     );
   }
 
+  const idProveedor = input?.idProveedor?.trim() ?? "";
+
   return postComprasApi<SolicitudCompraApiRow>(
     `/compras/solicitudes/${encodeURIComponent(id)}/enviar-aprobacion`,
+    idProveedor ? { idProveedor } : {},
   );
 }
 

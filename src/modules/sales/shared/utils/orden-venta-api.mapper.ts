@@ -49,7 +49,7 @@ export function mapOrdenVentaOperadorApiRow(
     total: readNumber(raw, "total"),
     estado: estado ?? "borrador",
     fecha:
-      readString(raw, "fecha", "fechaPedido", "fecha_pedido", "createdAt", "created_at") ??
+      readString(raw, "fecha", "createdAt", "created_at", "fechaPedido", "fecha_pedido") ??
       "",
     destino: readString(raw, "destino", "bodegaDestinoNombre") ?? "—",
   };

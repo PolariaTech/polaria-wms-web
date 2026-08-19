@@ -13,7 +13,7 @@ const ACCESS_DENIED_MESSAGE =
 
 export interface OperationalModuleShellProps {
   title: string;
-  description: string;
+  description?: string;
   gate: Omit<ModuleRoleGateProps, "children" | "fallback">;
   headerExtra?: ReactNode;
   children: ReactNode;
@@ -45,9 +45,11 @@ export function OperationalModuleShell({
             <header className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h1 className="polaria-text-display">{title}</h1>
-                <p className="polaria-text-subtitle mt-2 text-polaria-w-50">
-                  {description}
-                </p>
+                {description ? (
+                  <p className="polaria-text-subtitle mt-2 text-polaria-w-50">
+                    {description}
+                  </p>
+                ) : null}
               </div>
               {headerExtra}
             </header>

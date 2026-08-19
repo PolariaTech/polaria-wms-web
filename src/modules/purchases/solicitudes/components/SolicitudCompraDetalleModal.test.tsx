@@ -42,6 +42,7 @@ describe("SolicitudCompraDetalleModal", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Borrador")).toBeInTheDocument();
+    expect(screen.getByText("Sin proveedor")).toBeInTheDocument();
     expect(screen.getByText(/FROZEN-WHOLE CHICKEN/i)).toBeInTheDocument();
     expect(screen.getByText("Entrega urgente")).toBeInTheDocument();
     expect(
