@@ -16,6 +16,7 @@ interface SolicitudCompraDetalleModalProps {
   solicitud: SolicitudCompraRow | null;
   onClose: () => void;
   actions?: ReactNode;
+  closeOnEscape?: boolean;
 }
 
 function MetaField({
@@ -39,6 +40,7 @@ export function SolicitudCompraDetalleModal({
   solicitud,
   onClose,
   actions,
+  closeOnEscape = true,
 }: SolicitudCompraDetalleModalProps) {
   if (!solicitud) {
     return null;
@@ -46,6 +48,9 @@ export function SolicitudCompraDetalleModal({
 
   const lineItems = solicitud.lineas ?? [];
   const observaciones = formatObservacionOrden(solicitud.observaciones);
+  const proveedorLabel = solicitud.id_proveedor?.trim()
+    ? "Asignado"
+    : "Sin proveedor";
 
   return (
     <PolariaFormModal
@@ -60,8 +65,9 @@ export function SolicitudCompraDetalleModal({
       footerAction={actions ?? <></>}
       compact
       size="lg"
+      closeOnEscape={closeOnEscape}
     >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetaField label="Fecha">
           {formatFechaOrden(solicitud.created_at)}
         </MetaField>
@@ -72,6 +78,17 @@ export function SolicitudCompraDetalleModal({
         </MetaField>
         <MetaField label="Peso total">
           <span className="tabular-nums">{pesosProductosSolicitud(solicitud)}</span>
+        </MetaField>
+        <MetaField label="Proveedor">
+          <span
+            className={
+              solicitud.id_proveedor?.trim()
+                ? "text-polaria-w"
+                : "text-polaria-w-50"
+            }
+          >
+            {proveedorLabel}
+          </span>
         </MetaField>
       </div>
 

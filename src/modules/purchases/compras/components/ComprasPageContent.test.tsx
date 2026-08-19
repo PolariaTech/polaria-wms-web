@@ -2,20 +2,32 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import type { OrdenCompraRow } from "../../shared/types/purchases.types";
+import type { OrdenCompraRow, SolicitudCompraRow } from "../../shared/types/purchases.types";
 import { ComprasPageContent } from "./ComprasPageContent";
-import { listBodegasDestinoCompraApi } from "../../shared/services/purchases-api.service";
+import {
+  enviarSolicitudCompraAprobacionApi,
+  listBodegasDestinoCompraApi,
+} from "../../shared/services/purchases-api.service";
 
 const listSolicitudesCompra = vi.fn();
 const listOrdenesCompra = vi.fn();
 const listOrdenCompraLineas = vi.fn();
 const notifyProveedorPedido = vi.fn();
+const listProveedoresAdmin = vi.fn();
 
 vi.mock("../../shared/services/purchases.service", () => ({
   listSolicitudesCompra: (...args: unknown[]) => listSolicitudesCompra(...args),
   listOrdenesCompra: (...args: unknown[]) => listOrdenesCompra(...args),
   listOrdenCompraLineas: (...args: unknown[]) => listOrdenCompraLineas(...args),
 }));
+
+vi.mock("@/modules/admin-panel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/admin-panel")>();
+  return {
+    ...actual,
+    listProveedoresAdmin: (...args: unknown[]) => listProveedoresAdmin(...args),
+  };
+});
 
 vi.mock("../../shared/services/purchases-api.service", () => ({
   aprobarSolicitudCompraApi: vi.fn(),
@@ -74,6 +86,33 @@ const ORDEN_EMITIDA: OrdenCompraRow = {
   ],
 };
 
+const SOLICITUD_SIN_PROVEEDOR: SolicitudCompraRow = {
+  id_solicitud_compra: "sol-bot-1",
+  codigo_cuenta: "CUENTA-01",
+  id_bodega: "BOD-01",
+  id_proveedor: null,
+  id_orden_compra: null,
+  codigo: "SOL-000037",
+  estado: "borrador",
+  id_solicitante: "usr-bot",
+  observaciones: "Auto bot OV: stock insuficiente",
+  created_at: "2026-08-18T12:00:00.000Z",
+  updated_at: "2026-08-18T12:00:00.000Z",
+  lineas: [
+    {
+      id_linea_solicitud_compra: "line-sol-1",
+      id_producto: "prod-1",
+      cantidad: 4,
+      producto: {
+        sku: "3MR86",
+        descripcion: "Frozen-LaFrieda Chuck Beef Hamburgers 4oz",
+        codigo_almacen: null,
+        metadatos_catalogo: null,
+      },
+    },
+  ],
+};
+
 describe("ComprasPageContent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -87,6 +126,16 @@ describe("ComprasPageContent", () => {
       n8nStatus: 200,
       correlationId: "corr-12345678",
     });
+    listProveedoresAdmin.mockResolvedValue([
+      {
+        idProveedor: "prov-1",
+        codigo: "PRV-01",
+        proveedor: "Pat-lafrieda",
+        nombre: "Pat LaFrieda",
+        telefono: "+12025550123",
+        email: null,
+      },
+    ]);
     vi.mocked(listBodegasDestinoCompraApi).mockResolvedValue([
       {
         idBodega: "BOD-01",
@@ -177,5 +226,47 @@ describe("ComprasPageContent", () => {
     ).toHaveTextContent("Integración de pedido a proveedor no configurada.");
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByText("Notificado")).not.toBeInTheDocument();
+  });
+
+  it("pide proveedor al enviar a aprobación una SOL del bot", async () => {
+    const user = userEvent.setup();
+    listSolicitudesCompra.mockResolvedValue([SOLICITUD_SIN_PROVEEDOR]);
+    vi.mocked(enviarSolicitudCompraAprobacionApi).mockResolvedValue({
+      idSolicitudCompra: "sol-bot-1",
+      codigo: "SOL-000037",
+      estado: "pendiente_aprobacion",
+      idProveedor: "prov-1",
+      idBodega: "BOD-01",
+      idOrdenCompra: null,
+    });
+
+    render(<ComprasPageContent />);
+
+    await waitFor(() => {
+      expect(screen.getByText("SOL-000037")).toBeInTheDocument();
+    });
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Ver detalle de solicitud SOL-000037",
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Enviar aprobación" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Seleccionar proveedor" }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Seleccionar Pat-lafrieda — Pat LaFrieda" }),
+    );
+
+    await waitFor(() => {
+      expect(enviarSolicitudCompraAprobacionApi).toHaveBeenCalledWith(
+        "sol-bot-1",
+        { idProveedor: "prov-1" },
+      );
+    });
   });
 });

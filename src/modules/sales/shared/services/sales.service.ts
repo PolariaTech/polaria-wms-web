@@ -532,7 +532,7 @@ function mapOrdenVentaOperadorRow(
     cantidadKg: resumen.cantidadKg,
     total: resumen.total,
     estado: row.estado,
-    fecha: row.fecha_pedido || row.created_at,
+    fecha: row.created_at || row.fecha_pedido,
     destino,
   };
 }
