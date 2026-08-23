@@ -55,6 +55,22 @@ function createUbicacionChain(rows: Record<string, unknown>[]) {
   return chain;
 }
 
+function createPrecioProductoChain(rows: Record<string, unknown>[]) {
+  const chain = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    in: vi.fn(),
+    order: vi.fn(),
+    limit: vi.fn(),
+  };
+  chain.select.mockReturnValue(chain);
+  chain.eq.mockReturnValue(chain);
+  chain.in.mockReturnValue(chain);
+  chain.order.mockReturnValue(chain);
+  chain.limit.mockResolvedValue({ data: rows, error: null });
+  return chain;
+}
+
 describe("sales.service", () => {
   beforeEach(() => {
     setSupabaseClientForTests(null);
@@ -164,11 +180,19 @@ describe("sales.service", () => {
         },
       },
     ]);
+    const precioChain = createPrecioProductoChain([
+      {
+        id_producto: "prod-1",
+        precio: "106.5700",
+        fecha_aplicacion: "2026-07-11T00:38:27.036Z",
+      },
+    ]);
 
     const from = vi.fn((table: string) => {
       if (table === "bodega") return bodegaChain;
       if (table === "warehouse_state") return warehouseChain;
       if (table === "ubicacion") return ubicacionChain;
+      if (table === "precio_producto") return precioChain;
       throw new Error(`unexpected table ${table}`);
     });
 
@@ -177,11 +201,13 @@ describe("sales.service", () => {
     const rows = await listProductosVentaCatalogo({ codigoCuenta: "CUENTA-01" });
 
     expect(from).toHaveBeenCalledWith("warehouse_state");
+    expect(from).toHaveBeenCalledWith("precio_producto");
     expect(warehouseChain.in).toHaveBeenCalledWith("id_bodega", ["bod-1"]);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.kgDisponible).toBe(60);
     expect(rows[0]?.idBodega).toBe("bod-1");
     expect(rows[0]?.codigo).toBe("FIL-01");
+    expect(rows[0]?.precioUnitario).toBe(106.57);
   });
 
   it("listProductosVentaCatalogo ignora stock en zona de salida", async () => {
@@ -305,12 +331,7 @@ describe("sales.service", () => {
     productoChain.limit.mockImplementation(function (this: typeof productoChain) {
       if (productoChain.in.mock.calls.length > 0) {
         return Promise.resolve({
-          data: [
-            {
-              id_producto: "prod-1",
-              metadatos_catalogo: { precio: "1000" },
-            },
-          ],
+          data: [{ id_producto: "prod-1" }],
           error: null,
         });
       }
@@ -353,12 +374,21 @@ describe("sales.service", () => {
     };
     lineaInsertChain.insert.mockResolvedValue({ data: null, error: null });
 
+    const precioChain = createPrecioProductoChain([
+      {
+        id_producto: "prod-1",
+        precio: "106.5700",
+        fecha_aplicacion: "2026-07-11T00:38:27.036Z",
+      },
+    ]);
+
     const from = vi.fn((table: string) => {
       if (table === "bodega") return bodegaChain;
       if (table === "warehouse_state") return warehouseChain;
       if (table === "ubicacion") return ubicacionChain;
       if (table === "comprador") return compradorChain;
       if (table === "producto") return productoChain;
+      if (table === "precio_producto") return precioChain;
       if (table === "orden_venta") return ordenInsertChain;
       if (table === "orden_venta_linea") return lineaInsertChain;
       throw new Error(`unexpected table ${table}`);
@@ -381,7 +411,7 @@ describe("sales.service", () => {
         id_orden_venta: "ov-new",
         id_producto: "prod-1",
         cantidad_pedida: 1,
-        precio_unitario: 1000,
+        precio_unitario: 106.57,
       },
     ]);
   });

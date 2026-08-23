@@ -1,9 +1,13 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveProductoNombre } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-slot-content";
 import { listAlmacenamientoVentaUbicacionIds } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-zone-ubicaciones";
 import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bodega/types/estado-bodega.types";
 import type { WarehouseStateRow } from "@/modules/inventory/shared/types/inventory.types";
-import { resolvePrecioUnitarioFromMetadatos } from "../utils/sales-precio";
+import {
+  mapLatestPrecioProductoById,
+  type PrecioProductoRow,
+} from "../utils/sales-precio";
 import type { ProductoVentaOption } from "../types/sales.types";
 
 const WAREHOUSE_STOCK_VENTA_SELECT =
@@ -52,6 +56,7 @@ function unwrapProductoRel(
 function mapStockRowToProductoOption(
   idProducto: string,
   stock: { kgDisponible: number; sampleRow: WarehouseStockVentaRow },
+  precioUnitario: number,
 ): ProductoVentaOption {
   const productoRel = unwrapProductoRel(stock.sampleRow.producto);
   const codigo = productoRel?.sku?.trim() || idProducto.slice(0, 8);
@@ -68,10 +73,31 @@ function mapStockRowToProductoOption(
     codigo,
     nombre,
     kgDisponible: stock.kgDisponible,
-    precioUnitario: resolvePrecioUnitarioFromMetadatos(
-      productoRel?.metadatos_catalogo,
-    ),
+    precioUnitario,
   };
+}
+
+async function fetchPreciosProductoMap(
+  admin: SupabaseClient,
+  codigoCuenta: string,
+  idProductos: string[],
+): Promise<Map<string, number>> {
+  const uniqueIds = [...new Set(idProductos.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) return new Map();
+
+  const { data, error } = await admin
+    .from("precio_producto")
+    .select("id_producto,precio,fecha_aplicacion")
+    .eq("codigo_cuenta", codigoCuenta)
+    .in("id_producto", uniqueIds)
+    .order("fecha_aplicacion", { ascending: false })
+    .limit(Math.min(Math.max(uniqueIds.length * 20, uniqueIds.length), 1000));
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapLatestPrecioProductoById((data ?? []) as PrecioProductoRow[]);
 }
 
 /** Catálogo de venta leyendo warehouse_state con service role (sin RLS del navegador). */
@@ -176,7 +202,19 @@ export async function listProductosVentaCatalogoServer(
     });
   }
 
+  const precioMap = await fetchPreciosProductoMap(
+    admin,
+    cuenta,
+    [...kgByProducto.keys()],
+  );
+
   return [...kgByProducto.entries()]
-    .map(([idProducto, stock]) => mapStockRowToProductoOption(idProducto, stock))
+    .map(([idProducto, stock]) =>
+      mapStockRowToProductoOption(
+        idProducto,
+        stock,
+        precioMap.get(idProducto) ?? 0,
+      ),
+    )
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }

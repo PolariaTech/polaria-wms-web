@@ -11,7 +11,10 @@ import { resolveProductoNombre } from "@/modules/warehouses/estado-bodega/utils/
 import { listAlmacenamientoVentaUbicacionIds } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-zone-ubicaciones";
 import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bodega/types/estado-bodega.types";
 import type { WarehouseStateRow } from "@/modules/inventory/shared/types/inventory.types";
-import { resolvePrecioUnitarioFromMetadatos } from "../utils/sales-precio";
+import {
+  mapLatestPrecioProductoById,
+  type PrecioProductoRow,
+} from "../utils/sales-precio";
 import type {
   CreateOrdenVentaInput,
   OrdenVentaDetalleRow,
@@ -241,6 +244,7 @@ async function collectStockVentaPorProducto(
 function mapStockRowToProductoOption(
   idProducto: string,
   stock: StockVentaProductoAgg,
+  precioUnitario: number,
 ): ProductoVentaOption {
   const productoRel = unwrapProductoRel(stock.sampleRow.producto);
   const codigo = productoRel?.sku?.trim() || idProducto.slice(0, 8);
@@ -257,9 +261,7 @@ function mapStockRowToProductoOption(
     codigo,
     nombre,
     kgDisponible: stock.kgDisponible,
-    precioUnitario: resolvePrecioUnitarioFromMetadatos(
-      productoRel?.metadatos_catalogo,
-    ),
+    precioUnitario,
   };
 }
 
@@ -475,6 +477,31 @@ async function fetchLineasResumenByOrden(
   return resumen;
 }
 
+async function fetchPreciosProductoMap(
+  codigoCuenta: string,
+  idProductos: string[],
+): Promise<Map<string, number>> {
+  const uniqueIds = [...new Set(idProductos.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) return new Map();
+
+  const rows = await runDomainQuery<PrecioProductoRow[]>((client) => {
+    const query = client
+      .from("precio_producto")
+      .select("id_producto,precio,fecha_aplicacion")
+      .eq("codigo_cuenta", codigoCuenta)
+      .in("id_producto", uniqueIds)
+      .order("fecha_aplicacion", { ascending: false })
+      .limit(Math.min(Math.max(uniqueIds.length * 20, uniqueIds.length), 1000));
+
+    return query as unknown as Promise<{
+      data: PrecioProductoRow[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  return mapLatestPrecioProductoById(rows);
+}
+
 async function fetchPreciosUnitariosProductos(
   codigoCuenta: string,
   idProductos: string[],
@@ -482,26 +509,27 @@ async function fetchPreciosUnitariosProductos(
   const uniqueIds = [...new Set(idProductos.map((id) => id.trim()).filter(Boolean))];
   if (uniqueIds.length === 0) return new Map();
 
-  const rows = await runDomainQuery<
-    { id_producto: string; metadatos_catalogo: unknown }[]
-  >((client) => {
-    const query = client
-      .from("producto")
-      .select("id_producto,metadatos_catalogo")
-      .eq("codigo_cuenta", codigoCuenta)
-      .in("id_producto", uniqueIds)
-      .limit(uniqueIds.length);
+  const [productRows, precioMap] = await Promise.all([
+    runDomainQuery<{ id_producto: string }[]>((client) => {
+      const query = client
+        .from("producto")
+        .select("id_producto")
+        .eq("codigo_cuenta", codigoCuenta)
+        .in("id_producto", uniqueIds)
+        .limit(uniqueIds.length);
 
-    return query as unknown as Promise<{
-      data: { id_producto: string; metadatos_catalogo: unknown }[] | null;
-      error: { message: string } | null;
-    }>;
-  });
+      return query as unknown as Promise<{
+        data: { id_producto: string }[] | null;
+        error: { message: string } | null;
+      }>;
+    }),
+    fetchPreciosProductoMap(codigoCuenta, uniqueIds),
+  ]);
 
   return new Map(
-    rows.map((row) => [
+    productRows.map((row) => [
       row.id_producto,
-      resolvePrecioUnitarioFromMetadatos(row.metadatos_catalogo),
+      precioMap.get(row.id_producto) ?? 0,
     ]),
   );
 }
@@ -606,9 +634,16 @@ export async function listProductosVentaCatalogo(
       : params;
   const cuenta = requireCodigoCuenta(codigoCuenta);
   const stockMap = await collectStockVentaPorProducto(cuenta);
+  const precioMap = await fetchPreciosProductoMap(cuenta, [...stockMap.keys()]);
 
   return [...stockMap.entries()]
-    .map(([idProducto, stock]) => mapStockRowToProductoOption(idProducto, stock))
+    .map(([idProducto, stock]) =>
+      mapStockRowToProductoOption(
+        idProducto,
+        stock,
+        precioMap.get(idProducto) ?? 0,
+      ),
+    )
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
