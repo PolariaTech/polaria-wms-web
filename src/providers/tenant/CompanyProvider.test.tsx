@@ -52,6 +52,7 @@ describe("CompanyProvider", () => {
         nivelRol: "bodega",
       },
       session: tenantSession,
+      sessionStartedAt: Date.now(),
       isHydrated: true,
       isLoading: false,
     });

@@ -2,7 +2,10 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
-import { PolariaTableCode } from "@/components/shared/table/PolariaTableCells";
+import {
+  PolariaTableCode,
+  PolariaTableEditButton,
+} from "@/components/shared/table/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
@@ -20,10 +23,14 @@ import {
 } from "../services/plantas.service";
 import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { PlantaCreateModal } from "./PlantaCreateModal";
+import { PlantaEditModal } from "./PlantaEditModal";
 
 export function PlantasListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingPlanta, setEditingPlanta] = useState<PlantaListRow | null>(
+    null,
+  );
 
   const fetchPlantas = useCallback(() => {
     if (!codigoCuenta) {
@@ -79,6 +86,13 @@ export function PlantasListView() {
           header: "Rango Temp",
           cell: (row: PlantaListRow) => row.rangoTemperatura ?? "—",
         },
+        {
+          id: "acciones",
+          header: "Acciones",
+          cell: (row: PlantaListRow) => (
+            <PolariaTableEditButton onClick={() => setEditingPlanta(row)} />
+          ),
+        },
       ] as const,
     [],
   );
@@ -115,6 +129,15 @@ export function PlantasListView() {
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
+          void reload();
+        }}
+      />
+
+      <PlantaEditModal
+        open={Boolean(editingPlanta)}
+        planta={editingPlanta}
+        onClose={() => setEditingPlanta(null)}
+        onUpdated={() => {
           void reload();
         }}
       />

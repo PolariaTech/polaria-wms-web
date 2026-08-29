@@ -70,6 +70,7 @@ vi.mock("next/image", () => ({
 }));
 
 import { AppShellLayout } from "./AppShellLayout";
+import { POLARIA_PRODUCT_VERSION } from "@/constants/brand/brand";
 
 describe("AppShellLayout — Mateo IA", () => {
   beforeEach(() => {
@@ -130,5 +131,17 @@ describe("AppShellLayout — Mateo IA", () => {
     expect(
       screen.getByRole("button", { name: "Abrir Mateo IA" }),
     ).not.toBeDisabled();
+  });
+
+  it("muestra la versión de producto abajo a la izquierda", () => {
+    render(
+      <AppShellLayout>
+        <div>contenido</div>
+      </AppShellLayout>,
+    );
+
+    expect(
+      screen.getByLabelText(`Versión ${POLARIA_PRODUCT_VERSION}`),
+    ).toHaveTextContent(`version: ${POLARIA_PRODUCT_VERSION}`);
   });
 });

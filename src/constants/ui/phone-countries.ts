@@ -1,4 +1,8 @@
-import { isValidPhoneNumber, parsePhoneNumberFromString } from "libphonenumber-js";
+import {
+  parsePhoneNumberFromString,
+  type CountryCode,
+  type PhoneNumber,
+} from "libphonenumber-js";
 
 export const DEFAULT_PHONE_COUNTRY_CODE = "CO" as const;
 
@@ -26,27 +30,52 @@ export const PHONE_INPUT_COUNTRIES = [
   "BR",
 ] as const;
 
+function digitsOnly(value: string): string {
+  return value.replace(/[^\d]/g, "");
+}
+
+/**
+ * Interpreta teléfonos guardados en distintos formatos:
+ * E.164 (`+57…`), dígitos con país sin `+` (`57…`) o nacional CO (`300…`).
+ */
+export function parseStoredPhone(
+  value: string | null | undefined,
+): PhoneNumber | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed || trimmed === "—") return undefined;
+
+  if (trimmed.startsWith("+")) {
+    const international = parsePhoneNumberFromString(trimmed);
+    return international?.isValid() ? international : undefined;
+  }
+
+  const national = parsePhoneNumberFromString(
+    trimmed,
+    DEFAULT_PHONE_COUNTRY_CODE as CountryCode,
+  );
+  if (national?.isValid()) return national;
+
+  const withPlus = parsePhoneNumberFromString(`+${digitsOnly(trimmed)}`);
+  return withPlus?.isValid() ? withPlus : undefined;
+}
+
 export function formatInternationalPhoneDisplay(
   value: string | null | undefined,
 ): string {
   const trimmed = value?.trim();
-  if (!trimmed) return "—";
+  if (!trimmed || trimmed === "—") return "—";
 
-  const parsed = parsePhoneNumberFromString(trimmed);
-  return parsed?.isValid() ? parsed.formatInternational() : trimmed;
+  const parsed = parseStoredPhone(trimmed);
+  return parsed ? parsed.formatInternational() : trimmed;
 }
 
 export function isValidInternationalPhone(value: string): boolean {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-
-  return isValidPhoneNumber(trimmed);
+  return Boolean(parseStoredPhone(value)?.isValid());
 }
 
 export function normalizeInternationalPhone(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return "";
 
-  const parsed = parsePhoneNumberFromString(trimmed);
-  return parsed?.number ?? trimmed;
+  return parseStoredPhone(trimmed)?.number ?? trimmed;
 }

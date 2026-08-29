@@ -46,14 +46,21 @@ export { AdminBreadcrumb } from "./shared/components/AdminBreadcrumb";
 export { AdminCatalogListShell } from "./shared/components/AdminCatalogListShell";
 export { ProveedoresListView } from "./proveedores/components/ProveedoresListView";
 export { ProveedorCreateModal } from "./proveedores/components/ProveedorCreateModal";
+export { ProveedorEditModal } from "./proveedores/components/ProveedorEditModal";
 export { ClientesListView } from "./clientes/components/ClientesListView";
 export { ClienteCreateModal } from "./clientes/components/ClienteCreateModal";
+export { ClienteEditModal } from "./clientes/components/ClienteEditModal";
 export { CompradoresListView } from "./compradores/components/CompradoresListView";
 export { CompradorCreateModal } from "./compradores/components/CompradorCreateModal";
+export { CompradorEditModal } from "./compradores/components/CompradorEditModal";
+export { CompradorAliasCreateModal } from "./compradores/components/CompradorAliasCreateModal";
+export { CompradorDetalleModal } from "./compradores/components/CompradorDetalleModal";
 export { CamionesListView } from "./camiones/components/CamionesListView";
 export { CamionCreateModal } from "./camiones/components/CamionCreateModal";
+export { CamionEditModal } from "./camiones/components/CamionEditModal";
 export { PlantasListView } from "./plantas/components/PlantasListView";
 export { PlantaCreateModal } from "./plantas/components/PlantaCreateModal";
+export { PlantaEditModal } from "./plantas/components/PlantaEditModal";
 export { UsuariosAdminListView } from "./usuarios/components/UsuariosAdminListView";
 export { UsuarioAdminCreateModal } from "./usuarios/components/UsuarioAdminCreateModal";
 export { BodegaInternaAdminView } from "./bodega-interna/components/BodegaInternaAdminView";
@@ -73,6 +80,7 @@ export {
   decodeProveedorRazonSocial,
   formatProveedorId,
   listProveedoresAdmin,
+  updateProveedorAdmin,
 } from "./proveedores/services/proveedores.service";
 
 export type { ClienteListRow, CreateClienteInput } from "./clientes/services/clientes.service";
@@ -80,19 +88,31 @@ export {
   createClienteAdmin,
   formatClienteId,
   listClientesAdmin,
+  updateClienteAdmin,
 } from "./clientes/services/clientes.service";
 
 export type { CompradorListRow, CreateCompradorInput } from "./compradores/services/compradores.service";
 export {
   createCompradorAdmin,
   listCompradoresAdmin,
+  updateCompradorAdmin,
 } from "./compradores/services/compradores.service";
+export type {
+  CompradorProductoAliasListRow,
+  CompradorProductoAliasRow,
+  CreateCompradorProductoAliasInput,
+} from "./compradores/services/comprador-producto-alias.service";
+export {
+  createCompradorProductoAliasAdmin,
+  listCompradorProductoAliasAdmin,
+} from "./compradores/services/comprador-producto-alias.service";
 
 export type { CamionListRow, CreateCamionInput } from "./camiones/services/camiones.service";
 export {
   createCamionAdmin,
   formatCamionId,
   listCamionesAdmin,
+  updateCamionAdmin,
 } from "./camiones/services/camiones.service";
 
 export type { PlantaListRow, CreatePlantaInput } from "./plantas/services/plantas.service";
@@ -100,6 +120,7 @@ export {
   createPlantaAdmin,
   formatPlantaId,
   listPlantasAdmin,
+  updatePlantaAdmin,
 } from "./plantas/services/plantas.service";
 
 export type {

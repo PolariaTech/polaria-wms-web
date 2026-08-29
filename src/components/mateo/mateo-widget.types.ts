@@ -28,6 +28,8 @@ export interface MateoWidgetApi {
   ) => void | Promise<void> | { unmount: () => void; close: () => void };
   unmount?: (target?: HTMLElement) => void;
   close?: () => void;
+  /** Limpia el JWT en memoria. El host lo llama al cerrar sesión de Polaria. */
+  resetAuth?: () => void;
 }
 
 declare global {

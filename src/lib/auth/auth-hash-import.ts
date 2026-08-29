@@ -13,6 +13,7 @@ export interface ZustandAuthPersist {
     accessToken: string;
     refreshToken: string | null;
     context: { scope: "platform" | "tenant" } | null;
+    sessionStartedAt?: number | null;
   };
   version: number;
 }
@@ -41,6 +42,7 @@ export function parsePolarAuthHash(hash: string): ZustandAuthPersist | null {
           accessToken: payload.state.accessToken,
           refreshToken: payload.state.refreshToken ?? null,
           context: payload.state.context ?? null,
+          sessionStartedAt: payload.state.sessionStartedAt ?? Date.now(),
         },
         version: payload.version ?? 0,
       };
@@ -54,6 +56,7 @@ export function parsePolarAuthHash(hash: string): ZustandAuthPersist | null {
         accessToken: flat.accessToken,
         refreshToken: flat.refreshToken ?? null,
         context: flat.context ?? null,
+        sessionStartedAt: Date.now(),
       },
       version: 0,
     };

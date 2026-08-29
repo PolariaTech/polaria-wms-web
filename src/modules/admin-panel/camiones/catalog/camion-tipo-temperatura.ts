@@ -69,6 +69,25 @@ export function formatRangoTemperatura(
   return `${low} °C a ${high} °C`;
 }
 
+export function parseRangoTemperatura(
+  value: string | null | undefined,
+): { tempMin: number; tempMax: number } | null {
+  if (!value?.trim()) return null;
+  const nums = [...value.matchAll(/-?\d+(?:[.,]\d+)?/g)].map((match) =>
+    Number(match[0]!.replace(",", ".")),
+  );
+  const valid = nums.filter((n) => Number.isFinite(n));
+  if (valid.length === 0) return null;
+  if (valid.length === 1) {
+    const only = valid[0]!;
+    return { tempMin: only, tempMax: only };
+  }
+  return {
+    tempMin: Math.min(valid[0]!, valid[1]!),
+    tempMax: Math.max(valid[0]!, valid[1]!),
+  };
+}
+
 export function clampTemp(value: number): number {
   return Math.min(TEMP_SLIDER_MAX, Math.max(TEMP_SLIDER_MIN, Math.round(value)));
 }

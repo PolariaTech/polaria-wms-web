@@ -5,6 +5,7 @@ import {
   createProveedorAdmin,
   decodeProveedorRazonSocial,
   listProveedoresAdmin,
+  updateProveedorAdmin,
 } from "./proveedores.service";
 
 describe("proveedores.service", () => {
@@ -90,5 +91,57 @@ describe("proveedores.service", () => {
       }),
     );
     expect(row.nombre).toBe("Luis Castillo");
+  });
+
+  it("updateProveedorAdmin actualiza datos sin cambiar el código", async () => {
+    const updateChain = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    updateChain.update.mockReturnValue(updateChain);
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    updateChain.single.mockResolvedValue({
+      data: {
+        id_proveedor: "22222222-2222-2222-2222-222222222222",
+        codigo: "DISTR",
+        razon_social: "Distribuidora XYZ — Ana Pérez",
+        telefono: "+573009998877",
+        email: "ana@xyz.com",
+      },
+      error: null,
+    });
+
+    const from = vi.fn(() => updateChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const row = await updateProveedorAdmin({
+      codigoCuenta: "FOODS1",
+      idProveedor: "22222222-2222-2222-2222-222222222222",
+      proveedor: "Distribuidora XYZ",
+      nombre: "Ana Pérez",
+      telefono: "+573009998877",
+      email: "ana@xyz.com",
+    });
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        razon_social: "Distribuidora XYZ — Ana Pérez",
+        telefono: "+573009998877",
+        email: "ana@xyz.com",
+      }),
+    );
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ codigo: expect.anything() }),
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith(
+      "id_proveedor",
+      "22222222-2222-2222-2222-222222222222",
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith("codigo_cuenta", "FOODS1");
+    expect(row.nombre).toBe("Ana Pérez");
+    expect(row.codigo).toBe("DISTR");
   });
 });

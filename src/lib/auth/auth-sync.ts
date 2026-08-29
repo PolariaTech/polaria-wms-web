@@ -3,11 +3,16 @@ import { subscribeAuthChanged } from "@/lib/auth/auth-broadcast";
 import {
   ensureAuthOnlyInLocalStorage,
   readAuthStorageRaw,
+  removeAuthFromLocalStorage,
 } from "@/lib/auth/auth-storage";
+import { isMateoSsoExitInProgress } from "@/lib/auth/mateo-sso-exit";
+import { isSessionExpired } from "@/lib/auth/auth-session-timeout";
+import { logoutWithToken } from "@/modules/auth";
 
 type PersistedAuthSlice = {
   accessToken: string | null;
   refreshToken: string | null;
+  sessionStartedAt?: number | null;
 };
 
 function readPersistedAuthSlice(): PersistedAuthSlice | null {
@@ -26,22 +31,70 @@ export function getPersistedAccessToken(): string | null {
   return readPersistedAuthSlice()?.accessToken ?? null;
 }
 
-/** Memoria y localStorage deben coincidir para considerar la sesión activa. */
+export function getPersistedSessionStartedAt(): number | null {
+  const started = readPersistedAuthSlice()?.sessionStartedAt;
+  return typeof started === "number" ? started : null;
+}
+
+function resolveSessionStartedAt(): number | null {
+  return (
+    useAuthStore.getState().sessionStartedAt ?? getPersistedSessionStartedAt()
+  );
+}
+
+/** Cierra la sesión local (store + localStorage) sin esperar al API. */
+export function expireLocalAuth(): void {
+  useAuthStore.getState().clearAuth();
+  removeAuthFromLocalStorage();
+}
+
+/** Cierra sesión local de inmediato y revoca el token en el API. */
+export async function expireAuthSession(): Promise<void> {
+  if (isMateoSsoExitInProgress()) return;
+
+  const token =
+    useAuthStore.getState().accessToken ?? getPersistedAccessToken();
+  expireLocalAuth();
+
+  if (!token) return;
+  try {
+    await logoutWithToken(token);
+  } catch {
+    // La sesión local ya se cerró; el logout remoto no debe bloquear.
+  }
+}
+
+function isCurrentSessionExpired(): boolean {
+  const token =
+    useAuthStore.getState().accessToken ?? getPersistedAccessToken();
+  if (!token) return false;
+  return isSessionExpired(resolveSessionStartedAt());
+}
+
+/** Memoria y localStorage deben coincidir, y no haber superado las 12 h. */
 export function isActiveAuthSession(
   memoryToken: string | null,
   persistedToken: string | null = getPersistedAccessToken(),
 ): boolean {
-  return Boolean(
-    memoryToken && persistedToken && memoryToken === persistedToken,
-  );
+  if (!memoryToken || !persistedToken || memoryToken !== persistedToken) {
+    return false;
+  }
+
+  return !isSessionExpired(resolveSessionStartedAt());
 }
 
 /**
  * Alinea el estado en memoria con localStorage.
- * Devuelve false si no hay token persistido (sesión cerrada).
+ * Devuelve false si no hay token persistido (sesión cerrada) o si expiró.
  */
 export function syncAuthWithPersistedStorage(): boolean {
   ensureAuthOnlyInLocalStorage();
+
+  if (isCurrentSessionExpired()) {
+    void expireAuthSession().catch(() => undefined);
+    return false;
+  }
+
   const storedToken = getPersistedAccessToken();
   const { accessToken } = useAuthStore.getState();
 

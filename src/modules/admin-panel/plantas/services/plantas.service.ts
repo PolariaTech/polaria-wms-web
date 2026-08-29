@@ -167,3 +167,78 @@ export async function createPlantaAdmin(
 
   return mapPlantaRow(inserted);
 }
+
+export interface UpdatePlantaInput {
+  codigoCuenta: string;
+  idPlanta: string;
+  nombre: string;
+  direccion: string;
+  capacidadPallets?: number | null;
+  rangoTemperatura?: string | null;
+}
+
+/** Actualiza una planta de la cuenta activa (scope tenant). */
+export async function updatePlantaAdmin(
+  input: UpdatePlantaInput,
+): Promise<PlantaListRow> {
+  const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
+  const idPlanta = input.idPlanta.trim();
+  const nombre = input.nombre.trim();
+  const direccion = input.direccion.trim();
+  const rangoTemperatura = input.rangoTemperatura?.trim() ?? "";
+
+  if (!idPlanta) {
+    throw new DomainServiceError(
+      "Falta el identificador de la planta.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!nombre) {
+    throw new DomainServiceError(
+      "El nombre de la planta es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!direccion) {
+    throw new DomainServiceError(
+      "La dirección de la planta es obligatoria.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const capacidadPallets = parseOptionalPositiveInteger(
+    input.capacidadPallets,
+    "La capacidad de pallets",
+  );
+
+  const updated = await runDomainMutation<PlantaDbRow | null>((client) => {
+    const query = client
+      .from("planta")
+      .update({
+        nombre,
+        direccion,
+        capacidad_pallets: capacidadPallets,
+        rango_temperatura: rangoTemperatura || null,
+      })
+      .eq("id_planta", idPlanta)
+      .eq("codigo_cuenta", codigoCuenta)
+      .select(PLANTA_LIST_COLUMNS)
+      .single();
+
+    return query as unknown as Promise<{
+      data: PlantaDbRow | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  if (!updated) {
+    throw new DomainServiceError(
+      "No se pudo actualizar la planta.",
+      "MUTATION_FAILED",
+    );
+  }
+
+  return mapPlantaRow(updated);
+}

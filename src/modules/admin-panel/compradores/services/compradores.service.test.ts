@@ -4,6 +4,7 @@ import { createSupabaseMock } from "@/test/create-supabase-mock";
 import {
   createCompradorAdmin,
   listCompradoresAdmin,
+  updateCompradorAdmin,
 } from "./compradores.service";
 
 describe("compradores.service", () => {
@@ -19,6 +20,7 @@ describe("compradores.service", () => {
           id_comprador: "11111111-1111-1111-1111-111111111111",
           codigo: "LUIS1",
           nombre: "Luis Castillo",
+          telefono: null,
         },
       ],
     });
@@ -34,6 +36,7 @@ describe("compradores.service", () => {
         idComprador: "11111111-1111-1111-1111-111111111111",
         codigo: "LUIS1",
         comprador: "Luis Castillo",
+        telefono: null,
       },
     ]);
   });
@@ -71,5 +74,53 @@ describe("compradores.service", () => {
       }),
     );
     expect(row.comprador).toBe("Luis Castillo");
+  });
+
+  it("updateCompradorAdmin actualiza datos sin cambiar el código", async () => {
+    const updateChain = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    updateChain.update.mockReturnValue(updateChain);
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    updateChain.single.mockResolvedValue({
+      data: {
+        id_comprador: "22222222-2222-2222-2222-222222222222",
+        codigo: "LUIS1",
+        nombre: "Luis Pérez",
+        telefono: "+573004445566",
+      },
+      error: null,
+    });
+
+    const from = vi.fn(() => updateChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const row = await updateCompradorAdmin({
+      codigoCuenta: "FOODS1",
+      idComprador: "22222222-2222-2222-2222-222222222222",
+      nombre: "Luis Pérez",
+      telefono: "+573004445566",
+    });
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nombre: "Luis Pérez",
+        telefono: "+573004445566",
+      }),
+    );
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ codigo: expect.anything() }),
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith(
+      "id_comprador",
+      "22222222-2222-2222-2222-222222222222",
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith("codigo_cuenta", "FOODS1");
+    expect(row.comprador).toBe("Luis Pérez");
+    expect(row.codigo).toBe("LUIS1");
   });
 });

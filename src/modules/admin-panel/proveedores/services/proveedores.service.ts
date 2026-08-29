@@ -187,3 +187,90 @@ export async function createProveedorAdmin(
 
   return mapProveedorRow(inserted);
 }
+
+export interface UpdateProveedorInput {
+  codigoCuenta: string;
+  idProveedor: string;
+  proveedor: string;
+  nombre: string;
+  telefono: string;
+  email?: string | null;
+}
+
+/** Actualiza un proveedor de la cuenta activa (scope tenant). */
+export async function updateProveedorAdmin(
+  input: UpdateProveedorInput,
+): Promise<ProveedorListRow> {
+  const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
+  const idProveedor = input.idProveedor.trim();
+  const proveedor = input.proveedor.trim();
+  const nombre = input.nombre.trim();
+  const telefono = input.telefono.trim();
+  const email = input.email?.trim() ?? "";
+  const razonSocial = encodeProveedorRazonSocial(proveedor, nombre);
+
+  if (!idProveedor) {
+    throw new DomainServiceError(
+      "Falta el identificador del proveedor.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!proveedor) {
+    throw new DomainServiceError(
+      "El proveedor es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!nombre) {
+    throw new DomainServiceError(
+      "El nombre es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!isValidInternationalPhone(telefono)) {
+    throw new DomainServiceError(
+      "El teléfono del proveedor no es válido.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const telefonoNormalizado = normalizeInternationalPhone(telefono);
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new DomainServiceError(
+      "El correo electrónico no es válido.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const updated = await runDomainMutation<ProveedorDbRow | null>((client) => {
+    const query = client
+      .from("proveedor")
+      .update({
+        razon_social: razonSocial,
+        telefono: telefonoNormalizado,
+        email: email || null,
+      })
+      .eq("id_proveedor", idProveedor)
+      .eq("codigo_cuenta", codigoCuenta)
+      .select(PROVEEDOR_LIST_COLUMNS)
+      .single();
+
+    return query as unknown as Promise<{
+      data: ProveedorDbRow | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  if (!updated) {
+    throw new DomainServiceError(
+      "No se pudo actualizar el proveedor.",
+      "MUTATION_FAILED",
+    );
+  }
+
+  return mapProveedorRow(updated);
+}

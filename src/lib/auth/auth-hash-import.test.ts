@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTH_STORAGE_KEY } from "@/lib/auth/auth-storage";
 import {
   AUTH_HASH_PREFIX,
@@ -10,7 +10,17 @@ function toBase64Url(value: string): string {
   return btoa(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+const NOW = 1_725_000_000_000;
+
 describe("auth-hash-import", () => {
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("parsea payload zustand completo", () => {
     const payload = {
       state: {
@@ -24,7 +34,13 @@ describe("auth-hash-import", () => {
     const hash = `${AUTH_HASH_PREFIX}${toBase64Url(JSON.stringify(payload))}`;
     const parsed = parsePolarAuthHash(hash);
 
-    expect(parsed).toEqual(payload);
+    expect(parsed).toEqual({
+      ...payload,
+      state: {
+        ...payload.state,
+        sessionStartedAt: NOW,
+      },
+    });
   });
 
   it("parsea payload plano con tokens", () => {
@@ -42,6 +58,7 @@ describe("auth-hash-import", () => {
         accessToken: "flat-access",
         refreshToken: "flat-refresh",
         context: { scope: "platform" },
+        sessionStartedAt: NOW,
       },
       version: 0,
     });
@@ -64,8 +81,15 @@ describe("auth-hash-import", () => {
     const imported = importAuthFromLocationHash();
 
     expect(imported).toBe(true);
-    expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBe(JSON.stringify(payload));
+    expect(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? "{}")).toEqual({
+      ...payload,
+      state: {
+        ...payload.state,
+        sessionStartedAt: NOW,
+      },
+    });
     expect(window.location.hash).toBe("");
     expect(window.location.pathname).toBe("/dashboard");
   });
 });
+

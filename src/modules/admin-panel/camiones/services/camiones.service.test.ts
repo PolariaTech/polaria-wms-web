@@ -5,7 +5,7 @@ import {
   formatCamionMarcaModelo,
   getCamionTipoLabel,
 } from "../constants/camion-types";
-import { createCamionAdmin, listCamionesAdmin } from "./camiones.service";
+import { createCamionAdmin, listCamionesAdmin, updateCamionAdmin } from "./camiones.service";
 
 describe("camion-types", () => {
   it("formatea marca y modelo", () => {
@@ -107,5 +107,72 @@ describe("camiones.service", () => {
       }),
     );
     expect(row.placa).toBe("ABC123");
+  });
+
+  it("updateCamionAdmin actualiza datos y estado sin cambiar el código", async () => {
+    const updateChain = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    updateChain.update.mockReturnValue(updateChain);
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    updateChain.single.mockResolvedValue({
+      data: {
+        id_camion: "22222222-2222-2222-2222-222222222222",
+        codigo: "ABC12",
+        placa: "XYZ789",
+        marca: "Volvo",
+        modelo: "FH",
+        capacidad_kg: 20000,
+        capacidad_m3: 50,
+        capacidad_pallets: 22,
+        tipo: "seco",
+        rango_temperatura: "15 °C a 35 °C",
+        disponible: false,
+        created_at: "2026-06-25T12:00:00.000Z",
+      },
+      error: null,
+    });
+
+    const from = vi.fn(() => updateChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const row = await updateCamionAdmin({
+      codigoCuenta: "FOODS1",
+      idCamion: "22222222-2222-2222-2222-222222222222",
+      placa: "XYZ789",
+      marca: "Volvo",
+      modelo: "FH",
+      capacidadKg: 20000,
+      capacidadM3: 50,
+      capacidadPallets: 22,
+      tipo: "seco",
+      rangoTemperatura: "15 °C a 35 °C",
+      disponible: false,
+    });
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        placa: "XYZ789",
+        marca: "Volvo",
+        modelo: "FH",
+        tipo: "seco",
+        disponible: false,
+      }),
+    );
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ codigo: expect.anything() }),
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith(
+      "id_camion",
+      "22222222-2222-2222-2222-222222222222",
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith("codigo_cuenta", "FOODS1");
+    expect(row.placa).toBe("XYZ789");
+    expect(row.disponible).toBe(false);
+    expect(row.codigo).toBe("ABC12");
   });
 });

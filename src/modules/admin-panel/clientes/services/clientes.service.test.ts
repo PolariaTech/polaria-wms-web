@@ -4,6 +4,7 @@ import { createSupabaseMock } from "@/test/create-supabase-mock";
 import {
   createClienteAdmin,
   listClientesAdmin,
+  updateClienteAdmin,
 } from "./clientes.service";
 
 describe("clientes.service", () => {
@@ -73,5 +74,56 @@ describe("clientes.service", () => {
       }),
     );
     expect(row.nit).toBe("900123456-7");
+  });
+
+  it("updateClienteAdmin actualiza datos sin cambiar el código", async () => {
+    const updateChain = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    updateChain.update.mockReturnValue(updateChain);
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    updateChain.single.mockResolvedValue({
+      data: {
+        id_cliente: "22222222-2222-2222-2222-222222222222",
+        codigo: "ACME1",
+        nombre: "ACME Actualizada",
+        nit: "900123456-7",
+        telefono: "+573001112233",
+      },
+      error: null,
+    });
+
+    const from = vi.fn(() => updateChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const row = await updateClienteAdmin({
+      codigoCuenta: "FOODS1",
+      idCliente: "22222222-2222-2222-2222-222222222222",
+      nombre: "ACME Actualizada",
+      nit: "900123456-7",
+      telefono: "+573001112233",
+    });
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nombre: "ACME Actualizada",
+        nit: "900123456-7",
+        telefono: "+573001112233",
+      }),
+    );
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ codigo: expect.anything() }),
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith(
+      "id_cliente",
+      "22222222-2222-2222-2222-222222222222",
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith("codigo_cuenta", "FOODS1");
+    expect(row.nombre).toBe("ACME Actualizada");
+    expect(row.codigo).toBe("ACME1");
   });
 });

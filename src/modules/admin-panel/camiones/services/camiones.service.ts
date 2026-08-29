@@ -215,3 +215,89 @@ export async function createCamionAdmin(
 
   return mapCamionRow(inserted);
 }
+
+export interface UpdateCamionInput {
+  codigoCuenta: string;
+  idCamion: string;
+  placa: string;
+  marca?: string | null;
+  modelo?: string | null;
+  capacidadKg?: number | null;
+  capacidadM3?: number | null;
+  capacidadPallets?: number | null;
+  tipo: CamionTipo;
+  rangoTemperatura?: string | null;
+  disponible?: boolean;
+}
+
+/** Actualiza un camión de la cuenta activa (scope tenant). */
+export async function updateCamionAdmin(
+  input: UpdateCamionInput,
+): Promise<CamionListRow> {
+  const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
+  const idCamion = input.idCamion.trim();
+  const placa = input.placa.trim().toUpperCase();
+  const marca = input.marca?.trim() ?? "";
+  const modelo = input.modelo?.trim() ?? "";
+  const rangoTemperatura = input.rangoTemperatura?.trim() ?? "";
+
+  if (!idCamion) {
+    throw new DomainServiceError(
+      "Falta el identificador del camión.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!placa) {
+    throw new DomainServiceError("La placa es obligatoria.", "INVALID_ARGUMENT");
+  }
+
+  const capacidadKg = parseOptionalPositiveNumber(
+    input.capacidadKg,
+    "El peso máximo",
+  );
+  const capacidadM3 = parseOptionalPositiveNumber(
+    input.capacidadM3,
+    "El volumen",
+  );
+  const capacidadPallets = parseOptionalPositiveInteger(
+    input.capacidadPallets,
+    "La capacidad de pallets",
+  );
+
+  const updated = await runDomainMutation<CamionDbRow | null>((client) => {
+    const query = client
+      .from("camion")
+      .update({
+        placa,
+        marca: marca || null,
+        modelo: modelo || null,
+        capacidad_kg: capacidadKg,
+        capacidad_m3: capacidadM3,
+        capacidad_pallets: capacidadPallets,
+        tipo: input.tipo,
+        rango_temperatura: rangoTemperatura || null,
+        ...(typeof input.disponible === "boolean"
+          ? { disponible: input.disponible }
+          : {}),
+      })
+      .eq("id_camion", idCamion)
+      .eq("codigo_cuenta", codigoCuenta)
+      .select(CAMION_LIST_COLUMNS)
+      .single();
+
+    return query as unknown as Promise<{
+      data: CamionDbRow | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  if (!updated) {
+    throw new DomainServiceError(
+      "No se pudo actualizar el camión.",
+      "MUTATION_FAILED",
+    );
+  }
+
+  return mapCamionRow(updated);
+}

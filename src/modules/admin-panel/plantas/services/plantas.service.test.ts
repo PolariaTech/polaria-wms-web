@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
-import { createPlantaAdmin, listPlantasAdmin } from "./plantas.service";
+import { createPlantaAdmin, listPlantasAdmin, updatePlantaAdmin } from "./plantas.service";
 
 describe("plantas.service", () => {
   beforeEach(() => {
@@ -80,5 +80,59 @@ describe("plantas.service", () => {
       }),
     );
     expect(row.nombre).toBe("Planta Norte");
+  });
+
+  it("updatePlantaAdmin actualiza datos sin cambiar el código", async () => {
+    const updateChain = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    updateChain.update.mockReturnValue(updateChain);
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    updateChain.single.mockResolvedValue({
+      data: {
+        id_planta: "22222222-2222-2222-2222-222222222222",
+        codigo: "PLANT",
+        nombre: "Planta Sur",
+        direccion: "Calle 200 # 10-20",
+        capacidad_pallets: 80,
+        rango_temperatura: "0°C a 8°C",
+      },
+      error: null,
+    });
+
+    const from = vi.fn(() => updateChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const row = await updatePlantaAdmin({
+      codigoCuenta: "FOODS1",
+      idPlanta: "22222222-2222-2222-2222-222222222222",
+      nombre: "Planta Sur",
+      direccion: "Calle 200 # 10-20",
+      capacidadPallets: 80,
+      rangoTemperatura: "0°C a 8°C",
+    });
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nombre: "Planta Sur",
+        direccion: "Calle 200 # 10-20",
+        capacidad_pallets: 80,
+        rango_temperatura: "0°C a 8°C",
+      }),
+    );
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ codigo: expect.anything() }),
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith(
+      "id_planta",
+      "22222222-2222-2222-2222-222222222222",
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith("codigo_cuenta", "FOODS1");
+    expect(row.nombre).toBe("Planta Sur");
+    expect(row.codigo).toBe("PLANT");
   });
 });

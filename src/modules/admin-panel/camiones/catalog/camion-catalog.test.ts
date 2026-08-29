@@ -3,10 +3,12 @@ import {
   CAMION_MARCAS_CATALOG,
   CAMION_MODELOS_CATALOG,
   listModelosByMarcaId,
+  matchCamionCatalogByNombre,
 } from "./camion-vehiculos.catalog";
 import {
   clampTemp,
   formatRangoTemperatura,
+  parseRangoTemperatura,
   TEMP_SLIDER_MAX,
   TEMP_SLIDER_MIN,
 } from "./camion-tipo-temperatura";
@@ -28,12 +30,28 @@ describe("camion-vehiculos.catalog", () => {
     expect(volvo.length).toBeGreaterThan(0);
     expect(volvo.every((m) => m.marcaId === "volvo")).toBe(true);
   });
+
+  it("matchCamionCatalogByNombre resuelve marca y modelo", () => {
+    expect(matchCamionCatalogByNombre("Volvo", "FH")).toEqual({
+      marcaId: "volvo",
+      modeloId: "volvo-fh",
+    });
+    expect(matchCamionCatalogByNombre("Marca inventada", "X")).toEqual({
+      marcaId: "",
+      modeloId: "",
+    });
+  });
 });
 
 describe("camion-tipo-temperatura", () => {
   it("formatea rango y limita slider", () => {
     expect(formatRangoTemperatura(-18, 4)).toBe("-18 °C a 4 °C");
     expect(formatRangoTemperatura(4, 4)).toBe("4 °C");
+    expect(parseRangoTemperatura("-18°C a 4°C")).toEqual({
+      tempMin: -18,
+      tempMax: 4,
+    });
+    expect(parseRangoTemperatura("4 °C")).toEqual({ tempMin: 4, tempMax: 4 });
     expect(clampTemp(TEMP_SLIDER_MIN - 10)).toBe(TEMP_SLIDER_MIN);
     expect(clampTemp(TEMP_SLIDER_MAX + 10)).toBe(TEMP_SLIDER_MAX);
   });

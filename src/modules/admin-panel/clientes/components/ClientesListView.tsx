@@ -2,7 +2,10 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
-import { PolariaTableCode } from "@/components/shared/table/PolariaTableCells";
+import {
+  PolariaTableCode,
+  PolariaTableEditButton,
+} from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -21,10 +24,14 @@ import {
 } from "../services/clientes.service";
 import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { ClienteCreateModal } from "./ClienteCreateModal";
+import { ClienteEditModal } from "./ClienteEditModal";
 
 export function ClientesListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingCliente, setEditingCliente] = useState<ClienteListRow | null>(
+    null,
+  );
 
   const fetchClientes = useCallback(() => {
     if (!codigoCuenta) {
@@ -76,6 +83,13 @@ export function ClientesListView() {
           cell: (row: ClienteListRow) =>
             formatInternationalPhoneDisplay(row.telefono),
         },
+        {
+          id: "acciones",
+          header: "Acciones",
+          cell: (row: ClienteListRow) => (
+            <PolariaTableEditButton onClick={() => setEditingCliente(row)} />
+          ),
+        },
       ] as const,
     [],
   );
@@ -112,6 +126,15 @@ export function ClientesListView() {
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
+          void reload();
+        }}
+      />
+
+      <ClienteEditModal
+        open={Boolean(editingCliente)}
+        cliente={editingCliente}
+        onClose={() => setEditingCliente(null)}
+        onUpdated={() => {
           void reload();
         }}
       />

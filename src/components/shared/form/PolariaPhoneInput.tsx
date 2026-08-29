@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils/cn";
 import {
   DEFAULT_PHONE_COUNTRY_CODE,
   PHONE_INPUT_COUNTRIES,
+  normalizeInternationalPhone,
 } from "@/constants/ui/phone-countries";
 import { PolariaFormField } from "./PolariaFormField";
 
@@ -30,6 +31,10 @@ export function PolariaPhoneInput({
   compact = false,
   defaultCountry = DEFAULT_PHONE_COUNTRY_CODE,
 }: PolariaPhoneInputProps) {
+  const inputValue = value
+    ? normalizeInternationalPhone(value) || undefined
+    : undefined;
+
   return (
     <PolariaFormField id={id} label={label} hint={hint} compact={compact}>
       <PhoneInput
@@ -38,7 +43,7 @@ export function PolariaPhoneInput({
         defaultCountry={defaultCountry}
         countries={PHONE_INPUT_COUNTRIES as unknown as Country[]}
         labels={es}
-        value={value}
+        value={inputValue}
         onChange={(next) => onChange(next ?? "")}
         disabled={disabled}
         countryCallingCodeEditable={false}

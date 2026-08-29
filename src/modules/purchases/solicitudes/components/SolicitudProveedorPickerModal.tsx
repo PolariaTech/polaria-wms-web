@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { cn } from "@/lib/utils/cn";
 import type { ProveedorListRow } from "@/modules/admin-panel";
 
@@ -167,7 +168,9 @@ export function SolicitudProveedorPickerModal({
                     <td className="truncate px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
                       {row.nombre && row.nombre !== row.proveedor
                         ? row.nombre
-                        : (row.telefono ?? row.email ?? "—")}
+                        : row.telefono
+                          ? formatInternationalPhoneDisplay(row.telefono)
+                          : (row.email ?? "—")}
                     </td>
                   </tr>
                 );

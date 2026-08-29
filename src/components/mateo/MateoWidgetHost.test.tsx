@@ -5,6 +5,8 @@ const {
   mockConfigureTokenFetcher,
   mockMount,
   mockClose,
+  mockUnmount,
+  mockResetAuth,
   mockLoadMateoWidgetApi,
   mockUseAuthStore,
   mockShowToast,
@@ -13,6 +15,8 @@ const {
   mockConfigureTokenFetcher: vi.fn(),
   mockMount: vi.fn().mockResolvedValue(undefined),
   mockClose: vi.fn(),
+  mockUnmount: vi.fn(),
+  mockResetAuth: vi.fn(),
   mockLoadMateoWidgetApi: vi.fn(),
   mockUseAuthStore: vi.fn(),
   mockShowToast: vi.fn(),
@@ -60,8 +64,9 @@ describe("MateoWidgetHost", () => {
     mockLoadMateoWidgetApi.mockResolvedValue({
       configureTokenFetcher: mockConfigureTokenFetcher,
       mount: mockMount,
-      unmount: vi.fn(),
+      unmount: mockUnmount,
       close: mockClose,
+      resetAuth: mockResetAuth,
     });
     mockApiRequest.mockResolvedValue({ token: "widget-jwt", expiresIn: 300 });
   });
@@ -133,6 +138,7 @@ describe("MateoWidgetHost", () => {
     mountArgs.onAuthError?.();
 
     expect(mockClose).toHaveBeenCalled();
+    expect(mockResetAuth).toHaveBeenCalled();
     expect(mockShowToast).toHaveBeenCalledWith(
       expect.objectContaining({
         variant: "error",
@@ -151,6 +157,9 @@ describe("MateoWidgetHost", () => {
     rerender(<MateoWidgetHost />);
 
     expect(screen.queryByTestId("mateo-widget-host")).not.toBeInTheDocument();
+    expect(mockClose).toHaveBeenCalled();
+    expect(mockResetAuth).toHaveBeenCalled();
+    expect(mockUnmount).toHaveBeenCalled();
     expect(mockLoadMateoWidgetApi).toHaveBeenCalledTimes(1);
   });
 });

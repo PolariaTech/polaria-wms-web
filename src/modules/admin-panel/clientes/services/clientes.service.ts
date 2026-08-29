@@ -171,3 +171,89 @@ export async function createClienteAdmin(
 
   return mapClienteRow(inserted);
 }
+
+export interface UpdateClienteInput {
+  codigoCuenta: string;
+  idCliente: string;
+  nombre: string;
+  nit: string;
+  telefono?: string | null;
+}
+
+/** Actualiza un cliente de la cuenta activa (scope tenant). */
+export async function updateClienteAdmin(
+  input: UpdateClienteInput,
+): Promise<ClienteListRow> {
+  const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
+  const idCliente = input.idCliente.trim();
+  const nombre = input.nombre.trim();
+  const nit = normalizeNitInput(input.nit);
+  const telefonoRaw = input.telefono?.trim() ?? "";
+
+  if (!idCliente) {
+    throw new DomainServiceError(
+      "Falta el identificador del cliente.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!nombre) {
+    throw new DomainServiceError(
+      "El nombre del cliente es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!nit) {
+    throw new DomainServiceError(
+      "El NIT del cliente es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!isValidNit(nit)) {
+    throw new DomainServiceError(
+      "El NIT del cliente no es válido.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (telefonoRaw && !isValidInternationalPhone(telefonoRaw)) {
+    throw new DomainServiceError(
+      "El teléfono del cliente no es válido.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const telefono = telefonoRaw
+    ? normalizeInternationalPhone(telefonoRaw)
+    : null;
+
+  const updated = await runDomainMutation<ClienteDbRow | null>((client) => {
+    const query = client
+      .from("cliente")
+      .update({
+        nombre,
+        nit,
+        telefono,
+      })
+      .eq("id_cliente", idCliente)
+      .eq("codigo_cuenta", codigoCuenta)
+      .select(CLIENTE_LIST_COLUMNS)
+      .single();
+
+    return query as unknown as Promise<{
+      data: ClienteDbRow | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  if (!updated) {
+    throw new DomainServiceError(
+      "No se pudo actualizar el cliente.",
+      "MUTATION_FAILED",
+    );
+  }
+
+  return mapClienteRow(updated);
+}
