@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/auth-storage";
 import { resolveActiveBodegaId } from "@/lib/utils/active-bodega";
 import { normalizeAuthSession, type AuthSessionApi } from "@/lib/utils/normalize-nivel-rol";
+import { isSessionExpired } from "@/lib/auth/auth-session-timeout";
 import { syncSupabaseAuthSession } from "@/lib/supabase/client";
 import { setTenantSchemaGetter } from "@/lib/supabase/domain-query";
 import { setTenantHeadersGetter } from "@/lib/utils/tenant-headers";
@@ -39,6 +40,8 @@ interface AuthState {
   refreshToken: string | null;
   context: AuthContext | null;
   session: AuthSession | null;
+  /** Epoch ms del login/SSO. La sesión dura como máximo 12 h. */
+  sessionStartedAt: number | null;
   isHydrated: boolean;
   isLoading: boolean;
   setTokens: (tokens: AuthTokens, context: AuthContextInput) => void;
@@ -60,6 +63,7 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       context: null,
       session: null,
+      sessionStartedAt: null,
       isHydrated: false,
       isLoading: false,
 
@@ -67,6 +71,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
+          sessionStartedAt: Date.now(),
           context: {
             ...createMinimalAuthContext(context.scope),
             ...context,
@@ -93,6 +98,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           context: null,
           session: null,
+          sessionStartedAt: null,
         });
 
         ensureAuthOnlyInLocalStorage();
@@ -106,6 +112,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           context: null,
           session: null,
+          sessionStartedAt: null,
         });
         ensureAuthOnlyInLocalStorage();
         void syncSupabaseAuthSession(null, null);
@@ -144,9 +151,16 @@ export const useAuthStore = create<AuthState>()(
 
         hydrateSessionInFlight = (async () => {
           ensureAuthOnlyInLocalStorage();
-          const { accessToken, isLoading, isHydrated, session } = get();
+          const { accessToken, isLoading, isHydrated, session, sessionStartedAt } =
+            get();
           if (!accessToken) {
             set({ isHydrated: true });
+            return null;
+          }
+
+          if (isSessionExpired(sessionStartedAt)) {
+            clearAuthAndPersistedStorage(get().clearAuth);
+            set({ isHydrated: true, isLoading: false });
             return null;
           }
 
@@ -203,16 +217,19 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         context: state.context,
         session: state.session,
+        sessionStartedAt: state.sessionStartedAt,
       }),
       onRehydrateStorage: () => (state) => {
         ensureAuthOnlyInLocalStorage();
-        state?.setHydrated(true);
-        if (state?.accessToken) {
+        if (state && isSessionExpired(state.sessionStartedAt)) {
+          clearAuthAndPersistedStorage(state.clearAuth);
+        } else if (state?.accessToken) {
           void syncSupabaseAuthSession(
             state.accessToken,
             state.refreshToken,
           );
         }
+        state?.setHydrated(true);
       },
     },
   ),

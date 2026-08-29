@@ -139,3 +139,72 @@ export async function createCompradorAdmin(
 
   return mapCompradorRow(inserted);
 }
+
+export interface UpdateCompradorInput {
+  codigoCuenta: string;
+  idComprador: string;
+  nombre: string;
+  telefono?: string | null;
+}
+
+/** Actualiza un comprador de la cuenta activa (scope tenant). */
+export async function updateCompradorAdmin(
+  input: UpdateCompradorInput,
+): Promise<CompradorListRow> {
+  const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
+  const idComprador = input.idComprador.trim();
+  const nombre = input.nombre.trim();
+  const telefonoRaw = input.telefono?.trim() ?? "";
+
+  if (!idComprador) {
+    throw new DomainServiceError(
+      "Falta el identificador del comprador.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!nombre) {
+    throw new DomainServiceError(
+      "El nombre del comprador es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (telefonoRaw && !isValidInternationalPhone(telefonoRaw)) {
+    throw new DomainServiceError(
+      "El teléfono del comprador no es válido.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const telefono = telefonoRaw
+    ? normalizeInternationalPhone(telefonoRaw)
+    : null;
+
+  const updated = await runDomainMutation<CompradorDbRow | null>((client) => {
+    const query = client
+      .from("comprador")
+      .update({
+        nombre,
+        telefono,
+      })
+      .eq("id_comprador", idComprador)
+      .eq("codigo_cuenta", codigoCuenta)
+      .select(COMPRADOR_LIST_COLUMNS)
+      .single();
+
+    return query as unknown as Promise<{
+      data: CompradorDbRow | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  if (!updated) {
+    throw new DomainServiceError(
+      "No se pudo actualizar el comprador.",
+      "MUTATION_FAILED",
+    );
+  }
+
+  return mapCompradorRow(updated);
+}

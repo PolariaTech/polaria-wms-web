@@ -2,7 +2,10 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
-import { PolariaTableCode } from "@/components/shared/table/PolariaTableCells";
+import {
+  PolariaTableCode,
+  PolariaTableEditButton,
+} from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -21,10 +24,13 @@ import {
 } from "../services/proveedores.service";
 import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { ProveedorCreateModal } from "./ProveedorCreateModal";
+import { ProveedorEditModal } from "./ProveedorEditModal";
 
 export function ProveedoresListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingProveedor, setEditingProveedor] =
+    useState<ProveedorListRow | null>(null);
 
   const fetchProveedores = useCallback(() => {
     if (!codigoCuenta) {
@@ -81,6 +87,15 @@ export function ProveedoresListView() {
           header: "Email",
           cell: (row: ProveedorListRow) => row.email ?? "—",
         },
+        {
+          id: "acciones",
+          header: "Acciones",
+          cell: (row: ProveedorListRow) => (
+            <PolariaTableEditButton
+              onClick={() => setEditingProveedor(row)}
+            />
+          ),
+        },
       ] as const,
     [],
   );
@@ -117,6 +132,15 @@ export function ProveedoresListView() {
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
+          void reload();
+        }}
+      />
+
+      <ProveedorEditModal
+        open={Boolean(editingProveedor)}
+        proveedor={editingProveedor}
+        onClose={() => setEditingProveedor(null)}
+        onUpdated={() => {
           void reload();
         }}
       />

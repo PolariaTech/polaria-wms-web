@@ -151,3 +151,23 @@ export function listModelosByMarcaId(
 ): CamionModeloCatalogItem[] {
   return CAMION_MODELOS_CATALOG.filter((modelo) => modelo.marcaId === marcaId);
 }
+
+/** Resuelve IDs del catálogo a partir de los nombres guardados en BD. */
+export function matchCamionCatalogByNombre(
+  marcaNombre: string | null | undefined,
+  modeloNombre: string | null | undefined,
+): { marcaId: string; modeloId: string } {
+  const marcaNorm = marcaNombre?.trim().toLowerCase() ?? "";
+  const modeloNorm = modeloNombre?.trim().toLowerCase() ?? "";
+  if (!marcaNorm) return { marcaId: "", modeloId: "" };
+
+  const marca = CAMION_MARCAS_CATALOG.find(
+    (item) => item.nombre.toLowerCase() === marcaNorm,
+  );
+  if (!marca) return { marcaId: "", modeloId: "" };
+
+  const modelo = listModelosByMarcaId(marca.id).find(
+    (item) => item.nombre.toLowerCase() === modeloNorm,
+  );
+  return { marcaId: marca.id, modeloId: modelo?.id ?? "" };
+}

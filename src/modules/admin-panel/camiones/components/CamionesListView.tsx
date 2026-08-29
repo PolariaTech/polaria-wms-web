@@ -5,6 +5,7 @@ import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
   PolariaTableBadge,
   PolariaTableCode,
+  PolariaTableEditButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -29,10 +30,14 @@ import {
 } from "../services/camiones.service";
 import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { CamionCreateModal } from "./CamionCreateModal";
+import { CamionEditModal } from "./CamionEditModal";
 
 export function CamionesListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingCamion, setEditingCamion] = useState<CamionListRow | null>(
+    null,
+  );
 
   const fetchCamiones = useCallback(() => {
     if (!codigoCuenta) {
@@ -143,6 +148,15 @@ export function CamionesListView() {
           cellClassName: "min-w-[7rem] whitespace-nowrap",
           cell: (row: CamionListRow) => formatCamionCreatedAt(row.createdAt),
         },
+        {
+          id: "acciones",
+          header: "Acciones",
+          headerClassName: "whitespace-nowrap",
+          cellClassName: "whitespace-nowrap",
+          cell: (row: CamionListRow) => (
+            <PolariaTableEditButton onClick={() => setEditingCamion(row)} />
+          ),
+        },
       ] as const,
     [],
   );
@@ -180,6 +194,15 @@ export function CamionesListView() {
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
+          void reload();
+        }}
+      />
+
+      <CamionEditModal
+        open={Boolean(editingCamion)}
+        camion={editingCamion}
+        onClose={() => setEditingCamion(null)}
+        onUpdated={() => {
           void reload();
         }}
       />

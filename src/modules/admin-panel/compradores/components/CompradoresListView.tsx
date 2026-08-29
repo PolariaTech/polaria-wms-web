@@ -2,7 +2,10 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
-import { PolariaTableCode } from "@/components/shared/table/PolariaTableCells";
+import {
+  PolariaTableCode,
+  PolariaTableEditButton,
+} from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -19,11 +22,19 @@ import {
   type CompradorListRow,
 } from "../services/compradores.service";
 import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
+import { CompradorAliasCreateModal } from "./CompradorAliasCreateModal";
 import { CompradorCreateModal } from "./CompradorCreateModal";
+import { CompradorDetalleModal } from "./CompradorDetalleModal";
+import { CompradorEditModal } from "./CompradorEditModal";
 
 export function CompradoresListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isAliasOpen, setIsAliasOpen] = useState(false);
+  const [editingComprador, setEditingComprador] =
+    useState<CompradorListRow | null>(null);
+  const [detalleComprador, setDetalleComprador] =
+    useState<CompradorListRow | null>(null);
 
   const fetchCompradores = useCallback(() => {
     if (!codigoCuenta) {
@@ -61,6 +72,20 @@ export function CompradoresListView() {
           cell: (row: CompradorListRow) =>
             formatInternationalPhoneDisplay(row.telefono),
         },
+        {
+          id: "acciones",
+          header: "Acciones",
+          cell: (row: CompradorListRow) => (
+            <span
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <PolariaTableEditButton
+                onClick={() => setEditingComprador(row)}
+              />
+            </span>
+          ),
+        },
       ] as const,
     [],
   );
@@ -87,16 +112,48 @@ export function CompradoresListView() {
           void reload();
         }}
         isRefreshing={isRefreshing}
+        additionalActions={[
+          {
+            label: "Crear Alias",
+            variant: "outline",
+            onClick: () => setIsAliasOpen(true),
+          },
+        ]}
         primaryAction={{
           label: "Nuevo comprador",
           onClick: () => setIsCreateOpen(true),
         }}
+        onRowClick={(row) => setDetalleComprador(row)}
+        getRowAriaLabel={(row) => `Ver detalle de ${row.comprador}`}
       />
 
       <CompradorCreateModal
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
+          void reload();
+        }}
+      />
+
+      <CompradorAliasCreateModal
+        open={isAliasOpen}
+        onClose={() => setIsAliasOpen(false)}
+        onCreated={() => {
+          void reload();
+        }}
+      />
+
+      <CompradorDetalleModal
+        open={Boolean(detalleComprador)}
+        comprador={detalleComprador}
+        onClose={() => setDetalleComprador(null)}
+      />
+
+      <CompradorEditModal
+        open={Boolean(editingComprador)}
+        comprador={editingComprador}
+        onClose={() => setEditingComprador(null)}
+        onUpdated={() => {
           void reload();
         }}
       />

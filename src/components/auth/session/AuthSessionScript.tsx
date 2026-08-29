@@ -2,11 +2,13 @@ import Script from "next/script";
 import { AUTH_HASH_PREFIX } from "@/lib/auth/auth-hash-import";
 import { MATEO_SSO_EXIT_KEY } from "@/lib/auth/mateo-sso-exit";
 import { AUTH_STORAGE_KEY } from "@/lib/auth/auth-storage";
+import { SESSION_MAX_AGE_MS } from "@/lib/auth/auth-session-timeout";
 
 /**
  * Script síncrono que corre antes de React.
  * - Importa sesión desde #polaria-auth= (SSO Mateo → WMS).
  * - Fuerza polaria-auth solo en localStorage (nunca sessionStorage).
+ * - Purga sesiones de más de 12 h (o legacy sin marca de inicio).
  * - Evita que bfcache muestre rutas protegidas sin sesión.
  */
 export function AuthSessionScript() {
@@ -15,6 +17,7 @@ export function AuthSessionScript() {
   var KEY = ${JSON.stringify(AUTH_STORAGE_KEY)};
   var HASH_PREFIX = ${JSON.stringify(AUTH_HASH_PREFIX)};
   var SSO_EXIT_KEY = ${JSON.stringify(MATEO_SSO_EXIT_KEY)};
+  var MAX_AGE_MS = ${SESSION_MAX_AGE_MS};
 
   function purgeSessionAuth() {
     try {
@@ -29,6 +32,26 @@ export function AuthSessionScript() {
         if (legacy) localStorage.setItem(KEY, legacy);
       }
       purgeSessionAuth();
+    } catch (e) {}
+  }
+
+  function isExpiredState(state) {
+    if (!state || !state.accessToken) return true;
+    var started = state.sessionStartedAt;
+    if (typeof started !== "number") return true;
+    return Date.now() - started >= MAX_AGE_MS;
+  }
+
+  function purgeExpiredAuth() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      var parsed = JSON.parse(raw);
+      var state = parsed && parsed.state ? parsed.state : parsed;
+      if (isExpiredState(state)) {
+        localStorage.removeItem(KEY);
+        purgeSessionAuth();
+      }
     } catch (e) {}
   }
 
@@ -48,6 +71,9 @@ export function AuthSessionScript() {
         ? payload
         : { state: state, version: 0 };
       if (stored.version === undefined) stored.version = 0;
+      if (typeof stored.state.sessionStartedAt !== "number") {
+        stored.state.sessionStartedAt = Date.now();
+      }
       localStorage.setItem(KEY, JSON.stringify(stored));
       var clean = window.location.pathname + window.location.search;
       history.replaceState(null, "", clean);
@@ -63,6 +89,7 @@ export function AuthSessionScript() {
   function readToken() {
     try {
       migrateToLocal();
+      purgeExpiredAuth();
       var raw = localStorage.getItem(KEY);
       if (!raw) return null;
       var parsed = JSON.parse(raw);
@@ -89,12 +116,14 @@ export function AuthSessionScript() {
     migrateToLocal();
     if (event.persisted) {
       importAuthFromHash();
+      purgeExpiredAuth();
       guardProtectedRoute();
     }
   });
 
   migrateToLocal();
   importAuthFromHash();
+  purgeExpiredAuth();
   guardProtectedRoute();
 })();
 `;

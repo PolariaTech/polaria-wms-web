@@ -8,6 +8,7 @@ import { removeAuthFromLocalStorage } from "@/lib/auth/auth-storage";
 import { mateoHandoff, logoutWithToken } from "@/modules/auth";
 import { ApiError } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
+import { POLARIA_PRODUCT_VERSION } from "@/constants/brand/brand";
 import { AppTopbar } from "./AppTopbar";
 import { MateoWidgetHost } from "@/components/mateo/MateoWidgetHost";
 
@@ -89,6 +90,16 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
         )}
         <div className="relative z-10 flex flex-1 flex-col">{children}</div>
         <MateoWidgetHost />
+        <p
+          aria-label={`Versión ${POLARIA_PRODUCT_VERSION}`}
+          className={
+            process.env.NODE_ENV === "development"
+              ? "pointer-events-none fixed bottom-3 left-14 z-30 polaria-text-caption tabular-nums text-polaria-w-20"
+              : "pointer-events-none fixed bottom-3 left-3 z-30 polaria-text-caption tabular-nums text-polaria-w-20"
+          }
+        >
+          version: {POLARIA_PRODUCT_VERSION}
+        </p>
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-polaria-teal opacity-40"

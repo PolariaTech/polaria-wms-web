@@ -41,6 +41,7 @@ export function MateoWidgetHost() {
 
     const handleAuthError = () => {
       apiRef.current?.close?.();
+      apiRef.current?.resetAuth?.();
       showToast({
         variant: "error",
         title: "Sesión expirada",
@@ -100,9 +101,12 @@ export function MateoWidgetHost() {
     return () => {
       cancelled = true;
       const api = apiRef.current;
-      if (api && mountedHost) {
-        api.unmount?.(mountedHost);
+      if (api) {
         api.close?.();
+        api.resetAuth?.();
+        if (mountedHost) {
+          api.unmount?.(mountedHost);
+        }
       }
       apiRef.current = null;
     };

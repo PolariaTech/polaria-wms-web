@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthSessionBootstrap } from "@/components/auth/session/AuthSessionBootstrap";
 import { AuthSessionScript } from "@/components/auth/session/AuthSessionScript";
+import { POLARIA_PRODUCT_VERSION } from "@/constants/brand/brand";
 import { AuthProvider } from "@/providers/auth/AuthProvider";
 import { PolariaToastProvider } from "@/components/shared/toast/PolariaToastProvider";
 import "./globals.css";
@@ -18,7 +19,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Polaria WMS",
-  description: "Sistema de gestión de almacenes Polaria · 2.4.3",
+  description: `Sistema de gestión de almacenes Polaria · ${POLARIA_PRODUCT_VERSION}`,
 };
 
 export default function RootLayout({

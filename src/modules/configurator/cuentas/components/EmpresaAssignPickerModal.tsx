@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { cn } from "@/lib/utils/cn";
 import type { EmpresaAssignOption } from "../services/cuentas.service";
 
@@ -158,7 +159,7 @@ export function EmpresaAssignPickerModal({
                       {row.razonSocial}
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
-                      {row.telefono?.trim() || "—"}
+                      {formatInternationalPhoneDisplay(row.telefono)}
                     </td>
                   </tr>
                 );
