@@ -1,5 +1,7 @@
 # Polaria WMS Web
 
+**Versión de producto: 2.4.3**
+
 Frontend web del **Sistema de Gestión de Almacenes (WMS)** Polaria. Construido con [Next.js 16](https://nextjs.org), React 19 y TypeScript.
 
 Arquitectura modular por dominios WMS, con tres scopes de aplicación: **plataforma** (configurador), **tenant** (dashboard operativo) y **administración de cuenta**.

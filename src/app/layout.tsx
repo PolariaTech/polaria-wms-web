@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Polaria WMS",
-  description: "Sistema de gestión de almacenes Polaria",
+  description: "Sistema de gestión de almacenes Polaria · 2.4.3",
 };
 
 export default function RootLayout({
