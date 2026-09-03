@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, RotateCw } from "lucide-react";
-import type { ChangeEvent, ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { PolariaTablePaginationFooter } from "@/components/shared/table/PolariaTablePaginationFooter";
 import {
   getPaginationPlaceholderCount,
@@ -9,9 +9,13 @@ import {
   POLARIA_TABLE_ROW_HEIGHT_CLASS,
   POLARIA_TABLE_SCROLL_CLASS,
 } from "@/components/shared/table/polaria-table-layout";
+import { filterRowsBySearch } from "@/components/shared/table/polaria-table-search";
+import { PolariaTableSearchField } from "@/components/shared/table/PolariaTableSearchField";
 import { DEFAULT_TABLE_PAGE_SIZE } from "@/constants/ui/table-pagination";
 import { useClientTablePagination } from "@/hooks/table/useClientTablePagination";
 import { cn } from "@/lib/utils/cn";
+
+const EMPTY_SEARCH_MESSAGE = "No hay resultados para la búsqueda.";
 
 export interface PolariaDataTableColumn<T> {
   id: string;
@@ -78,6 +82,14 @@ export function PolariaDataTable<T>({
   pagination = true,
   tableClassName,
 }: PolariaDataTableProps<T>) {
+  const [internalSearch, setInternalSearch] = useState("");
+  const isSearchControlled = search != null;
+  const searchValue = isSearchControlled ? search.value : internalSearch;
+  const filteredRows = useMemo(
+    () =>
+      isSearchControlled ? [...rows] : filterRowsBySearch(rows, searchValue),
+    [isSearchControlled, rows, searchValue],
+  );
   const showTable = !isLoading && !error;
   const {
     paginatedRows,
@@ -85,11 +97,15 @@ export function PolariaDataTable<T>({
     totalItems,
     setPage,
   } = useClientTablePagination(
-    rows,
-    pagination ? pageSize : rows.length || 1,
-    search?.value,
+    filteredRows,
+    pagination ? pageSize : filteredRows.length || 1,
+    searchValue,
   );
-  const visibleRows = pagination ? paginatedRows : rows;
+  const visibleRows = pagination ? paginatedRows : filteredRows;
+  const tableEmptyMessage =
+    searchValue.trim() && filteredRows.length === 0
+      ? EMPTY_SEARCH_MESSAGE
+      : emptyMessage;
   const placeholderCount = getPaginationPlaceholderCount(
     visibleRows.length,
     pageSize,
@@ -112,22 +128,12 @@ export function PolariaDataTable<T>({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {search ? (
-            <input
-              type="search"
-              value={search.value}
-              onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                search.onChange(event.target.value)
-              }
-              placeholder={search.placeholder ?? "Buscar…"}
-              aria-label={search.placeholder ?? "Buscar"}
-              className={cn(
-                "min-w-[12rem] rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-2",
-                "polaria-text-body-sm text-polaria-w placeholder:text-polaria-w-20 outline-none",
-                "focus:border-polaria-t-20 focus:ring-1 focus:ring-polaria-t-20",
-              )}
-            />
-          ) : null}
+          <PolariaTableSearchField
+            value={searchValue}
+            onChange={search?.onChange ?? setInternalSearch}
+            placeholder={search?.placeholder ?? "Buscar…"}
+            disabled={isLoading}
+          />
 
           <span className="polaria-text-body-sm text-polaria-w-50">
             Total: {isLoading ? "—" : totalItems}
@@ -238,7 +244,7 @@ export function PolariaDataTable<T>({
                     colSpan={columns.length}
                     className="polaria-text-body-sm px-5 py-10 text-center text-polaria-w-50 sm:px-6"
                   >
-                    {emptyMessage}
+                    {tableEmptyMessage}
                   </td>
                 </tr>
               ) : (

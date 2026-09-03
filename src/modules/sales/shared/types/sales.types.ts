@@ -77,6 +77,7 @@ export interface OrdenVentaDetalleRow extends OrdenVentaRow {
 export interface CreateOrdenVentaInput {
   codigoCuenta: string;
   idBodega?: string | null;
+  idBodegaDestino: string;
   idComprador: string;
   lineas?: OrdenVentaLineaInput[];
   /** @deprecated Usar `lineas`. Se mantiene por compatibilidad. */
@@ -85,4 +86,30 @@ export interface CreateOrdenVentaInput {
   cantidadPedida?: number;
   observaciones?: string | null;
   idCreador?: string | null;
+
+  // Campos de captura (para guardar directo en columnas).
+  fechaEntrega?: string;
+  ventanaDesde?: string;
+  ventanaHasta?: string;
+  prioridad?: string;
+  ordenCompraHotel?: string;
+  centroConsumo?: string;
+  vendedor?: string;
+  moneda?: string;
+  bodegaDestinoLabel?: string;
+  direccionEntrega?: string;
+  anden?: string;
+  contacto?: string;
+  telefono?: string;
+  turno?: string;
+  horaSalida?: string;
+  chofer?: string;
+  unidad?: string;
+  aceptaSustituciones?: string;
+  requiereLote?: string;
+  registrarTemperatura?: string;
+  origenTexto?: string;
+  origenArchivos?: readonly string[];
+  notasLineas?: string;
+  notasAlmacen?: string;
 }

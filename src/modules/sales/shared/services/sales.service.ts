@@ -1,5 +1,6 @@
 import {
   applyTenantFilters,
+  applyVisibleYearFilter,
   DEFAULT_LIST_LIMIT,
   requireCodigoCuenta,
   runDomainMutation,
@@ -573,11 +574,14 @@ export async function listOrdenesVenta(
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 
   return runDomainQuery((client) => {
-    const query = applyTenantFilters(
-      client.from("orden_venta").select(ORDEN_VENTA_COLUMNS),
-      params,
+    const query = applyVisibleYearFilter(
+      applyTenantFilters(
+        client.from("orden_venta").select(ORDEN_VENTA_COLUMNS),
+        params,
+      ),
+      "fecha_pedido",
     )
-      .order("created_at", { ascending: false })
+      .order("fecha_pedido", { ascending: true })
       .limit(limit);
 
     return query as unknown as Promise<{
@@ -653,8 +657,38 @@ export async function createOrdenVenta(
 ): Promise<OrdenVentaOperadorRow> {
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
   const idComprador = input.idComprador.trim();
+  const idBodegaDestino = input.idBodegaDestino.trim();
   const observaciones = input.observaciones?.trim() || null;
   const idCreador = input.idCreador?.trim() || null;
+
+  // Campos de captura (para guardar directo en columnas).
+  const fechaEntrega = input.fechaEntrega?.trim() || null;
+  const ventanaDesde = input.ventanaDesde?.trim() || null;
+  const ventanaHasta = input.ventanaHasta?.trim() || null;
+  const prioridad = input.prioridad?.trim() || null;
+  const ordenCompraHotel = input.ordenCompraHotel?.trim() || null;
+  const centroConsumo = input.centroConsumo?.trim() || null;
+  const vendedor = input.vendedor?.trim() || null;
+  const moneda = input.moneda?.trim() || null;
+  const bodegaDestinoLabel = input.bodegaDestinoLabel?.trim() || null;
+  const direccionEntrega = input.direccionEntrega?.trim() || null;
+  const anden = input.anden?.trim() || null;
+  const contactoEntrega = input.contacto?.trim() || null;
+  const telefonoContacto = input.telefono?.trim() || null;
+  const turno = input.turno?.trim() || null;
+  const horaSalida = input.horaSalida?.trim() || null;
+  const chofer = input.chofer?.trim() || null;
+  const unidad = input.unidad?.trim() || null;
+  const aceptaSustituciones = input.aceptaSustituciones?.trim() || null;
+  const requiereLote = input.requiereLote?.trim() || null;
+  const registrarTemperatura = input.registrarTemperatura?.trim() || null;
+  const origenTexto = input.origenTexto?.trim() || null;
+  const origenArchivos =
+    input.origenArchivos && input.origenArchivos.length > 0
+      ? input.origenArchivos.join(", ")
+      : null;
+  const notasLineas = input.notasLineas?.trim() || null;
+  const notasAlmacen = input.notasAlmacen?.trim() || null;
 
   const lineas =
     input.lineas && input.lineas.length > 0
@@ -672,6 +706,13 @@ export async function createOrdenVenta(
   if (!idComprador) {
     throw new DomainServiceError(
       "Selecciona un comprador.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!idBodegaDestino) {
+    throw new DomainServiceError(
+      "Selecciona una bodega destino.",
       "INVALID_ARGUMENT",
     );
   }
@@ -755,6 +796,31 @@ export async function createOrdenVenta(
         id_cliente: idCliente,
         id_comprador: idComprador,
         id_creador: idCreador,
+        id_bodega_destino: idBodegaDestino,
+        fecha_entrega: fechaEntrega,
+        ventana_desde: ventanaDesde,
+        ventana_hasta: ventanaHasta,
+        prioridad,
+        orden_compra_hotel: ordenCompraHotel,
+        centro_consumo: centroConsumo,
+        vendedor,
+        moneda,
+        bodega_destino_label: bodegaDestinoLabel,
+        direccion_entrega: direccionEntrega,
+        anden,
+        contacto_entrega: contactoEntrega,
+        telefono_contacto: telefonoContacto,
+        turno,
+        hora_salida: horaSalida,
+        chofer,
+        unidad,
+        acepta_sustituciones: aceptaSustituciones,
+        requiere_lote: requiereLote,
+        registrar_temperatura: registrarTemperatura,
+        origen_texto: origenTexto,
+        origen_archivos: origenArchivos,
+        notas_lineas: notasLineas,
+        notas_almacen: notasAlmacen,
         codigo: generateOrdenVentaCodigo(),
         estado: "borrador",
         observaciones,

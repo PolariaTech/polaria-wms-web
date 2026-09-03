@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
-import { ModuleListPage } from "@/components/shared/module/ModuleListPage";
-import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
+import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
+import {
+  PolariaTableBadge,
+  PolariaTableCode,
+} from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import { cn } from "@/lib/utils/cn";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   formatEstadoProcesamiento,
@@ -16,6 +17,10 @@ import {
 import { listSolicitudesProcesamientoOperador } from "../../shared/services/processing.service";
 import type { SolicitudProcesamientoOperadorRow } from "../../shared/types/processing.types";
 import { OrdenProcesamientoCreateModal } from "../../solicitudes/components/OrdenProcesamientoCreateModal";
+import {
+  PROCESAMIENTO_TABLE_MIN_WIDTH_CLASS,
+  procesamientoTableColumnClass,
+} from "../constants/procesamiento-table-layout";
 
 function renderEstadoBadge(estado: string) {
   const normalized = estado.toLowerCase();
@@ -50,7 +55,7 @@ export function OperadorProcesamientoPageContent() {
     });
   }, [activeBodegaId, codigoCuenta]);
 
-  const { data, isLoading, error, reload } = useAsyncQuery(
+  const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
     fetchSolicitudes,
     Boolean(codigoCuenta),
   );
@@ -62,42 +67,57 @@ export function OperadorProcesamientoPageContent() {
       {
         id: "orden",
         header: "Orden",
-        cell: (row: SolicitudProcesamientoOperadorRow) => row.orden,
+        headerClassName: procesamientoTableColumnClass("orden"),
+        cellClassName: procesamientoTableColumnClass("orden"),
+        cell: (row: SolicitudProcesamientoOperadorRow) => (
+          <PolariaTableCode>{row.orden}</PolariaTableCode>
+        ),
       },
       {
         id: "primario",
         header: "Primario",
+        headerClassName: procesamientoTableColumnClass("primario"),
+        cellClassName: procesamientoTableColumnClass("primario"),
         cell: (row: SolicitudProcesamientoOperadorRow) => row.primario,
       },
       {
         id: "secundario",
         header: "Secundario",
+        headerClassName: procesamientoTableColumnClass("secundario"),
+        cellClassName: procesamientoTableColumnClass("secundario"),
         cell: (row: SolicitudProcesamientoOperadorRow) => row.secundario,
       },
       {
         id: "insumo",
         header: "Insumo primario",
+        headerClassName: procesamientoTableColumnClass("insumo"),
+        cellClassName: procesamientoTableColumnClass("insumo"),
         cell: (row: SolicitudProcesamientoOperadorRow) =>
           formatKilos(row.insumoPrimario),
       },
       {
         id: "estimado",
         header: "Estim. sec.",
+        headerClassName: procesamientoTableColumnClass("estimado"),
+        cellClassName: procesamientoTableColumnClass("estimado"),
         cell: (row: SolicitudProcesamientoOperadorRow) =>
           formatUnidades(row.estimSecundario),
       },
       {
         id: "estado",
         header: "Estado",
+        headerClassName: procesamientoTableColumnClass("estado"),
+        cellClassName: procesamientoTableColumnClass("estado"),
         cell: (row: SolicitudProcesamientoOperadorRow) =>
           renderEstadoBadge(row.estado),
       },
       {
         id: "fecha",
         header: "Fecha",
+        headerClassName: procesamientoTableColumnClass("fecha"),
+        cellClassName: procesamientoTableColumnClass("fecha"),
         cell: (row: SolicitudProcesamientoOperadorRow) =>
           formatDateTime(row.fecha),
-        cellClassName: "text-polaria-w-50",
       },
     ],
     [],
@@ -105,34 +125,30 @@ export function OperadorProcesamientoPageContent() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="polaria-text-body-sm text-polaria-w-50">
-          Órdenes de procesamiento de la bodega interna activa.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => setIsCreateOpen(true)}
-          disabled={!codigoCuenta}
-          className={cn(
-            "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-3",
-            "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-          )}
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-          Nueva orden
-        </button>
-      </div>
-
-      <ModuleListPage
+      <PolariaDataTable
+        title="Órdenes de procesamiento"
+        subtitle="Orden, primario y estado."
         isLoading={isLoading}
-        error={error}
+        error={
+          error ??
+          (!codigoCuenta ? "No se encontró la cuenta activa." : null)
+        }
         rows={rows}
         columns={columns}
-        emptyMessage="Sin órdenes de procesamiento registradas."
         getRowKey={(row) => row.idSolicitudProcesamiento}
+        emptyMessage="Sin órdenes de procesamiento registradas."
+        onRefresh={() => {
+          void reload();
+        }}
+        isRefreshing={isRefreshing}
+        primaryAction={{
+          label: "Nueva orden",
+          onClick: () => {
+            if (!codigoCuenta) return;
+            setIsCreateOpen(true);
+          },
+        }}
+        tableClassName={PROCESAMIENTO_TABLE_MIN_WIDTH_CLASS}
       />
 
       <OrdenProcesamientoCreateModal

@@ -68,6 +68,30 @@ describe("ModuleListPage", () => {
 
     expect(screen.getByText("Item A")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Nombre" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Buscar…")).toBeInTheDocument();
+  });
+
+  it("filtra filas desde el buscador del encabezado", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ModuleListPage<Row>
+        isLoading={false}
+        error={null}
+        rows={[
+          { id: "1", name: "Item A" },
+          { id: "2", name: "Item B" },
+        ]}
+        emptyMessage="Sin registros"
+        getRowKey={(row) => row.id}
+        columns={[{ id: "name", header: "Nombre", cell: (row) => row.name }]}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Buscar…"), "item b");
+
+    expect(screen.getByText("Item B")).toBeInTheDocument();
+    expect(screen.queryByText("Item A")).not.toBeInTheDocument();
   });
 
   it("pagina filas con máximo 5 por página", async () => {

@@ -46,6 +46,25 @@ describe("PolariaFormModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("oculta el Cerrar de cabecera cuando hideHeaderClose está activo", () => {
+    render(
+      <PolariaFormModal
+        open
+        onClose={() => undefined}
+        title="Pedido"
+        hideHeaderClose
+        onSubmit={(event) => event.preventDefault()}
+        submitLabel="Validar y enviar"
+      >
+        <input aria-label="Campo demo" />
+      </PolariaFormModal>,
+    );
+
+    expect(screen.queryByRole("button", { name: "Cerrar" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Validar y enviar" })).toBeInTheDocument();
+  });
+
   it("aplica ancho según size", () => {
     render(
       <PolariaFormModal

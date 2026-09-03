@@ -1,15 +1,33 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   PolariaFormField,
   PolariaFormInput,
+  PolariaFormSelect,
+  POLARIA_FORM_INPUT_CLASS_COMPACT,
 } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { formatKgEs, formatPrecioEs, parseDecimalEs } from "@/lib/utils/decimal-es";
+import { cn } from "@/lib/utils/cn";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import { listCompradoresAdmin, type CompradorListRow } from "@/modules/admin-panel";
+import {
+  getCompradorAdmin,
+  listBodegasExternasVinculadasAdmin,
+  listBodegasInternasVinculadasAdmin,
+  listCompradoresAdmin,
+  type CompradorListRow,
+} from "@/modules/admin-panel";
+import type { CompradorAltaFicha } from "@/modules/admin-panel/compradores/utils/comprador-alta";
 import { JefeBodegaModalSearchField } from "@/modules/jefe-bodega/components/modals/jefe-bodega-modal-ui";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
@@ -18,10 +36,20 @@ import {
   CATALOGO_VENTA_SIN_STOCK_MESSAGE,
 } from "../../shared/constants/sales-status";
 import { fetchProductosVentaCatalogo } from "../../shared/services/sales-catalog.api";
-import { createOrdenVenta } from "../../shared/services/sales.service";
+import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
+import {
+  createOrdenVenta,
+  getOrdenVentaDetalle,
+} from "../../shared/services/sales.service";
 import type { ProductoVentaOption } from "../../shared/types/sales.types";
 import { OrdenVentaCompradorPickerModal } from "./OrdenVentaCompradorPickerModal";
 import { OrdenVentaProductoPickerModal } from "./OrdenVentaProductoPickerModal";
+import {
+  buildOrdenVentaCapturaObservaciones,
+  isAfterWarehouseCutoff,
+  tomorrowIsoDate,
+} from "../utils/build-orden-venta-captura-observaciones";
+import { buildOrdenVentaPrefillFromComprador } from "../utils/prefill-orden-venta-from-comprador";
 
 interface OrdenVentaCreateModalProps {
   open: boolean;
@@ -29,6 +57,8 @@ interface OrdenVentaCreateModalProps {
   onCreated: () => void;
 }
 
+type CaptureStep = "start" | "form";
+type StartMode = "scratch" | "docs";
 type PickerKind = "comprador" | "producto" | null;
 
 interface LineaVentaForm {
@@ -36,17 +66,91 @@ interface LineaVentaForm {
   nombre: string;
   codigo: string;
   idBodega: string;
-  cantidadKg: number;
+  cantidadInput: string;
+  cajasInput: string;
+  especificacion: string;
   kgDisponible: number;
   precioUnitario: number;
 }
+
+const PRIORIDAD_OPTIONS = [
+  { value: "Normal", label: "Normal" },
+  { value: "Urgente", label: "Urgente" },
+  { value: "Programado", label: "Programado" },
+] as const;
+
+const MONEDA_OPTIONS = [
+  { value: "MXN", label: "MXN" },
+  { value: "USD", label: "USD" },
+] as const;
+
+const TURNO_OPTIONS = [
+  { value: "", label: "—" },
+  { value: "PM", label: "PM" },
+  { value: "Noche / AM", label: "Noche / AM" },
+] as const;
+
+const SUSTITUCIONES_OPTIONS = [
+  { value: "", label: "—" },
+  { value: "No — surtir parcial", label: "No — surtir parcial" },
+  { value: "Sí, con aviso", label: "Sí, con aviso" },
+  { value: "Sí, a criterio de almacén", label: "Sí, a criterio de almacén" },
+] as const;
+
+const SI_NO_OPTIONS = [
+  { value: "", label: "—" },
+  { value: "No", label: "No" },
+  { value: "Sí", label: "Sí" },
+] as const;
 
 function formatCompradorLabel(row: CompradorListRow): string {
   return `${row.codigo} — ${row.comprador}`;
 }
 
-function formatProductoLabel(row: ProductoVentaOption): string {
-  return `${row.nombre} (${row.codigo})`;
+interface BodegaDestinoOption {
+  idBodega: string;
+  label: string;
+}
+
+function formatBodegaDestinoOption(
+  bodega: { idBodega: string; nombre: string; codigo: string },
+  tipo: "interna" | "externa",
+  incluirTipo: boolean,
+): BodegaDestinoOption {
+  const base = `${bodega.nombre} (${bodega.codigo})`;
+  return {
+    idBodega: bodega.idBodega,
+    label: incluirTipo
+      ? `${base} · ${tipo === "interna" ? "interna" : "externa"}`
+      : base,
+  };
+}
+
+function CaptureSection({
+  title,
+  optional,
+  children,
+  footer,
+}: {
+  title: string;
+  optional?: string;
+  children: ReactNode;
+  footer?: ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
+      <h3 className="flex items-center justify-between gap-3 border-b border-polaria-w-08 px-4 py-2.5 polaria-text-label uppercase tracking-wide text-polaria-teal">
+        <span>{title}</span>
+        {optional ? (
+          <span className="normal-case tracking-normal text-polaria-w-50">
+            {optional}
+          </span>
+        ) : null}
+      </h3>
+      <div className="p-4">{children}</div>
+      {footer}
+    </section>
+  );
 }
 
 export function OrdenVentaCreateModal({
@@ -55,25 +159,55 @@ export function OrdenVentaCreateModal({
   onCreated,
 }: OrdenVentaCreateModalProps) {
   const { codigoCuenta } = useCompany();
-  const idCreador = useAuthStore((state) => state.session?.idUsuario ?? "");
+  const session = useAuthStore((state) => state.session);
+  const idCreador = session?.idUsuario ?? "";
+  const vendedorNombre = session?.nombre?.trim() ?? "";
+
+  const [step, setStep] = useState<CaptureStep>("start");
+  const [startMode, setStartMode] = useState<StartMode | null>(null);
   const [idComprador, setIdComprador] = useState("");
   const [compradorLabel, setCompradorLabel] = useState("");
-  const [draftProducto, setDraftProducto] = useState<ProductoVentaOption | null>(
-    null,
-  );
-  const [draftProductoLabel, setDraftProductoLabel] = useState("");
-  const [draftCantidadKg, setDraftCantidadKg] = useState("");
-  const [lineas, setLineas] = useState<LineaVentaForm[]>([]);
+  const [fechaEntrega, setFechaEntrega] = useState("");
+  const [ventanaDesde, setVentanaDesde] = useState("");
+  const [ventanaHasta, setVentanaHasta] = useState("");
+  const [prioridad, setPrioridad] = useState("Normal");
+  const [moneda, setMoneda] = useState("MXN");
+  const [ordenCompraHotel, setOrdenCompraHotel] = useState("");
+  const [centroConsumo, setCentroConsumo] = useState("");
   const [observaciones, setObservaciones] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [anden, setAnden] = useState("");
+  const [contacto, setContacto] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [turno, setTurno] = useState("");
+  const [horaSalida, setHoraSalida] = useState("");
+  const [chofer, setChofer] = useState("");
+  const [unidad, setUnidad] = useState("");
+  const [aceptaSustituciones, setAceptaSustituciones] = useState("");
+  const [requiereLote, setRequiereLote] = useState("");
+  const [registrarTemperatura, setRegistrarTemperatura] = useState("");
+  const [origenTexto, setOrigenTexto] = useState("");
+  const [origenArchivos, setOrigenArchivos] = useState<string[]>([]);
+  const [lineas, setLineas] = useState<LineaVentaForm[]>([]);
   const [productos, setProductos] = useState<ProductoVentaOption[]>([]);
   const [compradores, setCompradores] = useState<CompradorListRow[]>([]);
+  const [bodegasDestino, setBodegasDestino] = useState<BodegaDestinoOption[]>([]);
+  const [idBodegaDestino, setIdBodegaDestino] = useState("");
+  const [pendingEmitId, setPendingEmitId] = useState<string | null>(null);
   const [picker, setPicker] = useState<PickerKind>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showFiscal, setShowFiscal] = useState(false);
+  const [fichaComprador, setFichaComprador] = useState<CompradorAltaFicha | null>(
+    null,
+  );
+  const [exigeOc, setExigeOc] = useState(false);
+  const selectedCompradorIdRef = useRef("");
 
   const hasProductos = productos.length > 0;
   const hasCompradores = compradores.length > 0;
+  const afterCutoff = isAfterWarehouseCutoff();
 
   const productosParaAgregar = useMemo(
     () =>
@@ -86,38 +220,65 @@ export function OrdenVentaCreateModal({
 
   const puedeAgregarProducto = productosParaAgregar.length > 0;
 
-  const totalVenta = useMemo(
+  const subtotalVenta = useMemo(
     () =>
-      lineas.reduce(
-        (sum, linea) => sum + linea.cantidadKg * linea.precioUnitario,
-        0,
-      ),
+      lineas.reduce((sum, linea) => {
+        const cantidad = parseDecimalEs(linea.cantidadInput) ?? 0;
+        return sum + cantidad * linea.precioUnitario;
+      }, 0),
     [lineas],
   );
 
-  const kgRestanteDraft = useMemo(() => {
-    if (!draftProducto) return null;
-    const yaEnLineas = lineas
-      .filter((linea) => linea.idProducto === draftProducto.idProducto)
-      .reduce((sum, linea) => sum + linea.cantidadKg, 0);
-    return Math.max(0, draftProducto.kgDisponible - yaEnLineas);
-  }, [draftProducto, lineas]);
+  const pesoTotalKg = useMemo(
+    () =>
+      lineas.reduce((sum, linea) => {
+        const cantidad = parseDecimalEs(linea.cantidadInput) ?? 0;
+        return sum + Math.max(0, cantidad);
+      }, 0),
+    [lineas],
+  );
 
   useEffect(() => {
     if (!open) return;
 
+    setStep("start");
+    setStartMode(null);
     setIdComprador("");
     setCompradorLabel("");
-    setDraftProducto(null);
-    setDraftProductoLabel("");
-    setDraftCantidadKg("");
-    setLineas([]);
+    selectedCompradorIdRef.current = "";
+    setFechaEntrega("");
+    setVentanaDesde("");
+    setVentanaHasta("");
+    setPrioridad("Normal");
+    setMoneda("MXN");
+    setOrdenCompraHotel("");
+    setCentroConsumo("");
     setObservaciones("");
+    setDireccion("");
+    setAnden("");
+    setContacto("");
+    setTelefono("");
+    setTurno("");
+    setHoraSalida("");
+    setChofer("");
+    setUnidad("");
+    setAceptaSustituciones("");
+    setRequiereLote("");
+    setRegistrarTemperatura("");
+    setOrigenTexto("");
+    setOrigenArchivos([]);
+    setLineas([]);
     setProductos([]);
     setCompradores([]);
+    setBodegasDestino([]);
+    setIdBodegaDestino("");
+    setPendingEmitId(null);
     setPicker(null);
     setError(null);
     setIsSaving(false);
+    setShowFiscal(false);
+    setFichaComprador(null);
+    setExigeOc(false);
 
     if (!codigoCuenta) return;
 
@@ -126,10 +287,25 @@ export function OrdenVentaCreateModal({
     void Promise.all([
       fetchProductosVentaCatalogo(codigoCuenta),
       listCompradoresAdmin({ codigoCuenta }),
+      listBodegasInternasVinculadasAdmin({ codigoCuenta }),
+      listBodegasExternasVinculadasAdmin({ codigoCuenta }),
     ])
-      .then(([productoRows, compradorRows]) => {
+      .then(([productoRows, compradorRows, internas, externas]) => {
         setProductos(productoRows);
         setCompradores(compradorRows);
+        const incluirTipo = internas.length > 0 && externas.length > 0;
+        const destinoRows = [
+          ...internas.map((bodega) =>
+            formatBodegaDestinoOption(bodega, "interna", incluirTipo),
+          ),
+          ...externas.map((bodega) =>
+            formatBodegaDestinoOption(bodega, "externa", incluirTipo),
+          ),
+        ];
+        setBodegasDestino(destinoRows);
+        if (destinoRows.length === 1) {
+          setIdBodegaDestino(destinoRows[0]!.idBodega);
+        }
       })
       .catch((err) => {
         setError(
@@ -143,79 +319,149 @@ export function OrdenVentaCreateModal({
       });
   }, [codigoCuenta, open]);
 
-  const handleSelectComprador = useCallback((row: CompradorListRow) => {
-    setIdComprador(row.idComprador);
-    setCompradorLabel(formatCompradorLabel(row));
-    setError(null);
-  }, []);
+  const applyCompradorPrefill = useCallback(
+    (row: CompradorListRow, ficha: CompradorAltaFicha) => {
+      const prefill = buildOrdenVentaPrefillFromComprador({
+        ficha,
+        telefonoComprador: row.telefono,
+      });
+      setFichaComprador(ficha);
+      setExigeOc(prefill.exigeOc);
+      setMoneda(prefill.moneda);
+      setCentroConsumo(prefill.centroConsumo);
+      setVentanaDesde(prefill.ventanaDesde);
+      setVentanaHasta(prefill.ventanaHasta);
+      setDireccion(prefill.direccion);
+      setAnden(prefill.anden);
+      setContacto(prefill.contacto);
+      setTelefono(prefill.telefono);
+      setAceptaSustituciones(prefill.aceptaSustituciones);
+      setRequiereLote(prefill.requiereLote);
+      setRegistrarTemperatura(prefill.registrarTemperatura);
+      setObservaciones(prefill.observaciones);
+    },
+    [],
+  );
+
+  const handleSelectComprador = useCallback(
+    (row: CompradorListRow) => {
+      selectedCompradorIdRef.current = row.idComprador;
+      setIdComprador(row.idComprador);
+      setCompradorLabel(formatCompradorLabel(row));
+      setTelefono(row.telefono?.trim() || "");
+      setFichaComprador(null);
+      setExigeOc(false);
+      setError(null);
+
+      if (!codigoCuenta) return;
+
+      void getCompradorAdmin({
+        codigoCuenta,
+        idComprador: row.idComprador,
+      })
+        .then((detalle) => {
+          if (selectedCompradorIdRef.current !== row.idComprador) return;
+          applyCompradorPrefill(row, detalle.ficha);
+        })
+        .catch(() => {
+          if (selectedCompradorIdRef.current !== row.idComprador) return;
+          setError(
+            "Se seleccionó el cliente, pero no se pudieron cargar sus datos de alta.",
+          );
+        });
+    },
+    [applyCompradorPrefill, codigoCuenta],
+  );
 
   const handleSelectProducto = useCallback((row: ProductoVentaOption) => {
-    setDraftProducto(row);
-    setDraftProductoLabel(formatProductoLabel(row));
-    setDraftCantidadKg("");
+    setLineas((prev) => {
+      if (prev.some((linea) => linea.idProducto === row.idProducto)) {
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          idProducto: row.idProducto,
+          nombre: row.nombre,
+          codigo: row.codigo,
+          idBodega: row.idBodega,
+          cantidadInput: "",
+          cajasInput: "",
+          especificacion: "",
+          kgDisponible: row.kgDisponible,
+          precioUnitario: row.precioUnitario,
+        },
+      ];
+    });
     setError(null);
+    setIdBodegaDestino((prev) => prev || row.idBodega);
   }, []);
-
-  const handleAddLinea = useCallback(() => {
-    setError(null);
-
-    if (!draftProducto) {
-      setError("Selecciona un producto para agregar.");
-      return;
-    }
-
-    if (lineas.some((linea) => linea.idProducto === draftProducto.idProducto)) {
-      setError("Ese producto ya está en la venta.");
-      return;
-    }
-
-    const cantidadKg = parseDecimalEs(draftCantidadKg);
-    if (cantidadKg === null || cantidadKg <= 0) {
-      setError("Ingresa una cantidad válida mayor a cero.");
-      return;
-    }
-
-    const kgDisponible = kgRestanteDraft ?? draftProducto.kgDisponible;
-    if (cantidadKg > kgDisponible) {
-      setError(
-        `No puedes vender más de ${formatKgEs(kgDisponible)} kg. Disponible en stock: ${formatKgEs(kgDisponible)} kg.`,
-      );
-      return;
-    }
-
-    setLineas((prev) => [
-      ...prev,
-      {
-        idProducto: draftProducto.idProducto,
-        nombre: draftProducto.nombre,
-        codigo: draftProducto.codigo,
-        idBodega: draftProducto.idBodega,
-        cantidadKg,
-        kgDisponible: draftProducto.kgDisponible,
-        precioUnitario: draftProducto.precioUnitario,
-      },
-    ]);
-    setDraftProducto(null);
-    setDraftProductoLabel("");
-    setDraftCantidadKg("");
-  }, [draftCantidadKg, draftProducto, kgRestanteDraft, lineas]);
 
   const handleRemoveLinea = useCallback((index: number) => {
     setLineas((prev) => prev.filter((_, i) => i !== index));
     setError(null);
   }, []);
 
+  const handleCantidadChange = useCallback((index: number, value: string) => {
+    setLineas((prev) =>
+      prev.map((linea, i) =>
+        i === index ? { ...linea, cantidadInput: value } : linea,
+      ),
+    );
+  }, []);
+
+  const handleLineaFieldChange = useCallback(
+    (index: number, field: "cajasInput" | "especificacion", value: string) => {
+      setLineas((prev) =>
+        prev.map((linea, i) =>
+          i === index ? { ...linea, [field]: value } : linea,
+        ),
+      );
+    },
+    [],
+  );
+
+  const openFormFromScratch = useCallback(() => {
+    setStartMode("scratch");
+    setStep("form");
+    setError(null);
+  }, []);
+
+  const openFormFromDocs = useCallback(() => {
+    if (!idComprador) {
+      setError("Selecciona un cliente.");
+      return;
+    }
+    if (!origenTexto.trim() && origenArchivos.length === 0) {
+      setError("Pega el texto del pedido o adjunta al menos un archivo.");
+      return;
+    }
+    if (!fechaEntrega) {
+      setFechaEntrega(tomorrowIsoDate());
+    }
+    setStartMode("docs");
+    setStep("form");
+    setError(null);
+  }, [fechaEntrega, idComprador, origenArchivos.length, origenTexto]);
+
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setError(null);
 
-      if (!codigoCuenta || !hasProductos) {
+      if (!codigoCuenta || !hasProductos || step !== "form") {
         return;
       }
 
       if (!idComprador) {
-        setError("Selecciona un comprador.");
+        setError("Selecciona un cliente.");
+        return;
+      }
+
+      if (exigeOc && !ordenCompraHotel.trim()) {
+        setError(
+          "Este cliente exige orden de compra para facturar. Captúrala en el pedido.",
+        );
         return;
       }
 
@@ -224,42 +470,200 @@ export function OrdenVentaCreateModal({
         return;
       }
 
+      if (!idBodegaDestino) {
+        setError("Selecciona una bodega destino.");
+        return;
+      }
+
+      const bodegaDestinoLabel =
+        bodegasDestino.find((row) => row.idBodega === idBodegaDestino)?.label ??
+        "";
+
+      const lineasParsed: Array<{
+        idProducto: string;
+        cantidadPedida: number;
+        idBodega: string;
+      }> = [];
+
+      for (const linea of lineas) {
+        const cantidadKg = parseDecimalEs(linea.cantidadInput);
+        if (cantidadKg === null || cantidadKg <= 0) {
+          setError(`Ingresa una cantidad válida para ${linea.nombre}.`);
+          return;
+        }
+        if (cantidadKg > linea.kgDisponible) {
+          setError(
+            `No puedes vender más de ${formatKgEs(linea.kgDisponible)} kg de ${linea.nombre}. Disponible en stock: ${formatKgEs(linea.kgDisponible)} kg.`,
+          );
+          return;
+        }
+        lineasParsed.push({
+          idProducto: linea.idProducto,
+          cantidadPedida: cantidadKg,
+          idBodega: linea.idBodega,
+        });
+      }
+
       setIsSaving(true);
 
+      let idOrdenVenta = pendingEmitId;
+
       try {
-        await createOrdenVenta({
-          codigoCuenta,
-          idBodega: lineas[0]?.idBodega,
-          idComprador,
-          lineas: lineas.map((linea) => ({
-            idProducto: linea.idProducto,
-            cantidadPedida: linea.cantidadKg,
-            idBodega: linea.idBodega,
-          })),
-          observaciones: observaciones.trim() || null,
-          idCreador: idCreador || null,
-        });
+        if (!idOrdenVenta) {
+          const notasLineasText = lineas
+            .flatMap((linea) => {
+              const bits: string[] = [];
+              if (linea.especificacion.trim()) {
+                bits.push(linea.especificacion.trim());
+              }
+              if (linea.cajasInput.trim()) {
+                bits.push(`${linea.cajasInput.trim()} cajas`);
+              }
+              if (bits.length === 0) return [];
+              return [`${linea.nombre}: ${bits.join(" · ")}`];
+            })
+            .join("\n");
+
+          const created = await createOrdenVenta({
+            codigoCuenta,
+            idBodega: lineasParsed[0]?.idBodega,
+            idBodegaDestino,
+            idComprador,
+            lineas: lineasParsed,
+            fechaEntrega,
+            ventanaDesde,
+            ventanaHasta,
+            prioridad,
+            moneda,
+            ordenCompraHotel,
+            centroConsumo,
+            vendedor: vendedorNombre,
+            bodegaDestinoLabel,
+            direccionEntrega: direccion,
+            anden,
+            contacto,
+            telefono,
+            turno,
+            horaSalida,
+            chofer,
+            unidad,
+            aceptaSustituciones,
+            requiereLote,
+            registrarTemperatura,
+            origenTexto: startMode === "docs" ? origenTexto : "",
+            origenArchivos: startMode === "docs" ? origenArchivos : [],
+            notasLineas: notasLineasText,
+            notasAlmacen: observaciones,
+            observaciones: buildOrdenVentaCapturaObservaciones({
+              fechaEntrega,
+              ventanaDesde,
+              ventanaHasta,
+              prioridad,
+              moneda,
+              bodegaDestino: bodegaDestinoLabel,
+              ordenCompraHotel,
+              centroConsumo,
+              vendedor: vendedorNombre,
+              observaciones,
+              direccion,
+              anden,
+              contacto,
+              telefono,
+              turno,
+              horaSalida,
+              chofer,
+              unidad,
+              aceptaSustituciones,
+              requiereLote,
+              registrarTemperatura,
+              origenTexto: startMode === "docs" ? origenTexto : "",
+              origenArchivos: startMode === "docs" ? origenArchivos : [],
+              notasLineas: notasLineasText,
+            }),
+            idCreador: idCreador || null,
+          });
+          idOrdenVenta = created.idOrdenVenta;
+          setPendingEmitId(idOrdenVenta);
+        }
+
+        try {
+          await emitirOrdenVentaApi(idOrdenVenta);
+        } catch (emitErr: unknown) {
+          // Si el pedido ya salió a bodega en un intento previo, no bloquear.
+          const emitMessage =
+            emitErr instanceof DomainServiceError ? emitErr.message : "";
+          const maybeAlreadyEmitted =
+            emitMessage.includes("borrador") ||
+            emitMessage.includes("estado");
+
+          if (!maybeAlreadyEmitted || !codigoCuenta) {
+            throw emitErr;
+          }
+
+          const detalle = await getOrdenVentaDetalle({
+            codigoCuenta,
+            idOrdenVenta,
+          });
+          if (
+            detalle.estado === "borrador" ||
+            detalle.estado === "cancelada" ||
+            detalle.estado === "cerrada"
+          ) {
+            throw emitErr;
+          }
+        }
+
+        setPendingEmitId(null);
         onCreated();
         onClose();
       } catch (err: unknown) {
-        setError(
+        const message =
           err instanceof DomainServiceError
             ? err.message
-            : "No se pudo crear la orden de venta.",
-        );
+            : idOrdenVenta
+              ? "No se pudo enviar el pedido a la bodega destino."
+              : "No se pudo crear la orden de venta.";
+        setError(message);
       } finally {
         setIsSaving(false);
       }
     },
     [
+      aceptaSustituciones,
+      anden,
+      centroConsumo,
+      chofer,
       codigoCuenta,
+      contacto,
+      direccion,
+      exigeOc,
+      fechaEntrega,
       hasProductos,
+      horaSalida,
+      idBodegaDestino,
       idComprador,
       idCreador,
       lineas,
+      moneda,
       observaciones,
       onClose,
       onCreated,
+      ordenCompraHotel,
+      origenArchivos,
+      origenTexto,
+      pendingEmitId,
+      bodegasDestino,
+      prioridad,
+      registrarTemperatura,
+      requiereLote,
+      startMode,
+      step,
+      telefono,
+      turno,
+      unidad,
+      vendedorNombre,
+      ventanaDesde,
+      ventanaHasta,
     ],
   );
 
@@ -267,195 +671,785 @@ export function OrdenVentaCreateModal({
     ? CATALOGO_VENTA_SIN_STOCK_MESSAGE
     : CATALOGO_VENTA_EMPTY_MESSAGE;
 
+  const formDescription =
+    startMode === "docs"
+      ? "Desde mensaje o archivos · revisa y completa el pedido"
+      : "Captura manual";
+
+  const docsReady = Boolean(idComprador) && Boolean(origenTexto.trim() || origenArchivos.length > 0);
+
   return (
     <>
       <PolariaFormModal
         open={open}
         onClose={onClose}
-        title="Nueva orden de venta"
-        description="Venta manual de la cuenta."
+        title={step === "form" ? "Pedido" : "Nuevo pedido"}
+        description={
+          step === "form"
+            ? formDescription
+            : startMode === "docs"
+              ? "Tengo el mensaje o archivos"
+              : "¿Cómo quieres empezar?"
+        }
         onSubmit={(event) => {
           void handleSubmit(event);
         }}
         error={error}
         isSubmitting={isSaving}
         submitDisabled={isLoading || !hasProductos || lineas.length === 0}
-        submitLabel="Crear venta"
+        submitLabel="Validar y enviar"
         compact
-        size="md"
+        size={step === "start" ? "sm" : "2xl"}
+        hideHeaderClose
+        asForm={step === "form"}
+        footerAction={step === "start" ? <></> : undefined}
+        closeOnEscape={picker === null}
       >
         {isLoading ? (
           <p className="polaria-text-body-sm text-polaria-w-50">Cargando…</p>
         ) : null}
 
-        {!isLoading && !hasProductos ? (
-          <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-4 py-3 polaria-text-body-sm text-polaria-warning">
-            {emptyCatalogMessage}
-          </p>
+        {step === "start" && !isLoading && startMode !== "docs" ? (
+          <div className="flex flex-row flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              aria-pressed={startMode === "scratch"}
+              onClick={openFormFromScratch}
+              className={cn(
+                "relative flex size-[11rem] shrink-0 flex-col items-center justify-center rounded-2xl border px-4 py-4 text-center transition",
+                "border-polaria-t-20 bg-polaria-t-08 hover:border-polaria-teal",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+              )}
+            >
+              <p className="polaria-text-card-title text-base text-polaria-w">
+                Desde cero
+              </p>
+            </button>
+
+            <button
+              type="button"
+              aria-pressed={false}
+              onClick={() => {
+                setStartMode("docs");
+                setError(null);
+              }}
+              className={cn(
+                "relative flex size-[11rem] shrink-0 flex-col items-center justify-center rounded-2xl border px-4 py-4 text-center transition",
+                "border-polaria-t-20 bg-polaria-t-08 hover:border-polaria-teal",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+              )}
+            >
+              <p className="polaria-text-card-title text-base text-polaria-w">
+                Tengo el mensaje o archivos
+              </p>
+            </button>
+          </div>
         ) : null}
 
-        {!isLoading && hasProductos ? (
-          <>
-            <PolariaFormField
-              id="orden-venta-comprador"
-              label="Comprador"
-              compact
+        {step === "start" && !isLoading && startMode === "docs" ? (
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setStartMode(null);
+                setError(null);
+              }}
+              className="self-start polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
             >
-              <JefeBodegaModalSearchField
-                id="orden-venta-comprador"
-                value={compradorLabel}
-                placeholder="Selecciona un comprador"
-                ariaLabel="Comprador"
-                onSearchClick={() => setPicker("comprador")}
-              />
-            </PolariaFormField>
+              ← Volver al inicio
+            </button>
 
-            <div className="rounded-xl border border-dashed border-polaria-t-20 bg-polaria-t-08 p-3">
-              <p className="polaria-text-label mb-2 text-polaria-w-50">
-                Productos
-              </p>
+            <div className="rounded-2xl border border-polaria-t-20 bg-polaria-t-08 p-4">
+              <PolariaFormField
+                id="orden-venta-docs-cliente"
+                label="Cliente"
+                hint="De esto dependen los precios del catálogo."
+                compact
+                required
+              >
+                <JefeBodegaModalSearchField
+                  id="orden-venta-docs-cliente"
+                  value={compradorLabel}
+                  placeholder="Selecciona el cliente"
+                  ariaLabel="Cliente"
+                  compact
+                  onSearchClick={() => setPicker("comprador")}
+                />
+              </PolariaFormField>
 
-              <div className="flex flex-col gap-2">
+              <div className="mt-3">
                 <PolariaFormField
-                  id="orden-venta-producto"
-                  label="Producto"
+                  id="orden-venta-docs-texto"
+                  label="Texto del pedido"
+                  hint="Pega aquí el mensaje tal cual llegó."
                   compact
                 >
-                  <JefeBodegaModalSearchField
-                    id="orden-venta-producto"
-                    value={draftProductoLabel}
-                    placeholder={
-                      puedeAgregarProducto
-                        ? "Selecciona un producto"
-                        : "Todos los productos ya están en la venta"
-                    }
-                    ariaLabel="Producto"
-                    onSearchClick={() => {
-                      if (puedeAgregarProducto) {
-                        setPicker("producto");
-                      }
-                    }}
+                  <textarea
+                    id="orden-venta-docs-texto"
+                    value={origenTexto}
+                    onChange={(event) => setOrigenTexto(event.target.value)}
+                    placeholder="Pega aquí el mensaje tal cual llegó. No lo resumas."
+                    className={cn(
+                      POLARIA_FORM_INPUT_CLASS_COMPACT,
+                      "min-h-[6.5rem] resize-y",
+                    )}
                   />
                 </PolariaFormField>
+              </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                  <div className="min-w-0 flex-1">
+              <div className="mt-3">
+                <PolariaFormField
+                  id="orden-venta-docs-archivos"
+                  label="Archivos"
+                  hint="Se guardan los nombres como respaldo. El WMS no lee el contenido."
+                  compact
+                >
+                  <label
+                    htmlFor="orden-venta-docs-archivos"
+                    className={cn(
+                      "block cursor-pointer rounded-xl border border-dashed border-polaria-t-20 bg-polaria-w-08 px-4 py-4 text-center",
+                      "polaria-text-body-sm text-polaria-w-50 transition hover:border-polaria-teal hover:text-polaria-teal",
+                    )}
+                  >
+                    Arrastra o selecciona archivos
+                    <input
+                      id="orden-venta-docs-archivos"
+                      type="file"
+                      multiple
+                      className="sr-only"
+                      onChange={(event) => {
+                        const files = Array.from(event.target.files ?? []);
+                        setOrigenArchivos(files.map((file) => file.name));
+                      }}
+                    />
+                  </label>
+                  {origenArchivos.length > 0 ? (
+                    <ul className="mt-2 flex flex-wrap gap-2">
+                      {origenArchivos.map((name) => (
+                        <li
+                          key={name}
+                          className="rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-2 py-1 polaria-text-caption text-polaria-w"
+                        >
+                          {name}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </PolariaFormField>
+              </div>
+
+              <button
+                type="button"
+                onClick={openFormFromDocs}
+                disabled={!docsReady}
+                className={cn(
+                  "mt-4 rounded-xl bg-polaria-teal px-5 py-2.5",
+                  "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
+                )}
+              >
+                Continuar al formulario
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {step === "form" && !isLoading ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("start");
+                  setStartMode(null);
+                  setError(null);
+                }}
+                className="polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
+              >
+                ← Volver al inicio
+              </button>
+              <p className="polaria-text-caption text-polaria-w-50">
+                {afterCutoff
+                  ? "Después del corte de las 17:00 — el almacén no tendrá a quién preguntarle hasta las 02:00"
+                  : "Captura abierta"}
+              </p>
+            </div>
+
+            {!hasProductos ? (
+              <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-4 py-3 polaria-text-body-sm text-polaria-warning">
+                {emptyCatalogMessage}
+              </p>
+            ) : null}
+
+            {startMode === "docs" && (origenTexto.trim() || origenArchivos.length > 0) ? (
+              <div className="rounded-xl border border-polaria-t-20 bg-polaria-w-08 px-4 py-3">
+                <p className="polaria-text-label text-polaria-w">
+                  De dónde salió este pedido
+                </p>
+                {origenTexto.trim() ? (
+                  <p className="mt-2 border-l-2 border-polaria-teal pl-3 polaria-text-body-sm text-polaria-w">
+                    «{origenTexto.trim()}»
+                  </p>
+                ) : null}
+                {origenArchivos.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {origenArchivos.map((name) => (
+                      <span
+                        key={name}
+                        className="rounded-lg border border-polaria-w-08 bg-polaria-t-08 px-2 py-1 polaria-text-caption text-polaria-w-50"
+                      >
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                {vendedorNombre ? (
+                  <p className="mt-2 polaria-text-caption text-polaria-w-50">
+                    Capturado por {vendedorNombre}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {hasProductos ? (
+              <>
+                <CaptureSection title="Datos del pedido">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <PolariaFormField
+                      id="orden-venta-cliente"
+                      label="Cliente"
+                      compact
+                      required
+                      className="sm:col-span-2"
+                    >
+                      <JefeBodegaModalSearchField
+                        id="orden-venta-cliente"
+                        value={compradorLabel}
+                        placeholder="Selecciona un cliente"
+                        ariaLabel="Cliente"
+                        compact
+                        onSearchClick={() => setPicker("comprador")}
+                      />
+                    </PolariaFormField>
+
                     <PolariaFormInput
-                      id="orden-venta-cantidad"
-                      label="Cantidad (kg)"
-                      type="text"
-                      inputMode="decimal"
-                      value={draftCantidadKg}
-                      placeholder="Ej. 15,5"
-                      onChange={(event) =>
-                        setDraftCantidadKg(event.target.value)
-                      }
+                      id="orden-venta-oc-hotel"
+                      label="Orden de compra del hotel"
+                      value={ordenCompraHotel}
+                      onChange={(event) => setOrdenCompraHotel(event.target.value)}
                       hint={
-                        draftProducto && kgRestanteDraft !== null
-                          ? `Disponible: ${formatKgEs(kgRestanteDraft)} kg · Precio: $${formatPrecioEs(draftProducto.precioUnitario)}/kg`
+                        exigeOc
+                          ? "Este cliente exige OC para facturar."
                           : undefined
                       }
+                      required={exigeOc}
                       compact
-                      disabled={!draftProducto}
                     />
+
+                    <PolariaFormInput
+                      id="orden-venta-centro"
+                      label="Centro de consumo / cocina"
+                      value={centroConsumo}
+                      onChange={(event) => setCentroConsumo(event.target.value)}
+                      compact
+                    />
+
+                    <PolariaFormInput
+                      id="orden-venta-vendedor"
+                      label="Vendedor"
+                      value={vendedorNombre || "—"}
+                      readOnly
+                      compact
+                    />
+
+                    <PolariaFormInput
+                      id="orden-venta-fecha-entrega"
+                      label="Fecha de entrega"
+                      type="date"
+                      value={fechaEntrega}
+                      onChange={(event) => setFechaEntrega(event.target.value)}
+                      compact
+                    />
+
+                    <PolariaFormInput
+                      id="orden-venta-ventana-desde"
+                      label="Ventana de entrega — desde"
+                      type="time"
+                      value={ventanaDesde}
+                      onChange={(event) => setVentanaDesde(event.target.value)}
+                      compact
+                    />
+
+                    <PolariaFormInput
+                      id="orden-venta-ventana-hasta"
+                      label="Ventana de entrega — hasta"
+                      type="time"
+                      value={ventanaHasta}
+                      onChange={(event) => setVentanaHasta(event.target.value)}
+                      compact
+                    />
+
+                    <PolariaFormSelect
+                      id="orden-venta-prioridad"
+                      label="Prioridad"
+                      value={prioridad}
+                      onChange={(event) => setPrioridad(event.target.value)}
+                      options={PRIORIDAD_OPTIONS}
+                      compact
+                    />
+
+                    <PolariaFormSelect
+                      id="orden-venta-moneda"
+                      label="Moneda"
+                      value={moneda}
+                      onChange={(event) => setMoneda(event.target.value)}
+                      options={MONEDA_OPTIONS}
+                      compact
+                    />
+
+                    <PolariaFormSelect
+                      id="orden-venta-bodega-destino"
+                      label="Bodega destino"
+                      value={idBodegaDestino}
+                      onChange={(event) => setIdBodegaDestino(event.target.value)}
+                      options={[
+                        { value: "", label: "Selecciona una bodega" },
+                        ...bodegasDestino.map((bodega) => ({
+                          value: bodega.idBodega,
+                          label: bodega.label,
+                        })),
+                      ]}
+                      required
+                      compact
+                      fieldClassName="sm:col-span-2"
+                    />
+
+                    <PolariaFormInput
+                      id="orden-venta-observaciones"
+                      label="Observaciones"
+                      value={observaciones}
+                      placeholder="Notas para almacén"
+                      onChange={(event) => setObservaciones(event.target.value)}
+                      compact
+                      fieldClassName="sm:col-span-3"
+                    />
+                  </div>
+                </CaptureSection>
+
+                <CaptureSection title="Entrega">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <PolariaFormInput
+                      id="orden-venta-direccion"
+                      label="Dirección de entrega"
+                      value={direccion}
+                      onChange={(event) => setDireccion(event.target.value)}
+                      compact
+                      fieldClassName="sm:col-span-2"
+                    />
+                    <PolariaFormInput
+                      id="orden-venta-anden"
+                      label="Andén / punto de recepción"
+                      value={anden}
+                      onChange={(event) => setAnden(event.target.value)}
+                      compact
+                    />
+                    <PolariaFormInput
+                      id="orden-venta-contacto"
+                      label="Contacto en el hotel"
+                      value={contacto}
+                      onChange={(event) => setContacto(event.target.value)}
+                      compact
+                    />
+                    <PolariaFormInput
+                      id="orden-venta-telefono"
+                      label="Teléfono del contacto"
+                      type="tel"
+                      value={telefono}
+                      onChange={(event) => setTelefono(event.target.value)}
+                      compact
+                    />
+                    <PolariaFormSelect
+                      id="orden-venta-turno"
+                      label="Turno que prepara"
+                      value={turno}
+                      onChange={(event) => setTurno(event.target.value)}
+                      options={TURNO_OPTIONS}
+                      compact
+                    />
+                    <PolariaFormInput
+                      id="orden-venta-hora-salida"
+                      label="Hora sugerida de salida"
+                      type="time"
+                      value={horaSalida}
+                      onChange={(event) => setHoraSalida(event.target.value)}
+                      compact
+                    />
+                    <PolariaFormInput
+                      id="orden-venta-chofer"
+                      label="Chofer"
+                      value={chofer}
+                      placeholder="Por asignar"
+                      onChange={(event) => setChofer(event.target.value)}
+                      compact
+                    />
+                    <PolariaFormInput
+                      id="orden-venta-unidad"
+                      label="Unidad"
+                      value={unidad}
+                      onChange={(event) => setUnidad(event.target.value)}
+                      compact
+                    />
+                  </div>
+                </CaptureSection>
+
+                <CaptureSection
+                  title="Productos"
+                  footer={
+                    <div className="flex justify-end border-t border-polaria-t-20 bg-polaria-w-08 px-4 py-3">
+                      <table className="text-right">
+                        <tbody>
+                          <tr>
+                            <td className="pr-8 polaria-text-body-sm text-polaria-w-50">
+                              Subtotal
+                            </td>
+                            <td className="font-mono polaria-text-body-sm text-polaria-w">
+                              ${formatPrecioEs(subtotalVenta)}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="pr-8 polaria-text-body-sm text-polaria-w-50">
+                              Descuentos
+                            </td>
+                            <td className="font-mono polaria-text-body-sm text-polaria-w">
+                              $0
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="pr-8 polaria-text-body-sm text-polaria-w-50">
+                              IVA
+                            </td>
+                            <td className="font-mono polaria-text-body-sm text-polaria-w">
+                              $0
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="pt-2 pr-8 polaria-text-body-sm font-semibold text-polaria-w">
+                              Total
+                            </td>
+                            <td className="pt-2 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
+                              ${formatPrecioEs(subtotalVenta)}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[52rem] table-fixed border-collapse text-left">
+                      <thead>
+                        <tr className="border-b border-polaria-t-20">
+                          <th className="w-[22%] pb-2 polaria-text-caption font-medium text-polaria-w-50">
+                            Producto{" "}
+                            <span className="font-bold text-polaria-danger">*</span>
+                          </th>
+                          <th className="w-[11%] pb-2 polaria-text-caption font-medium text-polaria-w-50">
+                            Cant.{" "}
+                            <span className="font-bold text-polaria-danger">*</span>
+                          </th>
+                          <th className="w-[8%] pb-2 polaria-text-caption font-medium text-polaria-w-50">
+                            Unidad
+                          </th>
+                          <th className="w-[9%] pb-2 polaria-text-caption font-medium text-polaria-w-50">
+                            Cajas
+                          </th>
+                          <th className="w-[16%] pb-2 polaria-text-caption font-medium text-polaria-w-50">
+                            Especificación
+                          </th>
+                          <th className="w-[13%] pb-2 text-right polaria-text-caption font-medium text-polaria-w-50">
+                            Precio{" "}
+                            <span className="font-bold text-polaria-danger">*</span>
+                          </th>
+                          <th className="w-[13%] pb-2 text-right polaria-text-caption font-medium text-polaria-w-50">
+                            Importe
+                          </th>
+                          <th className="w-[8%] pb-2">
+                            <span className="sr-only">Quitar</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lineas.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={8}
+                              className="py-4 text-center polaria-text-caption text-polaria-w-50"
+                            >
+                              Sin productos. Agrega al menos uno para crear la
+                              venta.
+                            </td>
+                          </tr>
+                        ) : (
+                          lineas.map((linea, index) => {
+                            const cantidad =
+                              parseDecimalEs(linea.cantidadInput) ?? 0;
+                            const importe = cantidad * linea.precioUnitario;
+                            return (
+                              <tr
+                                key={linea.idProducto}
+                                className="border-b border-polaria-w-08 last:border-b-0"
+                              >
+                                <td className="py-2 pr-2 align-top">
+                                  <p className="truncate polaria-text-body-sm font-medium text-polaria-w">
+                                    {linea.nombre}
+                                  </p>
+                                  <p className="polaria-text-caption text-polaria-w-50">
+                                    {linea.codigo}
+                                  </p>
+                                </td>
+                                <td className="py-2 pr-2 align-top">
+                                  <input
+                                    aria-label={`Cantidad de ${linea.nombre}`}
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={linea.cantidadInput}
+                                    placeholder="0"
+                                    onChange={(event) =>
+                                      handleCantidadChange(
+                                        index,
+                                        event.target.value,
+                                      )
+                                    }
+                                    className={POLARIA_FORM_INPUT_CLASS_COMPACT}
+                                  />
+                                  <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                                    Disp. {formatKgEs(linea.kgDisponible)} kg
+                                  </p>
+                                </td>
+                                <td className="py-2 pr-2 align-top">
+                                  <input
+                                    aria-label={`Unidad de ${linea.nombre}`}
+                                    value="kg"
+                                    readOnly
+                                    className={POLARIA_FORM_INPUT_CLASS_COMPACT}
+                                  />
+                                </td>
+                                <td className="py-2 pr-2 align-top">
+                                  <input
+                                    aria-label={`Cajas de ${linea.nombre}`}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={linea.cajasInput}
+                                    onChange={(event) =>
+                                      handleLineaFieldChange(
+                                        index,
+                                        "cajasInput",
+                                        event.target.value,
+                                      )
+                                    }
+                                    className={POLARIA_FORM_INPUT_CLASS_COMPACT}
+                                  />
+                                </td>
+                                <td className="py-2 pr-2 align-top">
+                                  <input
+                                    aria-label={`Especificación de ${linea.nombre}`}
+                                    type="text"
+                                    value={linea.especificacion}
+                                    onChange={(event) =>
+                                      handleLineaFieldChange(
+                                        index,
+                                        "especificacion",
+                                        event.target.value,
+                                      )
+                                    }
+                                    className={POLARIA_FORM_INPUT_CLASS_COMPACT}
+                                  />
+                                </td>
+                                <td className="py-2 pr-2 align-top">
+                                  <input
+                                    aria-label={`Precio de ${linea.nombre}`}
+                                    value={`$${formatPrecioEs(linea.precioUnitario)}`}
+                                    readOnly
+                                    className={cn(
+                                      POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                      "text-right",
+                                    )}
+                                  />
+                                </td>
+                                <td className="py-2 pr-2 align-top text-right font-mono polaria-text-body-sm text-polaria-teal">
+                                  ${formatPrecioEs(importe)}
+                                </td>
+                                <td className="py-2 align-top text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveLinea(index)}
+                                    className="rounded-lg p-2 text-polaria-w-50 transition hover:bg-polaria-w-08 hover:text-polaria-danger"
+                                    aria-label={`Quitar ${linea.nombre}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" aria-hidden />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
                   </div>
 
                   <button
                     type="button"
-                    onClick={handleAddLinea}
-                    disabled={!puedeAgregarProducto || !draftProducto}
-                    className="inline-flex items-center justify-center gap-1 rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90 disabled:opacity-50"
+                    onClick={() => {
+                      if (puedeAgregarProducto) {
+                        setPicker("producto");
+                      }
+                    }}
+                    disabled={!puedeAgregarProducto}
+                    className={cn(
+                      "mt-3 inline-flex items-center gap-1 rounded-xl border border-polaria-teal px-4 py-2",
+                      "polaria-text-body-sm font-semibold text-polaria-teal transition hover:bg-polaria-t-08",
+                      "disabled:cursor-not-allowed disabled:opacity-50",
+                    )}
                   >
                     <Plus className="h-4 w-4" aria-hidden />
-                    Agregar
+                    Agregar producto
                   </button>
-                </div>
-              </div>
+                </CaptureSection>
 
-              {lineas.length === 0 ? (
-                <p className="mt-3 text-center polaria-text-caption text-polaria-w-50">
-                  Sin productos. Agrega al menos uno para crear la venta.
-                </p>
-              ) : (
-                <div className="mt-3 overflow-hidden rounded-lg border border-polaria-w-08">
-                  <table className="w-full table-fixed border-collapse text-left">
-                    <colgroup>
-                      <col className="w-[44%]" />
-                      <col className="w-[20%]" />
-                      <col className="w-[24%]" />
-                      <col className="w-[12%]" />
-                    </colgroup>
-                    <thead className="bg-polaria-t-08">
-                      <tr className="border-b border-polaria-t-20">
-                        <th className="px-3 py-2 polaria-text-caption font-medium text-polaria-w-50">
-                          Producto
-                        </th>
-                        <th className="px-3 py-2 text-right polaria-text-caption font-medium text-polaria-w-50">
-                          Cantidad (kg)
-                        </th>
-                        <th className="px-3 py-2 text-right polaria-text-caption font-medium text-polaria-w-50">
-                          Total
-                        </th>
-                        <th className="px-3 py-2">
-                          <span className="sr-only">Quitar</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lineas.map((linea, index) => (
-                        <tr
-                          key={`${linea.idProducto}-${index}`}
-                          className="border-b border-polaria-w-08 last:border-b-0"
-                        >
-                          <td className="px-3 py-2 align-middle">
-                            <p className="truncate polaria-text-body-sm font-medium text-polaria-w">
-                              {linea.nombre}
-                            </p>
-                            <p className="polaria-text-caption text-polaria-w-50">
-                              {linea.codigo} · ${formatPrecioEs(linea.precioUnitario)}/kg
-                            </p>
-                          </td>
-                          <td className="px-3 py-2 align-middle text-right polaria-text-body-sm text-polaria-w">
-                            {formatKgEs(linea.cantidadKg)} kg
-                          </td>
-                          <td className="px-3 py-2 align-middle text-right polaria-text-body-sm font-medium text-polaria-teal">
-                            ${formatPrecioEs(linea.cantidadKg * linea.precioUnitario)}
-                          </td>
-                          <td className="px-3 py-2 align-middle text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveLinea(index)}
-                              className="rounded-lg p-2 text-polaria-w-50 transition hover:bg-polaria-w-08"
-                              aria-label="Quitar producto"
-                            >
-                              <Trash2 className="h-4 w-4" aria-hidden />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="flex items-center justify-end border-t border-polaria-t-20 bg-polaria-t-08 px-3 py-2">
-                    <p className="polaria-text-body-sm text-polaria-w-50">
-                      Total venta:{" "}
-                      <span className="font-semibold text-polaria-teal">
-                        ${formatPrecioEs(totalVenta)}
-                      </span>
-                    </p>
+                <CaptureSection
+                  title="Almacén y política del cliente"
+                  optional="se anota en observaciones"
+                >
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <PolariaFormInput
+                      id="orden-venta-peso"
+                      label="Peso total (kg)"
+                      value={formatKgEs(pesoTotalKg)}
+                      readOnly
+                      compact
+                    />
+                    <PolariaFormSelect
+                      id="orden-venta-sustituciones"
+                      label="¿Acepta sustituciones?"
+                      value={aceptaSustituciones}
+                      onChange={(event) =>
+                        setAceptaSustituciones(event.target.value)
+                      }
+                      options={SUSTITUCIONES_OPTIONS}
+                      hint="Define qué puede hacer el almacén si falta producto."
+                      compact
+                    />
+                    <PolariaFormSelect
+                      id="orden-venta-lote"
+                      label="Requiere lote / trazabilidad"
+                      value={requiereLote}
+                      onChange={(event) => setRequiereLote(event.target.value)}
+                      options={SI_NO_OPTIONS}
+                      compact
+                    />
+                    <PolariaFormSelect
+                      id="orden-venta-temp"
+                      label="Registrar temperatura al entregar"
+                      value={registrarTemperatura}
+                      onChange={(event) =>
+                        setRegistrarTemperatura(event.target.value)
+                      }
+                      options={SI_NO_OPTIONS}
+                      compact
+                    />
                   </div>
-                </div>
-              )}
-            </div>
+                </CaptureSection>
 
-            <PolariaFormInput
-              id="orden-venta-observaciones"
-              label="Observaciones"
-              value={observaciones}
-              placeholder="Notas opcionales"
-              onChange={(event) => setObservaciones(event.target.value)}
-              compact
-            />
-          </>
+                <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
+                  <button
+                    type="button"
+                    onClick={() => setShowFiscal((prev) => !prev)}
+                    className="w-full px-4 py-2.5 text-left polaria-text-label uppercase tracking-wide text-polaria-teal"
+                  >
+                    Datos fiscales — referencia{" "}
+                    {showFiscal ? "▴" : "▾"}
+                  </button>
+                  {showFiscal ? (
+                    <div className="border-t border-polaria-w-08 p-4">
+                      {fichaComprador ? (
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <PolariaFormInput
+                            id="orden-venta-fiscal-razon"
+                            label="Razón social"
+                            value={fichaComprador.razonSocial || "—"}
+                            readOnly
+                            compact
+                            fieldClassName="sm:col-span-2"
+                          />
+                          <PolariaFormInput
+                            id="orden-venta-fiscal-rfc"
+                            label="RFC"
+                            value={fichaComprador.rfc || "—"}
+                            readOnly
+                            compact
+                          />
+                          <PolariaFormInput
+                            id="orden-venta-fiscal-regimen"
+                            label="Régimen"
+                            value={fichaComprador.regimen || "—"}
+                            readOnly
+                            compact
+                            fieldClassName="sm:col-span-2"
+                          />
+                          <PolariaFormInput
+                            id="orden-venta-fiscal-cp"
+                            label="CP fiscal"
+                            value={fichaComprador.cpFiscal || "—"}
+                            readOnly
+                            compact
+                          />
+                          <PolariaFormInput
+                            id="orden-venta-fiscal-uso"
+                            label="Uso CFDI"
+                            value={fichaComprador.usoCfdi || "—"}
+                            readOnly
+                            compact
+                            fieldClassName="sm:col-span-2"
+                          />
+                          <PolariaFormInput
+                            id="orden-venta-fiscal-metodo"
+                            label="Método de pago"
+                            value={fichaComprador.metodoPago || "—"}
+                            readOnly
+                            compact
+                          />
+                          <PolariaFormInput
+                            id="orden-venta-fiscal-forma"
+                            label="Forma de pago"
+                            value={fichaComprador.formaPago || "—"}
+                            readOnly
+                            compact
+                          />
+                          <PolariaFormInput
+                            id="orden-venta-fiscal-correos"
+                            label="Correos CFDI"
+                            value={fichaComprador.correosCfdi || "—"}
+                            readOnly
+                            compact
+                            fieldClassName="sm:col-span-2"
+                          />
+                          <p className="sm:col-span-3 polaria-text-body-sm text-polaria-w-50">
+                            El WMS no timbra CFDI. Estos datos salen del comprador
+                            y se resuelven en facturación.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="polaria-text-body-sm text-polaria-w-50">
+                          Selecciona un cliente para ver su ficha fiscal. El WMS
+                          no timbra CFDI.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </section>
+              </>
+            ) : null}
+          </div>
         ) : null}
       </PolariaFormModal>
 
@@ -471,7 +1465,7 @@ export function OrdenVentaCreateModal({
         open={picker === "producto"}
         onClose={() => setPicker(null)}
         productos={productosParaAgregar}
-        selectedId={draftProducto?.idProducto ?? ""}
+        selectedId={null}
         onSelect={handleSelectProducto}
       />
     </>

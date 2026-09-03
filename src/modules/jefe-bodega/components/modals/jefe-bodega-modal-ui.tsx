@@ -32,6 +32,7 @@ interface JefeBodegaModalSearchFieldProps {
   readOnly?: boolean;
   ariaLabel?: string;
   onSearchClick?: () => void;
+  compact?: boolean;
 }
 
 export function JefeBodegaModalSearchField({
@@ -41,6 +42,7 @@ export function JefeBodegaModalSearchField({
   readOnly = true,
   ariaLabel,
   onSearchClick,
+  compact = false,
 }: JefeBodegaModalSearchFieldProps) {
   return (
     <div className="relative flex items-stretch">
@@ -52,10 +54,12 @@ export function JefeBodegaModalSearchField({
         placeholder={placeholder}
         aria-label={ariaLabel ?? placeholder}
         className={cn(
-          "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-3 pl-4",
-          onSearchClick ? "pr-12" : "pr-4",
-          "text-polaria-w placeholder:text-polaria-w-20 outline-none",
+          "w-full border border-polaria-w-08 bg-polaria-w-08 text-polaria-w placeholder:text-polaria-w-20 outline-none",
           "focus:border-polaria-t-20 focus:ring-1 focus:ring-polaria-t-20",
+          compact
+            ? "rounded-lg py-2 pl-3 text-sm"
+            : "rounded-xl py-3 pl-4",
+          onSearchClick ? (compact ? "pr-11" : "pr-12") : compact ? "pr-3" : "pr-4",
         )}
       />
       {onSearchClick ? (
@@ -64,9 +68,10 @@ export function JefeBodegaModalSearchField({
           onClick={onSearchClick}
           aria-label={`Buscar ${ariaLabel ?? placeholder}`}
           className={cn(
-            "absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg",
+            "absolute right-1 top-1/2 flex items-center justify-center rounded-lg",
             "border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition hover:bg-polaria-t-08",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+            compact ? "h-7 w-7 -translate-y-1/2" : "h-9 w-9 -translate-y-1/2",
           )}
         >
           <Search className="h-4 w-4" aria-hidden />

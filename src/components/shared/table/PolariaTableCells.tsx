@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Download, Pencil, Printer, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 export function PolariaTableCode({ children }: { children: ReactNode }) {
@@ -83,6 +83,64 @@ export function PolariaTableDeleteButton({
     >
       <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
       {label}
+    </button>
+  );
+}
+
+interface PolariaTablePrintButtonProps {
+  label?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}
+
+export function PolariaTablePrintButton({
+  label = "Imprimir",
+  onClick,
+  disabled = false,
+}: PolariaTablePrintButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition",
+        "hover:bg-polaria-t-08",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+        disabled && "cursor-not-allowed opacity-50",
+      )}
+    >
+      <Printer className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+    </button>
+  );
+}
+
+interface PolariaTableDownloadButtonProps {
+  label?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}
+
+export function PolariaTableDownloadButton({
+  label = "Descargar",
+  onClick,
+  disabled = false,
+}: PolariaTableDownloadButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition",
+        "hover:bg-polaria-t-08",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+        disabled && "cursor-not-allowed opacity-50",
+      )}
+    >
+      <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
     </button>
   );
 }

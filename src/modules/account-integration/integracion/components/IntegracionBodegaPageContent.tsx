@@ -1,17 +1,22 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
-import { ModuleListPage } from "@/components/shared/module/ModuleListPage";
-import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
+import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
+import {
+  PolariaTableBadge,
+  PolariaTableCode,
+} from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import { cn } from "@/lib/utils/cn";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   formatEstadoIntegracion,
   formatTipoIntegracion,
 } from "../constants/integration-types";
+import {
+  INTEGRACION_TABLE_MIN_WIDTH_CLASS,
+  integracionTableColumnClass,
+} from "../constants/integracion-table-layout";
 import { listSolicitudesIntegracion } from "../services/integracion-bodega.service";
 import type { SolicitudIntegracionRow } from "../../shared/types/integration.types";
 import { SolicitudIntegracionCreateModal } from "./SolicitudIntegracionCreateModal";
@@ -39,7 +44,7 @@ export function IntegracionBodegaPageContent() {
     return listSolicitudesIntegracion({ codigoCuenta });
   }, [codigoCuenta]);
 
-  const { data, isLoading, error, reload } = useAsyncQuery(
+  const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
     fetchSolicitudes,
     Boolean(codigoCuenta),
   );
@@ -51,22 +56,32 @@ export function IntegracionBodegaPageContent() {
       {
         id: "bodega",
         header: "Bodega externa",
-        cell: (row: SolicitudIntegracionRow) => row.bodegaNombre,
+        headerClassName: integracionTableColumnClass("bodega"),
+        cellClassName: integracionTableColumnClass("bodega"),
+        cell: (row: SolicitudIntegracionRow) => (
+          <PolariaTableCode>{row.bodegaNombre}</PolariaTableCode>
+        ),
       },
       {
         id: "tipo",
         header: "Tipo de integración",
+        headerClassName: integracionTableColumnClass("tipo"),
+        cellClassName: integracionTableColumnClass("tipo"),
         cell: (row: SolicitudIntegracionRow) =>
           formatTipoIntegracion(row.tipoIntegracion),
       },
       {
         id: "fecha",
         header: "Fecha",
+        headerClassName: integracionTableColumnClass("fecha"),
+        cellClassName: integracionTableColumnClass("fecha"),
         cell: (row: SolicitudIntegracionRow) => formatDateTime(row.createdAt),
       },
       {
         id: "estado",
         header: "Estado",
+        headerClassName: integracionTableColumnClass("estado"),
+        cellClassName: integracionTableColumnClass("estado"),
         cell: (row: SolicitudIntegracionRow) => renderEstadoBadge(row.estado),
       },
     ],
@@ -75,34 +90,30 @@ export function IntegracionBodegaPageContent() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="polaria-text-body-sm text-polaria-w-50">
-          Solicitudes de integración con bodegas externas de la cuenta.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => setIsCreateOpen(true)}
-          disabled={!codigoCuenta}
-          className={cn(
-            "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-3",
-            "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-          )}
-        >
-          <Plus className="h-4 w-4" aria-hidden />
-          Solicitar integración
-        </button>
-      </div>
-
-      <ModuleListPage
+      <PolariaDataTable
+        title="Solicitudes de integración"
+        subtitle="Bodega, tipo y estado."
         isLoading={isLoading}
-        error={error}
+        error={
+          error ??
+          (!codigoCuenta ? "No se encontró la cuenta activa." : null)
+        }
         rows={rows}
         columns={columns}
-        emptyMessage="Sin solicitudes de integración registradas."
         getRowKey={(row) => row.idSolicitudIntegracion}
+        emptyMessage="Sin solicitudes de integración registradas."
+        onRefresh={() => {
+          void reload();
+        }}
+        isRefreshing={isRefreshing}
+        primaryAction={{
+          label: "Solicitar integración",
+          onClick: () => {
+            if (!codigoCuenta) return;
+            setIsCreateOpen(true);
+          },
+        }}
+        tableClassName={INTEGRACION_TABLE_MIN_WIDTH_CLASS}
       />
 
       <SolicitudIntegracionCreateModal

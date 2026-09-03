@@ -70,6 +70,7 @@ vi.mock("@/modules/sales/shared/services/sales.service", () => ({
     listOrdenesVentaOperador(...args),
   listProductosVentaCatalogo: (...args: unknown[]) =>
     listProductosVentaCatalogo(...args),
+  getOrdenVentaDetalle: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("@/modules/admin-panel/compradores/services/compradores.service", () => ({
@@ -361,8 +362,12 @@ describe("vistas operativas dashboard", () => {
       screen.getByRole("heading", { name: "Integración" }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("heading", { name: "Solicitudes de integración" }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: "Solicitar integración" }),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Actualizar tabla")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(listSolicitudesIntegracion).toHaveBeenCalled();
@@ -415,7 +420,11 @@ describe("vistas operativas dashboard", () => {
     expect(
       screen.getByRole("heading", { name: "Procesamiento" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Órdenes de procesamiento" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nueva orden" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Actualizar tabla")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(listSolicitudesProcesamientoOperador).toHaveBeenCalled();
@@ -504,14 +513,27 @@ describe("vistas operativas dashboard", () => {
     expect(
       screen.getByRole("heading", { name: "Órdenes venta" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Órdenes de venta" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nueva venta" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Actualizar tabla")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(listOrdenesVentaOperador).toHaveBeenCalled();
       expect(screen.getByText("Venta")).toBeInTheDocument();
       expect(screen.getByText("Comprador")).toBeInTheDocument();
+      expect(screen.getByText("Origen")).toBeInTheDocument();
+      expect(screen.getByText("Imprimir")).toBeInTheDocument();
+      expect(screen.getByText("Descargar")).toBeInTheDocument();
       expect(screen.getByText("OV-001")).toBeInTheDocument();
       expect(screen.getByText("Retail Norte")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Imprimir" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Descargar" }),
+      ).toBeInTheDocument();
     });
   });
 
