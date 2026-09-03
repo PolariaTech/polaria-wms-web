@@ -5,7 +5,7 @@ const PAGE_W = 216;
 const PAGE_H = 330;
 const MARGIN = 8;
 const CONTENT_W = PAGE_W - MARGIN * 2;
-const MIN_PRODUCT_ROWS = 11;
+const MIN_PRODUCT_ROWS = 10;
 
 function box(
   doc: jsPDF,
@@ -40,12 +40,29 @@ function field(
   doc.setFontSize(6.5);
   doc.setTextColor(0);
   doc.text(label, x + 1.6, y + 1.4, { baseline: "top" });
-  if (value.trim()) {
+  if (!value.trim()) return;
+
+  const innerW = w - 3.2;
+  const valueTop = y + 5.2;
+  const valueMaxH = h - 6.4;
+  let fontSize = 8.5;
+  let lines: string[] = [];
+  let lineH = 3.3;
+
+  while (fontSize >= 6.5) {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    const lines = doc.splitTextToSize(value, w - 3.2);
-    doc.text(lines, x + 1.6, y + 5.4, { baseline: "top" });
+    doc.setFontSize(fontSize);
+    lineH = fontSize * 0.38;
+    lines = doc.splitTextToSize(value.trim(), innerW);
+    const maxLines = Math.max(1, Math.floor(valueMaxH / lineH));
+    if (lines.length <= maxLines || fontSize === 6.5) {
+      lines = lines.slice(0, maxLines);
+      break;
+    }
+    fontSize -= 0.5;
   }
+
+  doc.text(lines, x + 1.6, valueTop, { baseline: "top" });
 }
 
 function sectionTitle(
@@ -71,24 +88,6 @@ function sectionTitle(
   return lineY + 2;
 }
 
-function legendItem(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  code: string,
-  label: string,
-): number {
-  box(doc, x, y, 4.4, 4.4, 0.4);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text(code, x + 2.2, y + 2.2, { align: "center", baseline: "middle" });
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  const textX = x + 5.4;
-  doc.text(label, textX, y + 2.2, { baseline: "middle" });
-  return textX + doc.getTextWidth(label) + 4;
-}
-
 export function buildOrdenTareaAlmacenPdf(
   data: OrdenTareaAlmacenPrintData,
 ): jsPDF {
@@ -102,7 +101,7 @@ export function buildOrdenTareaAlmacenPdf(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
-  doc.text("ORDEN DE TAREA — ALMACÉN", MARGIN, y, { baseline: "top" });
+  doc.text("ORDEN DE VENTA", MARGIN, y, { baseline: "top" });
 
   box(doc, MARGIN + CONTENT_W - 18, y, 18, 18, 0.5);
   doc.setFontSize(5.5);
@@ -117,15 +116,17 @@ export function buildOrdenTareaAlmacenPdf(
   });
 
   y += 8;
+  const folio = data.folio || "—";
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text(data.folio || "—", MARGIN, y, { baseline: "top" });
+  const folioWidth = doc.getTextWidth(folio);
+  doc.text(folio, MARGIN, y, { baseline: "top" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text(
-    `  ·  Hoja 1 de 1  ·  Impresa ${data.impresa}`,
-    MARGIN + doc.getTextWidth(data.folio || "—"),
-    y + 1.2,
+    `·  Hoja 1 de 1  ·  Impresa ${data.impresa}`,
+    MARGIN + folioWidth + 2.5,
+    y + 1.4,
     { baseline: "top" },
   );
   y += 6;
@@ -146,17 +147,18 @@ export function buildOrdenTareaAlmacenPdf(
   field(doc, MARGIN + col, y, col, rowH, "Hora comprometida");
   field(doc, MARGIN + col * 2, y, col, rowH, "Hora sugerida de salida");
   field(doc, MARGIN + col * 3, y, col, rowH, "Turno que prepara");
-  checkbox(doc, MARGIN + col * 3 + 2, y + 6.2);
-  doc.setFontSize(8);
+  checkbox(doc, MARGIN + col * 3 + 2, y + 6.2, 2.8);
+  doc.setFontSize(6.5);
   doc.setFont("helvetica", "normal");
-  doc.text("PM", MARGIN + col * 3 + 6.2, y + 7.6, { baseline: "top" });
-  checkbox(doc, MARGIN + col * 3 + 14, y + 6.2);
-  doc.text("Noche/AM", MARGIN + col * 3 + 18.2, y + 7.6, { baseline: "top" });
+  doc.text("PM", MARGIN + col * 3 + 5.6, y + 6.6, { baseline: "top" });
+  checkbox(doc, MARGIN + col * 3 + 16, y + 6.2, 2.8);
+  doc.text("Noche / AM", MARGIN + col * 3 + 19.6, y + 6.6, { baseline: "top" });
   y += rowH;
-  field(doc, MARGIN, y, col * 2, rowH, "Dirección de entrega", data.direccionEntrega);
-  field(doc, MARGIN + col * 2, y, col, rowH, "Chofer");
-  field(doc, MARGIN + col * 3, y, col, rowH, "Unidad");
-  y += rowH + 3;
+  const addrH = 16;
+  field(doc, MARGIN, y, col * 2, addrH, "Dirección de entrega", data.direccionEntrega);
+  field(doc, MARGIN + col * 2, y, col, addrH, "Chofer");
+  field(doc, MARGIN + col * 3, y, col, addrH, "Unidad");
+  y += addrH + 3;
 
   y = sectionTitle(
     doc,
@@ -168,40 +170,29 @@ export function buildOrdenTareaAlmacenPdf(
   const cols = [
     { key: "#", w: 8 },
     { key: "Producto", w: 50 },
-    { key: "Especificación", w: 28 },
-    { key: "Cant. solicitada", w: 22 },
-    { key: "Cant. preparada", w: 22 },
-    { key: "Cód.", w: 10 },
-    { key: "Nota", w: 36 },
+    { key: "Especificación", w: 30 },
+    { key: "Cant.\nsolicitada", w: 20 },
+    { key: "Cant.\npreparada", w: 20 },
+    { key: "Cód.", w: 14 },
+    { key: "Nota", w: 34 },
     { key: "Alistó", w: 12 },
     { key: "Revisó", w: 12 },
   ] as const;
   const tableW = cols.reduce((sum, colDef) => sum + colDef.w, 0);
-  const headerH = 9;
-  const bodyH = 6.8;
-  const groupStart = cols.slice(0, 5).reduce((sum, colDef) => sum + colDef.w, 0);
+  const headerH = 8;
+  const bodyH = 8;
 
   box(doc, MARGIN, y, tableW, headerH);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
-  doc.line(MARGIN + groupStart, y, MARGIN + groupStart, y + headerH);
-  doc.line(MARGIN + groupStart + 46, y, MARGIN + groupStart + 46, y + headerH);
-  doc.text("SI ALGO NO SALIÓ COMO SE PIDIÓ", MARGIN + groupStart + 23, y + 2.2, {
-    align: "center",
-    baseline: "top",
-  });
-  doc.text("TURNO PM", MARGIN + groupStart + 58, y + 2.2, {
-    align: "center",
-    baseline: "top",
-  });
-  doc.setLineWidth(0.25);
-  doc.line(MARGIN, y + 5.2, MARGIN + tableW, y + 5.2);
 
   let hx = MARGIN;
   for (const colDef of cols) {
-    doc.text(colDef.key, hx + colDef.w / 2, y + 6.2, {
+    const headerLines = colDef.key.split("\n");
+    doc.text(headerLines, hx + colDef.w / 2, y + 1.6, {
       align: "center",
       baseline: "top",
+      lineHeightFactor: 1.1,
     });
     hx += colDef.w;
   }
@@ -236,17 +227,21 @@ export function buildOrdenTareaAlmacenPdf(
     for (let colIndex = 0; colIndex < cols.length; colIndex += 1) {
       const colDef = cols[colIndex]!;
       const value = values[colIndex] ?? "";
-      if (colIndex === 5 || colIndex === 7 || colIndex === 8) {
+      if (colIndex === 7 || colIndex === 8) {
         checkbox(doc, x + colDef.w / 2 - 1.6, mid - 1.6);
       } else if (value) {
-        const size = colIndex === 1 ? 7 : 8;
+        const size = colIndex === 1 || colIndex === 2 ? 6.5 : 7.5;
         doc.setFontSize(size);
         doc.setFont("helvetica", "normal");
         const wrapped = doc.splitTextToSize(value, colDef.w - 2);
-        const line = Array.isArray(wrapped) ? wrapped[0] : wrapped;
+        const shown = (Array.isArray(wrapped) ? wrapped : [wrapped]).slice(0, 2);
         const align = colIndex === 0 || colIndex === 3 ? "center" : "left";
         const textX = align === "center" ? x + colDef.w / 2 : x + 1.2;
-        doc.text(line, textX, mid, { align, baseline: "middle" });
+        doc.text(shown, textX, mid, {
+          align,
+          baseline: "middle",
+          lineHeightFactor: 1.05,
+        });
       }
       x += colDef.w;
       if (colIndex < cols.length - 1) {
@@ -257,23 +252,12 @@ export function buildOrdenTareaAlmacenPdf(
   }
 
   y += 2;
-  box(doc, MARGIN, y, CONTENT_W, 9);
-  const codes: Array<[string, string]> = [
-    ["A", "No había suficiente"],
-    ["B", "Se sustituyó"],
-    ["C", "Calidad no cumple"],
-    ["D", "No está en la factura"],
-    ["E", "Especificación poco clara"],
-    ["F", "Otro — explicar en la nota"],
-  ];
+  const codesH = 16;
+  box(doc, MARGIN, y, CONTENT_W, codesH);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.text("Códigos:", MARGIN + 2, y + 4.5, { baseline: "middle" });
-  let codeX = MARGIN + 20;
-  for (const [code, label] of codes) {
-    codeX = legendItem(doc, codeX, y + 2.3, code, label);
-  }
-  y += 12;
+  doc.setFontSize(7);
+  doc.text("Códigos", MARGIN + 2, y + 2.2, { baseline: "top" });
+  y += codesH + 3;
 
   const totW = CONTENT_W / 4;
   const totH = 11;
@@ -386,9 +370,10 @@ export function buildOrdenTareaAlmacenPdf(
   y += sigH + 3;
 
   y = sectionTitle(doc, y, "Recepción del cliente");
-  const recH = 20;
-  box(doc, MARGIN, y, CONTENT_W * 0.68, recH);
-  box(doc, MARGIN + CONTENT_W * 0.68, y, CONTENT_W * 0.32, recH);
+  const recH = 26;
+  const recW = CONTENT_W * 0.68;
+  box(doc, MARGIN, y, recW, recH);
+  box(doc, MARGIN + recW, y, CONTENT_W * 0.32, recH);
   const recOpts = ["Aceptado completo", "Aceptado parcial", "Rechazado", "Retorno de factura"];
   recOpts.forEach((label, index) => {
     const x = MARGIN + 2 + (index % 2) * 52;
@@ -398,15 +383,19 @@ export function buildOrdenTareaAlmacenPdf(
     doc.text(label, x + 5, rowY + 0.4, { baseline: "top" });
   });
   doc.setLineWidth(0.3);
-  doc.line(MARGIN + 2, y + 12.5, MARGIN + CONTENT_W * 0.68 - 2, y + 12.5);
-  doc.setFontSize(7);
-  doc.text("Motivo si es parcial o rechazado — y qué producto", MARGIN + 2, y + 13.4, {
+  doc.line(MARGIN + 2, y + 12.2, MARGIN + recW - 2, y + 12.2);
+  doc.setFontSize(6.8);
+  doc.text("Motivo si es parcial o rechazado — y qué producto", MARGIN + 2, y + 13.2, {
     baseline: "top",
   });
-  doc.line(MARGIN + 2, y + 18, MARGIN + 70, y + 18);
-  doc.text("Nombre de quien recibe", MARGIN + 2, y + 18.2, { baseline: "top" });
+  doc.setFontSize(6.8);
+  doc.text("Nombre de quien recibe", MARGIN + 2, y + 18.4, { baseline: "top" });
+  doc.setLineWidth(0.3);
+  doc.line(MARGIN + 2, y + 23.4, MARGIN + recW - 28, y + 23.4);
+  doc.text("Hora", MARGIN + recW - 26, y + 18.4, { baseline: "top" });
+  doc.line(MARGIN + recW - 26, y + 23.4, MARGIN + recW - 2, y + 23.4);
   doc.setFontSize(7.5);
-  doc.text("Sello y firma del cliente", MARGIN + CONTENT_W * 0.84, y + recH - 3, {
+  doc.text("Sello y firma del cliente", MARGIN + recW + CONTENT_W * 0.16, y + recH - 3.2, {
     align: "center",
     baseline: "top",
   });

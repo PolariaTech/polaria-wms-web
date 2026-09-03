@@ -25,6 +25,9 @@ import type {
   ProductoVentaOption,
 } from "../types/sales.types";
 
+/** PostgREST GET `.in()` explota la URL con ~1000 UUIDs; tandas cortas evitan 400. */
+const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
+
 const ORDEN_VENTA_COLUMNS =
   "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at";
 
@@ -439,24 +442,38 @@ async function fetchBodegaDestinoLabels(
   );
 }
 
+function chunkIds(ids: string[], size: number): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) {
+    chunks.push(ids.slice(i, i + size));
+  }
+  return chunks;
+}
+
 async function fetchLineasResumenByOrden(
   ids: string[],
 ): Promise<Map<string, OrdenVentaLineasResumen>> {
   if (ids.length === 0) return new Map();
 
   const uniqueIds = [...new Set(ids)];
-  const rows = await runDomainQuery<OrdenVentaLineaDbRow[]>((client) => {
-    const query = client
-      .from("orden_venta_linea")
-      .select(ORDEN_VENTA_LINEA_COLUMNS)
-      .in("id_orden_venta", uniqueIds)
-      .limit(DEFAULT_LIST_LIMIT);
+  const chunks = chunkIds(uniqueIds, ORDEN_VENTA_LINEA_IN_CHUNK);
+  const chunkRows = await Promise.all(
+    chunks.map((chunk) =>
+      runDomainQuery<OrdenVentaLineaDbRow[]>((client) => {
+        const query = client
+          .from("orden_venta_linea")
+          .select(ORDEN_VENTA_LINEA_COLUMNS)
+          .in("id_orden_venta", chunk)
+          .limit(DEFAULT_LIST_LIMIT);
 
-    return query as unknown as Promise<{
-      data: OrdenVentaLineaDbRow[] | null;
-      error: { message: string } | null;
-    }>;
-  });
+        return query as unknown as Promise<{
+          data: OrdenVentaLineaDbRow[] | null;
+          error: { message: string } | null;
+        }>;
+      }),
+    ),
+  );
+  const rows = chunkRows.flat();
 
   const resumen = new Map<string, OrdenVentaLineasResumen>();
   for (const row of rows) {

@@ -153,6 +153,44 @@ describe("sales.service", () => {
     expect(rows[0]?.total).toBe(2000);
   });
 
+  it("listOrdenesVentaOperador pide lineas en tandas para no reventar el in de PostgREST", async () => {
+    const ordenes = Array.from({ length: 81 }, (_, index) => ({
+      id_orden_venta: `ov-${index + 1}`,
+      codigo_cuenta: "CUENTA-01",
+      id_bodega: "BOD-01",
+      id_cliente: "cli-1",
+      id_comprador: null,
+      id_planta: null,
+      id_creador: null,
+      id_bodega_destino: null,
+      codigo: `OV-${String(index + 1).padStart(3, "0")}`,
+      estado: "borrador",
+      fecha_pedido: "2026-06-28",
+      observaciones: null,
+      created_at: "2026-06-28T12:00:00.000Z",
+      updated_at: "2026-06-28T12:00:00.000Z",
+    }));
+    const ordenMock = createSupabaseMock({ data: ordenes });
+    const lineaMock = createSupabaseMock({
+      data: [{ id_orden_venta: "ov-1", cantidad_pedida: 1, precio_unitario: 10 }],
+    });
+
+    const client = {
+      from: vi.fn((table: string) => {
+        if (table === "orden_venta_linea") return lineaMock.chain;
+        return ordenMock.chain;
+      }),
+    } as unknown as SupabaseClient;
+
+    setSupabaseClientForTests(client);
+
+    await listOrdenesVentaOperador({ codigoCuenta: "CUENTA-01" });
+
+    expect(lineaMock.chain.in).toHaveBeenCalledTimes(2);
+    expect(lineaMock.chain.in.mock.calls[0]?.[1]).toHaveLength(80);
+    expect(lineaMock.chain.in.mock.calls[1]?.[1]).toEqual(["ov-81"]);
+  });
+
   it("listProductosVentaCatalogo lee warehouse_state.cantidad de la cuenta", async () => {
     const bodegaChain = createBodegaChain(["bod-1"]);
     const warehouseChain = createWarehouseChain([
