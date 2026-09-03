@@ -34,6 +34,9 @@ describe("purchases.service", () => {
     });
 
     expect(chain.eq).toHaveBeenCalledWith("id_bodega", "BOD-01");
+    expect(chain.gte).toHaveBeenCalledWith("fecha_emision", "2026-01-01");
+    expect(chain.lt).toHaveBeenCalledWith("fecha_emision", "2027-01-01");
+    expect(chain.order).toHaveBeenCalledWith("fecha_emision", { ascending: true });
   });
 
   it("listRecepciones exige codigo_cuenta", async () => {

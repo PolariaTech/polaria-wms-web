@@ -61,8 +61,18 @@ export interface TenantListParams {
   limit?: number;
 }
 
-export const DEFAULT_LIST_LIMIT = 50;
+export const DEFAULT_LIST_LIMIT = 1000;
 export const AUDIT_LIST_LIMIT = 25;
+export const ORDERS_VISIBLE_YEAR = 2026;
+
+/** Filtra listados de órdenes al año visible (importaciones históricas quedan fuera). */
+export function applyVisibleYearFilter(
+  query: DomainSelectQuery,
+  column: string,
+  year: number = ORDERS_VISIBLE_YEAR,
+): DomainSelectQuery {
+  return query.gte(column, `${year}-01-01`).lt(column, `${year + 1}-01-01`);
+}
 
 export function requireCodigoCuenta(codigoCuenta: string | null | undefined): string {
   if (!codigoCuenta?.trim()) {

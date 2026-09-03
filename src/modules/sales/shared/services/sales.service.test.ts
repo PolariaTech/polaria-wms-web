@@ -88,6 +88,9 @@ describe("sales.service", () => {
     expect(from).toHaveBeenCalledWith("orden_venta");
     expect(chain.eq).toHaveBeenCalledWith("codigo_cuenta", "CUENTA-01");
     expect(chain.eq).toHaveBeenCalledWith("id_bodega", "BOD-01");
+    expect(chain.gte).toHaveBeenCalledWith("fecha_pedido", "2026-01-01");
+    expect(chain.lt).toHaveBeenCalledWith("fecha_pedido", "2027-01-01");
+    expect(chain.order).toHaveBeenCalledWith("fecha_pedido", { ascending: true });
   });
 
   it("listOrdenesVentaOperador enriquece filas con comprador y productos", async () => {
@@ -399,11 +402,19 @@ describe("sales.service", () => {
     const row = await createOrdenVenta({
       codigoCuenta: "CUENTA-01",
       idBodega: "bod-1",
+      idBodegaDestino: "bod-dest",
       idComprador: "comp-1",
       idProducto: "prod-1",
       observaciones: "Nota",
       idCreador: "usr-1",
     });
+
+    expect(ordenInsertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id_bodega_destino: "bod-dest",
+        estado: "borrador",
+      }),
+    );
 
     expect(row.venta).toBe("OV-001");
     expect(lineaInsertChain.insert).toHaveBeenCalledWith([
@@ -468,6 +479,7 @@ describe("sales.service", () => {
       createOrdenVenta({
         codigoCuenta: "CUENTA-01",
         idBodega: "bod-1",
+        idBodegaDestino: "bod-dest",
         idComprador: "comp-1",
         idProducto: "prod-1",
         cantidadPedida: 25,

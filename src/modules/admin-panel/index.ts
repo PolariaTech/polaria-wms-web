@@ -91,9 +91,14 @@ export {
   updateClienteAdmin,
 } from "./clientes/services/clientes.service";
 
-export type { CompradorListRow, CreateCompradorInput } from "./compradores/services/compradores.service";
+export type {
+  CompradorDetalleRow,
+  CompradorListRow,
+  CreateCompradorInput,
+} from "./compradores/services/compradores.service";
 export {
   createCompradorAdmin,
+  getCompradorAdmin,
   listCompradoresAdmin,
   updateCompradorAdmin,
 } from "./compradores/services/compradores.service";

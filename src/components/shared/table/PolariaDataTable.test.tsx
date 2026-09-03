@@ -40,8 +40,34 @@ describe("PolariaDataTable", () => {
     expect(screen.getByRole("heading", { name: "Cuentas" })).toBeInTheDocument();
     expect(screen.getByText("Código, nombre y acciones.")).toBeInTheDocument();
     expect(screen.getByText("Total: 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Buscar…")).toBeInTheDocument();
     expect(screen.getByText("MIT00")).toBeInTheDocument();
     expect(screen.getByText("Mitre")).toBeInTheDocument();
+  });
+
+  it("filtra filas desde el buscador del encabezado", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <PolariaDataTable<Row>
+        title="Cuentas"
+        isLoading={false}
+        error={null}
+        rows={[
+          { id: "1", code: "MIT00", name: "Mitre" },
+          { id: "2", code: "AND10", name: "Andino" },
+        ]}
+        columns={columns}
+        getRowKey={(row) => row.id}
+        emptyMessage="Sin registros"
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Buscar…"), "andino");
+
+    expect(screen.getByText("Andino")).toBeInTheDocument();
+    expect(screen.queryByText("Mitre")).not.toBeInTheDocument();
+    expect(screen.getByText("Total: 1")).toBeInTheDocument();
   });
 
   it("deshabilita acciones adicionales con tooltip", () => {

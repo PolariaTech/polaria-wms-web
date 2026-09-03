@@ -7,8 +7,13 @@ import {
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { generateCodigoCuentaFromNombre } from "@/lib/utils/generate-codigo-cuenta";
 import {
+  mapLatestPrecioProductoById,
+  type PrecioProductoRow,
+} from "@/modules/sales/shared/utils/sales-precio";
+import {
   CATALOGO_TIPO_PRIMARIO,
   CATALOGO_TIPO_SECUNDARIO,
+  getCatalogoUnidadVisualizacionLabel,
   parseCatalogoMetadatos,
   type CatalogoProductoMetadatos,
 } from "../constants/catalogo-producto";
@@ -34,6 +39,7 @@ export interface CatalogoProductoListRow {
   valorOpcion1: string;
   vinculado: string;
   precio: string;
+  unidad: string;
   impuesto: string;
   trackerInventario: string;
   stock: string;
@@ -196,6 +202,9 @@ function mapProductoRow(row: ProductoDbRow, index: number): CatalogoProductoList
       meta.vinculadoOpcion1?.trim() ||
       "—",
     precio: meta.precio?.trim() || "—",
+    unidad: row.unidad_visualizacion?.trim()
+      ? getCatalogoUnidadVisualizacionLabel(row.unidad_visualizacion)
+      : "—",
     impuesto: meta.cobrarImpuesto ? "Sí" : "No",
     trackerInventario: meta.rastreadorInventario?.trim() || "—",
     stock: meta.cantidadInventario?.trim() || "0",
@@ -251,6 +260,51 @@ export async function listCatalogoProductosAdmin(
 
     return haystack.includes(search);
   });
+}
+
+const PRECIO_PRODUCTO_IN_CHUNK = 80;
+
+export interface ListPreciosProductoVigentesParams {
+  codigoCuenta: string;
+  idProductos: readonly string[];
+}
+
+/** Precio vigente por producto desde `precio_producto` (última fecha_aplicacion). */
+export async function listPreciosProductoVigentesAdmin(
+  params: ListPreciosProductoVigentesParams,
+): Promise<Record<string, number>> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const uniqueIds = [
+    ...new Set(params.idProductos.map((id) => id.trim()).filter(Boolean)),
+  ];
+
+  if (uniqueIds.length === 0) return {};
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < uniqueIds.length; i += PRECIO_PRODUCTO_IN_CHUNK) {
+    chunks.push(uniqueIds.slice(i, i + PRECIO_PRODUCTO_IN_CHUNK));
+  }
+
+  const chunkRows = await Promise.all(
+    chunks.map((chunk) =>
+      runDomainQuery<PrecioProductoRow[]>((client) => {
+        const query = client
+          .from("precio_producto")
+          .select("id_producto,precio,fecha_aplicacion")
+          .eq("codigo_cuenta", codigoCuenta)
+          .in("id_producto", chunk)
+          .order("fecha_aplicacion", { ascending: false })
+          .limit(Math.min(chunk.length * 20, 1000));
+
+        return query as unknown as Promise<{
+          data: PrecioProductoRow[] | null;
+          error: { message: string } | null;
+        }>;
+      }),
+    ),
+  );
+
+  return Object.fromEntries(mapLatestPrecioProductoById(chunkRows.flat()));
 }
 
 export interface ProductoPrimarioOption {

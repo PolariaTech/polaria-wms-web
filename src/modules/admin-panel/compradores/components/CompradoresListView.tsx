@@ -22,7 +22,6 @@ import {
   type CompradorListRow,
 } from "../services/compradores.service";
 import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
-import { CompradorAliasCreateModal } from "./CompradorAliasCreateModal";
 import { CompradorCreateModal } from "./CompradorCreateModal";
 import { CompradorDetalleModal } from "./CompradorDetalleModal";
 import { CompradorEditModal } from "./CompradorEditModal";
@@ -30,7 +29,6 @@ import { CompradorEditModal } from "./CompradorEditModal";
 export function CompradoresListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isAliasOpen, setIsAliasOpen] = useState(false);
   const [editingComprador, setEditingComprador] =
     useState<CompradorListRow | null>(null);
   const [detalleComprador, setDetalleComprador] =
@@ -112,13 +110,6 @@ export function CompradoresListView() {
           void reload();
         }}
         isRefreshing={isRefreshing}
-        additionalActions={[
-          {
-            label: "Crear Alias",
-            variant: "outline",
-            onClick: () => setIsAliasOpen(true),
-          },
-        ]}
         primaryAction={{
           label: "Nuevo comprador",
           onClick: () => setIsCreateOpen(true),
@@ -130,14 +121,6 @@ export function CompradoresListView() {
       <CompradorCreateModal
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onCreated={() => {
-          void reload();
-        }}
-      />
-
-      <CompradorAliasCreateModal
-        open={isAliasOpen}
-        onClose={() => setIsAliasOpen(false)}
         onCreated={() => {
           void reload();
         }}

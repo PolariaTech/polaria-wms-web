@@ -1,16 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
-import { PolariaPhoneInput } from "@/components/shared/form/PolariaPhoneInput";
 import { isValidInternationalPhone } from "@/constants/ui/phone-countries";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
+  getCompradorAdmin,
   updateCompradorAdmin,
   type CompradorListRow,
 } from "../services/compradores.service";
+import {
+  altaFormStateFromDetalle,
+  emptyAltaFormState,
+  fichaFromAltaForm,
+  type CompradorAltaFormState,
+} from "../utils/comprador-alta";
+import { CompradorAliasCreateModal } from "./CompradorAliasCreateModal";
+import { CompradorAltaFormFields } from "./CompradorAltaFormFields";
 
 interface CompradorEditModalProps {
   open: boolean;
@@ -26,24 +33,64 @@ export function CompradorEditModal({
   onUpdated,
 }: CompradorEditModalProps) {
   const { codigoCuenta } = useCompany();
-  const [nombre, setNombre] = useState("");
-  const [telefono, setTelefono] = useState("");
+  const [form, setForm] = useState<CompradorAltaFormState>(emptyAltaFormState);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAliasOpen, setIsAliasOpen] = useState(false);
 
   useEffect(() => {
     if (!open || !comprador) return;
 
-    setNombre(comprador.comprador);
-    setTelefono(comprador.telefono ?? "");
+    setForm({
+      ...emptyAltaFormState(),
+      nombreComercial: comprador.comprador,
+      telefono: comprador.telefono ?? "",
+    });
     setError(null);
     setIsSubmitting(false);
-  }, [comprador, open]);
+    setIsAliasOpen(false);
+
+    if (!codigoCuenta) return;
+
+    let cancelled = false;
+    setIsLoading(true);
+
+    void getCompradorAdmin({
+      codigoCuenta,
+      idComprador: comprador.idComprador,
+    })
+      .then((detalle) => {
+        if (cancelled) return;
+        setForm(
+          altaFormStateFromDetalle(
+            detalle.comprador,
+            detalle.telefono ?? "",
+            detalle.ficha,
+          ),
+        );
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(
+          err instanceof DomainServiceError
+            ? err.message
+            : "No se pudo cargar la ficha del comprador.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [codigoCuenta, comprador, open]);
 
   const handleClose = useCallback(() => {
-    if (isSubmitting) return;
+    if (isSubmitting || isAliasOpen) return;
     onClose();
-  }, [isSubmitting, onClose]);
+  }, [isAliasOpen, isSubmitting, onClose]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -56,7 +103,20 @@ export function CompradorEditModal({
       return;
     }
 
-    if (telefono.trim() && !isValidInternationalPhone(telefono)) {
+    const ficha = fichaFromAltaForm(form);
+    const nombre = form.nombreComercial.trim() || ficha.razonSocial.trim();
+    if (!nombre) {
+      setError("Falta el nombre comercial.");
+      return;
+    }
+
+    const telefonoPrincipal = form.telefono.trim();
+    const telefonoContacto = ficha.contactos
+      .map((row) => row.telefono.trim())
+      .find((value) => value && isValidInternationalPhone(value));
+    const telefonoGuardar = telefonoPrincipal || telefonoContacto || "";
+
+    if (telefonoPrincipal && !isValidInternationalPhone(telefonoPrincipal)) {
       setError("Ingresa un número de teléfono válido.");
       return;
     }
@@ -68,7 +128,8 @@ export function CompradorEditModal({
         codigoCuenta,
         idComprador: comprador.idComprador,
         nombre,
-        telefono,
+        telefono: telefonoGuardar,
+        ficha,
       });
       onUpdated();
       onClose();
@@ -83,50 +144,62 @@ export function CompradorEditModal({
     }
   };
 
+  const fieldsDisabled = isSubmitting || isLoading;
+
   return (
-    <PolariaFormModal
-      open={open}
-      onClose={handleClose}
-      sectionLabel="Editar comprador"
-      title="Editar comprador"
-      description="Actualiza los datos del comprador."
-      onSubmit={(event) => {
-        void handleSubmit(event);
-      }}
-      error={error}
-      isSubmitting={isSubmitting}
-      submitLabel="Guardar"
-      compact
-    >
-      <PolariaFormInput
-        id="edit-comprador-codigo"
-        label="Código"
-        value={comprador?.codigo ?? ""}
-        readOnly
-        disabled
+    <>
+      <PolariaFormModal
+        open={open}
+        onClose={handleClose}
+        sectionLabel="Editar comprador"
+        title="Editar comprador"
+        description="Actualiza la ficha del comprador o crea un alias de producto."
+        onSubmit={(event) => {
+          void handleSubmit(event);
+        }}
+        error={error}
+        isSubmitting={isSubmitting}
+        submitLabel="Guardar"
         compact
-      />
+        size="2xl"
+        hideHeaderClose
+        closeOnEscape={!isAliasOpen}
+      >
+        <CompradorAltaFormFields
+          form={form}
+          onChange={setForm}
+          disabled={fieldsDisabled}
+          idPrefix="edit-comprador"
+          codigoValue={comprador?.codigo ?? ""}
+        />
 
-      <PolariaFormInput
-        id="edit-comprador-nombre"
-        label="Nombre del comprador"
-        value={nombre}
-        placeholder="Nombre del comprador"
-        onChange={(event) => setNombre(event.target.value)}
-        disabled={isSubmitting}
-        autoFocus
-        compact
-      />
+        <div className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3">
+          <p className="polaria-text-label text-polaria-teal">
+            Alias de producto
+          </p>
+          <p className="mt-1 polaria-text-caption text-polaria-w-50">
+            Nombre con el que este comprador conoce un producto del catálogo.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsAliasOpen(true)}
+            disabled={fieldsDisabled}
+            className="mt-3 inline-flex items-center rounded-xl border border-polaria-t-20 px-4 py-2 polaria-text-body-sm font-semibold text-polaria-teal transition hover:bg-polaria-t-08 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
+          >
+            Crear alias
+          </button>
+        </div>
+      </PolariaFormModal>
 
-      <PolariaPhoneInput
-        id="edit-comprador-telefono"
-        label="Teléfono"
-        value={telefono}
-        onChange={setTelefono}
-        disabled={isSubmitting}
-        hint="Opcional. Formato internacional."
-        compact
+      <CompradorAliasCreateModal
+        open={isAliasOpen}
+        comprador={comprador}
+        onClose={() => setIsAliasOpen(false)}
+        onCreated={() => {
+          setIsAliasOpen(false);
+          onUpdated();
+        }}
       />
-    </PolariaFormModal>
+    </>
   );
 }

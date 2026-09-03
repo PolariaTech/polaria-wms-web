@@ -73,6 +73,9 @@ describe("compradores.service", () => {
         esta_activo: true,
       }),
     );
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.not.objectContaining({ metadatos_alta: expect.anything() }),
+    );
     expect(row.comprador).toBe("Luis Castillo");
   });
 
@@ -122,5 +125,112 @@ describe("compradores.service", () => {
     expect(updateChain.eq).toHaveBeenCalledWith("codigo_cuenta", "FOODS1");
     expect(row.comprador).toBe("Luis Pérez");
     expect(row.codigo).toBe("LUIS1");
+  });
+
+  it("updateCompradorAdmin guarda la ficha de alta", async () => {
+    const updateChain = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    updateChain.update.mockReturnValue(updateChain);
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    updateChain.single.mockResolvedValue({
+      data: {
+        id_comprador: "22222222-2222-2222-2222-222222222222",
+        codigo: "LUIS1",
+        nombre: "Luis Pérez",
+        telefono: "+573004445566",
+      },
+      error: null,
+    });
+
+    const from = vi.fn(() => updateChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const ficha = {
+      razonSocial: "Hotel Xcaret SA",
+      rfc: "EXC980411R32",
+      regimen: "",
+      cpFiscal: "77710",
+      usoCfdi: "G01 — Adquisición de mercancías",
+      constanciaNombre: "",
+      constanciaFecha: "",
+      apodo: "",
+      grupo: "",
+      vendedor: "",
+      estado: "Activo",
+      listaPrecios: "",
+      diasCredito: "30",
+      limiteCredito: "",
+      metodoPago: "PPD — Parcialidades o diferido",
+      formaPago: "03 — Transferencia electrónica",
+      moneda: "MXN",
+      exigeOc: "Sí",
+      correosCfdi: "",
+      complementoPago: false,
+      centros: [],
+      contactos: [],
+      whatsapp: "",
+      formatoPedido: "Texto libre",
+      correosPedido: "",
+      portalProveedores: false,
+      portalNota: "",
+      sustituciones: "No — surtir parcial",
+      tolerancia: "",
+      vidaUtil: "",
+      requiereLote: "Sí",
+      requiereTemp: "Sí",
+      requiereFicha: "No",
+      politicaDevolucion: "",
+    };
+
+    await updateCompradorAdmin({
+      codigoCuenta: "FOODS1",
+      idComprador: "22222222-2222-2222-2222-222222222222",
+      nombre: "Luis Pérez",
+      telefono: "+573004445566",
+      ficha,
+    });
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nombre: "Luis Pérez",
+        razon_social: ficha.razonSocial,
+        rfc: ficha.rfc,
+        regimen: ficha.regimen,
+        cp_fiscal: ficha.cpFiscal,
+        uso_cfdi: ficha.usoCfdi,
+        constancia_nombre: ficha.constanciaNombre,
+        constancia_fecha: ficha.constanciaFecha,
+        apodo: ficha.apodo,
+        grupo: ficha.grupo,
+        vendedor: ficha.vendedor,
+        estado: ficha.estado,
+        lista_precios: ficha.listaPrecios,
+        dias_credito: ficha.diasCredito,
+        limite_credito: ficha.limiteCredito,
+        metodo_pago: ficha.metodoPago,
+        forma_pago: ficha.formaPago,
+        moneda: ficha.moneda,
+        exige_oc: ficha.exigeOc,
+        correos_cfdi: ficha.correosCfdi,
+        complemento_pago: ficha.complementoPago,
+        whatsapp: ficha.whatsapp,
+        formato_pedido: ficha.formatoPedido,
+        correos_pedido: ficha.correosPedido,
+        portal_proveedores: ficha.portalProveedores,
+        portal_nota: ficha.portalNota,
+        sustituciones: ficha.sustituciones,
+        tolerancia: ficha.tolerancia,
+        vida_util: ficha.vidaUtil,
+        requiere_lote: ficha.requiereLote,
+        requiere_temp: ficha.requiereTemp,
+        requiere_ficha: ficha.requiereFicha,
+        politica_devolucion: ficha.politicaDevolucion,
+      }),
+    );
   });
 });

@@ -153,6 +153,52 @@ describe("productos-catalogo.service", () => {
     expect(row.precio).toBe("2000");
   });
 
+  it("listPreciosProductoVigentesAdmin lee el vigente de precio_producto", async () => {
+    const selectChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      in: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    selectChain.select.mockReturnValue(selectChain);
+    selectChain.eq.mockReturnValue(selectChain);
+    selectChain.in.mockReturnValue(selectChain);
+    selectChain.order.mockReturnValue(selectChain);
+    selectChain.limit.mockResolvedValue({
+      data: [
+        {
+          id_producto: "prod-1",
+          precio: "106.5700",
+          fecha_aplicacion: "2026-07-11T00:38:27.036Z",
+        },
+        {
+          id_producto: "prod-1",
+          precio: "90.0000",
+          fecha_aplicacion: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      error: null,
+    });
+
+    const from = vi.fn(() => selectChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const { listPreciosProductoVigentesAdmin } = await import(
+      "./productos-catalogo.service"
+    );
+
+    const precios = await listPreciosProductoVigentesAdmin({
+      codigoCuenta: "MIT00",
+      idProductos: ["prod-1"],
+    });
+
+    expect(from).toHaveBeenCalledWith("precio_producto");
+    expect(selectChain.eq).toHaveBeenCalledWith("codigo_cuenta", "MIT00");
+    expect(selectChain.in).toHaveBeenCalledWith("id_producto", ["prod-1"]);
+    expect(precios["prod-1"]).toBe(106.57);
+  });
+
   it("deactivateCatalogoProducto marca esta_activo en false", async () => {
     const updateChain = {
       update: vi.fn(),

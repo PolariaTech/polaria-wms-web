@@ -24,6 +24,8 @@ export interface PolariaFormModalProps {
   compact?: boolean;
   /** Ancho máximo del panel; por defecto según `compact`. */
   size?: "sm" | "md" | "lg" | "xl" | "2xl";
+  /** Altura máxima del cuerpo con scroll; por defecto según `size`. */
+  scrollClassName?: string;
   /** Reemplaza el botón principal del pie (p. ej. acción de detalle). */
   footerAction?: ReactNode;
   /** Oculta por completo la barra de acciones del pie (p. ej. modales de solo lectura). */
@@ -33,7 +35,7 @@ export interface PolariaFormModalProps {
   /** false = panel sin <form> (p. ej. picker anidado dentro de otro modal). */
   asForm?: boolean;
   /** Capa de apilamiento cuando el modal se abre sobre otro modal. */
-  stackLevel?: "base" | "elevated";
+  stackLevel?: "base" | "elevated" | "nested";
   /** Permite desactivar cierre con Escape (p. ej. si hay un picker hijo abierto). */
   closeOnEscape?: boolean;
 }
@@ -41,6 +43,7 @@ export interface PolariaFormModalProps {
 const MODAL_STACK_CLASS = {
   base: "z-[100]",
   elevated: "z-[110]",
+  nested: "z-[120]",
 } as const;
 
 const MODAL_SIZE_CLASS = {
@@ -68,6 +71,7 @@ export function PolariaFormModal({
   className,
   compact = false,
   size,
+  scrollClassName: scrollClassNameProp,
   footerAction,
   hideFooter = false,
   hideHeaderClose = false,
@@ -83,14 +87,14 @@ export function PolariaFormModal({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !isSubmitting) {
-        if (stackLevel === "elevated") {
+        if (stackLevel !== "base") {
           event.stopPropagation();
         }
         onClose();
       }
     };
 
-    const useCapture = stackLevel === "elevated";
+    const useCapture = stackLevel !== "base";
     document.addEventListener("keydown", handleKeyDown, useCapture);
 
     return () => {
@@ -120,11 +124,11 @@ export function PolariaFormModal({
         ? MODAL_SIZE_CLASS.sm
         : MODAL_SIZE_CLASS.md;
 
-  const bodyClassName = cn("flex flex-col");
+  const bodyClassName = cn("flex min-h-0 flex-1 flex-col");
   const scrollClassName = cn(
-    "polaria-scrollbar overflow-y-auto pr-1",
+    "polaria-scrollbar min-h-0 flex-1 overflow-y-auto pr-1",
     compact ? "space-y-3" : "space-y-5",
-    "max-h-[min(60dvh,calc(100dvh-14rem))]",
+    scrollClassNameProp,
   );
   const footerClassName = cn(
     "flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-polaria-w-08",
@@ -216,7 +220,7 @@ export function PolariaFormModal({
           aria-labelledby={titleId}
           aria-describedby={description ? descriptionId : undefined}
           className={cn(
-            "polaria-card-glow relative z-10 flex w-full flex-col rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
+            "polaria-card-glow relative z-10 flex w-full min-h-0 flex-col rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
             "max-h-[min(85dvh,calc(100dvh-5rem))]",
             widthClass,
             compact ? "p-4 sm:p-5" : "p-6 sm:p-8",

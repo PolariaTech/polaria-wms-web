@@ -8,18 +8,23 @@ import {
 } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { cn } from "@/lib/utils/cn";
+import { formatPrecioEs } from "@/lib/utils/decimal-es";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import { JefeBodegaModalSearchField } from "@/modules/jefe-bodega/components/modals/jefe-bodega-modal-ui";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   listCatalogoProductosAdmin,
+  listPreciosProductoVigentesAdmin,
   type CatalogoProductoListRow,
 } from "@/modules/admin-panel/catalogo/services/productos-catalogo.service";
-import { listCompradoresAdmin, type CompradorListRow } from "../services/compradores.service";
-import { createCompradorProductoAliasAdmin } from "../services/comprador-producto-alias.service";
+import type { CompradorListRow } from "../services/compradores.service";
+import {
+  createCompradorProductoAliasAdmin,
+  listCompradorProductoAliasAdmin,
+} from "../services/comprador-producto-alias.service";
 
 interface CompradorAliasCreateModalProps {
   open: boolean;
+  comprador: CompradorListRow | null;
   onClose: () => void;
   onCreated: () => void;
 }
@@ -28,8 +33,11 @@ function formatCompradorLabel(row: CompradorListRow): string {
   return `${row.codigo} — ${row.comprador}`;
 }
 
-const STICKY_HEAD_CELL =
-  "sticky top-0 z-10 border-b border-polaria-t-20 px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50 bg-[color-mix(in_srgb,var(--bg)_92%,var(--teal)_8%)]";
+const GRID_HEAD_CELL =
+  "sticky top-0 z-10 border border-polaria-t-20 px-2.5 py-2 text-left polaria-text-caption font-medium text-polaria-w-50 bg-[color-mix(in_srgb,var(--bg)_88%,var(--teal)_12%)]";
+
+const GRID_CELL =
+  "border border-polaria-t-20 px-2.5 py-2 align-middle polaria-text-body-sm";
 
 function normalizeSearch(value: string): string {
   return value
@@ -48,35 +56,37 @@ function matchesSearch(haystack: string, query: string): boolean {
 
 export function CompradorAliasCreateModal({
   open,
+  comprador,
   onClose,
   onCreated,
 }: CompradorAliasCreateModalProps) {
   const { codigoCuenta } = useCompany();
-  const [compradores, setCompradores] = useState<CompradorListRow[]>([]);
   const [productos, setProductos] = useState<CatalogoProductoListRow[]>([]);
+  const [aliasByProductoId, setAliasByProductoId] = useState<
+    Record<string, string>
+  >({});
+  const [precioByProductoId, setPrecioByProductoId] = useState<
+    Record<string, number>
+  >({});
   const [isLoadingLists, setIsLoadingLists] = useState(false);
-  const [comprador, setComprador] = useState<CompradorListRow | null>(null);
   const [producto, setProducto] = useState<CatalogoProductoListRow | null>(null);
   const [alias, setAlias] = useState("");
   const [productoQuery, setProductoQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCompradorPickerOpen, setIsCompradorPickerOpen] = useState(false);
-  const [compradorQuery, setCompradorQuery] = useState("");
   const [aliasError, setAliasError] = useState<string | null>(null);
 
   const isAliasOpen = Boolean(comprador && producto);
 
   const resetForm = useCallback(() => {
-    setComprador(null);
     setProducto(null);
     setAlias("");
     setProductoQuery("");
+    setAliasByProductoId({});
+    setPrecioByProductoId({});
     setError(null);
     setAliasError(null);
     setIsSubmitting(false);
-    setIsCompradorPickerOpen(false);
-    setCompradorQuery("");
   }, []);
 
   useEffect(() => {
@@ -90,17 +100,35 @@ export function CompradorAliasCreateModal({
     setIsLoadingLists(true);
 
     void Promise.all([
-      listCompradoresAdmin({ codigoCuenta }),
       listCatalogoProductosAdmin({ codigoCuenta, limit: 500 }),
+      comprador
+        ? listCompradorProductoAliasAdmin({
+            codigoCuenta,
+            idComprador: comprador.idComprador,
+          })
+        : Promise.resolve([]),
     ])
-      .then(([nextCompradores, nextProductos]) => {
+      .then(async ([nextProductos, nextAliases]) => {
         if (cancelled) return;
-        setCompradores(nextCompradores);
+
+        const nextPrecios = await listPreciosProductoVigentesAdmin({
+          codigoCuenta,
+          idProductos: nextProductos.map((row) => row.idProducto),
+        });
+
+        if (cancelled) return;
+
         setProductos(nextProductos);
+        setPrecioByProductoId(nextPrecios);
+        setAliasByProductoId(
+          Object.fromEntries(
+            nextAliases.map((row) => [row.idProducto, row.alias] as const),
+          ),
+        );
       })
       .catch(() => {
         if (cancelled) return;
-        setError("No se pudieron cargar compradores o productos.");
+        setError("No se pudieron cargar los productos.");
       })
       .finally(() => {
         if (!cancelled) setIsLoadingLists(false);
@@ -109,7 +137,7 @@ export function CompradorAliasCreateModal({
     return () => {
       cancelled = true;
     };
-  }, [codigoCuenta, open, resetForm]);
+  }, [codigoCuenta, comprador, open, resetForm]);
 
   const handleClose = useCallback(() => {
     if (isSubmitting) return;
@@ -124,16 +152,23 @@ export function CompradorAliasCreateModal({
   }, [isSubmitting]);
 
   const productosFiltrados = useMemo(() => {
-    return productos.filter((row) =>
-      matchesSearch(`${row.codigo} ${row.titulo}`, productoQuery),
-    );
-  }, [productoQuery, productos]);
+    return productos.filter((row) => {
+      const precio = precioByProductoId[row.idProducto];
+      const precioLabel =
+        precio == null ? "" : formatPrecioEs(precio);
 
-  const compradoresFiltrados = useMemo(() => {
-    return compradores.filter((row) =>
-      matchesSearch(`${row.codigo} ${row.comprador}`, compradorQuery),
-    );
-  }, [compradorQuery, compradores]);
+      return matchesSearch(
+        [
+          row.codigo,
+          row.titulo,
+          aliasByProductoId[row.idProducto] ?? "",
+          precioLabel,
+          row.unidad,
+        ].join(" "),
+        productoQuery,
+      );
+    });
+  }, [aliasByProductoId, precioByProductoId, productoQuery, productos]);
 
   const handleSubmitAlias = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -145,7 +180,7 @@ export function CompradorAliasCreateModal({
     }
 
     if (!comprador) {
-      setAliasError("Selecciona un comprador.");
+      setAliasError("No se encontró el comprador.");
       return;
     }
 
@@ -179,40 +214,37 @@ export function CompradorAliasCreateModal({
   return (
     <>
       <PolariaFormModal
-        open={open}
+        open={open && Boolean(comprador)}
         onClose={handleClose}
         sectionLabel="Crear alias"
         title="Crear alias de producto"
-        description="Elige el comprador y el producto. El alias se pide en el siguiente paso."
+        description="Elige el producto. El alias se pide en el siguiente paso."
         onSubmit={(event) => event.preventDefault()}
         asForm={false}
         error={error}
         footerAction={<></>}
         cancelLabel="Cerrar"
         compact
-        size="xl"
-        closeOnEscape={!isCompradorPickerOpen && !isAliasOpen}
+        size="2xl"
+        stackLevel="elevated"
+        closeOnEscape={!isAliasOpen}
       >
-        <PolariaFormField id="alias-comprador" label="Comprador" compact>
-          <JefeBodegaModalSearchField
-            id="alias-comprador"
-            value={comprador ? formatCompradorLabel(comprador) : ""}
-            placeholder={
-              isLoadingLists ? "Cargando compradores…" : "Selecciona un comprador"
-            }
-            ariaLabel="Comprador"
-            onSearchClick={
-              isSubmitting || isLoadingLists
-                ? undefined
-                : () => setIsCompradorPickerOpen(true)
-            }
-          />
-        </PolariaFormField>
+        <PolariaFormInput
+          id="alias-comprador"
+          label="Comprador"
+          value={comprador ? formatCompradorLabel(comprador) : ""}
+          readOnly
+          disabled
+          compact
+        />
 
-        {comprador ? (
-          <>
+        <PolariaFormField id="alias-producto" label="Producto" compact>
+          {isLoadingLists ? (
+            <p className="rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
+              Cargando productos…
+            </p>
+          ) : (
             <div className="flex flex-col gap-2">
-              <p className="text-xs font-medium text-polaria-w">Producto</p>
               {productos.length > 4 ? (
                 <div className="relative">
                   <Search
@@ -242,21 +274,34 @@ export function CompradorAliasCreateModal({
                     : "No hay productos en el catálogo."}
                 </p>
               ) : (
-                <div className="max-h-[min(40dvh,18rem)] overflow-auto rounded-xl border border-polaria-w-08">
-                  <table className="w-full table-fixed border-separate border-spacing-0 text-left">
+                <div className="max-h-[min(48dvh,22rem)] overflow-auto rounded-lg border border-polaria-t-20">
+                  <table className="w-full min-w-[48rem] border-collapse text-left">
                     <colgroup>
-                      <col className="w-[32%]" />
-                      <col className="w-[68%]" />
+                      <col className="w-[7.5rem]" />
+                      <col />
+                      <col className="w-[11rem]" />
+                      <col className="w-[7.5rem]" />
+                      <col className="w-[9rem]" />
                     </colgroup>
                     <thead>
                       <tr>
-                        <th className={STICKY_HEAD_CELL}>Código</th>
-                        <th className={STICKY_HEAD_CELL}>Nombre</th>
+                        <th className={GRID_HEAD_CELL}>Código</th>
+                        <th className={GRID_HEAD_CELL}>Nombre</th>
+                        <th className={GRID_HEAD_CELL}>Alias</th>
+                        <th className={`${GRID_HEAD_CELL} text-right`}>
+                          Precio
+                        </th>
+                        <th className={GRID_HEAD_CELL}>Unidad</th>
                       </tr>
                     </thead>
                     <tbody>
                       {productosFiltrados.map((row) => {
-                        const isSelected = row.idProducto === producto?.idProducto;
+                        const isSelected =
+                          row.idProducto === producto?.idProducto;
+                        const aliasValue =
+                          aliasByProductoId[row.idProducto]?.trim() || "";
+                        const precioValue = precioByProductoId[row.idProducto];
+
                         return (
                           <tr
                             key={row.idProducto}
@@ -282,19 +327,45 @@ export function CompradorAliasCreateModal({
                             aria-label={`Seleccionar ${row.titulo}`}
                             aria-pressed={isSelected}
                             className={cn(
-                              "cursor-pointer border-b border-polaria-w-08 transition last:border-b-0",
+                              "cursor-pointer transition",
                               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-polaria-teal",
                               isSelected
                                 ? "bg-polaria-t-08 text-polaria-w"
                                 : "text-polaria-w hover:bg-polaria-t-08",
                             )}
                           >
-                            <td className="px-3 py-2.5 align-middle polaria-text-body-sm font-medium text-polaria-teal">
+                            <td
+                              className={`${GRID_CELL} font-medium text-polaria-teal`}
+                            >
                               {row.codigo}
                             </td>
-                            <td className="px-3 py-2.5 align-middle polaria-text-body-sm">
+                            <td className={`${GRID_CELL} break-words`}>
                               {row.titulo}
                             </td>
+                            <td
+                              className={cn(
+                                GRID_CELL,
+                                aliasValue
+                                  ? "text-polaria-w"
+                                  : "text-polaria-w-50",
+                              )}
+                            >
+                              {aliasValue || "—"}
+                            </td>
+                            <td
+                              className={cn(
+                                GRID_CELL,
+                                "text-right tabular-nums",
+                                precioValue == null
+                                  ? "text-polaria-w-50"
+                                  : undefined,
+                              )}
+                            >
+                              {precioValue == null
+                                ? "—"
+                                : formatPrecioEs(precioValue)}
+                            </td>
+                            <td className={GRID_CELL}>{row.unidad}</td>
                           </tr>
                         );
                       })}
@@ -303,12 +374,8 @@ export function CompradorAliasCreateModal({
                 </div>
               )}
             </div>
-          </>
-        ) : (
-          <p className="rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
-            Primero selecciona un comprador para ver el catálogo.
-          </p>
-        )}
+          )}
+        </PolariaFormField>
       </PolariaFormModal>
 
       <PolariaFormModal
@@ -329,7 +396,7 @@ export function CompradorAliasCreateModal({
         submitLabel="Guardar"
         compact
         size="sm"
-        stackLevel="elevated"
+        stackLevel="nested"
       >
         <PolariaFormInput
           id="alias-nombre"
@@ -342,113 +409,6 @@ export function CompradorAliasCreateModal({
           autoFocus
           compact
         />
-      </PolariaFormModal>
-
-      <PolariaFormModal
-        open={open && isCompradorPickerOpen}
-        onClose={() => {
-          setIsCompradorPickerOpen(false);
-          setCompradorQuery("");
-        }}
-        title="Seleccionar comprador"
-        description="Compradores activos de la cuenta."
-        onSubmit={(event) => event.preventDefault()}
-        asForm={false}
-        hideHeaderClose
-        footerAction={<></>}
-        cancelLabel="Cerrar"
-        compact
-        size="md"
-        stackLevel="elevated"
-      >
-        {compradores.length > 4 ? (
-          <div className="relative mb-3">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-polaria-w-50"
-              aria-hidden
-            />
-            <input
-              type="search"
-              value={compradorQuery}
-              onChange={(event) => setCompradorQuery(event.target.value)}
-              placeholder="Buscar por código o nombre"
-              aria-label="Buscar comprador"
-              className={cn(
-                "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-2.5 pl-10 pr-4",
-                "polaria-text-body-sm text-polaria-w placeholder:text-polaria-w-20 outline-none",
-                "focus:border-polaria-t-20 focus:ring-1 focus:ring-polaria-t-20",
-              )}
-            />
-          </div>
-        ) : null}
-
-        {compradoresFiltrados.length === 0 ? (
-          <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
-            {compradorQuery.trim()
-              ? "No hay compradores que coincidan con la búsqueda."
-              : "No hay compradores registrados."}
-          </p>
-        ) : (
-          <div className="max-h-[min(55dvh,24rem)] overflow-auto rounded-xl border border-polaria-w-08">
-            <table className="w-full table-fixed border-separate border-spacing-0 text-left">
-              <colgroup>
-                <col className="w-[32%]" />
-                <col className="w-[68%]" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className={STICKY_HEAD_CELL}>Código</th>
-                  <th className={STICKY_HEAD_CELL}>Comprador</th>
-                </tr>
-              </thead>
-              <tbody>
-                {compradoresFiltrados.map((row) => {
-                  const isSelected = row.idComprador === comprador?.idComprador;
-                  return (
-                    <tr
-                      key={row.idComprador}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        setComprador(row);
-                        setProducto(null);
-                        setAlias("");
-                        setIsCompradorPickerOpen(false);
-                        setCompradorQuery("");
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          setComprador(row);
-                          setProducto(null);
-                          setAlias("");
-                          setIsCompradorPickerOpen(false);
-                          setCompradorQuery("");
-                        }
-                      }}
-                      aria-label={`Seleccionar ${row.comprador}`}
-                      aria-pressed={isSelected}
-                      className={cn(
-                        "cursor-pointer border-b border-polaria-w-08 transition last:border-b-0",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-polaria-teal",
-                        isSelected
-                          ? "bg-polaria-t-08 text-polaria-w"
-                          : "text-polaria-w hover:bg-polaria-t-08",
-                      )}
-                    >
-                      <td className="px-3 py-2.5 align-middle polaria-text-body-sm font-medium text-polaria-teal">
-                        {row.codigo}
-                      </td>
-                      <td className="px-3 py-2.5 align-middle polaria-text-body-sm">
-                        {row.comprador}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
       </PolariaFormModal>
     </>
   );

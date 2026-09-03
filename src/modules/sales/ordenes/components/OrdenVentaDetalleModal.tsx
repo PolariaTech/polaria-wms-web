@@ -12,8 +12,12 @@ import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
 import { getOrdenVentaDetalle } from "../../shared/services/sales.service";
 import type { OrdenVentaDetalleRow } from "../../shared/types/sales.types";
 import {
+  formatCapturaFecha,
+  notaCapturaForProducto,
+  parseOrdenVentaCapturaObservaciones,
+} from "../utils/build-orden-venta-captura-observaciones";
+import {
   formatCompradorOrdenVenta,
-  formatObservacionOrdenVenta,
   formatOrdenVentaLineaTotal,
   formatOrdenVentaTotal,
   resolveOrdenVentaLineaTitulo,
@@ -27,6 +31,23 @@ interface OrdenVentaDetalleModalProps {
   onEmitted?: () => void;
 }
 
+function CaptureSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
+      <h3 className="border-b border-polaria-w-08 px-4 py-2.5 polaria-text-label uppercase tracking-wide text-polaria-teal">
+        {title}
+      </h3>
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
+
 function MetaField({
   label,
   children,
@@ -37,11 +58,16 @@ function MetaField({
   return (
     <div className="min-w-0">
       <p className="polaria-text-label text-polaria-w-20">{label}</p>
-      <div className="mt-1 polaria-text-body-sm font-medium text-polaria-w">
+      <div className="mt-1 break-words polaria-text-body-sm font-medium text-polaria-w">
         {children}
       </div>
     </div>
   );
+}
+
+function TextValue({ value }: { value: string | undefined }) {
+  const trimmed = value?.trim() ?? "";
+  return <>{trimmed || "—"}</>;
 }
 
 function renderEstadoBadge(estado: string) {
@@ -64,86 +90,180 @@ function renderEstadoBadge(estado: string) {
 
 function DetalleContent({ orden }: { orden: OrdenVentaDetalleRow }) {
   const lineItems = orden.lineas ?? [];
-  const observaciones = formatObservacionOrdenVenta(orden.observaciones);
-  const destino =
-    orden.bodega_destino_nombre?.trim() ||
-    orden.bodega_nombre?.trim() ||
-    "—";
+  const captura = parseOrdenVentaCapturaObservaciones(orden.observaciones);
+  const prioridad = captura.prioridad.trim();
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <MetaField label="Comprador">
-          {formatCompradorOrdenVenta(orden)}
-        </MetaField>
-        <MetaField label="Fecha">
-          {formatDateTime(orden.created_at || orden.fecha_pedido)}
-        </MetaField>
-        <MetaField label="Estado">{renderEstadoBadge(orden.estado)}</MetaField>
-      </div>
+      {captura.origenTexto || captura.origenArchivos.length > 0 ? (
+        <CaptureSection title="De dónde salió este pedido">
+          {captura.origenTexto ? (
+            <p className="whitespace-pre-wrap border-l-2 border-polaria-teal pl-3 polaria-text-body-sm text-polaria-w">
+              «{captura.origenTexto}»
+            </p>
+          ) : null}
+          {captura.origenArchivos.length > 0 ? (
+            <div className={cn("flex flex-wrap gap-2", captura.origenTexto && "mt-2")}>
+              {captura.origenArchivos.map((name) => (
+                <span
+                  key={name}
+                  className="rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-2 py-1 polaria-text-caption text-polaria-w-50"
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </CaptureSection>
+      ) : null}
 
-      <section className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 p-4">
-        <h3 className="polaria-text-label text-polaria-teal">Destino</h3>
-        <p className="mt-2 polaria-text-body-sm font-medium text-polaria-w">
-          {destino}
-        </p>
-      </section>
+      <CaptureSection title="Datos del pedido">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <MetaField label="Cliente">{formatCompradorOrdenVenta(orden)}</MetaField>
+          <MetaField label="Orden de compra del hotel">
+            <TextValue value={captura.ordenCompraHotel} />
+          </MetaField>
+          <MetaField label="Centro de consumo / cocina">
+            <TextValue value={captura.centroConsumo} />
+          </MetaField>
+          <MetaField label="Vendedor">
+            <TextValue value={captura.vendedor} />
+          </MetaField>
+          <MetaField label="Fecha de captura">
+            {formatDateTime(orden.created_at || orden.fecha_pedido)}
+          </MetaField>
+          <MetaField label="Fecha de entrega">
+            <TextValue
+              value={
+                captura.fechaEntrega
+                  ? formatCapturaFecha(captura.fechaEntrega)
+                  : ""
+              }
+            />
+          </MetaField>
+          <MetaField label="Ventana de entrega">
+            <TextValue value={captura.ventanaEntrega} />
+          </MetaField>
+          <MetaField label="Prioridad">
+            {prioridad ? (
+              <PolariaTableBadge
+                variant={prioridad.toLowerCase() === "urgente" ? "warning" : "neutral"}
+              >
+                {prioridad}
+              </PolariaTableBadge>
+            ) : (
+              "—"
+            )}
+          </MetaField>
+          <MetaField label="Estado">{renderEstadoBadge(orden.estado)}</MetaField>
+          <MetaField label="Bodega origen">
+            <TextValue value={orden.bodega_nombre ?? ""} />
+          </MetaField>
+          <MetaField label="Bodega destino">
+            <TextValue
+              value={
+                orden.bodega_destino_nombre?.trim() || captura.bodegaDestino
+              }
+            />
+          </MetaField>
+          <MetaField label="Moneda">
+            <TextValue value={captura.moneda || "MXN"} />
+          </MetaField>
+        </div>
+      </CaptureSection>
 
-      <section>
-        <h3 className="polaria-text-label text-polaria-teal">Productos</h3>
+      <CaptureSection title="Entrega">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <MetaField label="Dirección de entrega">
+            <TextValue value={captura.direccion} />
+          </MetaField>
+          <MetaField label="Andén / punto de recepción">
+            <TextValue value={captura.anden} />
+          </MetaField>
+          <MetaField label="Contacto en el hotel">
+            <TextValue value={captura.contacto} />
+          </MetaField>
+          <MetaField label="Teléfono del contacto">
+            <TextValue value={captura.telefono} />
+          </MetaField>
+          <MetaField label="Turno que prepara">
+            <TextValue value={captura.turno} />
+          </MetaField>
+          <MetaField label="Hora sugerida de salida">
+            <TextValue value={captura.horaSalida} />
+          </MetaField>
+          <MetaField label="Chofer">
+            <TextValue value={captura.chofer} />
+          </MetaField>
+          <MetaField label="Unidad">
+            <TextValue value={captura.unidad} />
+          </MetaField>
+        </div>
+      </CaptureSection>
 
+      <CaptureSection title="Productos">
         {lineItems.length === 0 ? (
-          <p className="mt-3 polaria-text-body-sm text-polaria-w-50">
+          <p className="polaria-text-body-sm text-polaria-w-50">
             Sin líneas registradas.
           </p>
         ) : (
-          <div className="mt-3 overflow-hidden rounded-xl border border-polaria-w-08">
+          <div className="overflow-hidden rounded-xl border border-polaria-w-08">
             <table className="w-full table-fixed border-collapse text-left">
               <colgroup>
                 <col className="w-[44%]" />
                 <col className="w-[20%]" />
-                <col className="w-[24%]" />
+                <col className="w-[18%]" />
+                <col className="w-[18%]" />
               </colgroup>
-              <thead className="bg-polaria-t-08">
+              <thead className="bg-polaria-w-08">
                 <tr className="border-b border-polaria-t-20">
                   <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                     Producto
                   </th>
                   <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
-                    Cantidad (kg)
+                    Cantidad
                   </th>
                   <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
-                    Total
+                    Precio
+                  </th>
+                  <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
+                    Importe
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {lineItems.map((linea) => (
-                  <tr
-                    key={linea.id_linea_orden_venta}
-                    className="border-b border-polaria-w-08 last:border-b-0"
-                  >
-                    <td className="px-3 py-2.5 align-middle">
-                      <p className="polaria-text-body-sm font-medium text-polaria-w">
-                        {resolveOrdenVentaLineaTitulo(linea)}
-                      </p>
-                      <p className="polaria-text-caption text-polaria-w-50">
-                        {linea.producto?.sku ? `SKU ${linea.producto.sku}` : null}
-                        {linea.producto?.sku ? " · " : null}
-                        ${formatPrecioEs(linea.precio_unitario)}/kg
-                      </p>
-                    </td>
-                    <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
-                      {formatKgEs(linea.cantidad_pedida)} kg
-                    </td>
-                    <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm font-medium text-polaria-teal">
-                      ${formatPrecioEs(formatOrdenVentaLineaTotal(linea))}
-                    </td>
-                  </tr>
-                ))}
+                {lineItems.map((linea) => {
+                  const titulo = resolveOrdenVentaLineaTitulo(linea);
+                  const nota = notaCapturaForProducto(captura.notasLineas, titulo);
+                  return (
+                    <tr
+                      key={linea.id_linea_orden_venta}
+                      className="border-b border-polaria-w-08 last:border-b-0"
+                    >
+                      <td className="px-3 py-2.5 align-middle">
+                        <p className="polaria-text-body-sm font-medium text-polaria-w">
+                          {titulo}
+                        </p>
+                        <p className="polaria-text-caption text-polaria-w-50">
+                          {linea.producto?.sku ? `SKU ${linea.producto.sku}` : "kg"}
+                          {nota ? ` · ${nota}` : null}
+                        </p>
+                      </td>
+                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
+                        {formatKgEs(linea.cantidad_pedida)} kg
+                      </td>
+                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
+                        ${formatPrecioEs(linea.precio_unitario)}
+                      </td>
+                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm font-medium text-polaria-teal">
+                        ${formatPrecioEs(formatOrdenVentaLineaTotal(linea))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-            <div className="flex items-center justify-between border-t border-polaria-t-20 bg-polaria-t-08 px-3 py-2">
+            <div className="flex items-center justify-between border-t border-polaria-t-20 bg-polaria-w-08 px-3 py-2">
               <p className="polaria-text-caption text-polaria-w-50">
                 {lineItems.length === 1
                   ? "1 producto"
@@ -159,15 +279,31 @@ function DetalleContent({ orden }: { orden: OrdenVentaDetalleRow }) {
             </div>
           </div>
         )}
-      </section>
+      </CaptureSection>
 
-      {observaciones !== "—" ? (
-        <section className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
-          <p className="polaria-text-label mb-1 text-polaria-w-20">
-            Observaciones
+      <CaptureSection title="Almacén y política del cliente">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <MetaField label="Peso total (kg)">
+            {formatKgEs(sumOrdenVentaCantidadKg(orden))}
+          </MetaField>
+          <MetaField label="¿Acepta sustituciones?">
+            <TextValue value={captura.aceptaSustituciones} />
+          </MetaField>
+          <MetaField label="Requiere lote / trazabilidad">
+            <TextValue value={captura.requiereLote} />
+          </MetaField>
+          <MetaField label="Registrar temperatura al entregar">
+            <TextValue value={captura.registrarTemperatura} />
+          </MetaField>
+        </div>
+      </CaptureSection>
+
+      {captura.observaciones ? (
+        <CaptureSection title="Observaciones">
+          <p className="whitespace-pre-wrap polaria-text-body-sm text-polaria-w">
+            {captura.observaciones}
           </p>
-          <p>{observaciones}</p>
-        </section>
+        </CaptureSection>
       ) : null}
     </>
   );
@@ -300,6 +436,9 @@ export function OrdenVentaDetalleModal({
       onClose={onClose}
       sectionLabel="Detalle de venta"
       title={orden?.codigo ?? "Orden de venta"}
+      description={
+        orden ? formatCompradorOrdenVenta(orden) : "Ficha de captura del pedido."
+      }
       isSubmitting={isEmitting}
       onSubmit={(event) => {
         event.preventDefault();
@@ -324,7 +463,7 @@ export function OrdenVentaDetalleModal({
         )
       }
       compact
-      size="lg"
+      size="2xl"
     >
       {isLoading ? (
         <p className="polaria-text-body-sm text-polaria-w-50">Cargando…</p>

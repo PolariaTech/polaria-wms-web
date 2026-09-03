@@ -20,6 +20,7 @@ interface PolariaFormFieldProps {
   children?: ReactNode;
   className?: string;
   compact?: boolean;
+  required?: boolean;
 }
 
 export function PolariaFormField({
@@ -29,6 +30,7 @@ export function PolariaFormField({
   children,
   className,
   compact = false,
+  required = false,
 }: PolariaFormFieldProps) {
   return (
     <div className={cn("flex flex-col", compact ? "gap-1" : "gap-2", className)}>
@@ -40,6 +42,12 @@ export function PolariaFormField({
         )}
       >
         {label}
+        {required ? (
+          <span className="font-bold text-polaria-danger" aria-hidden>
+            {" "}
+            *
+          </span>
+        ) : null}
       </label>
       {children}
       {hint ? <p className="polaria-text-caption">{hint}</p> : null}
@@ -62,6 +70,7 @@ export function PolariaFormInput({
   hint,
   fieldClassName,
   compact = false,
+  required,
   ...inputProps
 }: PolariaFormInputProps) {
   return (
@@ -71,9 +80,11 @@ export function PolariaFormInput({
       hint={hint}
       className={fieldClassName}
       compact={compact}
+      required={required}
     >
       <input
         id={id}
+        required={required}
         className={compact ? INPUT_CLASS_COMPACT : INPUT_CLASS}
         {...inputProps}
       />
@@ -82,6 +93,7 @@ export function PolariaFormInput({
 }
 
 export { INPUT_CLASS as POLARIA_FORM_INPUT_CLASS };
+export { INPUT_CLASS_COMPACT as POLARIA_FORM_INPUT_CLASS_COMPACT };
 export { SELECT_CLASS_COMPACT as POLARIA_FORM_SELECT_CLASS_COMPACT };
 
 interface PolariaFormSelectOption {
@@ -108,6 +120,7 @@ export function PolariaFormSelect({
   placeholder,
   fieldClassName,
   compact = false,
+  required,
   ...selectProps
 }: PolariaFormSelectProps) {
   return (
@@ -117,9 +130,11 @@ export function PolariaFormSelect({
       hint={hint}
       className={fieldClassName}
       compact={compact}
+      required={required}
     >
       <select
         id={id}
+        required={required}
         className={compact ? SELECT_CLASS_COMPACT : SELECT_CLASS}
         {...selectProps}
       >
