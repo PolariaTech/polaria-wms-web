@@ -1,6 +1,6 @@
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
-const MIN_PRODUCT_ROWS = 11;
+const MIN_PRODUCT_ROWS = 10;
 
 const COMB2 = '<span class="comb"><i></i><i></i></span>';
 const COMB3 = '<span class="comb"><i></i><i></i><i></i></span>';
@@ -25,10 +25,11 @@ const SHEET_CSS = `
   .qrbox svg{width:100%;height:100%;display:block;}
   .qrcap{font-size:9.6px;margin-top:2px;text-align:center;font-weight:600;line-height:1.25;}
   table.idgrid{width:100%;border-collapse:separate;border-spacing:6px;table-layout:fixed;}
-  table.idgrid td{border:1.2px solid #000;padding:4px 6px 5px;vertical-align:top;height:42px;}
+  table.idgrid td{border:1.2px solid #000;padding:4px 6px 5px;vertical-align:top;height:42px;overflow:hidden;}
   table.idgrid td.hi{border-width:2px;}
+  table.idgrid td.addr{height:56px;}
   table.idgrid label{display:block;font-size:10px;line-height:1.2;margin:0 0 3px;font-weight:500;}
-  table.idgrid .v{font-size:12px;line-height:1.25;word-wrap:break-word;overflow-wrap:anywhere;}
+  table.idgrid .v{font-size:11px;line-height:1.25;word-wrap:break-word;overflow-wrap:anywhere;overflow:hidden;max-height:3.4em;}
   .comb{display:inline-block;vertical-align:middle;font-size:0;}
   .comb i{display:inline-block;width:13px;height:17px;border:1px solid #555;margin:0;}
   .chk{width:13px;height:13px;border:1.6px solid #000;display:inline-block;vertical-align:middle;}
@@ -45,24 +46,20 @@ const SHEET_CSS = `
   }
   table.pt th:first-child, table.pt td:first-child{border-left:1px solid #000;}
   table.pt thead tr:first-child th{border-top:1px solid #000;}
-  table.pt th{font-size:9px;font-weight:600;text-align:left;line-height:1.2;vertical-align:bottom;background:#fff;}
+  table.pt th{font-size:7.5px;font-weight:600;text-align:left;line-height:1.15;vertical-align:bottom;background:#fff;}
   table.pt th.c{text-align:center;}
   table.pt td{font-size:11px;line-height:1.2;vertical-align:middle;background:#fff;}
   table.pt td.n{font-size:10px;text-align:center;width:22px;}
   table.pt td.prod{font-size:10px;line-height:1.2;}
   table.pt td.spec{font-size:10px;}
-  table.pt td.tick{text-align:center;}
   table.pt td.cc{text-align:center;}
-  table.pt td.inc{text-align:center;background:#F0F0F0;}
-  table.pt td.nota{background:#F0F0F0;}
+  table.pt td.cod{min-width:28px;}
+  table.pt td.nota{min-height:28px;}
+  table.pt td.tick{text-align:center;}
   table.pt tbody tr{height:32px;}
   .tk{width:16px;height:16px;border:1.6px solid #000;display:inline-block;}
-  .incbox{width:18px;height:18px;border:1.6px solid #000;display:inline-block;}
-  .codes{border:2px solid #000;margin-top:6px;padding:5px 7px;}
-  .codes b{font-size:10px;}
-  .codes span{font-size:10.5px;}
-  .codes .k{font-family:'IBM Plex Mono','Consolas',monospace;font-weight:700;border:1.4px solid #000;
-            padding:0 4px;margin:0 3px 0 8px;}
+  .codes{border:2px solid #000;margin-top:6px;min-height:42px;padding:5px 7px;}
+  .codes b{font-size:9.5px;display:block;}
   table.totals{width:100%;border-collapse:separate;border-spacing:6px;table-layout:fixed;margin-top:2px;}
   table.totals td{border:2px solid #000;padding:4px 6px;vertical-align:top;}
   table.totals label{display:block;font-size:9.5px;font-weight:600;line-height:1.2;margin:0 0 3px;}
@@ -87,8 +84,9 @@ const SHEET_CSS = `
   table.deliv td.sello{border:1.2px dashed #000;height:78px;text-align:center;vertical-align:bottom;
                        font-size:9.5px;padding-bottom:6px;width:32%;}
   .accept .item{display:inline-block;font-size:11px;margin:0 10px 4px 0;}
-  .accept .motivo{font-size:9.5px;margin-top:8px;}
-  .accept .line{height:1px;background:#000;margin-top:12px;}
+  .accept .motivo{font-size:9.5px;margin-top:6px;}
+  .accept .line{height:1px;background:#000;margin-top:4px;margin-bottom:2px;}
+  .accept .nombre{font-size:9.5px;margin-top:8px;}
   .foot{margin-top:6px;border-top:1.2px solid #000;padding-top:4px;font-size:9.8px;line-height:1.4;}
   .foot .foto{text-align:right;margin-top:4px;}
   @media print{
@@ -134,7 +132,7 @@ function buildProductRows(data: OrdenTareaAlmacenPrintData): string {
         `<td class="spec">${linea ? fieldValue(linea.especificacion) : ""}</td>` +
         `<td class="cc">${cantidad}</td>` +
         `<td class="cc">${COMB3}</td>` +
-        `<td class="inc"><span class="incbox"></span></td>` +
+        `<td class="cod"></td>` +
         `<td class="nota"></td>` +
         `<td class="tick"><span class="tk"></span></td>` +
         `<td class="tick"><span class="tk"></span></td></tr>`,
@@ -148,7 +146,7 @@ export function buildOrdenTareaAlmacenHtml(
   data: OrdenTareaAlmacenPrintData,
 ): string {
   const folio = fieldValue(data.folio);
-  const title = `Orden de almacén ${data.folio}`;
+  const title = `Orden de venta ${data.folio}`;
   const renglones = String(data.lineas.length);
 
   return `<!DOCTYPE html>
@@ -163,7 +161,7 @@ export function buildOrdenTareaAlmacenHtml(
 <div class="sheet">
   <table class="hdr"><tr>
     <td>
-      <h1>ORDEN DE TAREA — ALMACÉN</h1>
+      <h1>ORDEN DE VENTA</h1>
       <div class="folio">
         <span class="mono big">${folio}</span> &nbsp;·&nbsp; Hoja <span class="mono">1</span> de <span class="mono">1</span>
         &nbsp;·&nbsp; Impresa <span class="mono">${fieldValue(data.impresa)}</span><br>
@@ -191,7 +189,7 @@ export function buildOrdenTareaAlmacenHtml(
         <div class="v"><span class="chk"></span> PM &nbsp; <span class="chk"></span> Noche/AM</div></td>
     </tr>
     <tr>
-      <td colspan="2"><label>Dirección de entrega</label><div class="v">${fieldValue(data.direccionEntrega)}</div></td>
+      <td colspan="2" class="addr"><label>Dirección de entrega</label><div class="v">${fieldValue(data.direccionEntrega)}</div></td>
       <td><label>Chofer</label><div class="v"></div></td>
       <td><label>Unidad</label><div class="v"></div></td>
     </tr>
@@ -200,33 +198,22 @@ export function buildOrdenTareaAlmacenHtml(
   <table class="pt">
     <colgroup>
       <col style="width:22px"><col style="width:28%"><col style="width:16%">
-      <col style="width:12%"><col style="width:12%">
-      <col style="width:28px"><col>
+      <col style="width:11%"><col style="width:11%">
+      <col style="width:32px"><col>
       <col style="width:34px"><col style="width:34px">
     </colgroup>
     <thead>
       <tr>
-        <th colspan="5">&nbsp;</th>
-        <th colspan="2">SI ALGO NO SALIÓ COMO SE PIDIÓ</th>
-        <th colspan="2">TURNO PM</th>
-      </tr>
-      <tr>
         <th class="n">#</th><th>Producto</th><th>Especificación</th>
         <th class="c">Cant. solicitada</th><th class="c">Cant. preparada</th>
-        <th>Cód.</th><th>Nota — qué pasó con este producto</th>
-        <th>Alistó</th><th>Revisó</th>
+        <th class="c">Cód.</th><th>Nota</th>
+        <th class="c">Alistó</th><th class="c">Revisó</th>
       </tr>
     </thead>
     <tbody>${buildProductRows(data)}</tbody>
   </table>
   <div class="codes">
-    <b>Códigos:</b>
-    <span class="k">A</span>No había suficiente
-    <span class="k">B</span>Se sustituyó
-    <span class="k">C</span>Calidad no cumple
-    <span class="k">D</span>No está en la factura
-    <span class="k">E</span>Especificación poco clara
-    <span class="k">F</span>Otro — explicar en la nota
+    <b>Códigos</b>
   </div>
   <table class="totals">
     <tr>
@@ -276,10 +263,10 @@ export function buildOrdenTareaAlmacenHtml(
       <span class="item"><span class="chk"></span> Aceptado parcial</span>
       <span class="item"><span class="chk"></span> Rechazado</span>
       <span class="item"><span class="chk"></span> Retorno de factura</span>
-      <div class="line"></div>
       <div class="motivo">Motivo si es parcial o rechazado — y qué producto</div>
       <div class="line"></div>
-      <div class="motivo">Nombre de quien recibe &nbsp;&nbsp;&nbsp; Hora ${COMB2}${COMB2}</div>
+      <div class="nombre">Nombre de quien recibe &nbsp;&nbsp;&nbsp; Hora ${COMB2}${COMB2}</div>
+      <div class="line"></div>
     </td>
     <td class="sello">Sello y firma del cliente</td>
   </tr></table>

@@ -78,7 +78,7 @@ export function mapOrdenVentaToAlmacenPrintData(input: {
       const nota = notaCapturaForProducto(captura.notasLineas, producto);
       return {
         producto,
-        especificacion: nota || linea.producto?.sku?.trim() || "",
+        especificacion: nota,
         cantidadSolicitada: `${formatKgEs(linea.cantidad_pedida)} kg`,
       };
     }),

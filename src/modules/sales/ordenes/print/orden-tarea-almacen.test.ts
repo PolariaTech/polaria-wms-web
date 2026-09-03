@@ -65,7 +65,7 @@ describe("orden de tarea almacén", () => {
     expect(data.folio).toBe("OV-001");
     expect(data.cliente).toContain("Edgar Escobar");
     expect(data.lineas[0]?.producto).toBe("HPR FROZEN-PORK RACKS");
-    expect(data.lineas[0]?.especificacion).toBe("IOZ7Z");
+    expect(data.lineas[0]?.especificacion).toBe("");
     expect(data.lineas[0]?.cantidadSolicitada).toContain("10");
   });
 
@@ -103,8 +103,37 @@ describe("orden de tarea almacén", () => {
 
     expect(html).toContain("OV-001");
     expect(html).toContain("HPR FROZEN-PORK RACKS");
-    expect(html).toContain("ORDEN DE TAREA — ALMACÉN");
+    expect(html).toContain("ORDEN DE VENTA");
     expect(html).toContain("216mm 330mm");
+    expect(html).not.toContain("IOZ7Z");
+    expect(html).not.toContain("Si algo no salió");
+    expect(html).toContain("<th class=\"c\">Alistó</th>");
+    expect(html).toContain("<th class=\"c\">Revisó</th>");
+    expect(html).not.toContain("No había suficiente");
+  });
+
+  it("deja la especificación vacía si el pedido no trajo nota de línea", () => {
+    const data = mapOrdenVentaToAlmacenPrintData({
+      listRow: LIST_ROW,
+      detalle: DETALLE,
+    });
+    expect(data.lineas[0]?.especificacion).toBe("");
+  });
+
+  it("mantiene una sola hoja aunque la dirección sea larga", () => {
+    const data = mapOrdenVentaToAlmacenPrintData({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        observaciones: [
+          "Dirección de entrega: Carretera Chetumal—Puerto Juárez Km 282, Solidaridad, Q. Roo CP 77710 — Si — más de 30 km en tramo federal",
+        ].join("\n"),
+      },
+      printedAt: new Date("2026-08-26T17:44:00"),
+    });
+    const pdf = buildOrdenTareaAlmacenPdf(data);
+    expect(pdf.getNumberOfPages()).toBe(1);
+    expect(data.direccionEntrega).toContain("Km 282");
   });
 
   it("genera un PDF de una hoja oficio con folio y cliente", () => {
