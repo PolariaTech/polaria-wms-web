@@ -16,7 +16,11 @@ interface OrdenVentaProductoPickerModalProps {
 }
 
 function normalizeSearch(value: string): string {
-  return value.trim().toLowerCase();
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
 }
 
 export function OrdenVentaProductoPickerModal({
@@ -32,7 +36,9 @@ export function OrdenVentaProductoPickerModal({
     const needle = normalizeSearch(query);
     if (!needle) return productos;
     return productos.filter((row) => {
-      const haystack = `${row.nombre} ${row.codigo}`.toLowerCase();
+      const haystack = normalizeSearch(
+        `${row.nombre} ${row.codigo} ${row.equivalencia ?? ""}`,
+      );
       return haystack.includes(needle);
     });
   }, [productos, query]);
@@ -54,7 +60,7 @@ export function OrdenVentaProductoPickerModal({
       footerAction={<></>}
       cancelLabel="Cerrar"
       compact
-      size="md"
+      size="lg"
     >
       {productos.length > 4 ? (
         <div className="relative mb-3">
@@ -66,7 +72,7 @@ export function OrdenVentaProductoPickerModal({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por nombre o código"
+            placeholder="Buscar por nombre, código o equivalencia"
             aria-label="Buscar producto"
             className={cn(
               "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-2.5 pl-10 pr-4",
@@ -85,17 +91,21 @@ export function OrdenVentaProductoPickerModal({
         </p>
       ) : (
         <div className="max-h-[min(55dvh,24rem)] overflow-auto rounded-xl border border-polaria-w-08">
-          <table className="w-full table-fixed border-collapse text-left">
+          <table className="w-full min-w-[36rem] table-fixed border-collapse text-left">
             <colgroup>
-              <col className="w-[38%]" />
+              <col className="w-[28%]" />
+              <col className="w-[22%]" />
+              <col className="w-[14%]" />
               <col className="w-[18%]" />
-              <col className="w-[22%]" />
-              <col className="w-[22%]" />
+              <col className="w-[18%]" />
             </colgroup>
             <thead className="sticky top-0 bg-polaria-t-08">
               <tr className="border-b border-polaria-t-20">
                 <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   Nombre
+                </th>
+                <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+                  Equivalencia
                 </th>
                 <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   Código
@@ -111,6 +121,7 @@ export function OrdenVentaProductoPickerModal({
             <tbody>
               {filtered.map((row) => {
                 const isSelected = row.idProducto === selectedId;
+                const equivalencia = row.equivalencia?.trim() || "—";
                 return (
                   <tr
                     key={row.idProducto}
@@ -139,6 +150,9 @@ export function OrdenVentaProductoPickerModal({
                   >
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm">
                       <span className="line-clamp-2">{row.nombre}</span>
+                    </td>
+                    <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
+                      <span className="line-clamp-2">{equivalencia}</span>
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm font-medium text-polaria-teal">
                       {row.codigo}

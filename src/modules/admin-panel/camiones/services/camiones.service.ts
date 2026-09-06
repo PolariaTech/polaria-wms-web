@@ -23,6 +23,7 @@ export interface CamionListRow {
   capacidadPallets: number | null;
   rangoTemperatura: string | null;
   disponible: boolean;
+  estaActivo: boolean;
   createdAt: string;
 }
 
@@ -38,11 +39,12 @@ interface CamionDbRow {
   tipo: CamionTipo | string;
   rango_temperatura: string | null;
   disponible: boolean;
+  esta_activo?: boolean | null;
   created_at: string;
 }
 
 const CAMION_LIST_COLUMNS =
-  "id_camion,codigo,placa,marca,modelo,capacidad_kg,capacidad_m3,capacidad_pallets,tipo,rango_temperatura,disponible,created_at";
+  "id_camion,codigo,placa,marca,modelo,capacidad_kg,capacidad_m3,capacidad_pallets,tipo,rango_temperatura,disponible,esta_activo,created_at";
 
 function parseDecimal(value: string | number | null | undefined): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -63,6 +65,7 @@ function mapCamionRow(row: CamionDbRow): CamionListRow {
     capacidadPallets: row.capacidad_pallets,
     rangoTemperatura: row.rango_temperatura,
     disponible: row.disponible,
+    estaActivo: row.esta_activo !== false,
     createdAt: row.created_at,
   };
 }
@@ -74,25 +77,33 @@ export function formatCamionId(idCamion: string): string {
 export interface ListCamionesParams {
   codigoCuenta: string;
   limit?: number;
+  /** true (default) solo activos; false incluye deshabilitados (tablas admin). */
+  soloActivos?: boolean;
 }
 
-/** Lista camiones activos de la cuenta (scope tenant). */
+/** Lista camiones de la cuenta (scope tenant). */
 export async function listCamionesAdmin(
   params: ListCamionesParams,
 ): Promise<CamionListRow[]> {
   const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
+  const soloActivos = params.soloActivos !== false;
 
   const rows = await runDomainQuery<CamionDbRow[]>((client) => {
-    const query = client
+    let query = client
       .from("camion")
       .select(CAMION_LIST_COLUMNS)
-      .eq("codigo_cuenta", codigoCuenta)
-      .eq("esta_activo", true)
+      .eq("codigo_cuenta", codigoCuenta);
+
+    if (soloActivos) {
+      query = query.eq("esta_activo", true);
+    }
+
+    const finalQuery = query
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    return query as unknown as Promise<{
+    return finalQuery as unknown as Promise<{
       data: CamionDbRow[] | null;
       error: { message: string } | null;
     }>;
@@ -300,4 +311,65 @@ export async function updateCamionAdmin(
   }
 
   return mapCamionRow(updated);
+}
+
+export interface DeactivateCamionParams {
+  codigoCuenta: string;
+  idCamion: string;
+}
+
+/** Deshabilita un camión (baja lógica). */
+export async function deactivateCamionAdmin(
+  params: DeactivateCamionParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idCamion = params.idCamion.trim();
+
+  if (!idCamion) {
+    throw new DomainServiceError(
+      "Falta el identificador del camión.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("camion")
+      .update({ esta_activo: false })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_camion", idCamion);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
+}
+
+/** Reactiva un camión deshabilitado. */
+export async function activateCamionAdmin(
+  params: DeactivateCamionParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idCamion = params.idCamion.trim();
+
+  if (!idCamion) {
+    throw new DomainServiceError(
+      "Falta el identificador del camión.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("camion")
+      .update({ esta_activo: true })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_camion", idCamion);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
 }

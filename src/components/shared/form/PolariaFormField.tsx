@@ -61,6 +61,7 @@ interface PolariaFormInputProps
   label: string;
   hint?: string;
   fieldClassName?: string;
+  controlClassName?: string;
   compact?: boolean;
 }
 
@@ -69,6 +70,7 @@ export function PolariaFormInput({
   label,
   hint,
   fieldClassName,
+  controlClassName,
   compact = false,
   required,
   ...inputProps
@@ -85,7 +87,10 @@ export function PolariaFormInput({
       <input
         id={id}
         required={required}
-        className={compact ? INPUT_CLASS_COMPACT : INPUT_CLASS}
+        className={cn(
+          compact ? INPUT_CLASS_COMPACT : INPUT_CLASS,
+          controlClassName,
+        )}
         {...inputProps}
       />
     </PolariaFormField>
@@ -109,6 +114,7 @@ interface PolariaFormSelectProps
   options: readonly PolariaFormSelectOption[];
   placeholder?: string;
   fieldClassName?: string;
+  controlClassName?: string;
   compact?: boolean;
 }
 
@@ -119,6 +125,7 @@ export function PolariaFormSelect({
   options,
   placeholder,
   fieldClassName,
+  controlClassName,
   compact = false,
   required,
   ...selectProps
@@ -135,7 +142,10 @@ export function PolariaFormSelect({
       <select
         id={id}
         required={required}
-        className={compact ? SELECT_CLASS_COMPACT : SELECT_CLASS}
+        className={cn(
+          compact ? SELECT_CLASS_COMPACT : SELECT_CLASS,
+          controlClassName,
+        )}
         {...selectProps}
       >
         {placeholder ? (

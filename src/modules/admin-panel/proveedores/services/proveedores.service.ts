@@ -18,6 +18,7 @@ export interface ProveedorListRow {
   nombre: string;
   telefono: string | null;
   email: string | null;
+  estaActivo: boolean;
 }
 
 interface ProveedorDbRow {
@@ -26,6 +27,7 @@ interface ProveedorDbRow {
   razon_social: string;
   telefono: string | null;
   email: string | null;
+  esta_activo?: boolean | null;
 }
 
 const PROVEEDOR_DISPLAY_SEPARATOR = " — ";
@@ -57,7 +59,7 @@ export function decodeProveedorRazonSocial(razonSocial: string): {
 }
 
 const PROVEEDOR_LIST_COLUMNS =
-  "id_proveedor,codigo,razon_social,telefono,email";
+  "id_proveedor,codigo,razon_social,telefono,email,esta_activo";
 
 function mapProveedorRow(row: ProveedorDbRow): ProveedorListRow {
   const { proveedor, nombre } = decodeProveedorRazonSocial(row.razon_social);
@@ -69,6 +71,7 @@ function mapProveedorRow(row: ProveedorDbRow): ProveedorListRow {
     nombre,
     telefono: row.telefono,
     email: row.email,
+    estaActivo: row.esta_activo !== false,
   };
 }
 
@@ -79,25 +82,33 @@ export function formatProveedorId(idProveedor: string): string {
 export interface ListProveedoresParams {
   codigoCuenta: string;
   limit?: number;
+  /** true (default) solo activos; false incluye deshabilitados (tablas admin). */
+  soloActivos?: boolean;
 }
 
-/** Lista proveedores activos de la cuenta (scope tenant). */
+/** Lista proveedores de la cuenta (scope tenant). */
 export async function listProveedoresAdmin(
   params: ListProveedoresParams,
 ): Promise<ProveedorListRow[]> {
   const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
+  const soloActivos = params.soloActivos !== false;
 
   const rows = await runDomainQuery<ProveedorDbRow[]>((client) => {
-    const query = client
+    let query = client
       .from("proveedor")
       .select(PROVEEDOR_LIST_COLUMNS)
-      .eq("codigo_cuenta", codigoCuenta)
-      .eq("esta_activo", true)
+      .eq("codigo_cuenta", codigoCuenta);
+
+    if (soloActivos) {
+      query = query.eq("esta_activo", true);
+    }
+
+    const finalQuery = query
       .order("razon_social", { ascending: true })
       .limit(limit);
 
-    return query as unknown as Promise<{
+    return finalQuery as unknown as Promise<{
       data: ProveedorDbRow[] | null;
       error: { message: string } | null;
     }>;
@@ -273,4 +284,65 @@ export async function updateProveedorAdmin(
   }
 
   return mapProveedorRow(updated);
+}
+
+export interface DeactivateProveedorParams {
+  codigoCuenta: string;
+  idProveedor: string;
+}
+
+/** Deshabilita un proveedor (baja lógica). */
+export async function deactivateProveedorAdmin(
+  params: DeactivateProveedorParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idProveedor = params.idProveedor.trim();
+
+  if (!idProveedor) {
+    throw new DomainServiceError(
+      "Falta el identificador del proveedor.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("proveedor")
+      .update({ esta_activo: false })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_proveedor", idProveedor);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
+}
+
+/** Reactiva un proveedor deshabilitado. */
+export async function activateProveedorAdmin(
+  params: DeactivateProveedorParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idProveedor = params.idProveedor.trim();
+
+  if (!idProveedor) {
+    throw new DomainServiceError(
+      "Falta el identificador del proveedor.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("proveedor")
+      .update({ esta_activo: true })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_proveedor", idProveedor);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
 }

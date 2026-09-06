@@ -71,6 +71,7 @@ export { CatalogoListView } from "./catalogo/components/CatalogoListView";
 export { ProductoCatalogoCreateModal } from "./catalogo/components/ProductoCatalogoCreateModal";
 export { ProductoCatalogoEditModal } from "./catalogo/components/ProductoCatalogoEditModal";
 export { ProductoSecundarioCreateModal } from "./catalogo/components/ProductoSecundarioCreateModal";
+export { ListaPrecioListView } from "./lista-precio/components/ListaPrecioListView";
 export { InventarioMercanciaReportView } from "./inventario-mercancia/components/InventarioMercanciaReportView";
 export { InventarioMercanciaFlow } from "./inventario-mercancia/components/InventarioMercanciaFlow";
 
@@ -215,6 +216,11 @@ export {
   CATALOGO_PAGE_TITLE,
   CATALOGO_TABLE_SUBTITLE,
   CATALOGO_TABLE_TITLE,
+  LISTA_PRECIO_EMPTY_MESSAGE,
+  LISTA_PRECIO_PAGE_HINT,
+  LISTA_PRECIO_PAGE_TITLE,
+  LISTA_PRECIO_TABLE_SUBTITLE,
+  LISTA_PRECIO_TABLE_TITLE,
   CAMIONES_EMPTY_MESSAGE,
   CAMIONES_PAGE_HINT,
   CAMIONES_PAGE_TITLE,

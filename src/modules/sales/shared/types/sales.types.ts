@@ -44,6 +44,8 @@ export interface ProductoVentaOption {
   idBodega: string;
   codigo: string;
   nombre: string;
+  /** Nombre con el que este comprador conoce el producto (si tiene equivalencia). */
+  equivalencia?: string | null;
   kgDisponible: number;
   precioUnitario: number;
 }

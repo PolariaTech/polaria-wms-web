@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
+import {
+  getOrdersVisibleSinceDate,
+  setSupabaseClientForTests,
+} from "@/lib/supabase/domain-query";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
 import {
   listOrdenesCompra,
@@ -34,9 +37,13 @@ describe("purchases.service", () => {
     });
 
     expect(chain.eq).toHaveBeenCalledWith("id_bodega", "BOD-01");
-    expect(chain.gte).toHaveBeenCalledWith("fecha_emision", "2026-01-01");
-    expect(chain.lt).toHaveBeenCalledWith("fecha_emision", "2027-01-01");
-    expect(chain.order).toHaveBeenCalledWith("fecha_emision", { ascending: true });
+    expect(chain.gte).toHaveBeenCalledWith(
+      "fecha_emision",
+      getOrdersVisibleSinceDate(7),
+    );
+    expect(chain.order).toHaveBeenCalledWith("fecha_emision", {
+      ascending: false,
+    });
   });
 
   it("listRecepciones exige codigo_cuenta", async () => {

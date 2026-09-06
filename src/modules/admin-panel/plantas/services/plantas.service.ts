@@ -17,6 +17,7 @@ export interface PlantaListRow {
   direccion: string;
   capacidadPallets: number | null;
   rangoTemperatura: string | null;
+  estaActivo: boolean;
 }
 
 interface PlantaDbRow {
@@ -26,10 +27,11 @@ interface PlantaDbRow {
   direccion: string;
   capacidad_pallets: number | null;
   rango_temperatura: string | null;
+  esta_activo?: boolean | null;
 }
 
 const PLANTA_LIST_COLUMNS =
-  "id_planta,codigo,nombre,direccion,capacidad_pallets,rango_temperatura";
+  "id_planta,codigo,nombre,direccion,capacidad_pallets,rango_temperatura,esta_activo";
 
 function mapPlantaRow(row: PlantaDbRow): PlantaListRow {
   return {
@@ -39,6 +41,7 @@ function mapPlantaRow(row: PlantaDbRow): PlantaListRow {
     direccion: row.direccion,
     capacidadPallets: row.capacidad_pallets,
     rangoTemperatura: row.rango_temperatura,
+    estaActivo: row.esta_activo !== false,
   };
 }
 
@@ -49,25 +52,31 @@ export function formatPlantaId(idPlanta: string): string {
 export interface ListPlantasParams {
   codigoCuenta: string;
   limit?: number;
+  /** true (default) solo activas; false incluye deshabilitadas (tablas admin). */
+  soloActivos?: boolean;
 }
 
-/** Lista plantas activas de la cuenta (scope tenant). */
+/** Lista plantas de la cuenta (scope tenant). */
 export async function listPlantasAdmin(
   params: ListPlantasParams,
 ): Promise<PlantaListRow[]> {
   const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
+  const soloActivos = params.soloActivos !== false;
 
   const rows = await runDomainQuery<PlantaDbRow[]>((client) => {
-    const query = client
+    let query = client
       .from("planta")
       .select(PLANTA_LIST_COLUMNS)
-      .eq("codigo_cuenta", codigoCuenta)
-      .eq("esta_activo", true)
-      .order("nombre", { ascending: true })
-      .limit(limit);
+      .eq("codigo_cuenta", codigoCuenta);
 
-    return query as unknown as Promise<{
+    if (soloActivos) {
+      query = query.eq("esta_activo", true);
+    }
+
+    const finalQuery = query.order("nombre", { ascending: true }).limit(limit);
+
+    return finalQuery as unknown as Promise<{
       data: PlantaDbRow[] | null;
       error: { message: string } | null;
     }>;
@@ -241,4 +250,65 @@ export async function updatePlantaAdmin(
   }
 
   return mapPlantaRow(updated);
+}
+
+export interface DeactivatePlantaParams {
+  codigoCuenta: string;
+  idPlanta: string;
+}
+
+/** Deshabilita una planta (baja lógica). */
+export async function deactivatePlantaAdmin(
+  params: DeactivatePlantaParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idPlanta = params.idPlanta.trim();
+
+  if (!idPlanta) {
+    throw new DomainServiceError(
+      "Falta el identificador de la planta.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("planta")
+      .update({ esta_activo: false })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_planta", idPlanta);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
+}
+
+/** Reactiva una planta deshabilitada. */
+export async function activatePlantaAdmin(
+  params: DeactivatePlantaParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idPlanta = params.idPlanta.trim();
+
+  if (!idPlanta) {
+    throw new DomainServiceError(
+      "Falta el identificador de la planta.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("planta")
+      .update({ esta_activo: true })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_planta", idPlanta);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
 }

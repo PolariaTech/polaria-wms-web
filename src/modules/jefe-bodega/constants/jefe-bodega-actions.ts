@@ -1,7 +1,7 @@
 import {
   ArrowLeftRight,
   Box,
-  Cpu,
+  ClipboardList,
   PackagePlus,
   Search,
   type LucideIcon,
@@ -12,7 +12,7 @@ export type JefeBodegaActionId =
   | "ingresos"
   | "bodega-a-bodega"
   | "revisar"
-  | "procesamiento"
+  | "ordenes-venta"
   | "crear-salida";
 
 export interface JefeBodegaAction {
@@ -47,11 +47,10 @@ export const JEFE_BODEGA_ACTIONS: readonly JefeBodegaAction[] = [
     icon: Search,
   },
   {
-    id: "procesamiento",
-    title: "Procesamiento",
-    subtitle: "Nueva orden",
-    icon: Cpu,
-    disabled: true,
+    id: "ordenes-venta",
+    title: "Órdenes de venta",
+    subtitle: "Descargar copia",
+    icon: ClipboardList,
   },
   {
     id: "crear-salida",

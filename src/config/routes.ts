@@ -35,6 +35,7 @@ export const ROUTES = {
   dashboardAdminAssignmentExternalWarehouse:
     "/dashboard/administracion/asignacion-creacion/bodega-externa",
   dashboardCatalog: "/dashboard/administracion/catalogo",
+  dashboardListaPrecio: "/dashboard/administracion/lista-precio",
   dashboardIngreso: "/dashboard/ingreso",
   /** Operario — ingresos, salidas, traslados y tareas */
   dashboardOperarioOperacion: "/dashboard/operario/operacion",

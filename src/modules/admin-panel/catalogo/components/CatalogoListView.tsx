@@ -1,11 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
+  PolariaTableActionGroup,
+  PolariaTableBadge,
   PolariaTableCode,
-  PolariaTableDeleteButton,
+  PolariaTableDisableButton,
   PolariaTableEditButton,
+  PolariaTableEnableButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { cn } from "@/lib/utils/cn";
@@ -23,6 +27,7 @@ import {
   CATALOGO_TABLE_MIN_WIDTH_CLASS,
 } from "../constants/catalogo-table-layout";
 import {
+  activateCatalogoProducto,
   deactivateCatalogoProducto,
   importCatalogoProductosFromFile,
   listCatalogoProductosAdmin,
@@ -32,6 +37,8 @@ import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/A
 import { ProductoCatalogoCreateModal } from "./ProductoCatalogoCreateModal";
 import { ProductoCatalogoEditModal } from "./ProductoCatalogoEditModal";
 import { ProductoSecundarioCreateModal } from "./ProductoSecundarioCreateModal";
+
+type PendingToggle = { row: CatalogoProductoListRow; mode: "disable" | "enable" };
 
 export function CatalogoListView() {
   const { codigoCuenta } = useCompany();
@@ -43,14 +50,22 @@ export function CatalogoListView() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isSecundarioOpen, setIsSecundarioOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(
+    null,
+  );
+  const [isToggling, setIsToggling] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const fetchProductos = useCallback(() => {
     if (!codigoCuenta) {
       return Promise.resolve([]);
     }
 
-    return listCatalogoProductosAdmin({ codigoCuenta, search });
+    return listCatalogoProductosAdmin({
+      codigoCuenta,
+      search,
+      soloActivos: false,
+    });
   }, [codigoCuenta, search]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
@@ -60,28 +75,35 @@ export function CatalogoListView() {
 
   const rows = data ?? [];
 
-  const handleDelete = useCallback(
-    async (row: CatalogoProductoListRow) => {
-      if (!codigoCuenta || deletingProductId) return;
+  const handleConfirmToggle = useCallback(async () => {
+    if (!codigoCuenta || !pendingToggle || isToggling) return;
 
-      const confirmed = window.confirm(
-        `¿Eliminar el producto "${row.titulo}" (${row.sku})?`,
-      );
-      if (!confirmed) return;
-
-      setDeletingProductId(row.idProducto);
-
-      try {
-        await deactivateCatalogoProducto(codigoCuenta, row.idProducto);
-        await reload();
-      } catch {
-        window.alert("No se pudo eliminar el producto.");
-      } finally {
-        setDeletingProductId(null);
+    setIsToggling(true);
+    setToggleError(null);
+    try {
+      if (pendingToggle.mode === "disable") {
+        await deactivateCatalogoProducto(
+          codigoCuenta,
+          pendingToggle.row.idProducto,
+        );
+      } else {
+        await activateCatalogoProducto(
+          codigoCuenta,
+          pendingToggle.row.idProducto,
+        );
       }
-    },
-    [codigoCuenta, deletingProductId, reload],
-  );
+      setPendingToggle(null);
+      await reload();
+    } catch {
+      setToggleError(
+        pendingToggle.mode === "disable"
+          ? "No se pudo deshabilitar el producto."
+          : "No se pudo habilitar el producto.",
+      );
+    } finally {
+      setIsToggling(false);
+    }
+  }, [codigoCuenta, isToggling, pendingToggle, reload]);
 
   const handleImportExcel = () => {
     if (!codigoCuenta || isImporting) return;
@@ -210,24 +232,44 @@ export function CatalogoListView() {
           cell: (row: CatalogoProductoListRow) => row.trackerInventario,
         },
         {
+          id: "vigencia",
+          header: "Vigencia",
+          cell: (row: CatalogoProductoListRow) =>
+            row.estaActivo ? (
+              <PolariaTableBadge>Activo</PolariaTableBadge>
+            ) : (
+              <PolariaTableBadge variant="neutral">Deshabilitado</PolariaTableBadge>
+            ),
+        },
+        {
           id: "acciones",
           header: "Acciones",
           cell: (row: CatalogoProductoListRow) => (
-            <div className="flex flex-nowrap items-center gap-2">
+            <PolariaTableActionGroup>
               <PolariaTableEditButton
+                disabled={!row.estaActivo}
                 onClick={() => setEditingProductId(row.idProducto)}
               />
-              <PolariaTableDeleteButton
-                disabled={deletingProductId === row.idProducto}
-                onClick={() => {
-                  void handleDelete(row);
-                }}
-              />
-            </div>
+              {row.estaActivo ? (
+                <PolariaTableDisableButton
+                  onClick={() => {
+                    setToggleError(null);
+                    setPendingToggle({ row, mode: "disable" });
+                  }}
+                />
+              ) : (
+                <PolariaTableEnableButton
+                  onClick={() => {
+                    setToggleError(null);
+                    setPendingToggle({ row, mode: "enable" });
+                  }}
+                />
+              )}
+            </PolariaTableActionGroup>
           ),
         },
       ]),
-    [deletingProductId, handleDelete],
+    [],
   );
 
   return (
@@ -334,6 +376,35 @@ export function CatalogoListView() {
         onCreated={() => {
           void reload();
         }}
+      />
+
+      <PolariaConfirmDialog
+        open={Boolean(pendingToggle)}
+        onClose={() => {
+          if (isToggling) return;
+          setPendingToggle(null);
+          setToggleError(null);
+        }}
+        onConfirm={() => {
+          void handleConfirmToggle();
+        }}
+        title={
+          pendingToggle?.mode === "enable"
+            ? "Habilitar producto"
+            : "Deshabilitar producto"
+        }
+        description={
+          pendingToggle
+            ? pendingToggle.mode === "enable"
+              ? `¿Habilitar el producto "${pendingToggle.row.titulo}" (${pendingToggle.row.sku})? Volverá a aparecer en formularios.`
+              : `¿Deshabilitar el producto "${pendingToggle.row.titulo}" (${pendingToggle.row.sku})? Seguirá visible en esta tabla, pero no aparecerá en formularios.`
+            : ""
+        }
+        confirmLabel={
+          pendingToggle?.mode === "enable" ? "Habilitar" : "Deshabilitar"
+        }
+        isSubmitting={isToggling}
+        error={toggleError}
       />
     </AdminCatalogListShell>
   );

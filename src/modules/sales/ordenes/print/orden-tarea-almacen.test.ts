@@ -120,7 +120,7 @@ describe("orden de tarea almacén", () => {
     expect(data.lineas[0]?.especificacion).toBe("");
   });
 
-  it("mantiene una sola hoja aunque la dirección sea larga", () => {
+  it("no pierde secciones: usa hasta dos hojas carta si hace falta", () => {
     const data = mapOrdenVentaToAlmacenPrintData({
       listRow: LIST_ROW,
       detalle: {
@@ -132,19 +132,20 @@ describe("orden de tarea almacén", () => {
       printedAt: new Date("2026-08-26T17:44:00"),
     });
     const pdf = buildOrdenTareaAlmacenPdf(data);
-    expect(pdf.getNumberOfPages()).toBe(1);
+    expect(pdf.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+    expect(pdf.getNumberOfPages()).toBeLessThanOrEqual(2);
     expect(data.direccionEntrega).toContain("Km 282");
   });
 
-  it("genera un PDF de una hoja oficio con folio y cliente", () => {
+  it("genera un PDF carta con folio y paginación", () => {
     const data = mapOrdenVentaToAlmacenPrintData({
       listRow: LIST_ROW,
       detalle: DETALLE,
       printedAt: new Date("2026-08-26T17:44:00"),
     });
     const pdf = buildOrdenTareaAlmacenPdf(data);
-    expect(pdf.getNumberOfPages()).toBe(1);
-    expect(pdf.internal.pageSize.getWidth()).toBe(216);
-    expect(pdf.internal.pageSize.getHeight()).toBe(330);
+    expect(pdf.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+    expect(pdf.internal.pageSize.getWidth()).toBeCloseTo(215.9, 1);
+    expect(pdf.internal.pageSize.getHeight()).toBeCloseTo(279.4, 1);
   });
 });

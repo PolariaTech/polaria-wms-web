@@ -63,15 +63,28 @@ export interface TenantListParams {
 
 export const DEFAULT_LIST_LIMIT = 1000;
 export const AUDIT_LIST_LIMIT = 25;
-export const ORDERS_VISIBLE_YEAR = 2026;
+export const ORDERS_VISIBLE_DAYS = 7;
 
-/** Filtra listados de órdenes al año visible (importaciones históricas quedan fuera). */
-export function applyVisibleYearFilter(
+/** Fecha local YYYY-MM-DD desde la cual se listan órdenes (últimos N días). */
+export function getOrdersVisibleSinceDate(
+  days: number = ORDERS_VISIBLE_DAYS,
+  now: Date = new Date(),
+): string {
+  const since = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  since.setDate(since.getDate() - days);
+  const year = since.getFullYear();
+  const month = String(since.getMonth() + 1).padStart(2, "0");
+  const day = String(since.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Filtra listados de OV/OC a los últimos N días (importaciones viejas quedan fuera). */
+export function applyRecentOrdersFilter(
   query: DomainSelectQuery,
   column: string,
-  year: number = ORDERS_VISIBLE_YEAR,
+  days: number = ORDERS_VISIBLE_DAYS,
 ): DomainSelectQuery {
-  return query.gte(column, `${year}-01-01`).lt(column, `${year + 1}-01-01`);
+  return query.gte(column, getOrdersVisibleSinceDate(days));
 }
 
 export function requireCodigoCuenta(codigoCuenta: string | null | undefined): string {

@@ -20,6 +20,7 @@ export interface ClienteListRow {
   nombre: string;
   nit: string;
   telefono: string | null;
+  estaActivo: boolean;
 }
 
 interface ClienteDbRow {
@@ -28,9 +29,10 @@ interface ClienteDbRow {
   nombre: string;
   nit: string;
   telefono: string | null;
+  esta_activo?: boolean | null;
 }
 
-const CLIENTE_LIST_COLUMNS = "id_cliente,codigo,nombre,nit,telefono";
+const CLIENTE_LIST_COLUMNS = "id_cliente,codigo,nombre,nit,telefono,esta_activo";
 
 function mapClienteRow(row: ClienteDbRow): ClienteListRow {
   return {
@@ -39,6 +41,7 @@ function mapClienteRow(row: ClienteDbRow): ClienteListRow {
     nombre: row.nombre,
     nit: row.nit,
     telefono: row.telefono,
+    estaActivo: row.esta_activo !== false,
   };
 }
 
@@ -57,25 +60,31 @@ function isValidNit(nit: string): boolean {
 export interface ListClientesParams {
   codigoCuenta: string;
   limit?: number;
+  /** true (default) solo activos; false incluye deshabilitados (tablas admin). */
+  soloActivos?: boolean;
 }
 
-/** Lista clientes activos de la cuenta (scope tenant). */
+/** Lista clientes de la cuenta (scope tenant). */
 export async function listClientesAdmin(
   params: ListClientesParams,
 ): Promise<ClienteListRow[]> {
   const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
+  const soloActivos = params.soloActivos !== false;
 
   const rows = await runDomainQuery<ClienteDbRow[]>((client) => {
-    const query = client
+    let query = client
       .from("cliente")
       .select(CLIENTE_LIST_COLUMNS)
-      .eq("codigo_cuenta", codigoCuenta)
-      .eq("esta_activo", true)
-      .order("nombre", { ascending: true })
-      .limit(limit);
+      .eq("codigo_cuenta", codigoCuenta);
 
-    return query as unknown as Promise<{
+    if (soloActivos) {
+      query = query.eq("esta_activo", true);
+    }
+
+    const finalQuery = query.order("nombre", { ascending: true }).limit(limit);
+
+    return finalQuery as unknown as Promise<{
       data: ClienteDbRow[] | null;
       error: { message: string } | null;
     }>;
@@ -256,4 +265,65 @@ export async function updateClienteAdmin(
   }
 
   return mapClienteRow(updated);
+}
+
+export interface DeactivateClienteParams {
+  codigoCuenta: string;
+  idCliente: string;
+}
+
+/** Deshabilita un cliente (baja lógica). */
+export async function deactivateClienteAdmin(
+  params: DeactivateClienteParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idCliente = params.idCliente.trim();
+
+  if (!idCliente) {
+    throw new DomainServiceError(
+      "Falta el identificador del cliente.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("cliente")
+      .update({ esta_activo: false })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_cliente", idCliente);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
+}
+
+/** Reactiva un cliente deshabilitado. */
+export async function activateClienteAdmin(
+  params: DeactivateClienteParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idCliente = params.idCliente.trim();
+
+  if (!idCliente) {
+    throw new DomainServiceError(
+      "Falta el identificador del cliente.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("cliente")
+      .update({ esta_activo: true })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_cliente", idCliente);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
 }

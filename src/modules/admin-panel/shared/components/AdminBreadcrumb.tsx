@@ -48,6 +48,13 @@ function getBreadcrumbTrail(pathname: string): BreadcrumbItem[] | null {
     ];
   }
 
+  if (pathname === ROUTES.dashboardListaPrecio) {
+    return [
+      { label: "Inicio", href: ROUTES.dashboard },
+      { label: "Lista de precio" },
+    ];
+  }
+
   const action = ADMIN_PANEL_ACTIONS.find((item) => item.href === pathname);
   if (action) {
     return [

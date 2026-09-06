@@ -20,12 +20,21 @@ import {
   emptyCompradorAltaFicha,
   type CompradorAltaFicha,
 } from "../utils/comprador-alta";
+import { CompradorEquivalenciasTable } from "./CompradorEquivalenciasTable";
+import { CompradorModalTabs } from "./CompradorModalTabs";
 
 interface CompradorDetalleModalProps {
   open: boolean;
   comprador: CompradorListRow | null;
   onClose: () => void;
 }
+
+type DetalleTab = "informacion" | "equivalencia";
+
+const DETALLE_TABS = [
+  { id: "informacion" as const, label: "Información" },
+  { id: "equivalencia" as const, label: "Equivalencia" },
+];
 
 function CaptureSection({
   title,
@@ -79,14 +88,18 @@ export function CompradorDetalleModal({
 }: CompradorDetalleModalProps) {
   const { codigoCuenta } = useCompany();
   const [detalle, setDetalle] = useState<CompradorDetalleRow | null>(null);
-  const [aliases, setAliases] = useState<CompradorProductoAliasListRow[]>([]);
+  const [equivalencias, setEquivalencias] = useState<
+    CompradorProductoAliasListRow[]
+  >([]);
+  const [activeTab, setActiveTab] = useState<DetalleTab>("informacion");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !comprador) {
       setDetalle(null);
-      setAliases([]);
+      setEquivalencias([]);
+      setActiveTab("informacion");
       setError(null);
       setIsLoading(false);
       return;
@@ -94,7 +107,8 @@ export function CompradorDetalleModal({
 
     if (!codigoCuenta) {
       setDetalle(null);
-      setAliases([]);
+      setEquivalencias([]);
+      setActiveTab("informacion");
       setError("No se encontró la cuenta activa.");
       setIsLoading(false);
       return;
@@ -103,6 +117,7 @@ export function CompradorDetalleModal({
     let cancelled = false;
     setIsLoading(true);
     setError(null);
+    setActiveTab("informacion");
 
     void Promise.all([
       getCompradorAdmin({
@@ -114,15 +129,15 @@ export function CompradorDetalleModal({
         idComprador: comprador.idComprador,
       }),
     ])
-      .then(([nextDetalle, nextAliases]) => {
+      .then(([nextDetalle, nextEquivalencias]) => {
         if (cancelled) return;
         setDetalle(nextDetalle);
-        setAliases(nextAliases);
+        setEquivalencias(nextEquivalencias);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
         setDetalle(null);
-        setAliases([]);
+        setEquivalencias([]);
         setError(
           err instanceof DomainServiceError
             ? err.message
@@ -171,11 +186,17 @@ export function CompradorDetalleModal({
       size="2xl"
       hideHeaderClose
     >
+      <CompradorModalTabs
+        tabs={DETALLE_TABS}
+        active={activeTab}
+        onChange={setActiveTab}
+      />
+
       {isLoading ? (
         <p className="polaria-text-body-sm text-polaria-w-50">Cargando…</p>
       ) : null}
 
-      {!isLoading ? (
+      {!isLoading && activeTab === "informacion" ? (
         <div className="flex flex-col gap-3">
           <CaptureSection title="Identificación comercial">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -234,9 +255,6 @@ export function CompradorDetalleModal({
 
           <CaptureSection title="Condiciones comerciales">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <MetaField label="Lista de precios">
-                <TextValue value={ficha.listaPrecios} />
-              </MetaField>
               <MetaField label="Días de crédito">
                 <TextValue value={ficha.diasCredito} />
               </MetaField>
@@ -396,53 +414,15 @@ export function CompradorDetalleModal({
               </MetaField>
             </div>
           </CaptureSection>
+        </div>
+      ) : null}
 
-          <CaptureSection
-            title="Equivalencias de producto"
-            optional="Cómo le dice este hotel a cada producto"
-          >
-            {aliases.length === 0 ? (
-              <p className="polaria-text-body-sm text-polaria-w-50">
-                Este comprador no tiene equivalencias registradas.
-              </p>
-            ) : (
-              <div className="overflow-hidden rounded-xl border border-polaria-w-08">
-                <table className="w-full table-fixed border-collapse text-left">
-                  <thead className="bg-polaria-t-08">
-                    <tr className="border-b border-polaria-t-20">
-                      <th className="px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
-                        Código
-                      </th>
-                      <th className="px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
-                        Producto
-                      </th>
-                      <th className="px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
-                        Como lo escribe el hotel
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {aliases.map((row) => (
-                      <tr
-                        key={row.idAlias}
-                        className="border-b border-polaria-w-08 last:border-b-0"
-                      >
-                        <td className="px-3 py-2.5 polaria-text-body-sm font-medium text-polaria-teal">
-                          {row.codigoProducto}
-                        </td>
-                        <td className="px-3 py-2.5 polaria-text-body-sm text-polaria-w">
-                          {row.nombreProducto}
-                        </td>
-                        <td className="px-3 py-2.5 polaria-text-body-sm font-medium text-polaria-w">
-                          {row.alias}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CaptureSection>
+      {!isLoading && activeTab === "equivalencia" ? (
+        <div className="flex flex-col gap-3">
+          <p className="polaria-text-body-sm text-polaria-w-50">
+            Cómo le dice este hotel a cada producto del catálogo.
+          </p>
+          <CompradorEquivalenciasTable rows={equivalencias} />
         </div>
       ) : null}
     </PolariaFormModal>

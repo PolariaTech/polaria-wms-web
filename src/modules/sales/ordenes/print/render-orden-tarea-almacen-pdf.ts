@@ -1,10 +1,12 @@
 import { jsPDF } from "jspdf";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
-const PAGE_W = 216;
-const PAGE_H = 330;
+/** Carta: coincide con el destino típico del diálogo de impresión. */
+const PAGE_W = 215.9;
+const PAGE_H = 279.4;
 const MARGIN = 8;
 const CONTENT_W = PAGE_W - MARGIN * 2;
+const PAGE_BOTTOM = PAGE_H - MARGIN;
 const MIN_PRODUCT_ROWS = 10;
 
 function box(
@@ -88,6 +90,120 @@ function sectionTitle(
   return lineY + 2;
 }
 
+/** Si no cabe el bloque, abre hoja nueva y reinicia Y. */
+function ensureSpace(doc: jsPDF, y: number, needed: number): number {
+  if (y + needed <= PAGE_BOTTOM) return y;
+  doc.addPage([PAGE_W, PAGE_H], "portrait");
+  return MARGIN;
+}
+
+const PRODUCT_COLS = [
+  { key: "#", w: 8 },
+  { key: "Producto", w: 50 },
+  { key: "Especificación", w: 30 },
+  { key: "Cant.\nsolicitada", w: 20 },
+  { key: "Cant.\npreparada", w: 20 },
+  { key: "Cód.", w: 14 },
+  { key: "Nota", w: 34 },
+  { key: "Alistó", w: 12 },
+  { key: "Revisó", w: 12 },
+] as const;
+
+const PRODUCT_TABLE_W = PRODUCT_COLS.reduce((sum, col) => sum + col.w, 0);
+const PRODUCT_HEADER_H = 8;
+const PRODUCT_BODY_H = 8;
+
+function drawProductHeader(doc: jsPDF, y: number): number {
+  box(doc, MARGIN, y, PRODUCT_TABLE_W, PRODUCT_HEADER_H);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+
+  let hx = MARGIN;
+  for (const colDef of PRODUCT_COLS) {
+    const headerLines = colDef.key.split("\n");
+    doc.text(headerLines, hx + colDef.w / 2, y + 1.6, {
+      align: "center",
+      baseline: "top",
+      lineHeightFactor: 1.1,
+    });
+    hx += colDef.w;
+  }
+
+  let vx = MARGIN;
+  for (let index = 0; index < PRODUCT_COLS.length - 1; index += 1) {
+    vx += PRODUCT_COLS[index]!.w;
+    doc.line(vx, y, vx, y + PRODUCT_HEADER_H);
+  }
+
+  return y + PRODUCT_HEADER_H;
+}
+
+function drawProductRow(
+  doc: jsPDF,
+  y: number,
+  index: number,
+  linea: OrdenTareaAlmacenPrintData["lineas"][number] | undefined,
+): number {
+  box(doc, MARGIN, y, PRODUCT_TABLE_W, PRODUCT_BODY_H);
+  let x = MARGIN;
+  const mid = y + PRODUCT_BODY_H / 2;
+  const values = [
+    String(index + 1),
+    linea?.producto ?? "",
+    linea?.especificacion ?? "",
+    linea?.cantidadSolicitada ?? "",
+    "",
+    "",
+    "",
+    "",
+    "",
+  ];
+
+  for (let colIndex = 0; colIndex < PRODUCT_COLS.length; colIndex += 1) {
+    const colDef = PRODUCT_COLS[colIndex]!;
+    const value = values[colIndex] ?? "";
+    if (colIndex === 7 || colIndex === 8) {
+      checkbox(doc, x + colDef.w / 2 - 1.6, mid - 1.6);
+    } else if (value) {
+      const size = colIndex === 1 || colIndex === 2 ? 6.5 : 7.5;
+      doc.setFontSize(size);
+      doc.setFont("helvetica", "normal");
+      const wrapped = doc.splitTextToSize(value, colDef.w - 2);
+      const shown = (Array.isArray(wrapped) ? wrapped : [wrapped]).slice(0, 2);
+      const align = colIndex === 0 || colIndex === 3 ? "center" : "left";
+      const textX = align === "center" ? x + colDef.w / 2 : x + 1.2;
+      doc.text(shown, textX, mid, {
+        align,
+        baseline: "middle",
+        lineHeightFactor: 1.05,
+      });
+    }
+    x += colDef.w;
+    if (colIndex < PRODUCT_COLS.length - 1) {
+      doc.line(x, y, x, y + PRODUCT_BODY_H);
+    }
+  }
+
+  return y + PRODUCT_BODY_H;
+}
+
+function writePageNumbers(doc: jsPDF, folio: string, impresa: string) {
+  const total = doc.getNumberOfPages();
+  for (let page = 1; page <= total; page += 1) {
+    doc.setPage(page);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(80);
+    doc.text(
+      `${folio}  ·  Hoja ${page} de ${total}  ·  Impresa ${impresa}`,
+      MARGIN,
+      PAGE_H - 4,
+      { baseline: "bottom" },
+    );
+    doc.setTextColor(0);
+  }
+}
+
 export function buildOrdenTareaAlmacenPdf(
   data: OrdenTareaAlmacenPrintData,
 ): jsPDF {
@@ -98,6 +214,7 @@ export function buildOrdenTareaAlmacenPdf(
   });
 
   let y = MARGIN;
+  const folio = data.folio || "—";
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
@@ -116,20 +233,12 @@ export function buildOrdenTareaAlmacenPdf(
   });
 
   y += 8;
-  const folio = data.folio || "—";
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  const folioWidth = doc.getTextWidth(folio);
   doc.text(folio, MARGIN, y, { baseline: "top" });
+  y += 6;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text(
-    `·  Hoja 1 de 1  ·  Impresa ${data.impresa}`,
-    MARGIN + folioWidth + 2.5,
-    y + 1.4,
-    { baseline: "top" },
-  );
-  y += 6;
   doc.text("Factura asociada: _______________", MARGIN, y, { baseline: "top" });
 
   y += 8;
@@ -160,99 +269,27 @@ export function buildOrdenTareaAlmacenPdf(
   field(doc, MARGIN + col * 3, y, col, addrH, "Unidad");
   y += addrH + 3;
 
+  y = ensureSpace(doc, y, 12 + PRODUCT_HEADER_H + PRODUCT_BODY_H);
   y = sectionTitle(
     doc,
     y,
     "Productos",
     "Anotar la cantidad preparada. Si difiere, código y nota.",
   );
+  y = drawProductHeader(doc, y);
 
-  const cols = [
-    { key: "#", w: 8 },
-    { key: "Producto", w: 50 },
-    { key: "Especificación", w: 30 },
-    { key: "Cant.\nsolicitada", w: 20 },
-    { key: "Cant.\npreparada", w: 20 },
-    { key: "Cód.", w: 14 },
-    { key: "Nota", w: 34 },
-    { key: "Alistó", w: 12 },
-    { key: "Revisó", w: 12 },
-  ] as const;
-  const tableW = cols.reduce((sum, colDef) => sum + colDef.w, 0);
-  const headerH = 8;
-  const bodyH = 8;
-
-  box(doc, MARGIN, y, tableW, headerH);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
-
-  let hx = MARGIN;
-  for (const colDef of cols) {
-    const headerLines = colDef.key.split("\n");
-    doc.text(headerLines, hx + colDef.w / 2, y + 1.6, {
-      align: "center",
-      baseline: "top",
-      lineHeightFactor: 1.1,
-    });
-    hx += colDef.w;
-  }
-
-  let vx = MARGIN;
-  for (let index = 0; index < cols.length - 1; index += 1) {
-    vx += cols[index]!.w;
-    doc.line(vx, y, vx, y + headerH);
-  }
-
-  y += headerH;
   const rowCount = Math.max(MIN_PRODUCT_ROWS, data.lineas.length);
-  doc.setFont("helvetica", "normal");
-
   for (let index = 0; index < rowCount; index += 1) {
-    const linea = data.lineas[index];
-    box(doc, MARGIN, y, tableW, bodyH);
-    let x = MARGIN;
-    const mid = y + bodyH / 2;
-    const values = [
-      String(index + 1),
-      linea?.producto ?? "",
-      linea?.especificacion ?? "",
-      linea?.cantidadSolicitada ?? "",
-      "",
-      "",
-      "",
-      "",
-      "",
-    ];
-
-    for (let colIndex = 0; colIndex < cols.length; colIndex += 1) {
-      const colDef = cols[colIndex]!;
-      const value = values[colIndex] ?? "";
-      if (colIndex === 7 || colIndex === 8) {
-        checkbox(doc, x + colDef.w / 2 - 1.6, mid - 1.6);
-      } else if (value) {
-        const size = colIndex === 1 || colIndex === 2 ? 6.5 : 7.5;
-        doc.setFontSize(size);
-        doc.setFont("helvetica", "normal");
-        const wrapped = doc.splitTextToSize(value, colDef.w - 2);
-        const shown = (Array.isArray(wrapped) ? wrapped : [wrapped]).slice(0, 2);
-        const align = colIndex === 0 || colIndex === 3 ? "center" : "left";
-        const textX = align === "center" ? x + colDef.w / 2 : x + 1.2;
-        doc.text(shown, textX, mid, {
-          align,
-          baseline: "middle",
-          lineHeightFactor: 1.05,
-        });
-      }
-      x += colDef.w;
-      if (colIndex < cols.length - 1) {
-        doc.line(x, y, x, y + bodyH);
-      }
+    if (y + PRODUCT_BODY_H > PAGE_BOTTOM) {
+      y = ensureSpace(doc, y, PRODUCT_HEADER_H + PRODUCT_BODY_H);
+      y = drawProductHeader(doc, y);
     }
-    y += bodyH;
+    y = drawProductRow(doc, y, index, data.lineas[index]);
   }
 
   y += 2;
   const codesH = 16;
+  y = ensureSpace(doc, y, codesH + 3);
   box(doc, MARGIN, y, CONTENT_W, codesH);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
@@ -261,6 +298,7 @@ export function buildOrdenTareaAlmacenPdf(
 
   const totW = CONTENT_W / 4;
   const totH = 11;
+  y = ensureSpace(doc, y, totH + 3);
   const totLabels = [
     "Renglones en esta orden",
     "Renglones surtidos completos",
@@ -281,6 +319,7 @@ export function buildOrdenTareaAlmacenPdf(
   });
   y += totH + 3;
 
+  y = ensureSpace(doc, y, 30);
   y = sectionTitle(
     doc,
     y,
@@ -303,6 +342,7 @@ export function buildOrdenTareaAlmacenPdf(
   });
   y += 14;
 
+  y = ensureSpace(doc, y, 19);
   box(doc, MARGIN, y, CONTENT_W, 16, 0.6);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
@@ -321,6 +361,7 @@ export function buildOrdenTareaAlmacenPdf(
   });
   y += 19;
 
+  y = ensureSpace(doc, y, 17);
   box(doc, MARGIN, y, CONTENT_W, 14, 0.6);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
@@ -344,6 +385,8 @@ export function buildOrdenTareaAlmacenPdf(
   });
   y += 17;
 
+  const sigH = 16;
+  y = ensureSpace(doc, y, 10 + sigH);
   y = sectionTitle(doc, y, "Responsables", "Nombre y hora, siempre.");
   const roles = [
     ["Alistó", "Turno PM"],
@@ -352,7 +395,6 @@ export function buildOrdenTareaAlmacenPdf(
     ["Despachó", "Noche / AM"],
   ];
   const sigW = CONTENT_W / 4;
-  const sigH = 16;
   roles.forEach(([role, turno], index) => {
     const x = MARGIN + sigW * index;
     box(doc, x, y, sigW, sigH);
@@ -369,8 +411,9 @@ export function buildOrdenTareaAlmacenPdf(
   });
   y += sigH + 3;
 
-  y = sectionTitle(doc, y, "Recepción del cliente");
   const recH = 26;
+  y = ensureSpace(doc, y, 10 + recH);
+  y = sectionTitle(doc, y, "Recepción del cliente");
   const recW = CONTENT_W * 0.68;
   box(doc, MARGIN, y, recW, recH);
   box(doc, MARGIN + recW, y, CONTENT_W * 0.32, recH);
@@ -401,6 +444,7 @@ export function buildOrdenTareaAlmacenPdf(
   });
   y += recH + 3;
 
+  y = ensureSpace(doc, y, 14);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   doc.setLineWidth(0.3);
@@ -418,5 +462,6 @@ export function buildOrdenTareaAlmacenPdf(
     { baseline: "top" },
   );
 
+  writePageNumbers(doc, folio, data.impresa);
   return doc;
 }
