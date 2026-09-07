@@ -43,6 +43,7 @@ export interface CatalogoProductoListRow {
   impuesto: string;
   trackerInventario: string;
   stock: string;
+  estaActivo: boolean;
 }
 
 interface ProductoDbRow {
@@ -54,11 +55,12 @@ interface ProductoDbRow {
   es_secundario: boolean;
   unidad_visualizacion: string;
   id_producto_primario: string | null;
+  esta_activo?: boolean | null;
   metadatos_catalogo?: unknown;
 }
 
 const PRODUCTO_LIST_COLUMNS =
-  "id_producto,sku,descripcion,codigo_almacen,es_primario,es_secundario,unidad_visualizacion,id_producto_primario";
+  "id_producto,sku,descripcion,codigo_almacen,es_primario,es_secundario,unidad_visualizacion,id_producto_primario,esta_activo";
 
 export interface CreateCatalogoProductoInput {
   codigoCuenta: string;
@@ -208,6 +210,7 @@ function mapProductoRow(row: ProductoDbRow, index: number): CatalogoProductoList
     impuesto: meta.cobrarImpuesto ? "Sí" : "No",
     trackerInventario: meta.rastreadorInventario?.trim() || "—",
     stock: meta.cantidadInventario?.trim() || "0",
+    estaActivo: row.esta_activo !== false,
   };
 }
 
@@ -215,6 +218,8 @@ export interface ListCatalogoProductosParams {
   codigoCuenta: string;
   search?: string;
   limit?: number;
+  /** true (default) solo activos; false incluye deshabilitados (tabla admin). */
+  soloActivos?: boolean;
 }
 
 /** Lista productos del catálogo de la cuenta tenant. */
@@ -224,18 +229,24 @@ export async function listCatalogoProductosAdmin(
   const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
   const search = params.search?.trim().toLowerCase() ?? "";
+  const soloActivos = params.soloActivos !== false;
 
   const rows = await queryProductosCatalogo((selectColumns) =>
     runDomainQuery<ProductoDbRow[]>((client) => {
-      const query = client
+      let query = client
         .from("producto")
         .select(selectColumns)
-        .eq("codigo_cuenta", codigoCuenta)
-        .eq("esta_activo", true)
+        .eq("codigo_cuenta", codigoCuenta);
+
+      if (soloActivos) {
+        query = query.eq("esta_activo", true);
+      }
+
+      const finalQuery = query
         .order("created_at", { ascending: false })
         .limit(limit);
 
-      return query as unknown as Promise<{
+      return finalQuery as unknown as Promise<{
         data: ProductoDbRow[] | null;
         error: { message: string } | null;
       }>;
@@ -305,6 +316,52 @@ export async function listPreciosProductoVigentesAdmin(
   );
 
   return Object.fromEntries(mapLatestPrecioProductoById(chunkRows.flat()));
+}
+
+export interface InsertPrecioProductoVigenteParams {
+  codigoCuenta: string;
+  idProducto: string;
+  precio: number;
+  moneda?: string;
+}
+
+/** Inserta un precio vigente (historial: la fila más reciente manda). */
+export async function insertPrecioProductoVigenteAdmin(
+  params: InsertPrecioProductoVigenteParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idProducto = params.idProducto.trim();
+  const precio = params.precio;
+  const moneda = (params.moneda?.trim() || "MXN").toUpperCase();
+
+  if (!idProducto) {
+    throw new DomainServiceError(
+      "Falta el producto para actualizar el precio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!Number.isFinite(precio) || precio < 0) {
+    throw new DomainServiceError(
+      "Ingresa un precio válido (0 o mayor).",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client.from("precio_producto").insert({
+      codigo_cuenta: codigoCuenta,
+      id_producto: idProducto,
+      precio,
+      moneda,
+      fecha_aplicacion: new Date().toISOString(),
+    });
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
 }
 
 export interface ProductoPrimarioOption {
@@ -526,6 +583,32 @@ export async function deactivateCatalogoProducto(
     const query = client
       .from("producto")
       .update({ esta_activo: false })
+      .eq("codigo_cuenta", cuenta)
+      .eq("id_producto", id);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
+}
+
+/** Reactiva un producto del catálogo. */
+export async function activateCatalogoProducto(
+  codigoCuenta: string,
+  idProducto: string,
+): Promise<void> {
+  const cuenta = requireCodigoCuenta(codigoCuenta);
+  const id = idProducto.trim();
+
+  if (!id) {
+    throw new DomainServiceError("Producto no válido.", "INVALID_ARGUMENT");
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("producto")
+      .update({ esta_activo: true })
       .eq("codigo_cuenta", cuenta)
       .eq("id_producto", id);
 

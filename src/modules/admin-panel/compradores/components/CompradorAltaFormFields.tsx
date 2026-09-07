@@ -39,14 +39,6 @@ const ESTADO_OPTIONS = [
   { value: "Prospecto", label: "Prospecto" },
 ];
 
-const LISTA_PRECIOS_OPTIONS = [
-  { value: "", label: "—" },
-  { value: "General", label: "General" },
-  { value: "Hotelería A", label: "Hotelería A" },
-  { value: "Hotelería B", label: "Hotelería B" },
-  { value: "Negociada", label: "Negociada" },
-];
-
 const METODO_PAGO_OPTIONS = [
   { value: "PPD — Parcialidades o diferido", label: "PPD — Parcialidades o diferido" },
   { value: "PUE — Una sola exhibición", label: "PUE — Una sola exhibición" },
@@ -436,17 +428,6 @@ export function CompradorAltaFormFields({
         optional="Llenan solas la sección fiscal del pedido"
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <PolariaFormSelect
-            id={`${idPrefix}-lista`}
-            label="Lista de precios"
-            value={ficha.listaPrecios}
-            onChange={(event) =>
-              patchFicha(form, onChange, { listaPrecios: event.target.value })
-            }
-            options={LISTA_PRECIOS_OPTIONS}
-            disabled={disabled}
-            compact
-          />
           <PolariaFormInput
             id={`${idPrefix}-credito`}
             label="Días de crédito"

@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
+  PolariaTableActionGroup,
+  PolariaTableBadge,
   PolariaTableCode,
+  PolariaTableDisableButton,
   PolariaTableEditButton,
+  PolariaTableEnableButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -17,6 +22,8 @@ import {
   PLANTAS_TABLE_TITLE,
 } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
 import {
+  activatePlantaAdmin,
+  deactivatePlantaAdmin,
   formatPlantaId,
   listPlantasAdmin,
   type PlantaListRow,
@@ -25,19 +32,26 @@ import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/A
 import { PlantaCreateModal } from "./PlantaCreateModal";
 import { PlantaEditModal } from "./PlantaEditModal";
 
+type PendingToggle = { row: PlantaListRow; mode: "disable" | "enable" };
+
 export function PlantasListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPlanta, setEditingPlanta] = useState<PlantaListRow | null>(
     null,
   );
+  const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(
+    null,
+  );
+  const [isToggling, setIsToggling] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const fetchPlantas = useCallback(() => {
     if (!codigoCuenta) {
       return Promise.resolve([]);
     }
 
-    return listPlantasAdmin({ codigoCuenta });
+    return listPlantasAdmin({ codigoCuenta, soloActivos: false });
   }, [codigoCuenta]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
@@ -46,6 +60,36 @@ export function PlantasListView() {
   );
 
   const rows = data ?? [];
+
+  const handleConfirmToggle = useCallback(async () => {
+    if (!codigoCuenta || !pendingToggle || isToggling) return;
+
+    setIsToggling(true);
+    setToggleError(null);
+    try {
+      if (pendingToggle.mode === "disable") {
+        await deactivatePlantaAdmin({
+          codigoCuenta,
+          idPlanta: pendingToggle.row.idPlanta,
+        });
+      } else {
+        await activatePlantaAdmin({
+          codigoCuenta,
+          idPlanta: pendingToggle.row.idPlanta,
+        });
+      }
+      setPendingToggle(null);
+      await reload();
+    } catch {
+      setToggleError(
+        pendingToggle.mode === "disable"
+          ? "No se pudo deshabilitar la planta."
+          : "No se pudo habilitar la planta.",
+      );
+    } finally {
+      setIsToggling(false);
+    }
+  }, [codigoCuenta, isToggling, pendingToggle, reload]);
 
   const columns = useMemo(
     () =>
@@ -87,10 +131,40 @@ export function PlantasListView() {
           cell: (row: PlantaListRow) => row.rangoTemperatura ?? "—",
         },
         {
+          id: "estado",
+          header: "Estado",
+          cell: (row: PlantaListRow) =>
+            row.estaActivo ? (
+              <PolariaTableBadge>Activo</PolariaTableBadge>
+            ) : (
+              <PolariaTableBadge variant="neutral">Deshabilitado</PolariaTableBadge>
+            ),
+        },
+        {
           id: "acciones",
           header: "Acciones",
           cell: (row: PlantaListRow) => (
-            <PolariaTableEditButton onClick={() => setEditingPlanta(row)} />
+            <PolariaTableActionGroup>
+              <PolariaTableEditButton
+                disabled={!row.estaActivo}
+                onClick={() => setEditingPlanta(row)}
+              />
+              {row.estaActivo ? (
+                <PolariaTableDisableButton
+                  onClick={() => {
+                    setToggleError(null);
+                    setPendingToggle({ row, mode: "disable" });
+                  }}
+                />
+              ) : (
+                <PolariaTableEnableButton
+                  onClick={() => {
+                    setToggleError(null);
+                    setPendingToggle({ row, mode: "enable" });
+                  }}
+                />
+              )}
+            </PolariaTableActionGroup>
           ),
         },
       ] as const,
@@ -140,6 +214,35 @@ export function PlantasListView() {
         onUpdated={() => {
           void reload();
         }}
+      />
+
+      <PolariaConfirmDialog
+        open={Boolean(pendingToggle)}
+        onClose={() => {
+          if (isToggling) return;
+          setPendingToggle(null);
+          setToggleError(null);
+        }}
+        onConfirm={() => {
+          void handleConfirmToggle();
+        }}
+        title={
+          pendingToggle?.mode === "enable"
+            ? "Habilitar planta"
+            : "Deshabilitar planta"
+        }
+        description={
+          pendingToggle
+            ? pendingToggle.mode === "enable"
+              ? `¿Habilitar "${pendingToggle.row.nombre}"? Volverá a aparecer en formularios.`
+              : `¿Deshabilitar "${pendingToggle.row.nombre}"? Seguirá visible en esta tabla, pero no aparecerá en formularios.`
+            : ""
+        }
+        confirmLabel={
+          pendingToggle?.mode === "enable" ? "Habilitar" : "Deshabilitar"
+        }
+        isSubmitting={isToggling}
+        error={toggleError}
       />
     </AdminCatalogListShell>
   );

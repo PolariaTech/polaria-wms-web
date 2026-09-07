@@ -99,6 +99,19 @@ export const CATALOGO_TABLE_SUBTITLE =
 export const CATALOGO_EMPTY_MESSAGE =
   "No hay productos en el catálogo." as const;
 
+export const LISTA_PRECIO_PAGE_TITLE = "Lista de precio" as const;
+
+export const LISTA_PRECIO_PAGE_HINT =
+  "Precios por defecto del catálogo. Las equivalencias de un comprador no los modifican." as const;
+
+export const LISTA_PRECIO_TABLE_TITLE = "Precios vigentes" as const;
+
+export const LISTA_PRECIO_TABLE_SUBTITLE =
+  "Edita el precio default de cada producto. Se guarda en la lista de la cuenta." as const;
+
+export const LISTA_PRECIO_EMPTY_MESSAGE =
+  "No hay productos en el catálogo para listar precios." as const;
+
 export const REPORTES_PAGE_TITLE = "Reportes" as const;
 
 export const REPORTES_PAGE_HINT =

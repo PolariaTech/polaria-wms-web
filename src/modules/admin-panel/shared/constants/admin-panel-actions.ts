@@ -1,4 +1,4 @@
-import { BarChart3, Layers, UserCheck } from "lucide-react";
+import { BarChart3, Layers, Tags, UserCheck } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 import type {
   AdminPanelAction,
@@ -22,6 +22,12 @@ export const ADMIN_PANEL_ACTIONS: AdminPanelAction[] = [
     title: "Catálogo",
     icon: Layers,
     href: ROUTES.dashboardCatalog,
+  },
+  {
+    id: "price-list",
+    title: "Lista de precio",
+    icon: Tags,
+    href: ROUTES.dashboardListaPrecio,
   },
   {
     id: "reports",
@@ -55,7 +61,7 @@ export const ADMIN_PANEL_PLACEHOLDERS = {
     ],
   },
 } as const satisfies Record<
-  Exclude<AdminPanelActionId, "reports">,
+  Exclude<AdminPanelActionId, "reports" | "price-list">,
   {
     title: string;
     description: string;

@@ -1,6 +1,6 @@
 import {
   applyTenantFilters,
-  applyVisibleYearFilter,
+  applyRecentOrdersFilter,
   DEFAULT_LIST_LIMIT,
   requireCodigoCuenta,
   runDomainMutation,
@@ -591,14 +591,14 @@ export async function listOrdenesVenta(
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 
   return runDomainQuery((client) => {
-    const query = applyVisibleYearFilter(
+    const query = applyRecentOrdersFilter(
       applyTenantFilters(
         client.from("orden_venta").select(ORDEN_VENTA_COLUMNS),
         params,
       ),
       "fecha_pedido",
     )
-      .order("fecha_pedido", { ascending: true })
+      .order("fecha_pedido", { ascending: false })
       .limit(limit);
 
     return query as unknown as Promise<{

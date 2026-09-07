@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
+  PolariaTableActionGroup,
+  PolariaTableBadge,
   PolariaTableCode,
+  PolariaTableDisableButton,
   PolariaTableEditButton,
+  PolariaTableEnableButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
@@ -18,6 +23,8 @@ import {
   PROVEEDORES_TABLE_TITLE,
 } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
 import {
+  activateProveedorAdmin,
+  deactivateProveedorAdmin,
   formatProveedorId,
   listProveedoresAdmin,
   type ProveedorListRow,
@@ -26,18 +33,25 @@ import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/A
 import { ProveedorCreateModal } from "./ProveedorCreateModal";
 import { ProveedorEditModal } from "./ProveedorEditModal";
 
+type PendingToggle = { row: ProveedorListRow; mode: "disable" | "enable" };
+
 export function ProveedoresListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProveedor, setEditingProveedor] =
     useState<ProveedorListRow | null>(null);
+  const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(
+    null,
+  );
+  const [isToggling, setIsToggling] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const fetchProveedores = useCallback(() => {
     if (!codigoCuenta) {
       return Promise.resolve([]);
     }
 
-    return listProveedoresAdmin({ codigoCuenta });
+    return listProveedoresAdmin({ codigoCuenta, soloActivos: false });
   }, [codigoCuenta]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
@@ -46,6 +60,36 @@ export function ProveedoresListView() {
   );
 
   const rows = data ?? [];
+
+  const handleConfirmToggle = useCallback(async () => {
+    if (!codigoCuenta || !pendingToggle || isToggling) return;
+
+    setIsToggling(true);
+    setToggleError(null);
+    try {
+      if (pendingToggle.mode === "disable") {
+        await deactivateProveedorAdmin({
+          codigoCuenta,
+          idProveedor: pendingToggle.row.idProveedor,
+        });
+      } else {
+        await activateProveedorAdmin({
+          codigoCuenta,
+          idProveedor: pendingToggle.row.idProveedor,
+        });
+      }
+      setPendingToggle(null);
+      await reload();
+    } catch {
+      setToggleError(
+        pendingToggle.mode === "disable"
+          ? "No se pudo deshabilitar el proveedor."
+          : "No se pudo habilitar el proveedor.",
+      );
+    } finally {
+      setIsToggling(false);
+    }
+  }, [codigoCuenta, isToggling, pendingToggle, reload]);
 
   const columns = useMemo(
     () =>
@@ -88,12 +132,40 @@ export function ProveedoresListView() {
           cell: (row: ProveedorListRow) => row.email ?? "—",
         },
         {
+          id: "estado",
+          header: "Estado",
+          cell: (row: ProveedorListRow) =>
+            row.estaActivo ? (
+              <PolariaTableBadge>Activo</PolariaTableBadge>
+            ) : (
+              <PolariaTableBadge variant="neutral">Deshabilitado</PolariaTableBadge>
+            ),
+        },
+        {
           id: "acciones",
           header: "Acciones",
           cell: (row: ProveedorListRow) => (
-            <PolariaTableEditButton
-              onClick={() => setEditingProveedor(row)}
-            />
+            <PolariaTableActionGroup>
+              <PolariaTableEditButton
+                disabled={!row.estaActivo}
+                onClick={() => setEditingProveedor(row)}
+              />
+              {row.estaActivo ? (
+                <PolariaTableDisableButton
+                  onClick={() => {
+                    setToggleError(null);
+                    setPendingToggle({ row, mode: "disable" });
+                  }}
+                />
+              ) : (
+                <PolariaTableEnableButton
+                  onClick={() => {
+                    setToggleError(null);
+                    setPendingToggle({ row, mode: "enable" });
+                  }}
+                />
+              )}
+            </PolariaTableActionGroup>
           ),
         },
       ] as const,
@@ -143,6 +215,35 @@ export function ProveedoresListView() {
         onUpdated={() => {
           void reload();
         }}
+      />
+
+      <PolariaConfirmDialog
+        open={Boolean(pendingToggle)}
+        onClose={() => {
+          if (isToggling) return;
+          setPendingToggle(null);
+          setToggleError(null);
+        }}
+        onConfirm={() => {
+          void handleConfirmToggle();
+        }}
+        title={
+          pendingToggle?.mode === "enable"
+            ? "Habilitar proveedor"
+            : "Deshabilitar proveedor"
+        }
+        description={
+          pendingToggle
+            ? pendingToggle.mode === "enable"
+              ? `¿Habilitar a "${pendingToggle.row.proveedor}"? Volverá a aparecer en formularios.`
+              : `¿Deshabilitar a "${pendingToggle.row.proveedor}"? Seguirá visible en esta tabla, pero no aparecerá en formularios.`
+            : ""
+        }
+        confirmLabel={
+          pendingToggle?.mode === "enable" ? "Habilitar" : "Deshabilitar"
+        }
+        isSubmitting={isToggling}
+        error={toggleError}
       />
     </AdminCatalogListShell>
   );

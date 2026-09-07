@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
+import {
+  getOrdersVisibleSinceDate,
+  setSupabaseClientForTests,
+} from "@/lib/supabase/domain-query";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
 import {
   createOrdenVenta,
@@ -88,9 +91,13 @@ describe("sales.service", () => {
     expect(from).toHaveBeenCalledWith("orden_venta");
     expect(chain.eq).toHaveBeenCalledWith("codigo_cuenta", "CUENTA-01");
     expect(chain.eq).toHaveBeenCalledWith("id_bodega", "BOD-01");
-    expect(chain.gte).toHaveBeenCalledWith("fecha_pedido", "2026-01-01");
-    expect(chain.lt).toHaveBeenCalledWith("fecha_pedido", "2027-01-01");
-    expect(chain.order).toHaveBeenCalledWith("fecha_pedido", { ascending: true });
+    expect(chain.gte).toHaveBeenCalledWith(
+      "fecha_pedido",
+      getOrdersVisibleSinceDate(7),
+    );
+    expect(chain.order).toHaveBeenCalledWith("fecha_pedido", {
+      ascending: false,
+    });
   });
 
   it("listOrdenesVentaOperador enriquece filas con comprador y productos", async () => {

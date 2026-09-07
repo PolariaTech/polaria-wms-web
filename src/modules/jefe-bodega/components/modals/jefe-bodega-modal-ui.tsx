@@ -33,6 +33,7 @@ interface JefeBodegaModalSearchFieldProps {
   ariaLabel?: string;
   onSearchClick?: () => void;
   compact?: boolean;
+  controlClassName?: string;
 }
 
 export function JefeBodegaModalSearchField({
@@ -43,6 +44,7 @@ export function JefeBodegaModalSearchField({
   ariaLabel,
   onSearchClick,
   compact = false,
+  controlClassName,
 }: JefeBodegaModalSearchFieldProps) {
   return (
     <div className="relative flex items-stretch">
@@ -60,6 +62,7 @@ export function JefeBodegaModalSearchField({
             ? "rounded-lg py-2 pl-3 text-sm"
             : "rounded-xl py-3 pl-4",
           onSearchClick ? (compact ? "pr-11" : "pr-12") : compact ? "pr-3" : "pr-4",
+          controlClassName,
         )}
       />
       {onSearchClick ? (

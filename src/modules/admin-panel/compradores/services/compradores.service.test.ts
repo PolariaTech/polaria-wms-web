@@ -37,6 +37,7 @@ describe("compradores.service", () => {
         codigo: "LUIS1",
         comprador: "Luis Castillo",
         telefono: null,
+        estaActivo: true,
       },
     ]);
   });

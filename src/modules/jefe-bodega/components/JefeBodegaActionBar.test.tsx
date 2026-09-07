@@ -11,13 +11,18 @@ describe("JefeBodegaActionBar", () => {
     render(<JefeBodegaActionBar onActionClick={onActionClick} />);
 
     expect(screen.getByRole("button", { name: /Ingresos/i })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /Procesamiento/i })).toBeDisabled();
-    expect(screen.getByText("Próximamente")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Órdenes de venta/i }),
+    ).toBeEnabled();
+    expect(screen.getByText("Descargar copia")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Ingresos/i }));
     expect(onActionClick).toHaveBeenCalledWith("ingresos");
 
     await user.click(screen.getByRole("button", { name: /Bodega a Bodega/i }));
     expect(onActionClick).toHaveBeenCalledWith("bodega-a-bodega");
+
+    await user.click(screen.getByRole("button", { name: /Órdenes de venta/i }));
+    expect(onActionClick).toHaveBeenCalledWith("ordenes-venta");
   });
 });

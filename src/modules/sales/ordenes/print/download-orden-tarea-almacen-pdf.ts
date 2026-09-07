@@ -1,11 +1,10 @@
 "use client";
 
-import { buildOrdenTareaAlmacenHtml } from "./build-orden-tarea-almacen-html";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
-/** Papel oficio latinoamericano (216 × 330 mm). */
-const OFICIO_WIDTH_MM = 216;
-const OFICIO_HEIGHT_MM = 330;
+/** Papel carta (coincide con el PDF de imprimir/descargar). */
+const PAGE_WIDTH_MM = 215.9;
+const PAGE_HEIGHT_MM = 279.4;
 
 function sanitizePdfFilename(folio: string): string {
   const cleaned = folio.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-|-$/g, "");
@@ -15,7 +14,7 @@ function sanitizePdfFilename(folio: string): string {
 function waitForIframeLoad(iframe: HTMLIFrameElement): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
-      reject(new Error("No se pudo preparar la orden de almacén."));
+      reject(new Error("No se pudo preparar la orden de venta."));
     }, 10000);
 
     iframe.addEventListener(
@@ -29,53 +28,51 @@ function waitForIframeLoad(iframe: HTMLIFrameElement): Promise<void> {
   });
 }
 
-function createHiddenIframe(html: string): {
+function createHiddenIframe(src: string): {
   iframe: HTMLIFrameElement;
   loaded: Promise<void>;
 } {
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
-  iframe.setAttribute("title", "Orden de almacén");
+  iframe.setAttribute("title", "Orden de venta");
   Object.assign(iframe.style, {
     position: "fixed",
     top: "0",
     left: "0",
-    width: `${OFICIO_WIDTH_MM}mm`,
-    height: `${OFICIO_HEIGHT_MM}mm`,
+    width: `${PAGE_WIDTH_MM}mm`,
+    height: `${PAGE_HEIGHT_MM}mm`,
     border: "0",
     zIndex: "-1",
     pointerEvents: "none",
   });
   const loaded = waitForIframeLoad(iframe);
-  iframe.srcdoc = html;
+  iframe.src = src;
   document.body.appendChild(iframe);
   return { iframe, loaded };
 }
 
-async function prepareIframeDocument(iframe: HTMLIFrameElement): Promise<{
-  doc: Document;
-  win: Window;
-}> {
-  const doc = iframe.contentDocument;
-  const win = iframe.contentWindow;
-  if (!doc || !win) {
-    throw new Error("No se pudo preparar la orden de almacén.");
-  }
-  if (doc.fonts?.ready) {
-    await doc.fonts.ready;
-  }
-  return { doc, win };
-}
-
+/** Misma hoja que Descargar: imprime el PDF jsPDF, no el HTML aparte. */
 export async function printOrdenTareaAlmacen(
   data: OrdenTareaAlmacenPrintData,
 ): Promise<void> {
-  const html = buildOrdenTareaAlmacenHtml(data);
-  const { iframe, loaded } = createHiddenIframe(html);
+  const { buildOrdenTareaAlmacenPdf } = await import(
+    "./render-orden-tarea-almacen-pdf"
+  );
+  const pdf = buildOrdenTareaAlmacenPdf(data);
+  const blobUrl = pdf.output("bloburl");
+  const { iframe, loaded } = createHiddenIframe(blobUrl);
 
   try {
     await loaded;
-    const { win } = await prepareIframeDocument(iframe);
+    // El visor PDF del iframe a veces necesita un tick antes de print().
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 250);
+    });
+
+    const win = iframe.contentWindow;
+    if (!win) {
+      throw new Error("No se pudo preparar la orden de venta.");
+    }
 
     await new Promise<void>((resolve) => {
       let settled = false;
@@ -84,6 +81,7 @@ export async function printOrdenTareaAlmacen(
         settled = true;
         win.removeEventListener("afterprint", finish);
         iframe.remove();
+        URL.revokeObjectURL(blobUrl);
         resolve();
       };
 
@@ -94,6 +92,7 @@ export async function printOrdenTareaAlmacen(
     });
   } catch (error) {
     iframe.remove();
+    URL.revokeObjectURL(blobUrl);
     throw error;
   }
 }
@@ -104,7 +103,7 @@ export async function downloadOrdenTareaAlmacenPdf(
   const { buildOrdenTareaAlmacenPdf } = await import(
     "./render-orden-tarea-almacen-pdf"
   );
-  const filename = `orden-almacen-${sanitizePdfFilename(data.folio)}.pdf`;
+  const filename = `orden-venta-${sanitizePdfFilename(data.folio)}.pdf`;
   const pdf = buildOrdenTareaAlmacenPdf(data);
   pdf.save(filename);
 }

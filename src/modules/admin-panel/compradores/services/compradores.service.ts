@@ -23,6 +23,8 @@ export interface CompradorListRow {
   codigo: string;
   comprador: string;
   telefono: string | null;
+  /** false = deshabilitado: visible en tablas, oculto en formularios. */
+  estaActivo: boolean;
 }
 
 export interface CompradorDetalleRow extends CompradorListRow {
@@ -34,6 +36,7 @@ interface CompradorDbRow {
   codigo: string;
   nombre: string;
   telefono: string | null;
+  esta_activo?: boolean | null;
 
   // Campos “flatten” del formulario nuevo (no JSON).
   razon_social?: string | null;
@@ -90,7 +93,7 @@ interface CompradorDbRow {
   contacto_correo?: string | null;
 }
 
-const COMPRADOR_LIST_COLUMNS = "id_comprador,codigo,nombre,telefono";
+const COMPRADOR_LIST_COLUMNS = "id_comprador,codigo,nombre,telefono,esta_activo";
 const COMPRADOR_DETALLE_COLUMNS = [
   COMPRADOR_LIST_COLUMNS,
   // Campos fiscales/comerciales.
@@ -152,6 +155,7 @@ function mapCompradorRow(row: CompradorDbRow): CompradorListRow {
     codigo: row.codigo,
     comprador: row.nombre,
     telefono: row.telefono,
+    estaActivo: row.esta_activo !== false,
   };
 }
 
@@ -242,25 +246,34 @@ function buildCompradorAltaFichaFromColumns(
 export interface ListCompradoresParams {
   codigoCuenta: string;
   limit?: number;
+  /**
+   * true (default): solo activos → formularios/selectores.
+   * false: incluye deshabilitados → tablas de administración.
+   */
+  soloActivos?: boolean;
 }
 
-/** Lista compradores activos de la cuenta (scope tenant). */
+/** Lista compradores de la cuenta (scope tenant). */
 export async function listCompradoresAdmin(
   params: ListCompradoresParams,
 ): Promise<CompradorListRow[]> {
   const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
+  const soloActivos = params.soloActivos !== false;
 
   const rows = await runDomainQuery<CompradorDbRow[]>((client) => {
-    const query = client
+    let query = client
       .from("comprador")
       .select(COMPRADOR_LIST_COLUMNS)
-      .eq("codigo_cuenta", codigoCuenta)
-      .eq("esta_activo", true)
-      .order("nombre", { ascending: true })
-      .limit(limit);
+      .eq("codigo_cuenta", codigoCuenta);
 
-    return query as unknown as Promise<{
+    if (soloActivos) {
+      query = query.eq("esta_activo", true);
+    }
+
+    const finalQuery = query.order("nombre", { ascending: true }).limit(limit);
+
+    return finalQuery as unknown as Promise<{
       data: CompradorDbRow[] | null;
       error: { message: string } | null;
     }>;
@@ -587,4 +600,65 @@ export async function updateCompradorAdmin(
   }
 
   return mapCompradorRow(updated);
+}
+
+export interface DeactivateCompradorParams {
+  codigoCuenta: string;
+  idComprador: string;
+}
+
+/** Deshabilita un comprador (baja lógica). Sigue en tablas; sale de formularios. */
+export async function deactivateCompradorAdmin(
+  params: DeactivateCompradorParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idComprador = params.idComprador.trim();
+
+  if (!idComprador) {
+    throw new DomainServiceError(
+      "Falta el identificador del comprador.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("comprador")
+      .update({ esta_activo: false })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_comprador", idComprador);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
+}
+
+/** Reactiva un comprador deshabilitado. */
+export async function activateCompradorAdmin(
+  params: DeactivateCompradorParams,
+): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idComprador = params.idComprador.trim();
+
+  if (!idComprador) {
+    throw new DomainServiceError(
+      "Falta el identificador del comprador.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("comprador")
+      .update({ esta_activo: true })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_comprador", idComprador);
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
 }

@@ -11,10 +11,11 @@ describe("admin-panel-actions", () => {
     expect(ADMIN_PANEL_TITLE).toBe("Panel administrativo");
   });
 
-  it("mapea las tres acciones del panel", () => {
+  it("mapea las acciones del panel", () => {
     expect(ADMIN_PANEL_ACTIONS.map((action) => action.title)).toEqual([
       "Asignación y creación",
       "Catálogo",
+      "Lista de precio",
       "Reportes",
     ]);
   });
@@ -24,6 +25,9 @@ describe("admin-panel-actions", () => {
       ROUTES.dashboardAdminAssignmentCreation,
     );
     expect(getAdminPanelActionHref("catalog")).toBe(ROUTES.dashboardCatalog);
+    expect(getAdminPanelActionHref("price-list")).toBe(
+      ROUTES.dashboardListaPrecio,
+    );
     expect(getAdminPanelActionHref("reports")).toBe(ROUTES.dashboardReporteria);
   });
 });

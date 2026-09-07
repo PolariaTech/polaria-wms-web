@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
+  PolariaTableActionGroup,
+  PolariaTableBadge,
   PolariaTableCode,
+  PolariaTableDisableButton,
   PolariaTableEditButton,
+  PolariaTableEnableButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
@@ -18,6 +23,8 @@ import {
   COMPRADORES_TABLE_TITLE,
 } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
 import {
+  activateCompradorAdmin,
+  deactivateCompradorAdmin,
   listCompradoresAdmin,
   type CompradorListRow,
 } from "../services/compradores.service";
@@ -26,6 +33,8 @@ import { CompradorCreateModal } from "./CompradorCreateModal";
 import { CompradorDetalleModal } from "./CompradorDetalleModal";
 import { CompradorEditModal } from "./CompradorEditModal";
 
+type PendingToggle = { row: CompradorListRow; mode: "disable" | "enable" };
+
 export function CompradoresListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -33,13 +42,18 @@ export function CompradoresListView() {
     useState<CompradorListRow | null>(null);
   const [detalleComprador, setDetalleComprador] =
     useState<CompradorListRow | null>(null);
+  const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(
+    null,
+  );
+  const [isToggling, setIsToggling] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const fetchCompradores = useCallback(() => {
     if (!codigoCuenta) {
       return Promise.resolve([]);
     }
 
-    return listCompradoresAdmin({ codigoCuenta });
+    return listCompradoresAdmin({ codigoCuenta, soloActivos: false });
   }, [codigoCuenta]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
@@ -48,6 +62,36 @@ export function CompradoresListView() {
   );
 
   const rows = data ?? [];
+
+  const handleConfirmToggle = useCallback(async () => {
+    if (!codigoCuenta || !pendingToggle || isToggling) return;
+
+    setIsToggling(true);
+    setToggleError(null);
+    try {
+      if (pendingToggle.mode === "disable") {
+        await deactivateCompradorAdmin({
+          codigoCuenta,
+          idComprador: pendingToggle.row.idComprador,
+        });
+      } else {
+        await activateCompradorAdmin({
+          codigoCuenta,
+          idComprador: pendingToggle.row.idComprador,
+        });
+      }
+      setPendingToggle(null);
+      await reload();
+    } catch {
+      setToggleError(
+        pendingToggle.mode === "disable"
+          ? "No se pudo deshabilitar el comprador."
+          : "No se pudo habilitar el comprador.",
+      );
+    } finally {
+      setIsToggling(false);
+    }
+  }, [codigoCuenta, isToggling, pendingToggle, reload]);
 
   const columns = useMemo(
     () =>
@@ -71,6 +115,16 @@ export function CompradoresListView() {
             formatInternationalPhoneDisplay(row.telefono),
         },
         {
+          id: "estado",
+          header: "Estado",
+          cell: (row: CompradorListRow) =>
+            row.estaActivo ? (
+              <PolariaTableBadge>Activo</PolariaTableBadge>
+            ) : (
+              <PolariaTableBadge variant="neutral">Deshabilitado</PolariaTableBadge>
+            ),
+        },
+        {
           id: "acciones",
           header: "Acciones",
           cell: (row: CompradorListRow) => (
@@ -78,9 +132,27 @@ export function CompradoresListView() {
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
             >
-              <PolariaTableEditButton
-                onClick={() => setEditingComprador(row)}
-              />
+              <PolariaTableActionGroup>
+                <PolariaTableEditButton
+                  disabled={!row.estaActivo}
+                  onClick={() => setEditingComprador(row)}
+                />
+                {row.estaActivo ? (
+                  <PolariaTableDisableButton
+                    onClick={() => {
+                      setToggleError(null);
+                      setPendingToggle({ row, mode: "disable" });
+                    }}
+                  />
+                ) : (
+                  <PolariaTableEnableButton
+                    onClick={() => {
+                      setToggleError(null);
+                      setPendingToggle({ row, mode: "enable" });
+                    }}
+                  />
+                )}
+              </PolariaTableActionGroup>
             </span>
           ),
         },
@@ -138,6 +210,35 @@ export function CompradoresListView() {
         onClose={() => setEditingComprador(null)}
         onUpdated={() => {
           void reload();
+        }}
+      />
+
+      <PolariaConfirmDialog
+        open={Boolean(pendingToggle)}
+        title={
+          pendingToggle?.mode === "enable"
+            ? "Habilitar comprador"
+            : "Deshabilitar comprador"
+        }
+        description={
+          pendingToggle
+            ? pendingToggle.mode === "enable"
+              ? `¿Habilitar a "${pendingToggle.row.comprador}"? Volverá a aparecer en formularios.`
+              : `¿Deshabilitar a "${pendingToggle.row.comprador}"? Seguirá visible en esta tabla, pero no aparecerá en formularios.`
+            : ""
+        }
+        confirmLabel={
+          pendingToggle?.mode === "enable" ? "Habilitar" : "Deshabilitar"
+        }
+        isSubmitting={isToggling}
+        error={toggleError}
+        onClose={() => {
+          if (isToggling) return;
+          setPendingToggle(null);
+          setToggleError(null);
+        }}
+        onConfirm={() => {
+          void handleConfirmToggle();
         }}
       />
     </AdminCatalogListShell>

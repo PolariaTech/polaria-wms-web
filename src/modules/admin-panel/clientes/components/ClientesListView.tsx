@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
+  PolariaTableActionGroup,
+  PolariaTableBadge,
   PolariaTableCode,
+  PolariaTableDisableButton,
   PolariaTableEditButton,
+  PolariaTableEnableButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
@@ -18,6 +23,8 @@ import {
   CLIENTES_TABLE_TITLE,
 } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
 import {
+  activateClienteAdmin,
+  deactivateClienteAdmin,
   formatClienteId,
   listClientesAdmin,
   type ClienteListRow,
@@ -26,19 +33,26 @@ import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/A
 import { ClienteCreateModal } from "./ClienteCreateModal";
 import { ClienteEditModal } from "./ClienteEditModal";
 
+type PendingToggle = { row: ClienteListRow; mode: "disable" | "enable" };
+
 export function ClientesListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<ClienteListRow | null>(
     null,
   );
+  const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(
+    null,
+  );
+  const [isToggling, setIsToggling] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const fetchClientes = useCallback(() => {
     if (!codigoCuenta) {
       return Promise.resolve([]);
     }
 
-    return listClientesAdmin({ codigoCuenta });
+    return listClientesAdmin({ codigoCuenta, soloActivos: false });
   }, [codigoCuenta]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
@@ -47,6 +61,36 @@ export function ClientesListView() {
   );
 
   const rows = data ?? [];
+
+  const handleConfirmToggle = useCallback(async () => {
+    if (!codigoCuenta || !pendingToggle || isToggling) return;
+
+    setIsToggling(true);
+    setToggleError(null);
+    try {
+      if (pendingToggle.mode === "disable") {
+        await deactivateClienteAdmin({
+          codigoCuenta,
+          idCliente: pendingToggle.row.idCliente,
+        });
+      } else {
+        await activateClienteAdmin({
+          codigoCuenta,
+          idCliente: pendingToggle.row.idCliente,
+        });
+      }
+      setPendingToggle(null);
+      await reload();
+    } catch {
+      setToggleError(
+        pendingToggle.mode === "disable"
+          ? "No se pudo deshabilitar el cliente."
+          : "No se pudo habilitar el cliente.",
+      );
+    } finally {
+      setIsToggling(false);
+    }
+  }, [codigoCuenta, isToggling, pendingToggle, reload]);
 
   const columns = useMemo(
     () =>
@@ -84,10 +128,40 @@ export function ClientesListView() {
             formatInternationalPhoneDisplay(row.telefono),
         },
         {
+          id: "estado",
+          header: "Estado",
+          cell: (row: ClienteListRow) =>
+            row.estaActivo ? (
+              <PolariaTableBadge>Activo</PolariaTableBadge>
+            ) : (
+              <PolariaTableBadge variant="neutral">Deshabilitado</PolariaTableBadge>
+            ),
+        },
+        {
           id: "acciones",
           header: "Acciones",
           cell: (row: ClienteListRow) => (
-            <PolariaTableEditButton onClick={() => setEditingCliente(row)} />
+            <PolariaTableActionGroup>
+              <PolariaTableEditButton
+                disabled={!row.estaActivo}
+                onClick={() => setEditingCliente(row)}
+              />
+              {row.estaActivo ? (
+                <PolariaTableDisableButton
+                  onClick={() => {
+                    setToggleError(null);
+                    setPendingToggle({ row, mode: "disable" });
+                  }}
+                />
+              ) : (
+                <PolariaTableEnableButton
+                  onClick={() => {
+                    setToggleError(null);
+                    setPendingToggle({ row, mode: "enable" });
+                  }}
+                />
+              )}
+            </PolariaTableActionGroup>
           ),
         },
       ] as const,
@@ -137,6 +211,35 @@ export function ClientesListView() {
         onUpdated={() => {
           void reload();
         }}
+      />
+
+      <PolariaConfirmDialog
+        open={Boolean(pendingToggle)}
+        onClose={() => {
+          if (isToggling) return;
+          setPendingToggle(null);
+          setToggleError(null);
+        }}
+        onConfirm={() => {
+          void handleConfirmToggle();
+        }}
+        title={
+          pendingToggle?.mode === "enable"
+            ? "Habilitar cliente"
+            : "Deshabilitar cliente"
+        }
+        description={
+          pendingToggle
+            ? pendingToggle.mode === "enable"
+              ? `¿Habilitar a "${pendingToggle.row.nombre}"? Volverá a aparecer en formularios.`
+              : `¿Deshabilitar a "${pendingToggle.row.nombre}"? Seguirá visible en esta tabla, pero no aparecerá en formularios.`
+            : ""
+        }
+        confirmLabel={
+          pendingToggle?.mode === "enable" ? "Habilitar" : "Deshabilitar"
+        }
+        isSubmitting={isToggling}
+        error={toggleError}
       />
     </AdminCatalogListShell>
   );

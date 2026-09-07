@@ -3,6 +3,7 @@
 import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bodega/types/estado-bodega.types";
 import type { JefeBodegaActionId } from "../constants/jefe-bodega-actions";
 import { JefeBodegaIngresoModal } from "./modals/JefeBodegaIngresoModal";
+import { JefeBodegaOrdenesVentaModal } from "./modals/JefeBodegaOrdenesVentaModal";
 import { JefeBodegaRevisarModal } from "./modals/JefeBodegaRevisarModal";
 import type { JefeBodegaSalidaOrdenVentaPrefill } from "../types/jefe-bodega-salida.types";
 import { JefeBodegaSalidaModal } from "./modals/JefeBodegaSalidaModal";
@@ -60,6 +61,12 @@ export function JefeBodegaActionModals({
         idBodega={idBodega}
         ubicacionesAlmacen={ubicacionesAlmacen}
         onCreated={onOrdenCreated}
+      />
+      <JefeBodegaOrdenesVentaModal
+        open={activeModal === "ordenes-venta"}
+        onClose={onClose}
+        codigoCuenta={codigoCuenta}
+        idBodega={idBodega}
       />
       <JefeBodegaSalidaModal
         open={activeModal === "crear-salida"}

@@ -5,7 +5,6 @@ import { EstadoBodegaPageContent } from "@/modules/warehouses";
 import { listUbicacionesEstadoBodega } from "@/modules/warehouses/estado-bodega/services/estado-bodega.service";
 import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bodega/types/estado-bodega.types";
 import { isUbicacionEntrada } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-ingreso";
-import { OrdenProcesamientoCreateModal } from "@/modules/processing";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import type { EstadoBodegaZonePanelItem } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-zone-panel";
 import type { JefeBodegaActionId } from "../constants/jefe-bodega-actions";
@@ -159,13 +158,6 @@ export function JefeBodegaEstadoPageContent() {
         salidaPrefillOrdenVenta={salidaPrefill}
         onOrdenCreated={handleOrdenCreated}
       />
-      {activeModal === "procesamiento" ? (
-        <OrdenProcesamientoCreateModal
-          open
-          onClose={handleCloseModal}
-          onCreated={handleOrdenCreated}
-        />
-      ) : null}
       <JefeBodegaProcesamientoAsignarModal
         open={Boolean(procesamientoPrefill)}
         onClose={() => setProcesamientoPrefill(null)}

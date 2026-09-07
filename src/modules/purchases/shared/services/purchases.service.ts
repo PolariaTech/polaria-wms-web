@@ -1,6 +1,6 @@
 import {
   applyTenantFilters,
-  applyVisibleYearFilter,
+  applyRecentOrdersFilter,
   DEFAULT_LIST_LIMIT,
   type TenantListParams,
   runDomainQuery,
@@ -229,14 +229,14 @@ export async function listOrdenesCompra(
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 
   return runDomainQuery((client) => {
-    const query = applyVisibleYearFilter(
+    const query = applyRecentOrdersFilter(
       applyTenantFilters(
         client.from("orden_compra").select(ORDEN_COLUMNS),
         params,
       ),
       "fecha_emision",
     )
-      .order("fecha_emision", { ascending: true })
+      .order("fecha_emision", { ascending: false })
       .limit(limit);
 
     return query as unknown as Promise<{
