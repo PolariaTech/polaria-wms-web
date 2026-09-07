@@ -59,7 +59,8 @@ export async function printOrdenTareaAlmacen(
     "./render-orden-tarea-almacen-pdf"
   );
   const pdf = buildOrdenTareaAlmacenPdf(data);
-  const blobUrl = pdf.output("bloburl");
+  // jsPDF tipa "bloburl" como URL; iframe.src / revokeObjectURL esperan string.
+  const blobUrl = pdf.output("bloburl").toString();
   const { iframe, loaded } = createHiddenIframe(blobUrl);
 
   try {
