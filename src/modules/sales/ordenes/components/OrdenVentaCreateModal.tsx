@@ -1207,7 +1207,7 @@ export function OrdenVentaCreateModal({
                 <PolariaFormField
                   id="orden-venta-docs-archivos"
                   label="Archivos"
-                  hint="Se leen PDF, Excel, CSV, Word y fotos. Otros formatos se guardan como respaldo sin leerse."
+                  hint="Se leen PDF, Excel, CSV, Word, correos (.eml) y fotos. Otros formatos se guardan como respaldo sin leerse."
                   compact
                 >
                   <label
@@ -1236,7 +1236,7 @@ export function OrdenVentaCreateModal({
                       ref={docsFileInputRef}
                       type="file"
                       multiple
-                      accept=".pdf,.xlsx,.xls,.csv,.txt,.docx,image/*"
+                      accept=".pdf,.xlsx,.xls,.csv,.txt,.docx,.eml,.html,.htm,image/*"
                       className="sr-only"
                       onChange={(event) => {
                         appendDocsFiles(event.target.files ?? []);

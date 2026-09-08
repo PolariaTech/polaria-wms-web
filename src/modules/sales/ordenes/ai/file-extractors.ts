@@ -2,6 +2,8 @@ import path from "node:path";
 import { extractText, getDocumentProxy } from "unpdf";
 import * as XLSX from "xlsx";
 import mammoth from "mammoth";
+import { simpleParser } from "mailparser";
+import { convert as convertHtmlToText } from "html-to-text";
 
 const TEXT_EXTENSIONS = new Set([".csv", ".txt"]);
 const IMAGE_MIME_PREFIX = "image/";
@@ -63,6 +65,14 @@ async function extractFromDocx(buffer: Buffer): Promise<string> {
   return result.value.trim();
 }
 
+// Adjunto/cuerpo .html real encontrado en correos de sistemas automáticos de PO
+// (Marriott/Sheraton): traen la orden de compra completa renderizada como HTML. Se
+// convierte a texto plano en vez de mandarle el markup crudo a la IA (ruido de tags,
+// estilos, y entidades HTML sin decodificar como "&Oacute;").
+function extractFromHtml(buffer: Buffer): string {
+  return convertHtmlToText(buffer.toString("utf8"), { wordwrap: false }).trim();
+}
+
 /**
  * AUDITORÍA 2026-09-03 · Hallazgo #8 (Medio) — el ruteo imagen-vs-texto se decidía
  * 100% por el `Content-Type` que declara el cliente en el multipart (spoofable) — en la
@@ -84,13 +94,114 @@ async function detectarTipoReal(
   return resultado ? { ext: resultado.ext, mime: resultado.mime } : {};
 }
 
+// Extraída de extractFile() para poder reutilizarla tanto en el archivo subido
+// directo como en cada adjunto real de un correo .eml (extractFromEml) sin duplicar la
+// cadena de detección de formato.
+async function extraerContenidoPorTipo(
+  buffer: Buffer,
+  extReal: string,
+  extDeclarada: string,
+): Promise<Omit<ArchivoTexto, "nombre"> | Omit<ArchivoNoLegible, "nombre">> {
+  try {
+    if (extReal === ".pdf") {
+      return { tipo: "texto", contenido: await extractFromPdf(buffer) };
+    }
+    if (extReal === ".xlsx" || extReal === ".xls") {
+      return { tipo: "texto", contenido: extractFromExcel(buffer) };
+    }
+    if (extReal === ".docx") {
+      return { tipo: "texto", contenido: await extractFromDocx(buffer) };
+    }
+    if (extReal === ".html" || extReal === ".htm") {
+      return { tipo: "texto", contenido: extractFromHtml(buffer) };
+    }
+    if (TEXT_EXTENSIONS.has(extDeclarada)) {
+      return { tipo: "texto", contenido: buffer.toString("utf8") };
+    }
+  } catch (err) {
+    return { tipo: "no_legible", motivo: (err as Error).message };
+  }
+  return {
+    tipo: "no_legible",
+    motivo: "Formato sin lector disponible (ej. .doc)",
+  };
+}
+
+// Soporte para correos .eml reenviados con la orden de compra adjunta — hallazgo real
+// del prototipo (2026-09-08): 11 correos de hoteles/cadenas (Marriott, Hilton, etc.)
+// reenviados tal cual (.eml, MIME multipart) caían enteros en "no_legible" porque esta
+// extensión no tenía ningún lector, así que ni el cuerpo del correo ni sus adjuntos
+// reales (PDF/Excel/HTML) llegaban nunca a la IA.
+//
+// Un .eml se expande en VARIOS ArchivoExtraido (por eso extractFile() devuelve un
+// arreglo): el cuerpo del correo es uno, y cada adjunto real (Content-Disposition:
+// "attachment", nunca "inline" — así se distinguen los logos de firma embebidos, que se
+// ignoran) es otro, procesado con el mismo extraerContenidoPorTipo() de arriba y
+// nombrado "<correo> → <adjunto>" para que quede trazable en archivosNoLegibles y en los
+// logs. Un adjunto real que resulte ser una imagen (foto pegada como adjunto en vez de
+// inline) también se ignora — no es el caso de uso de este flujo (las fotos van por el
+// flujo de subida directa), y no hay evidencia de ese caso en los correos reales
+// probados en el prototipo. Un .eml anidado dentro de otro tampoco se recursiona — sin
+// evidencia real, fuera de alcance a propósito.
+async function extractFromEml(
+  buffer: Buffer,
+  nombreOriginal: string,
+): Promise<ArchivoExtraido[]> {
+  let parsed;
+  try {
+    parsed = await simpleParser(buffer);
+  } catch (err) {
+    return [
+      { nombre: nombreOriginal, tipo: "no_legible", motivo: (err as Error).message },
+    ];
+  }
+
+  const resultado: ArchivoExtraido[] = [];
+
+  const cuerpo =
+    parsed.text?.trim() ||
+    (parsed.html ? extractFromHtml(Buffer.from(parsed.html)) : "");
+  resultado.push({
+    nombre: `${nombreOriginal} — cuerpo`,
+    tipo: "texto",
+    contenido: cuerpo,
+  });
+
+  for (const adjunto of parsed.attachments) {
+    if (adjunto.contentDisposition !== "attachment") continue; // ignora inline (logos de firma)
+
+    const nombreAdjunto = adjunto.filename || "adjunto sin nombre";
+    const nombre = `${nombreOriginal} → ${nombreAdjunto}`;
+    const extDeclarada = path.extname(nombreAdjunto).toLowerCase();
+    const real = await detectarTipoReal(adjunto.content);
+
+    if (real.mime?.startsWith(IMAGE_MIME_PREFIX)) continue; // ver comentario de arriba
+
+    const extReal =
+      real.mime === COMPOUND_BINARY_MIME || !real.ext
+        ? extDeclarada
+        : `.${real.ext}`;
+    const contenido = await extraerContenidoPorTipo(
+      adjunto.content,
+      extReal,
+      extDeclarada,
+    );
+    resultado.push({ nombre, ...contenido } as ArchivoExtraido);
+  }
+
+  return resultado;
+}
+
 /**
  * Convierte un archivo subido a la forma que necesita el prompt de OpenAI:
- * - texto: contenido plano legible (pdf/xlsx/xls/csv/txt/docx)
+ * - texto: contenido plano legible (pdf/xlsx/xls/csv/txt/docx/html/eml)
  * - imagen: base64 + mime, para mandarlo como content block de visión
  * - no_legible: formato sin parser disponible (ej. .doc legado)
+ *
+ * Devuelve un arreglo (no un solo ArchivoExtraido) porque un .eml puede expandirse en
+ * varios ítems (cuerpo + adjuntos) — ver extractFromEml().
  */
-async function extractFile(file: ArchivoSubido): Promise<ArchivoExtraido> {
+async function extractFile(file: ArchivoSubido): Promise<ArchivoExtraido[]> {
   const extDeclarada = path.extname(file.originalname).toLowerCase();
   const nombre = file.originalname;
 
@@ -103,12 +214,14 @@ async function extractFile(file: ArchivoSubido): Promise<ArchivoExtraido> {
     : file.mimetype.startsWith(IMAGE_MIME_PREFIX);
 
   if (esImagenReal) {
-    return {
-      nombre,
-      tipo: "imagen",
-      mime: real.mime ?? file.mimetype,
-      base64: file.buffer.toString("base64"),
-    };
+    return [
+      {
+        nombre,
+        tipo: "imagen",
+        mime: real.mime ?? file.mimetype,
+        base64: file.buffer.toString("base64"),
+      },
+    ];
   }
 
   // .doc/.xls viejos son ambiguos por firma (ver COMPOUND_BINARY_MIME) — ahí sí se
@@ -118,48 +231,21 @@ async function extractFile(file: ArchivoSubido): Promise<ArchivoExtraido> {
       ? extDeclarada
       : `.${real.ext}`;
 
-  try {
-    if (extReal === ".pdf") {
-      return {
-        nombre,
-        tipo: "texto",
-        contenido: await extractFromPdf(file.buffer),
-      };
-    }
-    if (extReal === ".xlsx" || extReal === ".xls") {
-      return {
-        nombre,
-        tipo: "texto",
-        contenido: extractFromExcel(file.buffer),
-      };
-    }
-    if (extReal === ".docx") {
-      return {
-        nombre,
-        tipo: "texto",
-        contenido: await extractFromDocx(file.buffer),
-      };
-    }
-    if (TEXT_EXTENSIONS.has(extDeclarada)) {
-      return {
-        nombre,
-        tipo: "texto",
-        contenido: file.buffer.toString("utf8"),
-      };
-    }
-  } catch (err) {
-    return { nombre, tipo: "no_legible", motivo: (err as Error).message };
+  if (extReal === ".eml") {
+    return extractFromEml(file.buffer, nombre);
   }
 
-  return {
-    nombre,
-    tipo: "no_legible",
-    motivo: "Formato sin lector disponible (ej. .doc)",
-  };
+  const contenido = await extraerContenidoPorTipo(
+    file.buffer,
+    extReal,
+    extDeclarada,
+  );
+  return [{ nombre, ...contenido } as ArchivoExtraido];
 }
 
 export async function extractFiles(
   files: Array<{ originalname: string; mimetype: string; buffer: Buffer }> | undefined,
 ): Promise<ArchivoExtraido[]> {
-  return Promise.all((files ?? []).map(extractFile));
+  const resultados = await Promise.all((files ?? []).map(extractFile));
+  return resultados.flat();
 }
