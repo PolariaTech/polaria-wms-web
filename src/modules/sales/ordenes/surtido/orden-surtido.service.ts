@@ -48,6 +48,32 @@ function resolveTituloProducto(producto: unknown): string {
   return data.descripcion?.trim() || data.sku?.trim() || "Producto";
 }
 
+interface OrdenPrintAdminRow {
+  id_orden_venta: string;
+  codigo: string;
+  codigo_cuenta: string;
+  observaciones: string | null;
+  fecha_pedido: string;
+  created_at: string;
+  id_comprador: string | null;
+  centro_consumo: string | null;
+  orden_compra_hotel: string | null;
+  fecha_entrega: string | null;
+  direccion_entrega: string | null;
+  notas_lineas: string | null;
+  bodega_destino_label: string | null;
+  comprador:
+    | { nombre?: string | null; codigo?: string | null }
+    | Array<{ nombre?: string | null; codigo?: string | null }>
+    | null;
+}
+
+interface OrdenLineaPrintAdminRow {
+  id_linea_orden_venta: string;
+  cantidad_pedida: string | number;
+  producto: unknown;
+}
+
 export async function getOrdenMetaPublica(idOrdenVenta: string): Promise<{
   idOrdenVenta: string;
   codigoCuenta: string;
@@ -88,7 +114,7 @@ export async function buildPrintDataAdmin(
   if (!admin) throw new Error("Supabase admin no configurado.");
 
   // Columnas verificadas en public.orden_venta (sin inventar created_at en líneas).
-  const { data: orden, error } = await admin
+  const { data: ordenRaw, error } = await admin
     .from("orden_venta")
     .select(
       [
@@ -112,11 +138,12 @@ export async function buildPrintDataAdmin(
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  if (!orden) return null;
+  if (!ordenRaw) return null;
+  const orden = ordenRaw as unknown as OrdenPrintAdminRow;
 
   // orden_venta_linea: id_linea_orden_venta, id_orden_venta, id_producto,
   // cantidad_pedida, cantidad_despachada, precio_unitario (NO created_at).
-  const { data: lineas, error: lineasError } = await admin
+  const { data: lineasRaw, error: lineasError } = await admin
     .from("orden_venta_linea")
     .select(
       [
@@ -130,16 +157,13 @@ export async function buildPrintDataAdmin(
     .limit(200);
 
   if (lineasError) throw new Error(lineasError.message);
+  const lineas = (lineasRaw ?? []) as unknown as OrdenLineaPrintAdminRow[];
 
   const compradorRel = Array.isArray(orden.comprador)
     ? orden.comprador[0]
     : orden.comprador;
-  const compradorNombre =
-    (compradorRel as { nombre?: string; codigo?: string } | null)?.nombre?.trim() ||
-    "—";
-  const compradorCodigo =
-    (compradorRel as { nombre?: string; codigo?: string } | null)?.codigo?.trim() ||
-    "";
+  const compradorNombre = compradorRel?.nombre?.trim() || "—";
+  const compradorCodigo = compradorRel?.codigo?.trim() || "";
 
   const captura = parseOrdenVentaCapturaObservaciones(orden.observaciones);
   const cliente = compradorCodigo
@@ -180,7 +204,7 @@ export async function buildPrintDataAdmin(
       ? formatCapturaFecha(fechaEntregaRaw)
       : "",
     direccionEntrega,
-    lineas: (lineas ?? []).map((linea) => {
+    lineas: lineas.map((linea) => {
       const producto = resolveTituloProducto(linea.producto);
       return {
         producto,
