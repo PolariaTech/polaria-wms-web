@@ -97,6 +97,90 @@ function ensureSpace(doc: jsPDF, y: number, needed: number): number {
   return MARGIN;
 }
 
+const INCIDENT_CODES: ReadonlyArray<readonly [string, string]> = [
+  ["A", "No había suficiente"],
+  ["B", "Se sustituyó"],
+  ["C", "Calidad no cumple"],
+  ["D", "No está en la factura"],
+  ["E", "Especificación poco clara"],
+  ["F", "Otro — explicar en la nota"],
+];
+
+/** Dibuja un ítem de leyenda y devuelve la X siguiente (o -1 si no cabe en la fila). */
+function legendItemWidth(doc: jsPDF, _code: string, label: string): number {
+  const codeW = 4.2;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  return codeW + 1.2 + doc.getTextWidth(label) + 3.2;
+}
+
+function drawLegendItem(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  code: string,
+  label: string,
+): number {
+  const codeW = 4.2;
+  box(doc, x, y, codeW, codeW, 0.4);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.text(code, x + codeW / 2, y + codeW / 2, {
+    align: "center",
+    baseline: "middle",
+  });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  const textX = x + codeW + 1.2;
+  doc.text(label, textX, y + codeW / 2, { baseline: "middle" });
+  return textX + doc.getTextWidth(label) + 3.2;
+}
+
+/** Leyenda A–F dentro del recuadro, en filas para no salirse del ancho. */
+function drawCodesLegend(doc: jsPDF, startY: number): number {
+  const padX = 2;
+  const padTop = 2;
+  const rowGap = 1.6;
+  const rowH = 5.2;
+  const innerLeft = MARGIN + padX;
+  const innerRight = MARGIN + CONTENT_W - padX;
+
+  // Medir filas para fijar la altura del box.
+  const rows: Array<Array<readonly [string, string]>> = [[]];
+  let rowWidth = 0;
+  for (const item of INCIDENT_CODES) {
+    const w = legendItemWidth(doc, item[0], item[1]);
+    const current = rows[rows.length - 1]!;
+    if (current.length > 0 && innerLeft + rowWidth + w > innerRight) {
+      rows.push([item]);
+      rowWidth = w;
+    } else {
+      current.push(item);
+      rowWidth += w;
+    }
+  }
+
+  const titleH = 4.2;
+  const codesH = padTop + titleH + rows.length * rowH + (rows.length - 1) * rowGap + 2;
+  const y = ensureSpace(doc, startY, codesH + 3);
+  box(doc, MARGIN, y, CONTENT_W, codesH, 0.6);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.text("Códigos:", MARGIN + padX, y + padTop, { baseline: "top" });
+
+  let itemY = y + padTop + titleH;
+  for (const row of rows) {
+    let x = innerLeft;
+    for (const [code, label] of row) {
+      x = drawLegendItem(doc, x, itemY, code, label);
+    }
+    itemY += rowH + rowGap;
+  }
+
+  return y + codesH + 3;
+}
+
 const PRODUCT_COLS = [
   { key: "#", w: 8 },
   { key: "Producto", w: 50 },
@@ -152,9 +236,9 @@ function drawProductRow(
     linea?.producto ?? "",
     linea?.especificacion ?? "",
     linea?.cantidadSolicitada ?? "",
-    "",
-    "",
-    "",
+    linea?.cantidadPreparada ?? "",
+    linea?.codigoIncidencia ?? "",
+    linea?.nota ?? "",
     "",
     "",
   ];
@@ -163,14 +247,26 @@ function drawProductRow(
     const colDef = PRODUCT_COLS[colIndex]!;
     const value = values[colIndex] ?? "";
     if (colIndex === 7 || colIndex === 8) {
+      const checked =
+        colIndex === 7 ? Boolean(linea?.alisto) : Boolean(linea?.reviso);
       checkbox(doc, x + colDef.w / 2 - 1.6, mid - 1.6);
+      if (checked) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.text("X", x + colDef.w / 2, mid, {
+          align: "center",
+          baseline: "middle",
+        });
+      }
     } else if (value) {
       const size = colIndex === 1 || colIndex === 2 ? 6.5 : 7.5;
       doc.setFontSize(size);
       doc.setFont("helvetica", "normal");
       const wrapped = doc.splitTextToSize(value, colDef.w - 2);
       const shown = (Array.isArray(wrapped) ? wrapped : [wrapped]).slice(0, 2);
-      const align = colIndex === 0 || colIndex === 3 ? "center" : "left";
+      const align = colIndex === 0 || colIndex === 3 || colIndex === 4 || colIndex === 5
+        ? "center"
+        : "left";
       const textX = align === "center" ? x + colDef.w / 2 : x + 1.2;
       doc.text(shown, textX, mid, {
         align,
@@ -215,18 +311,36 @@ export function buildOrdenTareaAlmacenPdf(
 
   let y = MARGIN;
   const folio = data.folio || "—";
+  const isActualizado = Boolean(data.surtido);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
-  doc.text("ORDEN DE VENTA", MARGIN, y, { baseline: "top" });
+  doc.text(
+    isActualizado ? "ORDEN DE VENTA (ACTUALIZADA)" : "ORDEN DE VENTA",
+    MARGIN,
+    y,
+    { baseline: "top" },
+  );
 
-  box(doc, MARGIN + CONTENT_W - 18, y, 18, 18, 0.5);
+  const qrX = MARGIN + CONTENT_W - 18;
+  const qrY = y;
+  if (data.qrDataUrl) {
+    try {
+      doc.addImage(data.qrDataUrl, "PNG", qrX, qrY, 18, 18);
+    } catch {
+      box(doc, qrX, qrY, 18, 18, 0.5);
+      doc.setFontSize(5.5);
+      doc.setFont("helvetica", "normal");
+      doc.text("QR", qrX + 9, qrY + 7, { align: "center", baseline: "middle" });
+    }
+  } else {
+    box(doc, qrX, qrY, 18, 18, 0.5);
+    doc.setFontSize(5.5);
+    doc.setFont("helvetica", "normal");
+    doc.text("QR", qrX + 9, qrY + 7, { align: "center", baseline: "middle" });
+  }
   doc.setFontSize(5.5);
   doc.setFont("helvetica", "normal");
-  doc.text("QR", MARGIN + CONTENT_W - 9, y + 7, {
-    align: "center",
-    baseline: "middle",
-  });
   doc.text("Escanear y fotografiar", MARGIN + CONTENT_W, y + 19, {
     align: "right",
     baseline: "top",
@@ -239,7 +353,21 @@ export function buildOrdenTareaAlmacenPdf(
   y += 6;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text("Factura asociada: _______________", MARGIN, y, { baseline: "top" });
+  const factura =
+    data.surtido?.campos?.["Factura asociada"] ||
+    data.surtido?.campos?.["factura asociada"] ||
+    Object.entries(data.surtido?.campos ?? {}).find(([k]) =>
+      k.toLowerCase().includes("factura"),
+    )?.[1] ||
+    "";
+  doc.text(
+    factura
+      ? `Factura asociada: ${factura}`
+      : "Factura asociada: _______________",
+    MARGIN,
+    y,
+    { baseline: "top" },
+  );
 
   y += 8;
   doc.setLineWidth(0.7);
@@ -264,9 +392,21 @@ export function buildOrdenTareaAlmacenPdf(
   doc.text("Noche / AM", MARGIN + col * 3 + 19.6, y + 6.6, { baseline: "top" });
   y += rowH;
   const addrH = 16;
+  const chofer =
+    data.surtido?.campos?.Chofer ||
+    Object.entries(data.surtido?.campos ?? {}).find(([k]) =>
+      k.toLowerCase().includes("chofer"),
+    )?.[1] ||
+    "";
+  const unidad =
+    data.surtido?.campos?.Unidad ||
+    Object.entries(data.surtido?.campos ?? {}).find(([k]) =>
+      k.toLowerCase().includes("unidad"),
+    )?.[1] ||
+    "";
   field(doc, MARGIN, y, col * 2, addrH, "Dirección de entrega", data.direccionEntrega);
-  field(doc, MARGIN + col * 2, y, col, addrH, "Chofer");
-  field(doc, MARGIN + col * 3, y, col, addrH, "Unidad");
+  field(doc, MARGIN + col * 2, y, col, addrH, "Chofer", chofer);
+  field(doc, MARGIN + col * 3, y, col, addrH, "Unidad", unidad);
   y += addrH + 3;
 
   y = ensureSpace(doc, y, 12 + PRODUCT_HEADER_H + PRODUCT_BODY_H);
@@ -288,13 +428,7 @@ export function buildOrdenTareaAlmacenPdf(
   }
 
   y += 2;
-  const codesH = 16;
-  y = ensureSpace(doc, y, codesH + 3);
-  box(doc, MARGIN, y, CONTENT_W, codesH);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  doc.text("Códigos", MARGIN + 2, y + 2.2, { baseline: "top" });
-  y += codesH + 3;
+  y = drawCodesLegend(doc, y);
 
   const totW = CONTENT_W / 4;
   const totH = 11;
@@ -306,6 +440,13 @@ export function buildOrdenTareaAlmacenPdf(
     "Total de bultos al camión",
   ];
   totLabels.forEach((label, index) => {
+    let value = index === 0 ? String(data.lineas.length) : "";
+    if (index > 0 && data.surtido?.campos) {
+      const found = Object.entries(data.surtido.campos).find(([k]) =>
+        k.toLowerCase().includes(label.toLowerCase().slice(0, 12)),
+      );
+      if (found?.[1]) value = found[1];
+    }
     field(
       doc,
       MARGIN + totW * index,
@@ -313,7 +454,7 @@ export function buildOrdenTareaAlmacenPdf(
       totW,
       totH,
       label,
-      index === 0 ? String(data.lineas.length) : "",
+      value,
       true,
     );
   });

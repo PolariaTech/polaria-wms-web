@@ -109,7 +109,9 @@ describe("orden de tarea almacén", () => {
     expect(html).not.toContain("Si algo no salió");
     expect(html).toContain("<th class=\"c\">Alistó</th>");
     expect(html).toContain("<th class=\"c\">Revisó</th>");
-    expect(html).not.toContain("No había suficiente");
+    expect(html).toContain("No había suficiente");
+    expect(html).toContain('class="k"');
+    expect(html).toContain("Otro — explicar en la nota");
   });
 
   it("deja la especificación vacía si el pedido no trajo nota de línea", () => {

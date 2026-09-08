@@ -23,9 +23,21 @@ const SECURITY_HEADERS = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=()",
+    value: "camera=(self), microphone=(), geolocation=()",
   },
   { key: "Cross-Origin-Resource-Policy", value: "same-site" },
+];
+
+/** Sin CORP: Safari en IP local bloqueaba el fetch del cliente. */
+const CAPTURA_PUBLIC_HEADERS = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(self), microphone=(), geolocation=()",
+  },
+  { key: "Cache-Control", value: "no-store, must-revalidate" },
 ];
 
 /** Permite embeber la vista de reportes en el mismo origen (dashboard). */
@@ -77,6 +89,9 @@ const nextConfig: NextConfig = {
     return [
       { source: "/reportes-embed", headers: EMBED_FRAME_HEADERS },
       { source: "/reportes-embed/:path*", headers: EMBED_FRAME_HEADERS },
+      { source: "/logo.png", headers: CAPTURA_PUBLIC_HEADERS },
+      { source: "/captura-orden", headers: CAPTURA_PUBLIC_HEADERS },
+      { source: "/captura-orden/:path*", headers: CAPTURA_PUBLIC_HEADERS },
       { source: "/:path*", headers: SECURITY_HEADERS },
       { source: "/configurador", headers: shellHeaders },
       { source: "/configurador/:path*", headers: shellHeaders },

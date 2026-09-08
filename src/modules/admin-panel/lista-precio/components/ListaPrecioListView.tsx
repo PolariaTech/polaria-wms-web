@@ -83,7 +83,7 @@ export function ListaPrecioListView() {
   const { data, isLoading, isRefreshing, error: loadError, reload } =
     useAsyncQuery(fetchRows, Boolean(codigoCuenta));
 
-  const allRows = data ?? [];
+  const allRows = useMemo(() => data ?? [], [data]);
   const rows = useMemo(
     () => filterRowsBySearch(allRows, search),
     [allRows, search],

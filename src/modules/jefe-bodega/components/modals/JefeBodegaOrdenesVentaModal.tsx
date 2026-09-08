@@ -102,7 +102,7 @@ export function JefeBodegaOrdenesVentaModal({
     };
   }, []);
 
-  const ordenes = data ?? [];
+  const ordenes = useMemo(() => data ?? [], [data]);
 
   const filtered = useMemo(() => {
     const needle = normalizeSearch(query);

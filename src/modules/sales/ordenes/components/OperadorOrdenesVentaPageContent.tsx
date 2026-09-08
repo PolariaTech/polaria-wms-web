@@ -28,9 +28,14 @@ import {
   listOrdenesVentaOperador,
 } from "../../shared/services/sales.service";
 import type { OrdenVentaOperadorRow } from "../../shared/types/sales.types";
+import { listOrdenIdsConSurtidoCaptura } from "../surtido/list-orden-ids-con-surtido-captura";
 import { OrdenVentaCreateModal } from "./OrdenVentaCreateModal";
 import { OrdenVentaDetalleModal } from "./OrdenVentaDetalleModal";
 
+interface OrdenesVentaPageData {
+  rows: OrdenVentaOperadorRow[];
+  idsConPdfActualizado: Set<string>;
+}
 function renderEstadoBadge(estado: string) {
   const normalized = estado.toLowerCase();
   const variant =
@@ -56,15 +61,25 @@ export function OperadorOrdenesVentaPageContent() {
   const printingLockRef = useRef(false);
   const [busyAction, setBusyAction] = useState<{
     id: string;
-    kind: "print" | "download";
+    kind: "print" | "download" | "updated";
   } | null>(null);
 
-  const fetchOrdenes = useCallback(() => {
+  const fetchOrdenes = useCallback(async (): Promise<OrdenesVentaPageData> => {
     if (!codigoCuenta) {
-      return Promise.resolve([]);
+      return { rows: [], idsConPdfActualizado: new Set() };
     }
 
-    return listOrdenesVentaOperador({ codigoCuenta });
+    const rows = await listOrdenesVentaOperador({ codigoCuenta });
+    let idsConPdfActualizado = new Set<string>();
+    try {
+      idsConPdfActualizado = await listOrdenIdsConSurtidoCaptura({
+        codigoCuenta,
+        idOrdenes: rows.map((row) => row.idOrdenVenta),
+      });
+    } catch {
+      idsConPdfActualizado = new Set();
+    }
+    return { rows, idsConPdfActualizado };
   }, [codigoCuenta]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
@@ -93,7 +108,11 @@ export function OperadorOrdenesVentaPageContent() {
     };
   }, []);
 
-  const rows = data ?? [];
+  const rows = data?.rows ?? [];
+  const idsConPdfActualizado = useMemo(
+    () => data?.idsConPdfActualizado ?? new Set<string>(),
+    [data],
+  );
 
   const loadPrintData = useCallback(
     async (row: OrdenVentaOperadorRow) => {
@@ -117,7 +136,7 @@ export function OperadorOrdenesVentaPageContent() {
   const runOrdenOutput = useCallback(
     async (
       row: OrdenVentaOperadorRow,
-      kind: "print" | "download",
+      kind: "print" | "download" | "updated",
     ) => {
       if (!codigoCuenta || printingLockRef.current) return;
       printingLockRef.current = true;
@@ -127,9 +146,42 @@ export function OperadorOrdenesVentaPageContent() {
         const data = await loadPrintData(row);
         if (kind === "print") {
           await printOrdenTareaAlmacen(data);
-        } else {
-          await downloadOrdenTareaAlmacenPdf(data);
+          return;
         }
+        if (kind === "download") {
+          await downloadOrdenTareaAlmacenPdf(data);
+          return;
+        }
+
+        const response = await fetch(
+          `/captura-orden/${encodeURIComponent(row.idOrdenVenta)}/api`,
+        );
+        const body = (await response.json()) as {
+          error?: string;
+          captura?: { payload: import("../surtido/orden-surtido.types").OrdenSurtidoCapturaPayload } | null;
+        };
+        if (!response.ok) {
+          throw new Error(body.error || "No se pudo cargar la captura.");
+        }
+        if (!body.captura?.payload) {
+          window.alert(
+            "Aún no hay PDF actualizado. El jefe debe escanear el QR y subir la foto de la hoja llenada.",
+          );
+          return;
+        }
+        const { applySurtidoToPrintData } = await import(
+          "../surtido/apply-surtido-to-print"
+        );
+        const updated = applySurtidoToPrintData(data, body.captura.payload);
+        await downloadOrdenTareaAlmacenPdf(updated, {
+          filenameSuffix: "actualizado",
+        });
+      } catch (error: unknown) {
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : "No se pudo generar el PDF.",
+        );
       } finally {
         printingLockRef.current = false;
         setBusyAction(null);
@@ -242,8 +294,36 @@ export function OperadorOrdenesVentaPageContent() {
           </span>
         ),
       },
+      {
+        id: "pdfActualizado",
+        header: "PDF actualizado",
+        headerClassName: ordenVentaTableColumnClass("pdfActualizado", "header"),
+        cellClassName: ordenVentaTableColumnClass("pdfActualizado"),
+        cell: (row: OrdenVentaOperadorRow) => {
+          if (!idsConPdfActualizado.has(row.idOrdenVenta)) {
+            return <span className="text-polaria-w-20">—</span>;
+          }
+          return (
+            <span
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <PolariaTableDownloadButton
+                label="Descargar PDF actualizado (surtido)"
+                onClick={() => {
+                  void runOrdenOutput(row, "updated");
+                }}
+                disabled={
+                  busyAction?.id === row.idOrdenVenta &&
+                  busyAction.kind === "updated"
+                }
+              />
+            </span>
+          );
+        },
+      },
     ],
-    [runOrdenOutput, busyAction],
+    [runOrdenOutput, busyAction, idsConPdfActualizado],
   );
 
   return (

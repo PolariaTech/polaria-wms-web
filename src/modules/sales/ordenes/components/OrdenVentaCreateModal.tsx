@@ -1020,7 +1020,6 @@ export function OrdenVentaCreateModal({
       requiereLote,
       startMode,
       discrepancias,
-      startMode,
       step,
       telefono,
       turno,

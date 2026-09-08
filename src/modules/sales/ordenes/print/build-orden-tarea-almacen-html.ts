@@ -58,8 +58,12 @@ const SHEET_CSS = `
   table.pt td.tick{text-align:center;}
   table.pt tbody tr{height:32px;}
   .tk{width:16px;height:16px;border:1.6px solid #000;display:inline-block;}
-  .codes{border:2px solid #000;margin-top:6px;min-height:42px;padding:5px 7px;}
-  .codes b{font-size:9.5px;display:block;}
+  .codes{border:2px solid #000;margin-top:6px;padding:5px 7px;overflow:hidden;}
+  .codes b{font-size:9.5px;margin-right:6px;}
+  .codes span{font-size:10px;line-height:1.45;}
+  .codes .k{font-family:'IBM Plex Mono','Consolas',monospace;font-weight:700;border:1.4px solid #000;
+            padding:0 4px;margin:0 3px 0 8px;display:inline-block;}
+  .codes .k:first-of-type{margin-left:0;}
   table.totals{width:100%;border-collapse:separate;border-spacing:6px;table-layout:fixed;margin-top:2px;}
   table.totals td{border:2px solid #000;padding:4px 6px;vertical-align:top;}
   table.totals label{display:block;font-size:9.5px;font-weight:600;line-height:1.2;margin:0 0 3px;}
@@ -213,7 +217,13 @@ export function buildOrdenTareaAlmacenHtml(
     <tbody>${buildProductRows(data)}</tbody>
   </table>
   <div class="codes">
-    <b>Códigos</b>
+    <b>Códigos:</b>
+    <span class="k">A</span>No había suficiente
+    <span class="k">B</span>Se sustituyó
+    <span class="k">C</span>Calidad no cumple
+    <span class="k">D</span>No está en la factura
+    <span class="k">E</span>Especificación poco clara
+    <span class="k">F</span>Otro — explicar en la nota
   </div>
   <table class="totals">
     <tr>

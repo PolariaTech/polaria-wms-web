@@ -9,9 +9,10 @@ const COLUMN_MIN_WIDTH: Record<string, string> = {
   origen: "min-w-[7rem]",
   imprimir: "min-w-[7.5rem]",
   descargar: "min-w-[7.5rem]",
+  pdfActualizado: "min-w-[8.5rem]",
 };
 
-export const ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS = "min-w-[96rem]";
+export const ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS = "min-w-[104rem]";
 
 export function ordenVentaTableColumnClass(
   columnId: string,

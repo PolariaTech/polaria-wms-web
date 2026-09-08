@@ -43,6 +43,7 @@ export function mapOrdenVentaToAlmacenPrintData(input: {
 
   if (!detalle) {
     return {
+      idOrdenVenta: listRow.idOrdenVenta,
       folio: listRow.venta,
       impresa: formatOrdenTareaImpresaAt(printedAt),
       cliente: listRow.comprador,
@@ -60,6 +61,7 @@ export function mapOrdenVentaToAlmacenPrintData(input: {
   const fechaEntregaCaptura = captura.fechaEntrega.trim();
 
   return {
+    idOrdenVenta: detalle.id_orden_venta,
     folio: detalle.codigo,
     impresa: formatOrdenTareaImpresaAt(printedAt),
     cliente: formatCompradorOrdenVenta(detalle),

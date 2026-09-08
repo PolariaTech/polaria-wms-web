@@ -1,5 +1,6 @@
 "use client";
 
+import QRCode from "qrcode";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
 /** Papel carta (coincide con el PDF de imprimir/descargar). */
@@ -51,6 +52,33 @@ function createHiddenIframe(src: string): {
   return { iframe, loaded };
 }
 
+export function buildCapturaOrdenUrl(idOrdenVenta: string): string {
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? "");
+  return `${origin}/captura-orden/${encodeURIComponent(idOrdenVenta)}`;
+}
+
+async function withQrDataUrl(
+  data: OrdenTareaAlmacenPrintData,
+): Promise<OrdenTareaAlmacenPrintData> {
+  if (data.qrDataUrl) return data;
+  const id = data.idOrdenVenta?.trim();
+  if (!id) return data;
+  try {
+    const qrDataUrl = await QRCode.toDataURL(buildCapturaOrdenUrl(id), {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 256,
+      color: { dark: "#000000", light: "#ffffff" },
+    });
+    return { ...data, qrDataUrl };
+  } catch {
+    return data;
+  }
+}
+
 /** Misma hoja que Descargar: imprime el PDF jsPDF, no el HTML aparte. */
 export async function printOrdenTareaAlmacen(
   data: OrdenTareaAlmacenPrintData,
@@ -58,7 +86,8 @@ export async function printOrdenTareaAlmacen(
   const { buildOrdenTareaAlmacenPdf } = await import(
     "./render-orden-tarea-almacen-pdf"
   );
-  const pdf = buildOrdenTareaAlmacenPdf(data);
+  const withQr = await withQrDataUrl(data);
+  const pdf = buildOrdenTareaAlmacenPdf(withQr);
   // jsPDF tipa "bloburl" como URL; iframe.src / revokeObjectURL esperan string.
   const blobUrl = pdf.output("bloburl").toString();
   const { iframe, loaded } = createHiddenIframe(blobUrl);
@@ -100,11 +129,16 @@ export async function printOrdenTareaAlmacen(
 
 export async function downloadOrdenTareaAlmacenPdf(
   data: OrdenTareaAlmacenPrintData,
+  options?: { filenameSuffix?: string },
 ): Promise<void> {
   const { buildOrdenTareaAlmacenPdf } = await import(
     "./render-orden-tarea-almacen-pdf"
   );
-  const filename = `orden-venta-${sanitizePdfFilename(data.folio)}.pdf`;
-  const pdf = buildOrdenTareaAlmacenPdf(data);
+  const suffix = options?.filenameSuffix?.trim()
+    ? `-${options.filenameSuffix.trim()}`
+    : "";
+  const filename = `orden-venta-${sanitizePdfFilename(data.folio)}${suffix}.pdf`;
+  const withQr = await withQrDataUrl(data);
+  const pdf = buildOrdenTareaAlmacenPdf(withQr);
   pdf.save(filename);
 }

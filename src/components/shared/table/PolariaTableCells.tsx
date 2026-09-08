@@ -198,6 +198,7 @@ export function PolariaTableDownloadButton({
     <button
       type="button"
       aria-label={label}
+      title={label}
       onClick={onClick}
       disabled={disabled}
       className={cn(

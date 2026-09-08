@@ -52,6 +52,12 @@ export const ROUTES = {
   dashboardProcesamiento: "/dashboard/procesamiento",
   dashboardVentas: "/dashboard/ventas",
   dashboardVentasOrdenes: "/dashboard/ventas/ordenes",
+  /** Captura pública (QR) de hoja surtida — sin login. */
+  capturaOrden: (idOrdenVenta: string) =>
+    `/captura-orden/${encodeURIComponent(idOrdenVenta)}`,
+  /** API meta/upload de captura — fuera de `/api` para no proxyar a Nest. */
+  capturaOrdenApi: (idOrdenVenta: string) =>
+    `/captura-orden/${encodeURIComponent(idOrdenVenta)}/api`,
   dashboardTransporte: "/dashboard/transporte",
   dashboardReporteria: "/dashboard/reporteria",
   /** Administrador de bodega — operación (independiente del jefe de bodega) */

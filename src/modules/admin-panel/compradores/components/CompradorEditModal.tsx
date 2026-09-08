@@ -236,10 +236,6 @@ export function CompradorEditModal({
       }
 
       const telefonoPrincipal = form.telefono.trim();
-      const telefonoContacto = ficha.contactos
-        .map((row) => row.telefono.trim())
-        .find((value) => value && isValidInternationalPhone(value));
-      const telefonoGuardar = telefonoPrincipal || telefonoContacto || "";
 
       if (telefonoPrincipal && !isValidInternationalPhone(telefonoPrincipal)) {
         setError("Ingresa un número de teléfono válido.");

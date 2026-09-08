@@ -454,8 +454,7 @@ export async function createCompradorAdmin(
       }>;
     });
 
-  let inserted: CompradorDbRow | null;
-  inserted = await insertComprador(payload, COMPRADOR_LIST_COLUMNS);
+  const inserted = await insertComprador(payload, COMPRADOR_LIST_COLUMNS);
 
   if (!inserted) {
     throw new DomainServiceError(
