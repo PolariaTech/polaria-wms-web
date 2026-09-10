@@ -19,6 +19,8 @@ import {
 export interface UsuarioListRow {
   idUsuario: string;
   codigo: string;
+  /** Código de cuenta WMS (null si el rol no está atado a cuenta). */
+  codigoCuenta: string | null;
   rol: string;
   nombre: string;
   cuenta: string;
@@ -34,6 +36,8 @@ export interface RolOption {
 export interface CuentaAssignOption {
   codigoCuenta: string;
   nombreComercial: string;
+  /** Bodega por defecto de la cuenta, si está configurada. */
+  idBodegaDefault: string | null;
 }
 
 export interface BodegaAssignOption {
@@ -80,6 +84,7 @@ function mapUsuarioRow(
   return {
     idUsuario: row.id_usuario,
     codigo: codigoCuenta ?? "—",
+    codigoCuenta,
     rol: rol?.nombre ?? rol?.id_rol ?? "—",
     nombre: row.nombre,
     cuenta: codigoCuenta
@@ -156,6 +161,7 @@ export async function listCuentasAssignOptions(): Promise<CuentaAssignOption[]> 
   return rows.map((row) => ({
     codigoCuenta: row.codigo_cuenta,
     nombreComercial: row.nombre_comercial,
+    idBodegaDefault: row.id_bodega_default?.trim() || null,
   }));
 }
 
@@ -359,6 +365,7 @@ export async function createUsuarioConfigurator(
     return {
       idUsuario: created.idUsuario,
       codigo: created.codigoCuenta ?? "—",
+      codigoCuenta: created.codigoCuenta,
       rol: rolNombre,
       nombre: created.nombre,
       cuenta: cuentaNombre,

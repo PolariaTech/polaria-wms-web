@@ -74,6 +74,20 @@ function createPrecioProductoChain(rows: Record<string, unknown>[]) {
   return chain;
 }
 
+function createProductoCatalogoChain(rows: Record<string, unknown>[]) {
+  const chain = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    order: vi.fn(),
+    limit: vi.fn(),
+  };
+  chain.select.mockReturnValue(chain);
+  chain.eq.mockReturnValue(chain);
+  chain.order.mockReturnValue(chain);
+  chain.limit.mockResolvedValue({ data: rows, error: null });
+  return chain;
+}
+
 describe("sales.service", () => {
   beforeEach(() => {
     setSupabaseClientForTests(null);
@@ -198,8 +212,18 @@ describe("sales.service", () => {
     expect(lineaMock.chain.in.mock.calls[1]?.[1]).toEqual(["ov-81"]);
   });
 
-  it("listProductosVentaCatalogo lee warehouse_state.cantidad de la cuenta", async () => {
+  it("listProductosVentaCatalogo lista productos activos y suma stock de almacenamiento", async () => {
     const bodegaChain = createBodegaChain(["bod-1"]);
+    const productoChain = createProductoCatalogoChain([
+      {
+        id_producto: "prod-1",
+        sku: "FIL-01",
+        descripcion: "Filete",
+        id_cliente: "cli-1",
+        metadatos_catalogo: null,
+        esta_activo: true,
+      },
+    ]);
     const warehouseChain = createWarehouseChain([
       {
         id_producto: "prod-1",
@@ -238,6 +262,7 @@ describe("sales.service", () => {
 
     const from = vi.fn((table: string) => {
       if (table === "bodega") return bodegaChain;
+      if (table === "producto") return productoChain;
       if (table === "warehouse_state") return warehouseChain;
       if (table === "ubicacion") return ubicacionChain;
       if (table === "precio_producto") return precioChain;
@@ -248,6 +273,7 @@ describe("sales.service", () => {
 
     const rows = await listProductosVentaCatalogo({ codigoCuenta: "CUENTA-01" });
 
+    expect(from).toHaveBeenCalledWith("producto");
     expect(from).toHaveBeenCalledWith("warehouse_state");
     expect(from).toHaveBeenCalledWith("precio_producto");
     expect(warehouseChain.in).toHaveBeenCalledWith("id_bodega", ["bod-1"]);
@@ -258,8 +284,18 @@ describe("sales.service", () => {
     expect(rows[0]?.precioUnitario).toBe(106.57);
   });
 
-  it("listProductosVentaCatalogo ignora stock en zona de salida", async () => {
+  it("listProductosVentaCatalogo incluye productos sin stock usable (kg 0)", async () => {
     const bodegaChain = createBodegaChain(["bod-1"]);
+    const productoChain = createProductoCatalogoChain([
+      {
+        id_producto: "prod-1",
+        sku: "IOZ7Z",
+        descripcion: "HPR FROZEN-PORK RACKS",
+        id_cliente: "cli-1",
+        metadatos_catalogo: null,
+        esta_activo: true,
+      },
+    ]);
     const warehouseChain = createWarehouseChain([
       {
         id_producto: "prod-1",
@@ -298,11 +334,14 @@ describe("sales.service", () => {
         },
       },
     ]);
+    const precioChain = createPrecioProductoChain([]);
 
     const from = vi.fn((table: string) => {
       if (table === "bodega") return bodegaChain;
+      if (table === "producto") return productoChain;
       if (table === "warehouse_state") return warehouseChain;
       if (table === "ubicacion") return ubicacionChain;
+      if (table === "precio_producto") return precioChain;
       throw new Error(`unexpected table ${table}`);
     });
 
@@ -310,9 +349,10 @@ describe("sales.service", () => {
 
     const rows = await listProductosVentaCatalogo({ codigoCuenta: "CUENTA-01" });
 
-    expect(rows).toHaveLength(0);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.kgDisponible).toBe(0);
+    expect(rows[0]?.codigo).toBe("IOZ7Z");
   });
-
   it("createOrdenVenta inserta OV borrador y una línea", async () => {
     const bodegaChain = createBodegaChain(["bod-1"]);
     const warehouseChain = createWarehouseChain([
@@ -472,64 +512,124 @@ describe("sales.service", () => {
     ]);
   });
 
-  it("createOrdenVenta rechaza cantidad mayor al stock disponible", async () => {
+  it("createOrdenVenta permite cantidad mayor al stock disponible", async () => {
     const bodegaChain = createBodegaChain(["bod-1"]);
-    const warehouseChain = createWarehouseChain([
-      {
-        id_producto: "prod-1",
-        id_bodega: "bod-1",
-        id_ubicacion: "ub-1",
-        cantidad: "10",
-        cantidad_reservada: "0",
-        producto: null,
-      },
-    ]);
-
-    const ubicacionChain = createUbicacionChain([
-      {
-        id_ubicacion: "ub-1",
-        id_bodega: "bod-1",
-        tipo_ubicacion: {
-          codigo: "almacen",
-          es_recepcion: false,
-          es_almacenamiento: true,
-          es_picking: false,
-        },
-      },
-    ]);
 
     const compradorChain = {
       select: vi.fn(),
       eq: vi.fn(),
+      in: vi.fn(),
       limit: vi.fn(),
     };
     compradorChain.select.mockReturnValue(compradorChain);
     compradorChain.eq.mockReturnValue(compradorChain);
-    compradorChain.limit.mockResolvedValue({
-      data: [{ id_comprador: "comp-1" }],
+    compradorChain.in.mockReturnValue(compradorChain);
+    compradorChain.limit.mockImplementation(function (this: typeof compradorChain) {
+      if (compradorChain.in.mock.calls.length > 0) {
+        return Promise.resolve({
+          data: [{ id_comprador: "comp-1", nombre: "Retail Norte" }],
+          error: null,
+        });
+      }
+      return Promise.resolve({
+        data: [{ id_comprador: "comp-1" }],
+        error: null,
+      });
+    });
+
+    const productoChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      in: vi.fn(),
+      limit: vi.fn(),
+    };
+    productoChain.select.mockReturnValue(productoChain);
+    productoChain.eq.mockReturnValue(productoChain);
+    productoChain.in.mockReturnValue(productoChain);
+    productoChain.limit.mockImplementation(function (this: typeof productoChain) {
+      if (productoChain.in.mock.calls.length > 0) {
+        return Promise.resolve({
+          data: [{ id_producto: "prod-1" }],
+          error: null,
+        });
+      }
+
+      return Promise.resolve({
+        data: [{ id_producto: "prod-1", id_cliente: "cli-1" }],
+        error: null,
+      });
+    });
+
+    const ordenInsertChain = {
+      insert: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    ordenInsertChain.insert.mockReturnValue(ordenInsertChain);
+    ordenInsertChain.select.mockReturnValue(ordenInsertChain);
+    ordenInsertChain.single.mockResolvedValue({
+      data: {
+        id_orden_venta: "ov-over",
+        codigo_cuenta: "CUENTA-01",
+        id_bodega: "bod-1",
+        id_cliente: "cli-1",
+        id_comprador: "comp-1",
+        id_planta: null,
+        id_creador: null,
+        id_bodega_destino: "bod-dest",
+        codigo: "OV-OVER",
+        estado: "borrador",
+        fecha_pedido: "2026-06-28",
+        observaciones: null,
+        created_at: "2026-06-28T12:00:00.000Z",
+        updated_at: "2026-06-28T12:00:00.000Z",
+      },
       error: null,
     });
 
+    const lineaInsertChain = {
+      insert: vi.fn(),
+    };
+    lineaInsertChain.insert.mockResolvedValue({ data: null, error: null });
+
+    const precioChain = createPrecioProductoChain([
+      {
+        id_producto: "prod-1",
+        precio: "10",
+        fecha_aplicacion: "2026-07-11T00:38:27.036Z",
+      },
+    ]);
+
     const from = vi.fn((table: string) => {
       if (table === "bodega") return bodegaChain;
-      if (table === "warehouse_state") return warehouseChain;
-      if (table === "ubicacion") return ubicacionChain;
       if (table === "comprador") return compradorChain;
+      if (table === "producto") return productoChain;
+      if (table === "precio_producto") return precioChain;
+      if (table === "orden_venta") return ordenInsertChain;
+      if (table === "orden_venta_linea") return lineaInsertChain;
       throw new Error(`unexpected table ${table}`);
     });
 
     setSupabaseClientForTests({ from } as never);
 
-    await expect(
-      createOrdenVenta({
-        codigoCuenta: "CUENTA-01",
-        idBodega: "bod-1",
-        idBodegaDestino: "bod-dest",
-        idComprador: "comp-1",
-        idProducto: "prod-1",
-        cantidadPedida: 25,
-      }),
-    ).rejects.toThrow("No puedes vender más de");
+    const row = await createOrdenVenta({
+      codigoCuenta: "CUENTA-01",
+      idBodega: "bod-1",
+      idBodegaDestino: "bod-dest",
+      idComprador: "comp-1",
+      idProducto: "prod-1",
+      cantidadPedida: 25,
+    });
+
+    expect(row.venta).toBe("OV-OVER");
+    expect(lineaInsertChain.insert).toHaveBeenCalledWith([
+      {
+        id_orden_venta: "ov-over",
+        id_producto: "prod-1",
+        cantidad_pedida: 25,
+        precio_unitario: 10,
+      },
+    ]);
   });
 
   it("getOrdenVentaDetalle devuelve orden con líneas y comprador", async () => {

@@ -502,9 +502,13 @@ describe("vistas operativas dashboard", () => {
         cuenta: "CUENTA-01",
         comprador: "Retail Norte",
         productos: "2 productos",
+        cantidadKg: 15,
+        total: 2000,
         estado: "borrador",
         fecha: "2026-06-28T12:00:00.000Z",
         destino: "—",
+        idBodega: "bod-1",
+        idBodegaDestino: null,
       },
     ]);
 

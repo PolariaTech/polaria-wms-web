@@ -7,6 +7,7 @@ export const PLATFORM_TABLES = new Set([
   "usuario",
   "rol",
   "security_event",
+  "impresora",
 ]);
 
 export function isPlatformTable(table: string): boolean {

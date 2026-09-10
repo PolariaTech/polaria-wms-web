@@ -18,6 +18,7 @@ export {
   getOrdenVentaDetalle,
   listOrdenesVenta,
   listOrdenesVentaOperador,
+  listOrdenesVentaOperadorParaJefe,
   listProductosVentaCatalogo,
 } from "./shared/services/sales.service";
 

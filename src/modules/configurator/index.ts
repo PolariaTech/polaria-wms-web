@@ -63,6 +63,9 @@ export {
   USUARIOS_EMPTY_MESSAGE,
   USUARIOS_TABLE_SUBTITLE,
   USUARIOS_TABLE_TITLE,
+  IMPRESORAS_EMPTY_MESSAGE,
+  IMPRESORAS_TABLE_SUBTITLE,
+  IMPRESORAS_TABLE_TITLE,
 } from "./shared/constants/configurator-list";
 
 export { ConfiguratorActionCard } from "./shared/components/ConfiguratorActionCard";
@@ -81,6 +84,8 @@ export { EmpresaCreateModal } from "./empresas/components/EmpresaCreateModal";
 export { EmpresasListView } from "./empresas/components/EmpresasListView";
 export { UsuarioCreateModal } from "./usuarios/components/UsuarioCreateModal";
 export { UsuariosListView } from "./usuarios/components/UsuariosListView";
+export { ImpresoraCreateModal } from "./impresoras/components/ImpresoraCreateModal";
+export { ImpresorasListView } from "./impresoras/components/ImpresorasListView";
 export {
   ConfiguratorPanel,
   ConfiguratorPanelConnected,
@@ -116,12 +121,14 @@ export type {
   CuentaListRow,
   CreateCuentaInput,
   EmpresaAssignOption,
+  UpdateCuentaBodegaDefaultInput,
   UpdateCuentaInput,
 } from "./cuentas/services/cuentas.service";
 export {
   createCuentaConfigurator,
   listCuentasConfigurator,
   listEmpresasAssignOptions,
+  updateCuentaBodegaDefaultConfigurator,
   updateCuentaConfigurator,
 } from "./cuentas/services/cuentas.service";
 
@@ -157,3 +164,12 @@ export {
   listRolesConfigurator,
   listUsuariosConfigurator,
 } from "./usuarios/services/usuarios.service";
+
+export type {
+  CreateImpresoraInput,
+  ImpresoraListRow,
+} from "./impresoras/services/impresoras.service";
+export {
+  createImpresoraConfigurator,
+  listImpresorasConfigurator,
+} from "./impresoras/services/impresoras.service";

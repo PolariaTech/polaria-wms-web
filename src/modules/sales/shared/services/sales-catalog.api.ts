@@ -20,7 +20,11 @@ export async function fetchProductosVentaCatalogo(
       );
 
       if (response.ok) {
-        return (await response.json()) as ProductoVentaOption[];
+        const productos = (await response.json()) as ProductoVentaOption[];
+        // Si el server no resolvió el schema emp_*, no quedarse con [].
+        if (Array.isArray(productos) && productos.length > 0) {
+          return productos;
+        }
       }
     } catch {
       // fallback al cliente Supabase

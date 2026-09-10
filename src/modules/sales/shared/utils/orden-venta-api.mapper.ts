@@ -52,5 +52,7 @@ export function mapOrdenVentaOperadorApiRow(
       readString(raw, "fecha", "createdAt", "created_at", "fechaPedido", "fecha_pedido") ??
       "",
     destino: readString(raw, "destino", "bodegaDestinoNombre") ?? "—",
+    idBodega: readString(raw, "idBodega", "id_bodega") ?? "",
+    idBodegaDestino: readString(raw, "idBodegaDestino", "id_bodega_destino"),
   };
 }

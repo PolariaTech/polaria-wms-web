@@ -1,36 +1,118 @@
 import OpenAI from "openai";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
-import type { OrdenSurtidoCapturaPayload } from "./orden-surtido.types";
+import type {
+  OrdenSurtidoCapturaPayload,
+  OrdenSurtidoChecks,
+} from "./orden-surtido.types";
 
 /** Visión de alta calidad para manuscrito en hoja impresa. */
 export const OPENAI_SURTIDO_VISION_MODEL = "gpt-4o";
 
+const NULLABLE_STRING = { type: ["string", "null"] as const };
+const NULLABLE_BOOL = { type: ["boolean", "null"] as const };
+
+const CABECERA_KEYS = [
+  "facturaAsociada",
+  "horaComprometida",
+  "horaSugeridaSalida",
+  "chofer",
+  "unidad",
+  "renglonesSurtidosCompletos",
+  "cajas15kg",
+  "cajas21kg",
+  "totalBultosCamion",
+  "toleranciaPesoPct",
+  "alistoNombre",
+  "alistoHora",
+  "revisoNombre",
+  "revisoHora",
+  "documentoNombre",
+  "documentoHora",
+  "despachoNombre",
+  "despachoHora",
+  "recepcionNombre",
+  "recepcionCargo",
+  "recepcionHora",
+  "recepcionMotivo",
+] as const;
+
+const CHECK_KEYS = [
+  "turnoPm",
+  "turnoNocheAm",
+  "incidenciaFueraHorario",
+  "incidenciaSinFactura",
+  "incidenciaFacturaNoPedida",
+  "incidenciaNinguna",
+  "mercanciaCoincide",
+  "mercanciaDentroTolerancia",
+  "mercanciaFueraTolerancia",
+  "recepcionAceptadoCompleto",
+  "recepcionAceptadoParcial",
+  "recepcionRechazado",
+  "recepcionRetornoFactura",
+] as const;
+
+/** Etiquetas humanas para PDF / búsqueda flexible. */
+export const CABECERA_LABELS: Record<(typeof CABECERA_KEYS)[number], string> = {
+  facturaAsociada: "Factura asociada",
+  horaComprometida: "Hora comprometida",
+  horaSugeridaSalida: "Hora sugerida de salida",
+  chofer: "Chofer",
+  unidad: "Unidad",
+  renglonesSurtidosCompletos: "Renglones surtidos completos",
+  cajas15kg: "Cajas 1.5 kg",
+  cajas21kg: "Cajas 21 kg",
+  totalBultosCamion: "Total de bultos al camión",
+  toleranciaPesoPct: "Tolerancia por peso %",
+  alistoNombre: "Alistó nombre",
+  alistoHora: "Alistó hora",
+  revisoNombre: "Revisó nombre",
+  revisoHora: "Revisó hora",
+  documentoNombre: "Documentó nombre",
+  documentoHora: "Documentó hora",
+  despachoNombre: "Despachó nombre",
+  despachoHora: "Despachó hora",
+  recepcionNombre: "Recepción nombre",
+  recepcionCargo: "Recepción cargo",
+  recepcionHora: "Recepción hora",
+  recepcionMotivo: "Recepción motivo",
+};
+
 const SURTIDO_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["campos", "lineas", "observacionesIa"],
+  required: ["cabecera", "checks", "lineas", "camposExtra", "observacionesIa"],
   properties: {
-    campos: {
-      type: "array",
+    cabecera: {
+      type: "object",
+      additionalProperties: false,
+      required: [...CABECERA_KEYS],
+      properties: Object.fromEntries(
+        CABECERA_KEYS.map((key) => [key, NULLABLE_STRING]),
+      ),
       description:
-        "Cualquier campo de la hoja llenado a mano (etiqueta visible + valor leído).",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["etiqueta", "valor"],
-        properties: {
-          etiqueta: { type: "string" },
-          valor: { type: "string" },
-        },
-      },
+        "Todos los campos de texto manuscritos de cabecera, totales, responsables y recepción.",
+    },
+    checks: {
+      type: "object",
+      additionalProperties: false,
+      required: [...CHECK_KEYS],
+      properties: Object.fromEntries(
+        CHECK_KEYS.map((key) => [key, NULLABLE_BOOL]),
+      ),
+      description:
+        "Casillas: true si hay X/✓/marca clara; false si el cuadro está vacío; null si no se ve o es ambiguo.",
     },
     lineas: {
       type: "array",
+      description:
+        "Solo filas de producto con algo manuscrito o checkbox marcado. indice = # de la tabla (1-based).",
       items: {
         type: "object",
         additionalProperties: false,
         required: [
           "indice",
+          "especificacion",
           "cantidadPreparada",
           "codigoIncidencia",
           "nota",
@@ -42,19 +124,38 @@ const SURTIDO_SCHEMA = {
             type: "integer",
             description: "Número de fila # en la tabla de productos (1-based).",
           },
-          cantidadPreparada: { type: ["string", "null"] },
-          codigoIncidencia: {
-            type: ["string", "null"],
-            description: "Código A–F u otro escrito en Cód.",
+          especificacion: {
+            ...NULLABLE_STRING,
+            description:
+              "Texto manuscrito en la columna Especificación (null si no hay nada escrito a mano).",
           },
-          nota: { type: ["string", "null"] },
-          alisto: { type: ["boolean", "null"] },
-          reviso: { type: ["boolean", "null"] },
+          cantidadPreparada: NULLABLE_STRING,
+          codigoIncidencia: {
+            ...NULLABLE_STRING,
+            description: "Código A–F (u otro) escrito en Cód.",
+          },
+          nota: NULLABLE_STRING,
+          alisto: NULLABLE_BOOL,
+          reviso: NULLABLE_BOOL,
+        },
+      },
+    },
+    camposExtra: {
+      type: "array",
+      description:
+        "Cualquier otro texto manuscrito que no encaje en cabecera/checks/lineas.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["etiqueta", "valor"],
+        properties: {
+          etiqueta: { type: "string" },
+          valor: { type: "string" },
         },
       },
     },
     observacionesIa: {
-      type: ["string", "null"],
+      ...NULLABLE_STRING,
       description: "Resumen breve de marcas ambiguas o dudas de lectura.",
     },
   },
@@ -72,48 +173,45 @@ function buildOriginalSnapshot(original: OrdenTareaAlmacenPrintData): string {
       lineas: original.lineas.map((linea, index) => ({
         indice: index + 1,
         producto: linea.producto,
-        especificacion: linea.especificacion,
+        especificacionImpresa: linea.especificacion || "(vacío)",
         cantidadSolicitada: linea.cantidadSolicitada,
-        cantidadPreparada: "(vacío en original)",
-        codigoIncidencia: "(vacío)",
-        nota: "(vacío)",
+        cantidadPreparada: "(vacío en original — leer manuscrito)",
+        codigoIncidencia: "(vacío — leer A–F si hay)",
+        nota: "(vacío — leer manuscrito)",
         alisto: "(checkbox vacío)",
         reviso: "(checkbox vacío)",
       })),
-      otrosCamposVaciosEnOriginal: [
-        "Factura asociada",
-        "Hora comprometida",
-        "Hora sugerida de salida",
-        "Turno que prepara (PM / Noche-AM)",
-        "Chofer",
-        "Unidad",
-        "Renglones surtidos completos",
-        "Cajas 1.5 kg / 21 kg",
-        "Total de bultos al camión",
-        "Incidencias de la orden completa",
-        "Responsables (Alistó/Revisó/Documentó/Despachó)",
-        "Recepción del cliente",
-      ],
+      camposManuscritosEsperados: {
+        cabecera: [...CABECERA_KEYS],
+        checks: [...CHECK_KEYS],
+        porLinea: [
+          "especificacion",
+          "cantidadPreparada",
+          "codigoIncidencia",
+          "nota",
+          "alisto",
+          "reviso",
+        ],
+      },
     },
     null,
     2,
   );
 }
 
-function asCamposRecord(value: unknown): Record<string, string> {
+function asNullableString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function asNullableBool(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function asCamposExtra(value: unknown): Record<string, string> {
   const out: Record<string, string> = {};
-  if (!Array.isArray(value)) {
-    if (value && typeof value === "object") {
-      for (const [key, raw] of Object.entries(
-        value as Record<string, unknown>,
-      )) {
-        if (typeof raw === "string" && raw.trim()) {
-          out[key.trim()] = raw.trim();
-        }
-      }
-    }
-    return out;
-  }
+  if (!Array.isArray(value)) return out;
   for (const item of value) {
     if (!item || typeof item !== "object") continue;
     const row = item as { etiqueta?: unknown; valor?: unknown };
@@ -128,6 +226,52 @@ function asCamposRecord(value: unknown): Record<string, string> {
 function normalizePayload(raw: unknown): OrdenSurtidoCapturaPayload {
   const obj =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+
+  const cabeceraRaw =
+    obj.cabecera && typeof obj.cabecera === "object"
+      ? (obj.cabecera as Record<string, unknown>)
+      : {};
+  const checksRaw =
+    obj.checks && typeof obj.checks === "object"
+      ? (obj.checks as Record<string, unknown>)
+      : {};
+
+  const campos: Record<string, string> = {
+    ...asCamposExtra(obj.camposExtra),
+    // Compat: si el modelo viejo aún manda `campos` array/objeto
+    ...asCamposExtra(
+      Array.isArray(obj.campos)
+        ? obj.campos
+        : Object.entries(
+            obj.campos && typeof obj.campos === "object"
+              ? (obj.campos as Record<string, unknown>)
+              : {},
+          ).map(([etiqueta, valor]) => ({ etiqueta, valor })),
+    ),
+  };
+
+  for (const key of CABECERA_KEYS) {
+    const valor = asNullableString(cabeceraRaw[key]);
+    if (!valor) continue;
+    campos[key] = valor;
+    campos[CABECERA_LABELS[key]] = valor;
+  }
+
+  // Combinar cajas en una sola etiqueta usada por el PDF
+  const cajas15 = campos.cajas15kg || campos["Cajas 1.5 kg"];
+  const cajas21 = campos.cajas21kg || campos["Cajas 21 kg"];
+  if (cajas15 || cajas21) {
+    const combo = [cajas15 || "—", cajas21 || "—"].join(" / ");
+    campos["Cajas 1.5 kg / 21 kg"] = combo;
+    campos.cajas15kg21kg = combo;
+  }
+
+  const checks: OrdenSurtidoChecks = {};
+  for (const key of CHECK_KEYS) {
+    const valor = asNullableBool(checksRaw[key]);
+    if (valor != null) checks[key] = valor;
+  }
+
   const lineasRaw = Array.isArray(obj.lineas) ? obj.lineas : [];
   const lineas = lineasRaw
     .map((item) => {
@@ -137,28 +281,21 @@ function normalizePayload(raw: unknown): OrdenSurtidoCapturaPayload {
       if (!Number.isFinite(indice) || indice < 1) return null;
       return {
         indice: Math.floor(indice),
-        cantidadPreparada:
-          typeof row.cantidadPreparada === "string"
-            ? row.cantidadPreparada.trim() || null
-            : null,
-        codigoIncidencia:
-          typeof row.codigoIncidencia === "string"
-            ? row.codigoIncidencia.trim() || null
-            : null,
-        nota: typeof row.nota === "string" ? row.nota.trim() || null : null,
-        alisto: typeof row.alisto === "boolean" ? row.alisto : null,
-        reviso: typeof row.reviso === "boolean" ? row.reviso : null,
+        especificacion: asNullableString(row.especificacion),
+        cantidadPreparada: asNullableString(row.cantidadPreparada),
+        codigoIncidencia: asNullableString(row.codigoIncidencia),
+        nota: asNullableString(row.nota),
+        alisto: asNullableBool(row.alisto),
+        reviso: asNullableBool(row.reviso),
       };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
 
   return {
-    campos: asCamposRecord(obj.campos),
+    campos,
+    checks,
     lineas,
-    observacionesIa:
-      typeof obj.observacionesIa === "string"
-        ? obj.observacionesIa.trim() || null
-        : null,
+    observacionesIa: asNullableString(obj.observacionesIa),
   };
 }
 
@@ -192,13 +329,21 @@ export async function extraerSurtidoDesdeFoto(input: {
       {
         role: "system",
         content:
-          "Eres un lector experto de hojas de orden de venta de almacén impresas y llenadas a mano. " +
-          "Comparas la foto de la hoja con el snapshot del PDF ORIGINAL (datos ya impresos). " +
-          "Solo debes devolver lo que fue agregado a mano, marcado con bolígrafo/checkbox, o corregido sobre el papel. " +
-          "No copies valores que ya estaban impresos en el original salvo que hayan sido claramente alterados a mano. " +
-          "Si un campo manuscrito está vacío o ilegible, usa null. " +
-          "Puedes llenar `campos` con CUALQUIER etiqueta visible en la hoja (factura, horas, chofer, responsables, recepción, totales, incidencias, etc.). " +
-          "Para filas de producto usa `lineas` con el # de renglón.",
+          "Eres un lector experto de hojas de ORDEN DE VENTA de almacén impresas y llenadas a mano (bolígrafo). " +
+          "Comparas la foto con el snapshot del PDF ORIGINAL. " +
+          "Debes extraer TODO lo manuscrito y TODAS las casillas marcadas, mapeándolas a cabecera / checks / lineas. " +
+          "Reglas:\n" +
+          "1) Solo valores escritos o corregidos a mano, o checkboxes con X/✓/raya clara.\n" +
+          "2) No copies texto ya impreso (cliente, dirección, productos, cantidades solicitadas) salvo que se haya tachado/reescrito a mano.\n" +
+          "3) Si un campo está vacío o ilegible → null. Si un checkbox está vacío → false; si no se ve → null.\n" +
+          "4) Cabecera: facturaAsociada, horaComprometida, horaSugeridaSalida, chofer, unidad, " +
+          "renglonesSurtidosCompletos, cajas15kg, cajas21kg, totalBultosCamion, toleranciaPesoPct, " +
+          "nombres y horas de Alistó/Revisó/Documentó/Despachó, y recepción (nombre, cargo, hora, motivo).\n" +
+          "5) Checks: turnoPm, turnoNocheAm; incidencias de la orden; mercancía coincide / dentro / fuera de tolerancia; recepción.\n" +
+          "6) Por cada fila de producto con marcas: indice (#), especificacion manuscrita, cantidadPreparada, " +
+          "codigoIncidencia (A–F), nota, alisto, reviso.\n" +
+          "7) En camposExtra mete cualquier otro texto manuscrito con su etiqueta visible.\n" +
+          "8) Conserva unidades y formato (ej. «5 kg», «09:30», «PM»). No inventes valores.",
       },
       {
         role: "user",
@@ -206,9 +351,10 @@ export async function extraerSurtidoDesdeFoto(input: {
           {
             type: "text",
             text:
-              "Snapshot del PDF ORIGINAL (solo referencia de lo ya impreso):\n" +
+              "Snapshot del PDF ORIGINAL (referencia de lo ya impreso):\n" +
               snapshot +
-              "\n\nAnaliza la foto adjunta de la misma hoja ya surtida/llenada.",
+              "\n\nAnaliza la foto adjunta de la misma hoja ya surtida/llenada. " +
+              "Llena cabecera, checks y lineas con TODO lo manuscrito y marcado.",
           },
           {
             type: "image_url",

@@ -23,8 +23,10 @@ export interface CuentaListRow {
   codigoEmpresa: string;
   nombreComercial: string;
   bodegasAsignadas: CuentaBodegaAsignada[];
-  /** Primera bodega interna activa; si no hay, la primera bodega activa. */
+  /** Bodega por defecto persistida; si no hay, heurística (primera interna / primera). */
   bodegaInternaPrincipal: CuentaBodegaAsignada | null;
+  /** Id persistido de bodega por defecto (null si aún no se eligió). */
+  idBodegaDefault: string | null;
   /**
    * Acceso de la cuenta (`cuenta.esta_activa`).
    * false → los usuarios de la cuenta no pueden iniciar sesión.
@@ -49,10 +51,11 @@ interface CuentaDbRow {
   codigo_empresa: string;
   nombre_comercial: string;
   esta_activa: boolean;
+  id_bodega_default: string | null;
 }
 
 const CUENTA_LIST_COLUMNS =
-  "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa";
+  "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,id_bodega_default";
 
 const BODEGA_LIST_COLUMNS =
   "id_bodega,nombre,tipo,capacidad_slots,esta_activa,codigo_cuenta";
@@ -66,10 +69,15 @@ function mapBodegaAsignada(row: CuentaBodegaDbRow): CuentaBodegaAsignada {
   };
 }
 
-function resolveBodegaInternaPrincipal(
+function resolveBodegaPrincipal(
   bodegas: CuentaBodegaAsignada[],
+  idBodegaDefault: string | null,
 ): CuentaBodegaAsignada | null {
   if (bodegas.length === 0) return null;
+  if (idBodegaDefault) {
+    const selected = bodegas.find((item) => item.idBodega === idBodegaDefault);
+    if (selected) return selected;
+  }
   const internas = bodegas
     .filter((item) => item.tipo === "interna")
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
@@ -89,13 +97,18 @@ function mapCuentaRow(
     .filter((item) => item.esta_activa)
     .map(mapBodegaAsignada)
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const idBodegaDefault = row.id_bodega_default?.trim() || null;
 
   return {
     codigoCuenta: row.codigo_cuenta,
     codigoEmpresa: row.codigo_empresa,
     nombreComercial: row.nombre_comercial,
     bodegasAsignadas,
-    bodegaInternaPrincipal: resolveBodegaInternaPrincipal(bodegasAsignadas),
+    idBodegaDefault,
+    bodegaInternaPrincipal: resolveBodegaPrincipal(
+      bodegasAsignadas,
+      idBodegaDefault,
+    ),
     estaActiva: row.esta_activa,
     tieneCredenciales,
   };
@@ -397,6 +410,7 @@ export async function createCuentaConfigurator(
     nombreComercial,
     bodegasAsignadas: [],
     bodegaInternaPrincipal: null,
+    idBodegaDefault: null,
     estaActiva: true,
     tieneCredenciales: false,
   };
@@ -417,6 +431,7 @@ export async function updateCuentaConfigurator(
   codigoEmpresa: string;
   nombreComercial: string;
   estaActiva: boolean;
+  idBodegaDefault: string | null;
 }> {
   const codigoCuenta = normalizeCodigoCuentaInput(input.codigoCuenta);
   const nombreComercial = input.nombreComercial.trim();
@@ -445,6 +460,55 @@ export async function updateCuentaConfigurator(
           nombreComercial,
           estaActiva: input.estaActiva,
         },
+      },
+    );
+  } catch (error: unknown) {
+    if (error instanceof ApiError) {
+      throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
+    }
+    throw error;
+  }
+}
+
+export interface UpdateCuentaBodegaDefaultInput {
+  codigoCuenta: string;
+  idBodegaDefault: string;
+}
+
+/** Define la bodega por defecto de la cuenta (debe estar asignada). */
+export async function updateCuentaBodegaDefaultConfigurator(
+  input: UpdateCuentaBodegaDefaultInput,
+): Promise<{
+  codigoCuenta: string;
+  codigoEmpresa: string;
+  nombreComercial: string;
+  estaActiva: boolean;
+  idBodegaDefault: string | null;
+}> {
+  const codigoCuenta = normalizeCodigoCuentaInput(input.codigoCuenta);
+  const idBodegaDefault = input.idBodegaDefault.trim();
+
+  if (!codigoCuenta) {
+    throw new DomainServiceError(
+      "El código de la cuenta es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!idBodegaDefault) {
+    throw new DomainServiceError(
+      "Selecciona una bodega por defecto.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  try {
+    return await apiRequest(
+      `/configuracion/cuentas/${encodeURIComponent(codigoCuenta)}`,
+      {
+        method: "PATCH",
+        auth: true,
+        body: { idBodegaDefault },
       },
     );
   } catch (error: unknown) {

@@ -7,6 +7,12 @@ import type {
   ArchivoTexto,
   ArchivoImagen,
 } from "./file-extractors";
+import {
+  calcularCantidadDesdeCajas,
+  pesoPorCajaKg,
+} from "../utils/empaque-lineas";
+
+export { calcularCantidadDesdeCajas, pesoPorCajaKg };
 
 export interface LineaExtraida {
   textoOriginal: string;
@@ -22,6 +28,8 @@ export interface PedidoExtraido {
   fechaEntrega: string | null;
   centroConsumo: string | null;
   observaciones: string | null;
+  /** Número/código de orden de compra del hotel/cliente (PO, OC, etc.). */
+  ordenCompraHotel: string | null;
   rfc: string | null;
   // Petición del usuario (2026-09-04) — nueva regla de precedencia: estos son datos de
   // la FICHA del cliente (normalmente ya registrados y cargados aparte desde la BD), pero
@@ -159,6 +167,7 @@ interface PedidoExtraidoRaw {
   fechaEntregaTexto: string | null;
   centroConsumo: string | null;
   observaciones: string | null;
+  ordenCompraHotel: string | null;
   rfc: string | null;
   regimen: (typeof REGIMENES)[number] | null;
   direccion: string | null;
@@ -195,6 +204,11 @@ const RESPONSE_SCHEMA = {
         type: ["string", "null"],
         description:
           "Observación general corta del pedido completo (no de una línea de producto), parafraseada del mensaje. null si no aplica.",
+      },
+      ordenCompraHotel: {
+        type: ["string", "null"],
+        description:
+          "Identificador de la orden de compra del hotel/cliente para ESTE pedido. INTERPRETA el documento: no busques solo una etiqueta fija. El rótulo cambia según el emisor (ej. 'PO NUMBER', 'PO #', 'P.O.', 'Purchase Order', 'Orden de compra', 'OC', 'Nº OC', 'No. de orden', 'Order No.', 'Customer PO', 'Requisition', 'Req #'). Extrae el CÓDIGO/NÚMERO asociado a esa idea (ej. 'CUNMC0046026'), no el título del documento ni el Customer Account # ni fechas. Si hay varios candidatos, elige el que claramente identifica la orden de compra del cliente (suele estar cerca del encabezado PURCHASE ORDER / ORDEN DE COMPRA). null solo si de verdad no aparece ningún identificador de OC/PO.",
       },
       rfc: {
         type: ["string", "null"],
@@ -331,6 +345,7 @@ const RESPONSE_SCHEMA = {
       "fechaEntregaTexto",
       "centroConsumo",
       "observaciones",
+      "ordenCompraHotel",
       "rfc",
       "regimen",
       "direccion",
@@ -391,23 +406,6 @@ function buildUserContent({
   }
 
   return partes;
-}
-
-/** Extrae el número de kg de una presentación tipo "Caja 1.5 kg". null si no trae un peso parseable (ej. "Granel"). */
-export function pesoPorCajaKg(presentacion: string | null): number | null {
-  if (!presentacion) return null;
-  const m = presentacion.match(/(\d+(?:\.\d+)?)\s*kg/i);
-  return m ? parseFloat(m[1]) : null;
-}
-
-/** cantidad = cajas × peso por caja, redondeado a 2 decimales. Puro cálculo, sin IA. */
-export function calcularCantidadDesdeCajas(
-  cajas: number | null,
-  presentacion: string | null,
-): number | null {
-  const peso = pesoPorCajaKg(presentacion);
-  if (cajas == null || peso == null) return null;
-  return Math.round(cajas * peso * 100) / 100;
 }
 
 export function formatISO(d: Date): string {
@@ -548,12 +546,14 @@ export async function extraerPedido({
     buildPresentacionesContext(presentaciones),
     `Reglas importantes:`,
     `- Tu trabajo es solo interpretar lenguaje: identificar qué dice el texto y a qué se refiere. NUNCA hagas cuentas (sumar, multiplicar, calcular una fecha) — eso lo hace el backend con código después de que tú extraigas los datos en crudo.`,
-    `- Solo extrae lo que el mensaje/archivos realmente dicen. No inventes cantidades, presentaciones ni fechas que no estén sugeridas.`,
+    `- Completa TODOS los campos del schema cuando el mensaje/archivos los mencionen de forma explícita o inequívoca (fecha, centro, orden de compra/PO, dirección, andén, contacto, teléfono, ventanas/horarios, políticas, observaciones y cada línea). No dejes null un dato que sí aparece.`,
+    `- Solo extrae lo que el mensaje/archivos realmente dicen. No inventes cantidades, presentaciones, fechas, direcciones ni contactos que no estén respaldados.`,
     `- Una línea por producto distinto mencionado.`,
     `- "cantidad" es el número TOTAL si viene explícito y directo (ej. '40 kilos'); si el mensaje solo da cajas + presentación sin decir el total, deja "cantidad" en null.`,
     `- "observaciones" es del pedido completo, no repitas ahí lo que ya va en una línea.`,
+    `- "ordenCompraHotel": interpreta cuál es el identificador de la orden de compra del hotel/cliente. El nombre del campo en el documento VARÍA (PO NUMBER, PO #, Purchase Order, Orden de compra, OC, Nº OC, Order No., Customer PO, etc.). Devuelve solo el código/número (ej. CUNMC0046026), no confundas con Customer Account #, fechas ni el título "PURCHASE ORDER". null solo si no hay ningún identificador de OC/PO.`,
     `- "rfc" solo si el mensaje/documento lo declara explícitamente; nunca lo infieras del nombre del cliente.`,
-    `- "regimen", "direccion", "anden", "contacto", "telefono", "horarioDesde", "horarioHasta", "tolerancia", "sustituciones", "lote" y "temperatura" son datos de la ficha del cliente que normalmente YA están registrados aparte — solo los llenas si el pedido los declara explícitos para ESTA entrega en particular (ej. un cambio de dirección o de andén solo por esta vez). En la inmensa mayoría de los pedidos van a quedar null; no asumas ni repitas el valor habitual del cliente.`,
+    `- "regimen", "direccion", "anden", "contacto", "telefono", "horarioDesde", "horarioHasta", "tolerancia", "sustituciones", "lote" y "temperatura": si el pedido los declara para ESTA entrega, llénalos (aunque suelan vivir en la ficha del cliente). Si no aparecen, null — no inventes el valor habitual.`,
     `- "unidad" siempre debe ser exactamente KGM, CJ o UN (o null) — nunca un texto libre como "kilos" o "kg".`,
     `- "centroConsumo" debe quedar null si el mensaje expresa incertidumbre sobre cuál es, incluso si menciona un valor tentativo de pasada.`,
     `- "fechaEntregaTexto" se extrae aunque sea la única palabra de fecha del mensaje (ej. un mensaje que es solo "mañana").`,
@@ -671,6 +671,7 @@ export async function extraerPedido({
     fechaEntrega: resolverFechaEntrega(parsed.fechaEntregaTexto, hoyISO),
     centroConsumo: parsed.centroConsumo,
     observaciones: parsed.observaciones,
+    ordenCompraHotel: parsed.ordenCompraHotel?.trim() || null,
     rfc: parsed.rfc,
     regimen: parsed.regimen,
     direccion: parsed.direccion,

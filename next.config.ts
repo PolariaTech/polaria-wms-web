@@ -54,7 +54,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
-  serverExternalPackages: ["unpdf", "file-type", "mammoth", "openai", "chrono-node"],
+  serverExternalPackages: [
+    "unpdf",
+    "file-type",
+    "mammoth",
+    "openai",
+    "chrono-node",
+    "html-to-text",
+    "mailparser",
+  ],
   async rewrites() {
     return {
       afterFiles: [

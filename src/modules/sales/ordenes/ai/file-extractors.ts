@@ -1,9 +1,13 @@
 import path from "node:path";
+import { createRequire } from "node:module";
 import { extractText, getDocumentProxy } from "unpdf";
 import * as XLSX from "xlsx";
 import mammoth from "mammoth";
-import { simpleParser } from "mailparser";
-import { convert as convertHtmlToText } from "html-to-text";
+
+/** Resuelve deps Node desde el root del proyecto (evita fallos de Turbopack con ESM). */
+const requireFromProject = createRequire(
+  path.join(process.cwd(), "package.json"),
+);
 
 const TEXT_EXTENSIONS = new Set([".csv", ".txt"]);
 const IMAGE_MIME_PREFIX = "image/";
@@ -70,7 +74,13 @@ async function extractFromDocx(buffer: Buffer): Promise<string> {
 // convierte a texto plano en vez de mandarle el markup crudo a la IA (ruido de tags,
 // estilos, y entidades HTML sin decodificar como "&Oacute;").
 function extractFromHtml(buffer: Buffer): string {
-  return convertHtmlToText(buffer.toString("utf8"), { wordwrap: false }).trim();
+  const { convert } = requireFromProject("html-to-text") as {
+    convert: (
+      html: string,
+      options?: { wordwrap?: boolean | number | null },
+    ) => string;
+  };
+  return convert(buffer.toString("utf8"), { wordwrap: false }).trim();
 }
 
 /**
@@ -147,8 +157,27 @@ async function extractFromEml(
   buffer: Buffer,
   nombreOriginal: string,
 ): Promise<ArchivoExtraido[]> {
-  let parsed;
+  let parsed: {
+    text?: string | null;
+    html?: string | false | null;
+    attachments: Array<{
+      contentDisposition?: string | null;
+      filename?: string | null;
+      content: Buffer;
+    }>;
+  };
   try {
+    const { simpleParser } = requireFromProject("mailparser") as {
+      simpleParser: (source: Buffer) => Promise<{
+        text?: string | null;
+        html?: string | false | null;
+        attachments: Array<{
+          contentDisposition?: string | null;
+          filename?: string | null;
+          content: Buffer;
+        }>;
+      }>;
+    };
     parsed = await simpleParser(buffer);
   } catch (err) {
     return [

@@ -1,5 +1,10 @@
 import type { PedidoExtraido } from "../ai/openai-pedido.client";
 import type { ProductoVentaOption } from "../../shared/types/sales.types";
+import {
+  aplicarEmpaqueInicialLinea,
+  collectMissingFieldsDocs,
+  type CampoOperativoDocs,
+} from "./empaque-lineas";
 
 export interface LineaVentaFromIa {
   idProducto: string;
@@ -16,6 +21,8 @@ export interface LineaVentaFromIa {
   precioUnitario: number;
   aliasCliente: string;
   filledByIa: boolean;
+  packHint?: string;
+  autoPackFields?: Array<"cajasInput" | "presentacion" | "cantidadInput">;
 }
 
 export interface CampoDiscrepancia {
@@ -28,6 +35,7 @@ export interface PedidoIaFormPatch {
   fechaEntrega: string;
   centroConsumo: string;
   observaciones: string;
+  ordenCompraHotel: string;
   direccion: string;
   anden: string;
   contacto: string;
@@ -39,6 +47,7 @@ export interface PedidoIaFormPatch {
   registrarTemperatura: string;
   autoFields: Set<string>;
   warnFields: Set<string>;
+  missingFields: Set<string>;
   discrepancias: CampoDiscrepancia[];
   lineas: LineaVentaFromIa[];
   advertencia: string | null;
@@ -122,6 +131,7 @@ export function mapPedidoExtraidoToForm(params: {
     fechaEntrega: "",
     centroConsumo: ficha.centroConsumo,
     observaciones: ficha.observaciones,
+    ordenCompraHotel: "",
     direccion: ficha.direccion,
     anden: ficha.anden,
     contacto: ficha.contacto,
@@ -153,6 +163,10 @@ export function mapPedidoExtraidoToForm(params: {
   patch.fechaEntrega = fecha;
   autoFields.add("fechaEntrega");
 
+  if (pedido.ordenCompraHotel?.trim()) {
+    patch.ordenCompraHotel = pedido.ordenCompraHotel.trim();
+    autoFields.add("ordenCompraHotel");
+  }
   compareOverride({
     fieldKey: "centroConsumo",
     label: "Centro de consumo",
@@ -292,20 +306,27 @@ export function mapPedidoExtraidoToForm(params: {
         ? linea.presentacion
         : "";
 
-    lineas.push({
-      idProducto: match.idProducto,
-      nombre: match.nombre,
-      codigo: match.codigo,
-      idBodega: match.idBodega,
-      cantidadInput:
-        linea.cantidad != null && Number.isFinite(linea.cantidad)
-          ? String(linea.cantidad)
-          : "",
+    const baseLinea = {
       cajasInput:
         linea.cajas != null && Number.isFinite(linea.cajas)
           ? String(linea.cajas)
           : "",
       presentacion,
+      cantidadInput:
+        linea.cantidad != null && Number.isFinite(linea.cantidad)
+          ? String(linea.cantidad)
+          : "",
+    };
+    const empaque = aplicarEmpaqueInicialLinea(baseLinea);
+
+    lineas.push({
+      idProducto: match.idProducto,
+      nombre: match.nombre,
+      codigo: match.codigo,
+      idBodega: match.idBodega,
+      cantidadInput: empaque.cantidadInput,
+      cajasInput: empaque.cajasInput,
+      presentacion: empaque.presentacion,
       especificacion: linea.especificacion?.trim() || "",
       descuentoPctInput: "0",
       ivaPct: "16",
@@ -313,13 +334,29 @@ export function mapPedidoExtraidoToForm(params: {
       precioUnitario: match.precioUnitario,
       aliasCliente: linea.textoOriginal?.trim() || "",
       filledByIa: true,
+      packHint: empaque.packHint,
+      autoPackFields: empaque.autoPackFields,
     });
   }
+
+  const operativoValues = {
+    fechaEntrega: patch.fechaEntrega,
+    centroConsumo: patch.centroConsumo,
+    direccion: patch.direccion,
+    anden: patch.anden,
+    contacto: patch.contacto,
+    telefono: patch.telefono,
+    ventanaDesde: patch.ventanaDesde,
+    ventanaHasta: patch.ventanaHasta,
+  } satisfies Record<CampoOperativoDocs, string>;
+
+  const missingFields = collectMissingFieldsDocs(operativoValues);
 
   return {
     fechaEntrega: patch.fechaEntrega,
     centroConsumo: patch.centroConsumo,
     observaciones: patch.observaciones,
+    ordenCompraHotel: patch.ordenCompraHotel,
     direccion: patch.direccion,
     anden: patch.anden,
     contacto: patch.contacto,
@@ -331,6 +368,7 @@ export function mapPedidoExtraidoToForm(params: {
     registrarTemperatura: patch.registrarTemperatura,
     autoFields,
     warnFields,
+    missingFields,
     discrepancias,
     lineas,
     advertencia: pedido.advertencia,

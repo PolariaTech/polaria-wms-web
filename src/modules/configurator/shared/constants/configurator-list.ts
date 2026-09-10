@@ -13,7 +13,7 @@ export const EMPRESAS_EMPTY_MESSAGE = "No hay empresas registradas." as const;
 export const CUENTAS_TABLE_TITLE = "Cuentas" as const;
 
 export const CUENTAS_TABLE_SUBTITLE =
-  "Código, nombre, bodega y credenciales Auth." as const;
+  "Código, nombre, bodega por defecto y credenciales Auth. Clic en una fila para elegir la bodega por defecto." as const;
 
 export const CUENTAS_EMPTY_MESSAGE = "No hay cuentas registradas." as const;
 
@@ -39,3 +39,11 @@ export const USUARIOS_TABLE_SUBTITLE =
   "Código, rol, cuenta y acciones." as const;
 
 export const USUARIOS_EMPTY_MESSAGE = "No hay usuarios registrados." as const;
+
+export const IMPRESORAS_TABLE_TITLE = "Impresoras" as const;
+
+export const IMPRESORAS_TABLE_SUBTITLE =
+  "Impresoras carta por usuario, cuenta, marca y conexión." as const;
+
+export const IMPRESORAS_EMPTY_MESSAGE =
+  "No hay impresoras configuradas. Usa «Configurar impresora» para agregar la primera." as const;

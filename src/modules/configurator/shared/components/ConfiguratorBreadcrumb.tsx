@@ -73,6 +73,17 @@ function getBreadcrumbTrail(pathname: string): BreadcrumbItem[] | null {
     ];
   }
 
+  if (pathname === ROUTES.configuratorAssignmentPrinters) {
+    return [
+      { label: "Inicio", href: ROUTES.configurator },
+      {
+        label: "Creación y asignación",
+        href: ROUTES.configuratorAssignment,
+      },
+      { label: "Impresoras" },
+    ];
+  }
+
   const action = CONFIGURATOR_ACTIONS.find((item) => item.href === pathname);
   if (action) {
     return [

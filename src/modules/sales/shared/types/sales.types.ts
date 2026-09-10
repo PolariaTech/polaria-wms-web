@@ -35,6 +35,8 @@ export interface OrdenVentaOperadorRow {
   estado: EstadoOrdenVenta;
   fecha: string;
   destino: string;
+  idBodega: string;
+  idBodegaDestino: string | null;
 }
 
 export interface ProductoVentaOption {

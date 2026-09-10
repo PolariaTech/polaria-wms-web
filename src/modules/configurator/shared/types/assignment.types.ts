@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 
-export type AssignmentOptionId = "usuarios";
+export type AssignmentOptionId = "usuarios" | "impresoras";
 
 export interface AssignmentOption {
   id: AssignmentOptionId;

@@ -3,6 +3,7 @@ import {
   applyRecentOrdersFilter,
   DEFAULT_LIST_LIMIT,
   requireCodigoCuenta,
+  requireIdBodega,
   runDomainMutation,
   type TenantListParams,
   runDomainQuery,
@@ -356,14 +357,6 @@ async function resolveClienteVenta(
   return idCliente;
 }
 
-async function resolveKgDisponibleProducto(
-  codigoCuenta: string,
-  idProducto: string,
-): Promise<number> {
-  const stockMap = await collectStockVentaPorProducto(codigoCuenta);
-  return stockMap.get(idProducto)?.kgDisponible ?? 0;
-}
-
 async function assertCompradorDeCuenta(
   codigoCuenta: string,
   idComprador: string,
@@ -580,6 +573,8 @@ function mapOrdenVentaOperadorRow(
     estado: row.estado,
     fecha: row.created_at || row.fecha_pedido,
     destino,
+    idBodega: row.id_bodega,
+    idBodegaDestino: row.id_bodega_destino,
   };
 }
 
@@ -617,6 +612,46 @@ export async function listOrdenesVentaOperador(
     limit: params.limit,
   });
 
+  return enrichOrdenesVentaOperador(rows);
+}
+
+/**
+ * Listado para jefe de bodega: OV recientes donde la bodega activa es origen
+ * O destino (así no se pierden pedidos con origen en otra bodega de la cuenta).
+ */
+export async function listOrdenesVentaOperadorParaJefe(params: {
+  codigoCuenta: string;
+  idBodega: string;
+  limit?: number;
+}): Promise<OrdenVentaOperadorRow[]> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idBodega = requireIdBodega(params.idBodega);
+  const limit = params.limit ?? DEFAULT_LIST_LIMIT;
+
+  const rows = await runDomainQuery<OrdenVentaRow[]>((client) => {
+    const query = applyRecentOrdersFilter(
+      client
+        .from("orden_venta")
+        .select(ORDEN_VENTA_COLUMNS)
+        .eq("codigo_cuenta", codigoCuenta)
+        .or(`id_bodega.eq.${idBodega},id_bodega_destino.eq.${idBodega}`),
+      "fecha_pedido",
+    )
+      .order("fecha_pedido", { ascending: false })
+      .limit(limit);
+
+    return query as unknown as Promise<{
+      data: OrdenVentaRow[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  return enrichOrdenesVentaOperador(rows);
+}
+
+async function enrichOrdenesVentaOperador(
+  rows: OrdenVentaRow[],
+): Promise<OrdenVentaOperadorRow[]> {
   const compradorIds = rows
     .map((row) => row.id_comprador)
     .filter((id): id is string => Boolean(id));
@@ -646,6 +681,29 @@ export interface ListProductosVentaCatalogoParams {
   idBodega?: string | null;
 }
 
+/** Bodega por defecto configurada en la cuenta (`cuenta.id_bodega_default`). */
+export async function getCuentaIdBodegaDefault(
+  codigoCuenta: string,
+): Promise<string | null> {
+  const cuenta = requireCodigoCuenta(codigoCuenta);
+  const rows = await runDomainQuery<{ id_bodega_default: string | null }[]>(
+    (client) => {
+      const query = client
+        .from("cuenta")
+        .select("id_bodega_default")
+        .eq("codigo_cuenta", cuenta)
+        .limit(1);
+
+      return query as unknown as Promise<{
+        data: { id_bodega_default: string | null }[] | null;
+        error: { message: string } | null;
+      }>;
+    },
+  );
+
+  return rows[0]?.id_bodega_default?.trim() || null;
+}
+
 export async function listProductosVentaCatalogo(
   params: ListProductosVentaCatalogoParams | string,
 ): Promise<ProductoVentaOption[]> {
@@ -654,17 +712,85 @@ export async function listProductosVentaCatalogo(
       ? { codigoCuenta: params }
       : params;
   const cuenta = requireCodigoCuenta(codigoCuenta);
-  const stockMap = await collectStockVentaPorProducto(cuenta);
-  const precioMap = await fetchPreciosProductoMap(cuenta, [...stockMap.keys()]);
 
-  return [...stockMap.entries()]
-    .map(([idProducto, stock]) =>
-      mapStockRowToProductoOption(
-        idProducto,
-        stock,
-        precioMap.get(idProducto) ?? 0,
-      ),
-    )
+  const [bodegaIds, productoRows, stockMap] = await Promise.all([
+    resolveBodegaIdsForCuenta(cuenta),
+    runDomainQuery<
+      {
+        id_producto: string;
+        sku: string | null;
+        descripcion: string | null;
+        id_cliente: string | null;
+        metadatos_catalogo?: unknown;
+      }[]
+    >((client) => {
+      const query = client
+        .from("producto")
+        .select(
+          "id_producto,sku,descripcion,id_cliente,metadatos_catalogo,esta_activo",
+        )
+        .eq("codigo_cuenta", cuenta)
+        .eq("esta_activo", true)
+        .order("descripcion", { ascending: true })
+        .limit(1000);
+
+      return query as unknown as Promise<{
+        data:
+          | {
+              id_producto: string;
+              sku: string | null;
+              descripcion: string | null;
+              id_cliente: string | null;
+              metadatos_catalogo?: unknown;
+            }[]
+          | null;
+        error: { message: string } | null;
+      }>;
+    }),
+    collectStockVentaPorProducto(cuenta),
+  ]);
+
+  const defaultBodegaId = bodegaIds[0] ?? "";
+  if (!defaultBodegaId && stockMap.size === 0) {
+    return [];
+  }
+
+  const precioMap = await fetchPreciosProductoMap(
+    cuenta,
+    productoRows.map((row) => row.id_producto),
+  );
+
+  return productoRows
+    .map((row) => {
+      const stock = stockMap.get(row.id_producto);
+      if (stock) {
+        return mapStockRowToProductoOption(
+          row.id_producto,
+          stock,
+          precioMap.get(row.id_producto) ?? 0,
+        );
+      }
+
+      const codigo = row.sku?.trim() || row.id_producto.slice(0, 8);
+      const nombre =
+        resolveProductoNombre({
+          producto: row,
+        } as WarehouseStateRow) ||
+        row.descripcion?.trim() ||
+        `Producto ${codigo}`;
+
+      return {
+        idProducto: row.id_producto,
+        label: `${nombre} (${codigo})`,
+        idCliente: row.id_cliente ?? null,
+        idBodega: defaultBodegaId,
+        codigo,
+        nombre,
+        kgDisponible: 0,
+        precioUnitario: precioMap.get(row.id_producto) ?? 0,
+      } satisfies ProductoVentaOption;
+    })
+    .filter((row) => Boolean(row.idBodega))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
@@ -761,28 +887,6 @@ export async function createOrdenVenta(
   }
 
   await assertCompradorDeCuenta(codigoCuenta, idComprador);
-
-  const cantidadPorProducto = new Map<string, number>();
-  for (const linea of lineas) {
-    const id = linea.idProducto.trim();
-    cantidadPorProducto.set(
-      id,
-      (cantidadPorProducto.get(id) ?? 0) + linea.cantidadPedida,
-    );
-  }
-
-  for (const [idProducto, cantidadTotal] of cantidadPorProducto) {
-    const kgDisponible = await resolveKgDisponibleProducto(
-      codigoCuenta,
-      idProducto,
-    );
-    if (cantidadTotal > kgDisponible) {
-      throw new DomainServiceError(
-        `No puedes vender más de ${kgDisponible.toLocaleString("es-CL", { maximumFractionDigits: 4 })} kg. Disponible en stock: ${kgDisponible.toLocaleString("es-CL", { maximumFractionDigits: 4 })} kg.`,
-        "INVALID_ARGUMENT",
-      );
-    }
-  }
 
   const primeraLinea = lineas[0]!;
   const productoIds = lineas.map((linea) => linea.idProducto.trim());

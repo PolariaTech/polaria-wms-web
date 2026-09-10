@@ -24,9 +24,11 @@ describe("applySurtidoToPrintData", () => {
   it("rellena cantidad preparada y código de la fila", () => {
     const updated = applySurtidoToPrintData(BASE, {
       campos: { Chofer: "Luis" },
+      checks: { turnoPm: true },
       lineas: [
         {
           indice: 1,
+          especificacion: "sin hielo",
           cantidadPreparada: "4.8 kg",
           codigoIncidencia: "A",
           nota: "Faltó stock",
@@ -36,9 +38,11 @@ describe("applySurtidoToPrintData", () => {
       ],
     });
 
+    expect(updated.lineas[0]?.especificacion).toBe("sin hielo");
     expect(updated.lineas[0]?.cantidadPreparada).toBe("4.8 kg");
     expect(updated.lineas[0]?.codigoIncidencia).toBe("A");
     expect(updated.lineas[0]?.alisto).toBe(true);
     expect(updated.surtido?.campos.Chofer).toBe("Luis");
+    expect(updated.surtido?.checks.turnoPm).toBe(true);
   });
 });

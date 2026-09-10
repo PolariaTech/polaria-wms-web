@@ -92,6 +92,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       catalogKey(p.nombre, p.codigo),
     );
 
+    if (catalogoClaves.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No hay productos en el catálogo de esta cuenta. Revisa el esquema/tenant o el alta de productos.",
+        },
+        { status: 422 },
+      );
+    }
+
     const uploaded = await Promise.all(
       archivos.map(async (file) => ({
         originalname: file.name,
@@ -117,6 +127,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         exito: true,
         cliente,
         codigoCuenta,
+        catalogoProductos: catalogoClaves.length,
         archivos: archivos.length,
         duracionMs: Date.now() - inicio,
         tokensEntrada: uso?.tokensEntrada ?? null,

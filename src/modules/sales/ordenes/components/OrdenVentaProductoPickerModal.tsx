@@ -53,7 +53,7 @@ export function OrdenVentaProductoPickerModal({
       open={open}
       onClose={handleClose}
       title="Seleccionar producto"
-      description="Solo productos con kilos disponibles en almacenamiento."
+      description="Catálogo completo de productos de la cuenta."
       onSubmit={(event) => event.preventDefault()}
       asForm={false}
       hideHeaderClose
@@ -87,7 +87,7 @@ export function OrdenVentaProductoPickerModal({
         <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
           {query.trim()
             ? "No hay productos que coincidan con la búsqueda."
-            : "No hay productos con stock disponible."}
+            : "No hay productos en el catálogo."}
         </p>
       ) : (
         <div className="max-h-[min(55dvh,24rem)] overflow-auto rounded-xl border border-polaria-w-08">

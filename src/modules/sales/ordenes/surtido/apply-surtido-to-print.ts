@@ -1,4 +1,7 @@
-import type { OrdenSurtidoCapturaPayload } from "../surtido/orden-surtido.types";
+import type {
+  OrdenSurtidoCapturaPayload,
+  OrdenSurtidoChecks,
+} from "../surtido/orden-surtido.types";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
 
 /** Combina el snapshot original con el payload IA para el PDF actualizado. */
@@ -12,12 +15,17 @@ export function applySurtidoToPrintData(
 
   return {
     ...original,
-    surtido,
+    surtido: {
+      ...surtido,
+      checks: surtido.checks ?? {},
+    },
     lineas: original.lineas.map((linea, index) => {
       const filled = byIndex.get(index + 1);
       if (!filled) return linea;
       return {
         ...linea,
+        especificacion:
+          filled.especificacion?.trim() || linea.especificacion,
         cantidadPreparada: filled.cantidadPreparada ?? undefined,
         codigoIncidencia: filled.codigoIncidencia ?? undefined,
         nota: filled.nota ?? undefined,
@@ -44,4 +52,11 @@ export function campoSurtido(
     if (found?.[1]?.trim()) return found[1].trim();
   }
   return "";
+}
+
+export function checkSurtido(
+  surtido: OrdenSurtidoCapturaPayload | null | undefined,
+  key: keyof OrdenSurtidoChecks,
+): boolean {
+  return surtido?.checks?.[key] === true;
 }

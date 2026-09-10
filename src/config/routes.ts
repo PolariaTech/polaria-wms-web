@@ -11,6 +11,7 @@ export const ROUTES = {
   configuratorCreationExternalWarehouse: "/configurador/creacion/bodega-externa",
   configuratorAssignment: "/configurador/asignacion",
   configuratorAssignmentUsers: "/configurador/asignacion/usuarios",
+  configuratorAssignmentPrinters: "/configurador/asignacion/impresoras",
   configuratorIntegration: "/configurador/integracion",
   /** Alias legacy — redirige a configurador */
   platform: "/platform",

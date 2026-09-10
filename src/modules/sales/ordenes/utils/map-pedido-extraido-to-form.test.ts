@@ -6,6 +6,7 @@ const emptyPedido = (): PedidoExtraido => ({
   fechaEntrega: "2026-09-07",
   centroConsumo: null,
   observaciones: null,
+  ordenCompraHotel: null,
   rfc: null,
   regimen: null,
   direccion: null,
@@ -101,6 +102,69 @@ describe("mapPedidoExtraidoToForm", () => {
     expect(mapped.lineas).toHaveLength(1);
     expect(mapped.lineas[0]?.idProducto).toBe("p1");
     expect(mapped.lineas[0]?.cantidadInput).toBe("40");
+    expect(mapped.lineas[0]?.cajasInput).toBe("2");
+    expect(mapped.lineas[0]?.presentacion).toBe("Caja 20 kg");
     expect(mapped.lineas[0]?.aliasCliente).toBe("aguacate");
+    expect(mapped.missingFields.has("direccion")).toBe(true);
+    expect(mapped.missingFields.has("contacto")).toBe(true);
+  });
+
+  it("mapea ordenCompraHotel desde la IA", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        ordenCompraHotel: "CUNMC0046026",
+      },
+      productos: [],
+      ficha: {
+        centroConsumo: "Cocina",
+        ventanaDesde: "06:00",
+        ventanaHasta: "10:00",
+        direccion: "Calle 1",
+        anden: "Andén 1",
+        contacto: "Ana",
+        telefono: "555",
+        aceptaSustituciones: "No — surtir parcial",
+        requiereLote: "No",
+        registrarTemperatura: "No",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-09-07",
+    });
+
+    expect(mapped.ordenCompraHotel).toBe("CUNMC0046026");
+    expect(mapped.autoFields.has("ordenCompraHotel")).toBe(true);
+  });
+
+  it("marca missing solo en campos operativos vacíos tras IA", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        direccion: "Calle nueva",
+        contacto: "Luis",
+        telefono: "5551234",
+      },
+      productos: [],
+      ficha: {
+        centroConsumo: "Cocina",
+        ventanaDesde: "06:00",
+        ventanaHasta: "10:00",
+        direccion: "",
+        anden: "A1",
+        contacto: "",
+        telefono: "",
+        aceptaSustituciones: "No — surtir parcial",
+        requiereLote: "No",
+        registrarTemperatura: "No",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-09-07",
+    });
+
+    expect(mapped.direccion).toBe("Calle nueva");
+    expect(mapped.missingFields.has("direccion")).toBe(false);
+    expect(mapped.missingFields.has("contacto")).toBe(false);
+    expect(mapped.missingFields.has("telefono")).toBe(false);
+    expect(mapped.missingFields.size).toBe(0);
   });
 });

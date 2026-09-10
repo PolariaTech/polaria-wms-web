@@ -27,6 +27,8 @@ describe("orden-venta-api.mapper", () => {
       estado: "en_preparacion",
       fecha: "2026-07-09",
       destino: "Bodega Sur",
+      idBodega: "",
+      idBodegaDestino: null,
     });
   });
 });

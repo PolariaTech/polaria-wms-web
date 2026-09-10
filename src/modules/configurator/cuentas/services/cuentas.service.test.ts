@@ -43,12 +43,14 @@ describe("cuentas.service", () => {
           codigo_empresa: "ACME",
           nombre_comercial: "Mitre",
           esta_activa: true,
+          id_bodega_default: null,
         },
         {
           codigo_cuenta: "AND01",
           codigo_empresa: "ACME",
           nombre_comercial: "Andino",
           esta_activa: true,
+          id_bodega_default: null,
         },
       ],
       bodega: [
@@ -110,6 +112,7 @@ describe("cuentas.service", () => {
         nombreComercial: "Andino",
         bodegasAsignadas: [],
         bodegaInternaPrincipal: null,
+        idBodegaDefault: null,
         estaActiva: true,
         tieneCredenciales: false,
       },
@@ -131,6 +134,7 @@ describe("cuentas.service", () => {
           tipo: "interna",
           capacidad: 120,
         },
+        idBodegaDefault: null,
         estaActiva: true,
         tieneCredenciales: true,
       },
@@ -225,6 +229,7 @@ describe("cuentas.service", () => {
       nombreComercial: "Mitre",
       bodegasAsignadas: [],
       bodegaInternaPrincipal: null,
+      idBodegaDefault: null,
       estaActiva: true,
       tieneCredenciales: false,
     });
@@ -236,6 +241,7 @@ describe("cuentas.service", () => {
       codigoEmpresa: "EVU53",
       nombreComercial: "Tecno-Tech",
       estaActiva: false,
+      idBodegaDefault: null,
     });
 
     const row = await updateCuentaConfigurator({

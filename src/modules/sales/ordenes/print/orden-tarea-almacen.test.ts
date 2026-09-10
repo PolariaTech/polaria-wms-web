@@ -18,6 +18,8 @@ const LIST_ROW: OrdenVentaOperadorRow = {
   estado: "borrador",
   fecha: "2026-06-28T12:00:00.000Z",
   destino: "Bodega central",
+  idBodega: "bod-1",
+  idBodegaDestino: null,
 };
 
 const DETALLE: OrdenVentaDetalleRow = {

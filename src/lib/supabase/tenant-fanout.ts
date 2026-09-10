@@ -14,6 +14,7 @@ export type CuentaFanoutRow = {
   codigo_empresa: string;
   nombre_comercial: string;
   esta_activa: boolean;
+  id_bodega_default?: string | null;
 };
 
 export type BodegaFanoutRow = {
@@ -51,7 +52,7 @@ export async function findCuentaAcrossSchemas(
   const publicRows = await runDomainQuery<CuentaFanoutRow[]>((client) => {
     const query = client
       .from("cuenta")
-      .select("codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa")
+      .select("codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,id_bodega_default")
       .eq("codigo_cuenta", codigo)
       .eq("esta_activa", true)
       .limit(1);
@@ -72,7 +73,7 @@ export async function findCuentaAcrossSchemas(
     const { data, error } = await client
       .schema(empresa.schema_name)
       .from("cuenta")
-      .select("codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa")
+      .select("codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,id_bodega_default")
       .eq("codigo_cuenta", codigo)
       .eq("esta_activa", true)
       .limit(1);
@@ -99,7 +100,9 @@ export async function listCuentasAcrossSchemas(): Promise<CuentaFanoutRow[]> {
   const publicRows = await runDomainQuery<CuentaFanoutRow[]>((client) => {
     const query = client
       .from("cuenta")
-      .select("codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa")
+      .select(
+        "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,id_bodega_default",
+      )
       .eq("esta_activa", true)
       .order("nombre_comercial", { ascending: true })
       .limit(DEFAULT_LIST_LIMIT);
@@ -122,7 +125,9 @@ export async function listCuentasAcrossSchemas(): Promise<CuentaFanoutRow[]> {
     const { data, error } = await client
       .schema(empresa.schema_name)
       .from("cuenta")
-      .select("codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa")
+      .select(
+        "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,id_bodega_default",
+      )
       .eq("esta_activa", true)
       .order("nombre_comercial", { ascending: true })
       .limit(DEFAULT_LIST_LIMIT);

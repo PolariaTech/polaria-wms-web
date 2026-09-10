@@ -1,4 +1,8 @@
 import { jsPDF } from "jspdf";
+import {
+  campoSurtido,
+  checkSurtido,
+} from "../surtido/apply-surtido-to-print";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
 /** Carta: coincide con el destino típico del diálogo de impresión. */
@@ -25,6 +29,23 @@ function box(
 
 function checkbox(doc: jsPDF, x: number, y: number, size = 3.2) {
   box(doc, x, y, size, size, 0.4);
+}
+
+function markCheckbox(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  checked: boolean,
+  size = 3.2,
+) {
+  checkbox(doc, x, y, size);
+  if (!checked) return;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(size >= 3.4 ? 9 : 8);
+  doc.text("X", x + size / 2, y + size / 2, {
+    align: "center",
+    baseline: "middle",
+  });
 }
 
 function field(
@@ -249,15 +270,7 @@ function drawProductRow(
     if (colIndex === 7 || colIndex === 8) {
       const checked =
         colIndex === 7 ? Boolean(linea?.alisto) : Boolean(linea?.reviso);
-      checkbox(doc, x + colDef.w / 2 - 1.6, mid - 1.6);
-      if (checked) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.text("X", x + colDef.w / 2, mid, {
-          align: "center",
-          baseline: "middle",
-        });
-      }
+      markCheckbox(doc, x + colDef.w / 2 - 1.6, mid - 1.6, checked);
     } else if (value) {
       const size = colIndex === 1 || colIndex === 2 ? 6.5 : 7.5;
       doc.setFontSize(size);
@@ -353,13 +366,12 @@ export function buildOrdenTareaAlmacenPdf(
   y += 6;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  const factura =
-    data.surtido?.campos?.["Factura asociada"] ||
-    data.surtido?.campos?.["factura asociada"] ||
-    Object.entries(data.surtido?.campos ?? {}).find(([k]) =>
-      k.toLowerCase().includes("factura"),
-    )?.[1] ||
-    "";
+  const factura = campoSurtido(
+    data.surtido,
+    "facturaAsociada",
+    "Factura asociada",
+    "factura",
+  );
   doc.text(
     factura
       ? `Factura asociada: ${factura}`
@@ -376,34 +388,47 @@ export function buildOrdenTareaAlmacenPdf(
 
   const col = CONTENT_W / 4;
   const rowH = 11;
+  const horaComprometida = campoSurtido(
+    data.surtido,
+    "horaComprometida",
+    "Hora comprometida",
+  );
+  const horaSalida = campoSurtido(
+    data.surtido,
+    "horaSugeridaSalida",
+    "Hora sugerida de salida",
+  );
+  const chofer = campoSurtido(data.surtido, "chofer", "Chofer");
+  const unidad = campoSurtido(data.surtido, "unidad", "Unidad");
+
   field(doc, MARGIN, y, col * 2, rowH, "Cliente", data.cliente, true);
   field(doc, MARGIN + col * 2, y, col, rowH, "Centro de consumo / cocina", data.centroConsumo);
   field(doc, MARGIN + col * 3, y, col, rowH, "# de orden del cliente", data.numeroOrdenCliente);
   y += rowH;
   field(doc, MARGIN, y, col, rowH, "Fecha de entrega", data.fechaEntrega);
-  field(doc, MARGIN + col, y, col, rowH, "Hora comprometida");
-  field(doc, MARGIN + col * 2, y, col, rowH, "Hora sugerida de salida");
+  field(doc, MARGIN + col, y, col, rowH, "Hora comprometida", horaComprometida);
+  field(doc, MARGIN + col * 2, y, col, rowH, "Hora sugerida de salida", horaSalida);
   field(doc, MARGIN + col * 3, y, col, rowH, "Turno que prepara");
-  checkbox(doc, MARGIN + col * 3 + 2, y + 6.2, 2.8);
+  markCheckbox(
+    doc,
+    MARGIN + col * 3 + 2,
+    y + 6.2,
+    checkSurtido(data.surtido, "turnoPm"),
+    2.8,
+  );
   doc.setFontSize(6.5);
   doc.setFont("helvetica", "normal");
   doc.text("PM", MARGIN + col * 3 + 5.6, y + 6.6, { baseline: "top" });
-  checkbox(doc, MARGIN + col * 3 + 16, y + 6.2, 2.8);
+  markCheckbox(
+    doc,
+    MARGIN + col * 3 + 16,
+    y + 6.2,
+    checkSurtido(data.surtido, "turnoNocheAm"),
+    2.8,
+  );
   doc.text("Noche / AM", MARGIN + col * 3 + 19.6, y + 6.6, { baseline: "top" });
   y += rowH;
   const addrH = 16;
-  const chofer =
-    data.surtido?.campos?.Chofer ||
-    Object.entries(data.surtido?.campos ?? {}).find(([k]) =>
-      k.toLowerCase().includes("chofer"),
-    )?.[1] ||
-    "";
-  const unidad =
-    data.surtido?.campos?.Unidad ||
-    Object.entries(data.surtido?.campos ?? {}).find(([k]) =>
-      k.toLowerCase().includes("unidad"),
-    )?.[1] ||
-    "";
   field(doc, MARGIN, y, col * 2, addrH, "Dirección de entrega", data.direccionEntrega);
   field(doc, MARGIN + col * 2, y, col, addrH, "Chofer", chofer);
   field(doc, MARGIN + col * 3, y, col, addrH, "Unidad", unidad);
@@ -433,6 +458,26 @@ export function buildOrdenTareaAlmacenPdf(
   const totW = CONTENT_W / 4;
   const totH = 11;
   y = ensureSpace(doc, y, totH + 3);
+  const totValues = [
+    String(data.lineas.length),
+    campoSurtido(
+      data.surtido,
+      "renglonesSurtidosCompletos",
+      "Renglones surtidos completos",
+    ),
+    campoSurtido(
+      data.surtido,
+      "cajas15kg21kg",
+      "Cajas 1.5 kg / 21 kg",
+      "Cajas 1.5",
+    ),
+    campoSurtido(
+      data.surtido,
+      "totalBultosCamion",
+      "Total de bultos al camión",
+      "bultos",
+    ),
+  ];
   const totLabels = [
     "Renglones en esta orden",
     "Renglones surtidos completos",
@@ -440,13 +485,6 @@ export function buildOrdenTareaAlmacenPdf(
     "Total de bultos al camión",
   ];
   totLabels.forEach((label, index) => {
-    let value = index === 0 ? String(data.lineas.length) : "";
-    if (index > 0 && data.surtido?.campos) {
-      const found = Object.entries(data.surtido.campos).find(([k]) =>
-        k.toLowerCase().includes(label.toLowerCase().slice(0, 12)),
-      );
-      if (found?.[1]) value = found[1];
-    }
     field(
       doc,
       MARGIN + totW * index,
@@ -454,7 +492,7 @@ export function buildOrdenTareaAlmacenPdf(
       totW,
       totH,
       label,
-      value,
+      totValues[index] ?? "",
       true,
     );
   });
@@ -467,19 +505,38 @@ export function buildOrdenTareaAlmacenPdf(
     "De la orden completa",
     "Lo que no pertenece a un producto en particular.",
   );
-  const incidents = [
-    "Orden recibida fuera de horario",
-    "Factura trae producto que no se pidió",
-    "Sin factura al momento de revisar",
-    "Ninguna incidencia en toda la orden",
+  const incidents: Array<{
+    label: string;
+    key:
+      | "incidenciaFueraHorario"
+      | "incidenciaFacturaNoPedida"
+      | "incidenciaSinFactura"
+      | "incidenciaNinguna";
+  }> = [
+    {
+      label: "Orden recibida fuera de horario",
+      key: "incidenciaFueraHorario",
+    },
+    {
+      label: "Factura trae producto que no se pidió",
+      key: "incidenciaFacturaNoPedida",
+    },
+    {
+      label: "Sin factura al momento de revisar",
+      key: "incidenciaSinFactura",
+    },
+    {
+      label: "Ninguna incidencia en toda la orden",
+      key: "incidenciaNinguna",
+    },
   ];
-  incidents.forEach((label, index) => {
+  incidents.forEach((item, index) => {
     const x = MARGIN + (index % 2) * (CONTENT_W / 2);
     const rowY = y + Math.floor(index / 2) * 6;
-    checkbox(doc, x, rowY);
+    markCheckbox(doc, x, rowY, checkSurtido(data.surtido, item.key));
     doc.setFont("helvetica", index === 3 ? "bold" : "normal");
     doc.setFontSize(8);
-    doc.text(label, x + 5, rowY + 1.6, { baseline: "top" });
+    doc.text(item.label, x + 5, rowY + 1.6, { baseline: "top" });
   });
   y += 14;
 
@@ -511,44 +568,109 @@ export function buildOrdenTareaAlmacenPdf(
   });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
+  const tolerancia = campoSurtido(
+    data.surtido,
+    "toleranciaPesoPct",
+    "Tolerancia por peso",
+    "tolerancia",
+  );
   doc.text(
-    "Tolerancia por peso: ± ____ %. Dentro de ese rango se marca «dentro de tolerancia».",
+    tolerancia
+      ? `Tolerancia por peso: ± ${tolerancia} %. Dentro de ese rango se marca «dentro de tolerancia».`
+      : "Tolerancia por peso: ± ____ %. Dentro de ese rango se marca «dentro de tolerancia».",
     MARGIN + 2,
     y + 6,
     { baseline: "top" },
   );
-  const recon = ["Coincide", "Dentro de tolerancia", "Fuera de tolerancia"];
-  recon.forEach((label, index) => {
+  const recon: Array<{
+    label: string;
+    key:
+      | "mercanciaCoincide"
+      | "mercanciaDentroTolerancia"
+      | "mercanciaFueraTolerancia";
+  }> = [
+    { label: "Coincide", key: "mercanciaCoincide" },
+    { label: "Dentro de tolerancia", key: "mercanciaDentroTolerancia" },
+    { label: "Fuera de tolerancia", key: "mercanciaFueraTolerancia" },
+  ];
+  recon.forEach((item, index) => {
     const x = MARGIN + 2 + index * 52;
-    checkbox(doc, x, y + 9, 3.4);
+    markCheckbox(doc, x, y + 9, checkSurtido(data.surtido, item.key), 3.4);
     doc.setFontSize(8);
-    doc.text(label, x + 5, y + 9.6, { baseline: "top" });
+    doc.text(item.label, x + 5, y + 9.6, { baseline: "top" });
   });
   y += 17;
 
   const sigH = 16;
   y = ensureSpace(doc, y, 10 + sigH);
   y = sectionTitle(doc, y, "Responsables", "Nombre y hora, siempre.");
-  const roles = [
-    ["Alistó", "Turno PM"],
-    ["Revisó", "Turno PM"],
-    ["Documentó", "Noche / AM"],
-    ["Despachó", "Noche / AM"],
+  const roles: Array<{
+    role: string;
+    turno: string;
+    nombreKeys: string[];
+    horaKeys: string[];
+  }> = [
+    {
+      role: "Alistó",
+      turno: "Turno PM",
+      nombreKeys: ["alistoNombre", "Alistó nombre"],
+      horaKeys: ["alistoHora", "Alistó hora"],
+    },
+    {
+      role: "Revisó",
+      turno: "Turno PM",
+      nombreKeys: ["revisoNombre", "Revisó nombre"],
+      horaKeys: ["revisoHora", "Revisó hora"],
+    },
+    {
+      role: "Documentó",
+      turno: "Noche / AM",
+      nombreKeys: ["documentoNombre", "Documentó nombre"],
+      horaKeys: ["documentoHora", "Documentó hora"],
+    },
+    {
+      role: "Despachó",
+      turno: "Noche / AM",
+      nombreKeys: ["despachoNombre", "Despachó nombre"],
+      horaKeys: ["despachoHora", "Despachó hora"],
+    },
   ];
   const sigW = CONTENT_W / 4;
-  roles.forEach(([role, turno], index) => {
+  roles.forEach((item, index) => {
     const x = MARGIN + sigW * index;
+    const nombre = campoSurtido(data.surtido, ...item.nombreKeys);
+    const hora = campoSurtido(data.surtido, ...item.horaKeys);
     box(doc, x, y, sigW, sigH);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.text(role, x + 1.6, y + 1.6, { baseline: "top" });
+    doc.text(item.role, x + 1.6, y + 1.6, { baseline: "top" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
-    doc.text(turno, x + 1.6, y + 5.2, { baseline: "top" });
+    doc.text(item.turno, x + 1.6, y + 5.2, { baseline: "top" });
     doc.setLineWidth(0.3);
     doc.line(x + 1.6, y + 11, x + sigW - 1.6, y + 11);
-    doc.text("Nombre", x + 1.6, y + 12.2, { baseline: "top" });
-    doc.text("Hora", x + sigW - 12, y + 12.2, { baseline: "top" });
+    if (nombre) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.text(nombre, x + 1.6, y + 9.2, {
+        baseline: "bottom",
+        maxWidth: sigW - 16,
+      });
+    } else {
+      doc.setFontSize(6.8);
+      doc.text("Nombre", x + 1.6, y + 12.2, { baseline: "top" });
+    }
+    if (hora) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.text(hora, x + sigW - 1.6, y + 9.2, {
+        align: "right",
+        baseline: "bottom",
+      });
+    } else {
+      doc.setFontSize(6.8);
+      doc.text("Hora", x + sigW - 12, y + 12.2, { baseline: "top" });
+    }
   });
   y += sigH + 3;
 
@@ -558,25 +680,66 @@ export function buildOrdenTareaAlmacenPdf(
   const recW = CONTENT_W * 0.68;
   box(doc, MARGIN, y, recW, recH);
   box(doc, MARGIN + recW, y, CONTENT_W * 0.32, recH);
-  const recOpts = ["Aceptado completo", "Aceptado parcial", "Rechazado", "Retorno de factura"];
-  recOpts.forEach((label, index) => {
+  const recOpts: Array<{
+    label: string;
+    key:
+      | "recepcionAceptadoCompleto"
+      | "recepcionAceptadoParcial"
+      | "recepcionRechazado"
+      | "recepcionRetornoFactura";
+  }> = [
+    { label: "Aceptado completo", key: "recepcionAceptadoCompleto" },
+    { label: "Aceptado parcial", key: "recepcionAceptadoParcial" },
+    { label: "Rechazado", key: "recepcionRechazado" },
+    { label: "Retorno de factura", key: "recepcionRetornoFactura" },
+  ];
+  recOpts.forEach((item, index) => {
     const x = MARGIN + 2 + (index % 2) * 52;
     const rowY = y + 1.8 + Math.floor(index / 2) * 5;
-    checkbox(doc, x, rowY);
+    markCheckbox(doc, x, rowY, checkSurtido(data.surtido, item.key));
     doc.setFontSize(8);
-    doc.text(label, x + 5, rowY + 0.4, { baseline: "top" });
+    doc.text(item.label, x + 5, rowY + 0.4, { baseline: "top" });
   });
   doc.setLineWidth(0.3);
   doc.line(MARGIN + 2, y + 12.2, MARGIN + recW - 2, y + 12.2);
+  const recepcionMotivo = campoSurtido(
+    data.surtido,
+    "recepcionMotivo",
+    "Recepción motivo",
+  );
   doc.setFontSize(6.8);
-  doc.text("Motivo si es parcial o rechazado — y qué producto", MARGIN + 2, y + 13.2, {
-    baseline: "top",
-  });
+  doc.text(
+    recepcionMotivo ||
+      "Motivo si es parcial o rechazado — y qué producto",
+    MARGIN + 2,
+    y + 13.2,
+    { baseline: "top", maxWidth: recW - 4 },
+  );
+  const recepcionNombre = campoSurtido(
+    data.surtido,
+    "recepcionNombre",
+    "Recepción nombre",
+  );
+  const recepcionHora = campoSurtido(
+    data.surtido,
+    "recepcionHora",
+    "Recepción hora",
+  );
   doc.setFontSize(6.8);
-  doc.text("Nombre de quien recibe", MARGIN + 2, y + 18.4, { baseline: "top" });
+  doc.text(
+    recepcionNombre ? `Nombre: ${recepcionNombre}` : "Nombre de quien recibe",
+    MARGIN + 2,
+    y + 18.4,
+    { baseline: "top" },
+  );
   doc.setLineWidth(0.3);
   doc.line(MARGIN + 2, y + 23.4, MARGIN + recW - 28, y + 23.4);
-  doc.text("Hora", MARGIN + recW - 26, y + 18.4, { baseline: "top" });
+  doc.text(
+    recepcionHora ? `Hora: ${recepcionHora}` : "Hora",
+    MARGIN + recW - 26,
+    y + 18.4,
+    { baseline: "top" },
+  );
   doc.line(MARGIN + recW - 26, y + 23.4, MARGIN + recW - 2, y + 23.4);
   doc.setFontSize(7.5);
   doc.text("Sello y firma del cliente", MARGIN + recW + CONTENT_W * 0.16, y + recH - 3.2, {

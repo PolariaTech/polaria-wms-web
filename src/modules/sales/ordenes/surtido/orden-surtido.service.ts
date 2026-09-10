@@ -22,13 +22,24 @@ interface CapturaDbRow {
   updated_at: string;
 }
 
+function coercePayload(
+  raw: OrdenSurtidoCapturaPayload | null | undefined,
+): OrdenSurtidoCapturaPayload {
+  return {
+    campos: raw?.campos ?? {},
+    checks: raw?.checks ?? {},
+    lineas: Array.isArray(raw?.lineas) ? raw.lineas : [],
+    observacionesIa: raw?.observacionesIa ?? null,
+  };
+}
+
 function mapRow(row: CapturaDbRow): OrdenSurtidoCapturaRow {
   return {
     idCaptura: row.id_captura,
     idOrdenVenta: row.id_orden_venta,
     codigoCuenta: row.codigo_cuenta,
     urlFoto: row.url_foto,
-    payload: row.payload ?? { campos: {}, lineas: [] },
+    payload: coercePayload(row.payload),
     modelo: row.modelo,
     updatedAt: row.updated_at,
   };

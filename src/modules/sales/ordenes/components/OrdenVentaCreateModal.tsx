@@ -37,12 +37,12 @@ import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
 import {
   CATALOGO_VENTA_EMPTY_MESSAGE,
-  CATALOGO_VENTA_SIN_STOCK_MESSAGE,
 } from "../../shared/constants/sales-status";
 import { fetchProductosVentaCatalogo } from "../../shared/services/sales-catalog.api";
 import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
 import {
   createOrdenVenta,
+  getCuentaIdBodegaDefault,
   getOrdenVentaDetalle,
 } from "../../shared/services/sales.service";
 import type { ProductoVentaOption } from "../../shared/types/sales.types";
@@ -58,6 +58,11 @@ import {
   mapPedidoExtraidoToForm,
   type CampoDiscrepancia,
 } from "../utils/map-pedido-extraido-to-form";
+import {
+  recalcularCajasPorPresentacion,
+  recalcularPorCajas,
+  sugerirEmpaqueDesdeCantidad,
+} from "../utils/empaque-lineas";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/prefill-orden-venta-from-comprador";
 
 interface OrdenVentaCreateModalProps {
@@ -85,16 +90,19 @@ interface LineaVentaForm {
   precioUnitario: number;
   aliasCliente?: string;
   filledByIa?: boolean;
+  packHint?: string;
+  autoPackFields?: Array<"cajasInput" | "presentacion" | "cantidadInput">;
 }
 
 function fieldControlClass(params: {
   field?: string;
   autoFields?: Set<string>;
   warnFields?: Set<string>;
+  missingFields?: Set<string>;
   missing?: boolean;
 }): string | undefined {
-  const { field, autoFields, warnFields, missing } = params;
-  if (missing) {
+  const { field, autoFields, warnFields, missingFields, missing } = params;
+  if (missing || (field && missingFields?.has(field))) {
     return "!border-polaria-danger-border !bg-polaria-danger-bg";
   }
   if (field && warnFields?.has(field)) {
@@ -192,6 +200,22 @@ function formatBodegaDestinoOption(
       ? `${base} · ${tipo === "interna" ? "interna" : "externa"}`
       : base,
   };
+}
+
+function resolveBodegaDestinoInicial(
+  destinoRows: BodegaDestinoOption[],
+  idBodegaDefault: string | null,
+): string {
+  if (
+    idBodegaDefault &&
+    destinoRows.some((row) => row.idBodega === idBodegaDefault)
+  ) {
+    return idBodegaDefault;
+  }
+  if (destinoRows.length === 1) {
+    return destinoRows[0]!.idBodega;
+  }
+  return "";
 }
 
 function CaptureSection({
@@ -298,6 +322,9 @@ export function OrdenVentaCreateModal({
   const [exigeOc, setExigeOc] = useState(false);
   const [autoFields, setAutoFields] = useState<Set<string>>(() => new Set());
   const [warnFields, setWarnFields] = useState<Set<string>>(() => new Set());
+  const [missingFields, setMissingFields] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [discrepancias, setDiscrepancias] = useState<CampoDiscrepancia[]>([]);
   const [confirmDiscrepanciasOpen, setConfirmDiscrepanciasOpen] =
     useState(false);
@@ -413,6 +440,7 @@ export function OrdenVentaCreateModal({
     setPicker(null);
     setAutoFields(new Set());
     setWarnFields(new Set());
+    setMissingFields(new Set());
     setDiscrepancias([]);
     setConfirmDiscrepanciasOpen(false);
     setIsReadingIa(false);
@@ -432,8 +460,16 @@ export function OrdenVentaCreateModal({
       listCompradoresAdmin({ codigoCuenta }),
       listBodegasInternasVinculadasAdmin({ codigoCuenta }),
       listBodegasExternasVinculadasAdmin({ codigoCuenta }),
+      getCuentaIdBodegaDefault(codigoCuenta),
     ])
-      .then(([productoRows, compradorRows, internas, externas]) => {
+      .then(
+        ([
+          productoRows,
+          compradorRows,
+          internas,
+          externas,
+          idBodegaDefault,
+        ]) => {
         setProductosBase(productoRows);
         setCompradores(compradorRows);
         const incluirTipo = internas.length > 0 && externas.length > 0;
@@ -446,9 +482,9 @@ export function OrdenVentaCreateModal({
           ),
         ];
         setBodegasDestino(destinoRows);
-        if (destinoRows.length === 1) {
-          setIdBodegaDestino(destinoRows[0]!.idBodega);
-        }
+        setIdBodegaDestino(
+          resolveBodegaDestinoInicial(destinoRows, idBodegaDefault),
+        );
       })
       .catch((err) => {
         setError(
@@ -576,11 +612,50 @@ export function OrdenVentaCreateModal({
     setError(null);
   }, []);
 
+  const clearFieldMarks = useCallback((field: string) => {
+    setAutoFields((prev) => {
+      if (!prev.has(field)) return prev;
+      const next = new Set(prev);
+      next.delete(field);
+      return next;
+    });
+    setWarnFields((prev) => {
+      if (!prev.has(field)) return prev;
+      const next = new Set(prev);
+      next.delete(field);
+      return next;
+    });
+    setMissingFields((prev) => {
+      if (!prev.has(field)) return prev;
+      const next = new Set(prev);
+      next.delete(field);
+      return next;
+    });
+  }, []);
+
   const handleCantidadChange = useCallback((index: number, value: string) => {
     setLineas((prev) =>
-      prev.map((linea, i) =>
-        i === index ? { ...linea, cantidadInput: value } : linea,
-      ),
+      prev.map((linea, i) => {
+        if (i !== index) return linea;
+        const nextBase = {
+          ...linea,
+          cantidadInput: value,
+          filledByIa: false,
+        };
+        const empaque = sugerirEmpaqueDesdeCantidad({
+          cajasInput: nextBase.cajasInput,
+          presentacion: nextBase.presentacion,
+          cantidadInput: value,
+        });
+        return {
+          ...nextBase,
+          cajasInput: empaque.cajasInput,
+          presentacion: empaque.presentacion,
+          cantidadInput: empaque.cantidadInput,
+          packHint: empaque.packHint,
+          autoPackFields: empaque.autoPackFields,
+        };
+      }),
     );
   }, []);
 
@@ -596,9 +671,40 @@ export function OrdenVentaCreateModal({
       value: string,
     ) => {
       setLineas((prev) =>
-        prev.map((linea, i) =>
-          i === index ? { ...linea, [field]: value } : linea,
-        ),
+        prev.map((linea, i) => {
+          if (i !== index) return linea;
+          const nextBase = { ...linea, [field]: value, filledByIa: false };
+          if (field === "cajasInput") {
+            const empaque = recalcularPorCajas({
+              cajasInput: value,
+              presentacion: nextBase.presentacion,
+              cantidadInput: nextBase.cantidadInput,
+            });
+            return {
+              ...nextBase,
+              presentacion: empaque.presentacion,
+              cantidadInput: empaque.cantidadInput,
+              packHint: empaque.packHint,
+              autoPackFields: empaque.autoPackFields,
+            };
+          }
+          if (field === "presentacion") {
+            const empaque = recalcularCajasPorPresentacion({
+              cajasInput: nextBase.cajasInput,
+              presentacion: value,
+              cantidadInput: nextBase.cantidadInput,
+            });
+            return {
+              ...nextBase,
+              cajasInput: empaque.cajasInput,
+              presentacion: empaque.presentacion,
+              cantidadInput: empaque.cantidadInput,
+              packHint: empaque.packHint,
+              autoPackFields: empaque.autoPackFields,
+            };
+          }
+          return nextBase;
+        }),
       );
     },
     [],
@@ -708,6 +814,9 @@ export function OrdenVentaCreateModal({
       setFechaEntrega(mapped.fechaEntrega);
       setCentroConsumo(mapped.centroConsumo);
       setObservaciones(mapped.observaciones);
+      if (mapped.ordenCompraHotel.trim()) {
+        setOrdenCompraHotel(mapped.ordenCompraHotel);
+      }
       setDireccion(mapped.direccion);
       setAnden(mapped.anden);
       setContacto(mapped.contacto);
@@ -719,6 +828,7 @@ export function OrdenVentaCreateModal({
       setRegistrarTemperatura(mapped.registrarTemperatura);
       setAutoFields(mapped.autoFields);
       setWarnFields(mapped.warnFields);
+      setMissingFields(mapped.missingFields);
       setDiscrepancias(mapped.discrepancias);
       setLineas(
         mapped.lineas.map((linea) => ({
@@ -736,6 +846,8 @@ export function OrdenVentaCreateModal({
           precioUnitario: linea.precioUnitario,
           aliasCliente: linea.aliasCliente,
           filledByIa: linea.filledByIa,
+          packHint: linea.packHint,
+          autoPackFields: linea.autoPackFields,
         })),
       );
 
@@ -841,12 +953,6 @@ export function OrdenVentaCreateModal({
         const cantidadKg = parseDecimalEs(linea.cantidadInput);
         if (cantidadKg === null || cantidadKg <= 0) {
           setError(`Ingresa una cantidad válida para ${linea.nombre}.`);
-          return;
-        }
-        if (cantidadKg > linea.kgDisponible) {
-          setError(
-            `No puedes vender más de ${formatKgEs(linea.kgDisponible)} kg de ${linea.nombre}. Disponible en stock: ${formatKgEs(linea.kgDisponible)} kg.`,
-          );
           return;
         }
         lineasParsed.push({
@@ -1030,9 +1136,7 @@ export function OrdenVentaCreateModal({
     ],
   );
 
-  const emptyCatalogMessage = hasCompradores
-    ? CATALOGO_VENTA_SIN_STOCK_MESSAGE
-    : CATALOGO_VENTA_EMPTY_MESSAGE;
+  const emptyCatalogMessage = CATALOGO_VENTA_EMPTY_MESSAGE;
 
   const formDescription =
     startMode === "docs"
@@ -1380,7 +1484,10 @@ export function OrdenVentaCreateModal({
                       id="orden-venta-oc-hotel"
                       label="Orden de compra del hotel"
                       value={ordenCompraHotel}
-                      onChange={(event) => setOrdenCompraHotel(event.target.value)}
+                      onChange={(event) => {
+                        setOrdenCompraHotel(event.target.value);
+                        clearFieldMarks("ordenCompraHotel");
+                      }}
                       hint={
                         exigeOc
                           ? "Este cliente exige OC para facturar."
@@ -1388,6 +1495,10 @@ export function OrdenVentaCreateModal({
                       }
                       required={exigeOc}
                       controlClassName={fieldControlClass({
+                        field: "ordenCompraHotel",
+                        autoFields,
+                        warnFields,
+                        missingFields,
                         missing: exigeOc && !ordenCompraHotel.trim(),
                       })}
                       compact
@@ -1399,21 +1510,13 @@ export function OrdenVentaCreateModal({
                       value={centroConsumo}
                       onChange={(event) => {
                         setCentroConsumo(event.target.value);
-                        setAutoFields((prev) => {
-                          const next = new Set(prev);
-                          next.delete("centroConsumo");
-                          return next;
-                        });
-                        setWarnFields((prev) => {
-                          const next = new Set(prev);
-                          next.delete("centroConsumo");
-                          return next;
-                        });
+                        clearFieldMarks("centroConsumo");
                       }}
                       controlClassName={fieldControlClass({
                         field: "centroConsumo",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       hint={
                         warnFields.has("centroConsumo")
@@ -1436,11 +1539,15 @@ export function OrdenVentaCreateModal({
                       label="Fecha de entrega"
                       type="date"
                       value={fechaEntrega}
-                      onChange={(event) => setFechaEntrega(event.target.value)}
+                      onChange={(event) => {
+                        setFechaEntrega(event.target.value);
+                        clearFieldMarks("fechaEntrega");
+                      }}
                       controlClassName={fieldControlClass({
                         field: "fechaEntrega",
                         autoFields,
                         warnFields,
+                        missingFields,
                         missing: !fechaEntrega,
                       })}
                       compact
@@ -1451,11 +1558,15 @@ export function OrdenVentaCreateModal({
                       label="Ventana de entrega — desde"
                       type="time"
                       value={ventanaDesde}
-                      onChange={(event) => setVentanaDesde(event.target.value)}
+                      onChange={(event) => {
+                        setVentanaDesde(event.target.value);
+                        clearFieldMarks("ventanaDesde");
+                      }}
                       controlClassName={fieldControlClass({
                         field: "ventanaDesde",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       compact
                     />
@@ -1465,11 +1576,15 @@ export function OrdenVentaCreateModal({
                       label="Ventana de entrega — hasta"
                       type="time"
                       value={ventanaHasta}
-                      onChange={(event) => setVentanaHasta(event.target.value)}
+                      onChange={(event) => {
+                        setVentanaHasta(event.target.value);
+                        clearFieldMarks("ventanaHasta");
+                      }}
                       controlClassName={fieldControlClass({
                         field: "ventanaHasta",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       compact
                     />
@@ -1517,11 +1632,15 @@ export function OrdenVentaCreateModal({
                       label="Observaciones"
                       value={observaciones}
                       placeholder="Notas para almacén"
-                      onChange={(event) => setObservaciones(event.target.value)}
+                      onChange={(event) => {
+                        setObservaciones(event.target.value);
+                        clearFieldMarks("observaciones");
+                      }}
                       controlClassName={fieldControlClass({
                         field: "observaciones",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       compact
                       fieldClassName="sm:col-span-3"
@@ -1535,11 +1654,15 @@ export function OrdenVentaCreateModal({
                       id="orden-venta-direccion"
                       label="Dirección de entrega"
                       value={direccion}
-                      onChange={(event) => setDireccion(event.target.value)}
+                      onChange={(event) => {
+                        setDireccion(event.target.value);
+                        clearFieldMarks("direccion");
+                      }}
                       controlClassName={fieldControlClass({
                         field: "direccion",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       compact
                       fieldClassName="sm:col-span-2"
@@ -1548,11 +1671,15 @@ export function OrdenVentaCreateModal({
                       id="orden-venta-anden"
                       label="Andén / punto de recepción"
                       value={anden}
-                      onChange={(event) => setAnden(event.target.value)}
+                      onChange={(event) => {
+                        setAnden(event.target.value);
+                        clearFieldMarks("anden");
+                      }}
                       controlClassName={fieldControlClass({
                         field: "anden",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       compact
                     />
@@ -1560,11 +1687,15 @@ export function OrdenVentaCreateModal({
                       id="orden-venta-contacto"
                       label="Contacto en el hotel"
                       value={contacto}
-                      onChange={(event) => setContacto(event.target.value)}
+                      onChange={(event) => {
+                        setContacto(event.target.value);
+                        clearFieldMarks("contacto");
+                      }}
                       controlClassName={fieldControlClass({
                         field: "contacto",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       compact
                     />
@@ -1573,45 +1704,51 @@ export function OrdenVentaCreateModal({
                       label="Teléfono del contacto"
                       type="tel"
                       value={telefono}
-                      onChange={(event) => setTelefono(event.target.value)}
+                      onChange={(event) => {
+                        setTelefono(event.target.value);
+                        clearFieldMarks("telefono");
+                      }}
                       controlClassName={fieldControlClass({
                         field: "telefono",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       compact
                     />
-                    <PolariaFormSelect
-                      id="orden-venta-turno"
-                      label="Turno que prepara"
-                      value={turno}
-                      onChange={(event) => setTurno(event.target.value)}
-                      options={TURNO_OPTIONS}
-                      compact
-                    />
-                    <PolariaFormInput
-                      id="orden-venta-hora-salida"
-                      label="Hora sugerida de salida"
-                      type="time"
-                      value={horaSalida}
-                      onChange={(event) => setHoraSalida(event.target.value)}
-                      compact
-                    />
-                    <PolariaFormInput
-                      id="orden-venta-chofer"
-                      label="Chofer"
-                      value={chofer}
-                      placeholder="Por asignar"
-                      onChange={(event) => setChofer(event.target.value)}
-                      compact
-                    />
-                    <PolariaFormInput
-                      id="orden-venta-unidad"
-                      label="Unidad"
-                      value={unidad}
-                      onChange={(event) => setUnidad(event.target.value)}
-                      compact
-                    />
+                    <div className="hidden" aria-hidden>
+                      <PolariaFormSelect
+                        id="orden-venta-turno"
+                        label="Turno que prepara"
+                        value={turno}
+                        onChange={(event) => setTurno(event.target.value)}
+                        options={TURNO_OPTIONS}
+                        compact
+                      />
+                      <PolariaFormInput
+                        id="orden-venta-hora-salida"
+                        label="Hora sugerida de salida"
+                        type="time"
+                        value={horaSalida}
+                        onChange={(event) => setHoraSalida(event.target.value)}
+                        compact
+                      />
+                      <PolariaFormInput
+                        id="orden-venta-chofer"
+                        label="Chofer"
+                        value={chofer}
+                        placeholder="Por asignar"
+                        onChange={(event) => setChofer(event.target.value)}
+                        compact
+                      />
+                      <PolariaFormInput
+                        id="orden-venta-unidad"
+                        label="Unidad"
+                        value={unidad}
+                        onChange={(event) => setUnidad(event.target.value)}
+                        compact
+                      />
+                    </div>
                 </div>
                 </CaptureSection>
 
@@ -1766,7 +1903,10 @@ export function OrdenVentaCreateModal({
                                           (parseDecimalEs(linea.cantidadInput) ??
                                             0) <= 0,
                                       }) ??
-                                        (linea.filledByIa
+                                        (linea.filledByIa ||
+                                        linea.autoPackFields?.includes(
+                                          "cantidadInput",
+                                        )
                                           ? "!border-polaria-teal/50 !bg-polaria-t-08"
                                           : undefined),
                                     )}
@@ -1774,6 +1914,14 @@ export function OrdenVentaCreateModal({
                                   <p className="mt-1 polaria-text-caption text-polaria-w-50">
                                     Disp. {formatKgEs(linea.kgDisponible)} kg
                                   </p>
+                                  {linea.packHint ? (
+                                    <p
+                                      role="status"
+                                      className="mt-1 polaria-text-caption text-polaria-warning"
+                                    >
+                                      {linea.packHint}
+                                    </p>
+                                  ) : null}
                           </td>
                                 <td className="px-1 py-2 align-top">
                                   <input
@@ -1798,7 +1946,10 @@ export function OrdenVentaCreateModal({
                                     }
                                     className={cn(
                                       POLARIA_FORM_INPUT_CLASS_COMPACT,
-                                      linea.filledByIa &&
+                                      (linea.filledByIa ||
+                                        linea.autoPackFields?.includes(
+                                          "cajasInput",
+                                        )) &&
                                         linea.cajasInput &&
                                         "!border-polaria-teal/50 !bg-polaria-t-08",
                                     )}
@@ -1817,7 +1968,10 @@ export function OrdenVentaCreateModal({
                                     }
                                     className={cn(
                                       POLARIA_FORM_SELECT_CLASS_COMPACT,
-                                      linea.filledByIa &&
+                                      (linea.filledByIa ||
+                                        linea.autoPackFields?.includes(
+                                          "presentacion",
+                                        )) &&
                                         linea.presentacion &&
                                         "!border-polaria-teal/50 !bg-polaria-t-08",
                                     )}
@@ -1965,6 +2119,7 @@ export function OrdenVentaCreateModal({
                         field: "aceptaSustituciones",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       compact
                     />
@@ -1978,6 +2133,7 @@ export function OrdenVentaCreateModal({
                         field: "requiereLote",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       compact
                     />
@@ -1993,6 +2149,7 @@ export function OrdenVentaCreateModal({
                         field: "registrarTemperatura",
                         autoFields,
                         warnFields,
+                        missingFields,
                       })}
                       compact
                     />
@@ -2131,19 +2288,45 @@ export function OrdenVentaCreateModal({
           } as FormEvent<HTMLFormElement>);
         }}
         title="Hay diferencias con la ficha del cliente"
-        description={
-          discrepancias.length > 0
-            ? discrepancias
-                .map(
-                  (item) =>
-                    `${item.campo}: registrado «${item.db}» · en el pedido «${item.ia}»`,
-                )
-                .join(" · ")
-            : "Confirma para enviar con los valores del pedido."
-        }
+        description="Se enviará con los valores del pedido. Revisa qué cambió respecto a lo registrado:"
         confirmLabel="Enviar igual"
         cancelLabel="Revisar"
-      />
+        size="lg"
+      >
+        {discrepancias.length > 0 ? (
+          <ul className="divide-y divide-polaria-w-08 rounded-xl border border-polaria-w-08">
+            {discrepancias.map((item) => (
+              <li key={item.campo} className="px-3 py-2.5 sm:px-3.5">
+                <p className="polaria-text-caption font-semibold uppercase tracking-wide text-polaria-warning">
+                  {item.campo}
+                </p>
+                <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
+                  <div>
+                    <p className="polaria-text-caption text-polaria-w-20">
+                      En ficha
+                    </p>
+                    <p className="mt-0.5 line-clamp-3 break-words polaria-text-body-sm text-polaria-w-50">
+                      {item.db || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="polaria-text-caption text-polaria-teal">
+                      En el pedido
+                    </p>
+                    <p className="mt-0.5 line-clamp-3 break-words polaria-text-body-sm text-polaria-w">
+                      {item.ia || "—"}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="polaria-text-body-sm text-polaria-w-50">
+            Confirma para enviar con los valores del pedido.
+          </p>
+        )}
+      </PolariaConfirmDialog>
     </>
   );
 }

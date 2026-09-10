@@ -66,7 +66,10 @@ export function CuentasListView() {
                 {resto > 0 ? (
                   <button
                     type="button"
-                    onClick={() => setBodegasModalCuenta(row)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setBodegasModalCuenta(row);
+                    }}
                     aria-label={`Ver ${resto} bodegas más de ${row.nombreComercial}`}
                     className={cn(
                       "inline-flex rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2.5 py-1",
@@ -95,7 +98,12 @@ export function CuentasListView() {
           id: "acciones",
           header: "Acciones",
           cell: (row: CuentaListRow) => (
-            <PolariaTableEditButton onClick={() => setEditingCuenta(row)} />
+            <div
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <PolariaTableEditButton onClick={() => setEditingCuenta(row)} />
+            </div>
           ),
         },
       ] as const,
@@ -113,6 +121,10 @@ export function CuentasListView() {
         columns={columns}
         getRowKey={(row) => row.codigoCuenta}
         emptyMessage={CUENTAS_EMPTY_MESSAGE}
+        onRowClick={(row) => setBodegasModalCuenta(row)}
+        getRowAriaLabel={(row) =>
+          `Ver bodegas de ${row.nombreComercial} y elegir bodega por defecto`
+        }
         onRefresh={() => {
           void reload();
         }}
@@ -143,8 +155,13 @@ export function CuentasListView() {
       <CuentaBodegasAsignadasModal
         open={Boolean(bodegasModalCuenta)}
         onClose={() => setBodegasModalCuenta(null)}
+        codigoCuenta={bodegasModalCuenta?.codigoCuenta ?? ""}
         cuentaNombre={bodegasModalCuenta?.nombreComercial ?? ""}
         bodegas={bodegasModalCuenta?.bodegasAsignadas ?? []}
+        idBodegaDefault={bodegasModalCuenta?.idBodegaDefault ?? null}
+        onSaved={() => {
+          void reload();
+        }}
       />
     </ConfiguratorListShell>
   );
