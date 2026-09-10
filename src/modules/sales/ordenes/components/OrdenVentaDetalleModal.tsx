@@ -90,7 +90,33 @@ function renderEstadoBadge(estado: string) {
 
 function DetalleContent({ orden }: { orden: OrdenVentaDetalleRow }) {
   const lineItems = orden.lineas ?? [];
-  const captura = parseOrdenVentaCapturaObservaciones(orden.observaciones);
+  const fromObs = parseOrdenVentaCapturaObservaciones(orden.observaciones);
+  const ventanaFlat =
+    orden.ventana_desde?.trim() || orden.ventana_hasta?.trim()
+      ? `${orden.ventana_desde?.trim() || "—"} – ${orden.ventana_hasta?.trim() || "—"}`
+      : "";
+  const captura = {
+    ...fromObs,
+    prioridad: orden.prioridad?.trim() || fromObs.prioridad,
+    ordenCompraHotel:
+      orden.orden_compra_hotel?.trim() || fromObs.ordenCompraHotel,
+    centroConsumo: orden.centro_consumo?.trim() || fromObs.centroConsumo,
+    vendedor: orden.vendedor?.trim() || fromObs.vendedor,
+    moneda: orden.moneda?.trim() || fromObs.moneda,
+    bodegaDestino:
+      orden.bodega_destino_label?.trim() || fromObs.bodegaDestino,
+    direccion: orden.direccion_entrega?.trim() || fromObs.direccion,
+    anden: orden.anden?.trim() || fromObs.anden,
+    contacto: orden.contacto_entrega?.trim() || fromObs.contacto,
+    telefono: orden.telefono_contacto?.trim() || fromObs.telefono,
+    turno: orden.turno?.trim() || fromObs.turno,
+    horaSalida: orden.hora_salida?.trim() || fromObs.horaSalida,
+    chofer: orden.chofer?.trim() || fromObs.chofer,
+    unidad: orden.unidad?.trim() || fromObs.unidad,
+    fechaEntrega: orden.fecha_entrega?.trim() || fromObs.fechaEntrega,
+    ventanaEntrega: ventanaFlat || fromObs.ventanaEntrega,
+    notasLineas: orden.notas_lineas?.trim() || fromObs.notasLineas,
+  };
   const prioridad = captura.prioridad.trim();
 
   return (
