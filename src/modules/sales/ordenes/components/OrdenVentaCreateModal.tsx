@@ -58,11 +58,6 @@ import {
   mapPedidoExtraidoToForm,
   type CampoDiscrepancia,
 } from "../utils/map-pedido-extraido-to-form";
-import {
-  recalcularCajasPorPresentacion,
-  recalcularPorCajas,
-  sugerirEmpaqueDesdeCantidad,
-} from "../utils/empaque-lineas";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/prefill-orden-venta-from-comprador";
 
 interface OrdenVentaCreateModalProps {
@@ -81,17 +76,15 @@ interface LineaVentaForm {
   codigo: string;
   idBodega: string;
   cantidadInput: string;
-  cajasInput: string;
-  presentacion: string;
   especificacion: string;
   descuentoPctInput: string;
   ivaPct: string;
   kgDisponible: number;
   precioUnitario: number;
+  precioInput: string;
+  precioManual?: boolean;
   aliasCliente?: string;
   filledByIa?: boolean;
-  packHint?: string;
-  autoPackFields?: Array<"cajasInput" | "presentacion" | "cantidadInput">;
 }
 
 function fieldControlClass(params: {
@@ -113,14 +106,6 @@ function fieldControlClass(params: {
   }
   return undefined;
 }
-
-const PRESENTACION_OPTIONS = [
-  { value: "", label: "—" },
-  { value: "Caja 1.5 kg", label: "Caja 1.5 kg" },
-  { value: "Caja 20 kg", label: "Caja 20 kg" },
-  { value: "Caja 21 kg", label: "Caja 21 kg" },
-  { value: "Granel", label: "Granel" },
-] as const;
 
 const IVA_PCT_OPTIONS = [
   { value: "0", label: "0%" },
@@ -166,19 +151,6 @@ const TURNO_OPTIONS = [
   { value: "Noche / AM", label: "Noche / AM" },
 ] as const;
 
-const SUSTITUCIONES_OPTIONS = [
-  { value: "", label: "—" },
-  { value: "No — surtir parcial", label: "No — surtir parcial" },
-  { value: "Sí, con aviso", label: "Sí, con aviso" },
-  { value: "Sí, a criterio de almacén", label: "Sí, a criterio de almacén" },
-] as const;
-
-const SI_NO_OPTIONS = [
-  { value: "", label: "—" },
-  { value: "No", label: "No" },
-  { value: "Sí", label: "Sí" },
-] as const;
-
 function formatCompradorLabel(row: CompradorListRow): string {
   return `${row.codigo} — ${row.comprador}`;
 }
@@ -216,6 +188,12 @@ function resolveBodegaDestinoInicial(
     return destinoRows[0]!.idBodega;
   }
   return "";
+}
+
+function formatPrecioInput(value: number): string {
+  if (!Number.isFinite(value)) return "";
+  if (Number.isInteger(value)) return String(value);
+  return String(value).replace(".", ",");
 }
 
 function CaptureSection({
@@ -275,9 +253,6 @@ export function OrdenVentaCreateModal({
   const [horaSalida, setHoraSalida] = useState("");
   const [chofer, setChofer] = useState("");
   const [unidad, setUnidad] = useState("");
-  const [aceptaSustituciones, setAceptaSustituciones] = useState("");
-  const [requiereLote, setRequiereLote] = useState("");
-  const [registrarTemperatura, setRegistrarTemperatura] = useState("");
   const [origenTexto, setOrigenTexto] = useState("");
   const [origenArchivoFiles, setOrigenArchivoFiles] = useState<File[]>([]);
   const [lineas, setLineas] = useState<LineaVentaForm[]>([]);
@@ -333,7 +308,6 @@ export function OrdenVentaCreateModal({
   const docsFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasProductos = productos.length > 0;
-  const hasCompradores = compradores.length > 0;
   const afterCutoff = isAfterWarehouseCutoff();
 
   const productosParaAgregar = useMemo(
@@ -351,11 +325,16 @@ export function OrdenVentaCreateModal({
     setLineas((prev) => {
       let changed = false;
       const next = prev.map((linea) => {
+        if (linea.precioManual) return linea;
         const override = precioOverrideByProducto[linea.idProducto];
         if (override != null) {
           if (linea.precioUnitario === override) return linea;
           changed = true;
-          return { ...linea, precioUnitario: override };
+          return {
+            ...linea,
+            precioUnitario: override,
+            precioInput: formatPrecioInput(override),
+          };
         }
         const base = productosBase.find(
           (row) => row.idProducto === linea.idProducto,
@@ -364,7 +343,11 @@ export function OrdenVentaCreateModal({
           return linea;
         }
         changed = true;
-        return { ...linea, precioUnitario: base.precioUnitario };
+        return {
+          ...linea,
+          precioUnitario: base.precioUnitario,
+          precioInput: formatPrecioInput(base.precioUnitario),
+        };
       });
       return changed ? next : prev;
     });
@@ -424,9 +407,6 @@ export function OrdenVentaCreateModal({
     setHoraSalida("");
     setChofer("");
     setUnidad("");
-    setAceptaSustituciones("");
-    setRequiereLote("");
-    setRegistrarTemperatura("");
     setOrigenTexto("");
     setOrigenArchivoFiles([]);
     setLineas([]);
@@ -514,9 +494,6 @@ export function OrdenVentaCreateModal({
       setAnden(prefill.anden);
       setContacto(prefill.contacto);
       setTelefono(prefill.telefono);
-      setAceptaSustituciones(prefill.aceptaSustituciones);
-      setRequiereLote(prefill.requiereLote);
-      setRegistrarTemperatura(prefill.registrarTemperatura);
       setObservaciones(prefill.observaciones);
     },
     [],
@@ -593,13 +570,12 @@ export function OrdenVentaCreateModal({
           codigo: row.codigo,
           idBodega: row.idBodega,
           cantidadInput: "",
-          cajasInput: "",
-          presentacion: "",
           especificacion: "",
           descuentoPctInput: "",
-          ivaPct: "16",
+          ivaPct: "0",
           kgDisponible: row.kgDisponible,
           precioUnitario: row.precioUnitario,
+          precioInput: formatPrecioInput(row.precioUnitario),
         },
       ];
     });
@@ -635,80 +611,46 @@ export function OrdenVentaCreateModal({
 
   const handleCantidadChange = useCallback((index: number, value: string) => {
     setLineas((prev) =>
-      prev.map((linea, i) => {
-        if (i !== index) return linea;
-        const nextBase = {
-          ...linea,
-          cantidadInput: value,
-          filledByIa: false,
-        };
-        const empaque = sugerirEmpaqueDesdeCantidad({
-          cajasInput: nextBase.cajasInput,
-          presentacion: nextBase.presentacion,
-          cantidadInput: value,
-        });
-        return {
-          ...nextBase,
-          cajasInput: empaque.cajasInput,
-          presentacion: empaque.presentacion,
-          cantidadInput: empaque.cantidadInput,
-          packHint: empaque.packHint,
-          autoPackFields: empaque.autoPackFields,
-        };
-      }),
+      prev.map((linea, i) =>
+        i === index
+          ? { ...linea, cantidadInput: value, filledByIa: false }
+          : linea,
+      ),
     );
   }, []);
 
   const handleLineaFieldChange = useCallback(
     (
       index: number,
-      field:
-        | "cajasInput"
-        | "presentacion"
-        | "especificacion"
-        | "descuentoPctInput"
-        | "ivaPct",
+      field: "especificacion" | "descuentoPctInput" | "ivaPct",
       value: string,
     ) => {
       setLineas((prev) =>
-        prev.map((linea, i) => {
-          if (i !== index) return linea;
-          const nextBase = { ...linea, [field]: value, filledByIa: false };
-          if (field === "cajasInput") {
-            const empaque = recalcularPorCajas({
-              cajasInput: value,
-              presentacion: nextBase.presentacion,
-              cantidadInput: nextBase.cantidadInput,
-            });
-            return {
-              ...nextBase,
-              presentacion: empaque.presentacion,
-              cantidadInput: empaque.cantidadInput,
-              packHint: empaque.packHint,
-              autoPackFields: empaque.autoPackFields,
-            };
-          }
-          if (field === "presentacion") {
-            const empaque = recalcularCajasPorPresentacion({
-              cajasInput: nextBase.cajasInput,
-              presentacion: value,
-              cantidadInput: nextBase.cantidadInput,
-            });
-            return {
-              ...nextBase,
-              cajasInput: empaque.cajasInput,
-              presentacion: empaque.presentacion,
-              cantidadInput: empaque.cantidadInput,
-              packHint: empaque.packHint,
-              autoPackFields: empaque.autoPackFields,
-            };
-          }
-          return nextBase;
-        }),
+        prev.map((linea, i) =>
+          i === index
+            ? { ...linea, [field]: value, filledByIa: false }
+            : linea,
+        ),
       );
     },
     [],
   );
+
+  const handlePrecioChange = useCallback((index: number, value: string) => {
+    setLineas((prev) =>
+      prev.map((linea, i) => {
+        if (i !== index) return linea;
+        const parsed = parseDecimalEs(value);
+        return {
+          ...linea,
+          precioInput: value,
+          precioUnitario: parsed != null && parsed >= 0 ? parsed : 0,
+          precioManual: true,
+          filledByIa: false,
+        };
+      }),
+    );
+  }, []);
 
   const openFormFromScratch = useCallback(() => {
     setStartMode("scratch");
@@ -786,9 +728,9 @@ export function OrdenVentaCreateModal({
             anden,
             contacto,
             telefono,
-            aceptaSustituciones,
-            requiereLote,
-            registrarTemperatura,
+            aceptaSustituciones: "",
+            requiereLote: "",
+            registrarTemperatura: "",
             observaciones,
           };
 
@@ -823,9 +765,6 @@ export function OrdenVentaCreateModal({
       setTelefono(mapped.telefono);
       setVentanaDesde(mapped.ventanaDesde);
       setVentanaHasta(mapped.ventanaHasta);
-      setAceptaSustituciones(mapped.aceptaSustituciones);
-      setRequiereLote(mapped.requiereLote);
-      setRegistrarTemperatura(mapped.registrarTemperatura);
       setAutoFields(mapped.autoFields);
       setWarnFields(mapped.warnFields);
       setMissingFields(mapped.missingFields);
@@ -837,17 +776,14 @@ export function OrdenVentaCreateModal({
           codigo: linea.codigo,
           idBodega: linea.idBodega,
           cantidadInput: linea.cantidadInput,
-          cajasInput: linea.cajasInput,
-          presentacion: linea.presentacion,
           especificacion: linea.especificacion,
           descuentoPctInput: linea.descuentoPctInput,
-          ivaPct: linea.ivaPct,
+          ivaPct: "0",
           kgDisponible: linea.kgDisponible,
           precioUnitario: linea.precioUnitario,
+          precioInput: formatPrecioInput(linea.precioUnitario),
           aliasCliente: linea.aliasCliente,
           filledByIa: linea.filledByIa,
-          packHint: linea.packHint,
-          autoPackFields: linea.autoPackFields,
         })),
       );
 
@@ -877,7 +813,6 @@ export function OrdenVentaCreateModal({
       setIsReadingIa(false);
     }
   }, [
-    aceptaSustituciones,
     anden,
     centroConsumo,
     codigoCuenta,
@@ -891,8 +826,6 @@ export function OrdenVentaCreateModal({
     origenArchivoFiles,
     origenTexto,
     productos,
-    registrarTemperatura,
-    requiereLote,
     telefono,
     ventanaDesde,
     ventanaHasta,
@@ -947,6 +880,7 @@ export function OrdenVentaCreateModal({
         idProducto: string;
         cantidadPedida: number;
         idBodega: string;
+        precioUnitario: number;
       }> = [];
 
       for (const linea of lineas) {
@@ -955,10 +889,16 @@ export function OrdenVentaCreateModal({
           setError(`Ingresa una cantidad válida para ${linea.nombre}.`);
           return;
         }
+        const precio = parseDecimalEs(linea.precioInput);
+        if (precio === null || precio < 0) {
+          setError(`Ingresa un precio válido para ${linea.nombre}.`);
+          return;
+        }
         lineasParsed.push({
           idProducto: linea.idProducto,
           cantidadPedida: cantidadKg,
           idBodega: linea.idBodega,
+          precioUnitario: precio,
         });
       }
 
@@ -971,14 +911,8 @@ export function OrdenVentaCreateModal({
           const notasLineasText = lineas
             .flatMap((linea) => {
               const bits: string[] = [];
-              if (linea.presentacion.trim()) {
-                bits.push(linea.presentacion.trim());
-              }
               if (linea.especificacion.trim()) {
                 bits.push(linea.especificacion.trim());
-              }
-              if (linea.cajasInput.trim()) {
-                bits.push(`${linea.cajasInput.trim()} cajas`);
               }
               const descPct = parseDecimalEs(linea.descuentoPctInput);
               if (descPct != null && descPct > 0) {
@@ -1015,9 +949,6 @@ export function OrdenVentaCreateModal({
             horaSalida,
             chofer,
             unidad,
-            aceptaSustituciones,
-            requiereLote,
-            registrarTemperatura,
             origenTexto: startMode === "docs" ? origenTexto : "",
             origenArchivos: startMode === "docs" ? origenArchivos : [],
             notasLineas: notasLineasText,
@@ -1041,9 +972,9 @@ export function OrdenVentaCreateModal({
               horaSalida,
               chofer,
               unidad,
-              aceptaSustituciones,
-              requiereLote,
-              registrarTemperatura,
+              aceptaSustituciones: "",
+              requiereLote: "",
+              registrarTemperatura: "",
               origenTexto: startMode === "docs" ? origenTexto : "",
               origenArchivos: startMode === "docs" ? origenArchivos : [],
               notasLineas: notasLineasText,
@@ -1097,7 +1028,6 @@ export function OrdenVentaCreateModal({
       }
     },
     [
-      aceptaSustituciones,
       anden,
       centroConsumo,
       chofer,
@@ -1122,8 +1052,6 @@ export function OrdenVentaCreateModal({
       pendingEmitId,
       bodegasDestino,
       prioridad,
-      registrarTemperatura,
-      requiereLote,
       startMode,
       discrepancias,
       step,
@@ -1796,13 +1724,11 @@ export function OrdenVentaCreateModal({
                   }
                 >
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[72rem] border-collapse text-left">
+                    <table className="w-full min-w-[56rem] border-collapse text-left">
                     <colgroup>
                         <col style={{ width: "14rem" }} />
                         <col style={{ width: "6.5rem" }} />
                         <col style={{ width: "5rem" }} />
-                        <col style={{ width: "5.5rem" }} />
-                        <col style={{ width: "8.5rem" }} />
                         <col style={{ width: "8.5rem" }} />
                         <col style={{ width: "5.5rem" }} />
                         <col style={{ width: "6.5rem" }} />
@@ -1817,20 +1743,14 @@ export function OrdenVentaCreateModal({
                             <span className="font-bold text-polaria-danger">*</span>
                         </th>
                           <th className="px-1 pb-2 text-left polaria-text-caption font-medium text-polaria-w-50">
-                            Cant.{" "}
+                            Cantidad{" "}
                             <span className="font-bold text-polaria-danger">*</span>
                         </th>
                           <th className="px-1 pb-2 text-left polaria-text-caption font-medium text-polaria-w-50">
                             Unidad
                         </th>
                           <th className="px-1 pb-2 text-left polaria-text-caption font-medium text-polaria-w-50">
-                            Cajas
-                          </th>
-                          <th className="px-1 pb-2 text-left polaria-text-caption font-medium text-polaria-w-50">
-                            Prese.
-                          </th>
-                          <th className="px-1 pb-2 text-left polaria-text-caption font-medium text-polaria-w-50">
-                            Especi.
+                            Especificación
                           </th>
                           <th className="px-1 pb-2 text-left polaria-text-caption font-medium text-polaria-w-50">
                             Desc%
@@ -1854,7 +1774,7 @@ export function OrdenVentaCreateModal({
                         {lineas.length === 0 ? (
                           <tr>
                             <td
-                              colSpan={11}
+                              colSpan={9}
                               className="px-1 py-4 text-center polaria-text-caption text-polaria-w-50"
                             >
                               Sin productos. Agrega al menos uno para crear la
@@ -1903,10 +1823,7 @@ export function OrdenVentaCreateModal({
                                           (parseDecimalEs(linea.cantidadInput) ??
                                             0) <= 0,
                                       }) ??
-                                        (linea.filledByIa ||
-                                        linea.autoPackFields?.includes(
-                                          "cantidadInput",
-                                        )
+                                        (linea.filledByIa
                                           ? "!border-polaria-teal/50 !bg-polaria-t-08"
                                           : undefined),
                                     )}
@@ -1914,14 +1831,6 @@ export function OrdenVentaCreateModal({
                                   <p className="mt-1 polaria-text-caption text-polaria-w-50">
                                     Disp. {formatKgEs(linea.kgDisponible)} kg
                                   </p>
-                                  {linea.packHint ? (
-                                    <p
-                                      role="status"
-                                      className="mt-1 polaria-text-caption text-polaria-warning"
-                                    >
-                                      {linea.packHint}
-                                    </p>
-                                  ) : null}
                           </td>
                                 <td className="px-1 py-2 align-top">
                                   <input
@@ -1931,61 +1840,6 @@ export function OrdenVentaCreateModal({
                                     className={POLARIA_FORM_INPUT_CLASS_COMPACT}
                                   />
                           </td>
-                                <td className="px-1 py-2 align-top">
-                                  <input
-                                    aria-label={`Cajas de ${linea.nombre}`}
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={linea.cajasInput}
-                                    onChange={(event) =>
-                                      handleLineaFieldChange(
-                                        index,
-                                        "cajasInput",
-                                        event.target.value,
-                                      )
-                                    }
-                                    className={cn(
-                                      POLARIA_FORM_INPUT_CLASS_COMPACT,
-                                      (linea.filledByIa ||
-                                        linea.autoPackFields?.includes(
-                                          "cajasInput",
-                                        )) &&
-                                        linea.cajasInput &&
-                                        "!border-polaria-teal/50 !bg-polaria-t-08",
-                                    )}
-                                  />
-                                </td>
-                                <td className="px-1 py-2 align-top">
-                                  <select
-                                    aria-label={`Presentación de ${linea.nombre}`}
-                                    value={linea.presentacion}
-                                    onChange={(event) =>
-                                      handleLineaFieldChange(
-                                        index,
-                                        "presentacion",
-                                        event.target.value,
-                                      )
-                                    }
-                                    className={cn(
-                                      POLARIA_FORM_SELECT_CLASS_COMPACT,
-                                      (linea.filledByIa ||
-                                        linea.autoPackFields?.includes(
-                                          "presentacion",
-                                        )) &&
-                                        linea.presentacion &&
-                                        "!border-polaria-teal/50 !bg-polaria-t-08",
-                                    )}
-                                  >
-                                    {PRESENTACION_OPTIONS.map((option) => (
-                                      <option
-                                        key={option.value || "empty"}
-                                        value={option.value}
-                                      >
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </td>
                                 <td className="px-1 py-2 align-top">
                                   <input
                                     aria-label={`Especificación de ${linea.nombre}`}
@@ -2026,9 +1880,25 @@ export function OrdenVentaCreateModal({
                                 <td className="px-1 py-2 align-top">
                                   <input
                                     aria-label={`Precio de ${linea.nombre}`}
-                                    value={`$${formatPrecioEs(linea.precioUnitario)}`}
-                                    readOnly
-                                    className={POLARIA_FORM_INPUT_CLASS_COMPACT}
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={linea.precioInput}
+                                    placeholder="0"
+                                    onChange={(event) =>
+                                      handlePrecioChange(
+                                        index,
+                                        event.target.value,
+                                      )
+                                    }
+                                    className={cn(
+                                      POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                      fieldControlClass({
+                                        missing:
+                                          !linea.precioInput.trim() ||
+                                          (parseDecimalEs(linea.precioInput) ??
+                                            -1) < 0,
+                                      }),
+                                    )}
                                   />
                                 </td>
                                 <td className="px-1 py-2 align-top">
@@ -2094,63 +1964,13 @@ export function OrdenVentaCreateModal({
                   </button>
                 </CaptureSection>
 
-                <CaptureSection
-                  title="Almacén y política del cliente"
-                  optional="se anota en observaciones"
-                >
+                <CaptureSection title="Almacén">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <PolariaFormInput
                       id="orden-venta-peso"
                       label="Peso total (kg)"
                       value={formatKgEs(pesoTotalKg)}
                       readOnly
-                      compact
-                    />
-                    <PolariaFormSelect
-                      id="orden-venta-sustituciones"
-                      label="¿Acepta sustituciones?"
-                      value={aceptaSustituciones}
-                      onChange={(event) =>
-                        setAceptaSustituciones(event.target.value)
-                      }
-                      options={SUSTITUCIONES_OPTIONS}
-                      hint="Define qué puede hacer el almacén si falta producto."
-                      controlClassName={fieldControlClass({
-                        field: "aceptaSustituciones",
-                        autoFields,
-                        warnFields,
-                        missingFields,
-                      })}
-                      compact
-                    />
-                    <PolariaFormSelect
-                      id="orden-venta-lote"
-                      label="Requiere lote / trazabilidad"
-                      value={requiereLote}
-                      onChange={(event) => setRequiereLote(event.target.value)}
-                      options={SI_NO_OPTIONS}
-                      controlClassName={fieldControlClass({
-                        field: "requiereLote",
-                        autoFields,
-                        warnFields,
-                        missingFields,
-                      })}
-                      compact
-                    />
-                    <PolariaFormSelect
-                      id="orden-venta-temp"
-                      label="Registrar temperatura al entregar"
-                      value={registrarTemperatura}
-                      onChange={(event) =>
-                        setRegistrarTemperatura(event.target.value)
-                      }
-                      options={SI_NO_OPTIONS}
-                      controlClassName={fieldControlClass({
-                        field: "registrarTemperatura",
-                        autoFields,
-                        warnFields,
-                        missingFields,
-                      })}
                       compact
                     />
             </div>

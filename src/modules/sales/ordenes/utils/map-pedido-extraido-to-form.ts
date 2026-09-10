@@ -329,7 +329,7 @@ export function mapPedidoExtraidoToForm(params: {
       presentacion: empaque.presentacion,
       especificacion: linea.especificacion?.trim() || "",
       descuentoPctInput: "0",
-      ivaPct: "16",
+      ivaPct: "0",
       kgDisponible: match.kgDisponible,
       precioUnitario: match.precioUnitario,
       aliasCliente: linea.textoOriginal?.trim() || "",

@@ -34,8 +34,11 @@ const ORDEN_VENTA_COLUMNS =
 
 const COMPRADOR_COLUMNS = "id_comprador,nombre";
 
+const ORDEN_VENTA_DETALLE_FLAT_COLUMNS =
+  "prioridad,orden_compra_hotel,centro_consumo,vendedor,moneda,bodega_destino_label,direccion_entrega,anden,contacto_entrega,telefono_contacto,turno,hora_salida,chofer,unidad,notas_lineas,notas_almacen,fecha_entrega,ventana_desde,ventana_hasta";
+
 const ORDEN_VENTA_DETALLE_SELECT =
-  `${ORDEN_VENTA_COLUMNS},` +
+  `${ORDEN_VENTA_COLUMNS},${ORDEN_VENTA_DETALLE_FLAT_COLUMNS},` +
   "comprador:comprador(nombre,codigo)," +
   "orden_venta_linea(id_linea_orden_venta,id_producto,cantidad_pedida,precio_unitario,producto(sku,descripcion,metadatos_catalogo))";
 
@@ -884,6 +887,16 @@ export async function createOrdenVenta(
         "INVALID_ARGUMENT",
       );
     }
+
+    if (
+      linea.precioUnitario != null &&
+      (!Number.isFinite(linea.precioUnitario) || linea.precioUnitario < 0)
+    ) {
+      throw new DomainServiceError(
+        "El precio de cada producto no puede ser negativo.",
+        "INVALID_ARGUMENT",
+      );
+    }
   }
 
   await assertCompradorDeCuenta(codigoCuenta, idComprador);
@@ -959,7 +972,11 @@ export async function createOrdenVenta(
     const query = client.from("orden_venta_linea").insert(
       lineas.map((linea) => {
         const idProducto = linea.idProducto.trim();
-        const precioUnitario = preciosUnitarios.get(idProducto) ?? 0;
+        const catalogPrecio = preciosUnitarios.get(idProducto) ?? 0;
+        const precioUnitario =
+          linea.precioUnitario != null && Number.isFinite(linea.precioUnitario)
+            ? linea.precioUnitario
+            : catalogPrecio;
 
         return {
           id_orden_venta: orden.id_orden_venta,
@@ -983,7 +1000,9 @@ export async function createOrdenVenta(
       lineas.reduce(
         (acc, linea) => {
           const precioUnitario =
-            preciosUnitarios.get(linea.idProducto.trim()) ?? 0;
+            linea.precioUnitario != null && Number.isFinite(linea.precioUnitario)
+              ? linea.precioUnitario
+              : (preciosUnitarios.get(linea.idProducto.trim()) ?? 0);
           return {
             count: acc.count + 1,
             cantidadKg: acc.cantidadKg + linea.cantidadPedida,

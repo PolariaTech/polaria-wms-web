@@ -80,4 +80,22 @@ describe("PolariaFormModal", () => {
 
     expect(screen.getByRole("dialog")).toHaveClass("max-w-4xl");
   });
+
+  it("mantiene el panel fijo y scrollea el cuerpo, sin overflow en el overlay", () => {
+    render(
+      <PolariaFormModal
+        open
+        onClose={() => undefined}
+        title="Pedido"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <input aria-label="Campo demo" />
+      </PolariaFormModal>,
+    );
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveClass("overflow-hidden");
+    expect(dialog.parentElement).toHaveClass("overflow-hidden");
+    expect(dialog.parentElement).not.toHaveClass("overflow-y-auto");
+  });
 });

@@ -124,9 +124,9 @@ export function PolariaFormModal({
         ? MODAL_SIZE_CLASS.sm
         : MODAL_SIZE_CLASS.md;
 
-  const bodyClassName = cn("flex min-h-0 flex-1 flex-col");
+  const bodyClassName = cn("flex min-h-0 flex-1 flex-col overflow-hidden");
   const scrollClassName = cn(
-    "polaria-scrollbar min-h-0 flex-1 overflow-y-auto pr-1",
+    "polaria-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1",
     compact ? "space-y-3" : "space-y-5",
     scrollClassNameProp,
   );
@@ -200,92 +200,90 @@ export function PolariaFormModal({
   return (
     <div
       className={cn(
-        "polaria-scrollbar fixed inset-0 overflow-y-auto overscroll-contain",
+        "fixed inset-0 flex items-center justify-center overflow-hidden px-4 py-6 sm:px-6 sm:py-10",
         MODAL_STACK_CLASS[stackLevel],
       )}
     >
-      <div className="flex min-h-full items-center justify-center px-4 py-10 sm:px-6 sm:py-12">
-        <button
-          type="button"
-          aria-label="Cerrar modal"
-          className="fixed inset-0 bg-polaria-bg/80 backdrop-blur-sm"
-          onClick={() => {
-            if (!isSubmitting) onClose();
-          }}
-        />
+      <button
+        type="button"
+        aria-label="Cerrar modal"
+        className="absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm"
+        onClick={() => {
+          if (!isSubmitting) onClose();
+        }}
+      />
 
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        className={cn(
+          "polaria-card-glow relative z-10 flex w-full min-h-0 flex-col overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
+          "max-h-[min(85dvh,calc(100dvh-5rem))]",
+          widthClass,
+          compact ? "p-4 sm:p-5" : "p-6 sm:p-8",
+          className,
+        )}
+      >
         <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-          aria-describedby={description ? descriptionId : undefined}
           className={cn(
-            "polaria-card-glow relative z-10 flex w-full min-h-0 flex-col rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
-            "max-h-[min(85dvh,calc(100dvh-5rem))]",
-            widthClass,
-            compact ? "p-4 sm:p-5" : "p-6 sm:p-8",
-            className,
+            "flex shrink-0 items-start justify-between gap-4",
+            compact ? "mb-4" : "mb-6",
           )}
         >
-          <div
-            className={cn(
-              "flex shrink-0 items-start justify-between gap-4",
-              compact ? "mb-4" : "mb-6",
-            )}
-          >
-            <div className="min-w-0">
-              {sectionLabel ? (
-                <p className="polaria-text-label text-polaria-teal">
-                  {sectionLabel}
-                </p>
-              ) : null}
-              <h2
-                id={titleId}
+          <div className="min-w-0">
+            {sectionLabel ? (
+              <p className="polaria-text-label text-polaria-teal">
+                {sectionLabel}
+              </p>
+            ) : null}
+            <h2
+              id={titleId}
+              className={cn(
+                "polaria-text-card-title mt-1",
+                compact && "text-lg sm:text-xl",
+              )}
+            >
+              {title}
+            </h2>
+            {description ? (
+              <p
+                id={descriptionId}
                 className={cn(
-                  "polaria-text-card-title mt-1",
-                  compact && "text-lg sm:text-xl",
+                  "polaria-text-subtitle",
+                  compact ? "mt-1 text-sm" : "mt-2",
                 )}
               >
-                {title}
-              </h2>
-              {description ? (
-                <p
-                  id={descriptionId}
-                  className={cn(
-                    "polaria-text-subtitle",
-                    compact ? "mt-1 text-sm" : "mt-2",
-                  )}
-                >
-                  {description}
-                </p>
-              ) : null}
-            </div>
-
-            {hideHeaderClose ? null : (
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isSubmitting}
-                className={cn(
-                  "shrink-0 rounded-lg border border-polaria-w-08 px-3 py-1.5",
-                  "polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal",
-                  "disabled:cursor-not-allowed disabled:opacity-50",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                )}
-              >
-                {closeLabel}
-              </button>
-            )}
+                {description}
+              </p>
+            ) : null}
           </div>
 
-          {asForm ? (
-            <form onSubmit={onSubmit} className={bodyClassName}>
-              {bodyContent}
-            </form>
-          ) : (
-            <div className={bodyClassName}>{bodyContent}</div>
+          {hideHeaderClose ? null : (
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className={cn(
+                "shrink-0 rounded-lg border border-polaria-w-08 px-3 py-1.5",
+                "polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+              )}
+            >
+              {closeLabel}
+            </button>
           )}
         </div>
+
+        {asForm ? (
+          <form onSubmit={onSubmit} className={bodyClassName}>
+            {bodyContent}
+          </form>
+        ) : (
+          <div className={bodyClassName}>{bodyContent}</div>
+        )}
       </div>
     </div>
   );

@@ -56,6 +56,7 @@ export interface OrdenVentaLineaInput {
   idProducto: string;
   cantidadPedida: number;
   idBodega?: string | null;
+  precioUnitario?: number | null;
 }
 
 export interface OrdenVentaLineaRow {
@@ -76,6 +77,26 @@ export interface OrdenVentaDetalleRow extends OrdenVentaRow {
   bodega_nombre: string | null;
   bodega_destino_nombre: string | null;
   lineas: OrdenVentaLineaRow[];
+  /** Columnas flat de captura (migración 070); pueden venir vacías. */
+  prioridad?: string | null;
+  orden_compra_hotel?: string | null;
+  centro_consumo?: string | null;
+  vendedor?: string | null;
+  moneda?: string | null;
+  bodega_destino_label?: string | null;
+  direccion_entrega?: string | null;
+  anden?: string | null;
+  contacto_entrega?: string | null;
+  telefono_contacto?: string | null;
+  turno?: string | null;
+  hora_salida?: string | null;
+  chofer?: string | null;
+  unidad?: string | null;
+  notas_lineas?: string | null;
+  notas_almacen?: string | null;
+  fecha_entrega?: string | null;
+  ventana_desde?: string | null;
+  ventana_hasta?: string | null;
 }
 
 export interface CreateOrdenVentaInput {
