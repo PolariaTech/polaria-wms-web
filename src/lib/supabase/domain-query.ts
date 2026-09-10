@@ -122,7 +122,8 @@ function wrapClientForTenant(client: SupabaseClient): SupabaseClient {
       if (prop === "from") {
         return (table: string) => {
           if (isPlatformTable(table)) {
-            return target.from(table);
+            // Siempre public explícito: evita heredar Accept-Profile de emp_*.
+            return target.schema("public").from(table);
           }
           return target.schema(schemaName).from(table);
         };

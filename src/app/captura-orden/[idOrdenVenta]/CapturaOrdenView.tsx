@@ -59,7 +59,7 @@ export function CapturaOrdenView({
             Foto de la hoja surtida
           </h1>
           <p className="polaria-text-body-sm mt-2 max-w-md text-polaria-w-50">
-            Sube una foto o tómala desde aquí.
+            Sube una foto o tómala desde aquí. Se reduce sola antes de enviar.
           </p>
         </header>
 

@@ -148,11 +148,14 @@ export async function POST(
       );
     }
 
-    if (file.size <= 0 || file.size > 15 * 1024 * 1024) {
+    if (file.size <= 0 || file.size > 4 * 1024 * 1024) {
       return jsonOrRedirect(
         request,
         idOrdenVenta,
-        { error: "La foto debe pesar entre 1 byte y 15 MB." },
+        {
+          error:
+            "La foto es demasiado pesada (máx. ~4 MB). Vuelve a tomarla o espera a que termine de prepararse en el celular.",
+        },
         400,
       );
     }
