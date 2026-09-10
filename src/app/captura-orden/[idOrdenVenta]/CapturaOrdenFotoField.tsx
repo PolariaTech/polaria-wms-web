@@ -17,6 +17,9 @@ import {
  * Campo de foto con UI Polaria.
  * Comprime la imagen en el cliente (evita 413 en Vercel) y deja el File
  * en el input name=foto para el POST multipart nativo.
+ *
+ * Dos acciones explícitas: cámara (`capture`) o galería (sin `capture`).
+ * Un solo input con name=foto alimenta el submit nativo del form.
  */
 export function CapturaOrdenFotoField() {
   const inputId = useId().replace(/:/g, "");
@@ -80,6 +83,17 @@ export function CapturaOrdenFotoField() {
     return () => form.removeEventListener("submit", onSubmit);
   }, []);
 
+  const openPicker = (mode: "camera" | "gallery") => {
+    const input = inputRef.current;
+    if (!input || status === "compressing") return;
+    if (mode === "camera") {
+      input.setAttribute("capture", "environment");
+    } else {
+      input.removeAttribute("capture");
+    }
+    input.click();
+  };
+
   const onPick = (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
     const file = input.files?.[0] ?? null;
@@ -128,41 +142,63 @@ export function CapturaOrdenFotoField() {
     })();
   };
 
+  const busy = status === "compressing";
+
   return (
     <div className="space-y-3">
+      <input
+        ref={inputRef}
+        id={inputId}
+        type="file"
+        name="foto"
+        accept="image/*"
+        required
+        disabled={busy}
+        onChange={onPick}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+      />
+
       <div
         className={cn(
-          "relative flex min-h-36 w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-dashed px-4 py-8 text-center",
+          "flex min-h-36 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed px-4 py-6 text-center",
           fileName
             ? "border-polaria-teal bg-polaria-t-08"
             : "border-polaria-t-20 bg-polaria-bg/50",
         )}
       >
-        <input
-          ref={inputRef}
-          id={inputId}
-          type="file"
-          name="foto"
-          accept="image/*"
-          capture="environment"
-          required
-          disabled={status === "compressing"}
-          onChange={onPick}
-          className="absolute inset-0 z-20 h-full w-full cursor-pointer opacity-0 disabled:cursor-wait"
-          aria-label={fileName ? "Cambiar foto" : "Tomar o elegir foto"}
-        />
-        <span className="pointer-events-none polaria-text-body font-semibold text-polaria-teal">
-          {status === "compressing"
+        <span className="polaria-text-body font-semibold text-polaria-teal">
+          {busy
             ? "Preparando foto…"
             : fileName
-              ? "Foto lista · tocar para cambiar"
-              : "Tomar o elegir foto"}
+              ? "Foto lista"
+              : "Foto de la hoja"}
         </span>
-        <span className="pointer-events-none polaria-text-caption text-polaria-w-50">
-          {status === "compressing"
+        <span className="polaria-text-caption text-polaria-w-50">
+          {busy
             ? "Reduciendo tamaño para subir…"
-            : (fileName ?? "JPG, PNG o foto de la cámara")}
+            : (fileName ?? "Tómala ahora o elige una de la galería")}
         </span>
+
+        <div className="flex w-full max-w-sm flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => openPicker("camera")}
+            className="flex-1 rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-bg hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+          >
+            Tomar foto
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => openPicker("gallery")}
+            className="flex-1 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3 font-semibold text-polaria-w hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+          >
+            {fileName ? "Elegir otra" : "Subir de galería"}
+          </button>
+        </div>
       </div>
 
       {error ? (
