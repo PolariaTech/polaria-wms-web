@@ -4,6 +4,8 @@ import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
 import {
   createUsuarioAdmin,
   listUsuariosAdmin,
+  resetUsuarioAdminPassword,
+  updateUsuarioAdmin,
 } from "./usuarios-admin.service";
 
 vi.mock("@/config/env", () => ({
@@ -108,5 +110,76 @@ describe("usuarios-admin.service", () => {
     expect(created.codigo).toBe("OPER02");
     expect(created.nombre).toBe("Nuevo Operador");
     expect(created.telefono).toBe("+573009998877");
+  });
+
+  it("updateUsuarioAdmin llama PATCH sin enviar el código", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          idUsuario: "usr-2",
+          username: "OPER02",
+          nombre: "Operador Editado",
+          idRol: WmsRol.operador_cuenta,
+          codigoCuenta: "MIT00",
+          correo: "editado@empresa.com",
+          telefono: "+573001110000",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const updated = await updateUsuarioAdmin({
+      idUsuario: "usr-2",
+      nombre: "Operador Editado",
+      correo: "editado@empresa.com",
+      telefono: "+573001110000",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/administracion/usuarios/usr-2",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    const body = JSON.parse(
+      String(vi.mocked(fetch).mock.calls[0]?.[1]?.body),
+    ) as Record<string, unknown>;
+    expect(body).toEqual({
+      nombre: "Operador Editado",
+      correo: "editado@empresa.com",
+      telefono: "+573001110000",
+    });
+    expect(body).not.toHaveProperty("username");
+    expect(updated.nombre).toBe("Operador Editado");
+    expect(updated.codigo).toBe("OPER02");
+  });
+
+  it("resetUsuarioAdminPassword llama al endpoint de contraseña", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          idUsuario: "usr-2",
+          username: "OPER02",
+          nombre: "Operador",
+          idRol: WmsRol.operador_cuenta,
+          codigoCuenta: "MIT00",
+          correo: "operador@empresa.com",
+          telefono: null,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await resetUsuarioAdminPassword({
+      idUsuario: "usr-2",
+      clave: "ClaveNueva1!",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/administracion/usuarios/usr-2/password",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const body = JSON.parse(
+      String(vi.mocked(fetch).mock.calls[0]?.[1]?.body),
+    ) as Record<string, unknown>;
+    expect(body).toEqual({ password: "ClaveNueva1!" });
   });
 });
