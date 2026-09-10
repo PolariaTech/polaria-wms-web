@@ -51,8 +51,11 @@ export async function findCuentaAcrossSchemas(
 
   const publicRows = await runDomainQuery<CuentaFanoutRow[]>((client) => {
     const query = client
+      .schema("public")
       .from("cuenta")
-      .select("codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,id_bodega_default")
+      .select(
+        "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,id_bodega_default",
+      )
       .eq("codigo_cuenta", codigo)
       .eq("esta_activa", true)
       .limit(1);

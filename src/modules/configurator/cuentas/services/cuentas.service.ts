@@ -5,6 +5,7 @@ import {
   runDomainQuery,
   setTenantSchemaGetter,
 } from "@/lib/supabase/domain-query";
+import { findCuentaAcrossSchemas } from "@/lib/supabase/tenant-fanout";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { normalizeCodigoCuentaInput } from "@/lib/utils/generate-codigo-cuenta";
 import { ApiError, apiRequest } from "@/services/api/api";
@@ -235,7 +236,9 @@ export async function listCuentasConfigurator(): Promise<CuentaListRow[]> {
   const bodegasByCodigo = new Map<string, CuentaBodegaDbRow[]>();
 
   const publicRows = await runDomainQuery<CuentaDbRow[]>((client) => {
+    // Forzar public: con schema emp_* activo, from("cuenta") iría al tenant.
     const query = client
+      .schema("public")
       .from("cuenta")
       .select(CUENTA_LIST_COLUMNS)
       .order("nombre_comercial", { ascending: true })
@@ -248,7 +251,7 @@ export async function listCuentasConfigurator(): Promise<CuentaListRow[]> {
   });
 
   const publicBodegas = await loadBodegasByCuenta(
-    (table) => getDomainSupabaseClient().from(table),
+    (table) => getDomainSupabaseClient().schema("public").from(table),
     publicRows.map((row) => row.codigo_cuenta),
   );
   for (const row of publicRows) {
@@ -475,7 +478,10 @@ export interface UpdateCuentaBodegaDefaultInput {
   idBodegaDefault: string;
 }
 
-/** Define la bodega por defecto de la cuenta (debe estar asignada). */
+/** Define la bodega por defecto de la cuenta (debe estar asignada).
+ * Usa Supabase + schema emp_* (mismo path que el listado del configurador),
+ * para no depender del tenant header de Nest al editar cuentas de otra empresa.
+ */
 export async function updateCuentaBodegaDefaultConfigurator(
   input: UpdateCuentaBodegaDefaultInput,
 ): Promise<{
@@ -502,19 +508,80 @@ export async function updateCuentaBodegaDefaultConfigurator(
     );
   }
 
-  try {
-    return await apiRequest(
-      `/configuracion/cuentas/${encodeURIComponent(codigoCuenta)}`,
-      {
-        method: "PATCH",
-        auth: true,
-        body: { idBodegaDefault },
+  const cuenta = await findCuentaAcrossSchemas(codigoCuenta);
+  if (!cuenta?.codigo_cuenta || !cuenta.codigo_empresa) {
+    throw new DomainServiceError(
+      "Cuenta no encontrada.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const updated = await withEmpresaSchema(cuenta.codigo_empresa, async () => {
+    const bodegasDeCuenta = await runDomainQuery<{ id_bodega: string }[]>(
+      (client) => {
+        const query = client
+          .from("bodega")
+          .select("id_bodega")
+          .eq("codigo_cuenta", codigoCuenta)
+          .eq("id_bodega", idBodegaDefault)
+          .eq("esta_activa", true)
+          .limit(1);
+
+        return query as unknown as Promise<{
+          data: { id_bodega: string }[] | null;
+          error: { message: string } | null;
+        }>;
       },
     );
-  } catch (error: unknown) {
-    if (error instanceof ApiError) {
-      throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
+
+    if (bodegasDeCuenta.length === 0) {
+      throw new DomainServiceError(
+        "La bodega por defecto debe estar activa y asignada a esta cuenta.",
+        "INVALID_ARGUMENT",
+      );
     }
-    throw error;
+
+    return runDomainMutation<{
+      codigo_cuenta: string;
+      codigo_empresa: string;
+      nombre_comercial: string;
+      esta_activa: boolean;
+      id_bodega_default: string | null;
+    } | null>((client) => {
+      const query = client
+        .from("cuenta")
+        .update({ id_bodega_default: idBodegaDefault })
+        .eq("codigo_cuenta", codigoCuenta)
+        .select(
+          "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,id_bodega_default",
+        )
+        .single();
+
+      return query as unknown as Promise<{
+        data: {
+          codigo_cuenta: string;
+          codigo_empresa: string;
+          nombre_comercial: string;
+          esta_activa: boolean;
+          id_bodega_default: string | null;
+        } | null;
+        error: { message: string } | null;
+      }>;
+    });
+  });
+
+  if (!updated) {
+    throw new DomainServiceError(
+      "No se pudo guardar la bodega por defecto.",
+      "MUTATION_FAILED",
+    );
   }
+
+  return {
+    codigoCuenta: updated.codigo_cuenta,
+    codigoEmpresa: updated.codigo_empresa,
+    nombreComercial: updated.nombre_comercial,
+    estaActiva: updated.esta_activa,
+    idBodegaDefault: updated.id_bodega_default?.trim() || null,
+  };
 }
