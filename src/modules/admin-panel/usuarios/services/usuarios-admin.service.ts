@@ -164,3 +164,104 @@ export async function createUsuarioAdmin(
     throw error;
   }
 }
+
+export interface UpdateUsuarioAdminInput {
+  idUsuario: string;
+  nombre: string;
+  correo: string;
+  telefono?: string | null;
+}
+
+/** Actualiza datos del operador. El código (username) no se modifica. */
+export async function updateUsuarioAdmin(
+  input: UpdateUsuarioAdminInput,
+): Promise<UsuarioAdminListRow> {
+  const idUsuario = input.idUsuario.trim();
+  const nombre = input.nombre.trim();
+  const correo = input.correo.trim();
+  const telefono = input.telefono?.trim() || null;
+
+  if (!idUsuario) {
+    throw new DomainServiceError(
+      "Falta el identificador del usuario.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  if (!nombre) {
+    throw new DomainServiceError("El nombre es obligatorio.", "INVALID_ARGUMENT");
+  }
+  if (!correo) {
+    throw new DomainServiceError("El correo es obligatorio.", "INVALID_ARGUMENT");
+  }
+
+  try {
+    const updated = await apiRequest<CreateUsuarioAdminApiResponse>(
+      `/administracion/usuarios/${idUsuario}`,
+      {
+        method: "PATCH",
+        auth: true,
+        body: {
+          nombre,
+          correo,
+          telefono,
+        },
+      },
+    );
+
+    return {
+      idUsuario: updated.idUsuario,
+      nombre: updated.nombre,
+      correo: updated.correo,
+      telefono: updated.telefono?.trim() || telefono || "—",
+      codigo: updated.username,
+      createdAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
+    }
+    throw error;
+  }
+}
+
+export interface ResetUsuarioAdminPasswordInput {
+  idUsuario: string;
+  clave: string;
+}
+
+/** Restablece la contraseña de un operador de cuenta. */
+export async function resetUsuarioAdminPassword(
+  input: ResetUsuarioAdminPasswordInput,
+): Promise<void> {
+  const idUsuario = input.idUsuario.trim();
+  const clave = input.clave.trim();
+
+  if (!idUsuario) {
+    throw new DomainServiceError(
+      "Falta el identificador del usuario.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  if (clave.length < 8) {
+    throw new DomainServiceError(
+      "La clave debe tener al menos 8 caracteres.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  try {
+    await apiRequest<CreateUsuarioAdminApiResponse>(
+      `/administracion/usuarios/${idUsuario}/password`,
+      {
+        method: "POST",
+        auth: true,
+        body: { password: clave },
+      },
+    );
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
+    }
+    throw error;
+  }
+}

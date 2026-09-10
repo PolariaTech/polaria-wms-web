@@ -2,7 +2,11 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
-import { PolariaTableCode } from "@/components/shared/table/PolariaTableCells";
+import {
+  PolariaTableActionGroup,
+  PolariaTableCode,
+  PolariaTableEditButton,
+} from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -21,10 +25,16 @@ import {
 } from "../services/usuarios-admin.service";
 import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { UsuarioAdminCreateModal } from "./UsuarioAdminCreateModal";
+import { UsuarioAdminDetalleModal } from "./UsuarioAdminDetalleModal";
+import { UsuarioAdminEditModal } from "./UsuarioAdminEditModal";
 
 export function UsuariosAdminListView() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingUsuario, setEditingUsuario] =
+    useState<UsuarioAdminListRow | null>(null);
+  const [detalleUsuario, setDetalleUsuario] =
+    useState<UsuarioAdminListRow | null>(null);
 
   const fetchUsuarios = useCallback(() => {
     if (!codigoCuenta) {
@@ -75,6 +85,22 @@ export function UsuariosAdminListView() {
           cell: (row: UsuarioAdminListRow) =>
             formatUsuarioAdminCreatedAt(row.createdAt),
         },
+        {
+          id: "acciones",
+          header: "Acciones",
+          cell: (row: UsuarioAdminListRow) => (
+            <span
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <PolariaTableActionGroup>
+                <PolariaTableEditButton
+                  onClick={() => setEditingUsuario(row)}
+                />
+              </PolariaTableActionGroup>
+            </span>
+          ),
+        },
       ] as const,
     [],
   );
@@ -105,12 +131,29 @@ export function UsuariosAdminListView() {
           label: "Asignar usuario",
           onClick: () => setIsCreateOpen(true),
         }}
+        onRowClick={(row) => setDetalleUsuario(row)}
+        getRowAriaLabel={(row) => `Ver detalle de ${row.nombre}`}
       />
 
       <UsuarioAdminCreateModal
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
+          void reload();
+        }}
+      />
+
+      <UsuarioAdminDetalleModal
+        open={Boolean(detalleUsuario)}
+        usuario={detalleUsuario}
+        onClose={() => setDetalleUsuario(null)}
+      />
+
+      <UsuarioAdminEditModal
+        open={Boolean(editingUsuario)}
+        usuario={editingUsuario}
+        onClose={() => setEditingUsuario(null)}
+        onUpdated={() => {
           void reload();
         }}
       />

@@ -63,6 +63,8 @@ export { PlantaCreateModal } from "./plantas/components/PlantaCreateModal";
 export { PlantaEditModal } from "./plantas/components/PlantaEditModal";
 export { UsuariosAdminListView } from "./usuarios/components/UsuariosAdminListView";
 export { UsuarioAdminCreateModal } from "./usuarios/components/UsuarioAdminCreateModal";
+export { UsuarioAdminDetalleModal } from "./usuarios/components/UsuarioAdminDetalleModal";
+export { UsuarioAdminEditModal } from "./usuarios/components/UsuarioAdminEditModal";
 export { BodegaInternaAdminView } from "./bodega-interna/components/BodegaInternaAdminView";
 export { VincularBodegaInternaModal } from "./bodega-interna/components/VincularBodegaInternaModal";
 export { BodegaExternaAdminView } from "./bodega-externa/components/BodegaExternaAdminView";
@@ -132,11 +134,15 @@ export {
 export type {
   UsuarioAdminListRow,
   CreateUsuarioAdminInput,
+  UpdateUsuarioAdminInput,
+  ResetUsuarioAdminPasswordInput,
 } from "./usuarios/services/usuarios-admin.service";
 export {
   createUsuarioAdmin,
   formatUsuarioAdminCreatedAt,
   listUsuariosAdmin,
+  resetUsuarioAdminPassword,
+  updateUsuarioAdmin,
 } from "./usuarios/services/usuarios-admin.service";
 
 export type {
