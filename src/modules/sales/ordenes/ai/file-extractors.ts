@@ -1,13 +1,9 @@
 import path from "node:path";
-import { createRequire } from "node:module";
+import { convert as htmlToText } from "html-to-text";
+import { simpleParser } from "mailparser";
 import { extractText, getDocumentProxy } from "unpdf";
 import * as XLSX from "xlsx";
 import mammoth from "mammoth";
-
-/** Resuelve deps Node desde el root del proyecto (evita fallos de Turbopack con ESM). */
-const requireFromProject = createRequire(
-  path.join(process.cwd(), "package.json"),
-);
 
 const TEXT_EXTENSIONS = new Set([".csv", ".txt"]);
 const IMAGE_MIME_PREFIX = "image/";
@@ -74,13 +70,9 @@ async function extractFromDocx(buffer: Buffer): Promise<string> {
 // convierte a texto plano en vez de mandarle el markup crudo a la IA (ruido de tags,
 // estilos, y entidades HTML sin decodificar como "&Oacute;").
 function extractFromHtml(buffer: Buffer): string {
-  const { convert } = requireFromProject("html-to-text") as {
-    convert: (
-      html: string,
-      options?: { wordwrap?: boolean | number | null },
-    ) => string;
-  };
-  return convert(buffer.toString("utf8"), { wordwrap: false }).trim();
+  // Import estático: en Vercel `createRequire(process.cwd())` suele fallar con
+  // MODULE_NOT_FOUND aunque el paquete esté en serverExternalPackages.
+  return htmlToText(buffer.toString("utf8"), { wordwrap: false }).trim();
 }
 
 /**
@@ -167,19 +159,19 @@ async function extractFromEml(
     }>;
   };
   try {
-    const { simpleParser } = requireFromProject("mailparser") as {
-      simpleParser: (source: Buffer) => Promise<{
-        text?: string | null;
-        html?: string | false | null;
-        attachments: Array<{
-          contentDisposition?: string | null;
-          filename?: string | null;
-          content: Buffer;
-        }>;
-      }>;
-    };
     parsed = await simpleParser(buffer);
   } catch (err) {
+    // Último recurso: el MIME crudo aún suele tener texto legible para la IA.
+    const crudo = buffer.toString("utf8").trim();
+    if (crudo.length > 0) {
+      return [
+        {
+          nombre: `${nombreOriginal} — cuerpo`,
+          tipo: "texto",
+          contenido: crudo,
+        },
+      ];
+    }
     return [
       { nombre: nombreOriginal, tipo: "no_legible", motivo: (err as Error).message },
     ];
@@ -260,7 +252,15 @@ async function extractFile(file: ArchivoSubido): Promise<ArchivoExtraido[]> {
       ? extDeclarada
       : `.${real.ext}`;
 
-  if (extReal === ".eml") {
+  // .eml no tiene firma binaria fiable en file-type; en prod el navegador a veces
+  // manda message/rfc822. La extensión/MIME declarados mandan sobre un sniff falso.
+  const esCorreo =
+    extDeclarada === ".eml" ||
+    extReal === ".eml" ||
+    file.mimetype === "message/rfc822" ||
+    file.mimetype === "application/eml";
+
+  if (esCorreo) {
     return extractFromEml(file.buffer, nombre);
   }
 
