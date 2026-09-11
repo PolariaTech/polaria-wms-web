@@ -15,7 +15,7 @@ const apiBaseUrl = normalizeApiBaseUrl(
 
 /** Excluye route handlers locales de n8n; el resto de /api/* se proxya a Nest. */
 export const NEST_API_REWRITE_SOURCE =
-  "/api/:path((?!pedido-proveedor$)(?!solicitud-compra$)(?!evidencia-transporte$)(?!ventas/leer-pedido$)(?!ventas/productos-catalogo$)(?!reportes/).*)";
+  "/api/:path((?!pedido-proveedor$)(?!solicitud-compra$)(?!evidencia-transporte$)(?!ventas/leer-pedido$)(?!ventas/imprimir-orden$)(?!ventas/productos-catalogo$)(?!reportes/).*)";
 
 const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -62,6 +62,7 @@ const nextConfig: NextConfig = {
     "chrono-node",
     "html-to-text",
     "mailparser",
+    "ipp",
   ],
   async rewrites() {
     return {

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { extractFiles } from "@/modules/sales/ordenes/ai/file-extractors";
 import { uploadEvidenciaImage } from "@/lib/cloudinary/upload-evidencia";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ROUTES } from "@/config/routes";
 import { extraerSurtidoDesdeFoto } from "@/modules/sales/ordenes/surtido/openai-surtido.client";
+import { estimateSurtidoPrecision } from "@/modules/sales/ordenes/surtido/estimate-surtido-precision";
 import {
+  applySurtidoCapturaToOrdenVenta,
   buildPrintDataAdmin,
   getOrdenMetaPublica,
   getOrdenSurtidoCaptura,
@@ -13,7 +14,7 @@ import {
 
 /**
  * Fuera de `/api/*` para no pasar por el rewrite hacia Nest.
- * Ruta pública sin login (QR). Soporta fetch JSON y form nativo (iOS).
+ * Ruta pública sin login (QR). Acepta FormData (fetch/XHR o form nativo).
  */
 type RouteContext = { params: Promise<{ idOrdenVenta: string }> };
 
@@ -27,11 +28,14 @@ function wantsDocumentResponse(request: Request): boolean {
 function redirectCaptura(
   request: Request,
   idOrdenVenta: string,
-  result: { ok: true } | { ok: false; error: string },
+  result: { ok: true; precision?: number } | { ok: false; error: string },
 ): NextResponse {
   const url = new URL(ROUTES.capturaOrden(idOrdenVenta), request.url);
   if (result.ok) {
     url.searchParams.set("captura", "ok");
+    if (typeof result.precision === "number") {
+      url.searchParams.set("precision", String(result.precision));
+    }
   } else {
     url.searchParams.set("captura", "error");
     url.searchParams.set("msg", result.error.slice(0, 180));
@@ -58,9 +62,27 @@ function jsonOrRedirect(
         error: error || "No se pudo procesar la foto.",
       });
     }
-    return redirectCaptura(request, idOrdenVenta, { ok: true });
+    return redirectCaptura(request, idOrdenVenta, {
+      ok: true,
+      precision:
+        typeof payload.precisionEstimada === "number"
+          ? payload.precisionEstimada
+          : undefined,
+    });
   }
   return NextResponse.json(payload, { status });
+}
+
+function readFotoFromForm(form: FormData): File | null {
+  const raw = form.get("foto") ?? form.get("file") ?? form.get("image");
+  if (raw instanceof File && raw.size > 0) return raw;
+  if (raw instanceof Blob && raw.size > 0) {
+    return new File([raw], "hoja-surtido.jpg", {
+      type: raw.type || "image/jpeg",
+      lastModified: Date.now(),
+    });
+  }
+  return null;
 }
 
 export async function GET(
@@ -92,6 +114,7 @@ export async function GET(
             urlFoto: captura.urlFoto,
             modelo: captura.modelo,
             updatedAt: captura.updatedAt,
+            precisionEstimada: captura.payload.precisionEstimada ?? null,
           }
         : null,
     });
@@ -138,8 +161,8 @@ export async function POST(
     }
 
     const form = await request.formData();
-    const file = form.get("foto");
-    if (!(file instanceof File)) {
+    const file = readFotoFromForm(form);
+    if (!file) {
       return jsonOrRedirect(
         request,
         idOrdenVenta,
@@ -148,13 +171,13 @@ export async function POST(
       );
     }
 
-    if (file.size <= 0 || file.size > 4 * 1024 * 1024) {
+    if (file.size <= 0 || file.size > 10 * 1024 * 1024) {
       return jsonOrRedirect(
         request,
         idOrdenVenta,
         {
           error:
-            "La foto es demasiado pesada (máx. ~4 MB). Vuelve a tomarla o espera a que termine de prepararse en el celular.",
+            "La foto es demasiado pesada (máx. 10 MB). Vuelve a tomarla; en el celular se comprime sola si hace falta.",
         },
         400,
       );
@@ -192,11 +215,17 @@ export async function POST(
       );
     }
 
-    const { payload, modelo } = await extraerSurtidoDesdeFoto({
+    const { payload: rawPayload, modelo } = await extraerSurtidoDesdeFoto({
       original,
       mime: imagen.mime,
       base64: imagen.base64,
     });
+
+    const precisionEstimada = estimateSurtidoPrecision(
+      rawPayload,
+      original.lineas.length,
+    );
+    const payload = { ...rawPayload, precisionEstimada };
 
     let urlFoto: string | null = null;
     try {
@@ -217,18 +246,27 @@ export async function POST(
       modelo,
     });
 
-    const admin = getSupabaseAdminClient();
-    if (admin) {
-      await admin
-        .from("orden_venta")
-        .update({ updated_at: new Date().toISOString() })
-        .eq("id_orden_venta", idOrdenVenta);
+    try {
+      await applySurtidoCapturaToOrdenVenta({
+        idOrdenVenta,
+        payload,
+      });
+    } catch (syncError) {
+      console.error(
+        "[captura-orden] sync OV desde surtido falló:",
+        syncError instanceof Error ? syncError.message : syncError,
+      );
     }
 
     return jsonOrRedirect(
       request,
       idOrdenVenta,
-      { ok: true, folio: meta.folio, captura },
+      {
+        ok: true,
+        folio: meta.folio,
+        precisionEstimada,
+        captura,
+      },
       200,
     );
   } catch (error) {

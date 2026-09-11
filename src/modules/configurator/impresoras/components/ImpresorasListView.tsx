@@ -5,6 +5,7 @@ import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
   PolariaTableBadge,
   PolariaTableCode,
+  PolariaTableEditButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import {
@@ -24,6 +25,7 @@ import { ImpresoraCreateModal } from "./ImpresoraCreateModal";
 
 export function ImpresorasListView() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<ImpresoraListRow | null>(null);
   const fetchImpresoras = useCallback(() => listImpresorasConfigurator(), []);
   const { data, isLoading, isRefreshing, error, reload } =
     useAsyncQuery(fetchImpresoras);
@@ -52,11 +54,6 @@ export function ImpresorasListView() {
           id: "cuenta",
           header: "Cuenta",
           cell: (row: ImpresoraListRow) => row.cuentaNombre,
-        },
-        {
-          id: "usuario",
-          header: "Usuario",
-          cell: (row: ImpresoraListRow) => row.usuarioNombre ?? "—",
         },
         {
           id: "marca",
@@ -106,6 +103,18 @@ export function ImpresorasListView() {
               <PolariaTableBadge variant="neutral">Inactiva</PolariaTableBadge>
             ),
         },
+        {
+          id: "acciones",
+          header: "Acciones",
+          cell: (row: ImpresoraListRow) => (
+            <div
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <PolariaTableEditButton onClick={() => setEditing(row)} />
+            </div>
+          ),
+        },
       ] as const,
     [],
   );
@@ -127,14 +136,21 @@ export function ImpresorasListView() {
         isRefreshing={isRefreshing}
         primaryAction={{
           label: rows.length === 0 ? "Configurar impresora" : "Agregar",
-          onClick: () => setIsCreateOpen(true),
+          onClick: () => {
+            setEditing(null);
+            setIsCreateOpen(true);
+          },
         }}
       />
 
       <ImpresoraCreateModal
-        open={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onCreated={() => {
+        open={isCreateOpen || Boolean(editing)}
+        impresora={editing}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setEditing(null);
+        }}
+        onSaved={() => {
           void reload();
         }}
       />

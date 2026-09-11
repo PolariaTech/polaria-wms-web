@@ -276,3 +276,104 @@ export async function upsertOrdenSurtidoCaptura(input: {
   if (error) throw new Error(error.message);
   return mapRow(data as CapturaDbRow);
 }
+
+/**
+ * Propaga el payload de la foto a columnas flat / observaciones / cantidades
+ * despachadas de la OV. Solo escribe lo que la IA trajo con valor.
+ */
+export async function applySurtidoCapturaToOrdenVenta(input: {
+  idOrdenVenta: string;
+  payload: OrdenSurtidoCapturaPayload;
+}): Promise<{
+  updatedHeader: boolean;
+  updatedLineas: number;
+}> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) throw new Error("Supabase admin no configurado.");
+
+  const { data: orden, error: ordenError } = await admin
+    .from("orden_venta")
+    .select(
+      "id_orden_venta,observaciones,turno,hora_salida,chofer,unidad,notas_almacen,notas_lineas",
+    )
+    .eq("id_orden_venta", input.idOrdenVenta)
+    .maybeSingle();
+
+  if (ordenError) throw new Error(ordenError.message);
+  if (!orden) {
+    throw new Error("Orden de venta no encontrada para sincronizar surtido.");
+  }
+
+  const { data: lineasRaw, error: lineasError } = await admin
+    .from("orden_venta_linea")
+    .select(
+      "id_linea_orden_venta,cantidad_pedida,cantidad_despachada,producto:producto(sku,descripcion,metadatos_catalogo)",
+    )
+    .eq("id_orden_venta", input.idOrdenVenta)
+    .order("id_linea_orden_venta", { ascending: true })
+    .limit(200);
+
+  if (lineasError) throw new Error(lineasError.message);
+  const lineasDb = (lineasRaw ?? []) as Array<{
+    id_linea_orden_venta: string;
+    cantidad_pedida: string | number;
+    cantidad_despachada: string | number | null;
+    producto: unknown;
+  }>;
+
+  const productosByIndex = new Map<number, string>();
+  lineasDb.forEach((linea, index) => {
+    productosByIndex.set(index + 1, resolveTituloProducto(linea.producto));
+  });
+
+  const { buildOrdenVentaPatchFromSurtido } = await import(
+    "./sync-surtido-to-orden-venta"
+  );
+  const { flat, lineas: lineasPatch } = buildOrdenVentaPatchFromSurtido({
+    payload: input.payload,
+    observacionesActuales: orden.observaciones,
+    notasAlmacenActuales: orden.notas_almacen,
+    notasLineasActuales: orden.notas_lineas,
+    productosByIndex,
+  });
+
+  const headerUpdate: Record<string, string> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (flat.turno) headerUpdate.turno = flat.turno;
+  if (flat.hora_salida) headerUpdate.hora_salida = flat.hora_salida;
+  if (flat.chofer) headerUpdate.chofer = flat.chofer;
+  if (flat.unidad) headerUpdate.unidad = flat.unidad;
+  if (flat.notas_almacen) headerUpdate.notas_almacen = flat.notas_almacen;
+  if (flat.notas_lineas) headerUpdate.notas_lineas = flat.notas_lineas;
+  if (flat.observaciones) headerUpdate.observaciones = flat.observaciones;
+
+  const { error: updateHeaderError } = await admin
+    .from("orden_venta")
+    .update(headerUpdate)
+    .eq("id_orden_venta", input.idOrdenVenta);
+
+  if (updateHeaderError) throw new Error(updateHeaderError.message);
+
+  let updatedLineas = 0;
+  for (const patch of lineasPatch) {
+    const linea = lineasDb[patch.indice - 1];
+    if (!linea) continue;
+
+    const pedida = Number(linea.cantidad_pedida) || 0;
+    const despachada = Math.min(patch.cantidadDespachada, pedida > 0 ? pedida : patch.cantidadDespachada);
+
+    const { error: lineError } = await admin
+      .from("orden_venta_linea")
+      .update({ cantidad_despachada: despachada })
+      .eq("id_linea_orden_venta", linea.id_linea_orden_venta);
+
+    if (lineError) throw new Error(lineError.message);
+    updatedLineas += 1;
+  }
+
+  return {
+    updatedHeader: Object.keys(headerUpdate).length > 1,
+    updatedLineas,
+  };
+}

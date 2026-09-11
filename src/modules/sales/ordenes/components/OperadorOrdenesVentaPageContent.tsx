@@ -145,7 +145,7 @@ export function OperadorOrdenesVentaPageContent() {
       try {
         const data = await loadPrintData(row);
         if (kind === "print") {
-          await printOrdenTareaAlmacen(data);
+          await printOrdenTareaAlmacen(data, { codigoCuenta });
           return;
         }
         if (kind === "download") {

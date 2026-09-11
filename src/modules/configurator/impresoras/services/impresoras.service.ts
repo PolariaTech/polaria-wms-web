@@ -35,7 +35,17 @@ export interface ImpresoraListRow {
   modoEnvio: ImpresoraModoEnvio;
   hostIp: string | null;
   puerto: number | null;
+  colaNombre: string | null;
+  nombreSistema: string | null;
+  idAgente: string | null;
+  usaTls: boolean;
   tamanoPapel: ImpresoraTamanoPapel;
+  orientacion: ImpresoraOrientacion;
+  duplex: ImpresoraDuplex;
+  colorModo: ImpresoraColorModo;
+  bandeja: string | null;
+  copiasDefault: number;
+  notas: string | null;
   estaActiva: boolean;
 }
 
@@ -43,7 +53,8 @@ export interface CreateImpresoraInput {
   nombre: string;
   codigo?: string | null;
   codigoCuenta: string;
-  idUsuario: string;
+  /** Si se omite, la impresora queda a nivel cuenta (todos los usuarios). */
+  idUsuario?: string | null;
   idBodega?: string | null;
   marca?: string | null;
   modelo?: string | null;
@@ -97,10 +108,9 @@ interface ImpresoraDbRow {
 }
 
 const IMPRESORA_LIST_COLUMNS =
-  "id_impresora,codigo_cuenta,id_usuario,id_bodega,nombre,codigo,marca,modelo,pais,ubicacion_texto,tipo_conexion,modo_envio,host_ip,puerto,tamano_papel,esta_activa";
-
-const IMPRESORA_CREATE_COLUMNS =
   "id_impresora,codigo_cuenta,id_usuario,id_bodega,nombre,codigo,marca,modelo,pais,ubicacion_texto,tipo_conexion,modo_envio,host_ip,puerto,cola_nombre,nombre_sistema,id_agente,usa_tls,tamano_papel,orientacion,duplex,color_modo,bandeja,copias_default,notas,esta_activa";
+
+const IMPRESORA_CREATE_COLUMNS = IMPRESORA_LIST_COLUMNS;
 
 function mapListRow(
   row: ImpresoraDbRow,
@@ -124,7 +134,17 @@ function mapListRow(
     modoEnvio: row.modo_envio,
     hostIp: row.host_ip,
     puerto: row.puerto,
+    colaNombre: row.cola_nombre,
+    nombreSistema: row.nombre_sistema,
+    idAgente: row.id_agente,
+    usaTls: row.usa_tls,
     tamanoPapel: row.tamano_papel,
+    orientacion: row.orientacion,
+    duplex: row.duplex,
+    colorModo: row.color_modo,
+    bandeja: row.bandeja,
+    copiasDefault: row.copias_default,
+    notas: row.notas,
     estaActiva: row.esta_activa,
   };
 }
@@ -139,7 +159,7 @@ function validateCreateInput(input: CreateImpresoraInput): {
   nombre: string;
   codigo: string | null;
   codigoCuenta: string;
-  idUsuario: string;
+  idUsuario: string | null;
   idBodega: string | null;
   marca: string | null;
   modelo: string | null;
@@ -160,7 +180,7 @@ function validateCreateInput(input: CreateImpresoraInput): {
 } {
   const nombre = input.nombre.trim();
   const codigoCuenta = input.codigoCuenta.trim();
-  const idUsuario = input.idUsuario.trim();
+  const idUsuario = input.idUsuario?.trim() || null;
   const hostIp = input.hostIp?.trim() || null;
   const nombreSistema = input.nombreSistema?.trim() || null;
   const idAgente = input.idAgente?.trim() || null;
@@ -179,13 +199,6 @@ function validateCreateInput(input: CreateImpresoraInput): {
   if (!codigoCuenta) {
     throw new DomainServiceError(
       "Selecciona la cuenta a asociar.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  if (!idUsuario) {
-    throw new DomainServiceError(
-      "Selecciona el usuario al que se asigna la impresora.",
       "INVALID_ARGUMENT",
     );
   }
@@ -260,6 +273,105 @@ function validateCreateInput(input: CreateImpresoraInput): {
   };
 }
 
+export interface ImpresoraPrintTarget {
+  idImpresora: string;
+  nombre: string;
+  codigoCuenta: string;
+  tipoConexion: ImpresoraTipoConexion;
+  modoEnvio: ImpresoraModoEnvio;
+  hostIp: string | null;
+  puerto: number | null;
+  colaNombre: string | null;
+  nombreSistema: string | null;
+  idAgente: string | null;
+  usaTls: boolean;
+  copiasDefault: number;
+  tamanoPapel: ImpresoraTamanoPapel;
+}
+
+const IMPRESORA_PRINT_COLUMNS =
+  "id_impresora,codigo_cuenta,nombre,tipo_conexion,modo_envio,host_ip,puerto,cola_nombre,nombre_sistema,id_agente,usa_tls,copias_default,tamano_papel,esta_activa";
+
+/** Impresora activa de la cuenta (nivel cuenta: id_usuario null primero). */
+export async function getImpresoraActivaCuenta(
+  codigoCuenta: string,
+): Promise<ImpresoraPrintTarget | null> {
+  const codigo = codigoCuenta.trim();
+  if (!codigo) return null;
+
+  const rows = await runDomainQuery<
+    Array<{
+      id_impresora: string;
+      codigo_cuenta: string;
+      nombre: string;
+      tipo_conexion: ImpresoraTipoConexion;
+      modo_envio: ImpresoraModoEnvio;
+      host_ip: string | null;
+      puerto: number | null;
+      cola_nombre: string | null;
+      nombre_sistema: string | null;
+      id_agente: string | null;
+      usa_tls: boolean;
+      copias_default: number;
+      tamano_papel: ImpresoraTamanoPapel;
+      esta_activa: boolean;
+      id_usuario?: string | null;
+    }>
+  >((client) => {
+    const query = client
+      .from("impresora")
+      .select(`${IMPRESORA_PRINT_COLUMNS},id_usuario`)
+      .eq("codigo_cuenta", codigo)
+      .eq("esta_activa", true)
+      .order("nombre", { ascending: true })
+      .limit(20);
+
+    return query as unknown as Promise<{
+      data:
+        | Array<{
+            id_impresora: string;
+            codigo_cuenta: string;
+            nombre: string;
+            tipo_conexion: ImpresoraTipoConexion;
+            modo_envio: ImpresoraModoEnvio;
+            host_ip: string | null;
+            puerto: number | null;
+            cola_nombre: string | null;
+            nombre_sistema: string | null;
+            id_agente: string | null;
+            usa_tls: boolean;
+            copias_default: number;
+            tamano_papel: ImpresoraTamanoPapel;
+            esta_activa: boolean;
+            id_usuario?: string | null;
+          }>
+        | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  if (rows.length === 0) return null;
+
+  const preferred =
+    rows.find((row) => !row.id_usuario) ?? rows[0];
+
+  return {
+    idImpresora: preferred.id_impresora,
+    nombre: preferred.nombre,
+    codigoCuenta: preferred.codigo_cuenta,
+    tipoConexion: preferred.tipo_conexion,
+    modoEnvio: preferred.modo_envio,
+    hostIp: preferred.host_ip,
+    puerto: preferred.puerto,
+    colaNombre: preferred.cola_nombre,
+    nombreSistema: preferred.nombre_sistema,
+    idAgente: preferred.id_agente,
+    usaTls: preferred.usa_tls,
+    copiasDefault: preferred.copias_default,
+    tamanoPapel: preferred.tamano_papel,
+  };
+}
+
 /** Lista impresoras configuradas (tabla plataforma public.impresora). */
 export async function listImpresorasConfigurator(): Promise<ImpresoraListRow[]> {
   const rows = await runDomainQuery<ImpresoraDbRow[]>((client) => {
@@ -294,7 +406,7 @@ export async function listImpresorasConfigurator(): Promise<ImpresoraListRow[]> 
       nombres.get(row.codigo_cuenta) ?? row.codigo_cuenta,
       row.id_usuario
         ? (usuarioNombres.get(row.id_usuario) ?? null)
-        : null,
+        : "Toda la cuenta",
     ),
   );
 }
@@ -391,7 +503,85 @@ export async function createImpresoraConfigurator(
     nombres.get(inserted.codigo_cuenta) ?? inserted.codigo_cuenta,
     inserted.id_usuario
       ? (usuarioNombres.get(inserted.id_usuario) ?? null)
-      : null,
+      : "Toda la cuenta",
+  );
+}
+
+export type UpdateImpresoraInput = CreateImpresoraInput & {
+  idImpresora: string;
+  estaActiva?: boolean;
+};
+
+/** Actualiza una impresora existente del configurador. */
+export async function updateImpresoraConfigurator(
+  input: UpdateImpresoraInput,
+): Promise<ImpresoraListRow> {
+  const idImpresora = input.idImpresora.trim();
+  if (!idImpresora) {
+    throw new DomainServiceError(
+      "Falta el id de la impresora.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const validated = validateCreateInput(input);
+
+  const updated = await runDomainMutation<ImpresoraDbRow | null>((client) => {
+    const query = client
+      .from("impresora")
+      .update({
+        codigo_cuenta: validated.codigoCuenta,
+        id_usuario: null,
+        id_bodega: validated.idBodega,
+        nombre: validated.nombre,
+        codigo: validated.codigo,
+        marca: validated.marca,
+        modelo: validated.modelo,
+        pais: input.pais,
+        ubicacion_texto: validated.ubicacionTexto,
+        tipo_conexion: input.tipoConexion,
+        modo_envio: input.modoEnvio,
+        host_ip: validated.hostIp,
+        puerto: validated.puerto,
+        cola_nombre: validated.colaNombre,
+        nombre_sistema: validated.nombreSistema,
+        id_agente: validated.idAgente,
+        usa_tls: validated.usaTls,
+        tamano_papel: validated.tamanoPapel,
+        orientacion: validated.orientacion,
+        duplex: validated.duplex,
+        color_modo: validated.colorModo,
+        bandeja: validated.bandeja,
+        copias_default: validated.copiasDefault,
+        notas: validated.notas,
+        esta_activa: input.estaActiva ?? true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id_impresora", idImpresora)
+      .select(IMPRESORA_CREATE_COLUMNS)
+      .single();
+
+    return query as unknown as Promise<{
+      data: ImpresoraDbRow | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  if (!updated) {
+    throw new DomainServiceError(
+      "No se pudo actualizar la impresora.",
+      "MUTATION_FAILED",
+    );
+  }
+
+  const nombres = await resolveNombresCuentaAcrossSchemas([
+    updated.codigo_cuenta,
+  ]);
+
+  return mapListRow(
+    updated,
+    nombres.get(updated.codigo_cuenta) ?? updated.codigo_cuenta,
+    "Toda la cuenta",
   );
 }
 

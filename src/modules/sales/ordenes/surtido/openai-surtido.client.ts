@@ -296,6 +296,7 @@ function normalizePayload(raw: unknown): OrdenSurtidoCapturaPayload {
     checks,
     lineas,
     observacionesIa: asNullableString(obj.observacionesIa),
+    precisionEstimada: null,
   };
 }
 
