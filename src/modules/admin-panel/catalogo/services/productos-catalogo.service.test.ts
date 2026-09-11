@@ -28,6 +28,7 @@ describe("productos-catalogo.service", () => {
           es_primario: true,
           es_secundario: false,
           unidad_visualizacion: "cantidad",
+          unidad_medida: "kg",
           id_producto_primario: null,
           metadatos_catalogo: {
             titulo: "Producto demo",
@@ -52,6 +53,7 @@ describe("productos-catalogo.service", () => {
     expect(selectChain.eq).toHaveBeenCalledWith("esta_activo", true);
     expect(rows[0]?.titulo).toBe("Producto demo");
     expect(rows[0]?.slug).toBe("producto-demo");
+    expect(rows[0]?.unidad).toBe("kg");
     expect(rows[0]?.stock).toBe("5");
   });
 
@@ -123,6 +125,7 @@ describe("productos-catalogo.service", () => {
         es_primario: true,
         es_secundario: false,
         unidad_visualizacion: "cantidad",
+        unidad_medida: "und",
         id_producto_primario: null,
         metadatos_catalogo: { titulo: "Producto editado", precio: "2000" },
       },
@@ -150,7 +153,7 @@ describe("productos-catalogo.service", () => {
     expect(updateChain.eq).toHaveBeenCalledWith("codigo_cuenta", "MIT00");
     expect(updateChain.eq).toHaveBeenCalledWith("id_producto", "prod-1");
     expect(row.titulo).toBe("Producto editado");
-    expect(row.precio).toBe("2000");
+    expect(row.unidad).toBe("und");
   });
 
   it("listPreciosProductoVigentesAdmin lee el vigente de precio_producto", async () => {

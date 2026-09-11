@@ -15,6 +15,8 @@ import {
   CATALOGO_TIPO_OPTIONS,
   CATALOGO_TIPO_PRIMARIO,
   CATALOGO_TIPO_SECUNDARIO,
+  CATALOGO_UNIDAD_MEDIDA_DEFAULT,
+  CATALOGO_UNIDAD_MEDIDA_OPTIONS,
   CATALOGO_UNIDAD_VISUALIZACION_OPTIONS,
   createEmptyCatalogoMetadatos,
   type CatalogoProductoMetadatos,
@@ -40,6 +42,7 @@ type ProductoCatalogoForm = CatalogoProductoMetadatos & {
   titulo: string;
   sku: string;
   unidadVisualizacion: string;
+  unidadMedida: string;
 };
 
 function createInitialForm(): ProductoCatalogoForm {
@@ -47,6 +50,7 @@ function createInitialForm(): ProductoCatalogoForm {
     titulo: "",
     sku: "",
     unidadVisualizacion: "cantidad",
+    unidadMedida: CATALOGO_UNIDAD_MEDIDA_DEFAULT,
     ...createEmptyCatalogoMetadatos(),
     tipo: CATALOGO_TIPO_PRIMARIO,
     estado: CATALOGO_ESTADO_DEFAULT,
@@ -126,8 +130,8 @@ export function ProductoCatalogoCreateModal({
       setError("El estado es obligatorio.");
       return;
     }
-    if (!form.precio?.trim()) {
-      setError("El precio es obligatorio.");
+    if (!form.unidadMedida?.trim()) {
+      setError("La unidad es obligatoria.");
       return;
     }
 
@@ -144,12 +148,12 @@ export function ProductoCatalogoCreateModal({
     setIsSubmitting(true);
 
     try {
-      const { titulo: _t, sku: _s, unidadVisualizacion, ...metadatos } = form;
+      const { titulo: _t, sku: _s, unidadVisualizacion, unidadMedida, ...metadatos } = form;
       const payload = {
         codigoCuenta,
         sku,
         titulo,
-        unidadMedida: unidadVisualizacion === "peso" ? "g" : "und",
+        unidadMedida: unidadMedida.trim() || CATALOGO_UNIDAD_MEDIDA_DEFAULT,
         unidadVisualizacion,
         metadatos: {
           ...metadatos,
@@ -330,15 +334,6 @@ export function ProductoCatalogoCreateModal({
           disabled={isSubmitting}
           compact
         />
-        <PolariaFormInput
-          id="producto-precio"
-          label="Precio *"
-          value={form.precio ?? ""}
-          placeholder="Ingresá precio"
-          onChange={(event) => patch({ precio: event.target.value })}
-          disabled={isSubmitting}
-          compact
-        />
 
         <CatalogoFormCheckbox
           id="producto-impuesto"
@@ -384,6 +379,16 @@ export function ProductoCatalogoCreateModal({
           placeholder="Ingresá valor peso (g)"
           onChange={(event) => patch({ valorPesoG: event.target.value })}
           disabled={isSubmitting}
+          compact
+        />
+        <PolariaFormSelect
+          id="producto-unidad-medida"
+          label="Unidad *"
+          hint="Unidad de venta (kg, und, caja…)."
+          value={form.unidadMedida}
+          onChange={(event) => patch({ unidadMedida: event.target.value })}
+          disabled={isSubmitting}
+          options={[...CATALOGO_UNIDAD_MEDIDA_OPTIONS]}
           compact
         />
         <PolariaFormSelect

@@ -46,29 +46,50 @@ export function JefeBodegaModalSearchField({
   compact = false,
   controlClassName,
 }: JefeBodegaModalSearchFieldProps) {
+  const openPicker = onSearchClick
+    ? () => {
+        onSearchClick();
+      }
+    : undefined;
+
   return (
     <div className="relative flex items-stretch">
       <input
         id={id}
         type="text"
         value={value}
+        title={value || undefined}
         readOnly={readOnly}
         placeholder={placeholder}
         aria-label={ariaLabel ?? placeholder}
+        aria-haspopup={openPicker ? "dialog" : undefined}
+        onClick={openPicker}
+        onKeyDown={
+          openPicker
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openPicker();
+                }
+              }
+            : undefined
+        }
         className={cn(
-          "w-full border border-polaria-w-08 bg-polaria-w-08 text-polaria-w placeholder:text-polaria-w-20 outline-none",
+          "w-full truncate border border-polaria-w-08 bg-polaria-w-08 text-polaria-w placeholder:text-polaria-w-20 outline-none",
           "focus:border-polaria-t-20 focus:ring-1 focus:ring-polaria-t-20",
           compact
             ? "rounded-lg py-2 pl-3 text-sm"
             : "rounded-xl py-3 pl-4",
           onSearchClick ? (compact ? "pr-11" : "pr-12") : compact ? "pr-3" : "pr-4",
+          openPicker ? "cursor-pointer" : undefined,
           controlClassName,
         )}
       />
-      {onSearchClick ? (
+      {openPicker ? (
         <button
           type="button"
-          onClick={onSearchClick}
+          onClick={openPicker}
+          tabIndex={-1}
           aria-label={`Buscar ${ariaLabel ?? placeholder}`}
           className={cn(
             "absolute right-1 top-1/2 flex items-center justify-center rounded-lg",

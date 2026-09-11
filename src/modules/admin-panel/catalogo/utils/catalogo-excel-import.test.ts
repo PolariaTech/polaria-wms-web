@@ -59,9 +59,10 @@ describe("catalogo-excel-import", () => {
     expect(result.errors).toEqual([]);
     expect(result.rows[0]?.sku).toBeTruthy();
     expect(result.rows[0]?.titulo).toBe("Filete premium");
+    expect(result.rows[0]?.unidadMedida).toBe("kg");
   });
 
-  it("acepta costPerItem como fallback de precio", async () => {
+  it("acepta costPerItem como fallback de precio en metadatos", async () => {
     const file = csvFile(
       [
         "title,description,provider,category,productType,status,costPerItem",
@@ -73,6 +74,20 @@ describe("catalogo-excel-import", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.rows[0]?.metadatos.precio).toBe("4500");
+  });
+
+  it("lee unidad_medida y no exige precio", async () => {
+    const file = csvFile(
+      [
+        "title,description,provider,category,productType,status,unidad",
+        "Filete premium,Desc,Proveedor A,Categoria A,Primario,active,caja",
+      ].join("\n"),
+    );
+
+    const result = await parseCatalogoSpreadsheetFile(file);
+
+    expect(result.errors).toEqual([]);
+    expect(result.rows[0]?.unidadMedida).toBe("caja");
   });
 
   it("exige vinculado para secundario sin SKU primario", async () => {

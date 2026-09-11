@@ -9,21 +9,24 @@ import {
   runDomainQuery,
 } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import { resolveProductoNombre } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-slot-content";
 import { listAlmacenamientoVentaUbicacionIds } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-zone-ubicaciones";
 import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bodega/types/estado-bodega.types";
 import type { WarehouseStateRow } from "@/modules/inventory/shared/types/inventory.types";
+import { puedeEditarOrdenVenta } from "../constants/sales-status";
+import { resolveNombreProductoVenta } from "../utils/producto-venta-nombre";
 import {
   mapLatestPrecioProductoById,
   type PrecioProductoRow,
 } from "../utils/sales-precio";
-import type {
-  CreateOrdenVentaInput,
-  OrdenVentaDetalleRow,
-  OrdenVentaLineaRow,
-  OrdenVentaOperadorRow,
-  OrdenVentaRow,
-  ProductoVentaOption,
+import {
+  UNIDAD_MEDIDA_VENTA_DEFAULT,
+  type CreateOrdenVentaInput,
+  type OrdenVentaDetalleRow,
+  type OrdenVentaLineaRow,
+  type OrdenVentaOperadorRow,
+  type OrdenVentaRow,
+  type ProductoVentaOption,
+  type UpdateOrdenVentaInput,
 } from "../types/sales.types";
 
 /** PostgREST GET `.in()` explota la URL con ~1000 UUIDs; tandas cortas evitan 400. */
@@ -35,18 +38,20 @@ const ORDEN_VENTA_COLUMNS =
 const COMPRADOR_COLUMNS = "id_comprador,nombre";
 
 const ORDEN_VENTA_DETALLE_FLAT_COLUMNS =
-  "prioridad,orden_compra_hotel,centro_consumo,vendedor,moneda,bodega_destino_label,direccion_entrega,anden,contacto_entrega,telefono_contacto,turno,hora_salida,chofer,unidad,notas_lineas,notas_almacen,fecha_entrega,ventana_desde,ventana_hasta";
+  "prioridad,orden_compra_hotel,centro_consumo,vendedor,moneda,bodega_destino_label,direccion_entrega,anden,contacto_entrega,telefono_contacto,turno,hora_salida,chofer,unidad,notas_lineas,notas_almacen,fecha_entrega,ventana_desde,ventana_hasta,acepta_sustituciones,requiere_lote,registrar_temperatura,origen_texto,origen_archivos";
 
 const ORDEN_VENTA_DETALLE_SELECT =
   `${ORDEN_VENTA_COLUMNS},${ORDEN_VENTA_DETALLE_FLAT_COLUMNS},` +
   "comprador:comprador(nombre,codigo)," +
-  "orden_venta_linea(id_linea_orden_venta,id_producto,cantidad_pedida,precio_unitario,producto(sku,descripcion,metadatos_catalogo))";
+  "orden_venta_linea(id_linea_orden_venta,id_producto,cantidad_pedida,precio_unitario,cajas,presentacion,producto(sku,descripcion,metadatos_catalogo))";
 
 interface OrdenVentaLineaDetalleDbRow {
   id_linea_orden_venta: string;
   id_producto: string;
   cantidad_pedida: string | number;
   precio_unitario: string | number;
+  cajas?: string | number | null;
+  presentacion?: string | null;
   producto:
     | OrdenVentaLineaRow["producto"]
     | NonNullable<OrdenVentaLineaRow["producto"]>[]
@@ -59,6 +64,8 @@ interface OrdenVentaDetalleDbRow extends OrdenVentaRow {
     | { nombre: string | null; codigo: string | null }[]
     | null;
   orden_venta_linea: OrdenVentaLineaDetalleDbRow[] | null;
+  origen_texto?: string | null;
+  origen_archivos?: string | null;
 }
 
 const WAREHOUSE_STOCK_VENTA_SELECT =
@@ -253,13 +260,14 @@ function mapStockRowToProductoOption(
   idProducto: string,
   stock: StockVentaProductoAgg,
   precioUnitario: number,
+  unidadMedida: string,
 ): ProductoVentaOption {
   const productoRel = unwrapProductoRel(stock.sampleRow.producto);
   const codigo = productoRel?.sku?.trim() || idProducto.slice(0, 8);
-  const nombre =
-    resolveProductoNombre(stock.sampleRow as WarehouseStateRow) ||
-    productoRel?.descripcion?.trim() ||
-    `Producto ${codigo}`;
+  const nombre = resolveNombreProductoVenta(
+    productoRel,
+    codigo,
+  );
 
   return {
     idProducto,
@@ -270,6 +278,7 @@ function mapStockRowToProductoOption(
     nombre,
     kgDisponible: stock.kgDisponible,
     precioUnitario,
+    unidadMedida: unidadMedida.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
   };
 }
 
@@ -724,13 +733,14 @@ export async function listProductosVentaCatalogo(
         sku: string | null;
         descripcion: string | null;
         id_cliente: string | null;
+        unidad_medida: string | null;
         metadatos_catalogo?: unknown;
       }[]
     >((client) => {
       const query = client
         .from("producto")
         .select(
-          "id_producto,sku,descripcion,id_cliente,metadatos_catalogo,esta_activo",
+          "id_producto,sku,descripcion,id_cliente,unidad_medida,metadatos_catalogo,esta_activo",
         )
         .eq("codigo_cuenta", cuenta)
         .eq("esta_activo", true)
@@ -744,6 +754,7 @@ export async function listProductosVentaCatalogo(
               sku: string | null;
               descripcion: string | null;
               id_cliente: string | null;
+              unidad_medida: string | null;
               metadatos_catalogo?: unknown;
             }[]
           | null;
@@ -765,22 +776,20 @@ export async function listProductosVentaCatalogo(
 
   return productoRows
     .map((row) => {
+      const unidadMedida =
+        row.unidad_medida?.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT;
       const stock = stockMap.get(row.id_producto);
       if (stock) {
         return mapStockRowToProductoOption(
           row.id_producto,
           stock,
           precioMap.get(row.id_producto) ?? 0,
+          unidadMedida,
         );
       }
 
       const codigo = row.sku?.trim() || row.id_producto.slice(0, 8);
-      const nombre =
-        resolveProductoNombre({
-          producto: row,
-        } as WarehouseStateRow) ||
-        row.descripcion?.trim() ||
-        `Producto ${codigo}`;
+      const nombre = resolveNombreProductoVenta(row, codigo);
 
       return {
         idProducto: row.id_producto,
@@ -791,50 +800,58 @@ export async function listProductosVentaCatalogo(
         nombre,
         kgDisponible: 0,
         precioUnitario: precioMap.get(row.id_producto) ?? 0,
+        unidadMedida,
       } satisfies ProductoVentaOption;
     })
     .filter((row) => Boolean(row.idBodega))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
+function ordenVentaCaptureFields(
+  input: CreateOrdenVentaInput,
+): Record<string, string | null> {
+  const origenArchivos =
+    input.origenArchivos && input.origenArchivos.length > 0
+      ? input.origenArchivos.join(", ")
+      : null;
+
+  return {
+    fecha_entrega: input.fechaEntrega?.trim() || null,
+    ventana_desde: input.ventanaDesde?.trim() || null,
+    ventana_hasta: input.ventanaHasta?.trim() || null,
+    prioridad: input.prioridad?.trim() || null,
+    orden_compra_hotel: input.ordenCompraHotel?.trim() || null,
+    centro_consumo: input.centroConsumo?.trim() || null,
+    vendedor: input.vendedor?.trim() || null,
+    moneda: input.moneda?.trim() || null,
+    bodega_destino_label: input.bodegaDestinoLabel?.trim() || null,
+    direccion_entrega: input.direccionEntrega?.trim() || null,
+    anden: input.anden?.trim() || null,
+    contacto_entrega: input.contacto?.trim() || null,
+    telefono_contacto: input.telefono?.trim() || null,
+    turno: input.turno?.trim() || null,
+    hora_salida: input.horaSalida?.trim() || null,
+    chofer: input.chofer?.trim() || null,
+    unidad: input.unidad?.trim() || null,
+    acepta_sustituciones: input.aceptaSustituciones?.trim() || null,
+    requiere_lote: input.requiereLote?.trim() || null,
+    registrar_temperatura: input.registrarTemperatura?.trim() || null,
+    origen_texto: input.origenTexto?.trim() || null,
+    origen_archivos: origenArchivos,
+    notas_lineas: input.notasLineas?.trim() || null,
+    notas_almacen: input.notasAlmacen?.trim() || null,
+  };
+}
+
 /** Crea una OV en borrador con una o más líneas (scope tenant, Supabase directo). */
 export async function createOrdenVenta(
-  input: CreateOrdenVentaInput,
+  input: CreateOrdenVentaInput & { idOrdenVenta?: string },
 ): Promise<OrdenVentaOperadorRow> {
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
   const idComprador = input.idComprador.trim();
   const idBodegaDestino = input.idBodegaDestino.trim();
   const observaciones = input.observaciones?.trim() || null;
   const idCreador = input.idCreador?.trim() || null;
-
-  // Campos de captura (para guardar directo en columnas).
-  const fechaEntrega = input.fechaEntrega?.trim() || null;
-  const ventanaDesde = input.ventanaDesde?.trim() || null;
-  const ventanaHasta = input.ventanaHasta?.trim() || null;
-  const prioridad = input.prioridad?.trim() || null;
-  const ordenCompraHotel = input.ordenCompraHotel?.trim() || null;
-  const centroConsumo = input.centroConsumo?.trim() || null;
-  const vendedor = input.vendedor?.trim() || null;
-  const moneda = input.moneda?.trim() || null;
-  const bodegaDestinoLabel = input.bodegaDestinoLabel?.trim() || null;
-  const direccionEntrega = input.direccionEntrega?.trim() || null;
-  const anden = input.anden?.trim() || null;
-  const contactoEntrega = input.contacto?.trim() || null;
-  const telefonoContacto = input.telefono?.trim() || null;
-  const turno = input.turno?.trim() || null;
-  const horaSalida = input.horaSalida?.trim() || null;
-  const chofer = input.chofer?.trim() || null;
-  const unidad = input.unidad?.trim() || null;
-  const aceptaSustituciones = input.aceptaSustituciones?.trim() || null;
-  const requiereLote = input.requiereLote?.trim() || null;
-  const registrarTemperatura = input.registrarTemperatura?.trim() || null;
-  const origenTexto = input.origenTexto?.trim() || null;
-  const origenArchivos =
-    input.origenArchivos && input.origenArchivos.length > 0
-      ? input.origenArchivos.join(", ")
-      : null;
-  const notasLineas = input.notasLineas?.trim() || null;
-  const notasAlmacen = input.notasAlmacen?.trim() || null;
 
   const lineas =
     input.lineas && input.lineas.length > 0
@@ -921,52 +938,112 @@ export async function createOrdenVenta(
     }
   }
 
-  const orden = await runDomainMutation<OrdenVentaRow>((client) => {
-    const query = client
-      .from("orden_venta")
-      .insert({
-        codigo_cuenta: codigoCuenta,
-        id_bodega: idBodega,
-        id_cliente: idCliente,
-        id_comprador: idComprador,
-        id_creador: idCreador,
-        id_bodega_destino: idBodegaDestino,
-        fecha_entrega: fechaEntrega,
-        ventana_desde: ventanaDesde,
-        ventana_hasta: ventanaHasta,
-        prioridad,
-        orden_compra_hotel: ordenCompraHotel,
-        centro_consumo: centroConsumo,
-        vendedor,
-        moneda,
-        bodega_destino_label: bodegaDestinoLabel,
-        direccion_entrega: direccionEntrega,
-        anden,
-        contacto_entrega: contactoEntrega,
-        telefono_contacto: telefonoContacto,
-        turno,
-        hora_salida: horaSalida,
-        chofer,
-        unidad,
-        acepta_sustituciones: aceptaSustituciones,
-        requiere_lote: requiereLote,
-        registrar_temperatura: registrarTemperatura,
-        origen_texto: origenTexto,
-        origen_archivos: origenArchivos,
-        notas_lineas: notasLineas,
-        notas_almacen: notasAlmacen,
-        codigo: generateOrdenVentaCodigo(),
-        estado: "borrador",
-        observaciones,
-      })
-      .select(ORDEN_VENTA_COLUMNS)
-      .single();
+  const capture = ordenVentaCaptureFields(input);
+  const idOrdenVentaExistente =
+    "idOrdenVenta" in input && typeof input.idOrdenVenta === "string"
+      ? input.idOrdenVenta.trim()
+      : "";
 
-    return query as unknown as Promise<{
-      data: OrdenVentaRow | null;
-      error: { message: string } | null;
-    }>;
-  });
+  if (idOrdenVentaExistente) {
+    if (!input.origenTexto?.trim()) {
+      delete capture.origen_texto;
+    }
+    if (!input.origenArchivos || input.origenArchivos.length === 0) {
+      delete capture.origen_archivos;
+    }
+  }
+
+  let orden: OrdenVentaRow;
+
+  if (idOrdenVentaExistente) {
+    const existing = await runDomainQuery<{ estado: string } | null>(
+      (client) => {
+        const query = client
+          .from("orden_venta")
+          .select("estado")
+          .eq("codigo_cuenta", codigoCuenta)
+          .eq("id_orden_venta", idOrdenVentaExistente)
+          .maybeSingle();
+
+        return query as unknown as Promise<{
+          data: { estado: string } | null;
+          error: { message: string } | null;
+        }>;
+      },
+    );
+
+    if (!existing) {
+      throw new DomainServiceError(
+        "No se encontró la orden de venta.",
+        "NOT_FOUND",
+      );
+    }
+
+    if (!puedeEditarOrdenVenta(existing.estado)) {
+      throw new DomainServiceError(
+        "Esta orden ya no se puede editar.",
+        "MUTATION_FAILED",
+      );
+    }
+
+    orden = await runDomainMutation<OrdenVentaRow>((client) => {
+      const query = client
+        .from("orden_venta")
+        .update({
+          id_bodega: idBodega,
+          id_cliente: idCliente,
+          id_comprador: idComprador,
+          id_bodega_destino: idBodegaDestino,
+          ...capture,
+          observaciones,
+        })
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_orden_venta", idOrdenVentaExistente)
+        .select(ORDEN_VENTA_COLUMNS)
+        .single();
+
+      return query as unknown as Promise<{
+        data: OrdenVentaRow | null;
+        error: { message: string } | null;
+      }>;
+    });
+
+    await runDomainMutation((client) => {
+      const query = client
+        .from("orden_venta_linea")
+        .delete()
+        .eq("id_orden_venta", orden.id_orden_venta);
+
+      return query as unknown as Promise<{
+        data: unknown;
+        error: { message: string } | null;
+      }>;
+    });
+  } else {
+    orden = await runDomainMutation<OrdenVentaRow>((client) => {
+      const query = client
+        .from("orden_venta")
+        .insert({
+          codigo_cuenta: codigoCuenta,
+          id_bodega: idBodega,
+          id_cliente: idCliente,
+          id_comprador: idComprador,
+          id_creador: idCreador,
+          id_bodega_destino: idBodegaDestino,
+          ...capture,
+          codigo: generateOrdenVentaCodigo(),
+          estado: "borrador",
+          observaciones,
+        })
+        .select(ORDEN_VENTA_COLUMNS)
+        .single();
+
+      return query as unknown as Promise<{
+        data: OrdenVentaRow | null;
+        error: { message: string } | null;
+      }>;
+    });
+  }
 
   await runDomainMutation((client) => {
     const query = client.from("orden_venta_linea").insert(
@@ -983,6 +1060,8 @@ export async function createOrdenVenta(
           id_producto: idProducto,
           cantidad_pedida: linea.cantidadPedida,
           precio_unitario: precioUnitario,
+          cajas: linea.cajas ?? null,
+          presentacion: linea.presentacion?.trim() || null,
         };
       }),
     );
@@ -1022,6 +1101,21 @@ export async function createOrdenVenta(
   );
 }
 
+/** Actualiza cabecera y líneas de una OV editable (no despachada/cerrada/cancelada). */
+export async function updateOrdenVenta(
+  input: UpdateOrdenVentaInput,
+): Promise<OrdenVentaOperadorRow> {
+  const idOrdenVenta = input.idOrdenVenta.trim();
+  if (!idOrdenVenta) {
+    throw new DomainServiceError(
+      "La orden de venta no es válida.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  return createOrdenVenta({ ...input, idOrdenVenta });
+}
+
 function resolveCompradorRel(
   comprador: OrdenVentaDetalleDbRow["comprador"],
 ): { nombre: string | null; codigo: string | null } | null {
@@ -1044,6 +1138,11 @@ function mapOrdenVentaLineaDetalleRow(
     id_producto: row.id_producto,
     cantidad_pedida: parseCantidadKg(row.cantidad_pedida),
     precio_unitario: parseCantidadKg(row.precio_unitario),
+    cajas:
+      row.cajas == null || row.cajas === ""
+        ? null
+        : parseCantidadKg(row.cajas) || null,
+    presentacion: row.presentacion?.trim() || null,
     producto: resolveOrdenVentaLineaProducto(row.producto),
   };
 }

@@ -18,10 +18,11 @@ import {
   CATALOGO_ESTADO_DEFAULT,
   CATALOGO_ESTADO_OPTIONS,
   CATALOGO_TIPO_SECUNDARIO,
+  CATALOGO_UNIDAD_MEDIDA_DEFAULT,
+  CATALOGO_UNIDAD_MEDIDA_OPTIONS,
   CATALOGO_UNIDAD_VISUALIZACION_DEFAULT,
   getCatalogoUnidadVisualizacionLabel,
   resolveCatalogoSelectOptions,
-  resolveCatalogoUnidadMedida,
   createEmptyCatalogoMetadatos,
   type CatalogoProductoMetadatos,
 } from "../constants/catalogo-producto";
@@ -51,6 +52,7 @@ interface ProductoSecundarioCreateModalProps {
 type ProductoSecundarioForm = CatalogoProductoMetadatos & {
   titulo: string;
   unidadVisualizacion: string;
+  unidadMedida: string;
   idProductoPrimario: string;
 };
 
@@ -58,13 +60,13 @@ function createInitialForm(): ProductoSecundarioForm {
   return {
     titulo: "",
     unidadVisualizacion: CATALOGO_UNIDAD_VISUALIZACION_DEFAULT,
+    unidadMedida: CATALOGO_UNIDAD_MEDIDA_DEFAULT,
     idProductoPrimario: "",
     ...createEmptyCatalogoMetadatos(),
     tipo: CATALOGO_TIPO_SECUNDARIO,
     basePrimario: CATALOGO_BASE_PRIMARIO_LABEL,
     gramosPorUnidad: "200",
     mermaPct: "0",
-    precio: "0",
   };
 }
 
@@ -195,8 +197,8 @@ export function ProductoSecundarioCreateModal({
       setError("El estado es obligatorio.");
       return;
     }
-    if (!form.precio?.trim()) {
-      setError("El precio es obligatorio.");
+    if (!form.unidadMedida?.trim()) {
+      setError("La unidad es obligatoria.");
       return;
     }
     if (!form.idProductoPrimario) {
@@ -238,6 +240,7 @@ export function ProductoSecundarioCreateModal({
       const {
         titulo: _t,
         unidadVisualizacion,
+        unidadMedida,
         idProductoPrimario,
         ...metadatos
       } = form;
@@ -246,7 +249,7 @@ export function ProductoSecundarioCreateModal({
         codigoCuenta,
         sku,
         titulo,
-        unidadMedida: resolveCatalogoUnidadMedida(unidadVisualizacion),
+        unidadMedida: unidadMedida.trim() || CATALOGO_UNIDAD_MEDIDA_DEFAULT,
         unidadVisualizacion,
         esPrimario: false,
         esSecundario: true,
@@ -381,6 +384,17 @@ export function ProductoSecundarioCreateModal({
           compact
         />
 
+        <PolariaFormSelect
+          id="secundario-unidad-medida"
+          label="Unidad *"
+          hint="Unidad de venta (kg, und, caja…)."
+          value={form.unidadMedida}
+          onChange={(event) => patch({ unidadMedida: event.target.value })}
+          disabled={disabled}
+          options={[...CATALOGO_UNIDAD_MEDIDA_OPTIONS]}
+          compact
+        />
+
         <PolariaFormField
           id="secundario-unidad"
           label="Unidad de visualización *"
@@ -411,16 +425,6 @@ export function ProductoSecundarioCreateModal({
             />
           </div>
         </PolariaFormField>
-
-        <PolariaFormInput
-          id="secundario-precio"
-          label="Precio *"
-          hint="Precio catálogo."
-          value={form.precio ?? ""}
-          onChange={(event) => patch({ precio: event.target.value })}
-          disabled={disabled}
-          compact
-        />
 
         <fieldset className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 p-4">
           <legend className="px-1 polaria-text-label text-polaria-w-50">

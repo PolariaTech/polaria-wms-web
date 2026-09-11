@@ -14,10 +14,13 @@ import {
   CATALOGO_TIPO_OPTIONS,
   CATALOGO_TIPO_PRIMARIO,
   CATALOGO_TIPO_SECUNDARIO,
+  CATALOGO_UNIDAD_MEDIDA_DEFAULT,
+  CATALOGO_UNIDAD_MEDIDA_OPTIONS,
   CATALOGO_UNIDAD_VISUALIZACION_OPTIONS,
   createEmptyCatalogoMetadatos,
   parseCatalogoMetadatos,
   resolveCatalogoEstadoOptions,
+  resolveCatalogoSelectOptions,
   type CatalogoProductoMetadatos,
 } from "../constants/catalogo-producto";
 import {
@@ -42,6 +45,7 @@ type ProductoCatalogoForm = CatalogoProductoMetadatos & {
   titulo: string;
   sku: string;
   unidadVisualizacion: string;
+  unidadMedida: string;
 };
 
 function createInitialForm(): ProductoCatalogoForm {
@@ -49,6 +53,7 @@ function createInitialForm(): ProductoCatalogoForm {
     titulo: "",
     sku: "",
     unidadVisualizacion: "cantidad",
+    unidadMedida: CATALOGO_UNIDAD_MEDIDA_DEFAULT,
     ...createEmptyCatalogoMetadatos(),
     tipo: CATALOGO_TIPO_PRIMARIO,
     estado: CATALOGO_ESTADO_DEFAULT,
@@ -99,6 +104,7 @@ export function ProductoCatalogoEditModal({
           titulo: meta.titulo?.trim() || row.descripcion.trim(),
           sku: row.sku,
           unidadVisualizacion: row.unidad_visualizacion || "cantidad",
+          unidadMedida: row.unidad_medida?.trim() || CATALOGO_UNIDAD_MEDIDA_DEFAULT,
           ...createEmptyCatalogoMetadatos(),
           ...meta,
           tipo,
@@ -125,6 +131,14 @@ export function ProductoCatalogoEditModal({
   const estadoOptions = useMemo(
     () => resolveCatalogoEstadoOptions(form.estado),
     [form.estado],
+  );
+  const unidadMedidaOptions = useMemo(
+    () =>
+      resolveCatalogoSelectOptions(
+        CATALOGO_UNIDAD_MEDIDA_OPTIONS,
+        form.unidadMedida,
+      ),
+    [form.unidadMedida],
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -165,8 +179,8 @@ export function ProductoCatalogoEditModal({
       setError("El estado es obligatorio.");
       return;
     }
-    if (!form.precio?.trim()) {
-      setError("El precio es obligatorio.");
+    if (!form.unidadMedida?.trim()) {
+      setError("La unidad es obligatoria.");
       return;
     }
     if (esSecundario && !form.incluidoPrimarioId) {
@@ -181,14 +195,14 @@ export function ProductoCatalogoEditModal({
     setIsSubmitting(true);
 
     try {
-      const { titulo: _t, sku: _s, unidadVisualizacion, ...metadatos } = form;
+      const { titulo: _t, sku: _s, unidadVisualizacion, unidadMedida, ...metadatos } = form;
 
       await updateCatalogoProducto({
         codigoCuenta,
         idProducto,
         sku,
         titulo,
-        unidadMedida: unidadVisualizacion === "peso" ? "g" : "und",
+        unidadMedida: unidadMedida.trim() || CATALOGO_UNIDAD_MEDIDA_DEFAULT,
         unidadVisualizacion,
         esPrimario: !esSecundario,
         esSecundario,
@@ -328,14 +342,6 @@ export function ProductoCatalogoEditModal({
             disabled={isSubmitting}
             compact
           />
-          <PolariaFormInput
-            id="edit-producto-precio"
-            label="Precio *"
-            value={form.precio ?? ""}
-            onChange={(event) => patch({ precio: event.target.value })}
-            disabled={isSubmitting}
-            compact
-          />
 
           <CatalogoFormCheckbox
             id="edit-producto-impuesto"
@@ -365,6 +371,16 @@ export function ProductoCatalogoEditModal({
             compact
           />
 
+          <PolariaFormSelect
+            id="edit-producto-unidad-medida"
+            label="Unidad *"
+            hint="Unidad de venta (kg, und, caja…)."
+            value={form.unidadMedida}
+            onChange={(event) => patch({ unidadMedida: event.target.value })}
+            disabled={isSubmitting}
+            options={unidadMedidaOptions}
+            compact
+          />
           <PolariaFormSelect
             id="edit-producto-unidad-visualizacion"
             label="Unidad de visualización *"

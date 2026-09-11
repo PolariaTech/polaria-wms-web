@@ -15,7 +15,7 @@ export const CATALOGO_TABLE_COLUMN_MIN_WIDTH: Record<string, string> = {
   "nombre-op-1": "min-w-[10rem]",
   "valor-op-1": "min-w-[10rem]",
   vinculado: "min-w-[11rem]",
-  precio: "min-w-[8rem]",
+  unidad: "min-w-[6rem]",
   impuesto: "min-w-[8rem]",
   tracker: "min-w-[10rem]",
   acciones: "min-w-[14rem]",

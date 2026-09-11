@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { resolveProductoNombre } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-slot-content";
 import { listAlmacenamientoVentaUbicacionIds } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-zone-ubicaciones";
 import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bodega/types/estado-bodega.types";
 import type { WarehouseStateRow } from "@/modules/inventory/shared/types/inventory.types";
@@ -8,7 +7,11 @@ import {
   mapLatestPrecioProductoById,
   type PrecioProductoRow,
 } from "../utils/sales-precio";
-import type { ProductoVentaOption } from "../types/sales.types";
+import { resolveNombreProductoVenta } from "../utils/producto-venta-nombre";
+import {
+  UNIDAD_MEDIDA_VENTA_DEFAULT,
+  type ProductoVentaOption,
+} from "../types/sales.types";
 
 const WAREHOUSE_STOCK_VENTA_SELECT =
   "id_producto,id_bodega,id_ubicacion,cantidad,cantidad_reservada," +
@@ -18,7 +21,7 @@ const UBICACION_VENTA_SELECT =
   "id_ubicacion,id_bodega,tipo_ubicacion(codigo,es_recepcion,es_almacenamiento,es_picking)";
 
 const PRODUCTO_CATALOGO_SELECT =
-  "id_producto,sku,descripcion,id_cliente,metadatos_catalogo,esta_activo";
+  "id_producto,sku,descripcion,id_cliente,unidad_medida,metadatos_catalogo,esta_activo";
 
 interface WarehouseStockVentaRow {
   id_producto: string;
@@ -34,6 +37,7 @@ interface ProductoCatalogoRow {
   sku: string | null;
   descripcion: string | null;
   id_cliente: string | null;
+  unidad_medida?: string | null;
   metadatos_catalogo?: unknown;
   esta_activo?: boolean | null;
 }
@@ -54,6 +58,7 @@ function mapProductoToOption(input: {
   idBodega: string;
   kgDisponible: number;
   precioUnitario: number;
+  unidadMedida: string;
 }): ProductoVentaOption {
   return {
     idProducto: input.idProducto,
@@ -64,6 +69,7 @@ function mapProductoToOption(input: {
     nombre: input.nombre,
     kgDisponible: input.kgDisponible,
     precioUnitario: input.precioUnitario,
+    unidadMedida: input.unidadMedida.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
   };
 }
 
@@ -301,12 +307,7 @@ export async function listProductosVentaCatalogoServer(
     .map((row) => {
       const stock = kgByProducto.get(row.id_producto);
       const codigo = row.sku?.trim() || row.id_producto.slice(0, 8);
-      const nombre =
-        resolveProductoNombre({
-          producto: row,
-        } as WarehouseStateRow) ||
-        row.descripcion?.trim() ||
-        `Producto ${codigo}`;
+      const nombre = resolveNombreProductoVenta(row, codigo);
 
       return mapProductoToOption({
         idProducto: row.id_producto,
@@ -316,6 +317,7 @@ export async function listProductosVentaCatalogoServer(
         idBodega: stock?.idBodega || defaultBodegaId,
         kgDisponible: stock?.kgDisponible ?? 0,
         precioUnitario: precioMap.get(row.id_producto) ?? 0,
+        unidadMedida: row.unidad_medida?.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
       });
     })
     .filter((row) => Boolean(row.idBodega))

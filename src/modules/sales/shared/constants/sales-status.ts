@@ -16,3 +16,13 @@ export function formatEstadoOrdenVenta(estado: string): string {
 
 export const CATALOGO_VENTA_EMPTY_MESSAGE =
   "Necesitás productos en el catálogo de la cuenta para crear ventas manuales." as const;
+
+const ESTADOS_ORDEN_VENTA_EDITABLES: ReadonlySet<EstadoOrdenVenta> = new Set([
+  "borrador",
+  "confirmada",
+  "en_preparacion",
+]);
+
+export function puedeEditarOrdenVenta(estado: string): boolean {
+  return ESTADOS_ORDEN_VENTA_EDITABLES.has(estado as EstadoOrdenVenta);
+}

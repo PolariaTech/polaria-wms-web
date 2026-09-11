@@ -220,7 +220,7 @@ export function CatalogoListView() {
           header: "Vinculado",
           cell: (row: CatalogoProductoListRow) => row.vinculado,
         },
-        { id: "precio", header: "Precio", cell: (row: CatalogoProductoListRow) => row.precio },
+        { id: "unidad", header: "Unidad", cell: (row: CatalogoProductoListRow) => row.unidad },
         {
           id: "impuesto",
           header: "Impuesto",

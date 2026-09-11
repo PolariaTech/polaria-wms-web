@@ -20,7 +20,10 @@ export function resolveIdPaquete(codigoLote: string | null | undefined): string 
   return trimmed;
 }
 
-export function resolveProductoNombre(row: WarehouseStateRow): string | null {
+export function resolveProductoNombre(
+  row: WarehouseStateRow,
+  options?: { includeSku?: boolean },
+): string | null {
   const producto = unwrapOne(row.producto);
   if (!producto) return null;
 
@@ -28,10 +31,11 @@ export function resolveProductoNombre(row: WarehouseStateRow): string | null {
   const titulo = meta.titulo?.trim();
   const descripcion = producto.descripcion?.trim();
   const sku = producto.sku?.trim();
+  const includeSku = options?.includeSku !== false;
 
-  if (titulo && sku) return `${sku} ${titulo}`.trim();
+  if (titulo && sku && includeSku) return `${sku} ${titulo}`.trim();
   if (titulo) return titulo;
-  if (descripcion && sku) return `${sku} ${descripcion}`.trim();
+  if (descripcion && sku && includeSku) return `${sku} ${descripcion}`.trim();
   if (descripcion) return descripcion;
   if (sku) return sku;
   return null;

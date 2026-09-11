@@ -6,6 +6,7 @@ import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { cn } from "@/lib/utils/cn";
 import type { ProductoVentaOption } from "../../shared/types/sales.types";
+import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-nombre";
 
 interface OrdenVentaProductoPickerModalProps {
   open: boolean;
@@ -122,6 +123,10 @@ export function OrdenVentaProductoPickerModal({
               {filtered.map((row) => {
                 const isSelected = row.idProducto === selectedId;
                 const equivalencia = row.equivalencia?.trim() || "—";
+                const nombre = stripLeadingProductoCodigo(
+                  row.nombre,
+                  row.codigo,
+                );
                 return (
                   <tr
                     key={row.idProducto}
@@ -138,7 +143,7 @@ export function OrdenVentaProductoPickerModal({
                         handleClose();
                       }
                     }}
-                    aria-label={`Seleccionar ${row.nombre}`}
+                    aria-label={`Seleccionar ${nombre}`}
                     aria-pressed={isSelected}
                     className={cn(
                       "cursor-pointer border-b border-polaria-w-08 transition last:border-b-0",
@@ -149,7 +154,7 @@ export function OrdenVentaProductoPickerModal({
                     )}
                   >
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm">
-                      <span className="line-clamp-2">{row.nombre}</span>
+                      <span className="line-clamp-2">{nombre}</span>
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
                       <span className="line-clamp-2">{equivalencia}</span>

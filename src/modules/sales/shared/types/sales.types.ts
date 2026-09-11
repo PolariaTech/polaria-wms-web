@@ -39,6 +39,8 @@ export interface OrdenVentaOperadorRow {
   idBodegaDestino: string | null;
 }
 
+export const UNIDAD_MEDIDA_VENTA_DEFAULT = "kg" as const;
+
 export interface ProductoVentaOption {
   idProducto: string;
   label: string;
@@ -50,6 +52,8 @@ export interface ProductoVentaOption {
   equivalencia?: string | null;
   kgDisponible: number;
   precioUnitario: number;
+  /** Unidad de venta del catálogo (`producto.unidad_medida`). */
+  unidadMedida: string;
 }
 
 export interface OrdenVentaLineaInput {
@@ -57,6 +61,8 @@ export interface OrdenVentaLineaInput {
   cantidadPedida: number;
   idBodega?: string | null;
   precioUnitario?: number | null;
+  cajas?: number | null;
+  presentacion?: string | null;
 }
 
 export interface OrdenVentaLineaRow {
@@ -64,6 +70,8 @@ export interface OrdenVentaLineaRow {
   id_producto: string;
   cantidad_pedida: number;
   precio_unitario: number;
+  cajas?: number | null;
+  presentacion?: string | null;
   producto: {
     sku: string | null;
     descripcion: string | null;
@@ -97,6 +105,11 @@ export interface OrdenVentaDetalleRow extends OrdenVentaRow {
   fecha_entrega?: string | null;
   ventana_desde?: string | null;
   ventana_hasta?: string | null;
+  acepta_sustituciones?: string | null;
+  requiere_lote?: string | null;
+  registrar_temperatura?: string | null;
+  origen_texto?: string | null;
+  origen_archivos?: string | null;
 }
 
 export interface CreateOrdenVentaInput {
@@ -137,4 +150,8 @@ export interface CreateOrdenVentaInput {
   origenArchivos?: readonly string[];
   notasLineas?: string;
   notasAlmacen?: string;
+}
+
+export interface UpdateOrdenVentaInput extends CreateOrdenVentaInput {
+  idOrdenVenta: string;
 }

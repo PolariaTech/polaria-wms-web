@@ -81,6 +81,7 @@ describe("mapPedidoExtraidoToForm", () => {
           nombre: "Aguacate Hass",
           kgDisponible: 100,
           precioUnitario: 50,
+          unidadMedida: "kg",
         },
       ],
       ficha: {
@@ -105,6 +106,7 @@ describe("mapPedidoExtraidoToForm", () => {
     expect(mapped.lineas[0]?.cajasInput).toBe("2");
     expect(mapped.lineas[0]?.presentacion).toBe("Caja 20 kg");
     expect(mapped.lineas[0]?.aliasCliente).toBe("aguacate");
+    expect(mapped.lineas[0]?.unidadMedida).toBe("kg");
     expect(mapped.missingFields.has("direccion")).toBe(true);
     expect(mapped.missingFields.has("contacto")).toBe(true);
   });

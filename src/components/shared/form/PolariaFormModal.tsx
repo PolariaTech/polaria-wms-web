@@ -1,7 +1,13 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useEffect, useId, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 import { cn } from "@/lib/utils/cn";
 
 export interface PolariaFormModalProps {
@@ -38,6 +44,10 @@ export interface PolariaFormModalProps {
   stackLevel?: "base" | "elevated" | "nested";
   /** Permite desactivar cierre con Escape (p. ej. si hay un picker hijo abierto). */
   closeOnEscape?: boolean;
+  /** false = el clic en el fondo no cierra; solo Cancelar / Cerrar. */
+  closeOnBackdrop?: boolean;
+  /** false = Enter en un campo no envía; solo el botón de submit. */
+  submitOnEnter?: boolean;
 }
 
 const MODAL_STACK_CLASS = {
@@ -78,6 +88,8 @@ export function PolariaFormModal({
   asForm = true,
   stackLevel = "base",
   closeOnEscape = true,
+  closeOnBackdrop = true,
+  submitOnEnter = true,
 }: PolariaFormModalProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -112,6 +124,19 @@ export function PolariaFormModal({
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
+
+  const handleFormKeyDown = (event: ReactKeyboardEvent<HTMLFormElement>) => {
+    if (submitOnEnter || event.key !== "Enter" || event.nativeEvent.isComposing) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.tagName === "TEXTAREA") return;
+    if (target instanceof HTMLButtonElement && target.type === "submit") return;
+
+    event.preventDefault();
+  };
 
   if (!open) {
     return null;
@@ -204,14 +229,21 @@ export function PolariaFormModal({
         MODAL_STACK_CLASS[stackLevel],
       )}
     >
-      <button
-        type="button"
-        aria-label="Cerrar modal"
-        className="absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm"
-        onClick={() => {
-          if (!isSubmitting) onClose();
-        }}
-      />
+      {closeOnBackdrop ? (
+        <button
+          type="button"
+          aria-label="Cerrar modal"
+          className="absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm"
+          onClick={() => {
+            if (!isSubmitting) onClose();
+          }}
+        />
+      ) : (
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm"
+        />
+      )}
 
       <div
         role="dialog"
@@ -278,7 +310,11 @@ export function PolariaFormModal({
         </div>
 
         {asForm ? (
-          <form onSubmit={onSubmit} className={bodyClassName}>
+          <form
+            onSubmit={onSubmit}
+            onKeyDown={handleFormKeyDown}
+            className={bodyClassName}
+          >
             {bodyContent}
           </form>
         ) : (

@@ -20,6 +20,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Polaria WMS",
   description: `Sistema de gestión de almacenes Polaria · ${POLARIA_PRODUCT_VERSION}`,
+  icons: {
+    icon: [{ url: "/favico.ico", type: "image/x-icon" }],
+  },
 };
 
 export default function RootLayout({
