@@ -40,6 +40,8 @@ export interface OrdenSurtidoCapturaPayload {
   lineas: OrdenSurtidoLineaCaptura[];
   /** Notas libres que no encajan en un campo tipado. */
   observacionesIa?: string | null;
+  /** 0–100 cobertura/confianza estimada de la lectura. */
+  precisionEstimada?: number | null;
 }
 
 export interface OrdenSurtidoCapturaRow {

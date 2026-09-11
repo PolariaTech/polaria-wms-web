@@ -36,6 +36,11 @@ export default async function CapturaOrdenPublicPage({
     capturaFlash === "error"
       ? firstParam(query.msg) || "No se pudo procesar la foto."
       : null;
+  const precisionRaw = firstParam(query.precision);
+  const flashPrecision =
+    precisionRaw != null && Number.isFinite(Number(precisionRaw))
+      ? Math.max(0, Math.min(100, Math.round(Number(precisionRaw))))
+      : null;
 
   if (!idOrdenVenta) {
     return (
@@ -45,6 +50,7 @@ export default async function CapturaOrdenPublicPage({
         error="Enlace inválido."
         flashOk={false}
         flashError={null}
+        flashPrecision={null}
       />
     );
   }
@@ -79,6 +85,7 @@ export default async function CapturaOrdenPublicPage({
       error={error}
       flashOk={flashOk}
       flashError={flashError}
+      flashPrecision={flashPrecision}
     />
   );
 }

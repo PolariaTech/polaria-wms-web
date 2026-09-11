@@ -3,53 +3,9 @@
 import QRCode from "qrcode";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
-/** Papel carta (coincide con el PDF de imprimir/descargar). */
-const PAGE_WIDTH_MM = 215.9;
-const PAGE_HEIGHT_MM = 279.4;
-
 function sanitizePdfFilename(folio: string): string {
   const cleaned = folio.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-|-$/g, "");
   return cleaned || "orden";
-}
-
-function waitForIframeLoad(iframe: HTMLIFrameElement): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timeoutId = window.setTimeout(() => {
-      reject(new Error("No se pudo preparar la orden de venta."));
-    }, 10000);
-
-    iframe.addEventListener(
-      "load",
-      () => {
-        window.clearTimeout(timeoutId);
-        resolve();
-      },
-      { once: true },
-    );
-  });
-}
-
-function createHiddenIframe(src: string): {
-  iframe: HTMLIFrameElement;
-  loaded: Promise<void>;
-} {
-  const iframe = document.createElement("iframe");
-  iframe.setAttribute("aria-hidden", "true");
-  iframe.setAttribute("title", "Orden de venta");
-  Object.assign(iframe.style, {
-    position: "fixed",
-    top: "0",
-    left: "0",
-    width: `${PAGE_WIDTH_MM}mm`,
-    height: `${PAGE_HEIGHT_MM}mm`,
-    border: "0",
-    zIndex: "-1",
-    pointerEvents: "none",
-  });
-  const loaded = waitForIframeLoad(iframe);
-  iframe.src = src;
-  document.body.appendChild(iframe);
-  return { iframe, loaded };
 }
 
 export function buildCapturaOrdenUrl(idOrdenVenta: string): string {
@@ -79,52 +35,34 @@ async function withQrDataUrl(
   }
 }
 
-/** Misma hoja que Descargar: imprime el PDF jsPDF, no el HTML aparte. */
+/** Imprime en la impresora de la cuenta (IPP y/o QZ Tray), sin diálogo del browser. */
 export async function printOrdenTareaAlmacen(
   data: OrdenTareaAlmacenPrintData,
+  options?: { codigoCuenta?: string },
 ): Promise<void> {
   const { buildOrdenTareaAlmacenPdf } = await import(
     "./render-orden-tarea-almacen-pdf"
   );
   const withQr = await withQrDataUrl(data);
   const pdf = buildOrdenTareaAlmacenPdf(withQr);
-  // jsPDF tipa "bloburl" como URL; iframe.src / revokeObjectURL esperan string.
-  const blobUrl = pdf.output("bloburl").toString();
-  const { iframe, loaded } = createHiddenIframe(blobUrl);
+  const pdfBase64 = pdf.output("datauristring").split(",")[1] ?? "";
 
-  try {
-    await loaded;
-    // El visor PDF del iframe a veces necesita un tick antes de print().
-    await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, 250);
-    });
-
-    const win = iframe.contentWindow;
-    if (!win) {
-      throw new Error("No se pudo preparar la orden de venta.");
-    }
-
-    await new Promise<void>((resolve) => {
-      let settled = false;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        win.removeEventListener("afterprint", finish);
-        iframe.remove();
-        URL.revokeObjectURL(blobUrl);
-        resolve();
-      };
-
-      win.addEventListener("afterprint", finish);
-      win.focus();
-      win.print();
-      window.setTimeout(finish, 120000);
-    });
-  } catch (error) {
-    iframe.remove();
-    URL.revokeObjectURL(blobUrl);
-    throw error;
+  const codigoCuenta = options?.codigoCuenta?.trim();
+  if (!codigoCuenta) {
+    throw new Error(
+      "No se pudo imprimir: falta la cuenta activa. Recarga e inténtalo de nuevo.",
+    );
   }
+  if (!pdfBase64) {
+    throw new Error("No se pudo generar el PDF para imprimir.");
+  }
+
+  const { printPdfSilentToCuenta } = await import("./print-silent-cuenta");
+  await printPdfSilentToCuenta({
+    codigoCuenta,
+    pdfBase64,
+    jobName: `OV ${data.folio || "Polaria"}`,
+  });
 }
 
 export async function downloadOrdenTareaAlmacenPdf(

@@ -168,8 +168,10 @@ export {
 export type {
   CreateImpresoraInput,
   ImpresoraListRow,
+  UpdateImpresoraInput,
 } from "./impresoras/services/impresoras.service";
 export {
   createImpresoraConfigurator,
   listImpresorasConfigurator,
+  updateImpresoraConfigurator,
 } from "./impresoras/services/impresoras.service";

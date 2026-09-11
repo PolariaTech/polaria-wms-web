@@ -12,6 +12,8 @@ import { JefeBodegaModalSearchField } from "@/modules/jefe-bodega/components/mod
 import {
   IMPRESORA_MARCAS_CATALOG,
   IMPRESORA_TIPO_LABEL,
+  findImpresoraMarcaByNombre,
+  findImpresoraModeloByNombre,
   getImpresoraMarcaById,
   listImpresoraModelosByMarca,
   type ImpresoraMarcaCatalogItem,
@@ -23,8 +25,10 @@ import {
   labelModoEnvio,
   labelTipoConexion,
   suggestModoEnvio,
+  updateImpresoraConfigurator,
   type ImpresoraColorModo,
   type ImpresoraDuplex,
+  type ImpresoraListRow,
   type ImpresoraModoEnvio,
   type ImpresoraOrientacion,
   type ImpresoraPais,
@@ -34,26 +38,24 @@ import {
 import {
   listBodegasAssignOptions,
   listCuentasAssignOptions,
-  listUsuariosConfigurator,
   type BodegaAssignOption,
   type CuentaAssignOption,
-  type UsuarioListRow,
 } from "@/modules/configurator/usuarios/services/usuarios.service";
 
 interface ImpresoraCreateModalProps {
   open: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
+  /** Si viene, el modal edita esa impresora. */
+  impresora?: ImpresoraListRow | null;
 }
 
-type PickerKind = "usuario" | "marca" | "modelo" | null;
+type PickerKind = "marca" | "modelo" | null;
 
 const INITIAL_FORM = {
   nombre: "",
   codigo: "",
   codigoCuenta: "",
-  idUsuario: "",
-  usuarioNombre: "",
   idBodega: "",
   marcaId: "",
   marca: "",
@@ -140,15 +142,48 @@ function resolveDefaultBodegaId(
   return bodegasDeCuenta[0]?.idBodega ?? "";
 }
 
+function formFromImpresora(row: ImpresoraListRow): typeof INITIAL_FORM {
+  const marca = findImpresoraMarcaByNombre(row.marca);
+  const modelo = findImpresoraModeloByNombre(marca?.id ?? "", row.modelo);
+  return {
+    nombre: row.nombre,
+    codigo: row.codigo ?? "",
+    codigoCuenta: row.codigoCuenta,
+    idBodega: row.idBodega ?? "",
+    marcaId: marca?.id ?? "",
+    marca: row.marca ?? "",
+    modeloId: modelo?.id ?? "",
+    modelo: row.modelo ?? "",
+    pais: row.pais,
+    ubicacionTexto: row.ubicacionTexto ?? "",
+    tipoConexion: row.tipoConexion,
+    modoEnvio: row.modoEnvio,
+    hostIp: row.hostIp ?? "",
+    puerto: row.puerto != null ? String(row.puerto) : defaultPuertoString(row.modoEnvio),
+    colaNombre: row.colaNombre ?? "",
+    nombreSistema: row.nombreSistema ?? "",
+    idAgente: row.idAgente ?? "",
+    usaTls: row.usaTls,
+    tamanoPapel: row.tamanoPapel,
+    orientacion: row.orientacion,
+    duplex: row.duplex,
+    colorModo: row.colorModo,
+    bandeja: row.bandeja ?? "",
+    copiasDefault: String(row.copiasDefault || 1),
+    notas: row.notas ?? "",
+  };
+}
+
 export function ImpresoraCreateModal({
   open,
   onClose,
-  onCreated,
+  onSaved,
+  impresora = null,
 }: ImpresoraCreateModalProps) {
+  const isEdit = Boolean(impresora?.idImpresora);
   const [form, setForm] = useState(INITIAL_FORM);
   const [cuentas, setCuentas] = useState<CuentaAssignOption[]>([]);
   const [bodegas, setBodegas] = useState<BodegaAssignOption[]>([]);
-  const [usuarios, setUsuarios] = useState<UsuarioListRow[]>([]);
   const [picker, setPicker] = useState<PickerKind>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -182,14 +217,6 @@ export function ImpresoraCreateModal({
     [bodegasFiltradas],
   );
 
-  const usuariosDeCuenta = useMemo(
-    () =>
-      form.codigoCuenta
-        ? usuarios.filter((u) => u.codigoCuenta === form.codigoCuenta)
-        : [],
-    [usuarios, form.codigoCuenta],
-  );
-
   const modelosDeMarca = useMemo(
     () =>
       form.marcaId ? listImpresoraModelosByMarca(form.marcaId) : [],
@@ -204,7 +231,7 @@ export function ImpresoraCreateModal({
   useEffect(() => {
     if (!open) return;
 
-    setForm(INITIAL_FORM);
+    setForm(impresora ? formFromImpresora(impresora) : INITIAL_FORM);
     setPicker(null);
     setError(null);
     setIsSubmitting(false);
@@ -213,20 +240,18 @@ export function ImpresoraCreateModal({
     void Promise.all([
       listCuentasAssignOptions(),
       listBodegasAssignOptions(),
-      listUsuariosConfigurator(),
     ])
-      .then(([nextCuentas, nextBodegas, nextUsuarios]) => {
+      .then(([nextCuentas, nextBodegas]) => {
         setCuentas(nextCuentas);
         setBodegas(nextBodegas);
-        setUsuarios(nextUsuarios);
       })
       .catch(() => {
-        setError("No se pudieron cargar cuentas, bodegas o usuarios.");
+        setError("No se pudieron cargar cuentas o bodegas.");
       })
       .finally(() => {
         setIsLoadingOptions(false);
       });
-  }, [open]);
+  }, [open, impresora]);
 
   const updateField = useCallback(
     <K extends keyof typeof INITIAL_FORM>(
@@ -246,8 +271,6 @@ export function ImpresoraCreateModal({
     setForm((prev) => ({
       ...prev,
       codigoCuenta,
-      idUsuario: "",
-      usuarioNombre: "",
       idBodega: resolveDefaultBodegaId(cuenta, bodegasDeCuenta),
     }));
   };
@@ -280,11 +303,10 @@ export function ImpresoraCreateModal({
     const copiasDefault = Number.parseInt(form.copiasDefault.trim(), 10);
 
     try {
-      await createImpresoraConfigurator({
+      const payload = {
         nombre: form.nombre,
         codigo: form.codigo || null,
         codigoCuenta: form.codigoCuenta,
-        idUsuario: form.idUsuario,
         idBodega: form.idBodega || null,
         marca: form.marca || null,
         modelo: form.modelo || null,
@@ -305,8 +327,18 @@ export function ImpresoraCreateModal({
         bandeja: form.bandeja || null,
         copiasDefault: Number.isFinite(copiasDefault) ? copiasDefault : 1,
         notas: form.notas || null,
-      });
-      onCreated();
+      };
+
+      if (isEdit && impresora) {
+        await updateImpresoraConfigurator({
+          ...payload,
+          idImpresora: impresora.idImpresora,
+          estaActiva: impresora.estaActiva,
+        });
+      } else {
+        await createImpresoraConfigurator(payload);
+      }
+      onSaved();
       onClose();
     } catch (err) {
       setError(
@@ -325,13 +357,13 @@ export function ImpresoraCreateModal({
         open={open}
         onClose={onClose}
         sectionLabel="Configurador"
-        title="Configurar impresora"
-        description="Papel carta (Letter 8.5×11). Se asigna a un usuario de la cuenta. Wi‑Fi, Ethernet o USB vía cola del sistema / agente local."
+        title={isEdit ? "Editar impresora" : "Configurar impresora"}
+        description="Papel carta (Letter). Se asigna a todos los usuarios de la cuenta. Para imprimir sin diálogo: instala la impresora en Windows, pon su nombre de cola en «Nombre en Windows (QZ Tray)», e instala QZ Tray (qz.io) en el PC que imprime."
         onSubmit={handleSubmit}
         error={error}
         isSubmitting={isSubmitting}
         submitDisabled={isLoadingOptions}
-        submitLabel="Guardar impresora"
+        submitLabel={isEdit ? "Guardar cambios" : "Guardar impresora"}
         size="xl"
         compact
         closeOnEscape={picker === null}
@@ -370,24 +402,6 @@ export function ImpresoraCreateModal({
                 options={cuentaOptions}
                 compact
               />
-              <PolariaFormField id="imp-usuario" label="Usuario" required compact>
-                <JefeBodegaModalSearchField
-                  id="imp-usuario"
-                  value={form.usuarioNombre}
-                  placeholder={
-                    form.codigoCuenta
-                      ? "Selecciona un usuario"
-                      : "Primero elige una cuenta"
-                  }
-                  ariaLabel="Usuario"
-                  compact
-                  onSearchClick={
-                    form.codigoCuenta && !isSubmitting
-                      ? () => setPicker("usuario")
-                      : undefined
-                  }
-                />
-              </PolariaFormField>
               <PolariaFormSelect
                 id="imp-bodega"
                 label="Bodega"
@@ -541,6 +555,20 @@ export function ImpresoraCreateModal({
                 />
               ) : null}
 
+              {needsNetwork ? (
+                <PolariaFormInput
+                  id="imp-sistema-qz"
+                  label="Nombre en Windows (QZ Tray)"
+                  value={form.nombreSistema}
+                  onChange={(e) =>
+                    updateField("nombreSistema", e.target.value)
+                  }
+                  placeholder="Ej. EPSON L3250 Series (como aparece en Impresoras de Windows)"
+                  compact
+                  fieldClassName="sm:col-span-2"
+                />
+              ) : null}
+
               {needsAgente ? (
                 <>
                   <PolariaFormInput
@@ -654,45 +682,6 @@ export function ImpresoraCreateModal({
           </section>
         </div>
       </PolariaFormModal>
-
-      <ImpresoraTablePickerModal
-        open={picker === "usuario"}
-        onClose={() => setPicker(null)}
-        title="Seleccionar usuario"
-        description="Usuarios activos de la cuenta seleccionada."
-        rows={usuariosDeCuenta}
-        columns={[
-          {
-            id: "nombre",
-            header: "Nombre",
-            cell: (row: UsuarioListRow) => row.nombre,
-          },
-          {
-            id: "rol",
-            header: "Rol",
-            cell: (row) => row.rol,
-            className: "text-polaria-w-50",
-          },
-          {
-            id: "codigo",
-            header: "Cuenta",
-            cell: (row) => row.codigo,
-            className: "text-polaria-w-50",
-          },
-        ]}
-        getRowKey={(row) => row.idUsuario}
-        getSearchHaystack={(row) => `${row.nombre} ${row.rol} ${row.codigo}`}
-        selectedKey={form.idUsuario || null}
-        searchPlaceholder="Buscar por nombre o rol"
-        emptyMessage="No hay usuarios en esta cuenta."
-        onSelect={(usuario) => {
-          setForm((current) => ({
-            ...current,
-            idUsuario: usuario.idUsuario,
-            usuarioNombre: `${usuario.nombre} · ${usuario.rol}`,
-          }));
-        }}
-      />
 
       <ImpresoraTablePickerModal
         open={picker === "marca"}

@@ -43,7 +43,7 @@ export const USUARIOS_EMPTY_MESSAGE = "No hay usuarios registrados." as const;
 export const IMPRESORAS_TABLE_TITLE = "Impresoras" as const;
 
 export const IMPRESORAS_TABLE_SUBTITLE =
-  "Impresoras carta por usuario, cuenta, marca y conexión." as const;
+  "Impresoras carta por cuenta (todos sus usuarios), marca y conexión." as const;
 
 export const IMPRESORAS_EMPTY_MESSAGE =
   "No hay impresoras configuradas. Usa «Configurar impresora» para agregar la primera." as const;
