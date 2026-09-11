@@ -127,6 +127,27 @@ export function resolveCatalogoUnidadMedida(unidadVisualizacion: string): string
   return unidadVisualizacion === "peso" ? "g" : "und";
 }
 
+export const CATALOGO_UNIDAD_MEDIDA_DEFAULT = "kg" as const;
+
+export const CATALOGO_UNIDAD_MEDIDA_OPTIONS = [
+  { value: "kg", label: "kg" },
+  { value: "g", label: "g" },
+  { value: "und", label: "und" },
+  { value: "caja", label: "caja" },
+  { value: "pieza", label: "pieza" },
+  { value: "paquete", label: "paquete" },
+  { value: "bolsa", label: "bolsa" },
+  { value: "lb", label: "lb" },
+  { value: "oz", label: "oz" },
+  { value: "l", label: "l" },
+  { value: "ml", label: "ml" },
+] as const;
+
+export function normalizeUnidadMedida(value?: string | null): string {
+  const trimmed = value?.trim();
+  return trimmed || CATALOGO_UNIDAD_MEDIDA_DEFAULT;
+}
+
 export function resolveCatalogoSelectOptions(
   base: readonly { value: string; label: string }[],
   currentValue?: string,
@@ -156,7 +177,6 @@ export function createEmptyCatalogoMetadatos(): CatalogoProductoMetadatos {
     incluidoInternacional: false,
     tarjetaRegalo: false,
     cantidadInventario: "0",
-    precio: "0",
     mermaPct: "0",
   };
 }

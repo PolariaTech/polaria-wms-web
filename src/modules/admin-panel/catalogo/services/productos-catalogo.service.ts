@@ -13,7 +13,7 @@ import {
 import {
   CATALOGO_TIPO_PRIMARIO,
   CATALOGO_TIPO_SECUNDARIO,
-  getCatalogoUnidadVisualizacionLabel,
+  CATALOGO_UNIDAD_MEDIDA_DEFAULT,
   parseCatalogoMetadatos,
   type CatalogoProductoMetadatos,
 } from "../constants/catalogo-producto";
@@ -38,7 +38,6 @@ export interface CatalogoProductoListRow {
   nombreOpcion1: string;
   valorOpcion1: string;
   vinculado: string;
-  precio: string;
   unidad: string;
   impuesto: string;
   trackerInventario: string;
@@ -54,13 +53,14 @@ interface ProductoDbRow {
   es_primario: boolean;
   es_secundario: boolean;
   unidad_visualizacion: string;
+  unidad_medida: string | null;
   id_producto_primario: string | null;
   esta_activo?: boolean | null;
   metadatos_catalogo?: unknown;
 }
 
 const PRODUCTO_LIST_COLUMNS =
-  "id_producto,sku,descripcion,codigo_almacen,es_primario,es_secundario,unidad_visualizacion,id_producto_primario,esta_activo";
+  "id_producto,sku,descripcion,codigo_almacen,es_primario,es_secundario,unidad_visualizacion,unidad_medida,id_producto_primario,esta_activo";
 
 export interface CreateCatalogoProductoInput {
   codigoCuenta: string;
@@ -203,10 +203,7 @@ function mapProductoRow(row: ProductoDbRow, index: number): CatalogoProductoList
       meta.incluidoPrimarioLabel?.trim() ||
       meta.vinculadoOpcion1?.trim() ||
       "—",
-    precio: meta.precio?.trim() || "—",
-    unidad: row.unidad_visualizacion?.trim()
-      ? getCatalogoUnidadVisualizacionLabel(row.unidad_visualizacion)
-      : "—",
+    unidad: row.unidad_medida?.trim() || "—",
     impuesto: meta.cobrarImpuesto ? "Sí" : "No",
     trackerInventario: meta.rastreadorInventario?.trim() || "—",
     stock: meta.cantidadInventario?.trim() || "0",
@@ -660,7 +657,7 @@ async function createImportRow(
   row: CatalogoExcelImportRow,
   primariosBySku: Map<string, string>,
 ): Promise<void> {
-  const unidadMedida = row.unidadVisualizacion === "peso" ? "g" : "und";
+  const unidadMedida = row.unidadMedida.trim() || CATALOGO_UNIDAD_MEDIDA_DEFAULT;
 
   if (row.tipo === "primario") {
     await createCatalogoProductoPrimario({
@@ -720,7 +717,7 @@ export async function importCatalogoProductosFromFile(
         codigoCuenta: cuenta,
         sku: row.sku,
         titulo: row.titulo,
-        unidadMedida: row.unidadVisualizacion === "peso" ? "g" : "und",
+        unidadMedida: row.unidadMedida.trim() || CATALOGO_UNIDAD_MEDIDA_DEFAULT,
         unidadVisualizacion: row.unidadVisualizacion,
         metadatos: row.metadatos,
       });

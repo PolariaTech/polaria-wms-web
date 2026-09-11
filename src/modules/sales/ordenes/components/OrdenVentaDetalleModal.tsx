@@ -113,6 +113,11 @@ function DetalleContent({ orden }: { orden: OrdenVentaDetalleRow }) {
     horaSalida: orden.hora_salida?.trim() || fromObs.horaSalida,
     chofer: orden.chofer?.trim() || fromObs.chofer,
     unidad: orden.unidad?.trim() || fromObs.unidad,
+    aceptaSustituciones:
+      orden.acepta_sustituciones?.trim() || fromObs.aceptaSustituciones,
+    requiereLote: orden.requiere_lote?.trim() || fromObs.requiereLote,
+    registrarTemperatura:
+      orden.registrar_temperatura?.trim() || fromObs.registrarTemperatura,
     fechaEntrega: orden.fecha_entrega?.trim() || fromObs.fechaEntrega,
     ventanaEntrega: ventanaFlat || fromObs.ventanaEntrega,
     notasLineas: orden.notas_lineas?.trim() || fromObs.notasLineas,

@@ -4,6 +4,7 @@ import {
   CATALOGO_ESTADO_DEFAULT,
   CATALOGO_TIPO_PRIMARIO,
   CATALOGO_TIPO_SECUNDARIO,
+  CATALOGO_UNIDAD_MEDIDA_DEFAULT,
   createEmptyCatalogoMetadatos,
   type CatalogoProductoMetadatos,
 } from "../constants/catalogo-producto";
@@ -14,6 +15,7 @@ export interface CatalogoExcelImportRow {
   tipo: "primario" | "secundario";
   skuPrimario?: string;
   unidadVisualizacion: string;
+  unidadMedida: string;
   metadatos: CatalogoProductoMetadatos;
 }
 
@@ -91,8 +93,13 @@ function resolveHeaderKey(header: string): string | null {
   if (["stock", "cantidad inventario", "inventoryqty", "inventory qty"].includes(key)) {
     return "cantidadInventario";
   }
-  if (["unidad visualizacion", "unidad"].includes(key)) {
+  if (["unidad visualizacion", "unidadvisualizacion"].includes(key)) {
     return "unidadVisualizacion";
+  }
+  if (
+    ["unidad medida", "unidadmedida", "uom", "unit", "unidad"].includes(key)
+  ) {
+    return "unidadMedida";
   }
 
   return null;
@@ -130,7 +137,6 @@ function validateRequiredFrioFields(
   if (!mapped.categoria?.trim()) missing.push("category");
   if (!mapped.tipo?.trim()) missing.push("productType");
   if (!mapped.estado?.trim()) missing.push("status");
-  if (!resolvePrecio(mapped)) missing.push("precio");
 
   if (!missing.length) {
     return null;
@@ -172,6 +178,8 @@ function mapRecordToRow(
   const impuesto = parseSiNo(mapped.impuesto ?? "");
   const unidadVisualizacion =
     mapped.unidadVisualizacion?.toLowerCase() === "peso" ? "peso" : "cantidad";
+  const unidadMedida =
+    mapped.unidadMedida?.trim() || CATALOGO_UNIDAD_MEDIDA_DEFAULT;
   const precio = resolvePrecio(mapped);
 
   const metadatos: CatalogoProductoMetadatos = {
@@ -202,6 +210,7 @@ function mapRecordToRow(
       tipo,
       skuPrimario: mapped.skuPrimario || undefined,
       unidadVisualizacion,
+      unidadMedida,
       metadatos,
     },
   };
@@ -249,7 +258,7 @@ export async function parseCatalogoSpreadsheetFile(
 
   if (!rows.length && !errors.length) {
     errors.push(
-      "No se encontraron filas válidas. Campos obligatorios: title, description, provider, category, productType, status, precio.",
+      "No se encontraron filas válidas. Campos obligatorios: title, description, provider, category, productType, status.",
     );
   }
 

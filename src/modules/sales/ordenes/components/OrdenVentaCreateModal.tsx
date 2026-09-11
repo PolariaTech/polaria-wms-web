@@ -19,7 +19,13 @@ import {
 } from "@/components/shared/form/PolariaFormField";
 import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
-import { formatKgEs, formatPrecioEs, parseDecimalEs } from "@/lib/utils/decimal-es";
+import {
+  coerceLeadingDecimalInput,
+  formatDecimalInputEs,
+  formatKgEs,
+  formatPrecioEs,
+  parseDecimalEs,
+} from "@/lib/utils/decimal-es";
 import { cn } from "@/lib/utils/cn";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import {
@@ -44,14 +50,21 @@ import {
   createOrdenVenta,
   getCuentaIdBodegaDefault,
   getOrdenVentaDetalle,
+  updateOrdenVenta,
 } from "../../shared/services/sales.service";
-import type { ProductoVentaOption } from "../../shared/types/sales.types";
+import {
+  UNIDAD_MEDIDA_VENTA_DEFAULT,
+  type OrdenVentaLineaInput,
+  type ProductoVentaOption,
+} from "../../shared/types/sales.types";
+import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-nombre";
 import { OrdenVentaCompradorPickerModal } from "./OrdenVentaCompradorPickerModal";
 import { OrdenVentaProductoPickerModal } from "./OrdenVentaProductoPickerModal";
 import { leerPedidoConIaApi } from "../services/sales-ai.api";
 import {
   buildOrdenVentaCapturaObservaciones,
   isAfterWarehouseCutoff,
+  notaCapturaForProducto,
   tomorrowIsoDate,
 } from "../utils/build-orden-venta-captura-observaciones";
 import {
@@ -59,11 +72,16 @@ import {
   type CampoDiscrepancia,
 } from "../utils/map-pedido-extraido-to-form";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/prefill-orden-venta-from-comprador";
+import {
+  formatCompradorOrdenVenta,
+  resolveOrdenVentaLineaTitulo,
+} from "../utils/orden-venta-display";
 
 interface OrdenVentaCreateModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  idOrdenVenta?: string | null;
 }
 
 type CaptureStep = "start" | "form";
@@ -76,10 +94,13 @@ interface LineaVentaForm {
   codigo: string;
   idBodega: string;
   cantidadInput: string;
+  cajasInput: string;
+  presentacion: string;
   especificacion: string;
   descuentoPctInput: string;
   ivaPct: string;
   kgDisponible: number;
+  unidadMedida: string;
   precioUnitario: number;
   precioInput: string;
   precioManual?: boolean;
@@ -111,6 +132,27 @@ const IVA_PCT_OPTIONS = [
   { value: "0", label: "0%" },
   { value: "8", label: "8%" },
   { value: "16", label: "16%" },
+] as const;
+
+const PRESENTACION_OPTIONS = [
+  { value: "", label: "—" },
+  { value: "Caja 1.5 kg", label: "Caja 1.5 kg" },
+  { value: "Caja 20 kg", label: "Caja 20 kg" },
+  { value: "Caja 21 kg", label: "Caja 21 kg" },
+  { value: "Granel", label: "Granel" },
+] as const;
+
+const SUSTITUCIONES_OPTIONS = [
+  { value: "", label: "—" },
+  { value: "No — surtir parcial", label: "No — surtir parcial" },
+  { value: "Sí, con aviso", label: "Sí, con aviso" },
+  { value: "Sí, a criterio de almacén", label: "Sí, a criterio de almacén" },
+] as const;
+
+const SI_NO_OPTIONS = [
+  { value: "", label: "—" },
+  { value: "No", label: "No" },
+  { value: "Sí", label: "Sí" },
 ] as const;
 
 function lineAmounts(linea: LineaVentaForm): {
@@ -191,9 +233,8 @@ function resolveBodegaDestinoInicial(
 }
 
 function formatPrecioInput(value: number): string {
-  if (!Number.isFinite(value)) return "";
-  if (Number.isInteger(value)) return String(value);
-  return String(value).replace(".", ",");
+  if (!Number.isFinite(value) || value === 0) return "";
+  return formatDecimalInputEs(value);
 }
 
 function CaptureSection({
@@ -223,15 +264,24 @@ function CaptureSection({
   );
 }
 
+function toDateInputValue(value: string | null | undefined): string {
+  const raw = value?.trim() ?? "";
+  if (!raw) return "";
+  return raw.slice(0, 10);
+}
+
 export function OrdenVentaCreateModal({
   open,
   onClose,
   onCreated,
+  idOrdenVenta = null,
 }: OrdenVentaCreateModalProps) {
   const { codigoCuenta } = useCompany();
   const session = useAuthStore((state) => state.session);
   const idCreador = session?.idUsuario ?? "";
   const vendedorNombre = session?.nombre?.trim() ?? "";
+  const editingId = idOrdenVenta?.trim() || "";
+  const isEditing = Boolean(editingId);
 
   const [step, setStep] = useState<CaptureStep>("start");
   const [startMode, setStartMode] = useState<StartMode | null>(null);
@@ -253,6 +303,9 @@ export function OrdenVentaCreateModal({
   const [horaSalida, setHoraSalida] = useState("");
   const [chofer, setChofer] = useState("");
   const [unidad, setUnidad] = useState("");
+  const [aceptaSustituciones, setAceptaSustituciones] = useState("");
+  const [requiereLote, setRequiereLote] = useState("");
+  const [registrarTemperatura, setRegistrarTemperatura] = useState("");
   const [origenTexto, setOrigenTexto] = useState("");
   const [origenArchivoFiles, setOrigenArchivoFiles] = useState<File[]>([]);
   const [lineas, setLineas] = useState<LineaVentaForm[]>([]);
@@ -283,6 +336,7 @@ export function OrdenVentaCreateModal({
   const [bodegasDestino, setBodegasDestino] = useState<BodegaDestinoOption[]>([]);
   const [idBodegaDestino, setIdBodegaDestino] = useState("");
   const [pendingEmitId, setPendingEmitId] = useState<string | null>(null);
+  const [editingEstado, setEditingEstado] = useState<string | null>(null);
   const [picker, setPicker] = useState<PickerKind>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -385,8 +439,8 @@ export function OrdenVentaCreateModal({
   useEffect(() => {
     if (!open) return;
 
-    setStep("start");
-    setStartMode(null);
+    setStep(isEditing ? "form" : "start");
+    setStartMode(isEditing ? "scratch" : null);
     setIsCompradorCreateOpen(false);
     setIdComprador("");
     setCompradorLabel("");
@@ -407,6 +461,9 @@ export function OrdenVentaCreateModal({
     setHoraSalida("");
     setChofer("");
     setUnidad("");
+    setAceptaSustituciones("");
+    setRequiereLote("");
+    setRegistrarTemperatura("");
     setOrigenTexto("");
     setOrigenArchivoFiles([]);
     setLineas([]);
@@ -417,6 +474,7 @@ export function OrdenVentaCreateModal({
     setBodegasDestino([]);
     setIdBodegaDestino("");
     setPendingEmitId(null);
+    setEditingEstado(null);
     setPicker(null);
     setAutoFields(new Set());
     setWarnFields(new Set());
@@ -441,6 +499,9 @@ export function OrdenVentaCreateModal({
       listBodegasInternasVinculadasAdmin({ codigoCuenta }),
       listBodegasExternasVinculadasAdmin({ codigoCuenta }),
       getCuentaIdBodegaDefault(codigoCuenta),
+      editingId
+        ? getOrdenVentaDetalle({ codigoCuenta, idOrdenVenta: editingId })
+        : Promise.resolve(null),
     ])
       .then(
         ([
@@ -449,6 +510,7 @@ export function OrdenVentaCreateModal({
           internas,
           externas,
           idBodegaDefault,
+          detalle,
         ]) => {
         setProductosBase(productoRows);
         setCompradores(compradorRows);
@@ -465,6 +527,135 @@ export function OrdenVentaCreateModal({
         setIdBodegaDestino(
           resolveBodegaDestinoInicial(destinoRows, idBodegaDefault),
         );
+
+        if (!detalle) return;
+
+        setEditingEstado(detalle.estado);
+        const idCompradorDetalle = detalle.id_comprador?.trim() || "";
+        selectedCompradorIdRef.current = idCompradorDetalle;
+        setIdComprador(idCompradorDetalle);
+        const compradorRow = compradorRows.find(
+          (row) => row.idComprador === idCompradorDetalle,
+        );
+        setCompradorLabel(
+          compradorRow
+            ? formatCompradorLabel(compradorRow)
+            : formatCompradorOrdenVenta(detalle),
+        );
+        setFechaEntrega(toDateInputValue(detalle.fecha_entrega));
+        setVentanaDesde(detalle.ventana_desde?.trim() || "");
+        setVentanaHasta(detalle.ventana_hasta?.trim() || "");
+        setPrioridad(detalle.prioridad?.trim() || "Normal");
+        setMoneda(detalle.moneda?.trim() || "MXN");
+        setOrdenCompraHotel(detalle.orden_compra_hotel?.trim() || "");
+        setCentroConsumo(detalle.centro_consumo?.trim() || "");
+        setObservaciones(detalle.notas_almacen?.trim() || "");
+        setDireccion(detalle.direccion_entrega?.trim() || "");
+        setAnden(detalle.anden?.trim() || "");
+        setContacto(detalle.contacto_entrega?.trim() || "");
+        setTelefono(detalle.telefono_contacto?.trim() || "");
+        setTurno(detalle.turno?.trim() || "");
+        setHoraSalida(detalle.hora_salida?.trim() || "");
+        setChofer(detalle.chofer?.trim() || "");
+        setUnidad(detalle.unidad?.trim() || "");
+        setAceptaSustituciones(detalle.acepta_sustituciones?.trim() || "");
+        setRequiereLote(detalle.requiere_lote?.trim() || "");
+        setRegistrarTemperatura(detalle.registrar_temperatura?.trim() || "");
+        setOrigenTexto(detalle.origen_texto?.trim() || "");
+        if (detalle.id_bodega_destino?.trim()) {
+          setIdBodegaDestino(detalle.id_bodega_destino.trim());
+        }
+
+        const notasLineas = detalle.notas_lineas?.trim() || "";
+        setLineas(
+          (detalle.lineas ?? []).map((linea) => {
+            const catalogo = productoRows.find(
+              (row) => row.idProducto === linea.id_producto,
+            );
+            const codigo =
+              catalogo?.codigo || linea.producto?.sku?.trim() || linea.id_producto.slice(0, 8);
+            const nombre = stripLeadingProductoCodigo(
+              catalogo?.nombre || resolveOrdenVentaLineaTitulo(linea),
+              codigo,
+            );
+            return {
+              idProducto: linea.id_producto,
+              nombre,
+              codigo,
+              idBodega: catalogo?.idBodega || detalle.id_bodega,
+              cantidadInput: formatDecimalInputEs(linea.cantidad_pedida),
+              cajasInput:
+                linea.cajas != null && linea.cajas > 0
+                  ? formatDecimalInputEs(linea.cajas)
+                  : "",
+              presentacion: linea.presentacion?.trim() || "",
+              especificacion: notaCapturaForProducto(notasLineas, nombre),
+              descuentoPctInput: "",
+              ivaPct: "0",
+              kgDisponible: catalogo?.kgDisponible ?? 0,
+              unidadMedida:
+                catalogo?.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+              precioUnitario: linea.precio_unitario,
+              precioInput: formatPrecioInput(linea.precio_unitario),
+              precioManual: true,
+            };
+          }),
+        );
+
+        if (idCompradorDetalle) {
+          void getCompradorAdmin({
+            codigoCuenta,
+            idComprador: idCompradorDetalle,
+          })
+            .then((adminDetalle) => {
+              if (selectedCompradorIdRef.current !== idCompradorDetalle) {
+                return;
+              }
+              setFichaComprador(adminDetalle.ficha);
+              const prefill = buildOrdenVentaPrefillFromComprador({
+                ficha: adminDetalle.ficha,
+                telefonoComprador: compradorRow?.telefono,
+              });
+              setExigeOc(prefill.exigeOc);
+            })
+            .catch(() => {
+              if (selectedCompradorIdRef.current !== idCompradorDetalle) {
+                return;
+              }
+              setFichaComprador(null);
+              setExigeOc(false);
+            });
+
+          void listCompradorProductoAliasAdmin({
+            codigoCuenta,
+            idComprador: idCompradorDetalle,
+          })
+            .then((aliases) => {
+              if (selectedCompradorIdRef.current !== idCompradorDetalle) {
+                return;
+              }
+              const overrides: Record<string, number> = {};
+              const equivalencias: Record<string, string> = {};
+              for (const alias of aliases) {
+                if (alias.precioOverride != null) {
+                  overrides[alias.idProducto] = alias.precioOverride;
+                }
+                const nombreAlias = alias.alias?.trim();
+                if (nombreAlias) {
+                  equivalencias[alias.idProducto] = nombreAlias;
+                }
+              }
+              setPrecioOverrideByProducto(overrides);
+              setEquivalenciaByProducto(equivalencias);
+            })
+            .catch(() => {
+              if (selectedCompradorIdRef.current !== idCompradorDetalle) {
+                return;
+              }
+              setPrecioOverrideByProducto({});
+              setEquivalenciaByProducto({});
+            });
+        }
       })
       .catch((err) => {
         setError(
@@ -476,7 +667,7 @@ export function OrdenVentaCreateModal({
       .finally(() => {
         setIsLoading(false);
       });
-  }, [codigoCuenta, open]);
+  }, [codigoCuenta, editingId, open]);
 
   const applyCompradorPrefill = useCallback(
     (row: CompradorListRow, ficha: CompradorAltaFicha) => {
@@ -494,6 +685,9 @@ export function OrdenVentaCreateModal({
       setAnden(prefill.anden);
       setContacto(prefill.contacto);
       setTelefono(prefill.telefono);
+      setAceptaSustituciones(prefill.aceptaSustituciones);
+      setRequiereLote(prefill.requiereLote);
+      setRegistrarTemperatura(prefill.registrarTemperatura);
       setObservaciones(prefill.observaciones);
     },
     [],
@@ -566,14 +760,17 @@ export function OrdenVentaCreateModal({
         ...prev,
         {
           idProducto: row.idProducto,
-          nombre: row.nombre,
+          nombre: stripLeadingProductoCodigo(row.nombre, row.codigo),
           codigo: row.codigo,
           idBodega: row.idBodega,
           cantidadInput: "",
+          cajasInput: "",
+          presentacion: "",
           especificacion: "",
           descuentoPctInput: "",
           ivaPct: "0",
           kgDisponible: row.kgDisponible,
+          unidadMedida: row.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
           precioUnitario: row.precioUnitario,
           precioInput: formatPrecioInput(row.precioUnitario),
         },
@@ -610,11 +807,24 @@ export function OrdenVentaCreateModal({
   }, []);
 
   const handleCantidadChange = useCallback((index: number, value: string) => {
+    const nextValue = coerceLeadingDecimalInput(value);
     setLineas((prev) =>
       prev.map((linea, i) =>
         i === index
-          ? { ...linea, cantidadInput: value, filledByIa: false }
+          ? { ...linea, cantidadInput: nextValue, filledByIa: false }
           : linea,
+      ),
+    );
+  }, []);
+
+  const handleCantidadBlur = useCallback((index: number, value: string) => {
+    const parsed = parseDecimalEs(value);
+    if (parsed == null || parsed <= 0) return;
+    const formatted = formatDecimalInputEs(parsed);
+    if (formatted === value) return;
+    setLineas((prev) =>
+      prev.map((linea, i) =>
+        i === index ? { ...linea, cantidadInput: formatted } : linea,
       ),
     );
   }, []);
@@ -637,18 +847,37 @@ export function OrdenVentaCreateModal({
   );
 
   const handlePrecioChange = useCallback((index: number, value: string) => {
+    const nextValue = coerceLeadingDecimalInput(value);
     setLineas((prev) =>
       prev.map((linea, i) => {
         if (i !== index) return linea;
-        const parsed = parseDecimalEs(value);
+        const parsed = parseDecimalEs(nextValue);
         return {
           ...linea,
-          precioInput: value,
+          precioInput: nextValue,
           precioUnitario: parsed != null && parsed >= 0 ? parsed : 0,
           precioManual: true,
           filledByIa: false,
         };
       }),
+    );
+  }, []);
+
+  const handlePrecioBlur = useCallback((index: number, value: string) => {
+    const parsed = parseDecimalEs(value);
+    if (parsed == null || parsed <= 0) return;
+    const formatted = formatDecimalInputEs(parsed);
+    if (formatted === value) return;
+    setLineas((prev) =>
+      prev.map((linea, i) =>
+        i === index
+          ? {
+              ...linea,
+              precioInput: formatted,
+              precioUnitario: parsed,
+            }
+          : linea,
+      ),
     );
   }, []);
 
@@ -765,6 +994,9 @@ export function OrdenVentaCreateModal({
       setTelefono(mapped.telefono);
       setVentanaDesde(mapped.ventanaDesde);
       setVentanaHasta(mapped.ventanaHasta);
+      setAceptaSustituciones(mapped.aceptaSustituciones);
+      setRequiereLote(mapped.requiereLote);
+      setRegistrarTemperatura(mapped.registrarTemperatura);
       setAutoFields(mapped.autoFields);
       setWarnFields(mapped.warnFields);
       setMissingFields(mapped.missingFields);
@@ -776,10 +1008,13 @@ export function OrdenVentaCreateModal({
           codigo: linea.codigo,
           idBodega: linea.idBodega,
           cantidadInput: linea.cantidadInput,
+          cajasInput: linea.cajasInput,
+          presentacion: linea.presentacion,
           especificacion: linea.especificacion,
           descuentoPctInput: linea.descuentoPctInput,
           ivaPct: "0",
           kgDisponible: linea.kgDisponible,
+          unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
           precioUnitario: linea.precioUnitario,
           precioInput: formatPrecioInput(linea.precioUnitario),
           aliasCliente: linea.aliasCliente,
@@ -876,12 +1111,7 @@ export function OrdenVentaCreateModal({
         bodegasDestino.find((row) => row.idBodega === idBodegaDestino)?.label ??
         "";
 
-      const lineasParsed: Array<{
-        idProducto: string;
-        cantidadPedida: number;
-        idBodega: string;
-        precioUnitario: number;
-      }> = [];
+      const lineasParsed: OrdenVentaLineaInput[] = [];
 
       for (const linea of lineas) {
         const cantidadKg = parseDecimalEs(linea.cantidadInput);
@@ -899,116 +1129,143 @@ export function OrdenVentaCreateModal({
           cantidadPedida: cantidadKg,
           idBodega: linea.idBodega,
           precioUnitario: precio,
+          cajas: (() => {
+            const parsed = parseDecimalEs(linea.cajasInput);
+            return parsed != null && parsed > 0 ? parsed : null;
+          })(),
+          presentacion: linea.presentacion.trim() || null,
         });
       }
 
       setIsSaving(true);
 
-      let idOrdenVenta = pendingEmitId;
+      const persistOrigenTexto =
+        isEditing || startMode === "docs" ? origenTexto : "";
+      const persistOrigenArchivos =
+        startMode === "docs" ? origenArchivos : [];
+      const notasLineasText = lineas
+        .flatMap((linea) => {
+          const bits: string[] = [];
+          if (linea.especificacion.trim()) {
+            bits.push(linea.especificacion.trim());
+          }
+          const descPct = parseDecimalEs(linea.descuentoPctInput);
+          if (descPct != null && descPct > 0) {
+            bits.push(`desc ${descPct}%`);
+          }
+          if (linea.ivaPct && linea.ivaPct !== "0") {
+            bits.push(`IVA ${linea.ivaPct}%`);
+          }
+          if (bits.length === 0) return [];
+          return [`${linea.nombre}: ${bits.join(" · ")}`];
+        })
+        .join("\n");
+
+      const payload = {
+        codigoCuenta,
+        idBodega: lineasParsed[0]?.idBodega,
+        idBodegaDestino,
+        idComprador,
+        lineas: lineasParsed,
+        fechaEntrega,
+        ventanaDesde,
+        ventanaHasta,
+        prioridad,
+        moneda,
+        ordenCompraHotel,
+        centroConsumo,
+        vendedor: vendedorNombre,
+        bodegaDestinoLabel,
+        direccionEntrega: direccion,
+        anden,
+        contacto,
+        telefono,
+        turno,
+        horaSalida,
+        chofer,
+        unidad,
+        aceptaSustituciones,
+        requiereLote,
+        registrarTemperatura,
+        origenTexto: persistOrigenTexto,
+        origenArchivos: persistOrigenArchivos,
+        notasLineas: notasLineasText,
+        notasAlmacen: observaciones,
+        observaciones: buildOrdenVentaCapturaObservaciones({
+          fechaEntrega,
+          ventanaDesde,
+          ventanaHasta,
+          prioridad,
+          moneda,
+          bodegaDestino: bodegaDestinoLabel,
+          ordenCompraHotel,
+          centroConsumo,
+          vendedor: vendedorNombre,
+          observaciones,
+          direccion,
+          anden,
+          contacto,
+          telefono,
+          turno,
+          horaSalida,
+          chofer,
+          unidad,
+          aceptaSustituciones,
+          requiereLote,
+          registrarTemperatura,
+          origenTexto: persistOrigenTexto,
+          origenArchivos: persistOrigenArchivos,
+          notasLineas: notasLineasText,
+        }),
+        idCreador: idCreador || null,
+      };
+
+      let idOrdenVenta = isEditing ? editingId : pendingEmitId;
+      const shouldEmit = !isEditing || editingEstado === "borrador";
 
       try {
-        if (!idOrdenVenta) {
-          const notasLineasText = lineas
-            .flatMap((linea) => {
-              const bits: string[] = [];
-              if (linea.especificacion.trim()) {
-                bits.push(linea.especificacion.trim());
-              }
-              const descPct = parseDecimalEs(linea.descuentoPctInput);
-              if (descPct != null && descPct > 0) {
-                bits.push(`desc ${descPct}%`);
-              }
-              if (linea.ivaPct && linea.ivaPct !== "0") {
-                bits.push(`IVA ${linea.ivaPct}%`);
-              }
-              if (bits.length === 0) return [];
-              return [`${linea.nombre}: ${bits.join(" · ")}`];
-            })
-            .join("\n");
-
-          const created = await createOrdenVenta({
-          codigoCuenta,
-            idBodega: lineasParsed[0]?.idBodega,
-            idBodegaDestino,
-          idComprador,
-            lineas: lineasParsed,
-            fechaEntrega,
-            ventanaDesde,
-            ventanaHasta,
-            prioridad,
-            moneda,
-            ordenCompraHotel,
-            centroConsumo,
-            vendedor: vendedorNombre,
-            bodegaDestinoLabel,
-            direccionEntrega: direccion,
-            anden,
-            contacto,
-            telefono,
-            turno,
-            horaSalida,
-            chofer,
-            unidad,
-            origenTexto: startMode === "docs" ? origenTexto : "",
-            origenArchivos: startMode === "docs" ? origenArchivos : [],
-            notasLineas: notasLineasText,
-            notasAlmacen: observaciones,
-            observaciones: buildOrdenVentaCapturaObservaciones({
-              fechaEntrega,
-              ventanaDesde,
-              ventanaHasta,
-              prioridad,
-              moneda,
-              bodegaDestino: bodegaDestinoLabel,
-              ordenCompraHotel,
-              centroConsumo,
-              vendedor: vendedorNombre,
-              observaciones,
-              direccion,
-              anden,
-              contacto,
-              telefono,
-              turno,
-              horaSalida,
-              chofer,
-              unidad,
-              aceptaSustituciones: "",
-              requiereLote: "",
-              registrarTemperatura: "",
-              origenTexto: startMode === "docs" ? origenTexto : "",
-              origenArchivos: startMode === "docs" ? origenArchivos : [],
-              notasLineas: notasLineasText,
-            }),
-          idCreador: idCreador || null,
-        });
+        if (isEditing && editingId) {
+          await updateOrdenVenta({ ...payload, idOrdenVenta: editingId });
+          idOrdenVenta = editingId;
+        } else if (!idOrdenVenta) {
+          const created = await createOrdenVenta(payload);
           idOrdenVenta = created.idOrdenVenta;
           setPendingEmitId(idOrdenVenta);
         }
 
-        try {
-          await emitirOrdenVentaApi(idOrdenVenta);
-        } catch (emitErr: unknown) {
-          // Si el pedido ya salió a bodega en un intento previo, no bloquear.
-          const emitMessage =
-            emitErr instanceof DomainServiceError ? emitErr.message : "";
-          const maybeAlreadyEmitted =
-            emitMessage.includes("borrador") ||
-            emitMessage.includes("estado");
-
-          if (!maybeAlreadyEmitted || !codigoCuenta) {
-            throw emitErr;
+        if (shouldEmit) {
+          if (!idOrdenVenta) {
+            throw new DomainServiceError(
+              "La orden de venta no es válida.",
+              "INVALID_ARGUMENT",
+            );
           }
 
-          const detalle = await getOrdenVentaDetalle({
-            codigoCuenta,
-            idOrdenVenta,
-          });
-          if (
-            detalle.estado === "borrador" ||
-            detalle.estado === "cancelada" ||
-            detalle.estado === "cerrada"
-          ) {
-            throw emitErr;
+          try {
+            await emitirOrdenVentaApi(idOrdenVenta);
+          } catch (emitErr: unknown) {
+            // Si el pedido ya salió a bodega en un intento previo, no bloquear.
+            const emitMessage =
+              emitErr instanceof DomainServiceError ? emitErr.message : "";
+            const maybeAlreadyEmitted =
+              emitMessage.includes("borrador") ||
+              emitMessage.includes("estado");
+
+            if (!maybeAlreadyEmitted || !codigoCuenta) {
+              throw emitErr;
+            }
+
+            const detalle = await getOrdenVentaDetalle({
+              codigoCuenta,
+              idOrdenVenta,
+            });
+            if (
+              detalle.estado === "borrador" ||
+              detalle.estado === "cancelada" ||
+              detalle.estado === "cerrada"
+            ) {
+              throw emitErr;
+            }
           }
         }
 
@@ -1019,9 +1276,11 @@ export function OrdenVentaCreateModal({
         const message =
           err instanceof DomainServiceError
             ? err.message
-            : idOrdenVenta
-              ? "No se pudo enviar el pedido a la bodega destino."
-              : "No se pudo crear la orden de venta.";
+            : isEditing && editingEstado !== "borrador"
+              ? "No se pudieron guardar los cambios."
+              : idOrdenVenta
+                ? "No se pudo enviar el pedido a la bodega destino."
+                : "No se pudo crear la orden de venta.";
         setError(message);
       } finally {
         setIsSaving(false);
@@ -1034,6 +1293,8 @@ export function OrdenVentaCreateModal({
       codigoCuenta,
       contacto,
       direccion,
+      editingEstado,
+      editingId,
       exigeOc,
       fechaEntrega,
       hasProductos,
@@ -1041,6 +1302,7 @@ export function OrdenVentaCreateModal({
       idBodegaDestino,
       idComprador,
       idCreador,
+      isEditing,
       lineas,
       moneda,
       observaciones,
@@ -1058,6 +1320,9 @@ export function OrdenVentaCreateModal({
       telefono,
       turno,
       unidad,
+      aceptaSustituciones,
+      requiereLote,
+      registrarTemperatura,
       vendedorNombre,
       ventanaDesde,
       ventanaHasta,
@@ -1103,13 +1368,21 @@ export function OrdenVentaCreateModal({
       <PolariaFormModal
         open={open}
         onClose={onClose}
-        title={step === "form" ? "Pedido" : "Nuevo pedido"}
+        title={
+          isEditing
+            ? "Editar pedido"
+            : step === "form"
+              ? "Pedido"
+              : "Nuevo pedido"
+        }
         description={
-          step === "form"
-            ? formDescription
-            : startMode === "docs"
-              ? "Tengo el mensaje o archivos"
-              : "¿Cómo quieres empezar?"
+          isEditing
+            ? "Actualiza los datos del pedido"
+            : step === "form"
+              ? formDescription
+              : startMode === "docs"
+                ? "Tengo el mensaje o archivos"
+                : "¿Cómo quieres empezar?"
         }
         onSubmit={(event) => {
           void handleSubmit(event);
@@ -1117,13 +1390,19 @@ export function OrdenVentaCreateModal({
         error={error}
         isSubmitting={isSaving}
         submitDisabled={isLoading || !hasProductos || lineas.length === 0}
-        submitLabel="Validar y enviar"
+        submitLabel={
+          isEditing && editingEstado !== "borrador"
+            ? "Guardar cambios"
+            : "Validar y enviar"
+        }
         compact
         size={step === "start" ? "lg" : "2xl"}
         hideHeaderClose
         asForm={step === "form"}
         footerAction={step === "start" ? <></> : undefined}
         closeOnEscape={picker === null && !isCompradorCreateOpen}
+        closeOnBackdrop={false}
+        submitOnEnter={false}
       >
         {isLoading ? (
           <p className="polaria-text-body-sm text-polaria-w-50">Cargando…</p>
@@ -1723,18 +2002,18 @@ export function OrdenVentaCreateModal({
                     </div>
                   }
                 >
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[56rem] border-collapse text-left">
+                  <div className="overflow-x-hidden">
+                    <table className="w-full table-fixed border-collapse text-left">
                     <colgroup>
-                        <col style={{ width: "14rem" }} />
-                        <col style={{ width: "6.5rem" }} />
+                        <col />
+                        <col style={{ width: "4.25rem" }} />
+                        <col style={{ width: "4.75rem" }} />
+                        <col style={{ width: "6.25rem" }} />
+                        <col style={{ width: "4.25rem" }} />
+                        <col style={{ width: "4.75rem" }} />
                         <col style={{ width: "5rem" }} />
-                        <col style={{ width: "8.5rem" }} />
                         <col style={{ width: "5.5rem" }} />
-                        <col style={{ width: "6.5rem" }} />
-                        <col style={{ width: "5.5rem" }} />
-                        <col style={{ width: "6rem" }} />
-                        <col style={{ width: "2.75rem" }} />
+                        <col style={{ width: "2.25rem" }} />
                     </colgroup>
                       <thead>
                       <tr className="border-b border-polaria-t-20">
@@ -1765,7 +2044,7 @@ export function OrdenVentaCreateModal({
                           <th className="px-1 pb-2 text-left polaria-text-caption font-medium text-polaria-w-50">
                             Importe
                           </th>
-                          <th className="px-1 pb-2">
+                          <th className="px-0 pb-2 pr-1">
                           <span className="sr-only">Quitar</span>
                         </th>
                       </tr>
@@ -1815,8 +2094,15 @@ export function OrdenVentaCreateModal({
                                         event.target.value,
                                       )
                                     }
+                                    onBlur={(event) =>
+                                      handleCantidadBlur(
+                                        index,
+                                        event.target.value,
+                                      )
+                                    }
                                     className={cn(
                                       POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                      "px-2 tabular-nums",
                                       fieldControlClass({
                                         missing:
                                           !linea.cantidadInput.trim() ||
@@ -1829,15 +2115,22 @@ export function OrdenVentaCreateModal({
                                     )}
                                   />
                                   <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                                    Disp. {formatKgEs(linea.kgDisponible)} kg
+                                    Disp. {formatKgEs(linea.kgDisponible)}{" "}
+                                    {linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT}
                                   </p>
                           </td>
                                 <td className="px-1 py-2 align-top">
                                   <input
                                     aria-label={`Unidad de ${linea.nombre}`}
-                                    value="kg"
+                                    value={
+                                      linea.unidadMedida ||
+                                      UNIDAD_MEDIDA_VENTA_DEFAULT
+                                    }
                                     readOnly
-                                    className={POLARIA_FORM_INPUT_CLASS_COMPACT}
+                                    className={cn(
+                                      POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                      "px-1.5 text-center",
+                                    )}
                                   />
                           </td>
                                 <td className="px-1 py-2 align-top">
@@ -1854,6 +2147,7 @@ export function OrdenVentaCreateModal({
                                     }
                                     className={cn(
                                       POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                      "px-2",
                                       linea.filledByIa &&
                                         linea.especificacion &&
                                         "!border-polaria-teal/50 !bg-polaria-t-08",
@@ -1883,15 +2177,22 @@ export function OrdenVentaCreateModal({
                                     type="text"
                                     inputMode="decimal"
                                     value={linea.precioInput}
-                                    placeholder="0"
+                                    placeholder=""
                                     onChange={(event) =>
                                       handlePrecioChange(
                                         index,
                                         event.target.value,
                                       )
                                     }
+                                    onBlur={(event) =>
+                                      handlePrecioBlur(
+                                        index,
+                                        event.target.value,
+                                      )
+                                    }
                                     className={cn(
                                       POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                      "px-2 tabular-nums",
                                       fieldControlClass({
                                         missing:
                                           !linea.precioInput.trim() ||
@@ -1927,11 +2228,11 @@ export function OrdenVentaCreateModal({
                                 <td className="px-1 py-2 align-top font-mono polaria-text-body-sm text-polaria-teal">
                                   ${formatPrecioEs(importe)}
                                 </td>
-                                <td className="px-1 py-2 align-top text-center">
+                                <td className="px-0 py-2 pr-1 align-top text-center">
                             <button
                               type="button"
                               onClick={() => handleRemoveLinea(index)}
-                                    className="rounded-lg p-2 text-polaria-w-50 transition hover:bg-polaria-w-08 hover:text-polaria-danger"
+                                    className="rounded-lg p-1.5 text-polaria-w-50 transition hover:bg-polaria-w-08 hover:text-polaria-danger"
                                     aria-label={`Quitar ${linea.nombre}`}
                             >
                               <Trash2 className="h-4 w-4" aria-hidden />
@@ -1975,6 +2276,75 @@ export function OrdenVentaCreateModal({
                     />
             </div>
                 </CaptureSection>
+
+                <div className="hidden" aria-hidden>
+                  {lineas.map((linea, index) => (
+                    <div key={`hidden-pack-${linea.idProducto}`}>
+                      <input
+                        aria-label={`Cajas de ${linea.nombre}`}
+                        tabIndex={-1}
+                        value={linea.cajasInput}
+                        onChange={(event) =>
+                          setLineas((prev) =>
+                            prev.map((row, i) =>
+                              i === index
+                                ? { ...row, cajasInput: event.target.value }
+                                : row,
+                            ),
+                          )
+                        }
+                      />
+                      <select
+                        aria-label={`Presentación de ${linea.nombre}`}
+                        tabIndex={-1}
+                        value={linea.presentacion}
+                        onChange={(event) =>
+                          setLineas((prev) =>
+                            prev.map((row, i) =>
+                              i === index
+                                ? { ...row, presentacion: event.target.value }
+                                : row,
+                            ),
+                          )
+                        }
+                      >
+                        {PRESENTACION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                  <PolariaFormSelect
+                    id="orden-venta-sustituciones"
+                    label="¿Acepta sustituciones?"
+                    value={aceptaSustituciones}
+                    onChange={(event) =>
+                      setAceptaSustituciones(event.target.value)
+                    }
+                    options={SUSTITUCIONES_OPTIONS}
+                    compact
+                  />
+                  <PolariaFormSelect
+                    id="orden-venta-lote"
+                    label="Requiere lote / trazabilidad"
+                    value={requiereLote}
+                    onChange={(event) => setRequiereLote(event.target.value)}
+                    options={SI_NO_OPTIONS}
+                    compact
+                  />
+                  <PolariaFormSelect
+                    id="orden-venta-temp"
+                    label="Registrar temperatura al entregar"
+                    value={registrarTemperatura}
+                    onChange={(event) =>
+                      setRegistrarTemperatura(event.target.value)
+                    }
+                    options={SI_NO_OPTIONS}
+                    compact
+                  />
+                </div>
 
                 <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
                   <button

@@ -3,16 +3,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
+  PolariaTableActionGroup,
   PolariaTableBadge,
   PolariaTableCode,
   PolariaTableDownloadButton,
+  PolariaTableEditButton,
   PolariaTablePrintButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
-import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
+import { formatPrecioEs } from "@/lib/utils/decimal-es";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
-import { formatEstadoOrdenVenta } from "../../shared/constants/sales-status";
+import {
+  formatEstadoOrdenVenta,
+  puedeEditarOrdenVenta,
+} from "../../shared/constants/sales-status";
 import { useOrdenesVentaSubscription } from "../../shared/hooks/useOrdenesVentaSubscription";
 import {
   ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS,
@@ -57,6 +62,7 @@ function renderEstadoBadge(estado: string) {
 export function OperadorOrdenesVentaPageContent() {
   const { codigoCuenta } = useCompany();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const printingLockRef = useRef(false);
   const [busyAction, setBusyAction] = useState<{
@@ -206,21 +212,11 @@ export function OperadorOrdenesVentaPageContent() {
         header: "Comprador",
         headerClassName: ordenVentaTableColumnClass("comprador", "header"),
         cellClassName: ordenVentaTableColumnClass("comprador"),
-        cell: (row: OrdenVentaOperadorRow) => row.comprador,
-      },
-      {
-        id: "productos",
-        header: "Productos",
-        headerClassName: ordenVentaTableColumnClass("productos", "header"),
-        cellClassName: ordenVentaTableColumnClass("productos"),
-        cell: (row: OrdenVentaOperadorRow) => row.productos,
-      },
-      {
-        id: "cantidadKg",
-        header: "Cantidad (kg)",
-        headerClassName: ordenVentaTableColumnClass("cantidadKg", "header"),
-        cellClassName: ordenVentaTableColumnClass("cantidadKg"),
-        cell: (row: OrdenVentaOperadorRow) => `${formatKgEs(row.cantidadKg)} kg`,
+        cell: (row: OrdenVentaOperadorRow) => (
+          <span className="block max-w-[9.5rem] truncate" title={row.comprador}>
+            {row.comprador}
+          </span>
+        ),
       },
       {
         id: "total",
@@ -244,80 +240,55 @@ export function OperadorOrdenesVentaPageContent() {
         cell: (row: OrdenVentaOperadorRow) => formatDateTime(row.fecha),
       },
       {
-        id: "origen",
-        header: "Origen",
-        headerClassName: ordenVentaTableColumnClass("origen", "header"),
-        cellClassName: ordenVentaTableColumnClass("origen"),
-        cell: () => "—",
-      },
-      {
-        id: "imprimir",
-        header: "Imprimir",
-        headerClassName: ordenVentaTableColumnClass("imprimir", "header"),
-        cellClassName: ordenVentaTableColumnClass("imprimir"),
-        cell: (row: OrdenVentaOperadorRow) => (
-          <span
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-          >
-            <PolariaTablePrintButton
-              onClick={() => {
-                void runOrdenOutput(row, "print");
-              }}
-              disabled={
-                busyAction?.id === row.idOrdenVenta &&
-                busyAction.kind === "print"
-              }
-            />
-          </span>
-        ),
-      },
-      {
-        id: "descargar",
-        header: "Descargar",
-        headerClassName: ordenVentaTableColumnClass("descargar", "header"),
-        cellClassName: ordenVentaTableColumnClass("descargar"),
-        cell: (row: OrdenVentaOperadorRow) => (
-          <span
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-          >
-            <PolariaTableDownloadButton
-              onClick={() => {
-                void runOrdenOutput(row, "download");
-              }}
-              disabled={
-                busyAction?.id === row.idOrdenVenta &&
-                busyAction.kind === "download"
-              }
-            />
-          </span>
-        ),
-      },
-      {
-        id: "pdfActualizado",
-        header: "PDF actualizado",
-        headerClassName: ordenVentaTableColumnClass("pdfActualizado", "header"),
-        cellClassName: ordenVentaTableColumnClass("pdfActualizado"),
+        id: "acciones",
+        header: "Acciones",
+        headerClassName: ordenVentaTableColumnClass("acciones", "header"),
+        cellClassName: ordenVentaTableColumnClass("acciones"),
         cell: (row: OrdenVentaOperadorRow) => {
-          if (!idsConPdfActualizado.has(row.idOrdenVenta)) {
-            return <span className="text-polaria-w-20">—</span>;
-          }
+          const hasPdfActualizado = idsConPdfActualizado.has(row.idOrdenVenta);
+          const busyId = busyAction?.id === row.idOrdenVenta;
           return (
             <span
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
             >
-              <PolariaTableDownloadButton
-                label="Descargar PDF actualizado (surtido)"
-                onClick={() => {
-                  void runOrdenOutput(row, "updated");
-                }}
-                disabled={
-                  busyAction?.id === row.idOrdenVenta &&
-                  busyAction.kind === "updated"
-                }
-              />
+              <PolariaTableActionGroup>
+                <PolariaTableEditButton
+                  label={
+                    puedeEditarOrdenVenta(row.estado)
+                      ? "Editar"
+                      : "Esta orden ya no se puede editar"
+                  }
+                  disabled={!puedeEditarOrdenVenta(row.estado)}
+                  onClick={() => {
+                    if (!puedeEditarOrdenVenta(row.estado)) return;
+                    setEditingId(row.idOrdenVenta);
+                    setIsCreateOpen(true);
+                  }}
+                />
+                <PolariaTablePrintButton
+                  onClick={() => {
+                    void runOrdenOutput(row, "print");
+                  }}
+                  disabled={busyId && busyAction?.kind === "print"}
+                />
+                <PolariaTableDownloadButton
+                  onClick={() => {
+                    void runOrdenOutput(row, "download");
+                  }}
+                  disabled={busyId && busyAction?.kind === "download"}
+                />
+                <PolariaTableDownloadButton
+                  label="Descargar PDF actualizado (surtido)"
+                  onClick={() => {
+                    void runOrdenOutput(row, "updated");
+                  }}
+                  disabled={
+                    !hasPdfActualizado ||
+                    (busyId && busyAction?.kind === "updated")
+                  }
+                />
+              </PolariaTableActionGroup>
             </span>
           );
         },
@@ -348,6 +319,7 @@ export function OperadorOrdenesVentaPageContent() {
           label: "Nueva venta",
           onClick: () => {
             if (!codigoCuenta) return;
+            setEditingId(null);
             setIsCreateOpen(true);
           },
         }}
@@ -367,7 +339,11 @@ export function OperadorOrdenesVentaPageContent() {
 
       <OrdenVentaCreateModal
         open={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        idOrdenVenta={editingId}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setEditingId(null);
+        }}
         onCreated={() => {
           void reload();
         }}

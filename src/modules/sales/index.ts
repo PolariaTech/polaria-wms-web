@@ -6,11 +6,13 @@ export type {
   OrdenVentaOperadorRow,
   OrdenVentaRow,
   ProductoVentaOption,
+  UpdateOrdenVentaInput,
 } from "./shared/types/sales.types";
 
 export {
   CATALOGO_VENTA_EMPTY_MESSAGE,
   formatEstadoOrdenVenta,
+  puedeEditarOrdenVenta,
 } from "./shared/constants/sales-status";
 
 export {
@@ -20,6 +22,7 @@ export {
   listOrdenesVentaOperador,
   listOrdenesVentaOperadorParaJefe,
   listProductosVentaCatalogo,
+  updateOrdenVenta,
 } from "./shared/services/sales.service";
 
 export {

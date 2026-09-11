@@ -4,6 +4,7 @@ import {
   getOrdersVisibleSinceDate,
   setSupabaseClientForTests,
 } from "@/lib/supabase/domain-query";
+import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
 import {
   createOrdenVenta,
@@ -11,6 +12,7 @@ import {
   listOrdenesVenta,
   listOrdenesVentaOperador,
   listProductosVentaCatalogo,
+  updateOrdenVenta,
 } from "./sales.service";
 
 function createBodegaChain(ids: string[]) {
@@ -86,6 +88,145 @@ function createProductoCatalogoChain(rows: Record<string, unknown>[]) {
   chain.order.mockReturnValue(chain);
   chain.limit.mockResolvedValue({ data: rows, error: null });
   return chain;
+}
+
+const ORDEN_VENTA_BASE_ROW = {
+  id_orden_venta: "ov-1",
+  codigo_cuenta: "CUENTA-01",
+  id_bodega: "bod-1",
+  id_cliente: "cli-1",
+  id_comprador: "comp-1",
+  id_planta: null,
+  id_creador: "usr-1",
+  id_bodega_destino: "bod-dest",
+  codigo: "OV-001",
+  estado: "confirmada",
+  fecha_pedido: "2026-06-28",
+  observaciones: "Nota",
+  created_at: "2026-06-28T12:00:00.000Z",
+  updated_at: "2026-06-28T12:00:00.000Z",
+};
+
+function mockUpdateOrdenVentaDeps(existingEstado: string) {
+  const bodegaChain = createBodegaChain(["bod-1"]);
+
+  const compradorChain = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    in: vi.fn(),
+    limit: vi.fn(),
+  };
+  compradorChain.select.mockReturnValue(compradorChain);
+  compradorChain.eq.mockReturnValue(compradorChain);
+  compradorChain.in.mockReturnValue(compradorChain);
+  compradorChain.limit.mockImplementation(function (this: typeof compradorChain) {
+    if (compradorChain.in.mock.calls.length > 0) {
+      return Promise.resolve({
+        data: [{ id_comprador: "comp-1", nombre: "Retail Norte" }],
+        error: null,
+      });
+    }
+    return Promise.resolve({
+      data: [{ id_comprador: "comp-1" }],
+      error: null,
+    });
+  });
+
+  const productoChain = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    in: vi.fn(),
+    limit: vi.fn(),
+  };
+  productoChain.select.mockReturnValue(productoChain);
+  productoChain.eq.mockReturnValue(productoChain);
+  productoChain.in.mockReturnValue(productoChain);
+  productoChain.limit.mockImplementation(function (this: typeof productoChain) {
+    if (productoChain.in.mock.calls.length > 0) {
+      return Promise.resolve({
+        data: [{ id_producto: "prod-1" }],
+        error: null,
+      });
+    }
+
+    return Promise.resolve({
+      data: [{ id_producto: "prod-1", id_cliente: "cli-1" }],
+      error: null,
+    });
+  });
+
+  const existingSelectChain = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    maybeSingle: vi.fn(),
+  };
+  existingSelectChain.select.mockReturnValue(existingSelectChain);
+  existingSelectChain.eq.mockReturnValue(existingSelectChain);
+  existingSelectChain.maybeSingle.mockResolvedValue({
+    data: { estado: existingEstado },
+    error: null,
+  });
+
+  const ordenUpdateChain = {
+    update: vi.fn(),
+    eq: vi.fn(),
+    select: vi.fn(),
+    single: vi.fn(),
+  };
+  ordenUpdateChain.update.mockReturnValue(ordenUpdateChain);
+  ordenUpdateChain.eq.mockReturnValue(ordenUpdateChain);
+  ordenUpdateChain.select.mockReturnValue(ordenUpdateChain);
+  ordenUpdateChain.single.mockResolvedValue({
+    data: { ...ORDEN_VENTA_BASE_ROW, estado: existingEstado },
+    error: null,
+  });
+
+  const lineaDeleteChain = {
+    delete: vi.fn(),
+    eq: vi.fn(),
+  };
+  lineaDeleteChain.delete.mockReturnValue(lineaDeleteChain);
+  lineaDeleteChain.eq.mockResolvedValue({ data: null, error: null });
+
+  const lineaInsertChain = {
+    insert: vi.fn(),
+  };
+  lineaInsertChain.insert.mockResolvedValue({ data: null, error: null });
+
+  const precioChain = createPrecioProductoChain([
+    {
+      id_producto: "prod-1",
+      precio: "106.5700",
+      fecha_aplicacion: "2026-07-11T00:38:27.036Z",
+    },
+  ]);
+
+  let ordenVentaCalls = 0;
+  let lineaCalls = 0;
+  const from = vi.fn((table: string) => {
+    if (table === "bodega") return bodegaChain;
+    if (table === "comprador") return compradorChain;
+    if (table === "producto") return productoChain;
+    if (table === "precio_producto") return precioChain;
+    if (table === "orden_venta") {
+      ordenVentaCalls += 1;
+      return ordenVentaCalls === 1 ? existingSelectChain : ordenUpdateChain;
+    }
+    if (table === "orden_venta_linea") {
+      lineaCalls += 1;
+      return lineaCalls === 1 ? lineaDeleteChain : lineaInsertChain;
+    }
+    throw new Error(`unexpected table ${table}`);
+  });
+
+  setSupabaseClientForTests({ from } as never);
+
+  return {
+    existingSelectChain,
+    ordenUpdateChain,
+    lineaDeleteChain,
+    lineaInsertChain,
+  };
 }
 
 describe("sales.service", () => {
@@ -281,7 +422,9 @@ describe("sales.service", () => {
     expect(rows[0]?.kgDisponible).toBe(60);
     expect(rows[0]?.idBodega).toBe("bod-1");
     expect(rows[0]?.codigo).toBe("FIL-01");
+    expect(rows[0]?.nombre).toBe("Filete");
     expect(rows[0]?.precioUnitario).toBe(106.57);
+    expect(rows[0]?.unidadMedida).toBe("kg");
   });
 
   it("listProductosVentaCatalogo incluye productos sin stock usable (kg 0)", async () => {
@@ -508,6 +651,8 @@ describe("sales.service", () => {
         id_producto: "prod-1",
         cantidad_pedida: 1,
         precio_unitario: 106.57,
+        cajas: null,
+        presentacion: null,
       },
     ]);
   });
@@ -628,6 +773,8 @@ describe("sales.service", () => {
         id_producto: "prod-1",
         cantidad_pedida: 25,
         precio_unitario: 10,
+        cajas: null,
+        presentacion: null,
       },
     ]);
   });
@@ -705,5 +852,64 @@ describe("sales.service", () => {
     expect(detalle.lineas[0]?.cantidad_pedida).toBe(10);
     expect(detalle.lineas[0]?.precio_unitario).toBe(1000);
     expect(detalle.bodega_nombre).toBe("Bodega central");
+  });
+
+  it("updateOrdenVenta actualiza cabecera y reemplaza líneas si está confirmada", async () => {
+    const deps = mockUpdateOrdenVentaDeps("confirmada");
+
+    const row = await updateOrdenVenta({
+      codigoCuenta: "CUENTA-01",
+      idOrdenVenta: "ov-1",
+      idBodega: "bod-1",
+      idBodegaDestino: "bod-dest",
+      idComprador: "comp-1",
+      lineas: [
+        {
+          idProducto: "prod-1",
+          cantidadPedida: 12,
+          precioUnitario: 110,
+          cajas: 2,
+          presentacion: "Caja 6 kg",
+        },
+      ],
+    });
+
+    expect(deps.ordenUpdateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id_comprador: "comp-1",
+        id_bodega_destino: "bod-dest",
+      }),
+    );
+    expect(deps.lineaDeleteChain.delete).toHaveBeenCalled();
+    expect(deps.lineaInsertChain.insert).toHaveBeenCalledWith([
+      {
+        id_orden_venta: "ov-1",
+        id_producto: "prod-1",
+        cantidad_pedida: 12,
+        precio_unitario: 110,
+        cajas: 2,
+        presentacion: "Caja 6 kg",
+      },
+    ]);
+    expect(row.venta).toBe("OV-001");
+    expect(row.estado).toBe("confirmada");
+  });
+
+  it("updateOrdenVenta rechaza una orden despachada", async () => {
+    const deps = mockUpdateOrdenVentaDeps("despachada");
+
+    await expect(
+      updateOrdenVenta({
+        codigoCuenta: "CUENTA-01",
+        idOrdenVenta: "ov-1",
+        idBodega: "bod-1",
+        idBodegaDestino: "bod-dest",
+        idComprador: "comp-1",
+        idProducto: "prod-1",
+      }),
+    ).rejects.toBeInstanceOf(DomainServiceError);
+
+    expect(deps.ordenUpdateChain.update).not.toHaveBeenCalled();
+    expect(deps.lineaDeleteChain.delete).not.toHaveBeenCalled();
   });
 });

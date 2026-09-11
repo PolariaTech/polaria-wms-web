@@ -98,4 +98,75 @@ describe("PolariaFormModal", () => {
     expect(dialog.parentElement).toHaveClass("overflow-hidden");
     expect(dialog.parentElement).not.toHaveClass("overflow-y-auto");
   });
+
+  it("cierra al hacer clic en el fondo por defecto", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <PolariaFormModal
+        open
+        onClose={onClose}
+        title="Crear cuenta"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <input aria-label="Campo demo" />
+      </PolariaFormModal>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cerrar modal" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("no cierra al hacer clic en el fondo cuando closeOnBackdrop es false", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <PolariaFormModal
+        open
+        onClose={onClose}
+        title="Pedido"
+        hideHeaderClose
+        closeOnBackdrop={false}
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <input aria-label="Campo demo" />
+      </PolariaFormModal>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Cerrar modal" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("no envía el formulario con Enter en un campo cuando submitOnEnter es false", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn((event: { preventDefault: () => void }) => {
+      event.preventDefault();
+    });
+
+    render(
+      <PolariaFormModal
+        open
+        onClose={() => undefined}
+        title="Pedido"
+        submitOnEnter={false}
+        onSubmit={onSubmit}
+        submitLabel="Validar y enviar"
+      >
+        <input aria-label="Cantidad" />
+      </PolariaFormModal>,
+    );
+
+    await user.click(screen.getByLabelText("Cantidad"));
+    await user.keyboard("{Enter}");
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Validar y enviar" }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
 });

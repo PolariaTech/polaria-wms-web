@@ -1,5 +1,6 @@
 import type { PedidoExtraido } from "../ai/openai-pedido.client";
 import type { ProductoVentaOption } from "../../shared/types/sales.types";
+import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-nombre";
 import {
   aplicarEmpaqueInicialLinea,
   collectMissingFieldsDocs,
@@ -18,6 +19,7 @@ export interface LineaVentaFromIa {
   descuentoPctInput: string;
   ivaPct: string;
   kgDisponible: number;
+  unidadMedida: string;
   precioUnitario: number;
   aliasCliente: string;
   filledByIa: boolean;
@@ -321,7 +323,7 @@ export function mapPedidoExtraidoToForm(params: {
 
     lineas.push({
       idProducto: match.idProducto,
-      nombre: match.nombre,
+      nombre: stripLeadingProductoCodigo(match.nombre, match.codigo),
       codigo: match.codigo,
       idBodega: match.idBodega,
       cantidadInput: empaque.cantidadInput,
@@ -331,6 +333,7 @@ export function mapPedidoExtraidoToForm(params: {
       descuentoPctInput: "0",
       ivaPct: "0",
       kgDisponible: match.kgDisponible,
+      unidadMedida: match.unidadMedida,
       precioUnitario: match.precioUnitario,
       aliasCliente: linea.textoOriginal?.trim() || "",
       filledByIa: true,

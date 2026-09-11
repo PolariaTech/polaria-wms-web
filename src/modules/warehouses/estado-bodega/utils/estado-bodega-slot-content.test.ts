@@ -66,6 +66,12 @@ describe("estado-bodega-slot-content", () => {
     expect(resolveProductoNombre(baseRow)).toBe("IOZ7Z HPR FROZEN-PORK RACKS");
   });
 
+  it("puede resolver solo el título, sin sku", () => {
+    expect(resolveProductoNombre(baseRow, { includeSku: false })).toBe(
+      "HPR FROZEN-PORK RACKS",
+    );
+  });
+
   it("formatea temperatura", () => {
     expect(formatTemperaturaSlot("0")).toBe("0 °C");
     expect(formatTemperaturaSlot("-18.5")).toBe("-18,5 °C");
