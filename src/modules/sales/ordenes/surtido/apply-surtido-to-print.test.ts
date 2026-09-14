@@ -45,4 +45,31 @@ describe("applySurtidoToPrintData", () => {
     expect(updated.surtido?.campos.Chofer).toBe("Luis");
     expect(updated.surtido?.checks.turnoPm).toBe(true);
   });
+
+  it("rellena cabecera vacía del PDF con lo manuscrito", () => {
+    const updated = applySurtidoToPrintData(
+      {
+        ...BASE,
+        centroConsumo: "",
+        numeroOrdenCliente: "",
+        fechaEntrega: "",
+        direccionEntrega: "",
+      },
+      {
+        campos: {
+          centroConsumo: "Banquetes",
+          numeroOrdenCliente: "OC-1",
+          fechaEntrega: "14/09/2026",
+          direccionEntrega: "Av. 1",
+        },
+        checks: {},
+        lineas: [],
+      },
+    );
+
+    expect(updated.centroConsumo).toBe("Banquetes");
+    expect(updated.numeroOrdenCliente).toBe("OC-1");
+    expect(updated.fechaEntrega).toBe("14/09/2026");
+    expect(updated.direccionEntrega).toBe("Av. 1");
+  });
 });

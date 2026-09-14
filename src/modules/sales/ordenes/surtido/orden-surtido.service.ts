@@ -1,5 +1,8 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatKgEs } from "@/lib/utils/decimal-es";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveTenantSchemaForCuenta } from "@/modules/sales/shared/services/sales-catalog.server";
+import { buildOrdenVentaPatchFromSurtido } from "./sync-surtido-to-orden-venta";
 import {
   formatCapturaFecha,
   notaCapturaForProducto,
@@ -85,6 +88,75 @@ interface OrdenLineaPrintAdminRow {
   producto: unknown;
 }
 
+interface OrdenAdminContext {
+  schemaName: string | null;
+  codigoCuenta: string;
+  codigo: string;
+}
+
+function adminFrom(
+  admin: SupabaseClient,
+  schemaName: string | null,
+  table: string,
+) {
+  return schemaName
+    ? admin.schema(schemaName).from(table)
+    : admin.from(table);
+}
+
+async function resolveOrdenAdminContext(
+  admin: SupabaseClient,
+  idOrdenVenta: string,
+): Promise<OrdenAdminContext | null> {
+  const readMeta = async (schemaName: string | null) => {
+    const { data, error } = await adminFrom(admin, schemaName, "orden_venta")
+      .select("id_orden_venta,codigo_cuenta,codigo")
+      .eq("id_orden_venta", idOrdenVenta)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    return {
+      schemaName,
+      codigoCuenta: String(data.codigo_cuenta ?? "").trim(),
+      codigo: String(data.codigo ?? "").trim(),
+    } satisfies OrdenAdminContext;
+  };
+
+  const inPublic = await readMeta(null);
+  if (inPublic) {
+    const tenantSchema = inPublic.codigoCuenta
+      ? await resolveTenantSchemaForCuenta(admin, inPublic.codigoCuenta)
+      : null;
+    if (!tenantSchema) return inPublic;
+    const inTenant = await readMeta(tenantSchema);
+    return inTenant ?? inPublic;
+  }
+
+  const { data: empresas, error: empresasError } = await admin
+    .from("empresa")
+    .select("schema_name")
+    .not("schema_name", "is", null)
+    .limit(500);
+  if (empresasError) throw new Error(empresasError.message);
+
+  for (const empresa of empresas ?? []) {
+    const schemaName =
+      typeof empresa.schema_name === "string"
+        ? empresa.schema_name.trim()
+        : "";
+    if (!schemaName) continue;
+    const hit = await readMeta(schemaName);
+    if (hit) return hit;
+  }
+
+  return null;
+}
+
+function emptyToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed ? trimmed : null;
+}
+
 export async function getOrdenMetaPublica(idOrdenVenta: string): Promise<{
   idOrdenVenta: string;
   codigoCuenta: string;
@@ -94,25 +166,22 @@ export async function getOrdenMetaPublica(idOrdenVenta: string): Promise<{
   const admin = getSupabaseAdminClient();
   if (!admin) throw new Error("Supabase admin no configurado.");
 
-  const { data, error } = await admin
-    .from("orden_venta")
-    .select("id_orden_venta,codigo_cuenta,codigo")
-    .eq("id_orden_venta", idOrdenVenta)
-    .maybeSingle();
+  const ctx = await resolveOrdenAdminContext(admin, idOrdenVenta);
+  if (!ctx) return null;
 
-  if (error) throw new Error(error.message);
-  if (!data) return null;
-
-  const { data: captura } = await admin
-    .from("orden_venta_surtido_captura")
+  const { data: captura } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta_surtido_captura",
+  )
     .select("id_captura")
     .eq("id_orden_venta", idOrdenVenta)
     .maybeSingle();
 
   return {
-    idOrdenVenta: data.id_orden_venta,
-    codigoCuenta: data.codigo_cuenta,
-    folio: data.codigo,
+    idOrdenVenta,
+    codigoCuenta: ctx.codigoCuenta,
+    folio: ctx.codigo,
     tieneCaptura: Boolean(captura?.id_captura),
   };
 }
@@ -124,9 +193,14 @@ export async function buildPrintDataAdmin(
   const admin = getSupabaseAdminClient();
   if (!admin) throw new Error("Supabase admin no configurado.");
 
-  // Columnas verificadas en public.orden_venta (sin inventar created_at en líneas).
-  const { data: ordenRaw, error } = await admin
-    .from("orden_venta")
+  const ctx = await resolveOrdenAdminContext(admin, idOrdenVenta);
+  if (!ctx) return null;
+
+  const { data: ordenRaw, error } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta",
+  )
     .select(
       [
         "id_orden_venta",
@@ -154,8 +228,11 @@ export async function buildPrintDataAdmin(
 
   // orden_venta_linea: id_linea_orden_venta, id_orden_venta, id_producto,
   // cantidad_pedida, cantidad_despachada, precio_unitario (NO created_at).
-  const { data: lineasRaw, error: lineasError } = await admin
-    .from("orden_venta_linea")
+  const { data: lineasRaw, error: lineasError } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta_linea",
+  )
     .select(
       [
         "id_linea_orden_venta",
@@ -232,8 +309,14 @@ export async function getOrdenSurtidoCaptura(
   const admin = getSupabaseAdminClient();
   if (!admin) throw new Error("Supabase admin no configurado.");
 
-  const { data, error } = await admin
-    .from("orden_venta_surtido_captura")
+  const ctx = await resolveOrdenAdminContext(admin, idOrdenVenta);
+  if (!ctx) return null;
+
+  const { data, error } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta_surtido_captura",
+  )
     .select(
       "id_captura,id_orden_venta,codigo_cuenta,url_foto,payload,modelo,updated_at",
     )
@@ -255,8 +338,16 @@ export async function upsertOrdenSurtidoCaptura(input: {
   const admin = getSupabaseAdminClient();
   if (!admin) throw new Error("Supabase admin no configurado.");
 
-  const { data, error } = await admin
-    .from("orden_venta_surtido_captura")
+  const ctx = await resolveOrdenAdminContext(admin, input.idOrdenVenta);
+  const schemaName =
+    ctx?.schemaName ??
+    (await resolveTenantSchemaForCuenta(admin, input.codigoCuenta));
+
+  const { data, error } = await adminFrom(
+    admin,
+    schemaName,
+    "orden_venta_surtido_captura",
+  )
     .upsert(
       {
         id_orden_venta: input.idOrdenVenta,
@@ -280,6 +371,8 @@ export async function upsertOrdenSurtidoCaptura(input: {
 /**
  * Propaga el payload de la foto a columnas flat / observaciones / cantidades
  * despachadas de la OV. Solo escribe lo que la IA trajo con valor.
+ * Los campos de pedido (fecha, centro, OC, dirección) solo se llenan si
+ * estaban vacíos; chofer/unidad/turno/hora sí se actualizan siempre.
  */
 export async function applySurtidoCapturaToOrdenVenta(input: {
   idOrdenVenta: string;
@@ -291,10 +384,18 @@ export async function applySurtidoCapturaToOrdenVenta(input: {
   const admin = getSupabaseAdminClient();
   if (!admin) throw new Error("Supabase admin no configurado.");
 
-  const { data: orden, error: ordenError } = await admin
-    .from("orden_venta")
+  const ctx = await resolveOrdenAdminContext(admin, input.idOrdenVenta);
+  if (!ctx) {
+    throw new Error("Orden de venta no encontrada para sincronizar surtido.");
+  }
+
+  const { data: orden, error: ordenError } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta",
+  )
     .select(
-      "id_orden_venta,observaciones,turno,hora_salida,chofer,unidad,notas_almacen,notas_lineas",
+      "id_orden_venta,observaciones,turno,hora_salida,chofer,unidad,centro_consumo,fecha_entrega,orden_compra_hotel,direccion_entrega,notas_almacen,notas_lineas",
     )
     .eq("id_orden_venta", input.idOrdenVenta)
     .maybeSingle();
@@ -304,31 +405,40 @@ export async function applySurtidoCapturaToOrdenVenta(input: {
     throw new Error("Orden de venta no encontrada para sincronizar surtido.");
   }
 
-  const { data: lineasRaw, error: lineasError } = await admin
-    .from("orden_venta_linea")
-    .select(
-      "id_linea_orden_venta,cantidad_pedida,cantidad_despachada,producto:producto(sku,descripcion,metadatos_catalogo)",
-    )
-    .eq("id_orden_venta", input.idOrdenVenta)
-    .order("id_linea_orden_venta", { ascending: true })
-    .limit(200);
-
-  if (lineasError) throw new Error(lineasError.message);
-  const lineasDb = (lineasRaw ?? []) as Array<{
+  let lineasDb: Array<{
     id_linea_orden_venta: string;
     cantidad_pedida: string | number;
     cantidad_despachada: string | number | null;
     producto: unknown;
-  }>;
-
+  }> = [];
   const productosByIndex = new Map<number, string>();
-  lineasDb.forEach((linea, index) => {
-    productosByIndex.set(index + 1, resolveTituloProducto(linea.producto));
-  });
+  try {
+    const { data: lineasRaw, error: lineasError } = await adminFrom(
+      admin,
+      ctx.schemaName,
+      "orden_venta_linea",
+    )
+      .select(
+        "id_linea_orden_venta,cantidad_pedida,cantidad_despachada,producto:producto(sku,descripcion,metadatos_catalogo)",
+      )
+      .eq("id_orden_venta", input.idOrdenVenta)
+      .order("id_linea_orden_venta", { ascending: true })
+      .limit(200);
 
-  const { buildOrdenVentaPatchFromSurtido } = await import(
-    "./sync-surtido-to-orden-venta"
-  );
+    if (lineasError) throw new Error(lineasError.message);
+    lineasDb = (lineasRaw ?? []) as typeof lineasDb;
+    lineasDb.forEach((linea, index) => {
+      productosByIndex.set(index + 1, resolveTituloProducto(linea.producto));
+    });
+  } catch (lineasLookupError) {
+    console.error(
+      "[captura-orden] no se pudieron leer líneas para sync:",
+      lineasLookupError instanceof Error
+        ? lineasLookupError.message
+        : lineasLookupError,
+    );
+  }
+
   const { flat, lineas: lineasPatch } = buildOrdenVentaPatchFromSurtido({
     payload: input.payload,
     observacionesActuales: orden.observaciones,
@@ -347,9 +457,24 @@ export async function applySurtidoCapturaToOrdenVenta(input: {
   if (flat.notas_almacen) headerUpdate.notas_almacen = flat.notas_almacen;
   if (flat.notas_lineas) headerUpdate.notas_lineas = flat.notas_lineas;
   if (flat.observaciones) headerUpdate.observaciones = flat.observaciones;
+  if (flat.centro_consumo && !emptyToNull(orden.centro_consumo)) {
+    headerUpdate.centro_consumo = flat.centro_consumo;
+  }
+  if (flat.fecha_entrega && !emptyToNull(orden.fecha_entrega)) {
+    headerUpdate.fecha_entrega = flat.fecha_entrega;
+  }
+  if (flat.orden_compra_hotel && !emptyToNull(orden.orden_compra_hotel)) {
+    headerUpdate.orden_compra_hotel = flat.orden_compra_hotel;
+  }
+  if (flat.direccion_entrega && !emptyToNull(orden.direccion_entrega)) {
+    headerUpdate.direccion_entrega = flat.direccion_entrega;
+  }
 
-  const { error: updateHeaderError } = await admin
-    .from("orden_venta")
+  const { error: updateHeaderError } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta",
+  )
     .update(headerUpdate)
     .eq("id_orden_venta", input.idOrdenVenta);
 
@@ -361,10 +486,16 @@ export async function applySurtidoCapturaToOrdenVenta(input: {
     if (!linea) continue;
 
     const pedida = Number(linea.cantidad_pedida) || 0;
-    const despachada = Math.min(patch.cantidadDespachada, pedida > 0 ? pedida : patch.cantidadDespachada);
+    const despachada = Math.min(
+      patch.cantidadDespachada,
+      pedida > 0 ? pedida : patch.cantidadDespachada,
+    );
 
-    const { error: lineError } = await admin
-      .from("orden_venta_linea")
+    const { error: lineError } = await adminFrom(
+      admin,
+      ctx.schemaName,
+      "orden_venta_linea",
+    )
       .update({ cantidad_despachada: despachada })
       .eq("id_linea_orden_venta", linea.id_linea_orden_venta);
 

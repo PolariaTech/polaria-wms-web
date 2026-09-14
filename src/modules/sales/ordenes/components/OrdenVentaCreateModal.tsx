@@ -20,11 +20,11 @@ import {
 import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import {
-  coerceLeadingDecimalInput,
   formatDecimalInputEs,
   formatKgEs,
   formatPrecioEs,
   parseDecimalEs,
+  sanitizeDecimalInputEs,
 } from "@/lib/utils/decimal-es";
 import { cn } from "@/lib/utils/cn";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
@@ -65,8 +65,13 @@ import {
   buildOrdenVentaCapturaObservaciones,
   isAfterWarehouseCutoff,
   notaCapturaForProducto,
+  todayIsoDate,
   tomorrowIsoDate,
 } from "../utils/build-orden-venta-captura-observaciones";
+import {
+  isVentanaDesdeMayorQueHasta,
+  validatePedidoCabecera,
+} from "../utils/pedido-form-validation";
 import {
   mapPedidoExtraidoToForm,
   type CampoDiscrepancia,
@@ -357,9 +362,12 @@ export function OrdenVentaCreateModal({
   const [discrepancias, setDiscrepancias] = useState<CampoDiscrepancia[]>([]);
   const [confirmDiscrepanciasOpen, setConfirmDiscrepanciasOpen] =
     useState(false);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
   const selectedCompradorIdRef = useRef("");
   const skipDiscrepanciaConfirmRef = useRef(false);
+  const skipSaveConfirmRef = useRef(false);
   const docsFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [cantidadFocusId, setCantidadFocusId] = useState<string | null>(null);
 
   const hasProductos = productos.length > 0;
   const afterCutoff = isAfterWarehouseCutoff();
@@ -481,8 +489,11 @@ export function OrdenVentaCreateModal({
     setMissingFields(new Set());
     setDiscrepancias([]);
     setConfirmDiscrepanciasOpen(false);
+    setConfirmSaveOpen(false);
     setIsReadingIa(false);
     skipDiscrepanciaConfirmRef.current = false;
+    skipSaveConfirmRef.current = false;
+    setCantidadFocusId(null);
     setError(null);
     setIsSaving(false);
     setShowFiscal(false);
@@ -667,7 +678,7 @@ export function OrdenVentaCreateModal({
       .finally(() => {
         setIsLoading(false);
       });
-  }, [codigoCuenta, editingId, open]);
+  }, [codigoCuenta, editingId, isEditing, open]);
 
   const applyCompradorPrefill = useCallback(
     (row: CompradorListRow, ficha: CompradorAltaFicha) => {
@@ -752,6 +763,7 @@ export function OrdenVentaCreateModal({
   );
 
   const handleSelectProducto = useCallback((row: ProductoVentaOption) => {
+    setCantidadFocusId(row.idProducto);
     setLineas((prev) => {
       if (prev.some((linea) => linea.idProducto === row.idProducto)) {
         return prev;
@@ -780,6 +792,15 @@ export function OrdenVentaCreateModal({
     setIdBodegaDestino((prev) => prev || row.idBodega);
   }, []);
 
+  useEffect(() => {
+    if (!cantidadFocusId || picker !== null) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById(`orden-venta-cantidad-${cantidadFocusId}`)?.focus();
+      setCantidadFocusId(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [cantidadFocusId, lineas, picker]);
+
   const handleRemoveLinea = useCallback((index: number) => {
     setLineas((prev) => prev.filter((_, i) => i !== index));
     setError(null);
@@ -807,7 +828,7 @@ export function OrdenVentaCreateModal({
   }, []);
 
   const handleCantidadChange = useCallback((index: number, value: string) => {
-    const nextValue = coerceLeadingDecimalInput(value);
+    const nextValue = sanitizeDecimalInputEs(value);
     setLineas((prev) =>
       prev.map((linea, i) =>
         i === index
@@ -847,7 +868,7 @@ export function OrdenVentaCreateModal({
   );
 
   const handlePrecioChange = useCallback((index: number, value: string) => {
-    const nextValue = coerceLeadingDecimalInput(value);
+    const nextValue = sanitizeDecimalInputEs(value);
     setLineas((prev) =>
       prev.map((linea, i) => {
         if (i !== index) return linea;
@@ -855,7 +876,7 @@ export function OrdenVentaCreateModal({
         return {
           ...linea,
           precioInput: nextValue,
-          precioUnitario: parsed != null && parsed >= 0 ? parsed : 0,
+          precioUnitario: parsed != null && parsed > 0 ? parsed : 0,
           precioManual: true,
           filledByIa: false,
         };
@@ -1107,6 +1128,22 @@ export function OrdenVentaCreateModal({
         return;
       }
 
+      const cabeceraError = validatePedidoCabecera({
+        fechaEntrega,
+        todayIso: todayIsoDate(),
+        ventanaDesde,
+        ventanaHasta,
+      });
+      if (cabeceraError) {
+        setMissingFields((prev) => {
+          const next = new Set(prev);
+          for (const field of cabeceraError.fields) next.add(field);
+          return next;
+        });
+        setError(cabeceraError.message);
+        return;
+      }
+
       const bodegaDestinoLabel =
         bodegasDestino.find((row) => row.idBodega === idBodegaDestino)?.label ??
         "";
@@ -1120,8 +1157,8 @@ export function OrdenVentaCreateModal({
           return;
         }
         const precio = parseDecimalEs(linea.precioInput);
-        if (precio === null || precio < 0) {
-          setError(`Ingresa un precio válido para ${linea.nombre}.`);
+        if (precio === null || precio <= 0) {
+          setError(`Ingresa un precio mayor a cero para ${linea.nombre}.`);
           return;
         }
         lineasParsed.push({
@@ -1136,6 +1173,12 @@ export function OrdenVentaCreateModal({
           presentacion: linea.presentacion.trim() || null,
         });
       }
+
+      if (!skipSaveConfirmRef.current) {
+        setConfirmSaveOpen(true);
+        return;
+      }
+      skipSaveConfirmRef.current = false;
 
       setIsSaving(true);
 
@@ -1400,7 +1443,12 @@ export function OrdenVentaCreateModal({
         hideHeaderClose
         asForm={step === "form"}
         footerAction={step === "start" ? <></> : undefined}
-        closeOnEscape={picker === null && !isCompradorCreateOpen}
+        closeOnEscape={
+          picker === null &&
+          !isCompradorCreateOpen &&
+          !confirmDiscrepanciasOpen &&
+          !confirmSaveOpen
+        }
         closeOnBackdrop={false}
         submitOnEnter={false}
       >
@@ -1746,6 +1794,7 @@ export function OrdenVentaCreateModal({
                       label="Fecha de entrega"
                       type="date"
                       value={fechaEntrega}
+                      min={todayIsoDate()}
                       onChange={(event) => {
                         setFechaEntrega(event.target.value);
                         clearFieldMarks("fechaEntrega");
@@ -1755,7 +1804,8 @@ export function OrdenVentaCreateModal({
                         autoFields,
                         warnFields,
                         missingFields,
-                        missing: !fechaEntrega,
+                        missing:
+                          !fechaEntrega || fechaEntrega < todayIsoDate(),
                       })}
                       compact
                     />
@@ -1765,15 +1815,28 @@ export function OrdenVentaCreateModal({
                       label="Ventana de entrega — desde"
                       type="time"
                       value={ventanaDesde}
+                      max={ventanaHasta || undefined}
                       onChange={(event) => {
                         setVentanaDesde(event.target.value);
                         clearFieldMarks("ventanaDesde");
+                        if (
+                          !isVentanaDesdeMayorQueHasta(
+                            event.target.value,
+                            ventanaHasta,
+                          )
+                        ) {
+                          clearFieldMarks("ventanaHasta");
+                        }
                       }}
                       controlClassName={fieldControlClass({
                         field: "ventanaDesde",
                         autoFields,
                         warnFields,
                         missingFields,
+                        missing: isVentanaDesdeMayorQueHasta(
+                          ventanaDesde,
+                          ventanaHasta,
+                        ),
                       })}
                       compact
                     />
@@ -1783,15 +1846,28 @@ export function OrdenVentaCreateModal({
                       label="Ventana de entrega — hasta"
                       type="time"
                       value={ventanaHasta}
+                      min={ventanaDesde || undefined}
                       onChange={(event) => {
                         setVentanaHasta(event.target.value);
                         clearFieldMarks("ventanaHasta");
+                        if (
+                          !isVentanaDesdeMayorQueHasta(
+                            ventanaDesde,
+                            event.target.value,
+                          )
+                        ) {
+                          clearFieldMarks("ventanaDesde");
+                        }
                       }}
                       controlClassName={fieldControlClass({
                         field: "ventanaHasta",
                         autoFields,
                         warnFields,
                         missingFields,
+                        missing: isVentanaDesdeMayorQueHasta(
+                          ventanaDesde,
+                          ventanaHasta,
+                        ),
                       })}
                       compact
                     />
@@ -2083,9 +2159,11 @@ export function OrdenVentaCreateModal({
                           </td>
                                 <td className="px-1 py-2 align-top">
                                   <input
+                                    id={`orden-venta-cantidad-${linea.idProducto}`}
                                     aria-label={`Cantidad de ${linea.nombre}`}
                                     type="text"
                                     inputMode="decimal"
+                                    autoComplete="off"
                                     value={linea.cantidadInput}
                                     placeholder="0"
                                     onChange={(event) =>
@@ -2126,7 +2204,8 @@ export function OrdenVentaCreateModal({
                                       linea.unidadMedida ||
                                       UNIDAD_MEDIDA_VENTA_DEFAULT
                                     }
-                                    readOnly
+                                    disabled
+                                    tabIndex={-1}
                                     className={cn(
                                       POLARIA_FORM_INPUT_CLASS_COMPACT,
                                       "px-1.5 text-center",
@@ -2159,15 +2238,9 @@ export function OrdenVentaCreateModal({
                                     aria-label={`Descuento % de ${linea.nombre}`}
                                     type="text"
                                     inputMode="decimal"
-                                    value={linea.descuentoPctInput}
-                                    placeholder="0"
-                                    onChange={(event) =>
-                                      handleLineaFieldChange(
-                                        index,
-                                        "descuentoPctInput",
-                                        event.target.value,
-                                      )
-                                    }
+                                    value={linea.descuentoPctInput || "0"}
+                                    disabled
+                                    tabIndex={-1}
                                     className={POLARIA_FORM_INPUT_CLASS_COMPACT}
                                   />
                                 </td>
@@ -2176,6 +2249,7 @@ export function OrdenVentaCreateModal({
                                     aria-label={`Precio de ${linea.nombre}`}
                                     type="text"
                                     inputMode="decimal"
+                                    autoComplete="off"
                                     value={linea.precioInput}
                                     placeholder=""
                                     onChange={(event) =>
@@ -2197,7 +2271,7 @@ export function OrdenVentaCreateModal({
                                         missing:
                                           !linea.precioInput.trim() ||
                                           (parseDecimalEs(linea.precioInput) ??
-                                            -1) < 0,
+                                            0) <= 0,
                                       }),
                                     )}
                                   />
@@ -2517,6 +2591,30 @@ export function OrdenVentaCreateModal({
           </p>
         )}
       </PolariaConfirmDialog>
+
+      <PolariaConfirmDialog
+        open={confirmSaveOpen}
+        onClose={() => setConfirmSaveOpen(false)}
+        onConfirm={() => {
+          setConfirmSaveOpen(false);
+          skipSaveConfirmRef.current = true;
+          void handleSubmit({
+            preventDefault() {},
+          } as FormEvent<HTMLFormElement>);
+        }}
+        title={
+          isEditing && editingEstado !== "borrador"
+            ? "¿Guardar los cambios?"
+            : "¿Enviar este pedido?"
+        }
+        description={
+          isEditing && editingEstado !== "borrador"
+            ? "Se actualizarán los datos del pedido."
+            : "Se enviará el pedido a bodega."
+        }
+        confirmLabel="Confirmar"
+        cancelLabel="Revisar"
+      />
     </>
   );
 }

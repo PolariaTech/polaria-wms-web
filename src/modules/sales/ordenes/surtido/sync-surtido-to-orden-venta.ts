@@ -13,6 +13,10 @@ export type OrdenVentaSurtidoFlatPatch = {
   hora_salida?: string;
   chofer?: string;
   unidad?: string;
+  centro_consumo?: string;
+  fecha_entrega?: string;
+  orden_compra_hotel?: string;
+  direccion_entrega?: string;
   notas_almacen?: string;
   notas_lineas?: string;
   observaciones?: string;
@@ -50,6 +54,30 @@ export function parseCantidadPreparadaKg(
   const value = Number.parseFloat(match[0]);
   if (!Number.isFinite(value) || value < 0) return null;
   return value;
+}
+
+/** Convierte fecha manuscrita (DD/MM/YYYY o ISO) a YYYY-MM-DD. */
+export function parseFechaManuscritaToIso(
+  raw: string | null | undefined,
+): string | null {
+  const text = raw?.trim() ?? "";
+  if (!text) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const match = text.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/);
+  if (!match) return null;
+  const day = match[1]!.padStart(2, "0");
+  const month = match[2]!.padStart(2, "0");
+  const yearRaw = match[3]!;
+  const year =
+    yearRaw.length === 2
+      ? Number(yearRaw) >= 70
+        ? `19${yearRaw}`
+        : `20${yearRaw}`
+      : yearRaw;
+  const iso = `${year}-${month}-${day}`;
+  const parsed = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return iso;
 }
 
 function appendUniqueBlock(base: string, block: string): string {
@@ -225,6 +253,34 @@ export function buildOrdenVentaPatchFromSurtido(input: {
   );
   const chofer = nonEmpty(campoSurtido(payload, "chofer", "Chofer"));
   const unidad = nonEmpty(campoSurtido(payload, "unidad", "Unidad"));
+  const centroConsumo = nonEmpty(
+    campoSurtido(
+      payload,
+      "centroConsumo",
+      "Centro de consumo",
+      "Centro de consumo / cocina",
+    ),
+  );
+  const fechaEntrega = parseFechaManuscritaToIso(
+    campoSurtido(payload, "fechaEntrega", "Fecha de entrega"),
+  );
+  const ordenCompraHotel = nonEmpty(
+    campoSurtido(
+      payload,
+      "numeroOrdenCliente",
+      "ordenCompraHotel",
+      "# de orden del cliente",
+      "Orden de compra del hotel",
+    ),
+  );
+  const direccion = nonEmpty(
+    campoSurtido(
+      payload,
+      "direccionEntrega",
+      "Dirección de entrega",
+      "Direccion de entrega",
+    ),
+  );
 
   const surtidoNotas = buildSurtidoNotasAlmacen(payload);
   const notasAlmacen = surtidoNotas
@@ -244,6 +300,10 @@ export function buildOrdenVentaPatchFromSurtido(input: {
     horaSalida: horaSalida ?? parsed.horaSalida,
     chofer: chofer ?? parsed.chofer,
     unidad: unidad ?? parsed.unidad,
+    centroConsumo: centroConsumo ?? parsed.centroConsumo,
+    fechaEntrega: fechaEntrega ?? parsed.fechaEntrega,
+    ordenCompraHotel: ordenCompraHotel ?? parsed.ordenCompraHotel,
+    direccion: direccion ?? parsed.direccion,
     notasLineas: notasLineas ?? parsed.notasLineas,
   });
   const observaciones = buildOrdenVentaCapturaObservaciones(extra);
@@ -253,6 +313,10 @@ export function buildOrdenVentaPatchFromSurtido(input: {
   if (horaSalida) flat.hora_salida = horaSalida;
   if (chofer) flat.chofer = chofer;
   if (unidad) flat.unidad = unidad;
+  if (centroConsumo) flat.centro_consumo = centroConsumo;
+  if (fechaEntrega) flat.fecha_entrega = fechaEntrega;
+  if (ordenCompraHotel) flat.orden_compra_hotel = ordenCompraHotel;
+  if (direccion) flat.direccion_entrega = direccion;
   if (notasAlmacen) flat.notas_almacen = notasAlmacen;
   if (notasLineas) flat.notas_lineas = notasLineas;
   if (observaciones) flat.observaciones = observaciones;

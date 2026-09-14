@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildOrdenVentaPatchFromSurtido,
   parseCantidadPreparadaKg,
+  parseFechaManuscritaToIso,
 } from "./sync-surtido-to-orden-venta";
 import type { OrdenSurtidoCapturaPayload } from "./orden-surtido.types";
 
@@ -15,6 +16,19 @@ describe("parseCantidadPreparadaKg", () => {
   it("devuelve null si no hay número", () => {
     expect(parseCantidadPreparadaKg("")).toBeNull();
     expect(parseCantidadPreparadaKg("n/a")).toBeNull();
+  });
+});
+
+describe("parseFechaManuscritaToIso", () => {
+  it("acepta ISO y DD/MM/YYYY", () => {
+    expect(parseFechaManuscritaToIso("2026-09-14")).toBe("2026-09-14");
+    expect(parseFechaManuscritaToIso("08/09/2026")).toBe("2026-09-08");
+    expect(parseFechaManuscritaToIso("8-9-26")).toBe("2026-09-08");
+  });
+
+  it("devuelve null si no es fecha", () => {
+    expect(parseFechaManuscritaToIso("5PM")).toBeNull();
+    expect(parseFechaManuscritaToIso("")).toBeNull();
   });
 });
 
@@ -53,6 +67,28 @@ describe("buildOrdenVentaPatchFromSurtido", () => {
     ]);
   });
 
+  it("rellena campos de pedido manuscritos que estaban vacíos", () => {
+    const { flat } = buildOrdenVentaPatchFromSurtido({
+      payload: {
+        campos: {
+          centroConsumo: "Cocina 2",
+          fechaEntrega: "15/09/2026",
+          numeroOrdenCliente: "OC-88",
+          direccionEntrega: "Calle 10",
+        },
+        checks: {},
+        lineas: [],
+      },
+      observacionesActuales: null,
+    });
+
+    expect(flat.centro_consumo).toBe("Cocina 2");
+    expect(flat.fecha_entrega).toBe("2026-09-15");
+    expect(flat.orden_compra_hotel).toBe("OC-88");
+    expect(flat.direccion_entrega).toBe("Calle 10");
+    expect(flat.observaciones).toContain("Centro de consumo: Cocina 2");
+  });
+
   it("no pisa observaciones previas; fusiona etiquetas", () => {
     const prev =
       "Datos:\nPrioridad: Urgente\nChofer: Viejo\n\nPedido original:\nhola";
@@ -68,5 +104,25 @@ describe("buildOrdenVentaPatchFromSurtido", () => {
     expect(flat.chofer).toBe("Nuevo");
     expect(flat.observaciones).toContain("Chofer: Nuevo");
     expect(flat.observaciones).toContain("Prioridad: Urgente");
+  });
+
+  it("lee hora y chofer aunque la IA use etiquetas con espacios", () => {
+    const { flat } = buildOrdenVentaPatchFromSurtido({
+      payload: {
+        campos: {
+          Chofer: "Pepito Perez",
+          Unidad: "Defender",
+          "hora sugerida de salida": "6AM",
+        },
+        checks: { turnoPm: true },
+        lineas: [],
+      },
+      observacionesActuales: null,
+    });
+
+    expect(flat.chofer).toBe("Pepito Perez");
+    expect(flat.unidad).toBe("Defender");
+    expect(flat.hora_salida).toBe("6AM");
+    expect(flat.turno).toBe("PM");
   });
 });

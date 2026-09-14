@@ -5,6 +5,7 @@ import {
   isAfterWarehouseCutoff,
   notaCapturaForProducto,
   parseOrdenVentaCapturaObservaciones,
+  todayIsoDate,
   tomorrowIsoDate,
   type OrdenVentaCapturaExtra,
 } from "./build-orden-venta-captura-observaciones";
@@ -68,6 +69,12 @@ describe("buildOrdenVentaCapturaObservaciones", () => {
       notasLineas: "Fresa: Firme — se usa el jueves",
     });
     expect(text).toBe("Fresa: Firme — se usa el jueves");
+  });
+});
+
+describe("todayIsoDate", () => {
+  it("devuelve el día actual en ISO local", () => {
+    expect(todayIsoDate(new Date(2026, 8, 14, 7, 0, 0))).toBe("2026-09-14");
   });
 });
 

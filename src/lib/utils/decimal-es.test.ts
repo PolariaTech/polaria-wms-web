@@ -4,6 +4,7 @@ import {
   formatDecimalInputEs,
   formatKgEs,
   parseDecimalEs,
+  sanitizeDecimalInputEs,
 } from "@/lib/utils/decimal-es";
 
 describe("decimal-es", () => {
@@ -24,6 +25,14 @@ describe("decimal-es", () => {
     expect(coerceLeadingDecimalInput(".6")).toBe("0,6");
     expect(coerceLeadingDecimalInput(",6")).toBe("0,6");
     expect(coerceLeadingDecimalInput("15.6")).toBe("15.6");
+  });
+
+  it("sanitizeDecimalInputEs recorta letras y unifica el decimal a coma", () => {
+    expect(sanitizeDecimalInputEs("12a")).toBe("12");
+    expect(sanitizeDecimalInputEs("1b2,3c")).toBe("12,3");
+    expect(sanitizeDecimalInputEs("abc")).toBe("");
+    expect(sanitizeDecimalInputEs("15.6")).toBe("15,6");
+    expect(sanitizeDecimalInputEs("-4")).toBe("4");
   });
 
   it("formatDecimalInputEs usa coma decimal", () => {

@@ -17,7 +17,7 @@ const apiBaseUrl = normalizeApiBaseUrl(
 export const NEST_API_REWRITE_SOURCE =
   "/api/:path((?!pedido-proveedor$)(?!solicitud-compra$)(?!evidencia-transporte$)(?!ventas/leer-pedido$)(?!ventas/imprimir-orden$)(?!ventas/productos-catalogo$)(?!reportes/).*)";
 
-const SECURITY_HEADERS = [
+const BASE_SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -25,17 +25,21 @@ const SECURITY_HEADERS = [
     key: "Permissions-Policy",
     value: "camera=(self), microphone=(), geolocation=()",
   },
+];
+
+const SECURITY_HEADERS = [
+  ...BASE_SECURITY_HEADERS,
   { key: "Cross-Origin-Resource-Policy", value: "same-site" },
 ];
 
-/** Sin CORP: Safari en IP local bloqueaba el fetch del cliente. */
+/** Sin CORP: Safari en IP local (192.168.x) bloqueaba JS/fetch y el botón no se activaba. */
 const CAPTURA_PUBLIC_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(self), microphone=(), geolocation=()",
+    value: "camera=*, microphone=(), geolocation=()",
   },
   { key: "Cache-Control", value: "no-store, must-revalidate" },
 ];
@@ -50,6 +54,30 @@ const EMBED_FRAME_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // El teléfono entra por LAN (p.ej. 192.168.80.11), no por localhost.
+  // Next 16 bloquea /_next/* desde esa IP: el HTML carga, la foto se elige,
+  // pero React no hidrata y “Subir y leer hoja” nunca se activa.
+  allowedDevOrigins: [
+    "192.168.80.11",
+    "192.168.*.*",
+    "10.*.*.*",
+    "172.16.*.*",
+    "172.17.*.*",
+    "172.18.*.*",
+    "172.19.*.*",
+    "172.20.*.*",
+    "172.21.*.*",
+    "172.22.*.*",
+    "172.23.*.*",
+    "172.24.*.*",
+    "172.25.*.*",
+    "172.26.*.*",
+    "172.27.*.*",
+    "172.28.*.*",
+    "172.29.*.*",
+    "172.30.*.*",
+    "172.31.*.*",
+  ],
   // Evita que Turbopack use C:\Users\Daniel\Videos como root (hay package-lock.json padre).
   turbopack: {
     root: projectRoot,
@@ -101,7 +129,8 @@ const nextConfig: NextConfig = {
       { source: "/logo.png", headers: CAPTURA_PUBLIC_HEADERS },
       { source: "/captura-orden", headers: CAPTURA_PUBLIC_HEADERS },
       { source: "/captura-orden/:path*", headers: CAPTURA_PUBLIC_HEADERS },
-      { source: "/:path*", headers: SECURITY_HEADERS },
+      { source: "/_next/:path*", headers: BASE_SECURITY_HEADERS },
+      { source: "/:path*", headers: BASE_SECURITY_HEADERS },
       { source: "/configurador", headers: shellHeaders },
       { source: "/configurador/:path*", headers: shellHeaders },
       { source: "/dashboard", headers: shellHeaders },

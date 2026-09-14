@@ -247,28 +247,39 @@ export async function POST(
     });
 
     try {
-      await applySurtidoCapturaToOrdenVenta({
+      const sync = await applySurtidoCapturaToOrdenVenta({
         idOrdenVenta,
         payload,
       });
+      return jsonOrRedirect(
+        request,
+        idOrdenVenta,
+        {
+          ok: true,
+          folio: meta.folio,
+          precisionEstimada,
+          captura,
+          ovSync: sync,
+        },
+        200,
+      );
     } catch (syncError) {
-      console.error(
-        "[captura-orden] sync OV desde surtido falló:",
-        syncError instanceof Error ? syncError.message : syncError,
+      const syncMessage =
+        syncError instanceof Error ? syncError.message : String(syncError);
+      console.error("[captura-orden] sync OV desde surtido falló:", syncMessage);
+      return jsonOrRedirect(
+        request,
+        idOrdenVenta,
+        {
+          ok: true,
+          folio: meta.folio,
+          precisionEstimada,
+          captura,
+          ovSync: { updatedHeader: false, updatedLineas: 0, error: syncMessage },
+        },
+        200,
       );
     }
-
-    return jsonOrRedirect(
-      request,
-      idOrdenVenta,
-      {
-        ok: true,
-        folio: meta.folio,
-        precisionEstimada,
-        captura,
-      },
-      200,
-    );
   } catch (error) {
     const message =
       error instanceof Error

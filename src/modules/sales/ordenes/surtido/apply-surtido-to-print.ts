@@ -15,6 +15,35 @@ export function applySurtidoToPrintData(
 
   return {
     ...original,
+    centroConsumo: fillIfEmpty(
+      original.centroConsumo,
+      campoSurtido(
+        surtido,
+        "centroConsumo",
+        "Centro de consumo",
+        "Centro de consumo / cocina",
+      ),
+    ),
+    numeroOrdenCliente:
+      campoSurtido(
+        surtido,
+        "numeroOrdenCliente",
+        "ordenCompraHotel",
+        "# de orden del cliente",
+        "Orden de compra del hotel",
+      ) || original.numeroOrdenCliente,
+    fechaEntrega:
+      campoSurtido(surtido, "fechaEntrega", "Fecha de entrega") ||
+      original.fechaEntrega,
+    direccionEntrega: fillIfEmpty(
+      original.direccionEntrega,
+      campoSurtido(
+        surtido,
+        "direccionEntrega",
+        "Dirección de entrega",
+        "Direccion de entrega",
+      ),
+    ),
     surtido: {
       ...surtido,
       checks: surtido.checks ?? {},
@@ -36,6 +65,18 @@ export function applySurtidoToPrintData(
   };
 }
 
+function normalizeCampoKey(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function fillIfEmpty(current: string, next: string): string {
+  return current.trim() ? current : next;
+}
+
 export function campoSurtido(
   surtido: OrdenSurtidoCapturaPayload | null | undefined,
   ...keys: string[]
@@ -45,10 +86,19 @@ export function campoSurtido(
     const direct = surtido.campos[key];
     if (direct?.trim()) return direct.trim();
   }
-  const entries = Object.entries(surtido.campos);
+  const entries = Object.entries(surtido.campos).map(
+    ([k, v]) => [normalizeCampoKey(k), v] as const,
+  );
   for (const key of keys) {
-    const needle = key.toLowerCase();
-    const found = entries.find(([k]) => k.toLowerCase().includes(needle));
+    const needle = normalizeCampoKey(key);
+    if (!needle) continue;
+    const exact = entries.find(([k, v]) => k === needle && v?.trim());
+    if (exact?.[1]?.trim()) return exact[1].trim();
+  }
+  for (const key of keys) {
+    const needle = normalizeCampoKey(key);
+    if (!needle) continue;
+    const found = entries.find(([k, v]) => k.includes(needle) && v?.trim());
     if (found?.[1]?.trim()) return found[1].trim();
   }
   return "";

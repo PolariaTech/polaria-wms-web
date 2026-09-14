@@ -29,6 +29,26 @@ export function coerceLeadingDecimalInput(raw: string): string {
   return raw;
 }
 
+/** Deja solo dígitos y un separador decimal (coma). Recorta letras y signos. */
+export function sanitizeDecimalInputEs(raw: string): string {
+  const source = coerceLeadingDecimalInput(raw);
+  let out = "";
+  let hasSeparator = false;
+
+  for (const ch of source) {
+    if (ch >= "0" && ch <= "9") {
+      out += ch;
+      continue;
+    }
+    if ((ch === "," || ch === ".") && !hasSeparator) {
+      hasSeparator = true;
+      out += ",";
+    }
+  }
+
+  return out;
+}
+
 /** Muestra el decimal con coma (p. ej. 0.6 → "0,6"). */
 export function formatDecimalInputEs(value: number): string {
   if (!Number.isFinite(value)) return "";
