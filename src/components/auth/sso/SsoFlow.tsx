@@ -7,38 +7,21 @@ import { getPostLoginRoute, ROUTES } from "@/config/routes";
 import { getMe, wmsSsoExchange } from "@/modules/auth";
 import { ApiError } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
+import {
+  AuthLoadingSpinner,
+  AuthStatusCard,
+} from "@/components/layouts/auth/AuthStatusCard";
 
 type SsoStatus = "loading" | "error" | "missing-code";
 
-function SsoCard({
-  title,
-  message,
-  children,
-}: {
-  title: string;
-  message: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-polaria-t-20 bg-polaria-t-08 p-8 text-center polaria-card-glow">
-      <h1 className="polaria-text-h3 text-polaria-w">{title}</h1>
-      <p className="polaria-text-body mt-3 text-polaria-w-50">{message}</p>
-      {children ? <div className="mt-6">{children}</div> : null}
-    </div>
-  );
-}
-
 export function SsoLoadingCard() {
   return (
-    <SsoCard
+    <AuthStatusCard
       title="Conectando con Polaria WMS…"
       message="Estamos validando tu sesión desde Mateo IA."
     >
-      <div
-        aria-hidden
-        className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-polaria-t-20 border-t-polaria-teal"
-      />
-    </SsoCard>
+      <AuthLoadingSpinner />
+    </AuthStatusCard>
   );
 }
 
@@ -104,7 +87,7 @@ export function SsoFlow() {
 
   if (status === "missing-code") {
     return (
-      <SsoCard
+      <AuthStatusCard
         title="Enlace incompleto"
         message="No recibimos un código de acceso desde Mateo. Abre Polaria WMS desde Mateo IA o inicia sesión manualmente."
       >
@@ -114,20 +97,20 @@ export function SsoFlow() {
         >
           Ir a iniciar sesión
         </Link>
-      </SsoCard>
+      </AuthStatusCard>
     );
   }
 
   if (status === "error") {
     return (
-      <SsoCard title="No se pudo conectar" message={errorMessage ?? ""}>
+      <AuthStatusCard title="No se pudo conectar" message={errorMessage ?? ""}>
         <Link
           href={ROUTES.login}
           className="inline-block rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-bg hover:opacity-90"
         >
           Ir a iniciar sesión
         </Link>
-      </SsoCard>
+      </AuthStatusCard>
     );
   }
 

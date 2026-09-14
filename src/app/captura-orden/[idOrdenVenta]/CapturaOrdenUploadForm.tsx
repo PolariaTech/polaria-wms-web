@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
   type ChangeEvent,
-  type FormEvent,
 } from "react";
 import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils/cn";
@@ -58,15 +57,27 @@ function clearCapturaQueryFromUrl(): void {
   }
 }
 
+function readFirstFile(
+  ...inputs: Array<HTMLInputElement | null>
+): File | null {
+  for (const input of inputs) {
+    const file = input?.files?.[0] ?? input?.files?.item?.(0) ?? null;
+    if (file) return file;
+  }
+  return null;
+}
+
 /**
- * Flujo simple (iOS): elegir foto → se activa “Subir y leer hoja” → subir.
- * Sin barra de progreso.
+ * Misma activación que antes: hasFile + flushSync.
+ * Dos inputs simples (cámara / galería) para que iOS abra el picker.
+ * Sin <form action> para que Safari no recargue al volver de Fotos.
  */
 export function CapturaOrdenUploadForm({
   idOrdenVenta,
   onFilePicked,
 }: CapturaOrdenUploadFormProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<File | null>(null);
   const lastKeyRef = useRef("");
   const uploadingRef = useRef(false);
@@ -103,35 +114,39 @@ export function CapturaOrdenUploadForm({
 
   const ingestFromInput = useCallback(() => {
     if (submitting || done) return;
-    const file = inputRef.current?.files?.[0];
+    const file = readFirstFile(galleryRef.current, cameraRef.current);
     if (!file) return;
     acceptFile(file);
   }, [acceptFile, done, submitting]);
 
   useEffect(() => {
-    const input = inputRef.current;
-    if (!input) return;
+    const camera = cameraRef.current;
+    const gallery = galleryRef.current;
 
     const onPick = () => ingestFromInput();
-    input.addEventListener("change", onPick);
-    input.addEventListener("input", onPick);
+    camera?.addEventListener("change", onPick);
+    camera?.addEventListener("input", onPick);
+    gallery?.addEventListener("change", onPick);
+    gallery?.addEventListener("input", onPick);
 
     const onReturn = () => {
       window.setTimeout(ingestFromInput, 0);
       window.setTimeout(ingestFromInput, 300);
       window.setTimeout(ingestFromInput, 800);
     };
-
-    window.addEventListener("focus", onReturn);
-    window.addEventListener("pageshow", onReturn);
     const onVisibility = () => {
       if (document.visibilityState === "visible") onReturn();
     };
+
+    window.addEventListener("focus", onReturn);
+    window.addEventListener("pageshow", onReturn);
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      input.removeEventListener("change", onPick);
-      input.removeEventListener("input", onPick);
+      camera?.removeEventListener("change", onPick);
+      camera?.removeEventListener("input", onPick);
+      gallery?.removeEventListener("change", onPick);
+      gallery?.removeEventListener("input", onPick);
       window.removeEventListener("focus", onReturn);
       window.removeEventListener("pageshow", onReturn);
       document.removeEventListener("visibilitychange", onVisibility);
@@ -143,12 +158,12 @@ export function CapturaOrdenUploadForm({
     if (file) acceptFile(file);
   };
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const upload = () => {
     if (submitting || done || uploadingRef.current) return;
 
-    const original = fileRef.current ?? inputRef.current?.files?.[0] ?? null;
+    const original =
+      fileRef.current ??
+      readFirstFile(galleryRef.current, cameraRef.current);
     if (!original) {
       setError("Selecciona una foto de la hoja llenada.");
       return;
@@ -183,30 +198,27 @@ export function CapturaOrdenUploadForm({
       }
 
       fileRef.current = toSend;
-
       const body = new FormData();
       body.append("foto", toSend, toSend.name || "hoja-surtido.jpg");
 
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", actionUrl);
-      xhr.responseType = "text";
-      xhr.setRequestHeader("Accept", "application/json");
-
-      xhr.onload = () => {
-        uploadingRef.current = false;
-        setSubmitting(false);
+      try {
+        const response = await fetch(actionUrl, {
+          method: "POST",
+          headers: { Accept: "application/json" },
+          body,
+        });
         let data: {
           ok?: boolean;
           error?: string;
           precisionEstimada?: number;
         } = {};
         try {
-          data = JSON.parse(xhr.responseText || "{}") as typeof data;
+          data = (await response.json()) as typeof data;
         } catch {
           data = {};
         }
 
-        if (xhr.status >= 200 && xhr.status < 300 && data.ok) {
+        if (response.ok && data.ok) {
           setDone(true);
           setPrecision(
             typeof data.precisionEstimada === "number"
@@ -218,17 +230,14 @@ export function CapturaOrdenUploadForm({
 
         setError(
           data.error ||
-            `No se pudo procesar la foto (${xhr.status || "red"}).`,
+            `No se pudo procesar la foto (${response.status || "red"}).`,
         );
-      };
-
-      xhr.onerror = () => {
+      } catch {
+        setError("Error de red al subir. Revisa la conexión e inténtalo de nuevo.");
+      } finally {
         uploadingRef.current = false;
         setSubmitting(false);
-        setError("Error de red al subir. Revisa la conexión e inténtalo de nuevo.");
-      };
-
-      xhr.send(body);
+      }
     })();
   };
 
@@ -236,7 +245,8 @@ export function CapturaOrdenUploadForm({
     uploadingRef.current = false;
     lastKeyRef.current = "";
     fileRef.current = null;
-    if (inputRef.current) inputRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
+    if (galleryRef.current) galleryRef.current.value = "";
     setFileLabel(null);
     setHasFile(false);
     setSubmitting(false);
@@ -245,45 +255,76 @@ export function CapturaOrdenUploadForm({
     setPrecision(null);
   };
 
+  const pickerClass =
+    "absolute inset-0 z-20 m-0 h-full w-full cursor-pointer p-0";
+  const pickerStyle = {
+    opacity: 0.01,
+    fontSize: 16,
+    WebkitTapHighlightColor: "transparent",
+    pointerEvents: submitting || done ? "none" : "auto",
+  } as const;
+
   return (
-    <form
-      action={actionUrl}
-      method="post"
-      encType="multipart/form-data"
-      onSubmit={onSubmit}
-      className="space-y-4"
-    >
-      <label
+    <div className="space-y-4">
+      <div
         className={cn(
-          "relative flex min-h-[7.5rem] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-8 text-center",
+          "flex w-full flex-col items-stretch gap-3 rounded-2xl border border-dashed px-4 py-5 text-center",
           hasFile
             ? "border-polaria-teal bg-polaria-t-08"
             : "border-polaria-t-20 bg-polaria-bg/40",
-          submitting || done ? "cursor-wait opacity-70" : "cursor-pointer",
         )}
       >
-        <input
-          ref={inputRef}
-          name="foto"
-          type="file"
-          accept="image/*"
-          onChange={onReactChange}
-          className="absolute inset-0 z-20 m-0 h-full w-full cursor-pointer p-0"
-          style={{
-            opacity: 0.01,
-            fontSize: 16,
-            WebkitTapHighlightColor: "transparent",
-            pointerEvents: submitting || done ? "none" : "auto",
-          }}
-          aria-label="Tomar o elegir foto"
-        />
-        <span className="pointer-events-none relative z-0 polaria-text-body font-semibold text-polaria-w">
+        <p className="polaria-text-body font-semibold text-polaria-w">
           {hasFile ? "Foto seleccionada" : "Tomar o elegir foto"}
-        </span>
-        <span className="pointer-events-none relative z-0 polaria-text-caption text-polaria-w-50">
-          {fileLabel ?? "JPG, PNG o WebP · máx. 10 MB"}
-        </span>
-      </label>
+        </p>
+        <p className="polaria-text-caption text-polaria-w-50">
+          {fileLabel ?? "JPG, PNG o HEIC · máx. 10 MB"}
+        </p>
+
+        {!done ? (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div
+              className={cn(
+                "relative h-12 overflow-hidden rounded-xl bg-polaria-teal",
+                submitting && "opacity-50",
+              )}
+            >
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={onReactChange}
+                className={pickerClass}
+                style={pickerStyle}
+                aria-label="Tomar foto"
+              />
+              <span className="pointer-events-none relative z-0 flex h-full items-center justify-center px-3 text-sm font-semibold text-polaria-bg">
+                Tomar foto
+              </span>
+            </div>
+            <div
+              className={cn(
+                "relative h-12 overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08",
+                submitting && "opacity-50",
+              )}
+            >
+              <input
+                ref={galleryRef}
+                type="file"
+                accept="image/*"
+                onChange={onReactChange}
+                className={pickerClass}
+                style={pickerStyle}
+                aria-label="Elegir de galería"
+              />
+              <span className="pointer-events-none relative z-0 flex h-full items-center justify-center px-3 text-sm font-semibold text-polaria-w">
+                Elegir de galería
+              </span>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       {precision != null && done ? (
         <div className="rounded-xl border border-polaria-t-20 bg-polaria-bg/40 px-4 py-3 text-center">
@@ -304,8 +345,9 @@ export function CapturaOrdenUploadForm({
 
       {!done ? (
         <button
-          type="submit"
+          type="button"
           disabled={!hasFile || submitting}
+          onClick={upload}
           className={cn(
             "w-full rounded-xl bg-polaria-teal px-4 py-3.5 font-semibold text-polaria-bg",
             "hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40",
@@ -331,6 +373,6 @@ export function CapturaOrdenUploadForm({
       <p className="polaria-text-caption text-center text-polaria-w-20">
         Elige la foto y luego pulsa subir.
       </p>
-    </form>
+    </div>
   );
 }

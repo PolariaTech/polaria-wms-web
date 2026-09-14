@@ -17,6 +17,10 @@ const CABECERA_KEYS = [
   "horaSugeridaSalida",
   "chofer",
   "unidad",
+  "centroConsumo",
+  "fechaEntrega",
+  "numeroOrdenCliente",
+  "direccionEntrega",
   "renglonesSurtidosCompletos",
   "cajas15kg",
   "cajas21kg",
@@ -59,6 +63,10 @@ export const CABECERA_LABELS: Record<(typeof CABECERA_KEYS)[number], string> = {
   horaSugeridaSalida: "Hora sugerida de salida",
   chofer: "Chofer",
   unidad: "Unidad",
+  centroConsumo: "Centro de consumo / cocina",
+  fechaEntrega: "Fecha de entrega",
+  numeroOrdenCliente: "# de orden del cliente",
+  direccionEntrega: "Dirección de entrega",
   renglonesSurtidosCompletos: "Renglones surtidos completos",
   cajas15kg: "Cajas 1.5 kg",
   cajas21kg: "Cajas 21 kg",
@@ -335,16 +343,18 @@ export async function extraerSurtidoDesdeFoto(input: {
           "Debes extraer TODO lo manuscrito y TODAS las casillas marcadas, mapeándolas a cabecera / checks / lineas. " +
           "Reglas:\n" +
           "1) Solo valores escritos o corregidos a mano, o checkboxes con X/✓/raya clara.\n" +
-          "2) No copies texto ya impreso (cliente, dirección, productos, cantidades solicitadas) salvo que se haya tachado/reescrito a mano.\n" +
+          "2) No copies texto ya impreso (cliente, productos, cantidades solicitadas) salvo que se haya tachado/reescrito a mano.\n" +
           "3) Si un campo está vacío o ilegible → null. Si un checkbox está vacío → false; si no se ve → null.\n" +
-          "4) Cabecera: facturaAsociada, horaComprometida, horaSugeridaSalida, chofer, unidad, " +
+          "4) Cabecera de almacén: facturaAsociada, horaComprometida, horaSugeridaSalida, chofer, unidad, " +
           "renglonesSurtidosCompletos, cajas15kg, cajas21kg, totalBultosCamion, toleranciaPesoPct, " +
           "nombres y horas de Alistó/Revisó/Documentó/Despachó, y recepción (nombre, cargo, hora, motivo).\n" +
-          "5) Checks: turnoPm, turnoNocheAm; incidencias de la orden; mercancía coincide / dentro / fuera de tolerancia; recepción.\n" +
-          "6) Por cada fila de producto con marcas: indice (#), especificacion manuscrita, cantidadPreparada, " +
+          "5) Si en el snapshot estaban vacíos y ahora hay manuscrito, llena también: " +
+          "centroConsumo, fechaEntrega, numeroOrdenCliente, direccionEntrega.\n" +
+          "6) Checks: turnoPm, turnoNocheAm; incidencias de la orden; mercancía coincide / dentro / fuera de tolerancia; recepción.\n" +
+          "7) Por cada fila de producto con marcas: indice (#), especificacion manuscrita, cantidadPreparada, " +
           "codigoIncidencia (A–F), nota, alisto, reviso.\n" +
-          "7) En camposExtra mete cualquier otro texto manuscrito con su etiqueta visible.\n" +
-          "8) Conserva unidades y formato (ej. «5 kg», «09:30», «PM»). No inventes valores.",
+          "8) En camposExtra mete cualquier otro texto manuscrito con su etiqueta visible.\n" +
+          "9) Conserva unidades y formato (ej. «5 kg», «09:30», «PM»). No inventes valores.",
       },
       {
         role: "user",

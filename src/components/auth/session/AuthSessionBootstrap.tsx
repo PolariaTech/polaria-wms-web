@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getPostLoginRoute, ROUTES } from "@/config/routes";
 import { subscribeAuthChanged } from "@/lib/auth/auth-broadcast";
-import { isProtectedPath } from "@/lib/auth/auth-routes";
+import { isCapturaOrdenPath, isProtectedPath } from "@/lib/auth/auth-routes";
 import {
   expireAuthSession,
   getPersistedAccessToken,
@@ -31,6 +31,7 @@ export function AuthSessionBootstrap() {
 
   const enforceRouteAuth = useCallback(() => {
     if (isMateoSsoExitInProgress()) return;
+    if (isCapturaOrdenPath(pathname)) return;
 
     const remaining = getSessionRemainingMs(
       useAuthStore.getState().sessionStartedAt ??
@@ -87,11 +88,13 @@ export function AuthSessionBootstrap() {
     );
     const timeoutId = window.setTimeout(() => {
       void expireAuthSession().catch(() => undefined);
-      router.replace(ROUTES.login);
+      if (isProtectedPath(pathname)) {
+        router.replace(ROUTES.login);
+      }
     }, remaining);
 
     return () => window.clearTimeout(timeoutId);
-  }, [accessToken, router, sessionStartedAt]);
+  }, [accessToken, pathname, router, sessionStartedAt]);
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
