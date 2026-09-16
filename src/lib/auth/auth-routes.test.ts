@@ -7,6 +7,7 @@ describe("auth-routes", () => {
     expect(isProtectedPath("/configurador/foo")).toBe(true);
     expect(isProtectedPath("/dashboard")).toBe(true);
     expect(isProtectedPath("/platform")).toBe(true);
+    expect(isProtectedPath("/perfil")).toBe(true);
     expect(isProtectedPath("/login")).toBe(false);
     expect(isProtectedPath("/auth/sso")).toBe(false);
     expect(isProtectedPath("/captura-orden/abc")).toBe(false);

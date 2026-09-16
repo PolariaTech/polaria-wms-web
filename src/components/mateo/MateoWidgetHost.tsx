@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePolariaToast } from "@/components/shared/toast/PolariaToastProvider";
 import { env } from "@/config/env";
+import { SESSION_MAX_AGE_MS } from "@/lib/auth/auth-session-timeout";
 import { apiRequest } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { loadMateoWidgetApi } from "./load-mateo-widget";
@@ -76,7 +77,7 @@ export function MateoWidgetHost() {
           conversationApiBase: "/api/mateo/conversaciones",
           conversationTokenFetcher: async () => ({
             token: wmsToken,
-            expiresIn: 3600,
+            expiresIn: SESSION_MAX_AGE_MS / 1000,
           }),
           onAuthError: handleAuthError,
         });

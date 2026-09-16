@@ -90,6 +90,8 @@ export interface AuthSession {
   nombre: string;
   username: string;
   correo: string;
+  /** Teléfono de contacto (opcional). */
+  telefono?: string | null;
   idRol: string;
   nombreRol: string;
   nivelRol: NivelRol;

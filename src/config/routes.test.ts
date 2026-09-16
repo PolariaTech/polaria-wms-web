@@ -10,5 +10,6 @@ describe("getPostLoginRoute", () => {
   it("redirige scope tenant a /dashboard", () => {
     expect(getPostLoginRoute("tenant")).toBe(ROUTES.dashboard);
     expect(getPostLoginRoute("tenant")).toBe("/dashboard");
+    expect(ROUTES.perfil).toBe("/perfil");
   });
 });

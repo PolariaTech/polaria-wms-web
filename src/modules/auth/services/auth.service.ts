@@ -57,6 +57,29 @@ export async function getMe(): Promise<AuthSession> {
   return normalizeAuthSession(raw);
 }
 
+export async function updateMe(payload: {
+  nombre: string;
+  telefono?: string | null;
+}): Promise<AuthSession> {
+  const raw = await apiRequest<MeApiResponse>("/auth/me", {
+    method: "PATCH",
+    auth: true,
+    body: payload,
+  });
+  return normalizeAuthSession(raw);
+}
+
+export async function changePassword(payload: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  return apiRequest<void>("/auth/me/password", {
+    method: "POST",
+    auth: true,
+    body: payload,
+  });
+}
+
 export async function logout(): Promise<void> {
   return apiRequest<void>("/auth/logout", {
     method: "POST",

@@ -2,6 +2,8 @@ export const ROUTES = {
   home: "/",
   login: "/login",
   sso: "/auth/sso",
+  /** Perfil propio — todos los roles autenticados */
+  perfil: "/perfil",
   /** Dominio configurador (scope platform) */
   configurator: "/configurador",
   configuratorCreation: "/configurador/creacion",

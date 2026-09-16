@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Loader2, LogOut, Snowflake } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 import { useLiveDate } from "@/hooks/shared/useLiveDate";
@@ -37,9 +38,11 @@ export function AppTopbar({
   isMateoLoading = false,
 }: AppTopbarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const session = useAuthStore((s) => s.session);
   const performLogout = useAuthStore((s) => s.performLogout);
   const { label: dateLabel, dateTime } = useLiveDate();
+  const isPerfilActive = pathname === ROUTES.perfil;
 
   const user = useMemo((): TopbarUserInfo => {
     if (!session) return buildFallbackUser();
@@ -112,9 +115,11 @@ export function AppTopbar({
               <span className="polaria-topbar-btn__label">Mateo IA</span>
             </button>
 
-            <div
+            <Link
+              href={ROUTES.perfil}
               className={cn("polaria-topbar-user", TOPBAR_SHAPE)}
-              aria-label={`Usuario: ${user.nombre}`}
+              aria-label={`Abrir perfil de ${user.nombre}`}
+              aria-current={isPerfilActive ? "page" : undefined}
               title={`${user.nombre} · ${user.rol}`}
             >
               <span className="polaria-topbar-user__avatar">{user.initial}</span>
@@ -126,7 +131,7 @@ export function AppTopbar({
                   {user.rol}
                 </span>
               </span>
-            </div>
+            </Link>
 
             <button
               type="button"
@@ -148,3 +153,4 @@ export function AppTopbar({
     </header>
   );
 }
+

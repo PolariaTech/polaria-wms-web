@@ -1,10 +1,12 @@
 export {
+  changePassword,
   getMe,
   login,
   logout,
   logoutWithToken,
   mateoHandoff,
   prelogin,
+  updateMe,
   wmsSsoExchange,
 } from "./services/auth.service";
 

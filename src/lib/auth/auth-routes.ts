@@ -4,6 +4,7 @@ const PROTECTED_PREFIXES = [
   ROUTES.configurator,
   ROUTES.dashboard,
   ROUTES.platform,
+  ROUTES.perfil,
 ] as const;
 
 export function isProtectedPath(pathname: string): boolean {

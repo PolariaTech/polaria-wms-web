@@ -48,6 +48,7 @@ vi.mock("@/stores/auth.store", () => ({
         session: {
           nombre: "Usuario Test",
           identificador: "test@polaria.tech",
+          nombreRol: "Configurador TI",
           scope: "platform",
         },
       }),

@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  changePassword,
   getMe,
   login,
   mateoHandoff,
   prelogin,
+  updateMe,
   wmsSsoExchange,
 } from "@/modules/auth/services/auth.service";
 
@@ -127,6 +129,83 @@ describe("auth service happy path", () => {
     expect(session.nombre).toBe("Administrador");
     expect(session.username).toBe("admin.acme");
     expect(session.nivelRol).toBe("platform");
+  });
+
+  it("updates profile with PATCH /auth/me", async () => {
+    const { setAccessTokenGetter } = await import("@/services/api/api");
+    setAccessTokenGetter(() => "test-token");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          idUsuario: "1",
+          idAuth: "auth-1",
+          nombre: "Nombre Nuevo",
+          username: "admin.acme",
+          correo: "admin@acme.com",
+          telefono: "+573001112233",
+          idRol: "administrador_bodega",
+          nombreRol: "Administrador de bodega",
+          nivelRol: "bodega",
+          codigoEmpresa: "ACME",
+          razonSocialEmpresa: "ACME Corp",
+          codigoCuenta: null,
+          nombreComercialCuenta: null,
+          idBodegas: ["BOD-01"],
+          scope: "tenant",
+        }),
+      }),
+    );
+
+    const session = await updateMe({
+      nombre: "Nombre Nuevo",
+      telefono: "+573001112233",
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/auth/me",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          nombre: "Nombre Nuevo",
+          telefono: "+573001112233",
+        }),
+      }),
+    );
+    expect(session.nombre).toBe("Nombre Nuevo");
+    expect(session.telefono).toBe("+573001112233");
+  });
+
+  it("changes password with POST /auth/me/password", async () => {
+    const { setAccessTokenGetter } = await import("@/services/api/api");
+    setAccessTokenGetter(() => "test-token");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 204,
+      }),
+    );
+
+    await changePassword({
+      currentPassword: "ClaveActual1!",
+      newPassword: "ClaveNueva1!",
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/auth/me/password",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword: "ClaveActual1!",
+          newPassword: "ClaveNueva1!",
+        }),
+      }),
+    );
   });
 
   it("requests mateo handoff code with Bearer token", async () => {
