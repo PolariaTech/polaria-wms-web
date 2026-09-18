@@ -7,6 +7,7 @@ import {
   PackagePlus,
   Settings2,
   ShoppingCart,
+  Store,
   Truck,
   UserCheck,
   type LucideIcon,
@@ -51,6 +52,12 @@ export const PLATFORM_NAV: readonly NavItem[] = [
     href: ROUTES.configurator,
     label: "Panel",
     icon: Home,
+    scopes: ["platform"],
+  },
+  {
+    href: ROUTES.configuratorAccounts,
+    label: "Cuentas",
+    icon: Store,
     scopes: ["platform"],
   },
   {

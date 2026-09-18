@@ -36,12 +36,14 @@ import {
   type CuentaAssignOption,
   type RolOption,
 } from "@/modules/configurator/usuarios/services/usuarios.service";
+import { CuentaAccesoGrantPanel } from "@/modules/configurator/cuentas/components/CuentaAccesoGrantPanel";
 import { RolAssignPickerModal } from "./RolAssignPickerModal";
 
 interface UsuarioCreateModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  lockedCodigoCuenta?: string;
 }
 
 const INITIAL_FORM = {
@@ -52,12 +54,15 @@ const INITIAL_FORM = {
   correo: "",
   telefono: "",
   clave: "",
+  accesoWms: true,
+  accesoMateo: true,
 };
 
 export function UsuarioCreateModal({
   open,
   onClose,
   onCreated,
+  lockedCodigoCuenta,
 }: UsuarioCreateModalProps) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [roles, setRoles] = useState<RolOption[]>([]);
@@ -81,7 +86,10 @@ export function UsuarioCreateModal({
   useEffect(() => {
     if (!open) return;
 
-    setForm(INITIAL_FORM);
+    setForm({
+      ...INITIAL_FORM,
+      codigoCuenta: lockedCodigoCuenta ?? "",
+    });
     setRolPickerOpen(false);
     setError(null);
     setIsSubmitting(false);
@@ -103,7 +111,7 @@ export function UsuarioCreateModal({
       .finally(() => {
         setIsLoadingOptions(false);
       });
-  }, [open]);
+  }, [lockedCodigoCuenta, open]);
 
   const handleClose = useCallback(() => {
     if (isSubmitting) return;
@@ -114,7 +122,7 @@ export function UsuarioCreateModal({
     setForm((current) => ({
       ...current,
       idRol,
-      codigoCuenta: "",
+      codigoCuenta: lockedCodigoCuenta ?? "",
       idBodega: "",
     }));
   };
@@ -176,6 +184,8 @@ export function UsuarioCreateModal({
         correo: form.correo,
         telefono: telefono || null,
         clave,
+        accesoWms: form.accesoWms,
+        accesoMateo: form.accesoMateo,
       });
       onCreated();
       onClose();
@@ -191,6 +201,20 @@ export function UsuarioCreateModal({
   };
 
   const disabled = isSubmitting || isLoadingOptions;
+
+  const cuentasOpciones = useMemo(() => {
+    if (!lockedCodigoCuenta) return cuentas;
+    return cuentas.filter(
+      (cuenta) => cuenta.codigoCuenta === lockedCodigoCuenta,
+    );
+  }, [cuentas, lockedCodigoCuenta]);
+
+  const bodegasOpciones = useMemo(() => {
+    if (!lockedCodigoCuenta) return bodegas;
+    return bodegas.filter(
+      (bodega) => bodega.codigoCuenta === lockedCodigoCuenta,
+    );
+  }, [bodegas, lockedCodigoCuenta]);
 
   const renderAsignadoField = () => {
     if (!asignacionTipo) {
@@ -218,9 +242,9 @@ export function UsuarioCreateModal({
               codigoCuenta: event.target.value,
             }))
           }
-          disabled={disabled}
+          disabled={disabled || Boolean(lockedCodigoCuenta)}
           placeholder="Selecciona una cuenta"
-          options={cuentas.map((cuenta) => ({
+          options={cuentasOpciones.map((cuenta) => ({
             value: cuenta.codigoCuenta,
             label: cuenta.nombreComercial,
           }))}
@@ -235,18 +259,19 @@ export function UsuarioCreateModal({
           label={asignacionLabel}
           value={form.idBodega}
           onChange={(event) => {
-            const selected = bodegas.find(
+            const selected = bodegasOpciones.find(
               (bodega) => bodega.idBodega === event.target.value,
             );
             setForm((current) => ({
               ...current,
               idBodega: event.target.value,
-              codigoCuenta: selected?.codigoCuenta ?? "",
+              codigoCuenta:
+                lockedCodigoCuenta ?? selected?.codigoCuenta ?? "",
             }));
           }}
           disabled={disabled}
           placeholder="Selecciona una bodega"
-          options={bodegas.map((bodega) => ({
+          options={bodegasOpciones.map((bodega) => ({
             value: bodega.idBodega,
             label: `${bodega.nombre} (${bodega.codigo})`,
           }))}
@@ -350,6 +375,29 @@ export function UsuarioCreateModal({
               setForm((current) => ({ ...current, clave: value }))
             }
             disabled={disabled}
+          />
+
+          <CuentaAccesoGrantPanel
+            estaActiva
+            accesoWms={form.accesoWms}
+            accesoMateo={form.accesoMateo}
+            disabled={disabled}
+            showLogin={false}
+            ariaLabel="Accesos del usuario"
+            onToggleWms={() => {
+              if (form.accesoWms && !form.accesoMateo) return;
+              setForm((current) => ({
+                ...current,
+                accesoWms: !current.accesoWms,
+              }));
+            }}
+            onToggleMateo={() => {
+              if (form.accesoMateo && !form.accesoWms) return;
+              setForm((current) => ({
+                ...current,
+                accesoMateo: !current.accesoMateo,
+              }));
+            }}
           />
         </div>
       </PolariaFormModal>

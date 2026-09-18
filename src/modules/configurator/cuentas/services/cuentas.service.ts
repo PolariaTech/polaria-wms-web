@@ -8,7 +8,6 @@ import {
 import { findCuentaAcrossSchemas } from "@/lib/supabase/tenant-fanout";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { normalizeCodigoCuentaInput } from "@/lib/utils/generate-codigo-cuenta";
-import { ApiError, apiRequest } from "@/services/api/api";
 
 export type CuentaBodegaTipo = "interna" | "externa" | string;
 
@@ -33,6 +32,10 @@ export interface CuentaListRow {
    * false → los usuarios de la cuenta no pueden iniciar sesión.
    */
   estaActiva: boolean;
+  /** La cuenta opera Polaria WMS. */
+  accesoWms: boolean;
+  /** La cuenta puede entrar a Mateo IA. */
+  accesoMateo: boolean;
   /**
    * Tiene al menos un usuario con Auth (correo + clave → `usuario.id_auth`).
    */
@@ -52,11 +55,13 @@ interface CuentaDbRow {
   codigo_empresa: string;
   nombre_comercial: string;
   esta_activa: boolean;
+  acceso_wms?: boolean;
+  acceso_mateo?: boolean;
   id_bodega_default: string | null;
 }
 
 const CUENTA_LIST_COLUMNS =
-  "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,id_bodega_default";
+  "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,acceso_wms,acceso_mateo,id_bodega_default";
 
 const BODEGA_LIST_COLUMNS =
   "id_bodega,nombre,tipo,capacidad_slots,esta_activa,codigo_cuenta";
@@ -111,6 +116,8 @@ function mapCuentaRow(
       idBodegaDefault,
     ),
     estaActiva: row.esta_activa,
+    accesoWms: row.acceso_wms !== false,
+    accesoMateo: row.acceso_mateo !== false,
     tieneCredenciales,
   };
 }
@@ -313,6 +320,46 @@ export async function listCuentasConfigurator(): Promise<CuentaListRow[]> {
     .sort((a, b) => a.nombreComercial.localeCompare(b.nombreComercial, "es"));
 }
 
+export interface CuentaGobiernoListRow extends CuentaListRow {
+  empresaNombre: string;
+}
+
+function withEmpresaNombre(
+  cuenta: CuentaListRow,
+  razonByCodigo: Map<string, string>,
+): CuentaGobiernoListRow {
+  return {
+    ...cuenta,
+    empresaNombre:
+      razonByCodigo.get(cuenta.codigoEmpresa) ?? cuenta.codigoEmpresa,
+  };
+}
+
+/** Cuentas de toda la plataforma, con razón social de empresa para gobierno TI. */
+export async function listCuentasGobiernoConfigurator(): Promise<
+  CuentaGobiernoListRow[]
+> {
+  const [cuentas, empresas] = await Promise.all([
+    listCuentasConfigurator(),
+    listEmpresasAssignOptions(),
+  ]);
+  const razonByCodigo = new Map(
+    empresas.map((empresa) => [empresa.codigoEmpresa, empresa.razonSocial]),
+  );
+
+  return cuentas.map((cuenta) => withEmpresaNombre(cuenta, razonByCodigo));
+}
+
+export async function getCuentaGobiernoConfigurator(
+  codigoCuenta: string,
+): Promise<CuentaGobiernoListRow | null> {
+  const codigo = normalizeCodigoCuentaInput(codigoCuenta);
+  if (!codigo) return null;
+
+  const cuentas = await listCuentasGobiernoConfigurator();
+  return cuentas.find((cuenta) => cuenta.codigoCuenta === codigo) ?? null;
+}
+
 export interface EmpresaAssignOption {
   codigoEmpresa: string;
   razonSocial: string;
@@ -415,18 +462,24 @@ export async function createCuentaConfigurator(
     bodegaInternaPrincipal: null,
     idBodegaDefault: null,
     estaActiva: true,
+    accesoWms: true,
+    accesoMateo: true,
     tieneCredenciales: false,
   };
 }
 
 export interface UpdateCuentaInput {
   codigoCuenta: string;
+  codigoEmpresa: string;
   nombreComercial: string;
   /** Acceso: false bloquea login de usuarios de la cuenta. */
   estaActiva: boolean;
 }
 
-/** Actualiza una cuenta vía API Nest (scope platform / configurador). */
+/**
+ * Actualiza nombre e inicio de sesión de la cuenta en el schema de la empresa.
+ * Los productos WMS/Mateo se conceden por usuario.
+ */
 export async function updateCuentaConfigurator(
   input: UpdateCuentaInput,
 ): Promise<{
@@ -437,11 +490,19 @@ export async function updateCuentaConfigurator(
   idBodegaDefault: string | null;
 }> {
   const codigoCuenta = normalizeCodigoCuentaInput(input.codigoCuenta);
+  const codigoEmpresa = input.codigoEmpresa.trim().toUpperCase();
   const nombreComercial = input.nombreComercial.trim();
 
   if (!codigoCuenta) {
     throw new DomainServiceError(
       "El código de la cuenta es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  if (!codigoEmpresa) {
+    throw new DomainServiceError(
+      "La empresa de la cuenta es obligatoria.",
       "INVALID_ARGUMENT",
     );
   }
@@ -453,24 +514,50 @@ export async function updateCuentaConfigurator(
     );
   }
 
-  try {
-    return await apiRequest(
-      `/configuracion/cuentas/${encodeURIComponent(codigoCuenta)}`,
-      {
-        method: "PATCH",
-        auth: true,
-        body: {
-          nombreComercial,
-          estaActiva: input.estaActiva,
-        },
-      },
-    );
-  } catch (error: unknown) {
-    if (error instanceof ApiError) {
-      throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
-    }
-    throw error;
+  const updated = await withEmpresaSchema(codigoEmpresa, () =>
+    runDomainMutation<{
+      codigo_cuenta: string;
+      codigo_empresa: string;
+      nombre_comercial: string;
+      esta_activa: boolean;
+      id_bodega_default: string | null;
+    } | null>((client) => {
+      const query = client
+        .from("cuenta")
+        .update({
+          nombre_comercial: nombreComercial,
+          esta_activa: input.estaActiva,
+        })
+        .eq("codigo_cuenta", codigoCuenta)
+        .select(
+          "codigo_cuenta,codigo_empresa,nombre_comercial,esta_activa,id_bodega_default",
+        )
+        .single();
+
+      return query as unknown as Promise<{
+        data: {
+          codigo_cuenta: string;
+          codigo_empresa: string;
+          nombre_comercial: string;
+          esta_activa: boolean;
+          id_bodega_default: string | null;
+        } | null;
+        error: { message: string } | null;
+      }>;
+    }),
+  );
+
+  if (!updated) {
+    throw new DomainServiceError("Cuenta no encontrada.", "INVALID_ARGUMENT");
   }
+
+  return {
+    codigoCuenta: updated.codigo_cuenta,
+    codigoEmpresa: updated.codigo_empresa,
+    nombreComercial: updated.nombre_comercial,
+    estaActiva: updated.esta_activa,
+    idBodegaDefault: updated.id_bodega_default?.trim() || null,
+  };
 }
 
 export interface UpdateCuentaBodegaDefaultInput {

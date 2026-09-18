@@ -15,6 +15,11 @@ import {
   listProveedoresAdmin,
   type ProveedorListRow,
 } from "@/modules/admin-panel";
+import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
+import {
+  useAdminMaestroScope,
+  type AdminMaestroViewProps,
+} from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   ESTADO_ORDEN_LABELS,
@@ -87,8 +92,15 @@ function formatObservacionesOrden(
   return base !== "—" ? base : (notifiedNote ?? "—");
 }
 
-export function ComprasPageContent() {
-  const { codigoCuenta, activeBodegaId } = useCompany();
+export function ComprasPageContent({
+  codigoCuenta: codigoCuentaProp,
+  mode = "manage",
+}: AdminMaestroViewProps = {}) {
+  const { codigoCuenta, inspect, runScoped } = useAdminMaestroScope({
+    codigoCuenta: codigoCuentaProp,
+    mode,
+  });
+  const { activeBodegaId } = useCompany();
   const { idRol } = usePermissions();
   const [activeTab, setActiveTab] = useState<ComprasTab>("solicitudes");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -118,22 +130,26 @@ export function ComprasPageContent() {
       return Promise.resolve([]);
     }
 
-    return listSolicitudesCompra({
-      codigoCuenta,
-      idBodega: activeBodegaId,
-    });
-  }, [activeBodegaId, codigoCuenta]);
+    return runScoped(() =>
+      listSolicitudesCompra({
+        codigoCuenta,
+        idBodega: inspect ? null : activeBodegaId,
+      }),
+    );
+  }, [activeBodegaId, codigoCuenta, inspect, runScoped]);
 
   const fetchOrdenes = useCallback(() => {
     if (!codigoCuenta) {
       return Promise.resolve([]);
     }
 
-    return listOrdenesCompra({
-      codigoCuenta,
-      idBodega: activeBodegaId,
-    });
-  }, [activeBodegaId, codigoCuenta]);
+    return runScoped(() =>
+      listOrdenesCompra({
+        codigoCuenta,
+        idBodega: inspect ? null : activeBodegaId,
+      }),
+    );
+  }, [activeBodegaId, codigoCuenta, inspect, runScoped]);
 
   const solicitudes = useAsyncQuery(fetchSolicitudes, Boolean(codigoCuenta));
   const ordenes = useAsyncQuery(fetchOrdenes, Boolean(codigoCuenta));
@@ -580,7 +596,7 @@ export function ComprasPageContent() {
   const tenantError =
     !codigoCuenta ? "No se encontró la cuenta activa." : null;
 
-  return (
+  const body = (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap gap-2">
         <TabButton
@@ -624,7 +640,11 @@ export function ComprasPageContent() {
           rows={solicitudesOrdenadas}
           columns={solicitudColumns}
           getRowKey={(row) => row.id_solicitud_compra}
-          emptyMessage="No hay solicitudes. Usá «Nueva solicitud» para crear la primera."
+          emptyMessage={
+            inspect
+              ? "No hay solicitudes de compra."
+              : "No hay solicitudes. Usá «Nueva solicitud» para crear la primera."
+          }
           onRefresh={() => {
             void solicitudes.reload();
           }}
@@ -632,10 +652,14 @@ export function ComprasPageContent() {
           onRowClick={(row) => setSolicitudDetalle(row)}
           getRowAriaLabel={(row) => `Ver detalle de solicitud ${row.codigo}`}
           tableClassName={SOLICITUDES_TABLE_MIN_WIDTH_CLASS}
-          primaryAction={{
-            label: "Nueva solicitud",
-            onClick: () => setIsCreateOpen(true),
-          }}
+          primaryAction={
+            inspect
+              ? undefined
+              : {
+                  label: "Nueva solicitud",
+                  onClick: () => setIsCreateOpen(true),
+                }
+          }
         />
       ) : (
         <PolariaDataTable
@@ -646,7 +670,11 @@ export function ComprasPageContent() {
           rows={ordenes.data ?? []}
           columns={ordenColumns}
           getRowKey={(row) => row.id_orden_compra}
-          emptyMessage="Sin órdenes de compra. Usá «Nueva orden» para crear la primera."
+          emptyMessage={
+            inspect
+              ? "Sin órdenes de compra."
+              : "Sin órdenes de compra. Usá «Nueva orden» para crear la primera."
+          }
           onRefresh={() => {
             void ordenes.reload();
           }}
@@ -654,15 +682,19 @@ export function ComprasPageContent() {
           onRowClick={(row) => setOrdenDetalle(row)}
           getRowAriaLabel={(row) => `Ver detalle de orden ${row.codigo}`}
           tableClassName={ORDENES_TABLE_MIN_WIDTH_CLASS}
-          primaryAction={{
-            label: "Nueva orden",
-            onClick: () => setIsOrdenCreateOpen(true),
-          }}
+          primaryAction={
+            inspect
+              ? undefined
+              : {
+                  label: "Nueva orden",
+                  onClick: () => setIsOrdenCreateOpen(true),
+                }
+          }
         />
       )}
 
       <SolicitudCompraCreateModal
-        open={isCreateOpen}
+        open={!inspect && isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={() => {
           void solicitudes.reload();
@@ -670,7 +702,7 @@ export function ComprasPageContent() {
       />
 
       <OrdenCompraCreateModal
-        open={isOrdenCreateOpen}
+        open={!inspect && isOrdenCreateOpen}
         onClose={() => setIsOrdenCreateOpen(false)}
         onCreated={() => {
           void ordenes.reload();
@@ -681,7 +713,7 @@ export function ComprasPageContent() {
         <SolicitudCompraDetalleModal
           solicitud={solicitudDetalle}
           onClose={() => setSolicitudDetalle(null)}
-          actions={renderSolicitudActions(solicitudDetalle)}
+          actions={inspect ? null : renderSolicitudActions(solicitudDetalle)}
           closeOnEscape={!pickingSolicitud}
         />
       ) : null}
@@ -694,12 +726,12 @@ export function ComprasPageContent() {
             setOrdenDetalle(null);
             setDestinoError(null);
           }}
-          actions={renderOrdenActions(ordenDetalle)}
+          actions={inspect ? null : renderOrdenActions(ordenDetalle)}
           notified={notifiedOrdenIds.has(ordenDetalle.id_orden_compra)}
           onDestinoChange={
-            ordenDetalle.estado === "borrador"
-              ? handleDestinoChange
-              : undefined
+            inspect || ordenDetalle.estado !== "borrador"
+              ? undefined
+              : handleDestinoChange
           }
           isSavingDestino={isSavingDestino}
           destinoError={destinoError}
@@ -707,7 +739,7 @@ export function ComprasPageContent() {
       ) : null}
 
       <SolicitudProveedorPickerModal
-        open={Boolean(pickingSolicitud)}
+        open={!inspect && Boolean(pickingSolicitud)}
         onClose={() => setPickingSolicitud(null)}
         proveedores={proveedoresPicker}
         selectedId={pickingSolicitud?.id_proveedor}
@@ -715,6 +747,21 @@ export function ComprasPageContent() {
       />
     </div>
   );
+
+  if (inspect) {
+    return (
+      <AdminMaestroViewShell
+        inspect
+        sectionLabel=""
+        title=""
+        hint=""
+      >
+        {body}
+      </AdminMaestroViewShell>
+    );
+  }
+
+  return body;
 }
 
 function TableCellText({

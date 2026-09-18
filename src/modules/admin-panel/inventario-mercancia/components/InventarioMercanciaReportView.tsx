@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, BarChart3 } from "lucide-react";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import { useCompany } from "@/providers/tenant/CompanyProvider";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 import {
   REPORTES_PAGE_HINT,
@@ -29,7 +29,11 @@ import {
   mintBodegaExternaEmbedViewUrl,
   type BodegaExternaEmbedReportOption,
 } from "../services/cuenta-reporte-embed.client";
-import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
+import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
+import {
+  useAdminMaestroScope,
+  type AdminMaestroViewProps,
+} from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import { InventarioMercanciaFlow } from "./InventarioMercanciaFlow";
 import { InventarioMercanciaBodegaPicker } from "./InventarioMercanciaBodegaPicker";
 import { InventarioMercanciaListadoTable } from "./InventarioMercanciaListadoTable";
@@ -43,8 +47,14 @@ const toolbarButtonClassName = cn(
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
 );
 
-export function InventarioMercanciaReportView() {
-  const { codigoCuenta } = useCompany();
+export function InventarioMercanciaReportView({
+  codigoCuenta: codigoCuentaProp,
+  mode = "manage",
+}: AdminMaestroViewProps = {}) {
+  const { codigoCuenta, inspect, runScoped } = useAdminMaestroScope({
+    codigoCuenta: codigoCuentaProp,
+    mode,
+  });
 
   const [step, setStep] = useState<Step>("flow");
   const [activeEtapa, setActiveEtapa] =
@@ -78,8 +88,8 @@ export function InventarioMercanciaReportView() {
       });
     }
 
-    return getInventarioMercanciaReport(codigoCuenta);
-  }, [codigoCuenta]);
+    return runScoped(() => getInventarioMercanciaReport(codigoCuenta));
+  }, [codigoCuenta, runScoped]);
 
   const { data, isLoading, error } = useAsyncQuery(
     fetchReport,
@@ -99,7 +109,7 @@ export function InventarioMercanciaReportView() {
   useEffect(() => {
     let cancelled = false;
 
-    if (!codigoCuenta?.trim()) {
+    if (inspect || !codigoCuenta?.trim()) {
       setEmbedEligible(false);
       return;
     }
@@ -111,7 +121,7 @@ export function InventarioMercanciaReportView() {
     return () => {
       cancelled = true;
     };
-  }, [codigoCuenta]);
+  }, [codigoCuenta, inspect]);
 
   const loadBodegas = useCallback(
     async (etapaId: InventarioMercanciaEtapaId) => {
@@ -122,10 +132,12 @@ export function InventarioMercanciaReportView() {
       setBodegasLoading(true);
       setBodegasError(null);
       try {
-        const rows = await listBodegasParaInventarioEtapa({
-          codigoCuenta,
-          etapaId,
-        });
+        const rows = await runScoped(() =>
+          listBodegasParaInventarioEtapa({
+            codigoCuenta,
+            etapaId,
+          }),
+        );
         setBodegas(rows);
       } catch (err) {
         setBodegas([]);
@@ -136,7 +148,7 @@ export function InventarioMercanciaReportView() {
         setBodegasLoading(false);
       }
     },
-    [codigoCuenta],
+    [codigoCuenta, runScoped],
   );
 
   const loadFilas = useCallback(async () => {
@@ -147,11 +159,13 @@ export function InventarioMercanciaReportView() {
     setFilasLoading(true);
     setFilasError(null);
     try {
-      const rows = await listInventarioMercanciaFilas({
-        codigoCuenta,
-        idBodega: selectedBodega.idBodega,
-        bodegaNombre: selectedBodega.nombre,
-      });
+      const rows = await runScoped(() =>
+        listInventarioMercanciaFilas({
+          codigoCuenta,
+          idBodega: selectedBodega.idBodega,
+          bodegaNombre: selectedBodega.nombre,
+        }),
+      );
       setFilas(rows);
     } catch (err) {
       setFilas([]);
@@ -163,7 +177,7 @@ export function InventarioMercanciaReportView() {
     } finally {
       setFilasLoading(false);
     }
-  }, [codigoCuenta, selectedBodega]);
+  }, [codigoCuenta, runScoped, selectedBodega]);
 
   useEffect(() => {
     if (step === "bodegas" && activeEtapa) {
@@ -291,7 +305,8 @@ export function InventarioMercanciaReportView() {
   };
 
   return (
-    <AdminCatalogListShell
+    <AdminMaestroViewShell
+      inspect={inspect}
       sectionLabel={ADMIN_CATALOG_SECTION_LABEL}
       title={REPORTES_PAGE_TITLE}
       hint={REPORTES_PAGE_HINT}
@@ -344,9 +359,11 @@ export function InventarioMercanciaReportView() {
                 No se encontró la cuenta activa.
               </p>
             ) : isLoading ? (
-              <p className="mt-6 text-center polaria-text-body-sm text-polaria-w-50">
-                Cargando inventario…
-              </p>
+              <PolariaStatusLoading
+                title="Cargando inventario…"
+                message="Estamos preparando el inventario de mercancía."
+                className="mt-6"
+              />
             ) : (
               <div className="mt-6">
                 <InventarioMercanciaFlow
@@ -409,9 +426,11 @@ export function InventarioMercanciaReportView() {
 
             <div className="w-full overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-bg">
               {embedLoading ? (
-                <p className="px-4 py-10 text-center polaria-text-body-sm text-polaria-w-50">
-                  Preparando reporte seguro…
-                </p>
+                <PolariaStatusLoading
+                  title="Preparando reporte seguro…"
+                  message="Estamos abriendo la visualización."
+                  className="py-10"
+                />
               ) : null}
 
               {embedError ? (
@@ -450,6 +469,6 @@ export function InventarioMercanciaReportView() {
           </div>
         ) : null}
       </section>
-    </AdminCatalogListShell>
+    </AdminMaestroViewShell>
   );
 }

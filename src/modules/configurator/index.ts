@@ -58,6 +58,8 @@ export {
   EMPRESAS_TABLE_SUBTITLE,
   EMPRESAS_TABLE_TITLE,
   CUENTAS_EMPTY_MESSAGE,
+  CUENTAS_GOBIERNO_TABLE_SUBTITLE,
+  CUENTAS_GOBIERNO_TABLE_TITLE,
   CUENTAS_TABLE_SUBTITLE,
   CUENTAS_TABLE_TITLE,
   USUARIOS_EMPTY_MESSAGE,
@@ -79,7 +81,10 @@ export { ConfiguratorBreadcrumb } from "./shared/components/ConfiguratorBreadcru
 export { ConfiguratorHeader } from "./shared/components/ConfiguratorHeader";
 export { ConfiguratorListShell } from "./shared/components/ConfiguratorListShell";
 export { CuentaCreateModal } from "./cuentas/components/CuentaCreateModal";
+export { CuentasGobiernoListView } from "./cuentas/components/CuentasGobiernoListView";
 export { CuentasListView } from "./cuentas/components/CuentasListView";
+export { CuentaCockpitModuloView } from "./cuentas/components/CuentaCockpitModuloView";
+export { CuentaCockpitView } from "./cuentas/components/CuentaCockpitView";
 export { EmpresaCreateModal } from "./empresas/components/EmpresaCreateModal";
 export { EmpresasListView } from "./empresas/components/EmpresasListView";
 export { UsuarioCreateModal } from "./usuarios/components/UsuarioCreateModal";
@@ -118,6 +123,7 @@ export {
 
 export type {
   CuentaBodegaAsignada,
+  CuentaGobiernoListRow,
   CuentaListRow,
   CreateCuentaInput,
   EmpresaAssignOption,
@@ -126,7 +132,9 @@ export type {
 } from "./cuentas/services/cuentas.service";
 export {
   createCuentaConfigurator,
+  getCuentaGobiernoConfigurator,
   listCuentasConfigurator,
+  listCuentasGobiernoConfigurator,
   listEmpresasAssignOptions,
   updateCuentaBodegaDefaultConfigurator,
   updateCuentaConfigurator,

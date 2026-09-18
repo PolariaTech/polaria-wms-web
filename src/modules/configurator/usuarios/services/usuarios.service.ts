@@ -23,9 +23,13 @@ export interface UsuarioListRow {
   codigoCuenta: string | null;
   rol: string;
   nombre: string;
+  correo: string;
   cuenta: string;
   telefono: string;
   tieneCredenciales: boolean;
+  estaActivo: boolean;
+  accesoWms: boolean;
+  accesoMateo: boolean;
 }
 
 export interface RolOption {
@@ -57,8 +61,12 @@ interface UsuarioDbRow {
   username: string;
   codigo_cuenta: string | null;
   nombre: string;
+  correo: string;
   telefono: string | null;
   id_auth: string;
+  esta_activo: boolean;
+  acceso_wms?: boolean;
+  acceso_mateo?: boolean;
   rol: UsuarioRolDbRow | UsuarioRolDbRow[] | null;
 }
 
@@ -67,7 +75,7 @@ interface UsuarioDbRow {
  * El nombre comercial se resuelve en public + schemas emp_*.
  */
 const USUARIO_LIST_COLUMNS =
-  "id_usuario,username,codigo_cuenta,nombre,telefono,id_auth,rol(id_rol,nombre)";
+  "id_usuario,username,codigo_cuenta,nombre,correo,telefono,id_auth,esta_activo,acceso_wms,acceso_mateo,rol(id_rol,nombre)";
 
 function resolveRelation<T>(value: T | T[] | null): T | null {
   if (!value) return null;
@@ -87,11 +95,15 @@ function mapUsuarioRow(
     codigoCuenta,
     rol: rol?.nombre ?? rol?.id_rol ?? "—",
     nombre: row.nombre,
+    correo: row.correo?.trim() || "—",
     cuenta: codigoCuenta
       ? (nombreCuentaByCodigo.get(codigoCuenta) ?? codigoCuenta)
       : "—",
     telefono: row.telefono?.trim() || "—",
     tieneCredenciales: Boolean(row.id_auth),
+    estaActivo: row.esta_activo !== false,
+    accesoWms: row.acceso_wms !== false,
+    accesoMateo: row.acceso_mateo !== false,
   };
 }
 
@@ -101,7 +113,6 @@ export async function listUsuariosConfigurator(): Promise<UsuarioListRow[]> {
     const query = client
       .from("usuario")
       .select(USUARIO_LIST_COLUMNS)
-      .eq("esta_activo", true)
       .order("nombre", { ascending: true })
       .limit(DEFAULT_LIST_LIMIT);
 
@@ -185,6 +196,8 @@ export interface CreateUsuarioInput {
   correo: string;
   telefono?: string | null;
   clave: string;
+  accesoWms?: boolean;
+  accesoMateo?: boolean;
 }
 
 interface CreateUsuarioApiResponse {
@@ -195,6 +208,9 @@ interface CreateUsuarioApiResponse {
   codigoCuenta: string | null;
   correo: string;
   telefono?: string | null;
+  estaActivo?: boolean;
+  accesoWms?: boolean;
+  accesoMateo?: boolean;
 }
 
 interface BodegaAssignRef {
@@ -346,6 +362,8 @@ export async function createUsuarioConfigurator(
           correo,
           telefono,
           password: clave,
+          accesoWms: input.accesoWms !== false,
+          accesoMateo: input.accesoMateo !== false,
         },
       },
     );
@@ -368,11 +386,72 @@ export async function createUsuarioConfigurator(
       codigoCuenta: created.codigoCuenta,
       rol: rolNombre,
       nombre: created.nombre,
+      correo: created.correo,
       cuenta: cuentaNombre,
       telefono: created.telefono?.trim() || telefono || "—",
       tieneCredenciales: true,
+      estaActivo: created.estaActivo !== false,
+      accesoWms: created.accesoWms !== false,
+      accesoMateo: created.accesoMateo !== false,
     };
   } catch (error) {
+    if (error instanceof ApiError) {
+      throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
+    }
+    throw error;
+  }
+}
+
+export interface UpdateUsuarioInput {
+  idUsuario: string;
+  nombre: string;
+  correo: string;
+  telefono: string | null;
+  estaActivo: boolean;
+  accesoWms: boolean;
+  accesoMateo: boolean;
+}
+
+export async function updateUsuarioConfigurator(
+  input: UpdateUsuarioInput,
+): Promise<void> {
+  const idUsuario = input.idUsuario.trim();
+  const nombre = input.nombre.trim();
+  const correo = input.correo.trim().toLowerCase();
+
+  if (!idUsuario) {
+    throw new DomainServiceError(
+      "El usuario es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  if (!nombre) {
+    throw new DomainServiceError("El nombre es obligatorio.", "INVALID_ARGUMENT");
+  }
+  if (!correo) {
+    throw new DomainServiceError("El correo es obligatorio.", "INVALID_ARGUMENT");
+  }
+  if (!input.accesoWms && !input.accesoMateo) {
+    throw new DomainServiceError(
+      "El usuario debe tener acceso a Polaria WMS, a Mateo IA, o a ambos.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  try {
+    await apiRequest(`/configurador/usuarios/${encodeURIComponent(idUsuario)}`, {
+      method: "PATCH",
+      auth: true,
+      body: {
+        nombre,
+        correo,
+        telefono: input.telefono,
+        estaActivo: input.estaActivo,
+        accesoWms: input.accesoWms,
+        accesoMateo: input.accesoMateo,
+      },
+    });
+  } catch (error: unknown) {
     if (error instanceof ApiError) {
       throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
     }

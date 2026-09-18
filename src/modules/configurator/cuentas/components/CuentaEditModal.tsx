@@ -1,16 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import {
-  PolariaFormInput,
-  PolariaFormSelect,
-} from "@/components/shared/form/PolariaFormField";
+import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import {
   updateCuentaConfigurator,
   type CuentaListRow,
 } from "../services/cuentas.service";
+import { CuentaAccesoGrantPanel } from "./CuentaAccesoGrantPanel";
 
 interface CuentaEditModalProps {
   open: boolean;
@@ -19,11 +17,6 @@ interface CuentaEditModalProps {
   onUpdated: () => void;
 }
 
-const ACCESO_OPTIONS = [
-  { value: "activo", label: "Activo" },
-  { value: "inactivo", label: "Inactivo" },
-] as const;
-
 export function CuentaEditModal({
   open,
   cuenta,
@@ -31,7 +24,7 @@ export function CuentaEditModal({
   onUpdated,
 }: CuentaEditModalProps) {
   const [nombre, setNombre] = useState("");
-  const [acceso, setAcceso] = useState<"activo" | "inactivo">("activo");
+  const [estaActiva, setEstaActiva] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,7 +32,7 @@ export function CuentaEditModal({
     if (!open || !cuenta) return;
 
     setNombre(cuenta.nombreComercial);
-    setAcceso(cuenta.estaActiva ? "activo" : "inactivo");
+    setEstaActiva(cuenta.estaActiva);
     setError(null);
     setIsSubmitting(false);
   }, [cuenta, open]);
@@ -59,8 +52,9 @@ export function CuentaEditModal({
     try {
       await updateCuentaConfigurator({
         codigoCuenta: cuenta.codigoCuenta,
+        codigoEmpresa: cuenta.codigoEmpresa,
         nombreComercial: nombre,
-        estaActiva: acceso === "activo",
+        estaActiva,
       });
       onUpdated();
       onClose();
@@ -79,9 +73,9 @@ export function CuentaEditModal({
     <PolariaFormModal
       open={open}
       onClose={handleClose}
-      sectionLabel="Editar cuenta"
+      sectionLabel="Acceso"
       title="Editar cuenta"
-      description="Actualiza el nombre y el acceso de la cuenta."
+      description="El inicio de sesión de la cuenta aplica a todos sus usuarios. WMS y Mateo se conceden en cada usuario."
       onSubmit={(event) => {
         void handleSubmit(event);
       }}
@@ -117,16 +111,16 @@ export function CuentaEditModal({
         hint="Correo y clave de Auth. Se crean al dar de alta usuarios de esta cuenta."
       />
 
-      <PolariaFormSelect
-        id="edit-cuenta-acceso"
-        label="Acceso"
-        value={acceso}
-        onChange={(event) =>
-          setAcceso(event.target.value === "inactivo" ? "inactivo" : "activo")
-        }
+      <CuentaAccesoGrantPanel
+        estaActiva={estaActiva}
+        accesoWms
+        accesoMateo
+        showProductos={false}
         disabled={isSubmitting}
-        options={[...ACCESO_OPTIONS]}
-        hint="Si eliges Inactivo, los usuarios de esta cuenta no podrán iniciar sesión."
+        ariaLabel="Acceso de la cuenta"
+        loginOnCaption="Los usuarios de esta cuenta pueden entrar."
+        loginOffCaption="Nadie de esta cuenta puede iniciar sesión."
+        onToggleActiva={() => setEstaActiva((current) => !current)}
       />
     </PolariaFormModal>
   );

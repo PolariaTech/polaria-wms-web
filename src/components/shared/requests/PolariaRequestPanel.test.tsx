@@ -38,6 +38,23 @@ describe("PolariaRequestPanel", () => {
     expect(screen.getByText("Contenido")).toBeInTheDocument();
   });
 
+  it("muestra la card de carga en lugar de texto plano", () => {
+    render(
+      <PolariaRequestPanel
+        title="Integración"
+        isLoading
+        emptyMessage="Vacío"
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Cargando solicitudes…" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Estamos preparando las solicitudes."),
+    ).toBeInTheDocument();
+  });
+
   it("renderiza footer dentro del panel", () => {
     render(
       <PolariaRequestPanel

@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ROUTES } from "@/config/routes";
+import {
+  getCuentaCockpitOption,
+  isCuentaCockpitModuloId,
+} from "@/modules/configurator/cuentas/constants/cuenta-cockpit";
 import { CONFIGURATOR_ACTIONS } from "@/modules/configurator/shared/constants/configurator-actions";
 import { cn } from "@/lib/utils/cn";
 
@@ -29,6 +33,48 @@ function getBreadcrumbTrail(pathname: string): BreadcrumbItem[] | null {
       { label: "Creación", href: ROUTES.configuratorCreation },
       { label: "Cuentas" },
     ];
+  }
+
+  if (pathname === ROUTES.configuratorAccounts) {
+    return [
+      { label: "Inicio", href: ROUTES.configurator },
+      { label: "Cuentas" },
+    ];
+  }
+
+  if (pathname.startsWith(`${ROUTES.configuratorAccounts}/`)) {
+    const segments = pathname
+      .slice(ROUTES.configuratorAccounts.length + 1)
+      .split("/")
+      .filter(Boolean);
+    const codigoCuenta = decodeURIComponent(segments[0] ?? "").trim();
+    const modulo = segments[1];
+
+    if (!codigoCuenta) {
+      return [
+        { label: "Inicio", href: ROUTES.configurator },
+        { label: "Cuentas" },
+      ];
+    }
+
+    const trail: BreadcrumbItem[] = [
+      { label: "Inicio", href: ROUTES.configurator },
+      { label: "Cuentas", href: ROUTES.configuratorAccounts },
+      {
+        label: codigoCuenta,
+        href: modulo
+          ? `${ROUTES.configuratorAccounts}/${encodeURIComponent(codigoCuenta)}`
+          : undefined,
+      },
+    ];
+
+    if (modulo && isCuentaCockpitModuloId(modulo)) {
+      trail.push({ label: getCuentaCockpitOption(modulo)?.title ?? modulo });
+    } else if (modulo) {
+      trail.push({ label: modulo });
+    }
+
+    return trail;
   }
 
   if (pathname === ROUTES.configuratorCreationCompanies) {

@@ -9,11 +9,24 @@ import {
   syncAuthWithPersistedStorage,
 } from "@/lib/auth/auth-sync";
 import { isMateoSsoExitInProgress } from "@/lib/auth/mateo-sso-exit";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { useAuthStore } from "@/stores/auth.store";
 
 interface AuthGuardProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
+}
+
+function AuthGuardLoadingFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-polaria-bg px-4">
+      <PolariaStatusLoading
+        title="Cargando…"
+        message="Estamos abriendo tu sesión."
+        className="py-10"
+      />
+    </div>
+  );
 }
 
 export function AuthGuard({ children, fallback }: AuthGuardProps) {
@@ -37,24 +50,12 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
   }, [isHydrated, isLoading, router, sessionIsActive]);
 
   if (!isHydrated) {
-    return (
-      fallback ?? (
-        <div className="flex min-h-screen items-center justify-center bg-polaria-bg">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-polaria-teal border-t-transparent" />
-        </div>
-      )
-    );
+    return fallback ?? <AuthGuardLoadingFallback />;
   }
 
   /** Revalidación en background no debe desmontar la app (pierde modales / formularios). */
   if (isLoading && !sessionIsActive) {
-    return (
-      fallback ?? (
-        <div className="flex min-h-screen items-center justify-center bg-polaria-bg">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-polaria-teal border-t-transparent" />
-        </div>
-      )
-    );
+    return fallback ?? <AuthGuardLoadingFallback />;
   }
 
   if (!sessionIsActive) {

@@ -70,4 +70,12 @@ describe("AppTopbar — perfil", () => {
     expect(link).toHaveTextContent("Super Configurador");
     expect(link).toHaveTextContent("Configurador TI");
   });
+
+  it("oculta Mateo IA cuando showMateoIa es false", () => {
+    render(<AppTopbar showMateoIa={false} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Abrir Mateo IA" }),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { Plus } from "lucide-react";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
@@ -87,9 +88,11 @@ export function BodegaInternaAdminView() {
             No se encontró la cuenta activa.
           </p>
         ) : isLoading ? (
-          <p className="mt-6 polaria-text-body-sm text-polaria-w-50">
-            Cargando bodegas…
-          </p>
+          <PolariaStatusLoading
+            title="Cargando bodegas…"
+            message="Estamos preparando el listado de bodegas."
+            className="mt-6"
+          />
         ) : vinculadas.length === 0 ? (
           <p className="mt-6 rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-4 py-6 polaria-text-body-sm text-polaria-w-50">
             No hay bodegas internas vinculadas a tu cuenta.

@@ -55,6 +55,7 @@ export { CompradorCreateModal } from "./compradores/components/CompradorCreateMo
 export { CompradorEditModal } from "./compradores/components/CompradorEditModal";
 export { CompradorAliasCreateModal } from "./compradores/components/CompradorAliasCreateModal";
 export { CompradorDetalleModal } from "./compradores/components/CompradorDetalleModal";
+export { CompradorPreciosGestionModal } from "./compradores/components/CompradorPreciosGestionModal";
 export { CamionesListView } from "./camiones/components/CamionesListView";
 export { CamionCreateModal } from "./camiones/components/CamionCreateModal";
 export { CamionEditModal } from "./camiones/components/CamionEditModal";
@@ -106,13 +107,16 @@ export {
   updateCompradorAdmin,
 } from "./compradores/services/compradores.service";
 export type {
+  CompradorProductoAliasCuentaRow,
   CompradorProductoAliasListRow,
   CompradorProductoAliasRow,
   CreateCompradorProductoAliasInput,
 } from "./compradores/services/comprador-producto-alias.service";
 export {
   createCompradorProductoAliasAdmin,
+  listCompradorPreciosTemplateAdmin,
   listCompradorProductoAliasAdmin,
+  listCompradorProductoAliasCuentaAdmin,
 } from "./compradores/services/comprador-producto-alias.service";
 
 export type { CamionListRow, CreateCamionInput } from "./camiones/services/camiones.service";

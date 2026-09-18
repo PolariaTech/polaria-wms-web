@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, Box } from "lucide-react";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 import { POLARIA_REQUEST_PANEL_BODY_MIN_CLASS } from "./polaria-request-layout";
 import type { PolariaRequestPanelProps } from "./polaria-request.types";
@@ -29,14 +30,13 @@ export function PolariaRequestPanel({
     : `${totalCount} solicitud${totalCount === 1 ? "" : "es"}`;
 
   const body = isLoading ? (
-    <p
-      className={cn(
-        "px-6 py-16 text-center polaria-text-body-sm text-polaria-w-50 sm:py-20",
-        bodyMinClass,
-      )}
-    >
-      Cargando solicitudes…
-    </p>
+    <div className={cn(bodyMinClass)}>
+      <PolariaStatusLoading
+        title="Cargando solicitudes…"
+        message="Estamos preparando las solicitudes."
+        embedded
+      />
+    </div>
   ) : error ? (
     <p
       role="alert"

@@ -3,6 +3,7 @@
 import { useEffect, useId } from "react";
 import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, ClipboardList, X } from "lucide-react";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 import type { EstadoBodegaSectionId } from "../constants/estado-bodega-layout";
 import type { EstadoBodegaZonePanelKind } from "../constants/estado-bodega-zone-panel";
@@ -156,9 +157,7 @@ export function EstadoBodegaZonePanelModal({
 
         <div className="min-h-[12rem] flex-1 px-5 py-6">
           {isLoading ? (
-            <p className="text-center polaria-text-body-sm text-polaria-w-50">
-              Cargando…
-            </p>
+            <PolariaStatusLoading className="py-4" />
           ) : items.length > 0 ? (
             <ul className="space-y-2">
               {items.map((item) => {

@@ -12,7 +12,6 @@ import {
   PolariaTableEnableButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   ADMIN_CATALOG_SECTION_LABEL,
   PLANTAS_EMPTY_MESSAGE,
@@ -21,6 +20,11 @@ import {
   PLANTAS_TABLE_SUBTITLE,
   PLANTAS_TABLE_TITLE,
 } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
+import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
+import {
+  useAdminMaestroScope,
+  type AdminMaestroViewProps,
+} from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import {
   activatePlantaAdmin,
   deactivatePlantaAdmin,
@@ -28,14 +32,19 @@ import {
   listPlantasAdmin,
   type PlantaListRow,
 } from "../services/plantas.service";
-import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { PlantaCreateModal } from "./PlantaCreateModal";
 import { PlantaEditModal } from "./PlantaEditModal";
 
 type PendingToggle = { row: PlantaListRow; mode: "disable" | "enable" };
 
-export function PlantasListView() {
-  const { codigoCuenta } = useCompany();
+export function PlantasListView({
+  codigoCuenta: codigoCuentaProp,
+  mode = "manage",
+}: AdminMaestroViewProps = {}) {
+  const { codigoCuenta, inspect, runScoped } = useAdminMaestroScope({
+    codigoCuenta: codigoCuentaProp,
+    mode,
+  });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPlanta, setEditingPlanta] = useState<PlantaListRow | null>(
     null,
@@ -51,8 +60,10 @@ export function PlantasListView() {
       return Promise.resolve([]);
     }
 
-    return listPlantasAdmin({ codigoCuenta, soloActivos: false });
-  }, [codigoCuenta]);
+    return runScoped(() =>
+      listPlantasAdmin({ codigoCuenta, soloActivos: false }),
+    );
+  }, [codigoCuenta, runScoped]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
     fetchPlantas,
@@ -172,7 +183,8 @@ export function PlantasListView() {
   );
 
   return (
-    <AdminCatalogListShell
+    <AdminMaestroViewShell
+      inspect={inspect}
       sectionLabel={ADMIN_CATALOG_SECTION_LABEL}
       title={PLANTAS_PAGE_TITLE}
       hint={PLANTAS_PAGE_HINT}
@@ -186,17 +198,25 @@ export function PlantasListView() {
           (!codigoCuenta ? "No se encontró la cuenta activa." : null)
         }
         rows={rows}
-        columns={columns}
+        columns={
+          inspect
+            ? columns.filter((column) => column.id !== "acciones")
+            : columns
+        }
         getRowKey={(row) => row.idPlanta}
         emptyMessage={PLANTAS_EMPTY_MESSAGE}
         onRefresh={() => {
           void reload();
         }}
         isRefreshing={isRefreshing}
-        primaryAction={{
-          label: "Nueva planta",
-          onClick: () => setIsCreateOpen(true),
-        }}
+        primaryAction={
+          inspect
+            ? undefined
+            : {
+                label: "Nueva planta",
+                onClick: () => setIsCreateOpen(true),
+              }
+        }
       />
 
       <PlantaCreateModal
@@ -244,6 +264,6 @@ export function PlantasListView() {
         isSubmitting={isToggling}
         error={toggleError}
       />
-    </AdminCatalogListShell>
+    </AdminMaestroViewShell>
   );
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PolariaFormField } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { cn } from "@/lib/utils/cn";
 import { JefeBodegaModalSearchField } from "@/modules/jefe-bodega/components/modals/jefe-bodega-modal-ui";
@@ -202,9 +203,11 @@ export function RastrearCajaModal({
         )}
 
         {isLoadingDetalle ? (
-          <p className="polaria-text-body-sm text-polaria-w-50">
-            Cargando recorrido…
-          </p>
+          <PolariaStatusLoading
+            title="Cargando recorrido…"
+            message="Estamos preparando el historial de la caja."
+            className="py-4"
+          />
         ) : null}
 
         {detalle ? (

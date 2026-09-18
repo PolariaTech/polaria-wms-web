@@ -15,6 +15,8 @@ export const ROUTES = {
   configuratorAssignmentUsers: "/configurador/asignacion/usuarios",
   configuratorAssignmentPrinters: "/configurador/asignacion/impresoras",
   configuratorIntegration: "/configurador/integracion",
+  /** Gobierno TI de todas las cuentas (no es el alta de Creación). */
+  configuratorAccounts: "/configurador/cuentas",
   /** Alias legacy — redirige a configurador */
   platform: "/platform",
   /** Dominio tenant (scope tenant) */

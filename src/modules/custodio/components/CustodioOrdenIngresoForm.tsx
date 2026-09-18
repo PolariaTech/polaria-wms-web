@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import {
   POLARIA_FORM_INPUT_CLASS,
   POLARIA_FORM_SELECT_CLASS_COMPACT,
@@ -188,9 +189,11 @@ export function CustodioOrdenIngresoForm({
       </p>
 
       {isLoadingLineas ? (
-        <p className="polaria-text-caption text-polaria-w-50">
-          Cargando líneas…
-        </p>
+        <PolariaStatusLoading
+          title="Cargando líneas…"
+          message="Estamos preparando las líneas de la orden."
+          className="py-4"
+        />
       ) : lineas.length === 0 ? (
         <p className="polaria-text-caption text-polaria-w-50">
           La orden no tiene líneas para recepcionar.

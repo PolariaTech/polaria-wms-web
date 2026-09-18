@@ -13,6 +13,7 @@ import { filterRowsBySearch } from "@/components/shared/table/polaria-table-sear
 import { PolariaTableSearchField } from "@/components/shared/table/PolariaTableSearchField";
 import { DEFAULT_TABLE_PAGE_SIZE } from "@/constants/ui/table-pagination";
 import { useClientTablePagination } from "@/hooks/table/useClientTablePagination";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 
 const EMPTY_SEARCH_MESSAGE = "No hay resultados para la búsqueda.";
@@ -39,6 +40,8 @@ export interface PolariaDataTableProps<T> {
   primaryAction?: {
     label: string;
     onClick: () => void;
+    /** false = solo el texto (p. ej. “+ Comprador”). */
+    showIcon?: boolean;
   };
   additionalActions?: readonly {
     label: string;
@@ -190,7 +193,9 @@ export function PolariaDataTable<T>({
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
               )}
             >
-              <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
+              {primaryAction.showIcon === false ? null : (
+                <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
+              )}
               {primaryAction.label}
             </button>
           ) : null}
@@ -207,12 +212,11 @@ export function PolariaDataTable<T>({
       ) : null}
 
       {isLoading ? (
-        <p
-          className="polaria-text-body-sm px-5 py-8 text-polaria-w-50 sm:px-6"
+        <div
           style={pagination ? getTableBodyMinHeightStyle(pageSize) : undefined}
         >
-          Cargando…
-        </p>
+          <PolariaStatusLoading embedded />
+        </div>
       ) : null}
 
       {showTable ? (

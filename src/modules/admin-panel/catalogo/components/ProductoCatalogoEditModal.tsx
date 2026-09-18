@@ -6,6 +6,7 @@ import {
   PolariaFormSelect,
 } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { generateCodigoCuentaFromNombre } from "@/lib/utils/generate-codigo-cuenta";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -242,7 +243,11 @@ export function ProductoCatalogoEditModal({
       submitLabel="Guardar cambios"
     >
       {isLoading ? (
-        <p className="polaria-text-body-sm text-polaria-w-50">Cargando producto…</p>
+        <PolariaStatusLoading
+          title="Cargando producto…"
+          message="Estamos preparando el producto."
+          className="py-4"
+        />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <PolariaFormInput

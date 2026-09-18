@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Warehouse } from "lucide-react";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 import type { InventarioMercanciaBodegaOption } from "../services/inventario-mercancia-listado.service";
 
@@ -36,9 +37,11 @@ export function InventarioMercanciaBodegaPicker({
       ) : null}
 
       {isLoading ? (
-        <p className="mt-6 text-center polaria-text-body-sm text-polaria-w-50">
-          Cargando bodegas…
-        </p>
+        <PolariaStatusLoading
+          title="Cargando bodegas…"
+          message="Estamos preparando el listado de bodegas."
+          className="mt-6"
+        />
       ) : bodegas.length === 0 ? (
         <p className="mt-6 rounded-xl border border-dashed border-polaria-t-20 px-4 py-8 text-center polaria-text-body-sm text-polaria-w-50">
           No hay bodegas vinculadas para esta etapa.

@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 import type { ProductoProcesamientoOption } from "../../shared/types/processing.types";
 import { matchesPickerSearch } from "./procesamiento-picker-search";
@@ -120,9 +121,11 @@ export function ProcesamientoProductoPickerModal({
           {loadError}
         </p>
       ) : isLoading ? (
-        <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
-          Cargando productos…
-        </p>
+        <PolariaStatusLoading
+          title="Cargando productos…"
+          message="Estamos preparando el catálogo."
+          className="py-4"
+        />
       ) : filtered.length === 0 ? (
         <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
           {query.trim()

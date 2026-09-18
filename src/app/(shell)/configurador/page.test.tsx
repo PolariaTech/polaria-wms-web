@@ -16,6 +16,16 @@ describe("ConfiguradorPage", () => {
     vi.clearAllMocks();
   });
 
+  it("navega a /configurador/cuentas al seleccionar tarjeta Cuentas", async () => {
+    const user = userEvent.setup();
+
+    render(<ConfiguradorPage />);
+
+    await user.click(screen.getByRole("button", { name: /^Cuentas$/i }));
+
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.configuratorAccounts);
+  });
+
   it("navega a /configurador/creacion al seleccionar tarjeta Creación", async () => {
     const user = userEvent.setup();
 

@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { cn } from "@/lib/utils/cn";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
+import { withCuentaSchema } from "@/lib/supabase/cuenta-schema";
 import { formatEstadoOrdenVenta } from "../../shared/constants/sales-status";
 import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
 import { getOrdenVentaDetalle } from "../../shared/services/sales.service";
@@ -29,6 +31,7 @@ interface OrdenVentaDetalleModalProps {
   codigoCuenta: string | null;
   onClose: () => void;
   onEmitted?: () => void;
+  inspect?: boolean;
 }
 
 function CaptureSection({
@@ -345,12 +348,25 @@ export function OrdenVentaDetalleModal({
   codigoCuenta,
   onClose,
   onEmitted,
+  inspect = false,
 }: OrdenVentaDetalleModalProps) {
   const [orden, setOrden] = useState<OrdenVentaDetalleRow | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEmitting, setIsEmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const loadDetalle = useCallback(
+    (id: string, cuenta: string) => {
+      const run = () =>
+        getOrdenVentaDetalle({ codigoCuenta: cuenta, idOrdenVenta: id });
+      if (inspect) {
+        return withCuentaSchema(cuenta, run);
+      }
+      return run();
+    },
+    [inspect],
+  );
 
   const reloadDetalle = useCallback(
     (options?: { silent?: boolean }) => {
@@ -361,7 +377,7 @@ export function OrdenVentaDetalleModal({
       }
       setError(null);
 
-      void getOrdenVentaDetalle({ codigoCuenta, idOrdenVenta })
+      void loadDetalle(idOrdenVenta, codigoCuenta)
         .then((row) => {
           setOrden(row);
           setActionError(null);
@@ -379,7 +395,7 @@ export function OrdenVentaDetalleModal({
           }
         });
     },
-    [codigoCuenta, idOrdenVenta],
+    [codigoCuenta, idOrdenVenta, loadDetalle],
   );
 
   useEffect(() => {
@@ -396,7 +412,7 @@ export function OrdenVentaDetalleModal({
     setActionError(null);
     setOrden(null);
 
-    void getOrdenVentaDetalle({ codigoCuenta, idOrdenVenta })
+    void loadDetalle(idOrdenVenta, codigoCuenta)
       .then((row) => {
         if (!cancelled) {
           setOrden(row);
@@ -420,9 +436,9 @@ export function OrdenVentaDetalleModal({
     return () => {
       cancelled = true;
     };
-  }, [codigoCuenta, idOrdenVenta]);
+  }, [codigoCuenta, idOrdenVenta, loadDetalle]);
 
-  const puedeEmitir = orden?.estado === "borrador";
+  const puedeEmitir = !inspect && orden?.estado === "borrador";
 
   const handleEmitir = () => {
     if (!idOrdenVenta || !puedeEmitir || isEmitting) {
@@ -497,7 +513,7 @@ export function OrdenVentaDetalleModal({
       size="2xl"
     >
       {isLoading ? (
-        <p className="polaria-text-body-sm text-polaria-w-50">Cargando…</p>
+        <PolariaStatusLoading className="py-4" />
       ) : null}
 
       {error ? (

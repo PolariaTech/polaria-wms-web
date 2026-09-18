@@ -30,5 +30,7 @@ export function normalizeAuthSession(session: AuthSessionApi): AuthSession {
     ...session,
     nivelRol: normalizeNivelRol(session.nivelRol),
     schemaName: session.schemaName ?? null,
+    accesoWms: session.accesoWms ?? true,
+    accesoMateo: session.accesoMateo ?? true,
   };
 }
