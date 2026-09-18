@@ -7,6 +7,9 @@ import {
 
 describe("getConfiguratorActionHref", () => {
   it("mapea cada acción a su sub-ruta", () => {
+    expect(getConfiguratorActionHref("accounts")).toBe(
+      ROUTES.configuratorAccounts,
+    );
     expect(getConfiguratorActionHref("creation")).toBe(
       ROUTES.configuratorCreation,
     );

@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthGuard } from "@/components/auth/guards/AuthGuard";
-import { env } from "@/config/env";
-import { markMateoSsoExit } from "@/lib/auth/mateo-sso-exit";
-import { removeAuthFromLocalStorage } from "@/lib/auth/auth-storage";
-import { mateoHandoff, logoutWithToken } from "@/modules/auth";
+import { sessionHasMateoAccess, sessionIsMateoOnly } from "@/lib/auth/cuenta-producto-access";
+import { redirectToMateoSso } from "@/lib/auth/redirect-to-mateo-sso";
 import { ApiError } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { POLARIA_PRODUCT_VERSION } from "@/constants/brand/brand";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { AppTopbar } from "./AppTopbar";
 import { MateoWidgetHost } from "@/components/mateo/MateoWidgetHost";
 
@@ -21,9 +20,12 @@ interface AppShellLayoutProps {
  * Incluye topbar compartido para todos los roles y vistas.
  */
 export function AppShellLayout({ children }: AppShellLayoutProps) {
-  const clearAuthSilently = useAuthStore((s) => s.clearAuthSilently);
+  const session = useAuthStore((s) => s.session);
   const [mateoLoading, setMateoLoading] = useState(false);
   const [mateoError, setMateoError] = useState<string | null>(null);
+  const mateoOnlyRedirectRef = useRef(false);
+  const showMateoIa = session ? sessionHasMateoAccess(session) : false;
+  const mateoOnly = session ? sessionIsMateoOnly(session) : false;
 
   const handleMateoIaClick = useCallback(async () => {
     if (mateoLoading) return;
@@ -32,24 +34,7 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
     setMateoLoading(true);
 
     try {
-      const accessToken = useAuthStore.getState().accessToken;
-      const { code } = await mateoHandoff();
-      const mateoBaseUrl = env.mateoUrl.replace(/\/$/, "");
-      const mateoUrl = `${mateoBaseUrl}/auth/sso?code=${encodeURIComponent(code)}`;
-
-      // iOS Safari: marcar salida SSO antes de limpiar sesión para que AuthGuard
-      // no gane la carrera con router.replace('/login').
-      markMateoSsoExit();
-      clearAuthSilently();
-      removeAuthFromLocalStorage();
-
-      if (accessToken) {
-        void logoutWithToken(accessToken).catch(() => {
-          // La navegación a Mateo no debe bloquearse por el logout remoto.
-        });
-      }
-
-      window.location.href = mateoUrl;
+      await redirectToMateoSso();
     } catch (err) {
       setMateoLoading(false);
       if (err instanceof ApiError) {
@@ -65,7 +50,13 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
         setMateoError("No se pudo abrir Mateo IA. Intenta de nuevo.");
       }
     }
-  }, [clearAuthSilently, mateoLoading]);
+  }, [mateoLoading]);
+
+  useEffect(() => {
+    if (!mateoOnly || mateoOnlyRedirectRef.current) return;
+    mateoOnlyRedirectRef.current = true;
+    void handleMateoIaClick();
+  }, [handleMateoIaClick, mateoOnly]);
 
   return (
     <AuthGuard>
@@ -77,19 +68,30 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
         <AppTopbar
           onMateoIaClick={handleMateoIaClick}
           isMateoLoading={mateoLoading}
+          showMateoIa={showMateoIa && !mateoOnly}
         />
         {mateoError && (
           <div
             role="alert"
             className="relative z-20 mx-auto w-full max-w-[90rem] px-2 pt-2 sm:px-6 lg:px-8"
           >
-            <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-center text-sm text-red-400">
+            <p className="rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-3 py-2 text-center polaria-text-body-sm text-polaria-danger">
               {mateoError}
             </p>
           </div>
         )}
-        <div className="relative z-10 flex flex-1 flex-col">{children}</div>
-        <MateoWidgetHost />
+        <div className="relative z-10 flex flex-1 flex-col">
+          {mateoOnly ? (
+            <PolariaStatusLoading
+              title="Abriendo Mateo IA…"
+              message="Estamos cerrando Polaria WMS para continuar en Mateo."
+              className="m-auto flex-1 py-10"
+            />
+          ) : (
+            children
+          )}
+        </div>
+        {showMateoIa && !mateoOnly ? <MateoWidgetHost /> : null}
         <p
           aria-label={`Versión ${POLARIA_PRODUCT_VERSION}`}
           className={

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getPostLoginRoute, ROUTES } from "@/config/routes";
+import { sessionIsMateoOnly } from "@/lib/auth/cuenta-producto-access";
+import { redirectToMateoSso } from "@/lib/auth/redirect-to-mateo-sso";
 import { getMe, wmsSsoExchange } from "@/modules/auth";
 import { ApiError } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
@@ -59,6 +61,10 @@ export function SsoFlow() {
         if (cancelled) return;
 
         setSession(session);
+        if (sessionIsMateoOnly(session)) {
+          await redirectToMateoSso();
+          return;
+        }
         router.replace(getPostLoginRoute(session.scope));
       } catch (err) {
         if (cancelled) return;

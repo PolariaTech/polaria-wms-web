@@ -4,12 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTES } from "@/config/routes";
 import type { AuthSession } from "@/types/auth/auth";
 
-const { mockPerformLogin, mockReplace, mockPrelogin, mockResolveTenantEmpresas } =
+const { mockPerformLogin, mockReplace, mockPrelogin, mockResolveTenantEmpresas, mockRedirectToMateoSso } =
   vi.hoisted(() => ({
     mockPerformLogin: vi.fn(),
     mockReplace: vi.fn(),
     mockPrelogin: vi.fn(),
     mockResolveTenantEmpresas: vi.fn(),
+    mockRedirectToMateoSso: vi.fn(),
   }));
 
 vi.mock("@/modules/auth", () => ({
@@ -25,6 +26,10 @@ vi.mock("@/stores/auth.store", () => ({
   useAuthStore: (
     selector: (state: { performLogin: typeof mockPerformLogin }) => unknown,
   ) => selector({ performLogin: mockPerformLogin }),
+}));
+
+vi.mock("@/lib/auth/redirect-to-mateo-sso", () => ({
+  redirectToMateoSso: () => mockRedirectToMateoSso(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -85,6 +90,7 @@ describe("LoginFlow", () => {
     });
 
     mockPerformLogin.mockResolvedValue(tenantSession);
+    mockRedirectToMateoSso.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -178,5 +184,31 @@ describe("LoginFlow", () => {
       expect(mockReplace).toHaveBeenCalledWith(ROUTES.configurator);
       expect(mockReplace).not.toHaveBeenCalledWith(ROUTES.platform);
     });
+  });
+
+  it("redirige a Mateo IA si la cuenta solo tiene ese producto", async () => {
+    const user = userEvent.setup();
+    mockPerformLogin.mockResolvedValue({
+      ...tenantSession,
+      accesoWms: false,
+      accesoMateo: true,
+    });
+
+    render(<LoginFlow />);
+
+    await user.type(screen.getByLabelText(/correo/i), "admin@acme.com");
+    await user.click(screen.getByRole("button", { name: /continuar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText(/contraseña/i), "secret123");
+    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
+
+    await waitFor(() => {
+      expect(mockRedirectToMateoSso).toHaveBeenCalledOnce();
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

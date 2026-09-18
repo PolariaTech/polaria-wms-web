@@ -13,7 +13,6 @@ import {
 } from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   ADMIN_CATALOG_SECTION_LABEL,
   CLIENTES_EMPTY_MESSAGE,
@@ -22,6 +21,11 @@ import {
   CLIENTES_TABLE_SUBTITLE,
   CLIENTES_TABLE_TITLE,
 } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
+import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
+import {
+  useAdminMaestroScope,
+  type AdminMaestroViewProps,
+} from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import {
   activateClienteAdmin,
   deactivateClienteAdmin,
@@ -29,14 +33,19 @@ import {
   listClientesAdmin,
   type ClienteListRow,
 } from "../services/clientes.service";
-import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { ClienteCreateModal } from "./ClienteCreateModal";
 import { ClienteEditModal } from "./ClienteEditModal";
 
 type PendingToggle = { row: ClienteListRow; mode: "disable" | "enable" };
 
-export function ClientesListView() {
-  const { codigoCuenta } = useCompany();
+export function ClientesListView({
+  codigoCuenta: codigoCuentaProp,
+  mode = "manage",
+}: AdminMaestroViewProps = {}) {
+  const { codigoCuenta, inspect, runScoped } = useAdminMaestroScope({
+    codigoCuenta: codigoCuentaProp,
+    mode,
+  });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<ClienteListRow | null>(
     null,
@@ -52,8 +61,10 @@ export function ClientesListView() {
       return Promise.resolve([]);
     }
 
-    return listClientesAdmin({ codigoCuenta, soloActivos: false });
-  }, [codigoCuenta]);
+    return runScoped(() =>
+      listClientesAdmin({ codigoCuenta, soloActivos: false }),
+    );
+  }, [codigoCuenta, runScoped]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
     fetchClientes,
@@ -169,7 +180,8 @@ export function ClientesListView() {
   );
 
   return (
-    <AdminCatalogListShell
+    <AdminMaestroViewShell
+      inspect={inspect}
       sectionLabel={ADMIN_CATALOG_SECTION_LABEL}
       title={CLIENTES_PAGE_TITLE}
       hint={CLIENTES_PAGE_HINT}
@@ -183,17 +195,25 @@ export function ClientesListView() {
           (!codigoCuenta ? "No se encontró la cuenta activa." : null)
         }
         rows={rows}
-        columns={columns}
+        columns={
+          inspect
+            ? columns.filter((column) => column.id !== "acciones")
+            : columns
+        }
         getRowKey={(row) => row.idCliente}
         emptyMessage={CLIENTES_EMPTY_MESSAGE}
         onRefresh={() => {
           void reload();
         }}
         isRefreshing={isRefreshing}
-        primaryAction={{
-          label: "Nuevo cliente",
-          onClick: () => setIsCreateOpen(true),
-        }}
+        primaryAction={
+          inspect
+            ? undefined
+            : {
+                label: "Nuevo cliente",
+                onClick: () => setIsCreateOpen(true),
+              }
+        }
       />
 
       <ClienteCreateModal
@@ -241,6 +261,6 @@ export function ClientesListView() {
         isSubmitting={isToggling}
         error={toggleError}
       />
-    </AdminCatalogListShell>
+    </AdminMaestroViewShell>
   );
 }

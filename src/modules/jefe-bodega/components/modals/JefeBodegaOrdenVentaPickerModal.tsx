@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { cn } from "@/lib/utils/cn";
 import type { OrdenVentaOperadorRow } from "@/modules/sales";
@@ -81,9 +82,11 @@ export function JefeBodegaOrdenVentaPickerModal({
       ) : null}
 
       {loading ? (
-        <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
-          Cargando órdenes de venta…
-        </p>
+        <PolariaStatusLoading
+          title="Cargando órdenes de venta…"
+          message="Estamos preparando las órdenes de venta."
+          className="py-4"
+        />
       ) : filtered.length === 0 ? (
         <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
           {query.trim()

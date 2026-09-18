@@ -1,4 +1,4 @@
-import { ClipboardList, Layers, UserCheck } from "lucide-react";
+import { ClipboardList, Layers, Store, UserCheck } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 import { POLARIA_BRAND } from "@/constants/brand/brand";
 import type {
@@ -9,6 +9,12 @@ import type {
 export const CONFIGURATOR_BRAND = POLARIA_BRAND;
 
 export const CONFIGURATOR_ACTIONS: ConfiguratorAction[] = [
+  {
+    id: "accounts",
+    title: "Cuentas",
+    icon: Store,
+    href: ROUTES.configuratorAccounts,
+  },
   {
     id: "creation",
     title: "Creación",
@@ -35,6 +41,17 @@ export const CONFIGURATOR_PANEL_SUBTITLE =
   "Selecciona una acción para comenzar" as const;
 
 export const CONFIGURATOR_PLACEHOLDERS = {
+  accounts: {
+    title: "Cuentas",
+    description:
+      "Control de todas las cuentas de la plataforma: acceso, usuarios, maestros y operación.",
+    futureActions: [
+      "Ver todas las cuentas",
+      "Entrar a una cuenta",
+      "Activar o desactivar acceso",
+      "Administrar usuarios y maestros de la cuenta",
+    ],
+  },
   creation: {
     title: "Creación",
     description:

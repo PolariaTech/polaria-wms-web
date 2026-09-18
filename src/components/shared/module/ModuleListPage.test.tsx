@@ -21,7 +21,10 @@ describe("ModuleListPage", () => {
       />,
     );
 
-    expect(screen.getByText("Cargando…")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cargando…" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Estamos preparando la información."),
+    ).toBeInTheDocument();
   });
 
   it("muestra error", () => {

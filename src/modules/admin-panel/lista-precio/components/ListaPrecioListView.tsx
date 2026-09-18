@@ -15,7 +15,6 @@ import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { cn } from "@/lib/utils/cn";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { parseDecimalEs } from "@/lib/utils/decimal-es";
-import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   ADMIN_CATALOG_SECTION_LABEL,
   LISTA_PRECIO_EMPTY_MESSAGE,
@@ -24,7 +23,11 @@ import {
   LISTA_PRECIO_TABLE_SUBTITLE,
   LISTA_PRECIO_TABLE_TITLE,
 } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
-import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
+import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
+import {
+  useAdminMaestroScope,
+  type AdminMaestroViewProps,
+} from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import {
   insertPrecioProductoVigenteAdmin,
   listCatalogoProductosAdmin,
@@ -59,8 +62,14 @@ function toListaRow(
   };
 }
 
-export function ListaPrecioListView() {
-  const { codigoCuenta } = useCompany();
+export function ListaPrecioListView({
+  codigoCuenta: codigoCuentaProp,
+  mode = "manage",
+}: AdminMaestroViewProps = {}) {
+  const { codigoCuenta, inspect, runScoped } = useAdminMaestroScope({
+    codigoCuenta: codigoCuentaProp,
+    mode,
+  });
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -69,16 +78,18 @@ export function ListaPrecioListView() {
   const fetchRows = useCallback(async (): Promise<ListaPrecioRow[]> => {
     if (!codigoCuenta) return [];
 
-    const productos = await listCatalogoProductosAdmin({
-      codigoCuenta,
-      soloActivos: false,
+    return runScoped(async () => {
+      const productos = await listCatalogoProductosAdmin({
+        codigoCuenta,
+        soloActivos: false,
+      });
+      const precios = await listPreciosProductoVigentesAdmin({
+        codigoCuenta,
+        idProductos: productos.map((row) => row.idProducto),
+      });
+      return productos.map((row) => toListaRow(row, precios));
     });
-    const precios = await listPreciosProductoVigentesAdmin({
-      codigoCuenta,
-      idProductos: productos.map((row) => row.idProducto),
-    });
-    return productos.map((row) => toListaRow(row, precios));
-  }, [codigoCuenta]);
+  }, [codigoCuenta, runScoped]);
 
   const { data, isLoading, isRefreshing, error: loadError, reload } =
     useAsyncQuery(fetchRows, Boolean(codigoCuenta));
@@ -171,6 +182,9 @@ export function ListaPrecioListView() {
         headerClassName: "text-right",
         cellClassName: "text-right",
         cell: (row) => {
+          if (inspect) {
+            return row.precioVigente == null ? "—" : String(row.precioVigente);
+          }
           const draft =
             drafts[row.idProducto] ??
             (row.precioVigente == null ? "" : String(row.precioVigente));
@@ -211,18 +225,23 @@ export function ListaPrecioListView() {
         ),
       },
     ],
-    [dirtyIds, drafts],
+    [dirtyIds, drafts, inspect],
   );
 
   return (
-    <AdminCatalogListShell
+    <AdminMaestroViewShell
+      inspect={inspect}
       sectionLabel={ADMIN_CATALOG_SECTION_LABEL}
       title={LISTA_PRECIO_PAGE_TITLE}
       hint={LISTA_PRECIO_PAGE_HINT}
     >
       <PolariaDataTable
         title={LISTA_PRECIO_TABLE_TITLE}
-        subtitle={LISTA_PRECIO_TABLE_SUBTITLE}
+        subtitle={
+          inspect
+            ? "Precios vigentes del catálogo de esta cuenta."
+            : LISTA_PRECIO_TABLE_SUBTITLE
+        }
         isLoading={isLoading}
         error={
           saveError ??
@@ -242,25 +261,29 @@ export function ListaPrecioListView() {
           onChange: setSearch,
           placeholder: "Buscar producto",
         }}
-        additionalActions={[
-          {
-            label: isSaving
-              ? "Guardando…"
-              : dirtyIds.length > 0
-                ? `Guardar (${dirtyIds.length})`
-                : "Guardar",
-            onClick: () => {
-              void handleSave();
-            },
-            variant: "primary",
-            disabled: dirtyIds.length === 0 || isSaving || !codigoCuenta,
-            title:
-              dirtyIds.length === 0
-                ? "Edita un precio para habilitar Guardar"
-                : undefined,
-          },
-        ]}
+        additionalActions={
+          inspect
+            ? undefined
+            : [
+                {
+                  label: isSaving
+                    ? "Guardando…"
+                    : dirtyIds.length > 0
+                      ? `Guardar (${dirtyIds.length})`
+                      : "Guardar",
+                  onClick: () => {
+                    void handleSave();
+                  },
+                  variant: "primary",
+                  disabled: dirtyIds.length === 0 || isSaving || !codigoCuenta,
+                  title:
+                    dirtyIds.length === 0
+                      ? "Edita un precio para habilitar Guardar"
+                      : undefined,
+                },
+              ]
+        }
       />
-    </AdminCatalogListShell>
+    </AdminMaestroViewShell>
   );
 }

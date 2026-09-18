@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import {
   listBodegasInternasVinculadasAdmin,
   type BodegaInternaVinculadaRow,
@@ -521,7 +522,10 @@ export function OrdenProcesamientoCreateModal({
           {!idBodega ? (
             <p className="polaria-text-body-sm text-polaria-warning">Sin bodega interna.</p>
           ) : stockLoading ? (
-            <p className="polaria-text-body-sm text-polaria-w-50">Cargando…</p>
+            <PolariaStatusLoading
+              className="py-2"
+              message="Estamos consultando el stock del mapa."
+            />
           ) : maxCantidad <= 0 ? (
             <p className="polaria-text-body-sm text-polaria-warning">Sin stock mapa.</p>
           ) : (

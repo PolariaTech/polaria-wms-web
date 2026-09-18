@@ -52,7 +52,10 @@ vi.mock("@/stores/auth.store", () => ({
           scope: "platform",
         },
       }),
-    { getState: () => ({ accessToken: "test-token" }) },
+    { getState: () => ({
+      accessToken: "test-token",
+      clearAuthSilently: mockClearAuthSilently,
+    }) },
   ),
 }));
 

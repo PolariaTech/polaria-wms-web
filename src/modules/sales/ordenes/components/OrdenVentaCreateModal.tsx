@@ -19,6 +19,7 @@ import {
 } from "@/components/shared/form/PolariaFormField";
 import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import {
   formatDecimalInputEs,
   formatKgEs,
@@ -1453,7 +1454,7 @@ export function OrdenVentaCreateModal({
         submitOnEnter={false}
       >
         {isLoading ? (
-          <p className="polaria-text-body-sm text-polaria-w-50">Cargando…</p>
+          <PolariaStatusLoading className="py-4" />
         ) : null}
 
         {step === "start" && !isLoading && startMode !== "docs" ? (

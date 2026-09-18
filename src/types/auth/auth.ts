@@ -104,6 +104,10 @@ export interface AuthSession {
   scope: AuthScope;
   /** Schema Postgres emp_* (null = legacy public). */
   schemaName: string | null;
+  /** Producto WMS de la cuenta. Ausente en sesiones viejas = true. */
+  accesoWms?: boolean;
+  /** Producto Mateo IA de la cuenta. Ausente en sesiones viejas = true. */
+  accesoMateo?: boolean;
 }
 
 export function createEmptyTenantContext(): TenantContext {

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
+import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import {
   PolariaTableActionGroup,
   PolariaTableBadge,
@@ -13,7 +14,6 @@ import {
 } from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   ADMIN_CATALOG_SECTION_LABEL,
   COMPRADORES_EMPTY_MESSAGE,
@@ -22,21 +22,34 @@ import {
   COMPRADORES_TABLE_SUBTITLE,
   COMPRADORES_TABLE_TITLE,
 } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
+import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
+import {
+  useAdminMaestroScope,
+  type AdminMaestroViewProps,
+} from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import {
   activateCompradorAdmin,
   deactivateCompradorAdmin,
   listCompradoresAdmin,
   type CompradorListRow,
 } from "../services/compradores.service";
-import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
+import { listCompradorPreciosTemplateAdmin } from "../services/comprador-producto-alias.service";
+import { downloadCompradorPreciosExcelTemplate } from "../utils/comprador-precios-excel";
 import { CompradorCreateModal } from "./CompradorCreateModal";
 import { CompradorDetalleModal } from "./CompradorDetalleModal";
 import { CompradorEditModal } from "./CompradorEditModal";
+import { CompradorPreciosGestionModal } from "./CompradorPreciosGestionModal";
 
 type PendingToggle = { row: CompradorListRow; mode: "disable" | "enable" };
 
-export function CompradoresListView() {
-  const { codigoCuenta } = useCompany();
+export function CompradoresListView({
+  codigoCuenta: codigoCuentaProp,
+  mode = "manage",
+}: AdminMaestroViewProps = {}) {
+  const { codigoCuenta, inspect, runScoped } = useAdminMaestroScope({
+    codigoCuenta: codigoCuentaProp,
+    mode,
+  });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingComprador, setEditingComprador] =
     useState<CompradorListRow | null>(null);
@@ -47,14 +60,19 @@ export function CompradoresListView() {
   );
   const [isToggling, setIsToggling] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [isPreciosModalOpen, setIsPreciosModalOpen] = useState(false);
+  const [isExportingPrecios, setIsExportingPrecios] = useState(false);
+  const [preciosError, setPreciosError] = useState<string | null>(null);
 
   const fetchCompradores = useCallback(() => {
     if (!codigoCuenta) {
       return Promise.resolve([]);
     }
 
-    return listCompradoresAdmin({ codigoCuenta, soloActivos: false });
-  }, [codigoCuenta]);
+    return runScoped(() =>
+      listCompradoresAdmin({ codigoCuenta, soloActivos: false }),
+    );
+  }, [codigoCuenta, runScoped]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
     fetchCompradores,
@@ -92,6 +110,42 @@ export function CompradoresListView() {
       setIsToggling(false);
     }
   }, [codigoCuenta, isToggling, pendingToggle, reload]);
+
+  const handleExportPrecios = useCallback(async () => {
+    if (!codigoCuenta || isExportingPrecios) return;
+
+    setIsExportingPrecios(true);
+    setPreciosError(null);
+
+    try {
+      const rows = await runScoped(() =>
+        listCompradorPreciosTemplateAdmin({ codigoCuenta }),
+      );
+
+      await downloadCompradorPreciosExcelTemplate(rows);
+      setIsPreciosModalOpen(false);
+    } catch (error: unknown) {
+      setPreciosError(
+        error instanceof DomainServiceError
+          ? error.message
+          : "No se pudo exportar la plantilla de precios.",
+      );
+    } finally {
+      setIsExportingPrecios(false);
+    }
+  }, [codigoCuenta, isExportingPrecios, runScoped]);
+
+  const preciosActions = inspect
+    ? undefined
+    : [
+        {
+          label: "Gestión de precios",
+          onClick: () => {
+            setPreciosError(null);
+            setIsPreciosModalOpen(true);
+          },
+        },
+      ];
 
   const columns = useMemo(
     () =>
@@ -161,7 +215,8 @@ export function CompradoresListView() {
   );
 
   return (
-    <AdminCatalogListShell
+    <AdminMaestroViewShell
+      inspect={inspect}
       sectionLabel={ADMIN_CATALOG_SECTION_LABEL}
       title={COMPRADORES_PAGE_TITLE}
       hint={COMPRADORES_PAGE_HINT}
@@ -175,19 +230,46 @@ export function CompradoresListView() {
           (!codigoCuenta ? "No se encontró la cuenta activa." : null)
         }
         rows={rows}
-        columns={columns}
+        columns={
+          inspect
+            ? columns.filter((column) => column.id !== "acciones")
+            : columns
+        }
         getRowKey={(row) => row.idComprador}
         emptyMessage={COMPRADORES_EMPTY_MESSAGE}
         onRefresh={() => {
           void reload();
         }}
         isRefreshing={isRefreshing}
-        primaryAction={{
-          label: "Nuevo comprador",
-          onClick: () => setIsCreateOpen(true),
+        additionalActions={preciosActions}
+        primaryAction={
+          inspect
+            ? undefined
+            : {
+                label: "+ Comprador",
+                showIcon: false,
+                onClick: () => setIsCreateOpen(true),
+              }
+        }
+        onRowClick={inspect ? undefined : (row) => setDetalleComprador(row)}
+        getRowAriaLabel={
+          inspect ? undefined : (row) => `Ver detalle de ${row.comprador}`
+        }
+      />
+
+      <CompradorPreciosGestionModal
+        open={isPreciosModalOpen}
+        onClose={() => {
+          if (isExportingPrecios) return;
+          setIsPreciosModalOpen(false);
+          setPreciosError(null);
         }}
-        onRowClick={(row) => setDetalleComprador(row)}
-        getRowAriaLabel={(row) => `Ver detalle de ${row.comprador}`}
+        onExport={() => {
+          void handleExportPrecios();
+        }}
+        isExporting={isExportingPrecios}
+        exportDisabled={!codigoCuenta}
+        error={preciosError}
       />
 
       <CompradorCreateModal
@@ -241,6 +323,6 @@ export function CompradoresListView() {
           void handleConfirmToggle();
         }}
       />
-    </AdminCatalogListShell>
+    </AdminMaestroViewShell>
   );
 }

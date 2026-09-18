@@ -12,7 +12,6 @@ import {
   PolariaTableEnableButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   formatCamionCreatedAt,
   formatCamionDecimal,
@@ -27,6 +26,11 @@ import {
   CAMIONES_TABLE_TITLE,
   ADMIN_CATALOG_SECTION_LABEL,
 } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
+import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
+import {
+  useAdminMaestroScope,
+  type AdminMaestroViewProps,
+} from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import {
   activateCamionAdmin,
   deactivateCamionAdmin,
@@ -34,14 +38,19 @@ import {
   listCamionesAdmin,
   type CamionListRow,
 } from "../services/camiones.service";
-import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { CamionCreateModal } from "./CamionCreateModal";
 import { CamionEditModal } from "./CamionEditModal";
 
 type PendingToggle = { row: CamionListRow; mode: "disable" | "enable" };
 
-export function CamionesListView() {
-  const { codigoCuenta } = useCompany();
+export function CamionesListView({
+  codigoCuenta: codigoCuentaProp,
+  mode = "manage",
+}: AdminMaestroViewProps = {}) {
+  const { codigoCuenta, inspect, runScoped } = useAdminMaestroScope({
+    codigoCuenta: codigoCuentaProp,
+    mode,
+  });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingCamion, setEditingCamion] = useState<CamionListRow | null>(
     null,
@@ -57,8 +66,10 @@ export function CamionesListView() {
       return Promise.resolve([]);
     }
 
-    return listCamionesAdmin({ codigoCuenta, soloActivos: false });
-  }, [codigoCuenta]);
+    return runScoped(() =>
+      listCamionesAdmin({ codigoCuenta, soloActivos: false }),
+    );
+  }, [codigoCuenta, runScoped]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
     fetchCamiones,
@@ -227,7 +238,8 @@ export function CamionesListView() {
   );
 
   return (
-    <AdminCatalogListShell
+    <AdminMaestroViewShell
+      inspect={inspect}
       sectionLabel={ADMIN_CATALOG_SECTION_LABEL}
       title={CAMIONES_PAGE_TITLE}
       hint={CAMIONES_PAGE_HINT}
@@ -241,7 +253,11 @@ export function CamionesListView() {
           (!codigoCuenta ? "No se encontró la cuenta activa." : null)
         }
         rows={rows}
-        columns={columns}
+        columns={
+          inspect
+            ? columns.filter((column) => column.id !== "acciones")
+            : columns
+        }
         getRowKey={(row) => row.idCamion}
         emptyMessage={CAMIONES_EMPTY_MESSAGE}
         tableClassName="min-w-[78rem]"
@@ -249,10 +265,14 @@ export function CamionesListView() {
           void reload();
         }}
         isRefreshing={isRefreshing}
-        primaryAction={{
-          label: "Nuevo camión",
-          onClick: () => setIsCreateOpen(true),
-        }}
+        primaryAction={
+          inspect
+            ? undefined
+            : {
+                label: "Nuevo camión",
+                onClick: () => setIsCreateOpen(true),
+              }
+        }
       />
 
       <CamionCreateModal
@@ -300,6 +320,6 @@ export function CamionesListView() {
         isSubmitting={isToggling}
         error={toggleError}
       />
-    </AdminCatalogListShell>
+    </AdminMaestroViewShell>
   );
 }

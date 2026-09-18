@@ -20,6 +20,7 @@ import type { TopbarUserInfo } from "@/types/layout/layout";
 interface AppTopbarProps {
   onMateoIaClick?: () => void;
   isMateoLoading?: boolean;
+  showMateoIa?: boolean;
 }
 
 const ICON = "h-4 w-4 shrink-0";
@@ -36,6 +37,7 @@ function buildFallbackUser(): TopbarUserInfo {
 export function AppTopbar({
   onMateoIaClick,
   isMateoLoading = false,
+  showMateoIa = true,
 }: AppTopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -89,6 +91,7 @@ export function AppTopbar({
           <div className="polaria-topbar__end">
             <TenantBodegaSelector className="hidden sm:inline-flex" />
 
+            {showMateoIa ? (
             <button
               type="button"
               onClick={handleMateoIaClick}
@@ -114,6 +117,7 @@ export function AppTopbar({
               )}
               <span className="polaria-topbar-btn__label">Mateo IA</span>
             </button>
+            ) : null}
 
             <Link
               href={ROUTES.perfil}

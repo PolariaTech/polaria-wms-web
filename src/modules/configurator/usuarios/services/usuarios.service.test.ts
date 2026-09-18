@@ -58,25 +58,29 @@ describe("usuarios.service", () => {
     const from = vi.fn((table: string) =>
       table === "cuenta" ? cuentaChain : usuarioChain,
     );
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests({ from, schema: vi.fn(() => ({ from })) } as never);
 
     const rows = await listUsuariosConfigurator();
 
     expect(from).toHaveBeenCalledWith("usuario");
     expect(usuarioChain.select).toHaveBeenCalledWith(
-      "id_usuario,username,codigo_cuenta,nombre,telefono,id_auth,rol(id_rol,nombre)",
+      "id_usuario,username,codigo_cuenta,nombre,correo,telefono,id_auth,esta_activo,acceso_wms,acceso_mateo,rol(id_rol,nombre)",
     );
-    expect(usuarioChain.eq).toHaveBeenCalledWith("esta_activo", true);
     expect(from).toHaveBeenCalledWith("cuenta");
     expect(rows).toEqual([
       {
         idUsuario: "usr-1",
         codigo: "MIT00",
+        codigoCuenta: "MIT00",
         rol: "Administrador de cuenta",
         nombre: "Admin Demo",
+        correo: "—",
         cuenta: "Mitre",
         telefono: "—",
         tieneCredenciales: true,
+        estaActivo: true,
+        accesoWms: true,
+        accesoMateo: true,
       },
     ]);
   });
@@ -104,7 +108,7 @@ describe("usuarios.service", () => {
     });
 
     const from = vi.fn(() => selectChain);
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests({ from, schema: vi.fn(() => ({ from })) } as never);
 
     const rows = await listBodegasAssignOptions();
 
@@ -187,7 +191,7 @@ describe("usuarios.service", () => {
       if (call === 3) return rolChain;
       return cuentasChain;
     });
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests({ from, schema: vi.fn(() => ({ from })) } as never);
 
     vi.stubGlobal(
       "fetch",
@@ -227,6 +231,8 @@ describe("usuarios.service", () => {
       correo: "custodio@acme.com",
       telefono: null,
       password: "Secret1!a",
+      accesoWms: true,
+      accesoMateo: true,
     });
   });
 
@@ -277,7 +283,7 @@ describe("usuarios.service", () => {
       if (call === 2) return rolChain;
       return cuentasChain;
     });
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests({ from, schema: vi.fn(() => ({ from })) } as never);
 
     vi.stubGlobal(
       "fetch",
@@ -328,7 +334,7 @@ describe("usuarios.service", () => {
     });
 
     const from = vi.fn(() => rolChain);
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests({ from, schema: vi.fn(() => ({ from })) } as never);
 
     vi.stubGlobal(
       "fetch",
@@ -431,7 +437,7 @@ describe("usuarios.service", () => {
       if (call === 3) return rolChain;
       return cuentasChain;
     });
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests({ from, schema: vi.fn(() => ({ from })) } as never);
 
     vi.stubGlobal(
       "fetch",

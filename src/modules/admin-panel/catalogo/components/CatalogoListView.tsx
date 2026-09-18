@@ -13,7 +13,6 @@ import {
 } from "@/components/shared/table/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { cn } from "@/lib/utils/cn";
-import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   ADMIN_CATALOG_SECTION_LABEL,
   CATALOGO_EMPTY_MESSAGE,
@@ -22,6 +21,11 @@ import {
   CATALOGO_TABLE_SUBTITLE,
   CATALOGO_TABLE_TITLE,
 } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
+import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
+import {
+  useAdminMaestroScope,
+  type AdminMaestroViewProps,
+} from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import {
   applyCatalogoColumnWidths,
   CATALOGO_TABLE_MIN_WIDTH_CLASS,
@@ -33,15 +37,20 @@ import {
   listCatalogoProductosAdmin,
   type CatalogoProductoListRow,
 } from "../services/productos-catalogo.service";
-import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/AdminCatalogListShell";
 import { ProductoCatalogoCreateModal } from "./ProductoCatalogoCreateModal";
 import { ProductoCatalogoEditModal } from "./ProductoCatalogoEditModal";
 import { ProductoSecundarioCreateModal } from "./ProductoSecundarioCreateModal";
 
 type PendingToggle = { row: CatalogoProductoListRow; mode: "disable" | "enable" };
 
-export function CatalogoListView() {
-  const { codigoCuenta } = useCompany();
+export function CatalogoListView({
+  codigoCuenta: codigoCuentaProp,
+  mode = "manage",
+}: AdminMaestroViewProps = {}) {
+  const { codigoCuenta, inspect, runScoped } = useAdminMaestroScope({
+    codigoCuenta: codigoCuentaProp,
+    mode,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -61,12 +70,14 @@ export function CatalogoListView() {
       return Promise.resolve([]);
     }
 
-    return listCatalogoProductosAdmin({
-      codigoCuenta,
-      search,
-      soloActivos: false,
-    });
-  }, [codigoCuenta, search]);
+    return runScoped(() =>
+      listCatalogoProductosAdmin({
+        codigoCuenta,
+        search,
+        soloActivos: false,
+      }),
+    );
+  }, [codigoCuenta, runScoped, search]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
     fetchProductos,
@@ -241,43 +252,49 @@ export function CatalogoListView() {
               <PolariaTableBadge variant="neutral">Deshabilitado</PolariaTableBadge>
             ),
         },
-        {
-          id: "acciones",
-          header: "Acciones",
-          cell: (row: CatalogoProductoListRow) => (
-            <PolariaTableActionGroup>
-              <PolariaTableEditButton
-                disabled={!row.estaActivo}
-                onClick={() => setEditingProductId(row.idProducto)}
-              />
-              {row.estaActivo ? (
-                <PolariaTableDisableButton
-                  onClick={() => {
-                    setToggleError(null);
-                    setPendingToggle({ row, mode: "disable" });
-                  }}
-                />
-              ) : (
-                <PolariaTableEnableButton
-                  onClick={() => {
-                    setToggleError(null);
-                    setPendingToggle({ row, mode: "enable" });
-                  }}
-                />
-              )}
-            </PolariaTableActionGroup>
-          ),
-        },
+        ...(inspect
+          ? []
+          : [
+              {
+                id: "acciones",
+                header: "Acciones",
+                cell: (row: CatalogoProductoListRow) => (
+                  <PolariaTableActionGroup>
+                    <PolariaTableEditButton
+                      disabled={!row.estaActivo}
+                      onClick={() => setEditingProductId(row.idProducto)}
+                    />
+                    {row.estaActivo ? (
+                      <PolariaTableDisableButton
+                        onClick={() => {
+                          setToggleError(null);
+                          setPendingToggle({ row, mode: "disable" });
+                        }}
+                      />
+                    ) : (
+                      <PolariaTableEnableButton
+                        onClick={() => {
+                          setToggleError(null);
+                          setPendingToggle({ row, mode: "enable" });
+                        }}
+                      />
+                    )}
+                  </PolariaTableActionGroup>
+                ),
+              },
+            ]),
       ]),
-    [],
+    [inspect],
   );
 
   return (
-    <AdminCatalogListShell
+    <AdminMaestroViewShell
+      inspect={inspect}
       sectionLabel={ADMIN_CATALOG_SECTION_LABEL}
       title={CATALOGO_PAGE_TITLE}
       hint={CATALOGO_PAGE_HINT}
     >
+      {inspect ? null : (
       <input
         ref={fileInputRef}
         type="file"
@@ -288,6 +305,7 @@ export function CatalogoListView() {
           event.target.value = "";
         }}
       />
+      )}
 
       {importMessage ? (
         <p
@@ -334,23 +352,31 @@ export function CatalogoListView() {
           onChange: setSearch,
           placeholder: "Buscar producto",
         }}
-        additionalActions={[
-          {
-            label: isImporting ? "Importando…" : "Importar Excel",
-            onClick: handleImportExcel,
-            disabled: !codigoCuenta || isImporting,
-            variant: "outline",
-          },
-          {
-            label: "Crear secundario",
-            onClick: () => setIsSecundarioOpen(true),
-            variant: "outline",
-          },
-        ]}
-        primaryAction={{
-          label: "Nuevo producto",
-          onClick: () => setIsCreateOpen(true),
-        }}
+        additionalActions={
+          inspect
+            ? undefined
+            : [
+                {
+                  label: isImporting ? "Importando…" : "Importar Excel",
+                  onClick: handleImportExcel,
+                  disabled: !codigoCuenta || isImporting,
+                  variant: "outline",
+                },
+                {
+                  label: "Crear secundario",
+                  onClick: () => setIsSecundarioOpen(true),
+                  variant: "outline",
+                },
+              ]
+        }
+        primaryAction={
+          inspect
+            ? undefined
+            : {
+                label: "Nuevo producto",
+                onClick: () => setIsCreateOpen(true),
+              }
+        }
       />
 
       <ProductoCatalogoCreateModal
@@ -406,6 +432,6 @@ export function CatalogoListView() {
         isSubmitting={isToggling}
         error={toggleError}
       />
-    </AdminCatalogListShell>
+    </AdminMaestroViewShell>
   );
 }

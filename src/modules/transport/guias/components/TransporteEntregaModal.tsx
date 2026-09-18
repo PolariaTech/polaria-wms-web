@@ -14,6 +14,7 @@ import {
   PenLine,
 } from "lucide-react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 import { formatKgEs } from "@/lib/utils/decimal-es";
 import { getOrdenVentaDetalle } from "@/modules/sales";
@@ -451,9 +452,11 @@ export function TransporteEntregaModal({
       </p>
 
       {loadingDetalle ? (
-        <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
-          Cargando productos…
-        </p>
+        <PolariaStatusLoading
+          title="Cargando productos…"
+          message="Estamos preparando los productos de la entrega."
+          className="py-4"
+        />
       ) : null}
 
       {detalleError ? (

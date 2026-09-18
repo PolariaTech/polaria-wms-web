@@ -3,6 +3,7 @@
 import { Download, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
@@ -193,9 +194,11 @@ export function JefeBodegaOrdenesVentaModal({
       ) : null}
 
       {isLoading ? (
-        <p className="polaria-text-body-sm text-polaria-w-50">
-          Cargando órdenes…
-        </p>
+        <PolariaStatusLoading
+          title="Cargando órdenes…"
+          message="Estamos preparando las órdenes de venta."
+          className="py-4"
+        />
       ) : filtered.length === 0 ? (
         <p className="polaria-text-body-sm text-polaria-w-50">
           {ordenes.length === 0

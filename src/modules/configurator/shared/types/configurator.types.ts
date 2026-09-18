@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 
 export type ConfiguratorActionId =
+  | "accounts"
   | "creation"
   | "creation-assignment"
   | "integration";

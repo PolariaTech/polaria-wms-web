@@ -1,6 +1,7 @@
 "use client";
 
 import { Package } from "lucide-react";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import type { OrdenVentaDetalleRow } from "@/modules/sales/shared/types/sales.types";
 import {
@@ -25,9 +26,11 @@ export function JefeBodegaSalidaProductosSection({
   return (
     <JefeBodegaModalSection icon={Package} label="Productos de la venta">
       {loading ? (
-        <p className="polaria-text-body-sm text-polaria-w-50">
-          Cargando productos…
-        </p>
+        <PolariaStatusLoading
+          title="Cargando productos…"
+          message="Estamos preparando los productos de la venta."
+          className="py-4"
+        />
       ) : !orden ? (
         <p className="polaria-text-body-sm text-polaria-w-50">
           Selecciona una orden de venta para ver los productos.

@@ -35,6 +35,8 @@ describe("CuentaCreateModal", () => {
       bodegasAsignadas: [],
       bodegaInternaPrincipal: null,
       estaActiva: true,
+      accesoWms: true,
+      accesoMateo: true,
     });
   });
 

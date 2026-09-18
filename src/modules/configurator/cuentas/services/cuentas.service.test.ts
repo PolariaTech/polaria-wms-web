@@ -2,23 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTES } from "@/config/routes";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
 import { getCreationOptionHref } from "@/modules/configurator/shared/constants/creation-options";
-import { apiRequest } from "@/services/api/api";
 import {
   createCuentaConfigurator,
   listCuentasConfigurator,
   listEmpresasAssignOptions,
   updateCuentaConfigurator,
 } from "./cuentas.service";
-
-vi.mock("@/services/api/api", async () => {
-  const actual = await vi.importActual<typeof import("@/services/api/api")>(
-    "@/services/api/api",
-  );
-  return {
-    ...actual,
-    apiRequest: vi.fn(),
-  };
-});
 
 describe("creation-options", () => {
   it("cuentas resuelve a /configurador/creacion/cuentas", () => {
@@ -98,7 +87,7 @@ describe("cuentas.service", () => {
       return chain;
     });
 
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests({ from, schema: vi.fn(() => ({ from })) } as never);
 
     const rows = await listCuentasConfigurator();
 
@@ -114,6 +103,8 @@ describe("cuentas.service", () => {
         bodegaInternaPrincipal: null,
         idBodegaDefault: null,
         estaActiva: true,
+        accesoWms: true,
+        accesoMateo: true,
         tieneCredenciales: false,
       },
       {
@@ -136,6 +127,8 @@ describe("cuentas.service", () => {
         },
         idBodegaDefault: null,
         estaActiva: true,
+        accesoWms: true,
+        accesoMateo: true,
         tieneCredenciales: true,
       },
     ]);
@@ -206,7 +199,7 @@ describe("cuentas.service", () => {
       if (table === "empresa") return schemaChain;
       return insertChain;
     });
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests({ from, schema: vi.fn(() => ({ from })) } as never);
 
     const row = await createCuentaConfigurator({
       codigoCuenta: "MIT00",
@@ -231,36 +224,71 @@ describe("cuentas.service", () => {
       bodegaInternaPrincipal: null,
       idBodegaDefault: null,
       estaActiva: true,
+      accesoWms: true,
+      accesoMateo: true,
       tieneCredenciales: false,
     });
   });
 
-  it("updateCuentaConfigurator llama PATCH /configuracion/cuentas/:codigo", async () => {
-    vi.mocked(apiRequest).mockResolvedValue({
-      codigoCuenta: "49M04",
-      codigoEmpresa: "EVU53",
-      nombreComercial: "Tecno-Tech",
-      estaActiva: false,
-      idBodegaDefault: null,
+  it("updateCuentaConfigurator actualiza en el schema de la empresa", async () => {
+    const updateChain = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    updateChain.update.mockReturnValue(updateChain);
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    updateChain.single.mockResolvedValue({
+      data: {
+        codigo_cuenta: "4V053",
+        codigo_empresa: "4V053",
+        nombre_comercial: "Andino",
+        esta_activa: true,
+        acceso_wms: true,
+        acceso_mateo: false,
+        id_bodega_default: null,
+      },
+      error: null,
     });
+
+    const schemaChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      limit: vi.fn(),
+    };
+    schemaChain.select.mockReturnValue(schemaChain);
+    schemaChain.eq.mockReturnValue(schemaChain);
+    schemaChain.limit.mockResolvedValue({
+      data: [{ schema_name: "emp_andino_4v053" }],
+      error: null,
+    });
+
+    const from = vi.fn((table: string) => {
+      if (table === "empresa") return schemaChain;
+      return updateChain;
+    });
+    const schema = vi.fn(() => ({ from }));
+    setSupabaseClientForTests({ from, schema } as never);
 
     const row = await updateCuentaConfigurator({
-      codigoCuenta: "49M04",
-      nombreComercial: "Tecno-Tech",
-      estaActiva: false,
+      codigoCuenta: "4V053",
+      codigoEmpresa: "4V053",
+      nombreComercial: "Andino",
+      estaActiva: true,
     });
 
-    expect(apiRequest).toHaveBeenCalledWith(
-      "/configuracion/cuentas/49M04",
-      expect.objectContaining({
-        method: "PATCH",
-        auth: true,
-        body: {
-          nombreComercial: "Tecno-Tech",
-          estaActiva: false,
-        },
-      }),
-    );
-    expect(row.estaActiva).toBe(false);
+    expect(updateChain.update).toHaveBeenCalledWith({
+      nombre_comercial: "Andino",
+      esta_activa: true,
+    });
+    expect(row).toEqual({
+      codigoCuenta: "4V053",
+      codigoEmpresa: "4V053",
+      nombreComercial: "Andino",
+      estaActiva: true,
+      idBodegaDefault: null,
+    });
   });
 });

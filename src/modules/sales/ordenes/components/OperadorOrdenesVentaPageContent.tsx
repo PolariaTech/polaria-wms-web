@@ -13,7 +13,11 @@ import {
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { formatPrecioEs } from "@/lib/utils/decimal-es";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import { useCompany } from "@/providers/tenant/CompanyProvider";
+import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
+import {
+  useAdminMaestroScope,
+  type AdminMaestroViewProps,
+} from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import {
   formatEstadoOrdenVenta,
   puedeEditarOrdenVenta,
@@ -59,8 +63,14 @@ function renderEstadoBadge(estado: string) {
   );
 }
 
-export function OperadorOrdenesVentaPageContent() {
-  const { codigoCuenta } = useCompany();
+export function OperadorOrdenesVentaPageContent({
+  codigoCuenta: codigoCuentaProp,
+  mode = "manage",
+}: AdminMaestroViewProps = {}) {
+  const { codigoCuenta, inspect, runScoped } = useAdminMaestroScope({
+    codigoCuenta: codigoCuentaProp,
+    mode,
+  });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detalleId, setDetalleId] = useState<string | null>(null);
@@ -75,18 +85,22 @@ export function OperadorOrdenesVentaPageContent() {
       return { rows: [], idsConPdfActualizado: new Set() };
     }
 
-    const rows = await listOrdenesVentaOperador({ codigoCuenta });
+    const rows = await runScoped(() =>
+      listOrdenesVentaOperador({ codigoCuenta }),
+    );
     let idsConPdfActualizado = new Set<string>();
     try {
-      idsConPdfActualizado = await listOrdenIdsConSurtidoCaptura({
-        codigoCuenta,
-        idOrdenes: rows.map((row) => row.idOrdenVenta),
-      });
+      idsConPdfActualizado = await runScoped(() =>
+        listOrdenIdsConSurtidoCaptura({
+          codigoCuenta,
+          idOrdenes: rows.map((row) => row.idOrdenVenta),
+        }),
+      );
     } catch {
       idsConPdfActualizado = new Set();
     }
     return { rows, idsConPdfActualizado };
-  }, [codigoCuenta]);
+  }, [codigoCuenta, runScoped]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
     fetchOrdenes,
@@ -125,10 +139,12 @@ export function OperadorOrdenesVentaPageContent() {
       let detalle = null;
       if (codigoCuenta) {
         try {
-          detalle = await getOrdenVentaDetalle({
-            codigoCuenta,
-            idOrdenVenta: row.idOrdenVenta,
-          });
+          detalle = await runScoped(() =>
+            getOrdenVentaDetalle({
+              codigoCuenta,
+              idOrdenVenta: row.idOrdenVenta,
+            }),
+          );
         } catch {
           detalle = null;
         }
@@ -136,7 +152,7 @@ export function OperadorOrdenesVentaPageContent() {
 
       return mapOrdenVentaToAlmacenPrintData({ listRow: row, detalle });
     },
-    [codigoCuenta],
+    [codigoCuenta, runScoped],
   );
 
   const runOrdenOutput = useCallback(
@@ -239,65 +255,76 @@ export function OperadorOrdenesVentaPageContent() {
         cellClassName: ordenVentaTableColumnClass("fecha"),
         cell: (row: OrdenVentaOperadorRow) => formatDateTime(row.fecha),
       },
-      {
-        id: "acciones",
-        header: "Acciones",
-        headerClassName: ordenVentaTableColumnClass("acciones", "header"),
-        cellClassName: ordenVentaTableColumnClass("acciones"),
-        cell: (row: OrdenVentaOperadorRow) => {
-          const hasPdfActualizado = idsConPdfActualizado.has(row.idOrdenVenta);
-          const busyId = busyAction?.id === row.idOrdenVenta;
-          return (
-            <span
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              <PolariaTableActionGroup>
-                <PolariaTableEditButton
-                  label={
-                    puedeEditarOrdenVenta(row.estado)
-                      ? "Editar"
-                      : "Esta orden ya no se puede editar"
-                  }
-                  disabled={!puedeEditarOrdenVenta(row.estado)}
-                  onClick={() => {
-                    if (!puedeEditarOrdenVenta(row.estado)) return;
-                    setEditingId(row.idOrdenVenta);
-                    setIsCreateOpen(true);
-                  }}
-                />
-                <PolariaTablePrintButton
-                  onClick={() => {
-                    void runOrdenOutput(row, "print");
-                  }}
-                  disabled={busyId && busyAction?.kind === "print"}
-                />
-                <PolariaTableDownloadButton
-                  onClick={() => {
-                    void runOrdenOutput(row, "download");
-                  }}
-                  disabled={busyId && busyAction?.kind === "download"}
-                />
-                <PolariaTableDownloadButton
-                  label="Descargar PDF actualizado (surtido)"
-                  onClick={() => {
-                    void runOrdenOutput(row, "updated");
-                  }}
-                  disabled={
-                    !hasPdfActualizado ||
-                    (busyId && busyAction?.kind === "updated")
-                  }
-                />
-              </PolariaTableActionGroup>
-            </span>
-          );
-        },
-      },
+      ...(inspect
+        ? []
+        : [
+            {
+              id: "acciones",
+              header: "Acciones",
+              headerClassName: ordenVentaTableColumnClass("acciones", "header"),
+              cellClassName: ordenVentaTableColumnClass("acciones"),
+              cell: (row: OrdenVentaOperadorRow) => {
+                const hasPdfActualizado = idsConPdfActualizado.has(
+                  row.idOrdenVenta,
+                );
+                const busyId = busyAction?.id === row.idOrdenVenta;
+                return (
+                  <span
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <PolariaTableActionGroup>
+                      <PolariaTableEditButton
+                        label={
+                          puedeEditarOrdenVenta(row.estado)
+                            ? "Editar"
+                            : "Esta orden ya no se puede editar"
+                        }
+                        disabled={!puedeEditarOrdenVenta(row.estado)}
+                        onClick={() => {
+                          if (!puedeEditarOrdenVenta(row.estado)) return;
+                          setEditingId(row.idOrdenVenta);
+                          setIsCreateOpen(true);
+                        }}
+                      />
+                      <PolariaTablePrintButton
+                        onClick={() => {
+                          void runOrdenOutput(row, "print");
+                        }}
+                        disabled={busyId && busyAction?.kind === "print"}
+                      />
+                      <PolariaTableDownloadButton
+                        onClick={() => {
+                          void runOrdenOutput(row, "download");
+                        }}
+                        disabled={busyId && busyAction?.kind === "download"}
+                      />
+                      <PolariaTableDownloadButton
+                        label="Descargar PDF actualizado (surtido)"
+                        onClick={() => {
+                          void runOrdenOutput(row, "updated");
+                        }}
+                        disabled={
+                          !hasPdfActualizado ||
+                          (busyId && busyAction?.kind === "updated")
+                        }
+                      />
+                    </PolariaTableActionGroup>
+                  </span>
+                );
+              },
+            },
+          ]),
     ],
-    [runOrdenOutput, busyAction, idsConPdfActualizado],
+    [
+      inspect,
+      runOrdenOutput,
+      busyAction,
+      idsConPdfActualizado,
+    ],
   );
 
-  return (
+  const body = (
     <>
       <PolariaDataTable
         title="Órdenes de venta"
@@ -315,14 +342,18 @@ export function OperadorOrdenesVentaPageContent() {
           void reload();
         }}
         isRefreshing={isRefreshing}
-        primaryAction={{
-          label: "Nueva venta",
-          onClick: () => {
-            if (!codigoCuenta) return;
-            setEditingId(null);
-            setIsCreateOpen(true);
-          },
-        }}
+        primaryAction={
+          inspect
+            ? undefined
+            : {
+                label: "Nueva venta",
+                onClick: () => {
+                  if (!codigoCuenta) return;
+                  setEditingId(null);
+                  setIsCreateOpen(true);
+                },
+              }
+        }
         onRowClick={(row) => setDetalleId(row.idOrdenVenta)}
         getRowAriaLabel={(row) => `Ver detalle de venta ${row.venta}`}
         tableClassName={ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS}
@@ -331,14 +362,15 @@ export function OperadorOrdenesVentaPageContent() {
       <OrdenVentaDetalleModal
         idOrdenVenta={detalleId}
         codigoCuenta={codigoCuenta}
+        inspect={inspect}
         onClose={() => setDetalleId(null)}
-        onEmitted={() => {
+        onEmitted={inspect ? undefined : () => {
           void reload();
         }}
       />
 
       <OrdenVentaCreateModal
-        open={isCreateOpen}
+        open={!inspect && isCreateOpen}
         idOrdenVenta={editingId}
         onClose={() => {
           setIsCreateOpen(false);
@@ -350,4 +382,14 @@ export function OperadorOrdenesVentaPageContent() {
       />
     </>
   );
+
+  if (inspect) {
+    return (
+      <AdminMaestroViewShell inspect sectionLabel="" title="" hint="">
+        {body}
+      </AdminMaestroViewShell>
+    );
+  }
+
+  return body;
 }

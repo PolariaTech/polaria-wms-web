@@ -3,6 +3,8 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getPostLoginRoute } from "@/config/routes";
+import { sessionIsMateoOnly } from "@/lib/auth/cuenta-producto-access";
+import { redirectToMateoSso } from "@/lib/auth/redirect-to-mateo-sso";
 import { prelogin } from "@/modules/auth";
 import {
   ResolveTenantError,
@@ -149,6 +151,12 @@ export function LoginFlow() {
       }
 
       const authSession = await performLogin(payload);
+
+      if (sessionIsMateoOnly(authSession)) {
+        await redirectToMateoSso();
+        return;
+      }
+
       setSuccessSession(authSession);
       setStep("success");
 

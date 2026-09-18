@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { PolariaTableCode } from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
@@ -193,7 +194,7 @@ export function CompradorDetalleModal({
       />
 
       {isLoading ? (
-        <p className="polaria-text-body-sm text-polaria-w-50">Cargando…</p>
+        <PolariaStatusLoading className="py-4" />
       ) : null}
 
       {!isLoading && activeTab === "informacion" ? (

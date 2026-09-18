@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { isValidInternationalPhone } from "@/constants/ui/phone-countries";
 import { parseDecimalEs } from "@/lib/utils/decimal-es";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
@@ -390,9 +391,7 @@ export function CompradorEditModal({
             </p>
 
             {isLoading ? (
-              <p className="polaria-text-body-sm text-polaria-w-50">
-                Cargando…
-              </p>
+              <PolariaStatusLoading className="py-4" />
             ) : (
               <CompradorEquivalenciasTable
                 rows={equivalencias}

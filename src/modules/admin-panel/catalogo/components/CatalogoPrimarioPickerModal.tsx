@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { PolariaFormSelect } from "@/components/shared/form/PolariaFormField";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -224,9 +225,11 @@ export function CatalogoPrimarioPickerModal({
           {loadError}
         </p>
       ) : isLoading ? (
-        <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
-          Cargando productos primarios…
-        </p>
+        <PolariaStatusLoading
+          title="Cargando productos primarios…"
+          message="Estamos preparando el catálogo."
+          className="py-4"
+        />
       ) : filtered.length === 0 ? (
         <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
           {query.trim() || categoriaFilter || proveedorFilter

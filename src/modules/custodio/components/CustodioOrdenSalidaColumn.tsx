@@ -5,6 +5,7 @@ import { ArrowRightFromLine, Eye, Package, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { formatKgEs } from "@/lib/utils/decimal-es";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { usePolariaToast } from "@/components/shared/toast/PolariaToastProvider";
 import { CamionCatalogTablePickerModal } from "@/modules/admin-panel/camiones/components/CamionCatalogTablePickerModal";
 import {
@@ -710,9 +711,11 @@ export function CustodioOrdenSalidaColumn({
         size="lg"
       >
         {loadingPreview ? (
-          <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
-            Cargando productos…
-          </p>
+          <PolariaStatusLoading
+            title="Cargando productos…"
+            message="Estamos preparando la previsualización."
+            className="py-4"
+          />
         ) : previewRows.length === 0 ? (
           <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
             No hay productos para previsualizar.

@@ -12,6 +12,7 @@ import { filterRowsBySearch } from "@/components/shared/table/polaria-table-sear
 import { PolariaTableSearchField } from "@/components/shared/table/PolariaTableSearchField";
 import { DEFAULT_TABLE_PAGE_SIZE } from "@/constants/ui/table-pagination";
 import { useClientTablePagination } from "@/hooks/table/useClientTablePagination";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 
 const EMPTY_SEARCH_MESSAGE = "No hay resultados para la búsqueda.";
@@ -108,14 +109,13 @@ export function ModuleListPage<T>({
         </header>
 
         {isLoading ? (
-          <p
-            className="polaria-text-body-sm px-4 py-8 text-polaria-w-50"
+          <div
             style={
               pagination ? getTableBodyMinHeightStyle(pageSize) : undefined
             }
           >
-            Cargando…
-          </p>
+            <PolariaStatusLoading embedded />
+          </div>
         ) : (
           <>
             <div

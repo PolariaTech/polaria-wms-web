@@ -91,6 +91,7 @@ const nextConfig: NextConfig = {
     "html-to-text",
     "mailparser",
     "ipp",
+    "exceljs",
   ],
   async rewrites() {
     return {

@@ -17,6 +17,11 @@ export const CUENTAS_TABLE_SUBTITLE =
 
 export const CUENTAS_EMPTY_MESSAGE = "No hay cuentas registradas." as const;
 
+export const CUENTAS_GOBIERNO_TABLE_TITLE = "Cuentas" as const;
+
+export const CUENTAS_GOBIERNO_TABLE_SUBTITLE =
+  "Todas las cuentas de la plataforma. Entra a una para controlarla." as const;
+
 export const BODEGA_INTERNA_TABLE_TITLE = "Bodega interna" as const;
 
 export const BODEGA_INTERNA_TABLE_SUBTITLE =

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Warehouse } from "lucide-react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -122,9 +123,11 @@ export function VincularBodegaInternaModal({
           <p className="polaria-text-label mb-2 text-polaria-w-50">Listado</p>
 
           {isLoadingOptions ? (
-            <p className="polaria-text-body-sm text-polaria-w-50">
-              Cargando bodegas…
-            </p>
+            <PolariaStatusLoading
+              title="Cargando bodegas…"
+              message="Estamos preparando las bodegas disponibles."
+              className="py-4"
+            />
           ) : options.length === 0 ? (
             <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
               No hay bodegas internas disponibles para vincular.

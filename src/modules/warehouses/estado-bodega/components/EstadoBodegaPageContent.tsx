@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
 import { useWarehouseStateRealtime } from "@/hooks/warehouse/useWarehouseStateRealtime";
 import { mapEstadoBodegaLayout } from "../utils/estado-bodega-mapper";
@@ -307,9 +308,10 @@ export function EstadoBodegaPageContent({
           Selecciona una bodega activa para ver el estado operativo.
         </p>
       ) : isLoading && ubicaciones.length === 0 ? (
-        <p className="polaria-text-body-sm text-polaria-w-50">
-          Cargando estado de bodega…
-        </p>
+        <PolariaStatusLoading
+          title="Cargando estado de bodega…"
+          message="Estamos preparando el mapa operativo."
+        />
       ) : (
         <div
           ref={containerRef}
