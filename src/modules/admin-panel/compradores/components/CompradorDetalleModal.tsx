@@ -194,7 +194,7 @@ export function CompradorDetalleModal({
       />
 
       {isLoading ? (
-        <PolariaStatusLoading className="py-4" />
+        <PolariaStatusLoading embedded className="py-4" />
       ) : null}
 
       {!isLoading && activeTab === "informacion" ? (

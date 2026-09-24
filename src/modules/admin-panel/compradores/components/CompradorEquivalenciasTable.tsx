@@ -94,6 +94,7 @@ export function CompradorEquivalenciasTable({
                       type="text"
                       value={aliasValue}
                       disabled={disabled}
+                      placeholder="—"
                       aria-label={`Equivalencia ${row.codigoProducto}`}
                       onChange={(event) =>
                         onDraftChange?.(row.idAlias, {
@@ -101,7 +102,7 @@ export function CompradorEquivalenciasTable({
                         })
                       }
                       className={cn(
-                        "h-full w-full bg-transparent px-3 py-2.5 text-polaria-w outline-none",
+                        "h-full w-full bg-transparent px-3 py-2.5 text-polaria-w outline-none placeholder:text-polaria-w-20",
                         "hover:bg-polaria-t-08 focus:bg-polaria-t-08 focus:ring-1 focus:ring-inset focus:ring-polaria-teal",
                         "disabled:cursor-not-allowed disabled:opacity-60",
                       )}
@@ -119,6 +120,7 @@ export function CompradorEquivalenciasTable({
                       inputMode="decimal"
                       value={precioTexto}
                       disabled={disabled}
+                      placeholder="—"
                       aria-label={`Precio ${row.codigoProducto}`}
                       onChange={(event) =>
                         onDraftChange?.(row.idAlias, {
@@ -126,7 +128,7 @@ export function CompradorEquivalenciasTable({
                         })
                       }
                       className={cn(
-                        "h-full w-full bg-transparent px-3 py-2.5 text-right tabular-nums text-polaria-w outline-none",
+                        "h-full w-full bg-transparent px-3 py-2.5 text-right tabular-nums text-polaria-w outline-none placeholder:text-polaria-w-20",
                         "hover:bg-polaria-t-08 focus:bg-polaria-t-08 focus:ring-1 focus:ring-inset focus:ring-polaria-teal",
                         "disabled:cursor-not-allowed disabled:opacity-60",
                       )}

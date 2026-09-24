@@ -204,6 +204,7 @@ export function RastrearCajaModal({
 
         {isLoadingDetalle ? (
           <PolariaStatusLoading
+            embedded
             title="Cargando recorrido…"
             message="Estamos preparando el historial de la caja."
             className="py-4"

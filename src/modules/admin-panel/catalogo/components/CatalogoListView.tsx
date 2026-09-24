@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { FileSpreadsheet } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ROUTES } from "@/config/routes";
 import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
@@ -51,6 +54,7 @@ export function CatalogoListView({
     codigoCuenta: codigoCuentaProp,
     mode,
   });
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -357,13 +361,28 @@ export function CatalogoListView({
             ? undefined
             : [
                 {
-                  label: isImporting ? "Importando…" : "Importar Excel",
+                  label: isImporting ? "Importando Excel" : "Importar Excel",
                   onClick: handleImportExcel,
                   disabled: !codigoCuenta || isImporting,
                   variant: "outline",
+                  iconOnly: true,
+                  icon: (
+                    <FileSpreadsheet
+                      className="h-4 w-4"
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                  ),
                 },
                 {
-                  label: "Crear secundario",
+                  label: "Lista de precio",
+                  onClick: () => {
+                    router.push(ROUTES.dashboardListaPrecio);
+                  },
+                  variant: "outline",
+                },
+                {
+                  label: "Secundario",
                   onClick: () => setIsSecundarioOpen(true),
                   variant: "outline",
                 },
@@ -375,6 +394,7 @@ export function CatalogoListView({
             : {
                 label: "Nuevo producto",
                 onClick: () => setIsCreateOpen(true),
+                showIcon: false,
               }
         }
       />

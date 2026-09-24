@@ -360,6 +360,7 @@ export function InventarioMercanciaReportView({
               </p>
             ) : isLoading ? (
               <PolariaStatusLoading
+                embedded
                 title="Cargando inventario…"
                 message="Estamos preparando el inventario de mercancía."
                 className="mt-6"
@@ -427,6 +428,7 @@ export function InventarioMercanciaReportView({
             <div className="w-full overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-bg">
               {embedLoading ? (
                 <PolariaStatusLoading
+                  embedded
                   title="Preparando reporte seguro…"
                   message="Estamos abriendo la visualización."
                   className="py-10"

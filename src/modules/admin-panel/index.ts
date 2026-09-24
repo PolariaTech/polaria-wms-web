@@ -66,6 +66,7 @@ export { UsuariosAdminListView } from "./usuarios/components/UsuariosAdminListVi
 export { UsuarioAdminCreateModal } from "./usuarios/components/UsuarioAdminCreateModal";
 export { UsuarioAdminDetalleModal } from "./usuarios/components/UsuarioAdminDetalleModal";
 export { UsuarioAdminEditModal } from "./usuarios/components/UsuarioAdminEditModal";
+export { UsuarioReportePermisosModal } from "./usuarios/components/UsuarioReportePermisosModal";
 export { BodegaInternaAdminView } from "./bodega-interna/components/BodegaInternaAdminView";
 export { VincularBodegaInternaModal } from "./bodega-interna/components/VincularBodegaInternaModal";
 export { BodegaExternaAdminView } from "./bodega-externa/components/BodegaExternaAdminView";
@@ -77,6 +78,7 @@ export { ProductoSecundarioCreateModal } from "./catalogo/components/ProductoSec
 export { ListaPrecioListView } from "./lista-precio/components/ListaPrecioListView";
 export { InventarioMercanciaReportView } from "./inventario-mercancia/components/InventarioMercanciaReportView";
 export { InventarioMercanciaFlow } from "./inventario-mercancia/components/InventarioMercanciaFlow";
+export { CuentaReporteEmbedListView } from "./reportes-embed/components/CuentaReporteEmbedListView";
 
 export type { ProveedorListRow, CreateProveedorInput } from "./proveedores/services/proveedores.service";
 export {
@@ -107,6 +109,7 @@ export {
   updateCompradorAdmin,
 } from "./compradores/services/compradores.service";
 export type {
+  CompradorPreciosImportResult,
   CompradorProductoAliasCuentaRow,
   CompradorProductoAliasListRow,
   CompradorProductoAliasRow,
@@ -114,6 +117,7 @@ export type {
 } from "./compradores/services/comprador-producto-alias.service";
 export {
   createCompradorProductoAliasAdmin,
+  importCompradorPreciosFromFile,
   listCompradorPreciosTemplateAdmin,
   listCompradorProductoAliasAdmin,
   listCompradorProductoAliasCuentaAdmin,
@@ -258,6 +262,11 @@ export {
   CLIENTES_TABLE_TITLE,
   REPORTES_PAGE_HINT,
   REPORTES_PAGE_TITLE,
+  REPORTES_URL_EMPTY_MESSAGE,
+  REPORTES_URL_PAGE_HINT,
+  REPORTES_URL_PAGE_TITLE,
+  REPORTES_URL_TABLE_SUBTITLE,
+  REPORTES_URL_TABLE_TITLE,
   USUARIOS_EMPTY_MESSAGE,
   USUARIOS_PAGE_HINT,
   USUARIOS_PAGE_TITLE,

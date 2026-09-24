@@ -2,6 +2,11 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.7.6 — 2026-09-18
+
+- Admin de cuenta: **Cargar reportes** (URL) y edición de nombre/URL/estado.
+- **Permisos de reportes** por usuario (lupa + tabla) sobre los reportes de la cuenta.
+
 ## 2.7.5 — 2026-09-17
 
 - Acceso a Polaria WMS y Mateo IA por **usuario** (no por cuenta).

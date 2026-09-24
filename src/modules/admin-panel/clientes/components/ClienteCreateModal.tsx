@@ -74,7 +74,7 @@ export function ClienteCreateModal({
       setError(
         err instanceof DomainServiceError
           ? err.message
-          : "No se pudo crear el cliente.",
+          : "No se pudo crear el grupo.",
       );
     } finally {
       setIsSubmitting(false);
@@ -85,9 +85,9 @@ export function ClienteCreateModal({
     <PolariaFormModal
       open={open}
       onClose={handleClose}
-      sectionLabel="Nuevo cliente"
-      title="Crear cliente"
-      description="Completa los datos del cliente para tu cuenta."
+      sectionLabel="Nuevo grupo"
+      title="Crear grupo"
+      description="Completa los datos del grupo para tu cuenta."
       onSubmit={(event) => {
         void handleSubmit(event);
       }}
@@ -100,7 +100,7 @@ export function ClienteCreateModal({
         id="cliente-nombre"
         label="Nombre"
         value={form.nombre}
-        placeholder="Nombre o razón social del cliente"
+        placeholder="Nombre o razón social del grupo"
         onChange={(event) =>
           setForm((current) => ({
             ...current,

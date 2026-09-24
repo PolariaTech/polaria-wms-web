@@ -453,6 +453,7 @@ export function TransporteEntregaModal({
 
       {loadingDetalle ? (
         <PolariaStatusLoading
+          embedded
           title="Cargando productos…"
           message="Estamos preparando los productos de la entrega."
           className="py-4"

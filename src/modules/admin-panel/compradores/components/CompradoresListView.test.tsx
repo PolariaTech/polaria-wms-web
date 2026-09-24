@@ -6,11 +6,15 @@ import { CompradoresListView } from "./CompradoresListView";
 const {
   listCompradoresAdmin,
   listCompradorPreciosTemplateAdmin,
+  importCompradorPreciosFromFile,
   downloadCompradorPreciosExcelTemplate,
+  downloadCompradorPreciosPdf,
 } = vi.hoisted(() => ({
   listCompradoresAdmin: vi.fn(),
   listCompradorPreciosTemplateAdmin: vi.fn(),
+  importCompradorPreciosFromFile: vi.fn(),
   downloadCompradorPreciosExcelTemplate: vi.fn(),
+  downloadCompradorPreciosPdf: vi.fn(),
 }));
 
 vi.mock("@/providers/tenant/CompanyProvider", () => ({
@@ -30,11 +34,18 @@ vi.mock("../services/compradores.service", () => ({
 vi.mock("../services/comprador-producto-alias.service", () => ({
   listCompradorPreciosTemplateAdmin: (...args: unknown[]) =>
     listCompradorPreciosTemplateAdmin(...args),
+  importCompradorPreciosFromFile: (...args: unknown[]) =>
+    importCompradorPreciosFromFile(...args),
 }));
 
 vi.mock("../utils/comprador-precios-excel", () => ({
   downloadCompradorPreciosExcelTemplate: (...args: unknown[]) =>
     downloadCompradorPreciosExcelTemplate(...args),
+}));
+
+vi.mock("../utils/comprador-precios-pdf", () => ({
+  downloadCompradorPreciosPdf: (...args: unknown[]) =>
+    downloadCompradorPreciosPdf(...args),
 }));
 
 vi.mock("./CompradorCreateModal", () => ({
@@ -53,7 +64,9 @@ describe("CompradoresListView", () => {
   beforeEach(() => {
     listCompradoresAdmin.mockReset();
     listCompradorPreciosTemplateAdmin.mockReset();
+    importCompradorPreciosFromFile.mockReset();
     downloadCompradorPreciosExcelTemplate.mockReset();
+    downloadCompradorPreciosPdf.mockReset();
     listCompradoresAdmin.mockResolvedValue([
       {
         idComprador: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -95,8 +108,35 @@ describe("CompradoresListView", () => {
       screen.getByRole("heading", { name: "Gestión de precios" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Exportar" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Importar" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Imprimir" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Importar" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Imprimir" })).toBeEnabled();
+  });
+
+  it("genera el PDF de lista de precios para todos los compradores", async () => {
+    const user = userEvent.setup();
+    downloadCompradorPreciosPdf.mockResolvedValue(undefined);
+    render(<CompradoresListView />);
+
+    await screen.findByRole("button", { name: "+ Comprador" });
+    await user.click(screen.getByRole("button", { name: "Gestión de precios" }));
+    await user.click(screen.getByRole("button", { name: "Imprimir" }));
+    await user.click(screen.getByRole("button", { name: "Generar PDF" }));
+
+    await waitFor(() => {
+      expect(downloadCompradorPreciosPdf).toHaveBeenCalledWith({
+        rows: [
+          {
+            codigoComprador: "WAL01",
+            nombreComprador: "Walmart",
+            codigoProducto: "DICOK",
+            nombreProducto: "Pollo entero",
+            equivalencia: "Pollo asado",
+            precioActual: 110,
+          },
+        ],
+        scope: { mode: "todos" },
+      });
+    });
   });
 
   it("exporta la plantilla de precios al hacer clic en Exportar", async () => {
@@ -122,6 +162,36 @@ describe("CompradoresListView", () => {
         precioActual: 110,
       },
     ]);
+  });
+
+  it("importa equivalencia y precio nuevo desde el excel", async () => {
+    const user = userEvent.setup();
+    const file = new File(["demo"], "gestion-precios-compradores.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    importCompradorPreciosFromFile.mockResolvedValue({
+      imported: 2,
+      skipped: 1,
+      errors: [],
+    });
+
+    render(<CompradoresListView />);
+    await screen.findByRole("button", { name: "+ Comprador" });
+    await user.click(screen.getByRole("button", { name: "Gestión de precios" }));
+
+    const input = document.querySelector('input[type="file"]');
+    expect(input).toBeTruthy();
+    await user.upload(input as HTMLInputElement, file);
+
+    await waitFor(() => {
+      expect(importCompradorPreciosFromFile).toHaveBeenCalledWith(
+        "FOODS1",
+        file,
+      );
+    });
+    expect(
+      await screen.findByText("Se importaron 2 fila(s)."),
+    ).toBeInTheDocument();
   });
 
   it("oculta gestión de precios en modo inspect", async () => {

@@ -124,6 +124,7 @@ export function VincularBodegaInternaModal({
 
           {isLoadingOptions ? (
             <PolariaStatusLoading
+              embedded
               title="Cargando bodegas…"
               message="Estamos preparando las bodegas disponibles."
               className="py-4"

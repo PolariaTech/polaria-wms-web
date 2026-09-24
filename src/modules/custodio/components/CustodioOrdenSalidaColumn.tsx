@@ -712,6 +712,7 @@ export function CustodioOrdenSalidaColumn({
       >
         {loadingPreview ? (
           <PolariaStatusLoading
+            embedded
             title="Cargando productos…"
             message="Estamos preparando la previsualización."
             className="py-4"

@@ -49,6 +49,8 @@ export interface PolariaDataTableProps<T> {
     variant?: "primary" | "outline";
     disabled?: boolean;
     title?: string;
+    icon?: ReactNode;
+    iconOnly?: boolean;
   }[];
   search?: {
     value: string;
@@ -130,7 +132,7 @@ export function PolariaDataTable<T>({
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
           <PolariaTableSearchField
             value={searchValue}
             onChange={search?.onChange ?? setInternalSearch}
@@ -168,10 +170,14 @@ export function PolariaDataTable<T>({
               type="button"
               onClick={action.onClick}
               disabled={action.disabled}
-              title={action.title}
+              title={action.title ?? (action.iconOnly ? action.label : undefined)}
+              aria-label={action.iconOnly ? action.label : undefined}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 polaria-text-body-sm font-semibold transition",
+                "inline-flex items-center transition",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                action.iconOnly
+                  ? "h-9 w-9 justify-center rounded-lg"
+                  : "gap-1.5 rounded-xl px-4 py-2 polaria-text-body-sm font-semibold",
                 action.disabled
                   ? "cursor-not-allowed border border-polaria-w-08 text-polaria-w-20 opacity-60"
                   : action.variant === "primary"
@@ -179,7 +185,8 @@ export function PolariaDataTable<T>({
                     : "border border-polaria-t-20 text-polaria-teal hover:bg-polaria-t-08",
               )}
             >
-              {action.label}
+              {action.icon}
+              {action.iconOnly ? null : action.label}
             </button>
           ))}
 

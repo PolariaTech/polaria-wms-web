@@ -190,6 +190,7 @@ export function CustodioOrdenIngresoForm({
 
       {isLoadingLineas ? (
         <PolariaStatusLoading
+          embedded
           title="Cargando líneas…"
           message="Estamos preparando las líneas de la orden."
           className="py-4"

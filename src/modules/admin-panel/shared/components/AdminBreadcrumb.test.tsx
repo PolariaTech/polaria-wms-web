@@ -33,4 +33,28 @@ describe("AdminBreadcrumb", () => {
     expect(screen.getByRole("link", { name: "Inicio" })).toBeInTheDocument();
     expect(screen.getByText("Catálogo")).toBeInTheDocument();
   });
+
+  it("muestra lista de precio debajo de catálogo", () => {
+    vi.mocked(usePathname).mockReturnValue(ROUTES.dashboardListaPrecio);
+
+    render(<AdminBreadcrumb />);
+
+    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute(
+      "href",
+      ROUTES.dashboard,
+    );
+    expect(screen.getByRole("link", { name: "Catálogo" })).toHaveAttribute(
+      "href",
+      ROUTES.dashboardCatalog,
+    );
+    expect(screen.getByText("Lista de precio")).toBeInTheDocument();
+  });
+
+  it("muestra ruta en cargar reportes", () => {
+    vi.mocked(usePathname).mockReturnValue(ROUTES.dashboardReportesUrl);
+
+    render(<AdminBreadcrumb />);
+
+    expect(screen.getByText("Cargar reportes")).toBeInTheDocument();
+  });
 });

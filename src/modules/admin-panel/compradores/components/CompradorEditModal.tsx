@@ -262,12 +262,6 @@ export function CompradorEditModal({
 
       if (!aliasChanged && !precioChanged) continue;
 
-      if (aliasChanged && !draft.alias.trim()) {
-        setError("La equivalencia no puede quedar vacía.");
-        setActiveTab("equivalencia");
-        return;
-      }
-
       let precioParsed: number | null = null;
       if (precioChanged) {
         const trimmed = draft.precioTexto.trim();
@@ -330,7 +324,7 @@ export function CompradorEditModal({
         await updateCompradorProductoAliasAdmin({
           codigoCuenta,
           idAlias: change.row.idAlias,
-          ...(change.aliasChanged ? { alias: change.draft.alias } : {}),
+          ...(change.aliasChanged ? { alias: change.draft.alias.trim() } : {}),
           ...(change.precioChanged ? { precio: precioOverride ?? null } : {}),
         });
       }
@@ -391,7 +385,7 @@ export function CompradorEditModal({
             </p>
 
             {isLoading ? (
-              <PolariaStatusLoading className="py-4" />
+              <PolariaStatusLoading embedded className="py-4" />
             ) : (
               <CompradorEquivalenciasTable
                 rows={equivalencias}

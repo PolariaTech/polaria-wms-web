@@ -79,7 +79,7 @@ export function ClienteEditModal({
       setError(
         err instanceof DomainServiceError
           ? err.message
-          : "No se pudo actualizar el cliente.",
+          : "No se pudo actualizar el grupo.",
       );
     } finally {
       setIsSubmitting(false);
@@ -90,9 +90,9 @@ export function ClienteEditModal({
     <PolariaFormModal
       open={open}
       onClose={handleClose}
-      sectionLabel="Editar cliente"
-      title="Editar cliente"
-      description="Actualiza los datos del cliente."
+      sectionLabel="Editar grupo"
+      title="Editar grupo"
+      description="Actualiza los datos del grupo."
       onSubmit={(event) => {
         void handleSubmit(event);
       }}
@@ -114,7 +114,7 @@ export function ClienteEditModal({
         id="edit-cliente-nombre"
         label="Nombre"
         value={nombre}
-        placeholder="Nombre o razón social del cliente"
+        placeholder="Nombre o razón social del grupo"
         onChange={(event) => setNombre(event.target.value)}
         disabled={isSubmitting}
         autoFocus

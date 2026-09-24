@@ -1454,7 +1454,7 @@ export function OrdenVentaCreateModal({
         submitOnEnter={false}
       >
         {isLoading ? (
-          <PolariaStatusLoading className="py-4" />
+          <PolariaStatusLoading embedded className="py-4" />
         ) : null}
 
         {step === "start" && !isLoading && startMode !== "docs" ? (

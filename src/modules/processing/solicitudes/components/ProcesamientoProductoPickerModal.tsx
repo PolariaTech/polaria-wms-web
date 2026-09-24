@@ -122,6 +122,7 @@ export function ProcesamientoProductoPickerModal({
         </p>
       ) : isLoading ? (
         <PolariaStatusLoading
+          embedded
           title="Cargando productos…"
           message="Estamos preparando el catálogo."
           className="py-4"

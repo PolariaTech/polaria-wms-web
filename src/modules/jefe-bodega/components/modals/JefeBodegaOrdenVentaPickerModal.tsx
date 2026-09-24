@@ -83,6 +83,7 @@ export function JefeBodegaOrdenVentaPickerModal({
 
       {loading ? (
         <PolariaStatusLoading
+          embedded
           title="Cargando órdenes de venta…"
           message="Estamos preparando las órdenes de venta."
           className="py-4"

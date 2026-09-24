@@ -38,6 +38,7 @@ export function InventarioMercanciaBodegaPicker({
 
       {isLoading ? (
         <PolariaStatusLoading
+          embedded
           title="Cargando bodegas…"
           message="Estamos preparando el listado de bodegas."
           className="mt-6"

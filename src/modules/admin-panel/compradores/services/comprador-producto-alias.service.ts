@@ -14,6 +14,10 @@ import {
   buildCompradorPreciosTemplateRows,
   type CompradorPreciosExcelSourceRow,
 } from "../utils/comprador-precios-excel";
+import {
+  parseCompradorPreciosExcelFile,
+  planCompradorPreciosImport,
+} from "../utils/comprador-precios-import";
 
 const ALIAS_LIST_LIMIT = 500;
 const ALIAS_CUENTA_LIST_LIMIT = 5000;
@@ -374,13 +378,6 @@ export async function createCompradorProductoAliasAdmin(
     );
   }
 
-  if (!alias) {
-    throw new DomainServiceError(
-      "La equivalencia es obligatoria.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
   if (alias.length > 255) {
     throw new DomainServiceError(
       "La equivalencia no puede superar 255 caracteres.",
@@ -473,12 +470,6 @@ export async function updateCompradorProductoAliasAdmin(
 
   if (hasAlias) {
     const alias = (input.alias ?? "").trim();
-    if (!alias) {
-      throw new DomainServiceError(
-        "La equivalencia es obligatoria.",
-        "INVALID_ARGUMENT",
-      );
-    }
     if (alias.length > 255) {
       throw new DomainServiceError(
         "La equivalencia no puede superar 255 caracteres.",
@@ -523,4 +514,105 @@ export async function updateCompradorProductoAliasAdmin(
   }
 
   return mapAliasRow(updated);
+}
+
+export interface CompradorPreciosImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+/** Aplica equivalencia y precio nuevo de la plantilla Excel. */
+export async function importCompradorPreciosFromFile(
+  codigoCuenta: string,
+  file: File,
+): Promise<CompradorPreciosImportResult> {
+  const cuenta = requireCodigoCuenta(codigoCuenta);
+  const parsed = await parseCompradorPreciosExcelFile(file);
+
+  const [compradores, productos, aliasRows] = await Promise.all([
+    listCompradoresAdmin({
+      codigoCuenta: cuenta,
+      soloActivos: false,
+      limit: CATALOGO_TEMPLATE_LIMIT,
+    }),
+    listCatalogoProductosAdmin({
+      codigoCuenta: cuenta,
+      soloActivos: false,
+      limit: CATALOGO_TEMPLATE_LIMIT,
+    }),
+    queryAliasCuentaRows(cuenta),
+  ]);
+
+  const plan = planCompradorPreciosImport({
+    rows: parsed.rows,
+    parseErrors: parsed.errors,
+    parseSkipped: parsed.skipped,
+    compradores: compradores.map((row) => ({
+      idComprador: row.idComprador,
+      codigo: row.codigo,
+    })),
+    productos: productos.map((row) => ({
+      idProducto: row.idProducto,
+      codigo: row.codigo,
+      nombre: row.titulo,
+    })),
+    aliases: aliasRows.map((row) => ({
+      idAlias: row.id_alias,
+      idComprador: row.id_comprador,
+      idProducto: row.id_producto,
+      alias: row.alias,
+      precioOverride: parsePrecioOverride(row.precio),
+    })),
+  });
+
+  const errors = [...plan.errors];
+  let imported = 0;
+
+  for (const create of plan.creates) {
+    try {
+      await createCompradorProductoAliasAdmin({
+        codigoCuenta: cuenta,
+        idComprador: create.idComprador,
+        idProducto: create.idProducto,
+        alias: create.alias,
+        precio: create.precio,
+      });
+      imported += 1;
+    } catch (error: unknown) {
+      errors.push(
+        `Fila ${create.rowNumber}: ${
+          error instanceof DomainServiceError
+            ? error.message
+            : "No se pudo crear la equivalencia."
+        }`,
+      );
+    }
+  }
+
+  for (const update of plan.updates) {
+    try {
+      await updateCompradorProductoAliasAdmin({
+        codigoCuenta: cuenta,
+        idAlias: update.idAlias,
+        alias: update.alias,
+        precio: update.precio,
+      });
+      imported += 1;
+    } catch (error: unknown) {
+      errors.push(
+        `Fila ${update.rowNumber}: ${
+          error instanceof DomainServiceError
+            ? error.message
+            : "No se pudo actualizar la equivalencia."
+        }`,
+      );
+    }
+  }
+
+  return {
+    imported,
+    skipped: plan.skipped,
+    errors,
+  };
 }

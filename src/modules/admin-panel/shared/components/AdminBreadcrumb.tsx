@@ -51,7 +51,15 @@ function getBreadcrumbTrail(pathname: string): BreadcrumbItem[] | null {
   if (pathname === ROUTES.dashboardListaPrecio) {
     return [
       { label: "Inicio", href: ROUTES.dashboard },
+      { label: "Catálogo", href: ROUTES.dashboardCatalog },
       { label: "Lista de precio" },
+    ];
+  }
+
+  if (pathname === ROUTES.dashboardReportesUrl) {
+    return [
+      { label: "Inicio", href: ROUTES.dashboard },
+      { label: "Cargar reportes" },
     ];
   }
 

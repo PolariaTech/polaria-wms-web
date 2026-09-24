@@ -60,7 +60,7 @@ export const CUENTA_COCKPIT_SECTIONS: readonly CuentaCockpitSection[] = [
       { id: "catalogo", title: "Catálogo", icon: Package },
       { id: "lista-precio", title: "Lista de precio", icon: Tags },
       { id: "proveedores", title: "Proveedores", icon: LayoutGrid },
-      { id: "clientes", title: "Clientes", icon: Building2 },
+      { id: "clientes", title: "Grupos", icon: Building2 },
       { id: "compradores", title: "Compradores", icon: ShoppingCart },
       { id: "camiones", title: "Camiones", icon: Truck },
       { id: "plantas", title: "Plantas", icon: Factory },
@@ -131,12 +131,12 @@ export const CUENTA_COCKPIT_MODULO_COPY = {
     ],
   },
   clientes: {
-    title: "Clientes",
-    description: "Clientes vinculados a esta cuenta.",
+    title: "Grupos",
+    description: "Grupos vinculados a esta cuenta: la empresa dueña de varios compradores.",
     futureActions: [
-      "Alta de cliente",
+      "Alta de grupo",
       "Editar datos fiscales",
-      "Activar o desactivar cliente",
+      "Activar o desactivar grupo",
     ],
   },
   compradores: {

@@ -34,7 +34,7 @@ export const ADMIN_CREATION_OPTIONS: readonly AdminMenuOption[] = [
   },
   {
     id: "clientes",
-    title: "Clientes",
+    title: "Grupos",
     icon: Building2,
     href: ROUTES.dashboardAdminCreationClients,
   },
@@ -90,12 +90,12 @@ export const ADMIN_ASSIGNMENT_CREATION_PLACEHOLDERS = {
     ],
   },
   clientes: {
-    title: "Clientes",
-    description: "Administra clientes vinculados a tu cuenta comercial.",
+    title: "Grupos",
+    description: "Administra grupos: la empresa dueña de varios compradores.",
     futureActions: [
-      "Alta de cliente",
+      "Alta de grupo",
       "Editar datos fiscales",
-      "Activar o desactivar cliente",
+      "Activar o desactivar grupo",
     ],
   },
   compradores: {
