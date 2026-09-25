@@ -26,7 +26,7 @@ describe("CuentaReporteEmbedCreateModal", () => {
   });
 
   it("pide descripción y URL y guarda el reporte", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const onClose = vi.fn();
     const onCreated = vi.fn();
 

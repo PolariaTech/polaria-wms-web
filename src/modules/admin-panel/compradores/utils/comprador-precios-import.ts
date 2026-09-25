@@ -7,9 +7,13 @@ import {
 
 export interface CompradorPreciosExcelImportRow {
   rowNumber: number;
+  grupo: string;
   codigoComprador: string;
+  nombreComprador: string;
   codigoProducto: string;
+  nombreProducto: string;
   equivalencia: string;
+  precioActual: number | null;
   precioNuevo: number | null;
   hasPrecioNuevo: boolean;
 }
@@ -19,6 +23,9 @@ export interface CompradorPreciosExcelParseResult {
   errors: string[];
   skipped: number;
 }
+
+/** Filas a mostrar en la vista previa antes de confirmar la importación. */
+export const COMPRADOR_PRECIOS_IMPORT_PREVIEW_LIMIT = 12;
 
 export interface CompradorPreciosImportPlanCreate {
   rowNumber: number;
@@ -87,6 +94,8 @@ function parsePrecioNuevo(
   const text = excelCellText(value).replace(/\s/g, "").replace(",", ".");
   if (!text) return { ok: true, present: false, value: null };
 
+  if (!/^-?\d+(\.\d+)?$/.test(text)) return { ok: false };
+
   const parsed = Number.parseFloat(text);
   if (!Number.isFinite(parsed)) return { ok: false };
   return { ok: true, present: true, value: parsed };
@@ -132,12 +141,17 @@ export async function parseCompradorPreciosExcelBuffer(
   worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber === 1) return;
 
-    const codigoComprador = excelCellText(row.getCell(1).value);
-    const codigoProducto = excelCellText(row.getCell(3).value);
-    const equivalencia = excelCellText(row.getCell(5).value);
-    const precioParsed = parsePrecioNuevo(row.getCell(7).value);
+    const grupo = excelCellText(row.getCell(1).value);
+    const codigoComprador = excelCellText(row.getCell(2).value);
+    const nombreComprador = excelCellText(row.getCell(3).value);
+    const codigoProducto = excelCellText(row.getCell(4).value);
+    const nombreProducto = excelCellText(row.getCell(5).value);
+    const equivalencia = excelCellText(row.getCell(6).value);
+    const precioActualParsed = parsePrecioNuevo(row.getCell(7).value);
+    const precioParsed = parsePrecioNuevo(row.getCell(8).value);
 
     if (
+      !grupo &&
       !codigoComprador &&
       !codigoProducto &&
       !equivalencia &&
@@ -147,28 +161,50 @@ export async function parseCompradorPreciosExcelBuffer(
       return;
     }
 
-    if (!codigoComprador || !codigoProducto) {
-      errors.push(`Fila ${rowNumber}: falta código de comprador o de producto.`);
+    if (!grupo || !codigoComprador || !codigoProducto) {
+      errors.push(
+        `Fila ${rowNumber}: falta grupo, código de comprador o código de producto.`,
+      );
       return;
     }
 
     if (!precioParsed.ok) {
-      errors.push(`Fila ${rowNumber}: el precio nuevo no es válido.`);
+      errors.push(
+        `Fila ${rowNumber}: el precio nuevo no es válido (solo números en pesos).`,
+      );
       return;
     }
 
-    if (precioParsed.present && precioParsed.value != null && precioParsed.value < 0) {
+    if (!precioActualParsed.ok) {
+      errors.push(`Fila ${rowNumber}: el precio actual no es válido.`);
+      return;
+    }
+
+    if (
+      precioParsed.present &&
+      precioParsed.value != null &&
+      precioParsed.value < 0
+    ) {
       errors.push(`Fila ${rowNumber}: el precio nuevo no puede ser negativo.`);
       return;
     }
 
+    const precioSinCambio =
+      precioParsed.present &&
+      precioActualParsed.present &&
+      precioParsed.value === precioActualParsed.value;
+
     rows.push({
       rowNumber,
+      grupo,
       codigoComprador,
+      nombreComprador,
       codigoProducto,
+      nombreProducto,
       equivalencia,
+      precioActual: precioActualParsed.value,
       precioNuevo: precioParsed.value,
-      hasPrecioNuevo: precioParsed.present,
+      hasPrecioNuevo: precioParsed.present && !precioSinCambio,
     });
   });
 
@@ -181,11 +217,22 @@ export async function parseCompradorPreciosExcelFile(
   return parseCompradorPreciosExcelBuffer(await file.arrayBuffer());
 }
 
+export function takeCompradorPreciosImportPreview(
+  rows: readonly CompradorPreciosExcelImportRow[],
+  limit = COMPRADOR_PRECIOS_IMPORT_PREVIEW_LIMIT,
+): CompradorPreciosExcelImportRow[] {
+  return rows.slice(0, Math.max(1, limit));
+}
+
 export function planCompradorPreciosImport(input: {
   rows: readonly CompradorPreciosExcelImportRow[];
   parseErrors?: readonly string[];
   parseSkipped?: number;
-  compradores: readonly { idComprador: string; codigo: string }[];
+  compradores: readonly {
+    idComprador: string;
+    codigo: string;
+    grupo: string;
+  }[];
   productos: readonly { idProducto: string; codigo: string; nombre?: string }[];
   aliases: readonly {
     idAlias: string;
@@ -199,10 +246,14 @@ export function planCompradorPreciosImport(input: {
   let skipped = input.parseSkipped ?? 0;
 
   const compradorByCodigo = new Map(
-    input.compradores.map((row) => [row.codigo.trim().toLowerCase(), row] as const),
+    input.compradores.map(
+      (row) => [row.codigo.trim().toLowerCase(), row] as const,
+    ),
   );
   const productoByCodigo = new Map(
-    input.productos.map((row) => [row.codigo.trim().toLowerCase(), row] as const),
+    input.productos.map(
+      (row) => [row.codigo.trim().toLowerCase(), row] as const,
+    ),
   );
   const aliasByPair = new Map(
     input.aliases.map(
@@ -222,8 +273,12 @@ export function planCompradorPreciosImport(input: {
   const updates: CompradorPreciosImportPlanUpdate[] = [];
 
   for (const row of latestByPair.values()) {
-    const comprador = compradorByCodigo.get(row.codigoComprador.trim().toLowerCase());
-    const producto = productoByCodigo.get(row.codigoProducto.trim().toLowerCase());
+    const comprador = compradorByCodigo.get(
+      row.codigoComprador.trim().toLowerCase(),
+    );
+    const producto = productoByCodigo.get(
+      row.codigoProducto.trim().toLowerCase(),
+    );
 
     if (!comprador) {
       errors.push(

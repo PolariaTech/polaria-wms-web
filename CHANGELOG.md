@@ -2,10 +2,15 @@
 
 Versión de producto alineada con Polaria WMS.
 
-## 2.7.6 — 2026-09-18
+## 2.7.15 — 2026-09-25
 
 - Admin de cuenta: **Cargar reportes** (URL) y edición de nombre/URL/estado.
 - **Permisos de reportes** por usuario (lupa + tabla) sobre los reportes de la cuenta.
+- Maestro **Clientes** renombrado a **Grupos**.
+- Compradores: **grupo perteneciente** (catálogo por cuenta), filtros de exportación por grupo/producto/fechas.
+- Gestión de precios: plantilla Excel editable (gris → verde), import con preview, **imprimir** lista (no editable, landscape, precio nuevo = importado o 50).
+- Impresión/export por grupos y/o compradores (lupa multi-select).
+- Sesión WMS/Mateo Support: TTL **1 mes** (el handoff SSO sigue en 60 s).
 
 ## 2.7.5 — 2026-09-17
 

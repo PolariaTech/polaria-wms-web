@@ -7,6 +7,7 @@ import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
 import { createCompradorAdmin, type CompradorListRow } from "../services/compradores.service";
+import { listGruposPertenecientesAdmin } from "../services/grupo-perteneciente.service";
 import {
   emptyAltaFormState,
   fichaFromAltaForm,
@@ -18,6 +19,8 @@ interface CompradorCreateModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: (comprador: CompradorListRow) => void;
+  /** Catálogo de grupos pertenecientes (BD / tmp). */
+  grupoOptions?: readonly string[];
   /** Capa al abrir sobre otro modal (p. ej. Nuevo pedido). */
   stackLevel?: "base" | "elevated" | "nested";
 }
@@ -26,6 +29,7 @@ export function CompradorCreateModal({
   open,
   onClose,
   onCreated,
+  grupoOptions = [],
   stackLevel = "base",
 }: CompradorCreateModalProps) {
   const { codigoCuenta } = useCompany();
@@ -38,6 +42,8 @@ export function CompradorCreateModal({
   );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gruposLoaded, setGruposLoaded] = useState<string[]>([...grupoOptions]);
+  const grupoOptionsKey = grupoOptions.join("|");
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +51,28 @@ export function CompradorCreateModal({
     setForm(emptyAltaFormState(vendedorNombre));
     setError(null);
     setIsSubmitting(false);
-  }, [open, vendedorNombre]);
+
+    if (grupoOptionsKey) {
+      setGruposLoaded(grupoOptionsKey.split("|"));
+      return;
+    }
+
+    setGruposLoaded([]);
+    if (!codigoCuenta) return;
+
+    let cancelled = false;
+    void listGruposPertenecientesAdmin({ codigoCuenta })
+      .then((rows) => {
+        if (!cancelled) setGruposLoaded(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setGruposLoaded([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, vendedorNombre, codigoCuenta, grupoOptionsKey]);
 
   const handleClose = useCallback(() => {
     if (isSubmitting) return;
@@ -130,6 +157,7 @@ export function CompradorCreateModal({
         idPrefix="comprador"
         codigoValue="Se genera al guardar"
         nombreAutoFocus
+        grupoOptions={gruposLoaded}
       />
     </PolariaFormModal>
   );

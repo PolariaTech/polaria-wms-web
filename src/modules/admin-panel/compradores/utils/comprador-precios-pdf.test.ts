@@ -6,6 +6,7 @@ import {
 
 const SAMPLE_ROWS = [
   {
+    grupo: "Grupo A",
     codigoComprador: "WAL01",
     nombreComprador: "Walmart",
     codigoProducto: "DICOK",
@@ -14,6 +15,7 @@ const SAMPLE_ROWS = [
     precioActual: 110,
   },
   {
+    grupo: "Grupo A",
     codigoComprador: "WAL01",
     nombreComprador: "Walmart",
     codigoProducto: "OGHK6",
@@ -22,6 +24,7 @@ const SAMPLE_ROWS = [
     precioActual: 40,
   },
   {
+    grupo: "Grupo B",
     codigoComprador: "SOR01",
     nombreComprador: "Soriana",
     codigoProducto: "DICOK",

@@ -26,7 +26,7 @@ export type CompradorPreciosPrintScope =
 
 function box(
   doc: jsPDF,
-  x: number,
+  posX: number,
   y: number,
   w: number,
   h: number,
@@ -35,7 +35,7 @@ function box(
   doc.setDrawColor(0);
   doc.setFillColor(255, 255, 255);
   doc.setLineWidth(lineWidth);
-  doc.rect(x, y, w, h, "S");
+  doc.rect(posX, y, w, h, "S");
 }
 
 function ensureSpace(doc: jsPDF, y: number, needed: number): number {
@@ -93,20 +93,20 @@ function drawTableHeader(doc: jsPDF, y: number): number {
   doc.setLineWidth(0.5);
   doc.rect(MARGIN, y, CONTENT_W, HEADER_H, "S");
 
-  let x = MARGIN;
+  let cursorX = MARGIN;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   for (let i = 0; i < COLS.length; i += 1) {
     const col = COLS[i]!;
     const align = col.key === "precio" ? "right" : "left";
-    const textX = align === "right" ? x + col.w - 1.6 : x + 1.6;
+    const textX = align === "right" ? cursorX + col.w - 1.6 : cursorX + 1.6;
     doc.text(col.label, textX, y + HEADER_H / 2, {
       align,
       baseline: "middle",
     });
-    x += col.w;
+    cursorX += col.w;
     if (i < COLS.length - 1) {
-      doc.line(x, y, x, y + HEADER_H);
+      doc.line(cursorX, y, cursorX, y + HEADER_H);
     }
   }
   return y + HEADER_H;
@@ -132,12 +132,12 @@ function drawDataRow(
   );
 
   box(doc, MARGIN, y, CONTENT_W, h);
-  let x = MARGIN;
+  let cursorX = MARGIN;
   for (let i = 0; i < COLS.length; i += 1) {
     const col = COLS[i]!;
     const lines = lineSets[i]!;
     const align = col.key === "precio" ? "right" : "left";
-    const textX = align === "right" ? x + col.w - 1.6 : x + 1.6;
+    const textX = align === "right" ? cursorX + col.w - 1.6 : cursorX + 1.6;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.text(lines, textX, y + ROW_PAD_Y, {
@@ -145,9 +145,9 @@ function drawDataRow(
       baseline: "top",
       lineHeightFactor: 1.05,
     });
-    x += col.w;
+    cursorX += col.w;
     if (i < COLS.length - 1) {
-      doc.line(x, y, x, y + h);
+      doc.line(cursorX, y, cursorX, y + h);
     }
   }
   return y + h;

@@ -23,6 +23,8 @@ export interface CompradorListRow {
   codigo: string;
   comprador: string;
   telefono: string | null;
+  /** Grupo perteneciente (marca), desde catálogo tmp / BD. */
+  grupo: string;
   /** false = deshabilitado: visible en tablas, oculto en formularios. */
   estaActivo: boolean;
 }
@@ -93,7 +95,8 @@ interface CompradorDbRow {
   contacto_correo?: string | null;
 }
 
-const COMPRADOR_LIST_COLUMNS = "id_comprador,codigo,nombre,telefono,esta_activo";
+const COMPRADOR_LIST_COLUMNS =
+  "id_comprador,codigo,nombre,telefono,grupo,esta_activo";
 const COMPRADOR_DETALLE_COLUMNS = [
   COMPRADOR_LIST_COLUMNS,
   // Campos fiscales/comerciales.
@@ -155,6 +158,7 @@ function mapCompradorRow(row: CompradorDbRow): CompradorListRow {
     codigo: row.codigo,
     comprador: row.nombre,
     telefono: row.telefono,
+    grupo: valueOrEmpty(row.grupo),
     estaActivo: row.esta_activo !== false,
   };
 }

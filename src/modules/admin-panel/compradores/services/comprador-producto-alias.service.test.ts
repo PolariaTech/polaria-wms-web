@@ -736,6 +736,7 @@ describe("comprador-producto-alias.service", () => {
           codigo: "WAL01",
           nombre: "Walmart",
           telefono: null,
+          grupo: "Grupo A",
           esta_activo: true,
         },
       ],
@@ -759,6 +760,7 @@ describe("comprador-producto-alias.service", () => {
     expect(rows).toEqual(
       expect.arrayContaining([
         {
+          grupo: "Grupo A",
           codigoComprador: "WAL01",
           nombreComprador: "Walmart",
           codigoProducto: "DICOK",
@@ -767,6 +769,7 @@ describe("comprador-producto-alias.service", () => {
           precioActual: 50,
         },
         {
+          grupo: "Grupo A",
           codigoComprador: "WAL01",
           nombreComprador: "Walmart",
           codigoProducto: "OGHK6",

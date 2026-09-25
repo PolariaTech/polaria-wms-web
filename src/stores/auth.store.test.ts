@@ -63,7 +63,7 @@ describe("useAuthStore", () => {
     vi.restoreAllMocks();
   });
 
-  it("cierra la sesión al hidratar si pasaron 12 horas", async () => {
+  it("cierra la sesión al hidratar si pasó un mes", async () => {
     useAuthStore.setState({
       sessionStartedAt: Date.now() - SESSION_MAX_AGE_MS - 1,
     });

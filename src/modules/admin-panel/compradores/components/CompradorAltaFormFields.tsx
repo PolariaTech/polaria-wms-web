@@ -10,6 +10,7 @@ import {
 } from "@/components/shared/form/PolariaFormField";
 import { PolariaPhoneInput } from "@/components/shared/form/PolariaPhoneInput";
 import { cn } from "@/lib/utils/cn";
+import { buildCompradorGrupoSelectOptions } from "../constants/comprador-grupos";
 import {
   emptyAltaCentroRow,
   emptyAltaContactoRow,
@@ -154,6 +155,8 @@ interface CompradorAltaFormFieldsProps {
   idPrefix: string;
   codigoValue: string;
   nombreAutoFocus?: boolean;
+  /** Catálogo de grupos pertenecientes (viene de BD / tmp). */
+  grupoOptions?: readonly string[];
   /** Si se indica, solo muestra la sección del paso (wizard). */
   step?: CompradorAltaFormStep;
 }
@@ -223,12 +226,17 @@ export function CompradorAltaFormFields({
   idPrefix,
   codigoValue,
   nombreAutoFocus,
+  grupoOptions = [],
   step = "all",
 }: CompradorAltaFormFieldsProps) {
   const { ficha } = form;
   const bare = step !== "all";
   const show = (section: Exclude<CompradorAltaFormStep, "all">) =>
     step === "all" || step === section;
+  const grupoSelectOptions = buildCompradorGrupoSelectOptions([
+    ...grupoOptions,
+    ficha.grupo,
+  ]);
 
   return (
     <>
@@ -379,13 +387,14 @@ export function CompradorAltaFormFields({
             disabled={disabled}
             compact
           />
-          <PolariaFormInput
+          <PolariaFormSelect
             id={`${idPrefix}-grupo`}
-            label="Grupo hotelero"
+            label="Grupo perteneciente"
             value={ficha.grupo}
             onChange={(event) =>
               patchFicha(form, onChange, { grupo: event.target.value })
             }
+            options={grupoSelectOptions}
             disabled={disabled}
             compact
           />

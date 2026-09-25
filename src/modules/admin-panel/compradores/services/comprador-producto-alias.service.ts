@@ -13,6 +13,7 @@ import { listCompradoresAdmin } from "./compradores.service";
 import {
   buildCompradorPreciosTemplateRows,
   type CompradorPreciosExcelSourceRow,
+  type CompradorPreciosExportFilters,
 } from "../utils/comprador-precios-excel";
 import {
   parseCompradorPreciosExcelFile,
@@ -299,6 +300,7 @@ export async function listCompradorProductoAliasCuentaAdmin(
 /** Matriz comprador × catálogo completo para la plantilla de precios. */
 export async function listCompradorPreciosTemplateAdmin(params: {
   codigoCuenta: string;
+  filters?: CompradorPreciosExportFilters;
 }): Promise<CompradorPreciosExcelSourceRow[]> {
   const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
 
@@ -326,6 +328,7 @@ export async function listCompradorPreciosTemplateAdmin(params: {
       idComprador: row.idComprador,
       codigo: row.codigo,
       nombre: row.comprador,
+      grupo: row.grupo,
     })),
     productos: productos.map((row) => ({
       idProducto: row.idProducto,
@@ -339,6 +342,7 @@ export async function listCompradorPreciosTemplateAdmin(params: {
       precioOverride: parsePrecioOverride(row.precio),
     })),
     precioListaByProductoId,
+    filters: params.filters,
   });
 }
 
@@ -551,6 +555,7 @@ export async function importCompradorPreciosFromFile(
     compradores: compradores.map((row) => ({
       idComprador: row.idComprador,
       codigo: row.codigo,
+      grupo: row.grupo,
     })),
     productos: productos.map((row) => ({
       idProducto: row.idProducto,

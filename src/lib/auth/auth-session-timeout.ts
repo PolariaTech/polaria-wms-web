@@ -1,5 +1,5 @@
-/** Duración máxima de una sesión WMS: 12 horas desde el login (o SSO). */
-export const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+/** Duración máxima de una sesión WMS: 1 mes desde el login (o SSO). */
+export const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function isSessionExpired(
   sessionStartedAt: number | null | undefined,

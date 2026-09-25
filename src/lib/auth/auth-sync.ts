@@ -71,7 +71,7 @@ function isCurrentSessionExpired(): boolean {
   return isSessionExpired(resolveSessionStartedAt());
 }
 
-/** Memoria y localStorage deben coincidir, y no haber superado las 12 h. */
+/** Memoria y localStorage deben coincidir, y no haber superado el mes de sesión. */
 export function isActiveAuthSession(
   memoryToken: string | null,
   persistedToken: string | null = getPersistedAccessToken(),

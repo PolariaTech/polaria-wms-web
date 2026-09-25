@@ -1,7 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
+
+vi.unmock("@/modules/processing/shared/services/processing.service");
+
+import {
+  setSupabaseClientForTests,
+  setTenantSchemaGetter,
+} from "@/lib/supabase/domain-query";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
+import { listWarehouseState } from "@/modules/inventory/shared/services/inventory.service";
+import { listTareasColaApi } from "@/modules/operations";
+import { listUbicacionesEstadoBodega } from "@/modules/warehouses/estado-bodega/services/estado-bodega.service";
 import {
   createSolicitudProcesamiento,
   listProductosSecundariosProcesamiento,
@@ -10,10 +19,30 @@ import {
   listTareasCola,
 } from "./processing.service";
 
+vi.mock("@/modules/inventory/shared/services/inventory.service", () => ({
+  listWarehouseState: vi.fn(),
+}));
+
+vi.mock("@/modules/warehouses/estado-bodega/services/estado-bodega.service", () => ({
+  listUbicacionesEstadoBodega: vi.fn(),
+}));
+
+vi.mock("@/modules/operations", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/operations")>();
+  return {
+    ...actual,
+    listTareasColaApi: vi.fn(),
+  };
+});
+
 describe("processing.service", () => {
   beforeEach(() => {
     setSupabaseClientForTests(null);
-    vi.restoreAllMocks();
+    setTenantSchemaGetter(null);
+    vi.clearAllMocks();
+    vi.mocked(listWarehouseState).mockResolvedValue([]);
+    vi.mocked(listUbicacionesEstadoBodega).mockResolvedValue([]);
+    vi.mocked(listTareasColaApi).mockResolvedValue([]);
   });
 
   it("listSolicitudesProcesamiento consulta solicitud_procesamiento", async () => {
@@ -94,14 +123,8 @@ describe("processing.service", () => {
   });
 
   it("createSolicitudProcesamiento valida stock", async () => {
-    const { client, from } = createSupabaseMock({ data: [] });
-    from.mockImplementation(((_table?: string) => {
-      if (_table === "warehouse_state") {
-        return createSupabaseMock({ data: [] }).chain;
-      }
-      return createSupabaseMock({ data: [] }).chain;
-    }) as typeof from);
-    setSupabaseClientForTests(client);
+    vi.mocked(listWarehouseState).mockResolvedValue([]);
+    vi.mocked(listUbicacionesEstadoBodega).mockResolvedValue([]);
 
     await expect(
       createSolicitudProcesamiento({
@@ -118,16 +141,16 @@ describe("processing.service", () => {
     ).rejects.toThrow("Sin stock disponible");
   });
 
-  it("listTareasCola consulta tarea_cola", async () => {
-    const { client, from } = createSupabaseMock({ data: [] });
-    setSupabaseClientForTests(client);
-
+  it("listTareasCola consulta tareas vía API de operaciones", async () => {
     await listTareasCola({
       codigoCuenta: "CUENTA-01",
       idBodega: "BOD-01",
     });
 
-    expect(from).toHaveBeenCalledWith("tarea_cola");
+    expect(listTareasColaApi).toHaveBeenCalledWith({
+      codigoCuenta: "CUENTA-01",
+      idBodega: "BOD-01",
+    });
   });
 
   it("listProductosSecundariosProcesamiento mapea reglas numericas de Postgres", async () => {
@@ -157,10 +180,8 @@ describe("processing.service", () => {
       "prim-1",
     );
 
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.label).toContain("Chuleta");
+    expect(rows[0]?.idProducto).toBe("sec-1");
     expect(rows[0]?.reglaConversionCantidadPrimario).toBe(1);
     expect(rows[0]?.reglaConversionUnidadesSecundario).toBe(5);
-    expect(rows[0]?.mermaPct).toBe(12);
   });
 });

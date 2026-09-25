@@ -8,6 +8,10 @@ import {
   listBodegasInternasConfigurator,
 } from "./bodegas-internas.service";
 
+function supabaseTestClient(from: ReturnType<typeof vi.fn>) {
+  return { from, schema: vi.fn(() => ({ from })) } as never;
+}
+
 vi.mock("@/services/api/api", () => ({
   ApiError: class ApiError extends Error {
     constructor(
@@ -83,7 +87,7 @@ describe("bodegas-internas.service", () => {
       }
       return selectChain;
     });
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests(supabaseTestClient(from));
 
     const rows = await listBodegasInternasConfigurator();
 
@@ -115,13 +119,14 @@ describe("bodegas-internas.service", () => {
           codigo_cuenta: "MIT00",
           codigo_empresa: "ACME",
           nombre_comercial: "Mitre",
+          esta_activa: true,
         },
       ],
       error: null,
     });
 
     const from = vi.fn(() => cuentaChain);
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests(supabaseTestClient(from));
 
     vi.mocked(apiRequest).mockImplementation(async (url) => {
       if (String(url).includes("bootstrap-layout")) {
@@ -187,13 +192,14 @@ describe("bodegas-internas.service", () => {
           codigo_cuenta: "MIT00",
           codigo_empresa: "ACME",
           nombre_comercial: "Mitre",
+          esta_activa: true,
         },
       ],
       error: null,
     });
 
     const from = vi.fn(() => cuentaChain);
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests(supabaseTestClient(from));
 
     vi.mocked(apiRequest).mockImplementation(async (url) => {
       if (String(url).includes("bootstrap-layout")) {

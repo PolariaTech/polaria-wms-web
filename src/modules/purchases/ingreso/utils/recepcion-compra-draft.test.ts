@@ -46,17 +46,19 @@ describe("recepcion-compra-draft", () => {
     );
   });
 
-  it("arma borrador con líneas pendientes incluidas", () => {
+  it("arma borrador con líneas pendientes incluidas y peso vacío", () => {
     const draft = buildRecepcionLineasDraft(ORDEN.lineas ?? []);
 
     expect(draft).toHaveLength(1);
     expect(draft[0]?.incluida).toBe(true);
-    expect(draft[0]?.cantidadRecibidaInput).toBe("66");
+    expect(draft[0]?.cantidadRecibidaInput).toBe("");
+    expect(draft[0]?.cantidadPedida).toBe(66);
   });
 
   it("valida payload de líneas incluidas", () => {
     const draft = buildRecepcionLineasDraft(ORDEN.lineas ?? []).map((linea) => ({
       ...linea,
+      cantidadRecibidaInput: "66",
       temperaturaInput: "-18",
     }));
     const payload = parseRecepcionLineasPayload(draft);
@@ -77,7 +79,11 @@ describe("recepcion-compra-draft", () => {
 
     expect(
       canSubmitRecepcionDraft(
-        draft.map((linea) => ({ ...linea, temperaturaInput: "-18" })),
+        draft.map((linea) => ({
+          ...linea,
+          cantidadRecibidaInput: "66",
+          temperaturaInput: "-18",
+        })),
         null,
       ),
     ).toBe(true);

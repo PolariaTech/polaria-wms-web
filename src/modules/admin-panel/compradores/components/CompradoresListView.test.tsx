@@ -5,16 +5,20 @@ import { CompradoresListView } from "./CompradoresListView";
 
 const {
   listCompradoresAdmin,
+  listCatalogoProductosAdmin,
+  listGruposPertenecientesAdmin,
   listCompradorPreciosTemplateAdmin,
   importCompradorPreciosFromFile,
   downloadCompradorPreciosExcelTemplate,
-  downloadCompradorPreciosPdf,
+  parseCompradorPreciosExcelFile,
 } = vi.hoisted(() => ({
   listCompradoresAdmin: vi.fn(),
+  listCatalogoProductosAdmin: vi.fn(),
+  listGruposPertenecientesAdmin: vi.fn(),
   listCompradorPreciosTemplateAdmin: vi.fn(),
   importCompradorPreciosFromFile: vi.fn(),
   downloadCompradorPreciosExcelTemplate: vi.fn(),
-  downloadCompradorPreciosPdf: vi.fn(),
+  parseCompradorPreciosExcelFile: vi.fn(),
 }));
 
 vi.mock("@/providers/tenant/CompanyProvider", () => ({
@@ -31,6 +35,16 @@ vi.mock("../services/compradores.service", () => ({
   deactivateCompradorAdmin: vi.fn(),
 }));
 
+vi.mock("../services/producto-mas-vendido.service", () => ({
+  listProductosMasVendidosAdmin: (...args: unknown[]) =>
+    listCatalogoProductosAdmin(...args),
+}));
+
+vi.mock("../services/grupo-perteneciente.service", () => ({
+  listGruposPertenecientesAdmin: (...args: unknown[]) =>
+    listGruposPertenecientesAdmin(...args),
+}));
+
 vi.mock("../services/comprador-producto-alias.service", () => ({
   listCompradorPreciosTemplateAdmin: (...args: unknown[]) =>
     listCompradorPreciosTemplateAdmin(...args),
@@ -43,10 +57,16 @@ vi.mock("../utils/comprador-precios-excel", () => ({
     downloadCompradorPreciosExcelTemplate(...args),
 }));
 
-vi.mock("../utils/comprador-precios-pdf", () => ({
-  downloadCompradorPreciosPdf: (...args: unknown[]) =>
-    downloadCompradorPreciosPdf(...args),
-}));
+vi.mock("../utils/comprador-precios-import", async () => {
+  const actual = await vi.importActual<
+    typeof import("../utils/comprador-precios-import")
+  >("../utils/comprador-precios-import");
+  return {
+    ...actual,
+    parseCompradorPreciosExcelFile: (...args: unknown[]) =>
+      parseCompradorPreciosExcelFile(...args),
+  };
+});
 
 vi.mock("./CompradorCreateModal", () => ({
   CompradorCreateModal: () => null,
@@ -63,21 +83,39 @@ vi.mock("./CompradorEditModal", () => ({
 describe("CompradoresListView", () => {
   beforeEach(() => {
     listCompradoresAdmin.mockReset();
+    listCatalogoProductosAdmin.mockReset();
+    listGruposPertenecientesAdmin.mockReset();
     listCompradorPreciosTemplateAdmin.mockReset();
     importCompradorPreciosFromFile.mockReset();
     downloadCompradorPreciosExcelTemplate.mockReset();
-    downloadCompradorPreciosPdf.mockReset();
+    parseCompradorPreciosExcelFile.mockReset();
     listCompradoresAdmin.mockResolvedValue([
       {
         idComprador: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
         codigo: "WAL01",
         comprador: "Walmart",
         telefono: null,
+        grupo: "Grupo A",
         estaActivo: true,
       },
     ]);
+    listCatalogoProductosAdmin.mockResolvedValue([
+      {
+        idProducto: "p-1",
+        codigo: "DICOK",
+        nombre: "Pollo entero",
+        ranking: 1,
+        unidadesVendidas: 100,
+      },
+    ]);
+    listGruposPertenecientesAdmin.mockResolvedValue([
+      "Grupo A",
+      "Grupo B",
+      "Grupo C",
+    ]);
     listCompradorPreciosTemplateAdmin.mockResolvedValue([
       {
+        grupo: "Grupo A",
         codigoComprador: "WAL01",
         nombreComprador: "Walmart",
         codigoProducto: "DICOK",
@@ -98,9 +136,7 @@ describe("CompradoresListView", () => {
     expect(
       screen.getByRole("button", { name: "Gestión de precios" }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("dialog"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Gestión de precios" }));
 
@@ -112,34 +148,43 @@ describe("CompradoresListView", () => {
     expect(screen.getByRole("button", { name: "Imprimir" })).toBeEnabled();
   });
 
-  it("genera el PDF de lista de precios para todos los compradores", async () => {
+  it("genera Excel de lista de precios filtrado por grupos", async () => {
     const user = userEvent.setup();
-    downloadCompradorPreciosPdf.mockResolvedValue(undefined);
+    downloadCompradorPreciosExcelTemplate.mockResolvedValue(undefined);
     render(<CompradoresListView />);
 
     await screen.findByRole("button", { name: "+ Comprador" });
     await user.click(screen.getByRole("button", { name: "Gestión de precios" }));
     await user.click(screen.getByRole("button", { name: "Imprimir" }));
-    await user.click(screen.getByRole("button", { name: "Generar PDF" }));
+    await user.click(screen.getByRole("button", { name: "Seleccionar todos" }));
+    await user.click(screen.getByRole("button", { name: "Descargar Excel" }));
 
     await waitFor(() => {
-      expect(downloadCompradorPreciosPdf).toHaveBeenCalledWith({
-        rows: [
-          {
-            codigoComprador: "WAL01",
-            nombreComprador: "Walmart",
-            codigoProducto: "DICOK",
-            nombreProducto: "Pollo entero",
-            equivalencia: "Pollo asado",
-            precioActual: 110,
-          },
-        ],
-        scope: { mode: "todos" },
+      expect(listCompradorPreciosTemplateAdmin).toHaveBeenCalledWith({
+        codigoCuenta: "FOODS1",
+        filters: {
+          grupos: ["Grupo A", "Grupo B", "Grupo C"],
+          codigosComprador: [],
+        },
       });
     });
+    expect(downloadCompradorPreciosExcelTemplate).toHaveBeenCalledWith(
+      [
+        {
+          grupo: "Grupo A",
+          codigoComprador: "WAL01",
+          nombreComprador: "Walmart",
+          codigoProducto: "DICOK",
+          nombreProducto: "Pollo entero",
+          equivalencia: "Pollo asado",
+          precioActual: 110,
+        },
+      ],
+      { variant: "print" },
+    );
   });
 
-  it("exporta la plantilla de precios al hacer clic en Exportar", async () => {
+  it("exporta la plantilla de precios con filtros de fecha, grupo y producto", async () => {
     const user = userEvent.setup();
     render(<CompradoresListView />);
 
@@ -147,21 +192,41 @@ describe("CompradoresListView", () => {
     await user.click(screen.getByRole("button", { name: "Gestión de precios" }));
     await user.click(screen.getByRole("button", { name: "Exportar" }));
 
+    const fechaInicio = (
+      screen.getByLabelText("Fecha inicio") as HTMLInputElement
+    ).value;
+    const fechaFin = (
+      screen.getByLabelText("Fecha final") as HTMLInputElement
+    ).value;
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar todos" }));
+    await user.click(screen.getByRole("button", { name: "Descargar Excel" }));
+
     await waitFor(() => {
       expect(listCompradorPreciosTemplateAdmin).toHaveBeenCalledWith({
         codigoCuenta: "FOODS1",
+        filters: {
+          grupos: ["Grupo A", "Grupo B", "Grupo C"],
+          idProductos: ["p-1"],
+          fechaInicio,
+          fechaFin,
+        },
       });
     });
-    expect(downloadCompradorPreciosExcelTemplate).toHaveBeenCalledWith([
-      {
-        codigoComprador: "WAL01",
-        nombreComprador: "Walmart",
-        codigoProducto: "DICOK",
-        nombreProducto: "Pollo entero",
-        equivalencia: "Pollo asado",
-        precioActual: 110,
-      },
-    ]);
+    expect(downloadCompradorPreciosExcelTemplate).toHaveBeenCalledWith(
+      [
+        {
+          grupo: "Grupo A",
+          codigoComprador: "WAL01",
+          nombreComprador: "Walmart",
+          codigoProducto: "DICOK",
+          nombreProducto: "Pollo entero",
+          equivalencia: "Pollo asado",
+          precioActual: 110,
+        },
+      ],
+      { fechaInicio, fechaFin },
+    );
   });
 
   it("importa equivalencia y precio nuevo desde el excel", async () => {
@@ -174,6 +239,24 @@ describe("CompradoresListView", () => {
       skipped: 1,
       errors: [],
     });
+    parseCompradorPreciosExcelFile.mockResolvedValue({
+      rows: [
+        {
+          rowNumber: 2,
+          grupo: "Grupo A",
+          codigoComprador: "WAL01",
+          nombreComprador: "Walmart",
+          codigoProducto: "DICOK",
+          nombreProducto: "Pollo entero",
+          equivalencia: "Pollo asado",
+          precioActual: 110,
+          precioNuevo: 125,
+          hasPrecioNuevo: true,
+        },
+      ],
+      errors: [],
+      skipped: 0,
+    });
 
     render(<CompradoresListView />);
     await screen.findByRole("button", { name: "+ Comprador" });
@@ -182,6 +265,11 @@ describe("CompradoresListView", () => {
     const input = document.querySelector('input[type="file"]');
     expect(input).toBeTruthy();
     await user.upload(input as HTMLInputElement, file);
+
+    await screen.findByRole("button", { name: "Confirmar importación" });
+    await user.click(
+      screen.getByRole("button", { name: "Confirmar importación" }),
+    );
 
     await waitFor(() => {
       expect(importCompradorPreciosFromFile).toHaveBeenCalledWith(
@@ -195,9 +283,7 @@ describe("CompradoresListView", () => {
   });
 
   it("oculta gestión de precios en modo inspect", async () => {
-    render(
-      <CompradoresListView codigoCuenta="FOODS1" mode="inspect" />,
-    );
+    render(<CompradoresListView codigoCuenta="FOODS1" mode="inspect" />);
 
     await waitFor(() => {
       expect(listCompradoresAdmin).toHaveBeenCalled();

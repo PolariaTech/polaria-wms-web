@@ -60,26 +60,38 @@ export async function GET(request: Request) {
     );
   }
 
-  const target = await getUsuarioCuentaForPermisos(idUsuario);
-  if (!target || target.codigoCuenta !== session.codigoCuenta) {
-    return forbidden("El usuario no pertenece a esta cuenta.");
+  try {
+    const target = await getUsuarioCuentaForPermisos(idUsuario);
+    if (!target || target.codigoCuenta !== session.codigoCuenta) {
+      return forbidden("El usuario no pertenece a esta cuenta.");
+    }
+
+    const reports = await listCuentaReporteEmbeds(session.codigoCuenta);
+    const grantedIds = await listUsuarioReporteEmbedGrantIds(
+      idUsuario,
+      session.codigoCuenta,
+    );
+
+    return NextResponse.json({
+      idUsuario,
+      reports: reports.map((row) => ({
+        id: row.idCuentaReporteEmbed,
+        descripcion: row.descripcion,
+        reporteId: row.reporteId,
+      })),
+      grantedIds,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar los permisos.",
+      },
+      { status: 400 },
+    );
   }
-
-  const reports = await listCuentaReporteEmbeds(session.codigoCuenta);
-  const grantedIds = await listUsuarioReporteEmbedGrantIds(
-    idUsuario,
-    session.codigoCuenta,
-  );
-
-  return NextResponse.json({
-    idUsuario,
-    reports: reports.map((row) => ({
-      id: row.idCuentaReporteEmbed,
-      descripcion: row.descripcion,
-      reporteId: row.reporteId,
-    })),
-    grantedIds,
-  });
 }
 
 export async function PUT(request: Request) {

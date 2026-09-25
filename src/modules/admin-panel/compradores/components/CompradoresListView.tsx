@@ -37,11 +37,13 @@ import {
   importCompradorPreciosFromFile,
   listCompradorPreciosTemplateAdmin,
 } from "../services/comprador-producto-alias.service";
-import { downloadCompradorPreciosExcelTemplate } from "../utils/comprador-precios-excel";
+import { listProductosMasVendidosAdmin } from "../services/producto-mas-vendido.service";
+import { listGruposPertenecientesAdmin } from "../services/grupo-perteneciente.service";
 import {
-  downloadCompradorPreciosPdf,
-  type CompradorPreciosPrintScope,
-} from "../utils/comprador-precios-pdf";
+  downloadCompradorPreciosExcelTemplate,
+  type CompradorPreciosExportFilters,
+} from "../utils/comprador-precios-excel";
+import type { CompradorPreciosPrintScope } from "../utils/comprador-precios-print";
 import { CompradorCreateModal } from "./CompradorCreateModal";
 import { CompradorDetalleModal } from "./CompradorDetalleModal";
 import { CompradorEditModal } from "./CompradorEditModal";
@@ -89,7 +91,35 @@ export function CompradoresListView({
     Boolean(codigoCuenta),
   );
 
+  const fetchProductos = useCallback(() => {
+    if (!codigoCuenta) {
+      return Promise.resolve([]);
+    }
+
+    return runScoped(() => listProductosMasVendidosAdmin({ codigoCuenta }));
+  }, [codigoCuenta, runScoped]);
+
+  const { data: productosData } = useAsyncQuery(
+    fetchProductos,
+    Boolean(codigoCuenta),
+  );
+
+  const fetchGrupos = useCallback(() => {
+    if (!codigoCuenta) {
+      return Promise.resolve([] as string[]);
+    }
+
+    return runScoped(() => listGruposPertenecientesAdmin({ codigoCuenta }));
+  }, [codigoCuenta, runScoped]);
+
+  const { data: gruposData } = useAsyncQuery(
+    fetchGrupos,
+    Boolean(codigoCuenta),
+  );
+
   const rows = data ?? [];
+  const productos = productosData ?? [];
+  const gruposDisponibles = gruposData ?? [];
 
   const handleConfirmToggle = useCallback(async () => {
     if (!codigoCuenta || !pendingToggle || isToggling) return;
@@ -121,43 +151,49 @@ export function CompradoresListView({
     }
   }, [codigoCuenta, isToggling, pendingToggle, reload]);
 
-  const handleExportPrecios = useCallback(async () => {
-    if (
-      !codigoCuenta ||
-      isExportingPrecios ||
-      isImportingPrecios ||
-      isPrintingPrecios
-    ) {
-      return;
-    }
+  const handleExportPrecios = useCallback(
+    async (filters: CompradorPreciosExportFilters) => {
+      if (
+        !codigoCuenta ||
+        isExportingPrecios ||
+        isImportingPrecios ||
+        isPrintingPrecios
+      ) {
+        return;
+      }
 
-    setIsExportingPrecios(true);
-    setPreciosError(null);
-    setPreciosStatus(null);
+      setIsExportingPrecios(true);
+      setPreciosError(null);
+      setPreciosStatus(null);
 
-    try {
-      const nextRows = await runScoped(() =>
-        listCompradorPreciosTemplateAdmin({ codigoCuenta }),
-      );
+      try {
+        const nextRows = await runScoped(() =>
+          listCompradorPreciosTemplateAdmin({ codigoCuenta, filters }),
+        );
 
-      await downloadCompradorPreciosExcelTemplate(nextRows);
-      setIsPreciosModalOpen(false);
-    } catch (error: unknown) {
-      setPreciosError(
-        error instanceof DomainServiceError
-          ? error.message
-          : "No se pudo exportar la plantilla de precios.",
-      );
-    } finally {
-      setIsExportingPrecios(false);
-    }
-  }, [
-    codigoCuenta,
-    isExportingPrecios,
-    isImportingPrecios,
-    isPrintingPrecios,
-    runScoped,
-  ]);
+        await downloadCompradorPreciosExcelTemplate(nextRows, {
+          fechaInicio: filters.fechaInicio,
+          fechaFin: filters.fechaFin,
+        });
+        setIsPreciosModalOpen(false);
+      } catch (error: unknown) {
+        setPreciosError(
+          error instanceof DomainServiceError
+            ? error.message
+            : "No se pudo exportar la plantilla de precios.",
+        );
+      } finally {
+        setIsExportingPrecios(false);
+      }
+    },
+    [
+      codigoCuenta,
+      isExportingPrecios,
+      isImportingPrecios,
+      isPrintingPrecios,
+      runScoped,
+    ],
+  );
 
   const handleImportPrecios = useCallback(
     async (file: File) => {
@@ -237,15 +273,24 @@ export function CompradoresListView({
 
       try {
         const nextRows = await runScoped(() =>
-          listCompradorPreciosTemplateAdmin({ codigoCuenta }),
+          listCompradorPreciosTemplateAdmin({
+            codigoCuenta,
+            filters: {
+              grupos: scope.grupos,
+              codigosComprador: scope.codigosComprador,
+            },
+          }),
         );
-        await downloadCompradorPreciosPdf({ rows: nextRows, scope });
-        setPreciosStatus("PDF de lista de precios generado.");
+        await downloadCompradorPreciosExcelTemplate(nextRows, {
+          variant: "print",
+        });
+        setPreciosStatus("Excel de lista de precios generado.");
+        setIsPreciosModalOpen(false);
       } catch (error: unknown) {
         setPreciosError(
           error instanceof DomainServiceError
             ? error.message
-            : "No se pudo generar el PDF de precios.",
+            : "No se pudo generar el Excel de precios.",
         );
       } finally {
         setIsPrintingPrecios(false);
@@ -265,8 +310,19 @@ export function CompradoresListView({
       rows.map((row) => ({
         codigo: row.codigo,
         nombre: row.comprador,
+        grupo: row.grupo,
       })),
     [rows],
+  );
+
+  const preciosProductoOptions = useMemo(
+    () =>
+      productos.map((row) => ({
+        idProducto: row.idProducto,
+        codigo: row.codigo,
+        nombre: row.nombre,
+      })),
+    [productos],
   );
 
   const preciosActions = inspect
@@ -402,8 +458,8 @@ export function CompradoresListView({
           setPreciosError(null);
           setPreciosStatus(null);
         }}
-        onExport={() => {
-          void handleExportPrecios();
+        onExport={(filters) => {
+          void handleExportPrecios(filters);
         }}
         onImport={(file) => {
           void handleImportPrecios(file);
@@ -412,6 +468,8 @@ export function CompradoresListView({
           void handlePrintPrecios(scope);
         }}
         compradores={preciosPrintOptions}
+        productos={preciosProductoOptions}
+        gruposDisponibles={gruposDisponibles}
         isExporting={isExportingPrecios}
         isImporting={isImportingPrecios}
         isPrinting={isPrintingPrecios}
@@ -425,6 +483,7 @@ export function CompradoresListView({
       <CompradorCreateModal
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
+        grupoOptions={gruposDisponibles}
         onCreated={() => {
           void reload();
         }}
@@ -440,6 +499,7 @@ export function CompradoresListView({
         open={Boolean(editingComprador)}
         comprador={editingComprador}
         onClose={() => setEditingComprador(null)}
+        grupoOptions={gruposDisponibles}
         onUpdated={() => {
           void reload();
         }}
