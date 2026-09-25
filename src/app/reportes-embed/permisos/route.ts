@@ -119,12 +119,12 @@ export async function PUT(request: Request) {
     );
   }
 
-  const target = await getUsuarioCuentaForPermisos(idUsuario);
-  if (!target || target.codigoCuenta !== session.codigoCuenta) {
-    return forbidden("El usuario no pertenece a esta cuenta.");
-  }
-
   try {
+    const target = await getUsuarioCuentaForPermisos(idUsuario);
+    if (!target || target.codigoCuenta !== session.codigoCuenta) {
+      return forbidden("El usuario no pertenece a esta cuenta.");
+    }
+
     const grantedIds = await replaceUsuarioReporteEmbedGrants({
       idUsuario,
       codigoCuenta: session.codigoCuenta,

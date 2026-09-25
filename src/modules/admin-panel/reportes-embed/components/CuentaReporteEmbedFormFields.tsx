@@ -54,7 +54,6 @@ export function CuentaReporteEmbedFormFields({
       <PolariaFormInput
         id={`${idPrefix}-descripcion`}
         label="Nombre del reporte"
-        required
         value={values.descripcion}
         placeholder="Ej. Reporte de inventario"
         onChange={(event) => onChange({ descripcion: event.target.value })}
@@ -66,8 +65,9 @@ export function CuentaReporteEmbedFormFields({
       <PolariaFormInput
         id={`${idPrefix}-url`}
         label="URL del reporte"
-        required
-        type="url"
+        type="text"
+        inputMode="url"
+        autoComplete="url"
         value={values.embedUrl}
         placeholder="https://…"
         onChange={(event) => onChange({ embedUrl: event.target.value })}

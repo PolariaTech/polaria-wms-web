@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { updateCuentaReporteEmbedAdmin } from "../services/cuenta-reporte-embed-gestion.client";
 import type { CuentaReporteEmbedAdminRow } from "../services/cuenta-reporte-embed-gestion.client";
+import { validateCuentaReporteEmbedForm } from "../utils/validate-cuenta-reporte-embed-form";
 import {
   CuentaReporteEmbedFormFields,
   type CuentaReporteEmbedFormValues,
@@ -43,6 +44,15 @@ export function CuentaReporteEmbedEditModal({
     setIsSubmitting(false);
   }, [open, reporte]);
 
+  const isDirty = useMemo(() => {
+    if (!reporte) return false;
+    return (
+      form.descripcion.trim() !== (reporte.descripcion?.trim() ?? "") ||
+      form.embedUrl.trim() !== reporte.embedUrl.trim() ||
+      form.estaActivo !== reporte.estaActivo
+    );
+  }, [form, reporte]);
+
   const handleClose = useCallback(() => {
     if (isSubmitting) return;
     onClose();
@@ -53,6 +63,13 @@ export function CuentaReporteEmbedEditModal({
     if (!reporte) return;
 
     setError(null);
+
+    const validationError = validateCuentaReporteEmbedForm(form);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -90,6 +107,8 @@ export function CuentaReporteEmbedEditModal({
       submitLabel="Guardar cambios"
       compact
       size="md"
+      closeOnBackdrop={!isDirty && !isSubmitting}
+      closeOnEscape={!isSubmitting}
     >
       <CuentaReporteEmbedFormFields
         idPrefix="edit-reporte-embed"

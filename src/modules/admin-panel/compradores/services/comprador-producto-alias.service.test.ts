@@ -766,7 +766,8 @@ describe("comprador-producto-alias.service", () => {
           codigoProducto: "DICOK",
           nombreProducto: "Pollo entero",
           equivalencia: "Pollo asado",
-          precioActual: 50,
+          precioActual: 40,
+          precioNuevo: 50,
         },
         {
           grupo: "Grupo A",
@@ -776,6 +777,7 @@ describe("comprador-producto-alias.service", () => {
           nombreProducto: "Hamburguesa",
           equivalencia: "",
           precioActual: 20,
+          precioNuevo: null,
         },
       ]),
     );
