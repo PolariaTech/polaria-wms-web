@@ -14,5 +14,7 @@ Fecha: 24/09/2026 · Repo: polaria-wms-web · Resultado global: **PASS**
 | 8 | Gestión precios compradores | Export/Import/Print deshabilitados en busy; alcance Todos vs uno | PASS |
 | 9 | Crear/Editar grupo | Labels y errores dicen “grupo”; NIT/teléfono validan; foco en Nombre | PASS |
 | 10 | Equivalencia/precio (alias) | Precio inválido y equivalencia >255 muestran mensajes del schema | PASS |
+| 11 | Crear equivalencia | Modal no cierra por clic afuera con drafts/precio sin guardar | PASS |
+| 12 | Editar comprador | Modal no cierra por clic afuera con ficha/equivalencias dirty | PASS |
 
 Observación: la entidad de persistencia de grupos sigue siendo `cliente` en BD; solo cambia copy de UI.

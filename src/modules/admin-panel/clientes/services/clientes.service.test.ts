@@ -126,4 +126,40 @@ describe("clientes.service", () => {
     expect(row.nombre).toBe("ACME Actualizada");
     expect(row.codigo).toBe("ACME1");
   });
+
+  it("rechaza create/update con mensajes de grupo", async () => {
+    await expect(
+      createClienteAdmin({
+        codigoCuenta: "FOODS1",
+        nombre: "  ",
+        nit: "900123456-7",
+      }),
+    ).rejects.toThrow("El nombre del grupo es obligatorio.");
+
+    await expect(
+      createClienteAdmin({
+        codigoCuenta: "FOODS1",
+        nombre: "ACME",
+        nit: "ABC",
+      }),
+    ).rejects.toThrow("El NIT del grupo no es válido.");
+
+    await expect(
+      createClienteAdmin({
+        codigoCuenta: "FOODS1",
+        nombre: "ACME",
+        nit: "900123456-7",
+        telefono: "123",
+      }),
+    ).rejects.toThrow("El teléfono del grupo no es válido.");
+
+    await expect(
+      updateClienteAdmin({
+        codigoCuenta: "FOODS1",
+        idCliente: "22222222-2222-2222-2222-222222222222",
+        nombre: "",
+        nit: "900123456-7",
+      }),
+    ).rejects.toThrow("El nombre del grupo es obligatorio.");
+  });
 });
