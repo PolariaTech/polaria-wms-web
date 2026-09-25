@@ -350,6 +350,8 @@ export function CompradorAliasCreateModal({
       compact
       size="2xl"
       stackLevel="elevated"
+      closeOnBackdrop={pendingCreates.length === 0 && !isSubmitting}
+      closeOnEscape={!isSubmitting}
     >
       <PolariaFormInput
         id="alias-comprador"

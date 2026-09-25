@@ -393,7 +393,8 @@ export function CompradorEditModal({
         compact
         size="2xl"
         hideHeaderClose
-        closeOnEscape={!isEquivalenciaOpen}
+        closeOnEscape={!isEquivalenciaOpen && !isSubmitting}
+        closeOnBackdrop={!isDirty && !isSubmitting && !isEquivalenciaOpen}
       >
         <CompradorModalTabs
           tabs={EDIT_TABS}
