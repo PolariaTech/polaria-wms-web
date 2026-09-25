@@ -37,6 +37,7 @@ export function UsuarioReportePermisosModal({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [reports, setReports] = useState<BodegaExternaEmbedReportOption[]>([]);
   const [grantedIds, setGrantedIds] = useState<string[]>([]);
+  const [baselineGrantedIds, setBaselineGrantedIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +47,13 @@ export function UsuarioReportePermisosModal({
     [idUsuario, usuarios],
   );
 
+  const isDirty = useMemo(() => {
+    if (!idUsuario) return false;
+    if (grantedIds.length !== baselineGrantedIds.length) return true;
+    const baseline = new Set(baselineGrantedIds);
+    return grantedIds.some((id) => !baseline.has(id));
+  }, [baselineGrantedIds, grantedIds, idUsuario]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -53,6 +61,7 @@ export function UsuarioReportePermisosModal({
     setPickerOpen(false);
     setReports([]);
     setGrantedIds([]);
+    setBaselineGrantedIds([]);
     setError(null);
     setIsLoading(false);
     setIsSubmitting(false);
@@ -62,6 +71,7 @@ export function UsuarioReportePermisosModal({
     if (!open || !idUsuario) {
       setReports([]);
       setGrantedIds([]);
+      setBaselineGrantedIds([]);
       return;
     }
 
@@ -74,11 +84,13 @@ export function UsuarioReportePermisosModal({
         if (cancelled) return;
         setReports(data.reports);
         setGrantedIds(data.grantedIds);
+        setBaselineGrantedIds(data.grantedIds);
       })
       .catch((err) => {
         if (cancelled) return;
         setReports([]);
         setGrantedIds([]);
+        setBaselineGrantedIds([]);
         setError(
           err instanceof Error
             ? err.message
@@ -139,8 +151,8 @@ export function UsuarioReportePermisosModal({
         submitLabel="Guardar"
         compact
         size="md"
-        closeOnEscape={!pickerOpen}
-        closeOnBackdrop={!pickerOpen}
+        closeOnEscape={!pickerOpen && !isSubmitting}
+        closeOnBackdrop={!pickerOpen && !isDirty && !isSubmitting}
       >
         <div className="grid gap-4">
           <PolariaFormField

@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/stores/auth.store";
-import type { BodegaExternaEmbedReportOption } from "./cuenta-reporte-embed.client";
+import type { BodegaExternaEmbedReportOption } from "@/modules/admin-panel/inventario-mercancia/services/cuenta-reporte-embed.client";
 
 export interface UsuarioReportePermisosResponse {
   idUsuario: string;

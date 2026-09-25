@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaPhoneInput } from "@/components/shared/form/PolariaPhoneInput";
@@ -38,6 +38,14 @@ export function ClienteCreateModal({
     setError(null);
     setIsSubmitting(false);
   }, [open]);
+
+  const isDirty = useMemo(
+    () =>
+      form.nombre.trim() !== "" ||
+      form.nit.trim() !== "" ||
+      form.telefono.trim() !== "",
+    [form],
+  );
 
   const handleClose = useCallback(() => {
     if (isSubmitting) return;
@@ -95,6 +103,8 @@ export function ClienteCreateModal({
       isSubmitting={isSubmitting}
       submitLabel="Crear"
       compact
+      closeOnBackdrop={!isDirty && !isSubmitting}
+      closeOnEscape={!isSubmitting}
     >
       <PolariaFormInput
         id="cliente-nombre"
