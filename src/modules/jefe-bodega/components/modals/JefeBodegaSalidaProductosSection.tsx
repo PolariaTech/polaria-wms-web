@@ -27,6 +27,7 @@ export function JefeBodegaSalidaProductosSection({
     <JefeBodegaModalSection icon={Package} label="Productos de la venta">
       {loading ? (
         <PolariaStatusLoading
+          embedded
           title="Cargando productos…"
           message="Estamos preparando los productos de la venta."
           className="py-4"

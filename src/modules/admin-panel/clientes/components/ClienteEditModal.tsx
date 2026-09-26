@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaPhoneInput } from "@/components/shared/form/PolariaPhoneInput";
@@ -42,6 +42,15 @@ export function ClienteEditModal({
     setIsSubmitting(false);
   }, [cliente, open]);
 
+  const isDirty = useMemo(() => {
+    if (!cliente) return false;
+    return (
+      nombre.trim() !== cliente.nombre.trim() ||
+      nit.trim() !== cliente.nit.trim() ||
+      telefono.trim() !== (cliente.telefono ?? "").trim()
+    );
+  }, [cliente, nombre, nit, telefono]);
+
   const handleClose = useCallback(() => {
     if (isSubmitting) return;
     onClose();
@@ -79,7 +88,7 @@ export function ClienteEditModal({
       setError(
         err instanceof DomainServiceError
           ? err.message
-          : "No se pudo actualizar el cliente.",
+          : "No se pudo actualizar el grupo.",
       );
     } finally {
       setIsSubmitting(false);
@@ -90,9 +99,9 @@ export function ClienteEditModal({
     <PolariaFormModal
       open={open}
       onClose={handleClose}
-      sectionLabel="Editar cliente"
-      title="Editar cliente"
-      description="Actualiza los datos del cliente."
+      sectionLabel="Editar grupo"
+      title="Editar grupo"
+      description="Actualiza los datos del grupo."
       onSubmit={(event) => {
         void handleSubmit(event);
       }}
@@ -100,6 +109,8 @@ export function ClienteEditModal({
       isSubmitting={isSubmitting}
       submitLabel="Guardar"
       compact
+      closeOnBackdrop={!isDirty && !isSubmitting}
+      closeOnEscape={!isSubmitting}
     >
       <PolariaFormInput
         id="edit-cliente-codigo"
@@ -114,7 +125,7 @@ export function ClienteEditModal({
         id="edit-cliente-nombre"
         label="Nombre"
         value={nombre}
-        placeholder="Nombre o razón social del cliente"
+        placeholder="Nombre o razón social del grupo"
         onChange={(event) => setNombre(event.target.value)}
         disabled={isSubmitting}
         autoFocus

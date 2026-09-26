@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaPhoneInput } from "@/components/shared/form/PolariaPhoneInput";
@@ -39,6 +39,14 @@ export function ClienteCreateModal({
     setIsSubmitting(false);
   }, [open]);
 
+  const isDirty = useMemo(
+    () =>
+      form.nombre.trim() !== "" ||
+      form.nit.trim() !== "" ||
+      form.telefono.trim() !== "",
+    [form],
+  );
+
   const handleClose = useCallback(() => {
     if (isSubmitting) return;
     onClose();
@@ -74,7 +82,7 @@ export function ClienteCreateModal({
       setError(
         err instanceof DomainServiceError
           ? err.message
-          : "No se pudo crear el cliente.",
+          : "No se pudo crear el grupo.",
       );
     } finally {
       setIsSubmitting(false);
@@ -85,9 +93,9 @@ export function ClienteCreateModal({
     <PolariaFormModal
       open={open}
       onClose={handleClose}
-      sectionLabel="Nuevo cliente"
-      title="Crear cliente"
-      description="Completa los datos del cliente para tu cuenta."
+      sectionLabel="Nuevo grupo"
+      title="Crear grupo"
+      description="Completa los datos del grupo para tu cuenta."
       onSubmit={(event) => {
         void handleSubmit(event);
       }}
@@ -95,12 +103,14 @@ export function ClienteCreateModal({
       isSubmitting={isSubmitting}
       submitLabel="Crear"
       compact
+      closeOnBackdrop={!isDirty && !isSubmitting}
+      closeOnEscape={!isSubmitting}
     >
       <PolariaFormInput
         id="cliente-nombre"
         label="Nombre"
         value={form.nombre}
-        placeholder="Nombre o razón social del cliente"
+        placeholder="Nombre o razón social del grupo"
         onChange={(event) =>
           setForm((current) => ({
             ...current,

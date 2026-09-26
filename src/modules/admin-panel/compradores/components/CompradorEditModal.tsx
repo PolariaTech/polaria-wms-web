@@ -17,6 +17,7 @@ import {
   updateCompradorProductoAliasAdmin,
   type CompradorProductoAliasListRow,
 } from "../services/comprador-producto-alias.service";
+import { listGruposPertenecientesAdmin } from "../services/grupo-perteneciente.service";
 import {
   altaFormStateFromDetalle,
   emptyAltaFormState,
@@ -36,6 +37,8 @@ interface CompradorEditModalProps {
   comprador: CompradorListRow | null;
   onClose: () => void;
   onUpdated: () => void;
+  /** Catálogo de grupos pertenecientes (BD / tmp). */
+  grupoOptions?: readonly string[];
 }
 
 type EditTab = "informacion" | "equivalencia";
@@ -87,6 +90,7 @@ export function CompradorEditModal({
   comprador,
   onClose,
   onUpdated,
+  grupoOptions = [],
 }: CompradorEditModalProps) {
   const { codigoCuenta } = useCompany();
   const [form, setForm] = useState<CompradorAltaFormState>(emptyAltaFormState);
@@ -102,6 +106,8 @@ export function CompradorEditModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEquivalenciaOpen, setIsEquivalenciaOpen] = useState(false);
+  const [gruposLoaded, setGruposLoaded] = useState<string[]>([...grupoOptions]);
+  const grupoOptionsKey = grupoOptions.join("|");
 
   const applyEquivalencias = useCallback(
     (rows: CompradorProductoAliasListRow[]) => {
@@ -122,6 +128,31 @@ export function CompradorEditModal({
     });
     applyEquivalencias(rows);
   }, [applyEquivalencias, codigoCuenta, comprador]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    if (grupoOptionsKey) {
+      setGruposLoaded(grupoOptionsKey.split("|"));
+      return;
+    }
+
+    setGruposLoaded([]);
+    if (!codigoCuenta) return;
+
+    let cancelled = false;
+    void listGruposPertenecientesAdmin({ codigoCuenta })
+      .then((rows) => {
+        if (!cancelled) setGruposLoaded(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setGruposLoaded([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, codigoCuenta, grupoOptionsKey]);
 
   useEffect(() => {
     if (!open || !comprador) return;
@@ -262,12 +293,6 @@ export function CompradorEditModal({
 
       if (!aliasChanged && !precioChanged) continue;
 
-      if (aliasChanged && !draft.alias.trim()) {
-        setError("La equivalencia no puede quedar vacía.");
-        setActiveTab("equivalencia");
-        return;
-      }
-
       let precioParsed: number | null = null;
       if (precioChanged) {
         const trimmed = draft.precioTexto.trim();
@@ -330,7 +355,7 @@ export function CompradorEditModal({
         await updateCompradorProductoAliasAdmin({
           codigoCuenta,
           idAlias: change.row.idAlias,
-          ...(change.aliasChanged ? { alias: change.draft.alias } : {}),
+          ...(change.aliasChanged ? { alias: change.draft.alias.trim() } : {}),
           ...(change.precioChanged ? { precio: precioOverride ?? null } : {}),
         });
       }
@@ -368,7 +393,8 @@ export function CompradorEditModal({
         compact
         size="2xl"
         hideHeaderClose
-        closeOnEscape={!isEquivalenciaOpen}
+        closeOnEscape={!isEquivalenciaOpen && !isSubmitting}
+        closeOnBackdrop={!isDirty && !isSubmitting && !isEquivalenciaOpen}
       >
         <CompradorModalTabs
           tabs={EDIT_TABS}
@@ -383,6 +409,7 @@ export function CompradorEditModal({
             disabled={fieldsDisabled}
             idPrefix="edit-comprador"
             codigoValue={comprador?.codigo ?? ""}
+            grupoOptions={gruposLoaded}
           />
         ) : (
           <div className="flex flex-col gap-3">
@@ -391,7 +418,7 @@ export function CompradorEditModal({
             </p>
 
             {isLoading ? (
-              <PolariaStatusLoading className="py-4" />
+              <PolariaStatusLoading embedded className="py-4" />
             ) : (
               <CompradorEquivalenciasTable
                 rows={equivalencias}

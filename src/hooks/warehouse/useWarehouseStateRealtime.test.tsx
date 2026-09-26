@@ -180,7 +180,9 @@ describe("useWarehouseStateRealtime", () => {
       idBodega: "BOD-01",
       codigoCuenta: "CUENTA-01",
     });
-    expect(realtime.client.channel).toHaveBeenCalledWith("warehouse_state:BOD-01");
+    expect(realtime.client.channel).toHaveBeenCalledWith(
+      "warehouse_state:public:BOD-01",
+    );
     expect(realtime.channel.on).toHaveBeenCalledTimes(3);
     expect(realtime.channel.subscribe).toHaveBeenCalledTimes(1);
 
@@ -253,7 +255,7 @@ describe("useWarehouseStateRealtime", () => {
 
     await waitFor(() =>
       expect(realtimeA.client.channel).toHaveBeenCalledWith(
-        "warehouse_state:BOD-01",
+        "warehouse_state:public:BOD-01",
       ),
     );
 
@@ -261,7 +263,7 @@ describe("useWarehouseStateRealtime", () => {
 
     await waitFor(() =>
       expect(realtimeB.client.channel).toHaveBeenCalledWith(
-        "warehouse_state:BOD-02",
+        "warehouse_state:public:BOD-02",
       ),
     );
     expect(realtimeA.client.removeChannel).toHaveBeenCalled();

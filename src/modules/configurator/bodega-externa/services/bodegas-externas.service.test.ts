@@ -22,6 +22,10 @@ vi.mock("@/services/api/api", () => ({
   apiRequest: vi.fn(),
 }));
 
+function supabaseTestClient(from: ReturnType<typeof vi.fn>) {
+  return { from, schema: vi.fn(() => ({ from })) } as never;
+}
+
 describe("creation-options bodega externa", () => {
   it("resuelve ruta de bodega externa", () => {
     expect(getCreationOptionHref("bodega-externa")).toBe(
@@ -43,24 +47,46 @@ describe("bodegas-externas.service", () => {
       eq: vi.fn(),
       order: vi.fn(),
       limit: vi.fn(),
+      in: vi.fn(),
     };
     selectChain.select.mockReturnValue(selectChain);
     selectChain.eq.mockReturnValue(selectChain);
     selectChain.order.mockReturnValue(selectChain);
-    selectChain.limit.mockResolvedValue({
-      data: [
-        {
-          id_bodega: "bodega-2",
-          nombre: "Depósito Sur",
-          capacidad_slots: 200,
-          cuenta: { nombre_comercial: "Mitre" },
-        },
-      ],
-      error: null,
-    });
+    selectChain.in.mockReturnValue(selectChain);
+    selectChain.limit.mockImplementation(() =>
+      Promise.resolve({ data: [], error: null }),
+    );
 
-    const from = vi.fn(() => selectChain);
-    setSupabaseClientForTests({ from } as never);
+    const from = vi.fn((table: string) => {
+      if (table === "empresa") {
+        selectChain.limit.mockResolvedValueOnce({
+          data: [{ codigo_empresa: "ACME", schema_name: null }],
+          error: null,
+        });
+      } else if (table === "bodega") {
+        selectChain.limit.mockResolvedValueOnce({
+          data: [
+            {
+              id_bodega: "bodega-2",
+              nombre: "Depósito Sur",
+              codigo: "BOD2",
+              codigo_cuenta: "MIT00",
+              capacidad_slots: 200,
+              tipo: "externa",
+              esta_activa: true,
+            },
+          ],
+          error: null,
+        });
+      } else if (table === "cuenta") {
+        selectChain.in.mockResolvedValueOnce({
+          data: [{ codigo_cuenta: "MIT00", nombre_comercial: "Mitre" }],
+          error: null,
+        });
+      }
+      return selectChain;
+    });
+    setSupabaseClientForTests(supabaseTestClient(from));
 
     const rows = await listBodegasExternasConfigurator();
 
@@ -87,12 +113,19 @@ describe("bodegas-externas.service", () => {
     cuentaChain.select.mockReturnValue(cuentaChain);
     cuentaChain.eq.mockReturnValue(cuentaChain);
     cuentaChain.limit.mockResolvedValue({
-      data: [{ codigo_cuenta: "MIT00", nombre_comercial: "Mitre" }],
+      data: [
+        {
+          codigo_cuenta: "MIT00",
+          codigo_empresa: "ACME",
+          nombre_comercial: "Mitre",
+          esta_activa: true,
+        },
+      ],
       error: null,
     });
 
     const from = vi.fn(() => cuentaChain);
-    setSupabaseClientForTests({ from } as never);
+    setSupabaseClientForTests(supabaseTestClient(from));
 
     const row = await createBodegaExternaConfigurator({
       nombre: "Depósito Sur",

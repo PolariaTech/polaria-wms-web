@@ -120,6 +120,12 @@ vi.mock("@/lib/supabase/domain-query", () => ({
   getDomainSupabaseClient: () => getDomainSupabaseClient(),
 }));
 
+vi.mock("@/components/shared/toast/PolariaToastProvider", () => ({
+  PolariaToastProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+  usePolariaToast: () => ({ showToast: vi.fn() }),
+}));
+
 let mockSession: AuthSession | null = null;
 let mockAccessToken: string | null = "token";
 
@@ -241,6 +247,12 @@ describe("vistas operativas dashboard", () => {
   });
 
   it("ingreso renderiza recepciones con permiso de bodega", async () => {
+    mockSession = {
+      ...baseSession,
+      idRol: WmsRol.jefe_bodega,
+      nombreRol: "Jefe de bodega",
+    };
+
     render(<DashboardIngresoPage />);
 
     expect(screen.getByRole("heading", { name: "Ingreso" })).toBeInTheDocument();
@@ -461,13 +473,17 @@ describe("vistas operativas dashboard", () => {
     render(<DashboardProcesamientoPage />);
 
     expect(
-      screen.getByRole("heading", { name: "Procesamiento" }),
+      screen.getByText(
+        "Solicitudes de transformación y tareas operativas en cola.",
+      ),
     ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Procesamiento" }).length).toBeGreaterThan(0);
 
     await waitFor(() => {
-      expect(listSolicitudesProcesamiento).toHaveBeenCalled();
-      expect(listTareasCola).toHaveBeenCalled();
+      expect(listSolicitudesProcesamientoOperador).toHaveBeenCalled();
     });
+    expect(listSolicitudesProcesamiento).not.toHaveBeenCalled();
+    expect(listTareasCola).not.toHaveBeenCalled();
   });
 
   it("ventas muestra opción Órdenes venta para operador de cuenta", () => {
@@ -527,9 +543,7 @@ describe("vistas operativas dashboard", () => {
       expect(listOrdenesVentaOperador).toHaveBeenCalled();
       expect(screen.getByText("Venta")).toBeInTheDocument();
       expect(screen.getByText("Comprador")).toBeInTheDocument();
-      expect(screen.getByText("Origen")).toBeInTheDocument();
-      expect(screen.getByText("Imprimir")).toBeInTheDocument();
-      expect(screen.getByText("Descargar")).toBeInTheDocument();
+      expect(screen.getByText("Acciones")).toBeInTheDocument();
       expect(screen.getByText("OV-001")).toBeInTheDocument();
       expect(screen.getByText("Retail Norte")).toBeInTheDocument();
       expect(

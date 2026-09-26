@@ -68,7 +68,10 @@ describe("MateoWidgetHost", () => {
       close: mockClose,
       resetAuth: mockResetAuth,
     });
-    mockApiRequest.mockResolvedValue({ token: "widget-jwt", expiresIn: 43200 });
+    mockApiRequest.mockResolvedValue({
+      token: "widget-jwt",
+      expiresIn: 2_592_000,
+    });
   });
 
   it("no renderiza sin sesión (no hydrated o sin accessToken)", () => {
@@ -105,7 +108,7 @@ describe("MateoWidgetHost", () => {
     expect(mountArgs.conversationTokenFetcher).toBeTypeOf("function");
     await expect(mountArgs.conversationTokenFetcher?.()).resolves.toEqual({
       token: "access-token",
-      expiresIn: 43200,
+      expiresIn: 2_592_000,
     });
   });
 

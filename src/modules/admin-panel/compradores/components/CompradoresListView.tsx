@@ -33,8 +33,17 @@ import {
   listCompradoresAdmin,
   type CompradorListRow,
 } from "../services/compradores.service";
-import { listCompradorPreciosTemplateAdmin } from "../services/comprador-producto-alias.service";
-import { downloadCompradorPreciosExcelTemplate } from "../utils/comprador-precios-excel";
+import {
+  importCompradorPreciosFromFile,
+  listCompradorPreciosTemplateAdmin,
+} from "../services/comprador-producto-alias.service";
+import { listProductosMasVendidosAdmin } from "../services/producto-mas-vendido.service";
+import { listGruposPertenecientesAdmin } from "../services/grupo-perteneciente.service";
+import {
+  downloadCompradorPreciosExcelTemplate,
+  type CompradorPreciosExportFilters,
+} from "../utils/comprador-precios-excel";
+import type { CompradorPreciosPrintScope } from "../utils/comprador-precios-print";
 import { CompradorCreateModal } from "./CompradorCreateModal";
 import { CompradorDetalleModal } from "./CompradorDetalleModal";
 import { CompradorEditModal } from "./CompradorEditModal";
@@ -62,7 +71,10 @@ export function CompradoresListView({
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [isPreciosModalOpen, setIsPreciosModalOpen] = useState(false);
   const [isExportingPrecios, setIsExportingPrecios] = useState(false);
+  const [isImportingPrecios, setIsImportingPrecios] = useState(false);
+  const [isPrintingPrecios, setIsPrintingPrecios] = useState(false);
   const [preciosError, setPreciosError] = useState<string | null>(null);
+  const [preciosStatus, setPreciosStatus] = useState<string | null>(null);
 
   const fetchCompradores = useCallback(() => {
     if (!codigoCuenta) {
@@ -79,7 +91,35 @@ export function CompradoresListView({
     Boolean(codigoCuenta),
   );
 
+  const fetchProductos = useCallback(() => {
+    if (!codigoCuenta) {
+      return Promise.resolve([]);
+    }
+
+    return runScoped(() => listProductosMasVendidosAdmin({ codigoCuenta }));
+  }, [codigoCuenta, runScoped]);
+
+  const { data: productosData } = useAsyncQuery(
+    fetchProductos,
+    Boolean(codigoCuenta),
+  );
+
+  const fetchGrupos = useCallback(() => {
+    if (!codigoCuenta) {
+      return Promise.resolve([] as string[]);
+    }
+
+    return runScoped(() => listGruposPertenecientesAdmin({ codigoCuenta }));
+  }, [codigoCuenta, runScoped]);
+
+  const { data: gruposData } = useAsyncQuery(
+    fetchGrupos,
+    Boolean(codigoCuenta),
+  );
+
   const rows = data ?? [];
+  const productos = productosData ?? [];
+  const gruposDisponibles = gruposData ?? [];
 
   const handleConfirmToggle = useCallback(async () => {
     if (!codigoCuenta || !pendingToggle || isToggling) return;
@@ -111,29 +151,179 @@ export function CompradoresListView({
     }
   }, [codigoCuenta, isToggling, pendingToggle, reload]);
 
-  const handleExportPrecios = useCallback(async () => {
-    if (!codigoCuenta || isExportingPrecios) return;
+  const handleExportPrecios = useCallback(
+    async (filters: CompradorPreciosExportFilters) => {
+      if (
+        !codigoCuenta ||
+        isExportingPrecios ||
+        isImportingPrecios ||
+        isPrintingPrecios
+      ) {
+        return;
+      }
 
-    setIsExportingPrecios(true);
-    setPreciosError(null);
+      setIsExportingPrecios(true);
+      setPreciosError(null);
+      setPreciosStatus(null);
 
-    try {
-      const rows = await runScoped(() =>
-        listCompradorPreciosTemplateAdmin({ codigoCuenta }),
-      );
+      try {
+        const nextRows = await runScoped(() =>
+          listCompradorPreciosTemplateAdmin({ codigoCuenta, filters }),
+        );
 
-      await downloadCompradorPreciosExcelTemplate(rows);
-      setIsPreciosModalOpen(false);
-    } catch (error: unknown) {
-      setPreciosError(
-        error instanceof DomainServiceError
-          ? error.message
-          : "No se pudo exportar la plantilla de precios.",
-      );
-    } finally {
-      setIsExportingPrecios(false);
-    }
-  }, [codigoCuenta, isExportingPrecios, runScoped]);
+        await downloadCompradorPreciosExcelTemplate(nextRows, {
+          fechaInicio: filters.fechaInicio,
+          fechaFin: filters.fechaFin,
+        });
+        setIsPreciosModalOpen(false);
+      } catch (error: unknown) {
+        setPreciosError(
+          error instanceof DomainServiceError
+            ? error.message
+            : "No se pudo exportar la plantilla de precios.",
+        );
+      } finally {
+        setIsExportingPrecios(false);
+      }
+    },
+    [
+      codigoCuenta,
+      isExportingPrecios,
+      isImportingPrecios,
+      isPrintingPrecios,
+      runScoped,
+    ],
+  );
+
+  const handleImportPrecios = useCallback(
+    async (file: File) => {
+      if (
+        !codigoCuenta ||
+        isImportingPrecios ||
+        isExportingPrecios ||
+        isPrintingPrecios
+      ) {
+        return;
+      }
+
+      setIsImportingPrecios(true);
+      setPreciosError(null);
+      setPreciosStatus(null);
+
+      try {
+        const result = await runScoped(() =>
+          importCompradorPreciosFromFile(codigoCuenta, file),
+        );
+
+        const parts: string[] = [];
+        if (result.imported > 0) {
+          parts.push(`Se importaron ${result.imported} fila(s).`);
+        }
+        if (result.errors.length) {
+          parts.push(result.errors.slice(0, 5).join(" "));
+        }
+
+        if (result.imported === 0) {
+          setPreciosError(
+            result.errors.slice(0, 5).join(" ") ||
+              "No hay cambios para importar.",
+          );
+          return;
+        }
+
+        setPreciosStatus(parts.join(" "));
+        if (result.errors.length) {
+          setPreciosError(result.errors.slice(0, 5).join(" "));
+        }
+        await reload();
+      } catch (error: unknown) {
+        setPreciosError(
+          error instanceof DomainServiceError
+            ? error.message
+            : "No se pudo importar la plantilla de precios.",
+        );
+      } finally {
+        setIsImportingPrecios(false);
+      }
+    },
+    [
+      codigoCuenta,
+      isExportingPrecios,
+      isImportingPrecios,
+      isPrintingPrecios,
+      reload,
+      runScoped,
+    ],
+  );
+
+  const handlePrintPrecios = useCallback(
+    async (scope: CompradorPreciosPrintScope) => {
+      if (
+        !codigoCuenta ||
+        isPrintingPrecios ||
+        isExportingPrecios ||
+        isImportingPrecios
+      ) {
+        return;
+      }
+
+      setIsPrintingPrecios(true);
+      setPreciosError(null);
+      setPreciosStatus(null);
+
+      try {
+        const nextRows = await runScoped(() =>
+          listCompradorPreciosTemplateAdmin({
+            codigoCuenta,
+            filters: {
+              grupos: scope.grupos,
+              codigosComprador: scope.codigosComprador,
+            },
+          }),
+        );
+        await downloadCompradorPreciosExcelTemplate(nextRows, {
+          variant: "print",
+        });
+        setPreciosStatus("Excel de lista de precios generado.");
+        setIsPreciosModalOpen(false);
+      } catch (error: unknown) {
+        setPreciosError(
+          error instanceof DomainServiceError
+            ? error.message
+            : "No se pudo generar el Excel de precios.",
+        );
+      } finally {
+        setIsPrintingPrecios(false);
+      }
+    },
+    [
+      codigoCuenta,
+      isExportingPrecios,
+      isImportingPrecios,
+      isPrintingPrecios,
+      runScoped,
+    ],
+  );
+
+  const preciosPrintOptions = useMemo(
+    () =>
+      rows.map((row) => ({
+        codigo: row.codigo,
+        nombre: row.comprador,
+        grupo: row.grupo,
+      })),
+    [rows],
+  );
+
+  const preciosProductoOptions = useMemo(
+    () =>
+      productos.map((row) => ({
+        idProducto: row.idProducto,
+        codigo: row.codigo,
+        nombre: row.nombre,
+      })),
+    [productos],
+  );
 
   const preciosActions = inspect
     ? undefined
@@ -142,6 +332,7 @@ export function CompradoresListView({
           label: "Gestión de precios",
           onClick: () => {
             setPreciosError(null);
+            setPreciosStatus(null);
             setIsPreciosModalOpen(true);
           },
         },
@@ -260,21 +451,39 @@ export function CompradoresListView({
       <CompradorPreciosGestionModal
         open={isPreciosModalOpen}
         onClose={() => {
-          if (isExportingPrecios) return;
+          if (isExportingPrecios || isImportingPrecios || isPrintingPrecios) {
+            return;
+          }
           setIsPreciosModalOpen(false);
           setPreciosError(null);
+          setPreciosStatus(null);
         }}
-        onExport={() => {
-          void handleExportPrecios();
+        onExport={(filters) => {
+          void handleExportPrecios(filters);
         }}
+        onImport={(file) => {
+          void handleImportPrecios(file);
+        }}
+        onPrint={(scope) => {
+          void handlePrintPrecios(scope);
+        }}
+        compradores={preciosPrintOptions}
+        productos={preciosProductoOptions}
+        gruposDisponibles={gruposDisponibles}
         isExporting={isExportingPrecios}
+        isImporting={isImportingPrecios}
+        isPrinting={isPrintingPrecios}
         exportDisabled={!codigoCuenta}
+        importDisabled={!codigoCuenta}
+        printDisabled={!codigoCuenta || rows.length === 0}
         error={preciosError}
+        status={preciosStatus}
       />
 
       <CompradorCreateModal
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
+        grupoOptions={gruposDisponibles}
         onCreated={() => {
           void reload();
         }}
@@ -290,6 +499,7 @@ export function CompradoresListView({
         open={Boolean(editingComprador)}
         comprador={editingComprador}
         onClose={() => setEditingComprador(null)}
+        grupoOptions={gruposDisponibles}
         onUpdated={() => {
           void reload();
         }}

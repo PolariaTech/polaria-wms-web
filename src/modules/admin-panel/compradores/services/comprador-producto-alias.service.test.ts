@@ -322,17 +322,43 @@ describe("comprador-producto-alias.service", () => {
     expect(from).toHaveBeenCalledTimes(1);
   });
 
-  it("rechaza un alias vacío", async () => {
-    await expect(
-      createCompradorProductoAliasAdmin({
-        codigoCuenta: "FOODS1",
-        idComprador: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-        idProducto: "cccccccc-cccc-cccc-cccc-cccccccccccc",
-        alias: "   ",
-      }),
-    ).rejects.toMatchObject({
-      code: "INVALID_ARGUMENT",
+  it("permite un alias vacío al crear equivalencia", async () => {
+    const insertChain = {
+      insert: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    insertChain.insert.mockReturnValue(insertChain);
+    insertChain.select.mockReturnValue(insertChain);
+    insertChain.single.mockResolvedValue({
+      data: {
+        id_alias: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        codigo_cuenta: "FOODS1",
+        id_comprador: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        id_producto: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        alias: "",
+        precio: 40,
+        created_at: "2026-09-21T00:00:00.000Z",
+        updated_at: "2026-09-21T00:00:00.000Z",
+      },
+      error: null,
     });
+
+    const from = vi.fn(() => insertChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const row = await createCompradorProductoAliasAdmin({
+      codigoCuenta: "FOODS1",
+      idComprador: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      idProducto: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      alias: "   ",
+      precio: 40,
+    });
+
+    expect(row.alias).toBe("");
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ alias: "" }),
+    );
   });
 
   it("avisa si el comprador ya tiene alias para ese producto", async () => {
@@ -710,6 +736,7 @@ describe("comprador-producto-alias.service", () => {
           codigo: "WAL01",
           nombre: "Walmart",
           telefono: null,
+          grupo: "Grupo A",
           esta_activo: true,
         },
       ],
@@ -733,20 +760,24 @@ describe("comprador-producto-alias.service", () => {
     expect(rows).toEqual(
       expect.arrayContaining([
         {
+          grupo: "Grupo A",
           codigoComprador: "WAL01",
           nombreComprador: "Walmart",
           codigoProducto: "DICOK",
           nombreProducto: "Pollo entero",
           equivalencia: "Pollo asado",
-          precioActual: 50,
+          precioActual: 40,
+          precioNuevo: 50,
         },
         {
+          grupo: "Grupo A",
           codigoComprador: "WAL01",
           nombreComprador: "Walmart",
           codigoProducto: "OGHK6",
           nombreProducto: "Hamburguesa",
           equivalencia: "",
           precioActual: 20,
+          precioNuevo: null,
         },
       ]),
     );

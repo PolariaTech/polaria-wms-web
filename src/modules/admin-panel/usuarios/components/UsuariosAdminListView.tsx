@@ -27,6 +27,7 @@ import { AdminCatalogListShell } from "@/modules/admin-panel/shared/components/A
 import { UsuarioAdminCreateModal } from "./UsuarioAdminCreateModal";
 import { UsuarioAdminDetalleModal } from "./UsuarioAdminDetalleModal";
 import { UsuarioAdminEditModal } from "./UsuarioAdminEditModal";
+import { UsuarioReportePermisosModal } from "./UsuarioReportePermisosModal";
 
 export function UsuariosAdminListView() {
   const { codigoCuenta } = useCompany();
@@ -35,6 +36,7 @@ export function UsuariosAdminListView() {
     useState<UsuarioAdminListRow | null>(null);
   const [detalleUsuario, setDetalleUsuario] =
     useState<UsuarioAdminListRow | null>(null);
+  const [isPermisosOpen, setIsPermisosOpen] = useState(false);
 
   const fetchUsuarios = useCallback(() => {
     if (!codigoCuenta) {
@@ -127,12 +129,25 @@ export function UsuariosAdminListView() {
           void reload();
         }}
         isRefreshing={isRefreshing}
+        additionalActions={[
+          {
+            label: "Permisos de reportes",
+            onClick: () => setIsPermisosOpen(true),
+            variant: "outline",
+          },
+        ]}
         primaryAction={{
           label: "Asignar usuario",
           onClick: () => setIsCreateOpen(true),
         }}
         onRowClick={(row) => setDetalleUsuario(row)}
         getRowAriaLabel={(row) => `Ver detalle de ${row.nombre}`}
+      />
+
+      <UsuarioReportePermisosModal
+        open={isPermisosOpen}
+        usuarios={rows}
+        onClose={() => setIsPermisosOpen(false)}
       />
 
       <UsuarioAdminCreateModal

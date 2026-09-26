@@ -70,15 +70,14 @@ describe("usePermissions", () => {
     expect(result.current.canAccessModule(WMS_MODULE.INVENTORY)).toBe(false);
   });
 
-  it("operario puede leer inventario pero no escribir", () => {
+  it("operario puede leer y escribir inventario operativo", () => {
     mockSession = operarioSession;
 
     const { result } = renderHook(() => usePermissions());
 
     expect(result.current.hasPermission(PERMISSION.INVENTORY_READ)).toBe(true);
-    expect(result.current.hasPermission(PERMISSION.INVENTORY_WRITE)).toBe(
-      false,
-    );
+    expect(result.current.hasPermission(PERMISSION.INVENTORY_WRITE)).toBe(true);
+    expect(result.current.hasPermission(PERMISSION.COUNTERS_WRITE)).toBe(false);
   });
 
   it("jefe de bodega puede escribir inventario", () => {

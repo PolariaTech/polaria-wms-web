@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 export type AdminPanelActionId =
   | "assignment-creation"
   | "catalog"
-  | "price-list"
+  | "embed-reports"
   | "reports";
 
 export interface AdminPanelAction {

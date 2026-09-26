@@ -7,8 +7,13 @@ import {
   extractBearerToken,
   getCuentaReporteEmbedUrl,
   listCuentaReporteEmbeds,
+  listUsuarioReporteEmbedGrantIds,
   resolveEmbedReportSession,
 } from "@/modules/admin-panel/inventario-mercancia/services/cuenta-reporte-embed.server";
+import {
+  filterReportesEmbedForViewer,
+  usuarioHasReporteEmbedGrant,
+} from "@/modules/admin-panel/inventario-mercancia/services/usuario-reporte-embed-access";
 
 /**
  * GET — ¿la cuenta de la sesión tiene reportes embebidos activos?
@@ -28,10 +33,19 @@ export async function GET(request: Request) {
   }
 
   const reports = await listCuentaReporteEmbeds(session.codigoCuenta);
+  const grantedIds = await listUsuarioReporteEmbedGrantIds(
+    session.idUsuario,
+    session.codigoCuenta,
+  );
+  const visible = filterReportesEmbedForViewer(
+    reports,
+    grantedIds,
+    session.idRol,
+  );
   return NextResponse.json({
-    eligible: reports.length > 0,
+    eligible: visible.length > 0,
     codigoCuenta: session.codigoCuenta,
-    reports: reports.map((row) => ({
+    reports: visible.map((row) => ({
       id: row.idCuentaReporteEmbed,
       descripcion: row.descripcion,
       reporteId: row.reporteId,
@@ -76,6 +90,23 @@ export async function POST(request: Request) {
   if (!embedUrl) {
     return NextResponse.json(
       { message: "Esta cuenta no tiene ese reporte embebido configurado." },
+      { status: 403 },
+    );
+  }
+
+  const grantedIds = await listUsuarioReporteEmbedGrantIds(
+    session.idUsuario,
+    session.codigoCuenta,
+  );
+  if (
+    !usuarioHasReporteEmbedGrant(
+      idCuentaReporteEmbed,
+      grantedIds,
+      session.idRol,
+    )
+  ) {
+    return NextResponse.json(
+      { message: "No tienes permiso para este reporte." },
       { status: 403 },
     );
   }

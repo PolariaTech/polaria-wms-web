@@ -194,7 +194,7 @@ export function CompradorDetalleModal({
       />
 
       {isLoading ? (
-        <PolariaStatusLoading className="py-4" />
+        <PolariaStatusLoading embedded className="py-4" />
       ) : null}
 
       {!isLoading && activeTab === "informacion" ? (
@@ -213,7 +213,7 @@ export function CompradorDetalleModal({
               <MetaField label="Apodo interno">
                 <TextValue value={ficha.apodo} />
               </MetaField>
-              <MetaField label="Grupo hotelero">
+              <MetaField label="Grupo perteneciente">
                 <TextValue value={ficha.grupo} />
               </MetaField>
               <MetaField label="Vendedor asignado">

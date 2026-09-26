@@ -513,7 +513,7 @@ export function OrdenVentaDetalleModal({
       size="2xl"
     >
       {isLoading ? (
-        <PolariaStatusLoading className="py-4" />
+        <PolariaStatusLoading embedded className="py-4" />
       ) : null}
 
       {error ? (

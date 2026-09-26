@@ -523,6 +523,7 @@ export function OrdenProcesamientoCreateModal({
             <p className="polaria-text-body-sm text-polaria-warning">Sin bodega interna.</p>
           ) : stockLoading ? (
             <PolariaStatusLoading
+              embedded
               className="py-2"
               message="Estamos consultando el stock del mapa."
             />

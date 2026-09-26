@@ -88,6 +88,9 @@ export function CompradorAliasCreateModal({
   const [aliasByProductoId, setAliasByProductoId] = useState<
     Record<string, string>
   >({});
+  const [existingProductoIds, setExistingProductoIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const [precioByProductoId, setPrecioByProductoId] = useState<
     Record<string, number>
   >({});
@@ -102,6 +105,7 @@ export function CompradorAliasCreateModal({
   const resetForm = useCallback(() => {
     setProductoQuery("");
     setAliasByProductoId({});
+    setExistingProductoIds(new Set());
     setPrecioByProductoId({});
     setDrafts({});
     setError(null);
@@ -140,14 +144,18 @@ export function CompradorAliasCreateModal({
         const existingAlias = Object.fromEntries(
           nextAliases.map((row) => [row.idProducto, row.alias] as const),
         );
+        const existingIds = new Set(
+          nextAliases.map((row) => row.idProducto),
+        );
 
         setProductos(nextProductos);
         setPrecioByProductoId(nextPrecios);
         setAliasByProductoId(existingAlias);
+        setExistingProductoIds(existingIds);
         setDrafts(
           Object.fromEntries(
             nextProductos
-              .filter((row) => !existingAlias[row.idProducto]?.trim())
+              .filter((row) => !existingIds.has(row.idProducto))
               .map((row) => [
                 row.idProducto,
                 {
@@ -205,11 +213,17 @@ export function CompradorAliasCreateModal({
 
   const pendingCreates = useMemo(() => {
     return productos.filter((row) => {
-      if (aliasByProductoId[row.idProducto]?.trim()) return false;
+      if (existingProductoIds.has(row.idProducto)) return false;
       const draft = drafts[row.idProducto];
-      return Boolean(draft?.alias.trim());
+      if (!draft) return false;
+      const hasAlias = Boolean(draft.alias.trim());
+      const precioChanged = !isSamePrecio(
+        precioByProductoId[row.idProducto],
+        draft.precioTexto,
+      );
+      return hasAlias || precioChanged;
     });
-  }, [aliasByProductoId, drafts, productos]);
+  }, [drafts, existingProductoIds, precioByProductoId, productos]);
 
   const handleDraftChange = useCallback(
     (idProducto: string, patch: Partial<EquivalenciaCreateDraft>) => {
@@ -239,7 +253,7 @@ export function CompradorAliasCreateModal({
     }
 
     if (pendingCreates.length === 0) {
-      setError("Escribe al menos una equivalencia nueva.");
+      setError("No hay cambios para guardar.");
       return;
     }
 
@@ -255,7 +269,6 @@ export function CompradorAliasCreateModal({
       if (!draft) continue;
 
       const alias = draft.alias.trim();
-      if (!alias) continue;
 
       if (alias.length > 255) {
         setError(`La equivalencia de ${row.codigo} supera 255 caracteres.`);
@@ -337,6 +350,8 @@ export function CompradorAliasCreateModal({
       compact
       size="2xl"
       stackLevel="elevated"
+      closeOnBackdrop={pendingCreates.length === 0 && !isSubmitting}
+      closeOnEscape={!isSubmitting}
     >
       <PolariaFormInput
         id="alias-comprador"
@@ -350,6 +365,7 @@ export function CompradorAliasCreateModal({
       <PolariaFormField id="alias-producto" label="Producto" compact>
         {isLoadingLists ? (
           <PolariaStatusLoading
+            embedded
             title="Cargando productos…"
             message="Estamos preparando el catálogo."
             className="py-4"
@@ -406,8 +422,10 @@ export function CompradorAliasCreateModal({
                   <tbody>
                     {productosFiltrados.map((row) => {
                       const existingAlias =
-                        aliasByProductoId[row.idProducto]?.trim() || "";
-                      const isDisabled = Boolean(existingAlias);
+                        aliasByProductoId[row.idProducto] ?? "";
+                      const isDisabled = existingProductoIds.has(
+                        row.idProducto,
+                      );
                       const draft = drafts[row.idProducto];
                       const precioValue = precioByProductoId[row.idProducto];
                       const precioTexto =

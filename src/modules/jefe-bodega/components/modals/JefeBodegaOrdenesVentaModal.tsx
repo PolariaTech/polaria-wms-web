@@ -195,6 +195,7 @@ export function JefeBodegaOrdenesVentaModal({
 
       {isLoading ? (
         <PolariaStatusLoading
+          embedded
           title="Cargando órdenes…"
           message="Estamos preparando las órdenes de venta."
           className="py-4"

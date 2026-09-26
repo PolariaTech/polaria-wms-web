@@ -95,8 +95,8 @@ export function ClientesListView({
     } catch {
       setToggleError(
         pendingToggle.mode === "disable"
-          ? "No se pudo deshabilitar el cliente."
-          : "No se pudo habilitar el cliente.",
+          ? "No se pudo deshabilitar el grupo."
+          : "No se pudo habilitar el grupo.",
       );
     } finally {
       setIsToggling(false);
@@ -210,7 +210,7 @@ export function ClientesListView({
           inspect
             ? undefined
             : {
-                label: "Nuevo cliente",
+                label: "Nuevo grupo",
                 onClick: () => setIsCreateOpen(true),
               }
         }
@@ -245,8 +245,8 @@ export function ClientesListView({
         }}
         title={
           pendingToggle?.mode === "enable"
-            ? "Habilitar cliente"
-            : "Deshabilitar cliente"
+            ? "Habilitar grupo"
+            : "Deshabilitar grupo"
         }
         description={
           pendingToggle

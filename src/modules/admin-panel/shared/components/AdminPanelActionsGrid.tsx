@@ -10,11 +10,19 @@ interface AdminPanelActionsGridProps {
 export function AdminPanelActionsGrid({
   onActionClick,
 }: AdminPanelActionsGridProps) {
+  const compact = ADMIN_PANEL_ACTIONS.length >= 5;
+
   return (
-    <PolariaSelectionGrid aria-label="Acciones del panel administrativo">
+    <PolariaSelectionGrid
+      aria-label="Acciones del panel administrativo"
+      className={
+        compact ? "gap-3 px-0 sm:gap-3.5 sm:px-0 lg:gap-4" : undefined
+      }
+    >
       {ADMIN_PANEL_ACTIONS.map((action) => (
         <PolariaSelectionCard
           key={action.id}
+          size={compact ? "sm" : "default"}
           option={{
             id: action.id,
             title: action.title,

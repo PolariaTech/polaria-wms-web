@@ -99,6 +99,33 @@ describe("PolariaDataTable", () => {
     );
   });
 
+  it("renderiza una acción adicional solo con icono", () => {
+    render(
+      <PolariaDataTable<Row>
+        title="Catálogo"
+        isLoading={false}
+        error={null}
+        rows={[]}
+        columns={columns}
+        getRowKey={(row) => row.id}
+        emptyMessage="Sin registros"
+        additionalActions={[
+          {
+            label: "Importar Excel",
+            iconOnly: true,
+            icon: <span data-testid="excel-icon">xls</span>,
+            variant: "outline",
+          },
+        ]}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "Importar Excel" });
+    expect(button).toHaveAttribute("title", "Importar Excel");
+    expect(screen.getByTestId("excel-icon")).toBeInTheDocument();
+    expect(button).not.toHaveTextContent("Importar Excel");
+  });
+
   it("muestra estado vacío", () => {
     render(
       <PolariaDataTable<Row>

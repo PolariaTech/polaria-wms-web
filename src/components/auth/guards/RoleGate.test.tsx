@@ -56,7 +56,7 @@ describe("RoleGate", () => {
 
     render(
       <RoleGate
-        permission={PERMISSION.INVENTORY_WRITE}
+        permission={PERMISSION.COUNTERS_WRITE}
         fallback={<span>sin acceso</span>}
       >
         <span>panel inventario</span>

@@ -157,7 +157,7 @@ export function EstadoBodegaZonePanelModal({
 
         <div className="min-h-[12rem] flex-1 px-5 py-6">
           {isLoading ? (
-            <PolariaStatusLoading className="py-4" />
+            <PolariaStatusLoading embedded className="py-4" />
           ) : items.length > 0 ? (
             <ul className="space-y-2">
               {items.map((item) => {

@@ -12,9 +12,7 @@ import {
   listTareasCola,
 } from "../../shared/services/processing.service";
 
-export function ProcesamientoPageContent() {
-  const idRol = useAuthStore((state) => state.session?.idRol);
-
+function ProcesamientoListasPageContent() {
   const loadSolicitudes = useCallback(
     (params: { codigoCuenta: string; idBodega: string | null }) =>
       listSolicitudesProcesamiento({
@@ -35,10 +33,6 @@ export function ProcesamientoPageContent() {
 
   const solicitudes = useTenantList(loadSolicitudes);
   const tareas = useTenantList(loadTareas);
-
-  if (idRol === WmsRol.procesador) {
-    return <ProcesadorOperacionPageContent />;
-  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -106,4 +100,14 @@ export function ProcesamientoPageContent() {
       />
     </div>
   );
+}
+
+export function ProcesamientoPageContent() {
+  const idRol = useAuthStore((state) => state.session?.idRol);
+
+  if (idRol === WmsRol.procesador) {
+    return <ProcesadorOperacionPageContent />;
+  }
+
+  return <ProcesamientoListasPageContent />;
 }

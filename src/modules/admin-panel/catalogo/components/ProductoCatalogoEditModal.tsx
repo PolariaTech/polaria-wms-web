@@ -244,6 +244,7 @@ export function ProductoCatalogoEditModal({
     >
       {isLoading ? (
         <PolariaStatusLoading
+          embedded
           title="Cargando producto…"
           message="Estamos preparando el producto."
           className="py-4"

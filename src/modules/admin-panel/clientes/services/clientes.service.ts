@@ -114,35 +114,35 @@ export async function createClienteAdmin(
 
   if (!nombre) {
     throw new DomainServiceError(
-      "El nombre del cliente es obligatorio.",
+      "El nombre del grupo es obligatorio.",
       "INVALID_ARGUMENT",
     );
   }
 
   if (!nit) {
     throw new DomainServiceError(
-      "El NIT del cliente es obligatorio.",
+      "El NIT del grupo es obligatorio.",
       "INVALID_ARGUMENT",
     );
   }
 
   if (!isValidNit(nit)) {
     throw new DomainServiceError(
-      "El NIT del cliente no es válido.",
+      "El NIT del grupo no es válido.",
       "INVALID_ARGUMENT",
     );
   }
 
   if (!codigo) {
     throw new DomainServiceError(
-      "No se pudo generar el código del cliente.",
+      "No se pudo generar el código del grupo.",
       "INVALID_ARGUMENT",
     );
   }
 
   if (telefonoRaw && !isValidInternationalPhone(telefonoRaw)) {
     throw new DomainServiceError(
-      "El teléfono del cliente no es válido.",
+      "El teléfono del grupo no es válido.",
       "INVALID_ARGUMENT",
     );
   }
@@ -173,7 +173,7 @@ export async function createClienteAdmin(
 
   if (!inserted) {
     throw new DomainServiceError(
-      "No se pudo crear el cliente.",
+      "No se pudo crear el grupo.",
       "MUTATION_FAILED",
     );
   }
@@ -201,35 +201,35 @@ export async function updateClienteAdmin(
 
   if (!idCliente) {
     throw new DomainServiceError(
-      "Falta el identificador del cliente.",
+      "Falta el identificador del grupo.",
       "INVALID_ARGUMENT",
     );
   }
 
   if (!nombre) {
     throw new DomainServiceError(
-      "El nombre del cliente es obligatorio.",
+      "El nombre del grupo es obligatorio.",
       "INVALID_ARGUMENT",
     );
   }
 
   if (!nit) {
     throw new DomainServiceError(
-      "El NIT del cliente es obligatorio.",
+      "El NIT del grupo es obligatorio.",
       "INVALID_ARGUMENT",
     );
   }
 
   if (!isValidNit(nit)) {
     throw new DomainServiceError(
-      "El NIT del cliente no es válido.",
+      "El NIT del grupo no es válido.",
       "INVALID_ARGUMENT",
     );
   }
 
   if (telefonoRaw && !isValidInternationalPhone(telefonoRaw)) {
     throw new DomainServiceError(
-      "El teléfono del cliente no es válido.",
+      "El teléfono del grupo no es válido.",
       "INVALID_ARGUMENT",
     );
   }
@@ -259,7 +259,7 @@ export async function updateClienteAdmin(
 
   if (!updated) {
     throw new DomainServiceError(
-      "No se pudo actualizar el cliente.",
+      "No se pudo actualizar el grupo.",
       "MUTATION_FAILED",
     );
   }
@@ -281,7 +281,7 @@ export async function deactivateClienteAdmin(
 
   if (!idCliente) {
     throw new DomainServiceError(
-      "Falta el identificador del cliente.",
+      "Falta el identificador del grupo.",
       "INVALID_ARGUMENT",
     );
   }
@@ -309,7 +309,7 @@ export async function activateClienteAdmin(
 
   if (!idCliente) {
     throw new DomainServiceError(
-      "Falta el identificador del cliente.",
+      "Falta el identificador del grupo.",
       "INVALID_ARGUMENT",
     );
   }

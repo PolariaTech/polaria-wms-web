@@ -12,12 +12,12 @@ describe("auth-session-timeout", () => {
     expect(isSessionExpired(Number.NaN)).toBe(true);
   });
 
-  it("no expira dentro de las 12 horas", () => {
+  it("no expira dentro del mes de sesión", () => {
     const now = 1_700_000_000_000;
     expect(isSessionExpired(now - SESSION_MAX_AGE_MS + 1, now)).toBe(false);
   });
 
-  it("expira exactamente a las 12 horas", () => {
+  it("expira exactamente al cumplir un mes", () => {
     const now = 1_700_000_000_000;
     expect(isSessionExpired(now - SESSION_MAX_AGE_MS, now)).toBe(true);
   });

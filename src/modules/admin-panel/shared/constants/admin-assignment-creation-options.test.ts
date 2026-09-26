@@ -16,7 +16,7 @@ describe("admin-assignment-creation-options", () => {
   it("lista las opciones de creación", () => {
     expect(ADMIN_CREATION_OPTIONS.map((option) => option.title)).toEqual([
       "Proveedores",
-      "Clientes",
+      "Grupos",
       "Compradores",
       "Camiones",
       "Plantas",

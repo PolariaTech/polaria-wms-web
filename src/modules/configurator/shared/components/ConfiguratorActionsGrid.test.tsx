@@ -12,7 +12,7 @@ describe("ConfiguratorActionsGrid", () => {
     render(<ConfiguratorActionsGrid onActionClick={onActionClick} />);
 
     await user.click(
-      screen.getByRole("button", { name: /Creación Crea y gestiona/i }),
+      screen.getByRole("button", { name: /^Creación$/i }),
     );
 
     expect(onActionClick).toHaveBeenCalledOnce();
@@ -27,7 +27,7 @@ describe("ConfiguratorActionsGrid", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /Integración Gestiona integraciones externas/i,
+        name: /^Integración$/i,
       }),
     );
 
