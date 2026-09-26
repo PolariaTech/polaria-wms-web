@@ -155,7 +155,7 @@ export async function parseCompradorPreciosExcelBuffer(
       !codigoComprador &&
       !codigoProducto &&
       !equivalencia &&
-      !precioParsed.present
+      !(precioParsed.ok && precioParsed.present)
     ) {
       skipped += 1;
       return;
