@@ -10,7 +10,7 @@ Versión de producto alineada con Polaria WMS.
 - Compradores: **grupo perteneciente** (catálogo por cuenta), filtros de exportación por grupo/producto/fechas.
 - Gestión de precios: plantilla Excel editable (gris → verde), import con preview, **imprimir** lista (no editable, landscape, precio nuevo = importado o 50).
 - Impresión/export por grupos y/o compradores (lupa multi-select).
-- Sesión WMS/Mateo Support: TTL **1 mes** (el handoff SSO sigue en 60 s).
+- Sesión WMS/Mateo Support: TTL **23 días** (el handoff SSO sigue en 60 s; tope bajo el límite de `setTimeout` del browser).
 
 ## 2.7.5 — 2026-09-17
 
