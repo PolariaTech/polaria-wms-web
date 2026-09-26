@@ -40,7 +40,7 @@ interface AuthState {
   refreshToken: string | null;
   context: AuthContext | null;
   session: AuthSession | null;
-  /** Epoch ms del login/SSO. La sesión dura como máximo 1 mes. */
+  /** Epoch ms del login/SSO. La sesión dura como máximo 23 días. */
   sessionStartedAt: number | null;
   isHydrated: boolean;
   isLoading: boolean;
