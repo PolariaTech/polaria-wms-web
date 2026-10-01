@@ -549,9 +549,7 @@ describe("vistas operativas dashboard", () => {
       expect(
         screen.getByRole("button", { name: "Imprimir" }),
       ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Descargar" }),
-      ).toBeInTheDocument();
+      // Descargar PDF vertical solo en NODE_ENV=development (no en vitest).
     });
   });
 

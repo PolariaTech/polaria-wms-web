@@ -1,3 +1,5 @@
+import type { OrigenCorreoRenglon } from "@/modules/sales/ordenes/utils/origen-correo-ordenes-trabajo";
+
 export type EstadoOrdenVenta =
   | "borrador"
   | "confirmada"
@@ -150,7 +152,7 @@ export interface CreateOrdenVentaInput {
   origenTexto?: string;
   origenArchivos?: readonly string[];
   /** Renglones estructurados del correo (órdenes de trabajo hijas). */
-  origenCorreo?: readonly Record<string, unknown>[];
+  origenCorreo?: readonly OrigenCorreoRenglon[];
   notasLineas?: string;
   notasAlmacen?: string;
 }

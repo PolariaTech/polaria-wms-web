@@ -23,9 +23,7 @@ export function filterLineasByOrdenTrabajoHija<
   if (keys.size === 0) return [...allLineItems];
 
   const matched = allLineItems.filter((linea) => {
-    const titulo = resolveOrdenVentaLineaTitulo(
-      linea as OrdenVentaLineaRow,
-    ).toLowerCase();
+    const titulo = resolveOrdenVentaLineaTitulo(linea).toLowerCase();
     const sku =
       linea.producto && !Array.isArray(linea.producto)
         ? (linea.producto.sku ?? "").trim().toLowerCase()

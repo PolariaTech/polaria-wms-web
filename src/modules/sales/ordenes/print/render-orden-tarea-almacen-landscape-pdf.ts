@@ -426,7 +426,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
       doc.rect(rightX, py, RIGHT_W, bodyH, "F");
     }
     box(doc, rightX, py, RIGHT_W, bodyH);
-    let x = rightX;
+    let cursorX = rightX;
     const mid = py + bodyH / 2;
     const values = [
       String(index + 1),
@@ -441,7 +441,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
       if (colIndex === 4 || colIndex === 5) {
         markCheckbox(
           doc,
-          x + col.w / 2 - 1.3,
+          cursorX + col.w / 2 - 1.3,
           mid - 1.3,
           colIndex === 4 ? Boolean(linea?.alisto) : Boolean(linea?.reviso),
           2.6,
@@ -455,14 +455,19 @@ export function drawOrdenTareaAlmacenLandscapePage(
           1,
         );
         const align = colIndex === 0 || colIndex === 3 ? "center" : "left";
-        doc.text(shown, align === "center" ? x + col.w / 2 : x + 0.7, mid, {
-          align,
-          baseline: "middle",
-        });
+        doc.text(
+          shown,
+          align === "center" ? cursorX + col.w / 2 : cursorX + 0.7,
+          mid,
+          {
+            align,
+            baseline: "middle",
+          },
+        );
       }
-      x += col.w;
+      cursorX += col.w;
       if (colIndex < scaledCols.length - 1) {
-        doc.line(x, py, x, py + bodyH);
+        doc.line(cursorX, py, cursorX, py + bodyH);
       }
     }
     py += bodyH;

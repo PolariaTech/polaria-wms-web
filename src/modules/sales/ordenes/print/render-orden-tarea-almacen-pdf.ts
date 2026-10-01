@@ -209,7 +209,7 @@ function drawProductRow(
     doc.rect(startX, y, PRODUCT_TABLE_W, PRODUCT_BODY_H, "F");
   }
   box(doc, startX, y, PRODUCT_TABLE_W, PRODUCT_BODY_H);
-  let x = startX;
+  let cursorX = startX;
   const mid = y + PRODUCT_BODY_H / 2;
   const values = [
     String(index + 1),
@@ -226,7 +226,7 @@ function drawProductRow(
     if (colIndex === 4 || colIndex === 5) {
       const checked =
         colIndex === 4 ? Boolean(linea?.alisto) : Boolean(linea?.reviso);
-      markCheckbox(doc, x + colDef.w / 2 - 1.4, mid - 1.4, checked, 2.8);
+      markCheckbox(doc, cursorX + colDef.w / 2 - 1.4, mid - 1.4, checked, 2.8);
     } else if (value) {
       const size = colIndex === 1 || colIndex === 2 ? 5.5 : 6.5;
       doc.setFontSize(size);
@@ -234,16 +234,16 @@ function drawProductRow(
       const wrapped = doc.splitTextToSize(value, colDef.w - 1.4);
       const shown = (Array.isArray(wrapped) ? wrapped : [wrapped]).slice(0, 2);
       const align = colIndex === 0 || colIndex === 3 ? "center" : "left";
-      const textX = align === "center" ? x + colDef.w / 2 : x + 0.8;
+      const textX = align === "center" ? cursorX + colDef.w / 2 : cursorX + 0.8;
       doc.text(shown, textX, mid, {
         align,
         baseline: "middle",
         lineHeightFactor: 1.02,
       });
     }
-    x += colDef.w;
+    cursorX += colDef.w;
     if (colIndex < PRODUCT_COLS.length - 1) {
-      doc.line(x, y, x, y + PRODUCT_BODY_H);
+      doc.line(cursorX, y, cursorX, y + PRODUCT_BODY_H);
     }
   }
 

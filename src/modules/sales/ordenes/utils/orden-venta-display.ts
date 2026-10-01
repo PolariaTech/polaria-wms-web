@@ -5,7 +5,11 @@ import type {
   OrdenVentaLineaRow,
 } from "../../shared/types/sales.types";
 
-export function resolveOrdenVentaLineaTitulo(linea: OrdenVentaLineaRow): string {
+type LineaConProducto = {
+  producto?: OrdenVentaLineaRow["producto"] | null;
+};
+
+export function resolveOrdenVentaLineaTitulo(linea: LineaConProducto): string {
   const producto = linea.producto;
   if (!producto) {
     return "Sin título";
