@@ -6,6 +6,7 @@ import {
   collectMissingFieldsDocs,
   type CampoOperativoDocs,
 } from "./empaque-lineas";
+import { groupKeyOrigenCorreo } from "./origen-correo-ordenes-trabajo";
 
 export interface LineaVentaFromIa {
   idProducto: string;
@@ -21,8 +22,12 @@ export interface LineaVentaFromIa {
   kgDisponible: number;
   unidadMedida: string;
   precioUnitario: number;
+  /** true si el precio vino del documento (no del catálogo). */
+  precioManual?: boolean;
   aliasCliente: string;
   filledByIa: boolean;
+  /** Clave de orden de trabajo (pedido|almacén) para paginar el formulario. */
+  otId: string;
   packHint?: string;
   autoPackFields?: Array<"cajasInput" | "presentacion" | "cantidadInput">;
 }
@@ -72,6 +77,22 @@ function norm(value: string | null | undefined): string {
   return (value ?? "").toString().trim().toLowerCase();
 }
 
+function parsePrecioIa(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value) || value <= 0) return null;
+  return value;
+}
+
+/** Solo clave exacta de catálogo "NOMBRE (SKU)" — sin fuzzy (evita productos equivocados). */
+function resolveProductoMatch(
+  linea: {
+    productoCatalogo: string | null;
+  },
+  byKey: Map<string, ProductoVentaOption>,
+): ProductoVentaOption | undefined {
+  if (!linea.productoCatalogo) return undefined;
+  return byKey.get(linea.productoCatalogo);
+}
+
 function compareOverride(params: {
   fieldKey: string;
   label: string;
@@ -81,13 +102,33 @@ function compareOverride(params: {
   autoFields: Set<string>;
   warnFields: Set<string>;
   discrepancias: CampoDiscrepancia[];
+  /** Si true y la ficha ya tiene valor, no lo pisa la IA (datos de comprador). */
+  preferFicha?: boolean;
 }): void {
-  const { fieldKey, label, valorDb, valorIa, patch, autoFields, warnFields, discrepancias } =
-    params;
+  const {
+    fieldKey,
+    label,
+    valorDb,
+    valorIa,
+    patch,
+    autoFields,
+    warnFields,
+    discrepancias,
+    preferFicha = false,
+  } = params;
   if (valorIa == null || !String(valorIa).trim()) {
     return;
   }
   const ia = String(valorIa).trim();
+
+  // Ficha del comprador manda: la IA solo completa huecos (evita basura del PDF/correo).
+  if (preferFicha && valorDb.trim()) {
+    if (norm(valorDb) !== norm(ia)) {
+      discrepancias.push({ campo: label, db: valorDb, ia });
+    }
+    return;
+  }
+
   patch[fieldKey] = ia;
   if (norm(valorDb) === norm(ia)) {
     autoFields.add(fieldKey);
@@ -178,6 +219,7 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
+    preferFicha: true,
   });
   compareOverride({
     fieldKey: "direccion",
@@ -188,6 +230,7 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
+    preferFicha: true,
   });
   compareOverride({
     fieldKey: "anden",
@@ -198,6 +241,7 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
+    preferFicha: true,
   });
   compareOverride({
     fieldKey: "contacto",
@@ -208,6 +252,7 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
+    preferFicha: true,
   });
   compareOverride({
     fieldKey: "telefono",
@@ -218,6 +263,7 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
+    preferFicha: true,
   });
   compareOverride({
     fieldKey: "ventanaDesde",
@@ -228,6 +274,7 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
+    preferFicha: true,
   });
   compareOverride({
     fieldKey: "ventanaHasta",
@@ -238,6 +285,7 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
+    preferFicha: true,
   });
   compareOverride({
     fieldKey: "aceptaSustituciones",
@@ -248,6 +296,7 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
+    preferFicha: true,
   });
   compareOverride({
     fieldKey: "requiereLote",
@@ -258,6 +307,7 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
+    preferFicha: true,
   });
   compareOverride({
     fieldKey: "registrarTemperatura",
@@ -268,40 +318,24 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
+    preferFicha: true,
   });
 
-  if (pedido.observaciones?.trim()) {
-    const obsIa = pedido.observaciones.trim();
-    if (ficha.observaciones.trim() && norm(ficha.observaciones) !== norm(obsIa)) {
-      patch.observaciones = [ficha.observaciones.trim(), obsIa].join("\n");
-      warnFields.add("observaciones");
-      autoFields.delete("observaciones");
-      discrepancias.push({
-        campo: "Observaciones",
-        db: ficha.observaciones,
-        ia: obsIa,
-      });
-    } else {
-      patch.observaciones = obsIa;
-      autoFields.add("observaciones");
-    }
-  }
+  // Observaciones del formulario = solo ficha del comprador (andén, tolerancia, etc.).
+  // El body del correo / mensaje va a origen_texto → notas generales del PDF.
+  // No mezclar pedido.observaciones de la IA aquí (suele ser el cuerpo del correo).
 
   const byKey = new Map(
     productos.map((p) => [catalogKey(p.nombre, p.codigo), p] as const),
   );
 
   const lineas: LineaVentaFromIa[] = [];
-  const seen = new Set<string>();
 
   for (const linea of pedido.lineas) {
-    const match = linea.productoCatalogo
-      ? byKey.get(linea.productoCatalogo)
-      : undefined;
-    if (!match || seen.has(match.idProducto)) {
+    const match = resolveProductoMatch(linea, byKey);
+    if (!match) {
       continue;
     }
-    seen.add(match.idProducto);
 
     const presentacion =
       linea.presentacion && PRESENTACION_SET.has(linea.presentacion)
@@ -320,6 +354,13 @@ export function mapPedidoExtraidoToForm(params: {
           : "",
     };
     const empaque = aplicarEmpaqueInicialLinea(baseLinea);
+    const precioDoc = parsePrecioIa(linea.precioUnitario);
+    const precioUnitario = precioDoc ?? match.precioUnitario;
+    const otId = groupKeyOrigenCorreo({
+      "Numero pedido": linea.numeroPedido || pedido.ordenCompraHotel || "",
+      Almacen: linea.almacen || pedido.centroConsumo || "",
+      "Referencia pedido": linea.referenciaPedido || "",
+    });
 
     lineas.push({
       idProducto: match.idProducto,
@@ -334,9 +375,11 @@ export function mapPedidoExtraidoToForm(params: {
       ivaPct: "0",
       kgDisponible: match.kgDisponible,
       unidadMedida: match.unidadMedida,
-      precioUnitario: match.precioUnitario,
+      precioUnitario,
+      precioManual: precioDoc != null,
       aliasCliente: linea.textoOriginal?.trim() || "",
       filledByIa: true,
+      otId,
       packHint: empaque.packHint,
       autoPackFields: empaque.autoPackFields,
     });

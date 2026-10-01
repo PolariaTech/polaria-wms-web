@@ -1,10 +1,11 @@
 import { formatKgEs } from "@/lib/utils/decimal-es";
 import type {
   OrdenVentaDetalleRow,
+  OrdenVentaLineaRow,
   OrdenVentaOperadorRow,
 } from "../../shared/types/sales.types";
 import {
-  formatCompradorOrdenVenta,
+  formatCompradorNombreOrdenVenta,
   resolveOrdenVentaLineaTitulo,
 } from "../utils/orden-venta-display";
 import {
@@ -12,6 +13,16 @@ import {
   notaCapturaForProducto,
   parseOrdenVentaCapturaObservaciones,
 } from "../utils/build-orden-venta-captura-observaciones";
+import { filterLineasByOrdenTrabajoHija } from "../utils/filter-lineas-by-orden-trabajo";
+import {
+  groupOrigenCorreoToOrdenesTrabajo,
+  parseOrigenCorreoJson,
+  type OrdenTrabajoHija,
+} from "../utils/origen-correo-ordenes-trabajo";
+import {
+  cleanCorreoBodyForNotas,
+  flattenNotasForPdf,
+} from "../utils/texto-origen-pedido";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
 export function formatOrdenTareaImpresaAt(date: Date): string {
@@ -32,26 +43,65 @@ function formatFechaEntrega(value: string | null | undefined): string {
   return `${day}/${month}/${year}`;
 }
 
-export function mapOrdenVentaToAlmacenPrintData(input: {
+function formatHoraEntrega(input: {
+  ventanaDesde?: string | null;
+  ventanaHasta?: string | null;
+  ventanaEntrega?: string | null;
+}): string {
+  const desde = input.ventanaDesde?.trim() ?? "";
+  const hasta = input.ventanaHasta?.trim() ?? "";
+  if (desde || hasta) {
+    if (desde && hasta) return `${desde} – ${hasta}`;
+    return desde || hasta;
+  }
+  return input.ventanaEntrega?.trim() ?? "";
+}
+
+function mapLineasPrint(
+  lineas: readonly OrdenVentaLineaRow[],
+  notasLineas: string,
+): OrdenTareaAlmacenPrintData["lineas"] {
+  return lineas.map((linea) => {
+    const producto = resolveOrdenVentaLineaTitulo(linea);
+    const nota = notaCapturaForProducto(notasLineas, producto);
+    return {
+      producto,
+      especificacion: nota,
+      cantidadSolicitada: `${formatKgEs(linea.cantidad_pedida)} kg`,
+    };
+  });
+}
+
+function buildBaseSheet(input: {
   listRow: OrdenVentaOperadorRow;
   detalle: OrdenVentaDetalleRow | null;
-  printedAt?: Date;
+  printedAt: Date;
+  hija?: OrdenTrabajoHija | null;
+  lineas: OrdenVentaLineaRow[];
+  tareaIndex: number;
+  tareaTotal: number;
 }): OrdenTareaAlmacenPrintData {
-  const printedAt = input.printedAt ?? new Date();
-  const detalle = input.detalle;
-  const listRow = input.listRow;
+  const { listRow, detalle, printedAt, hija, lineas, tareaIndex, tareaTotal } =
+    input;
 
   if (!detalle) {
     return {
       idOrdenVenta: listRow.idOrdenVenta,
+      idOrdenTrabajo: hija?.id ?? "",
+      tareaIndex,
+      tareaTotal,
       folio: listRow.venta,
       impresa: formatOrdenTareaImpresaAt(printedAt),
       cliente: listRow.comprador,
-      centroConsumo: "",
-      numeroOrdenCliente: listRow.venta,
-      fechaEntrega: formatFechaEntrega(listRow.fecha),
+      centroConsumo: hija?.almacen ?? "",
+      numeroOrdenCliente: hija?.numeroPedido || listRow.venta,
+      fechaEntrega: hija?.fecha
+        ? formatCapturaFecha(hija.fecha)
+        : formatFechaEntrega(listRow.fecha),
+      horaEntrega: "",
       direccionEntrega:
         listRow.destino.trim() === "—" ? "" : listRow.destino,
+      notasGenerales: "",
       lineas: [],
     };
   }
@@ -62,27 +112,115 @@ export function mapOrdenVentaToAlmacenPrintData(input: {
 
   return {
     idOrdenVenta: detalle.id_orden_venta,
+    idOrdenTrabajo: hija?.id ?? "",
+    tareaIndex,
+    tareaTotal,
     folio: detalle.codigo,
     impresa: formatOrdenTareaImpresaAt(printedAt),
-    cliente: formatCompradorOrdenVenta(detalle),
-    centroConsumo: captura.centroConsumo,
-    numeroOrdenCliente: captura.ordenCompraHotel.trim() || detalle.codigo,
-    fechaEntrega: fechaEntregaCaptura
-      ? formatCapturaFecha(fechaEntregaCaptura)
-      : formatFechaEntrega(detalle.fecha_pedido || detalle.created_at),
+    cliente: formatCompradorNombreOrdenVenta(detalle),
+    centroConsumo:
+      hija?.almacen ||
+      captura.centroConsumo ||
+      detalle.centro_consumo?.trim() ||
+      "",
+    numeroOrdenCliente:
+      hija?.numeroPedido ||
+      captura.ordenCompraHotel.trim() ||
+      detalle.codigo,
+    fechaEntrega: hija?.fecha
+      ? formatCapturaFecha(hija.fecha)
+      : fechaEntregaCaptura
+        ? formatCapturaFecha(fechaEntregaCaptura)
+        : formatFechaEntrega(
+            detalle.fecha_entrega || detalle.fecha_pedido || detalle.created_at,
+          ),
+    horaEntrega: formatHoraEntrega({
+      ventanaDesde: detalle.ventana_desde,
+      ventanaHasta: detalle.ventana_hasta,
+      ventanaEntrega: captura.ventanaEntrega,
+    }),
     direccionEntrega:
       direccionCaptura ||
+      detalle.direccion_entrega?.trim() ||
       detalle.bodega_destino_nombre?.trim() ||
       detalle.bodega_nombre?.trim() ||
       "",
-    lineas: (detalle.lineas ?? []).map((linea) => {
-      const producto = resolveOrdenVentaLineaTitulo(linea);
-      const nota = notaCapturaForProducto(captura.notasLineas, producto);
-      return {
-        producto,
-        especificacion: nota,
-        cantidadSolicitada: `${formatKgEs(linea.cantidad_pedida)} kg`,
-      };
-    }),
+    /** Body del correo / mensaje pegado (origen), no notas de almacén. */
+    notasGenerales: flattenNotasForPdf(
+      cleanCorreoBodyForNotas(
+        detalle.origen_texto?.trim() ||
+          captura.origenTexto.trim() ||
+          "",
+      ),
+    ),
+    lineas: mapLineasPrint(
+      lineas,
+      detalle.notas_lineas?.trim() || captura.notasLineas,
+    ),
   };
+}
+
+/** Una sola hoja (compat): OV completa sin pajinar por OT. */
+export function mapOrdenVentaToAlmacenPrintData(input: {
+  listRow: OrdenVentaOperadorRow;
+  detalle: OrdenVentaDetalleRow | null;
+  printedAt?: Date;
+}): OrdenTareaAlmacenPrintData {
+  const sheets = mapOrdenVentaToAlmacenPrintSheets(input);
+  return sheets[0]!;
+}
+
+/**
+ * Una hoja por orden de trabajo (hija de origen_correo).
+ * Si no hay hijas, una sola hoja con toda la OV (1/1).
+ */
+export function mapOrdenVentaToAlmacenPrintSheets(input: {
+  listRow: OrdenVentaOperadorRow;
+  detalle: OrdenVentaDetalleRow | null;
+  printedAt?: Date;
+}): OrdenTareaAlmacenPrintData[] {
+  const printedAt = input.printedAt ?? new Date();
+  const detalle = input.detalle;
+  const listRow = input.listRow;
+  const allLineas = detalle?.lineas ?? [];
+
+  const hijas = groupOrigenCorreoToOrdenesTrabajo(
+    parseOrigenCorreoJson(detalle?.origen_correo),
+  );
+
+  if (hijas.length === 0) {
+    return [
+      buildBaseSheet({
+        listRow,
+        detalle,
+        printedAt,
+        hija: null,
+        lineas: allLineas,
+        tareaIndex: 1,
+        tareaTotal: 1,
+      }),
+    ];
+  }
+
+  const total = hijas.length;
+  return hijas.map((hija, index) =>
+    buildBaseSheet({
+      listRow,
+      detalle,
+      printedAt,
+      hija,
+      lineas: filterLineasByOrdenTrabajoHija(allLineas, hija),
+      tareaIndex: index + 1,
+      tareaTotal: total,
+    }),
+  );
+}
+
+export function formatOrdenTareaMetaLabel(data: {
+  tareaIndex?: number;
+  tareaTotal?: number;
+}): string {
+  const index = data.tareaIndex && data.tareaIndex > 0 ? data.tareaIndex : 1;
+  const total = data.tareaTotal && data.tareaTotal > 0 ? data.tareaTotal : 1;
+  return `Orden de tarea ${index}/${total}`;
 }

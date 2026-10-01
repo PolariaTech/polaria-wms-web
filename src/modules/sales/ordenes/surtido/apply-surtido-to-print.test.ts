@@ -10,7 +10,9 @@ const BASE: OrdenTareaAlmacenPrintData = {
   centroConsumo: "Cocina",
   numeroOrdenCliente: "OC",
   fechaEntrega: "08/09/2026",
+  horaEntrega: "10:00 – 12:00",
   direccionEntrega: "Calle 1",
+  notasGenerales: "",
   lineas: [
     {
       producto: "Hamburguesa",

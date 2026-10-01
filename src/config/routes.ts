@@ -59,11 +59,17 @@ export const ROUTES = {
   dashboardVentas: "/dashboard/ventas",
   dashboardVentasOrdenes: "/dashboard/ventas/ordenes",
   /** Captura pública (QR) de hoja surtida — sin login. */
-  capturaOrden: (idOrdenVenta: string) =>
-    `/captura-orden/${encodeURIComponent(idOrdenVenta)}`,
+  capturaOrden: (idOrdenVenta: string, idOrdenTrabajo?: string) => {
+    const base = `/captura-orden/${encodeURIComponent(idOrdenVenta)}`;
+    const ot = (idOrdenTrabajo ?? "").trim();
+    return ot ? `${base}?ot=${encodeURIComponent(ot)}` : base;
+  },
   /** API meta/upload de captura — fuera de `/api` para no proxyar a Nest. */
-  capturaOrdenApi: (idOrdenVenta: string) =>
-    `/captura-orden/${encodeURIComponent(idOrdenVenta)}/api`,
+  capturaOrdenApi: (idOrdenVenta: string, idOrdenTrabajo?: string) => {
+    const base = `/captura-orden/${encodeURIComponent(idOrdenVenta)}/api`;
+    const ot = (idOrdenTrabajo ?? "").trim();
+    return ot ? `${base}?ot=${encodeURIComponent(ot)}` : base;
+  },
   dashboardTransporte: "/dashboard/transporte",
   dashboardReporteria: "/dashboard/reporteria",
   /** Administrador de bodega — operación (independiente del jefe de bodega) */

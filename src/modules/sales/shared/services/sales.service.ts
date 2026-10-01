@@ -38,7 +38,7 @@ const ORDEN_VENTA_COLUMNS =
 const COMPRADOR_COLUMNS = "id_comprador,nombre";
 
 const ORDEN_VENTA_DETALLE_FLAT_COLUMNS =
-  "prioridad,orden_compra_hotel,centro_consumo,vendedor,moneda,bodega_destino_label,direccion_entrega,anden,contacto_entrega,telefono_contacto,turno,hora_salida,chofer,unidad,notas_lineas,notas_almacen,fecha_entrega,ventana_desde,ventana_hasta,acepta_sustituciones,requiere_lote,registrar_temperatura,origen_texto,origen_archivos";
+  "prioridad,orden_compra_hotel,centro_consumo,vendedor,moneda,bodega_destino_label,direccion_entrega,anden,contacto_entrega,telefono_contacto,turno,hora_salida,chofer,unidad,notas_lineas,notas_almacen,fecha_entrega,ventana_desde,ventana_hasta,acepta_sustituciones,requiere_lote,registrar_temperatura,origen_texto,origen_archivos,origen_correo";
 
 const ORDEN_VENTA_DETALLE_SELECT =
   `${ORDEN_VENTA_COLUMNS},${ORDEN_VENTA_DETALLE_FLAT_COLUMNS},` +
@@ -66,6 +66,7 @@ interface OrdenVentaDetalleDbRow extends OrdenVentaRow {
   orden_venta_linea: OrdenVentaLineaDetalleDbRow[] | null;
   origen_texto?: string | null;
   origen_archivos?: string | null;
+  origen_correo?: unknown;
 }
 
 const WAREHOUSE_STOCK_VENTA_SELECT =
@@ -809,7 +810,7 @@ export async function listProductosVentaCatalogo(
 
 function ordenVentaCaptureFields(
   input: CreateOrdenVentaInput,
-): Record<string, string | null> {
+): Record<string, string | null | unknown> {
   const origenArchivos =
     input.origenArchivos && input.origenArchivos.length > 0
       ? input.origenArchivos.join(", ")
@@ -838,6 +839,10 @@ function ordenVentaCaptureFields(
     registrar_temperatura: input.registrarTemperatura?.trim() || null,
     origen_texto: input.origenTexto?.trim() || null,
     origen_archivos: origenArchivos,
+    origen_correo:
+      input.origenCorreo && input.origenCorreo.length > 0
+        ? input.origenCorreo
+        : null,
     notas_lineas: input.notasLineas?.trim() || null,
     notas_almacen: input.notasAlmacen?.trim() || null,
   };
@@ -950,6 +955,9 @@ export async function createOrdenVenta(
     }
     if (!input.origenArchivos || input.origenArchivos.length === 0) {
       delete capture.origen_archivos;
+    }
+    if (!input.origenCorreo || input.origenCorreo.length === 0) {
+      delete capture.origen_correo;
     }
   }
 

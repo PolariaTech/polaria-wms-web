@@ -35,6 +35,14 @@ export function applySurtidoToPrintData(
     fechaEntrega:
       campoSurtido(surtido, "fechaEntrega", "Fecha de entrega") ||
       original.fechaEntrega,
+    horaEntrega:
+      campoSurtido(
+        surtido,
+        "horaEntrega",
+        "Hora de entrega",
+        "horaComprometida",
+        "Hora comprometida",
+      ) || original.horaEntrega,
     direccionEntrega: fillIfEmpty(
       original.direccionEntrega,
       campoSurtido(
@@ -44,6 +52,13 @@ export function applySurtidoToPrintData(
         "Direccion de entrega",
       ),
     ),
+    notasGenerales:
+      campoSurtido(
+        surtido,
+        "notasGenerales",
+        "Notas generales",
+        "notasAlmacen",
+      ) || original.notasGenerales,
     surtido: {
       ...surtido,
       checks: surtido.checks ?? {},

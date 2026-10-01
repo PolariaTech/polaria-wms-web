@@ -47,6 +47,21 @@ vi.mock("@/stores/auth.store", () => ({
     }),
 }));
 
+vi.mock("@/stores/theme.store", () => ({
+  useThemeStore: (
+    selector: (state: {
+      theme: "dark" | "light";
+      setTheme: (theme: "dark" | "light") => void;
+      toggleTheme: () => void;
+    }) => unknown,
+  ) =>
+    selector({
+      theme: "dark",
+      setTheme: vi.fn(),
+      toggleTheme: vi.fn(),
+    }),
+}));
+
 import { PerfilPageContent } from "./PerfilPageContent";
 
 describe("PerfilPageContent", () => {
@@ -67,6 +82,9 @@ describe("PerfilPageContent", () => {
     );
     expect(screen.getByText("Empresa Demo SA")).toBeInTheDocument();
     expect(screen.getByText("Cuenta Norte")).toBeInTheDocument();
+    expect(screen.getByText("Configuración básica")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /oscuro/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /claro/i })).toBeInTheDocument();
   });
 
   it("guarda el nombre editado", async () => {

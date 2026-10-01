@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
@@ -12,12 +12,22 @@ import { withCuentaSchema } from "@/lib/supabase/cuenta-schema";
 import { formatEstadoOrdenVenta } from "../../shared/constants/sales-status";
 import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
 import { getOrdenVentaDetalle } from "../../shared/services/sales.service";
-import type { OrdenVentaDetalleRow } from "../../shared/types/sales.types";
+import type {
+  OrdenVentaDetalleRow,
+  OrdenVentaLineaRow,
+} from "../../shared/types/sales.types";
 import {
   formatCapturaFecha,
   notaCapturaForProducto,
   parseOrdenVentaCapturaObservaciones,
 } from "../utils/build-orden-venta-captura-observaciones";
+import { filterLineasByOrdenTrabajoHija } from "../utils/filter-lineas-by-orden-trabajo";
+import {
+  groupOrigenCorreoToOrdenesTrabajo,
+  parseOrigenCorreoJson,
+  type OrdenTrabajoHija,
+} from "../utils/origen-correo-ordenes-trabajo";
+import { OrigenPedidoBodyView } from "./OrigenPedidoBodyView";
 import {
   formatCompradorOrdenVenta,
   formatOrdenVentaLineaTotal,
@@ -91,8 +101,18 @@ function renderEstadoBadge(estado: string) {
   );
 }
 
-function DetalleContent({ orden }: { orden: OrdenVentaDetalleRow }) {
-  const lineItems = orden.lineas ?? [];
+function DetalleContent({
+  orden,
+  hija = null,
+}: {
+  orden: OrdenVentaDetalleRow;
+  hija?: OrdenTrabajoHija | null;
+}) {
+  const allLineItems = orden.lineas ?? [];
+  const lineItems: OrdenVentaLineaRow[] = useMemo(() => {
+    return filterLineasByOrdenTrabajoHija(allLineItems, hija);
+  }, [allLineItems, hija]);
+
   const fromObs = parseOrdenVentaCapturaObservaciones(orden.observaciones);
   const ventanaFlat =
     orden.ventana_desde?.trim() || orden.ventana_hasta?.trim()
@@ -102,15 +122,23 @@ function DetalleContent({ orden }: { orden: OrdenVentaDetalleRow }) {
     ...fromObs,
     prioridad: orden.prioridad?.trim() || fromObs.prioridad,
     ordenCompraHotel:
-      orden.orden_compra_hotel?.trim() || fromObs.ordenCompraHotel,
-    centroConsumo: orden.centro_consumo?.trim() || fromObs.centroConsumo,
+      hija?.numeroPedido ||
+      orden.orden_compra_hotel?.trim() ||
+      fromObs.ordenCompraHotel,
+    centroConsumo:
+      hija?.almacen ||
+      orden.centro_consumo?.trim() ||
+      fromObs.centroConsumo,
     vendedor: orden.vendedor?.trim() || fromObs.vendedor,
     moneda: orden.moneda?.trim() || fromObs.moneda,
     bodegaDestino:
       orden.bodega_destino_label?.trim() || fromObs.bodegaDestino,
     direccion: orden.direccion_entrega?.trim() || fromObs.direccion,
     anden: orden.anden?.trim() || fromObs.anden,
-    contacto: orden.contacto_entrega?.trim() || fromObs.contacto,
+    contacto:
+      hija?.responsableExterno ||
+      orden.contacto_entrega?.trim() ||
+      fromObs.contacto,
     telefono: orden.telefono_contacto?.trim() || fromObs.telefono,
     turno: orden.turno?.trim() || fromObs.turno,
     horaSalida: orden.hora_salida?.trim() || fromObs.horaSalida,
@@ -121,20 +149,42 @@ function DetalleContent({ orden }: { orden: OrdenVentaDetalleRow }) {
     requiereLote: orden.requiere_lote?.trim() || fromObs.requiereLote,
     registrarTemperatura:
       orden.registrar_temperatura?.trim() || fromObs.registrarTemperatura,
-    fechaEntrega: orden.fecha_entrega?.trim() || fromObs.fechaEntrega,
+    fechaEntrega:
+      hija?.fecha ||
+      orden.fecha_entrega?.trim() ||
+      fromObs.fechaEntrega,
     ventanaEntrega: ventanaFlat || fromObs.ventanaEntrega,
     notasLineas: orden.notas_lineas?.trim() || fromObs.notasLineas,
   };
   const prioridad = captura.prioridad.trim();
+  const pesoHija = lineItems.reduce((s, l) => s + l.cantidad_pedida, 0);
+  const totalHija = lineItems.reduce(
+    (s, l) => s + l.cantidad_pedida * l.precio_unitario,
+    0,
+  );
 
   return (
     <>
+      {hija ? (
+        <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
+          <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
+            Orden de trabajo
+          </p>
+          <p className="mt-1 polaria-text-body-sm font-semibold text-polaria-w">
+            {hija.label}
+          </p>
+          {hija.referenciaPedido ? (
+            <p className="mt-1 polaria-text-caption text-polaria-w-50">
+              {hija.referenciaPedido}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {captura.origenTexto || captura.origenArchivos.length > 0 ? (
         <CaptureSection title="De dónde salió este pedido">
           {captura.origenTexto ? (
-            <p className="whitespace-pre-wrap border-l-2 border-polaria-teal pl-3 polaria-text-body-sm text-polaria-w">
-              «{captura.origenTexto}»
-            </p>
+            <OrigenPedidoBodyView text={captura.origenTexto} />
           ) : null}
           {captura.origenArchivos.length > 0 ? (
             <div className={cn("flex flex-wrap gap-2", captura.origenTexto && "mt-2")}>
@@ -302,12 +352,14 @@ function DetalleContent({ orden }: { orden: OrdenVentaDetalleRow }) {
                 {lineItems.length === 1
                   ? "1 producto"
                   : `${lineItems.length} productos`}{" "}
-                · {formatKgEs(sumOrdenVentaCantidadKg(orden))} kg
+                · {formatKgEs(hija ? pesoHija : sumOrdenVentaCantidadKg(orden))} kg
               </p>
               <p className="polaria-text-body-sm text-polaria-w-50">
                 Total venta:{" "}
                 <span className="font-semibold text-polaria-teal">
-                  {formatOrdenVentaTotal(orden)}
+                  {hija
+                    ? `$${formatPrecioEs(totalHija)}`
+                    : formatOrdenVentaTotal(orden)}
                 </span>
               </p>
             </div>
@@ -318,7 +370,7 @@ function DetalleContent({ orden }: { orden: OrdenVentaDetalleRow }) {
       <CaptureSection title="Almacén y política del cliente">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <MetaField label="Peso total (kg)">
-            {formatKgEs(sumOrdenVentaCantidadKg(orden))}
+            {formatKgEs(hija ? pesoHija : sumOrdenVentaCantidadKg(orden))}
           </MetaField>
           <MetaField label="¿Acepta sustituciones?">
             <TextValue value={captura.aceptaSustituciones} />
@@ -355,6 +407,20 @@ export function OrdenVentaDetalleModal({
   const [isEmitting, setIsEmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [hijaId, setHijaId] = useState<string | null>(null);
+
+  const ordenesTrabajo = useMemo(
+    () => groupOrigenCorreoToOrdenesTrabajo(parseOrigenCorreoJson(orden?.origen_correo)),
+    [orden?.origen_correo],
+  );
+
+  const hijaActiva = useMemo(() => {
+    if (ordenesTrabajo.length <= 1) return ordenesTrabajo[0] ?? null;
+    if (!hijaId) return null;
+    return ordenesTrabajo.find((h) => h.id === hijaId) ?? null;
+  }, [hijaId, ordenesTrabajo]);
+
+  const mostrarPickerHijas = ordenesTrabajo.length > 1 && !hijaActiva;
 
   const loadDetalle = useCallback(
     (id: string, cuenta: string) => {
@@ -403,6 +469,7 @@ export function OrdenVentaDetalleModal({
       setOrden(null);
       setError(null);
       setActionError(null);
+      setHijaId(null);
       return;
     }
 
@@ -411,6 +478,7 @@ export function OrdenVentaDetalleModal({
     setError(null);
     setActionError(null);
     setOrden(null);
+    setHijaId(null);
 
     void loadDetalle(idOrdenVenta, codigoCuenta)
       .then((row) => {
@@ -482,7 +550,11 @@ export function OrdenVentaDetalleModal({
       open
       onClose={onClose}
       sectionLabel="Detalle de venta"
-      title={orden?.codigo ?? "Orden de venta"}
+      title={
+        hijaActiva
+          ? `${orden?.codigo ?? "OV"} · ${hijaActiva.label}`
+          : (orden?.codigo ?? "Orden de venta")
+      }
       description={
         orden ? formatCompradorOrdenVenta(orden) : "Ficha de captura del pedido."
       }
@@ -492,7 +564,7 @@ export function OrdenVentaDetalleModal({
       }}
       hideHeaderClose
       footerAction={
-        puedeEmitir ? (
+        puedeEmitir && !mostrarPickerHijas ? (
           <button
             type="button"
             onClick={handleEmitir}
@@ -534,7 +606,59 @@ export function OrdenVentaDetalleModal({
         </p>
       ) : null}
 
-      {!isLoading && !error && orden ? <DetalleContent orden={orden} /> : null}
+      {!isLoading && !error && orden && mostrarPickerHijas ? (
+        <div className="space-y-4">
+          <p className="polaria-text-body-sm text-polaria-w-50">
+            Esta venta tiene{" "}
+            <span className="font-semibold text-polaria-teal">
+              {ordenesTrabajo.length} órdenes de trabajo
+            </span>
+            . Elige cuál quieres ver.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {ordenesTrabajo.map((hija) => (
+              <button
+                key={hija.id}
+                type="button"
+                onClick={() => setHijaId(hija.id)}
+                className={cn(
+                  "rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-4 text-left transition",
+                  "hover:border-polaria-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                )}
+              >
+                <p className="polaria-text-body-sm font-semibold text-polaria-w">
+                  {hija.label}
+                </p>
+                <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                  {hija.renglones.length} producto
+                  {hija.renglones.length === 1 ? "" : "s"} ·{" "}
+                  {formatKgEs(hija.totalCantidad)} kg
+                </p>
+                {hija.almacen ? (
+                  <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                    {hija.almacen}
+                  </p>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {!isLoading && !error && orden && !mostrarPickerHijas ? (
+        <div className="space-y-3">
+          {ordenesTrabajo.length > 1 ? (
+            <button
+              type="button"
+              onClick={() => setHijaId(null)}
+              className="polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
+            >
+              ← Ver todas las órdenes de trabajo
+            </button>
+          ) : null}
+          <DetalleContent orden={orden} hija={hijaActiva} />
+        </div>
+      ) : null}
     </PolariaFormModal>
   );
 }

@@ -5,7 +5,11 @@ import type {
   OrdenVentaLineaRow,
 } from "../../shared/types/sales.types";
 
-export function resolveOrdenVentaLineaTitulo(linea: OrdenVentaLineaRow): string {
+type LineaConProducto = {
+  producto?: OrdenVentaLineaRow["producto"] | null;
+};
+
+export function resolveOrdenVentaLineaTitulo(linea: LineaConProducto): string {
   const producto = linea.producto;
   if (!producto) {
     return "Sin título";
@@ -60,6 +64,13 @@ export function formatCompradorOrdenVenta(orden: OrdenVentaDetalleRow): string {
   }
 
   return nombre || codigo || "—";
+}
+
+/** Solo el nombre del comprador (para PDF de almacén / QR). */
+export function formatCompradorNombreOrdenVenta(
+  orden: OrdenVentaDetalleRow,
+): string {
+  return orden.comprador_nombre?.trim() || orden.comprador_codigo?.trim() || "—";
 }
 
 export function formatObservacionOrdenVenta(

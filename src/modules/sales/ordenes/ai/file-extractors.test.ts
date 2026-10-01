@@ -91,6 +91,50 @@ describe("extractFiles — correos .eml", () => {
     }
   });
 
+  it("correo HTML con tabla: el cuerpo mantiene columnas (no lista vertical)", async () => {
+    const mime = [
+      "From: proveedor@ejemplo.com",
+      "To: pedidos@polaria.tech",
+      "Subject: Pedido con tabla",
+      "MIME-Version: 1.0",
+      'Content-Type: multipart/alternative; boundary="ALT"',
+      "",
+      "--ALT",
+      'Content-Type: text/plain; charset="UTF-8"',
+      "",
+      "Fecha de entrega",
+      "Clave Sap",
+      "Texto breve",
+      "X200011700",
+      "AGUACATE JASS",
+      "",
+      "--ALT",
+      'Content-Type: text/html; charset="UTF-8"',
+      "",
+      "<html><body><p>Buenas tardes,</p>",
+      "<table><tr><th>Clave Sap</th><th>Texto breve</th><th>Um</th><th>Pedido</th></tr>",
+      "<tr><td>X200011700</td><td>AGUACATE JASS</td><td>KG</td><td>37</td></tr>",
+      "</table></body></html>",
+      "",
+      "--ALT--",
+      "",
+    ].join("\r\n");
+
+    const resultado = await extractFiles([correoEml("tabla.eml", mime)]);
+    expect(resultado).toHaveLength(1);
+    expect(resultado[0].tipo).toBe("texto");
+    if (resultado[0].tipo === "texto") {
+      expect(resultado[0].contenido).toContain("Buenas tardes");
+      expect(resultado[0].contenido).toContain("Clave Sap");
+      expect(resultado[0].contenido).toContain("AGUACATE JASS");
+      // dataTable alinea columnas; no debe quedar solo una celda por línea.
+      expect(resultado[0].contenido).toMatch(/Clave Sap\s{2,}Texto breve/);
+      expect(resultado[0].contenido).not.toMatch(
+        /^Clave Sap\nTexto breve\nUm\nPedido$/m,
+      );
+    }
+  });
+
   it("correo con un adjunto de texto real + una imagen inline: 2 ítems (cuerpo + adjunto), la imagen inline no aparece", async () => {
     const boundary = "LIMITE_PRUEBA_1";
     const mime = [

@@ -1,6 +1,7 @@
 "use client";
 
 import QRCode from "qrcode";
+import { normalizeIdOrdenTrabajo } from "../utils/origen-correo-ordenes-trabajo";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
 function sanitizePdfFilename(folio: string): string {
@@ -8,12 +9,20 @@ function sanitizePdfFilename(folio: string): string {
   return cleaned || "orden";
 }
 
-export function buildCapturaOrdenUrl(idOrdenVenta: string): string {
+export { normalizeIdOrdenTrabajo };
+
+export function buildCapturaOrdenUrl(
+  idOrdenVenta: string,
+  idOrdenTrabajo?: string | null,
+): string {
   const origin =
     typeof window !== "undefined"
       ? window.location.origin
       : (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? "");
-  return `${origin}/captura-orden/${encodeURIComponent(idOrdenVenta)}`;
+  const base = `${origin}/captura-orden/${encodeURIComponent(idOrdenVenta)}`;
+  const ot = normalizeIdOrdenTrabajo(idOrdenTrabajo);
+  if (!ot) return base;
+  return `${base}?ot=${encodeURIComponent(ot)}`;
 }
 
 async function withQrDataUrl(
@@ -23,16 +32,35 @@ async function withQrDataUrl(
   const id = data.idOrdenVenta?.trim();
   if (!id) return data;
   try {
-    const qrDataUrl = await QRCode.toDataURL(buildCapturaOrdenUrl(id), {
-      errorCorrectionLevel: "M",
-      margin: 1,
-      width: 256,
-      color: { dark: "#000000", light: "#ffffff" },
-    });
+    const qrDataUrl = await QRCode.toDataURL(
+      buildCapturaOrdenUrl(id, data.idOrdenTrabajo),
+      {
+        errorCorrectionLevel: "M",
+        margin: 1,
+        width: 256,
+        color: { dark: "#000000", light: "#ffffff" },
+      },
+    );
     return { ...data, qrDataUrl };
   } catch {
     return data;
   }
+}
+
+function multiFilename(
+  sheets: readonly OrdenTareaAlmacenPrintData[],
+  options?: { filenameSuffix?: string },
+): string {
+  const folio = sanitizePdfFilename(sheets[0]?.folio ?? "orden");
+  const total =
+    sheets[0]?.tareaTotal && sheets[0].tareaTotal > 0
+      ? sheets[0].tareaTotal
+      : sheets.length;
+  const pagesPart = total > 1 ? `-${total}-ots` : "";
+  const suffix = options?.filenameSuffix?.trim()
+    ? `-${options.filenameSuffix.trim()}`
+    : "-horizontal";
+  return `orden-venta-${folio}${pagesPart}${suffix}.pdf`;
 }
 
 /** Imprime en la impresora de la cuenta (IPP y/o QZ Tray), sin diálogo del browser. */
@@ -72,11 +100,35 @@ export async function downloadOrdenTareaAlmacenPdf(
   const { buildOrdenTareaAlmacenPdf } = await import(
     "./render-orden-tarea-almacen-pdf"
   );
+  const folio = sanitizePdfFilename(data.folio);
   const suffix = options?.filenameSuffix?.trim()
     ? `-${options.filenameSuffix.trim()}`
     : "";
-  const filename = `orden-venta-${sanitizePdfFilename(data.folio)}${suffix}.pdf`;
+  const filename = `orden-venta-${folio}${suffix}.pdf`;
   const withQr = await withQrDataUrl(data);
   const pdf = buildOrdenTareaAlmacenPdf(withQr);
   pdf.save(filename);
+}
+
+export async function downloadOrdenTareaAlmacenLandscapePdf(
+  data: OrdenTareaAlmacenPrintData,
+  options?: { filenameSuffix?: string },
+): Promise<void> {
+  await downloadOrdenTareaAlmacenLandscapePdfs([data], options);
+}
+
+/** Una sola descarga: PDF multipágina (una página por orden de trabajo). */
+export async function downloadOrdenTareaAlmacenLandscapePdfs(
+  sheets: readonly OrdenTareaAlmacenPrintData[],
+  options?: { filenameSuffix?: string },
+): Promise<void> {
+  if (sheets.length === 0) {
+    throw new Error("No hay órdenes de trabajo para descargar.");
+  }
+  const { buildOrdenTareaAlmacenLandscapePdfMulti } = await import(
+    "./render-orden-tarea-almacen-landscape-pdf"
+  );
+  const withQr = await Promise.all(sheets.map((sheet) => withQrDataUrl(sheet)));
+  const pdf = buildOrdenTareaAlmacenLandscapePdfMulti(withQr);
+  pdf.save(multiFilename(withQr, options));
 }

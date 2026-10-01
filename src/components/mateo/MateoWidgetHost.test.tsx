@@ -70,7 +70,7 @@ describe("MateoWidgetHost", () => {
     });
     mockApiRequest.mockResolvedValue({
       token: "widget-jwt",
-      expiresIn: 2_592_000,
+      expiresIn: 1_987_200,
     });
   });
 
@@ -108,7 +108,7 @@ describe("MateoWidgetHost", () => {
     expect(mountArgs.conversationTokenFetcher).toBeTypeOf("function");
     await expect(mountArgs.conversationTokenFetcher?.()).resolves.toEqual({
       token: "access-token",
-      expiresIn: 2_592_000,
+      expiresIn: 1_987_200,
     });
   });
 
