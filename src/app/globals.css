@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 /* ── Paleta oficial polaria.tech ─────────────────────────────────────────── */
-:root {
+:root,
+html[data-theme="dark"] {
   /* Colores principales */
   --bg: #020609;
   --teal: #00e5cc;
@@ -32,6 +33,9 @@
     #00e5cc 0%,
     rgba(0, 210, 250, 0.85) 100%
   );
+  --topbar-bg-start: rgba(0, 0, 0, 0.55);
+  --topbar-bg-end: rgba(2, 6, 9, 0.25);
+  --modal-scrim: rgba(2, 6, 9, 0.8);
 
   /* Alias semánticos (compatibilidad) */
   --background: var(--bg);
@@ -45,6 +49,56 @@
   --polaria-muted: var(--w50);
   --polaria-placeholder: var(--w20);
   --polaria-footer: var(--w20);
+
+  color-scheme: dark;
+}
+
+/* Modo claro — mismos tokens semánticos, valores invertidos */
+html[data-theme="light"] {
+  --bg: #f4f7f6;
+  --teal: #009e8f;
+  --w: #020609;
+
+  --t20: rgba(0, 158, 143, 0.28);
+  --t08: rgba(0, 158, 143, 0.1);
+  --w50: rgba(2, 6, 9, 0.55);
+  --w20: rgba(2, 6, 9, 0.28);
+  --w08: rgba(2, 6, 9, 0.06);
+
+  --black-pure: #ffffff;
+  --aurora-teal: rgba(0, 158, 143, 0.14);
+  --aurora-blue: rgba(0, 110, 180, 0.1);
+  --aurora-deep: rgba(0, 70, 140, 0.08);
+  --teal-glow: rgba(0, 158, 143, 0.18);
+  --teal-glow-strong: rgba(0, 158, 143, 0.28);
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.1);
+  --danger-border: rgba(220, 38, 38, 0.32);
+  --warning: #c47a0a;
+  --warning-bg: rgba(196, 122, 10, 0.1);
+  --warning-border: rgba(196, 122, 10, 0.32);
+  --gradient-stat: linear-gradient(
+    135deg,
+    #009e8f 0%,
+    rgba(0, 140, 190, 0.95) 100%
+  );
+  --topbar-bg-start: rgba(244, 247, 246, 0.94);
+  --topbar-bg-end: rgba(244, 247, 246, 0.72);
+  --modal-scrim: rgba(2, 6, 9, 0.45);
+
+  --background: var(--bg);
+  --foreground: var(--w);
+  --polaria-bg: var(--bg);
+  --polaria-teal: var(--teal);
+  --polaria-w: var(--w);
+  --polaria-card: var(--t08);
+  --polaria-input: var(--w08);
+  --polaria-cyan: var(--teal);
+  --polaria-muted: var(--w50);
+  --polaria-placeholder: var(--w20);
+  --polaria-footer: var(--w20);
+
+  color-scheme: light;
 }
 
 @theme inline {
@@ -187,7 +241,7 @@ button:disabled,
 
 /* ── Formularios: selects nativos (contraste en lista desplegable) ─────────── */
 .polaria-form-select {
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 
 .polaria-form-select option,
@@ -209,8 +263,8 @@ button:disabled,
   z-index: 50;
   background: linear-gradient(
     180deg,
-    rgba(0, 0, 0, 0.55) 0%,
-    rgba(2, 6, 9, 0.25) 100%
+    var(--topbar-bg-start) 0%,
+    var(--topbar-bg-end) 100%
   );
   backdrop-filter: blur(8px);
 }
@@ -676,7 +730,7 @@ button.polaria-topbar-btn--mateo {
   margin: 0;
   opacity: 0;
   cursor: pointer;
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 
 .polaria-phone-input .PhoneInputCountrySelect option {

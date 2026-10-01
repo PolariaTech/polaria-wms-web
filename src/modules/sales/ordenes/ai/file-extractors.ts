@@ -69,10 +69,49 @@ async function extractFromDocx(buffer: Buffer): Promise<string> {
 // (Marriott/Sheraton): traen la orden de compra completa renderizada como HTML. Se
 // convierte a texto plano en vez de mandarle el markup crudo a la IA (ruido de tags,
 // estilos, y entidades HTML sin decodificar como "&Oacute;").
+// Tablas HTML → dataTable (columnas alineadas); el default de html-to-text aplasta
+// celdas en una sola línea o en lista vertical ilegible.
 function extractFromHtml(buffer: Buffer): string {
-  // Import estático: en Vercel `createRequire(process.cwd())` suele fallar con
-  // MODULE_NOT_FOUND aunque el paquete esté en serverExternalPackages.
-  return htmlToText(buffer.toString("utf8"), { wordwrap: false }).trim();
+  return htmlToText(buffer.toString("utf8"), {
+    wordwrap: false,
+    selectors: [
+      { selector: "a", options: { ignoreHref: true } },
+      { selector: "img", format: "skip" },
+      {
+        selector: "table",
+        format: "dataTable",
+        options: {
+          uppercaseHeaderCells: false,
+          maxColumnWidth: 32,
+        },
+      },
+    ],
+  }).trim();
+}
+
+function htmlTieneTabla(html: string): boolean {
+  return /<table[\s>]/i.test(html);
+}
+
+/**
+ * El text/plain de Outlook/Gmail suele “aplastar” tablas (una celda por línea).
+ * Si hay HTML con <table>, preferimos ese camino con dataTable.
+ */
+function extractCuerpoCorreo(parsed: {
+  text?: string | null;
+  html?: string | false | null;
+}): string {
+  const plain = parsed.text?.trim() || "";
+  const htmlRaw =
+    typeof parsed.html === "string" && parsed.html.trim()
+      ? parsed.html
+      : "";
+  const fromHtml = htmlRaw ? extractFromHtml(Buffer.from(htmlRaw)) : "";
+
+  if (htmlRaw && htmlTieneTabla(htmlRaw) && fromHtml) {
+    return fromHtml;
+  }
+  return plain || fromHtml;
 }
 
 /**
@@ -179,14 +218,14 @@ async function extractFromEml(
 
   const resultado: ArchivoExtraido[] = [];
 
-  const cuerpo =
-    parsed.text?.trim() ||
-    (parsed.html ? extractFromHtml(Buffer.from(parsed.html)) : "");
-  resultado.push({
-    nombre: `${nombreOriginal} — cuerpo`,
-    tipo: "texto",
-    contenido: cuerpo,
-  });
+  const cuerpo = extractCuerpoCorreo(parsed);
+  if (cuerpo.trim()) {
+    resultado.push({
+      nombre: `${nombreOriginal} — cuerpo`,
+      tipo: "texto",
+      contenido: cuerpo,
+    });
+  }
 
   for (const adjunto of parsed.attachments) {
     if (adjunto.contentDisposition !== "attachment") continue; // ignora inline (logos de firma)

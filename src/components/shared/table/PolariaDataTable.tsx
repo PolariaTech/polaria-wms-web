@@ -91,9 +91,8 @@ export function PolariaDataTable<T>({
   const isSearchControlled = search != null;
   const searchValue = isSearchControlled ? search.value : internalSearch;
   const filteredRows = useMemo(
-    () =>
-      isSearchControlled ? [...rows] : filterRowsBySearch(rows, searchValue),
-    [isSearchControlled, rows, searchValue],
+    () => filterRowsBySearch(rows, searchValue),
+    [rows, searchValue],
   );
   const showTable = !isLoading && !error;
   const {

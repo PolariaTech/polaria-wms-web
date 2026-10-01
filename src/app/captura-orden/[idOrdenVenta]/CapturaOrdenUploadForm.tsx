@@ -14,6 +14,7 @@ import { ROUTES } from "@/config/routes";
 
 interface CapturaOrdenUploadFormProps {
   idOrdenVenta: string;
+  idOrdenTrabajo?: string;
   onFilePicked?: () => void;
 }
 
@@ -74,6 +75,7 @@ function readFirstFile(
  */
 export function CapturaOrdenUploadForm({
   idOrdenVenta,
+  idOrdenTrabajo = "",
   onFilePicked,
 }: CapturaOrdenUploadFormProps) {
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -89,7 +91,10 @@ export function CapturaOrdenUploadForm({
   const [error, setError] = useState<string | null>(null);
   const [precision, setPrecision] = useState<number | null>(null);
 
-  const actionUrl = ROUTES.capturaOrdenApi(idOrdenVenta);
+  const actionUrl = ROUTES.capturaOrdenApi(
+    idOrdenVenta,
+    idOrdenTrabajo || undefined,
+  );
 
   const acceptFile = useCallback(
     (picked: File) => {
@@ -200,6 +205,9 @@ export function CapturaOrdenUploadForm({
       fileRef.current = toSend;
       const body = new FormData();
       body.append("foto", toSend, toSend.name || "hoja-surtido.jpg");
+      if (idOrdenTrabajo.trim()) {
+        body.append("ot", idOrdenTrabajo.trim());
+      }
 
       try {
         const response = await fetch(actionUrl, {

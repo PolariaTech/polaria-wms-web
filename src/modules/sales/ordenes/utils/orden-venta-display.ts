@@ -62,6 +62,13 @@ export function formatCompradorOrdenVenta(orden: OrdenVentaDetalleRow): string {
   return nombre || codigo || "—";
 }
 
+/** Solo el nombre del comprador (para PDF de almacén / QR). */
+export function formatCompradorNombreOrdenVenta(
+  orden: OrdenVentaDetalleRow,
+): string {
+  return orden.comprador_nombre?.trim() || orden.comprador_codigo?.trim() || "—";
+}
+
 export function formatObservacionOrdenVenta(
   observaciones: string | null | undefined,
 ): string {

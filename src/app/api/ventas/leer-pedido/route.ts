@@ -5,6 +5,7 @@ import {
   type PedidoExtraido,
 } from "@/modules/sales/ordenes/ai/openai-pedido.client";
 import { listProductosVentaCatalogoServer } from "@/modules/sales/shared/services/sales-catalog.server";
+import { buildTextoOrigenPedido } from "@/modules/sales/ordenes/utils/texto-origen-pedido";
 import OpenAI from "openai";
 
 const PRESENTACIONES = [
@@ -22,6 +23,10 @@ function catalogKey(nombre: string, codigo: string): string {
   return `${nombre} (${codigo})`;
 }
 
+/**
+ * BFF local: misma lógica que antes (extractors + OpenAI + catálogo).
+ * Excluido del rewrite a Nest en next.config para no depender del API en esta pantalla.
+ */
 export async function POST(request: Request): Promise<NextResponse> {
   const authHeader = request.headers.get("authorization");
   const accessToken = authHeader?.startsWith("Bearer ")
@@ -61,9 +66,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   if (!codigoCuenta) {
     return NextResponse.json({ error: "Falta codigoCuenta." }, { status: 400 });
-  }
-  if (!cliente) {
-    return NextResponse.json({ error: "Falta indicar el cliente." }, { status: 400 });
   }
   if (!texto && archivos.length === 0) {
     return NextResponse.json(
@@ -111,6 +113,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
 
     const archivosExtraidos = await extractFiles(uploaded);
+    const textoOrigen = buildTextoOrigenPedido(texto, archivosExtraidos);
     const hoyISO = new Date().toISOString().slice(0, 10);
 
     const { pedido, uso } = await extraerPedido({
@@ -125,10 +128,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       JSON.stringify({
         evento: "leer-pedido",
         exito: true,
-        cliente,
+        cliente: cliente || "(sin cliente)",
         codigoCuenta,
         catalogoProductos: catalogoClaves.length,
         archivos: archivos.length,
+        textoOrigenChars: textoOrigen.length,
         duracionMs: Date.now() - inicio,
         tokensEntrada: uso?.tokensEntrada ?? null,
         tokensSalida: uso?.tokensSalida ?? null,
@@ -137,14 +141,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       }),
     );
 
-    const response: PedidoExtraido = pedido;
+    const response: PedidoExtraido = {
+      ...pedido,
+      textoOrigen: textoOrigen || null,
+    };
     return NextResponse.json(response);
   } catch (err) {
     console.log(
       JSON.stringify({
         evento: "leer-pedido",
         exito: false,
-        cliente,
+        cliente: cliente || "(sin cliente)",
         codigoCuenta,
         archivos: archivos.length,
         duracionMs: Date.now() - inicio,

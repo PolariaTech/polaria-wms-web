@@ -110,6 +110,7 @@ export interface OrdenVentaDetalleRow extends OrdenVentaRow {
   registrar_temperatura?: string | null;
   origen_texto?: string | null;
   origen_archivos?: string | null;
+  origen_correo?: unknown;
 }
 
 export interface CreateOrdenVentaInput {
@@ -148,6 +149,8 @@ export interface CreateOrdenVentaInput {
   registrarTemperatura?: string;
   origenTexto?: string;
   origenArchivos?: readonly string[];
+  /** Renglones estructurados del correo (órdenes de trabajo hijas). */
+  origenCorreo?: readonly Record<string, unknown>[];
   notasLineas?: string;
   notasAlmacen?: string;
 }

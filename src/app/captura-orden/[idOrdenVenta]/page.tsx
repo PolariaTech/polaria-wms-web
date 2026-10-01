@@ -2,6 +2,7 @@ import {
   getOrdenMetaPublica,
   getOrdenSurtidoCaptura,
 } from "@/modules/sales/ordenes/surtido/orden-surtido.service";
+import { normalizeIdOrdenTrabajo } from "@/modules/sales/ordenes/utils/origen-correo-ordenes-trabajo";
 import {
   CapturaOrdenView,
   type CapturaOrdenMetaView,
@@ -29,6 +30,7 @@ export default async function CapturaOrdenPublicPage({
   const { idOrdenVenta: rawId } = await params;
   const query = await searchParams;
   const idOrdenVenta = rawId?.trim() ?? "";
+  const idOrdenTrabajo = normalizeIdOrdenTrabajo(firstParam(query.ot));
 
   const capturaFlash = firstParam(query.captura);
   const flashOk = capturaFlash === "ok";
@@ -46,6 +48,7 @@ export default async function CapturaOrdenPublicPage({
     return (
       <CapturaOrdenView
         idOrdenVenta=""
+        idOrdenTrabajo=""
         meta={null}
         error="Enlace inválido."
         flashOk={false}
@@ -59,17 +62,22 @@ export default async function CapturaOrdenPublicPage({
   let error: string | null = null;
 
   try {
-    const orden = await getOrdenMetaPublica(idOrdenVenta);
+    const orden = await getOrdenMetaPublica(
+      idOrdenVenta,
+      idOrdenTrabajo || null,
+    );
     if (!orden) {
       error = "Orden no encontrada.";
     } else {
-      const captura = orden.tieneCaptura
-        ? await getOrdenSurtidoCaptura(idOrdenVenta)
-        : null;
+      const captura = await getOrdenSurtidoCaptura(
+        idOrdenVenta,
+        idOrdenTrabajo || null,
+      );
       meta = {
         idOrdenVenta: orden.idOrdenVenta,
         folio: orden.folio,
-        tieneCaptura: orden.tieneCaptura || flashOk,
+        idOrdenTrabajo,
+        tieneCaptura: Boolean(captura) || flashOk,
         capturaActualizadaEn: captura?.updatedAt ?? null,
       };
     }
@@ -81,6 +89,7 @@ export default async function CapturaOrdenPublicPage({
   return (
     <CapturaOrdenView
       idOrdenVenta={idOrdenVenta}
+      idOrdenTrabajo={idOrdenTrabajo}
       meta={meta}
       error={error}
       flashOk={flashOk}

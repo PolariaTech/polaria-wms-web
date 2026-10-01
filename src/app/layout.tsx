@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthSessionBootstrap } from "@/components/auth/session/AuthSessionBootstrap";
 import { AuthSessionScript } from "@/components/auth/session/AuthSessionScript";
+import { ThemeBootScript } from "@/components/theme/ThemeBootScript";
+import { ThemeSync } from "@/components/theme/ThemeSync";
 import { POLARIA_PRODUCT_VERSION } from "@/constants/brand/brand";
 import { AuthProvider } from "@/providers/auth/AuthProvider";
 import { PolariaToastProvider } from "@/components/shared/toast/PolariaToastProvider";
@@ -33,9 +35,13 @@ export default function RootLayout({
   return (
     <html
       lang="es"
+      data-theme="dark"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <ThemeBootScript />
+        <ThemeSync />
         <AuthSessionScript />
         <AuthProvider>
           <PolariaToastProvider>

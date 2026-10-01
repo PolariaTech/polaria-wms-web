@@ -1,9 +1,13 @@
 import { useAuthStore } from "@/stores/auth.store";
 import type { PedidoExtraido } from "../ai/openai-pedido.client";
 
+/**
+ * Lee pedido con IA vía BFF Next (`POST /api/ventas/leer-pedido`).
+ * Misma extracción + OpenAI que antes (no pasa por Nest en runtime).
+ */
 export async function leerPedidoConIaApi(input: {
   codigoCuenta: string;
-  cliente: string;
+  cliente?: string;
   texto: string;
   archivos: File[];
 }): Promise<PedidoExtraido> {
@@ -14,7 +18,7 @@ export async function leerPedidoConIaApi(input: {
 
   const form = new FormData();
   form.append("codigoCuenta", input.codigoCuenta);
-  form.append("cliente", input.cliente);
+  form.append("cliente", input.cliente?.trim() || "");
   form.append("texto", input.texto);
   for (const file of input.archivos) {
     form.append("archivos", file);
@@ -31,11 +35,15 @@ export async function leerPedidoConIaApi(input: {
 
   const data = (await response.json().catch(() => ({}))) as {
     error?: string;
+    message?: string | string[];
   } & Partial<PedidoExtraido>;
 
   if (!response.ok) {
+    const msg = Array.isArray(data.message)
+      ? data.message.join(", ")
+      : data.message || data.error;
     throw new Error(
-      data.error || "No se pudo leer el pedido. Intenta de nuevo.",
+      msg || "No se pudo leer el pedido. Intenta de nuevo.",
     );
   }
 

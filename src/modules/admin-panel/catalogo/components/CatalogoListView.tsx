@@ -77,11 +77,10 @@ export function CatalogoListView({
     return runScoped(() =>
       listCatalogoProductosAdmin({
         codigoCuenta,
-        search,
         soloActivos: false,
       }),
     );
-  }, [codigoCuenta, runScoped, search]);
+  }, [codigoCuenta, runScoped]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
     fetchProductos,

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import type { AuthSession } from "@/types/auth/auth";
 import { PerfilMetaRow, perfilInitials } from "./perfil-ui";
+import { PerfilThemeToggle } from "./PerfilThemeToggle";
 
 function displayOrEmpty(value: string | null | undefined): string {
   return value?.trim() || "";
@@ -45,6 +46,8 @@ export function PerfilIdentityCard({ session }: { session: AuthSession }) {
         <PerfilMetaRow icon={Building2} label="Empresa" value={empresa} />
         <PerfilMetaRow icon={Landmark} label="Cuenta" value={cuenta} />
       </div>
+
+      <PerfilThemeToggle />
     </aside>
   );
 }

@@ -47,6 +47,8 @@ export interface OrdenSurtidoCapturaPayload {
 export interface OrdenSurtidoCapturaRow {
   idCaptura: string;
   idOrdenVenta: string;
+  /** Clave OT hija; vacío = captura legacy a nivel OV. */
+  idOrdenTrabajo: string;
   codigoCuenta: string;
   urlFoto: string | null;
   payload: OrdenSurtidoCapturaPayload;

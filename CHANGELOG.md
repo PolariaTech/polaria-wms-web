@@ -2,6 +2,17 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.8.20 — 2026-10-01
+
+- Órdenes de venta: OT por pedido+almacén, pager, preview, precios del documento, body correo en notas.
+- Captura QR / surtido por OT; tema claro-oscuro en perfil; loaders Mateo.
+- Leer pedido con IA sigue en BFF Next (`OPENAI_*` en web). Match estricto de productos/comprador; ficha del comprador no se pisa con basura del PDF.
+
+## 2.8.12 — 2026-09-30
+
+- Órdenes de venta desde mensaje/archivos: órdenes de trabajo por **pedido + almacén**, preview y formulario paginados, precios del documento.
+- Buscador del catálogo admin: filtro en cliente al escribir.
+
 ## 2.7.15 — 2026-09-25
 
 - Admin de cuenta: **Cargar reportes** (URL) y edición de nombre/URL/estado.

@@ -5,6 +5,7 @@ export type { CapturaOrdenMetaView } from "./captura-orden.types";
 
 interface CapturaOrdenViewProps {
   idOrdenVenta: string;
+  idOrdenTrabajo: string;
   meta: CapturaOrdenMetaView | null;
   error: string | null;
   flashOk: boolean;
@@ -17,6 +18,7 @@ interface CapturaOrdenViewProps {
  */
 export function CapturaOrdenView({
   idOrdenVenta,
+  idOrdenTrabajo,
   meta,
   error,
   flashOk,
@@ -73,6 +75,7 @@ export function CapturaOrdenView({
           ) : meta ? (
             <CapturaOrdenCard
               idOrdenVenta={idOrdenVenta}
+              idOrdenTrabajo={idOrdenTrabajo}
               meta={meta}
               flashOk={flashOk}
               flashError={flashError}

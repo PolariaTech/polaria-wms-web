@@ -28,10 +28,12 @@ import {
   ordenVentaTableColumnClass,
 } from "../constants/ordenes-venta-table-layout";
 import {
+  downloadOrdenTareaAlmacenLandscapePdfs,
   downloadOrdenTareaAlmacenPdf,
   printOrdenTareaAlmacen,
 } from "../print/download-orden-tarea-almacen-pdf";
-import { mapOrdenVentaToAlmacenPrintData } from "../print/map-orden-tarea-almacen";
+import { mapOrdenVentaToAlmacenPrintSheets } from "../print/map-orden-tarea-almacen";
+import { normalizeIdOrdenTrabajo } from "../utils/origen-correo-ordenes-trabajo";
 import {
   getOrdenVentaDetalle,
   listOrdenesVentaOperador,
@@ -77,7 +79,7 @@ export function OperadorOrdenesVentaPageContent({
   const printingLockRef = useRef(false);
   const [busyAction, setBusyAction] = useState<{
     id: string;
-    kind: "print" | "download" | "updated";
+    kind: "print" | "download" | "download-landscape" | "updated";
   } | null>(null);
 
   const fetchOrdenes = useCallback(async (): Promise<OrdenesVentaPageData> => {
@@ -134,7 +136,7 @@ export function OperadorOrdenesVentaPageContent({
     [data],
   );
 
-  const loadPrintData = useCallback(
+  const loadPrintSheets = useCallback(
     async (row: OrdenVentaOperadorRow) => {
       let detalle = null;
       if (codigoCuenta) {
@@ -150,7 +152,7 @@ export function OperadorOrdenesVentaPageContent({
         }
       }
 
-      return mapOrdenVentaToAlmacenPrintData({ listRow: row, detalle });
+      return mapOrdenVentaToAlmacenPrintSheets({ listRow: row, detalle });
     },
     [codigoCuenta, runScoped],
   );
@@ -158,44 +160,78 @@ export function OperadorOrdenesVentaPageContent({
   const runOrdenOutput = useCallback(
     async (
       row: OrdenVentaOperadorRow,
-      kind: "print" | "download" | "updated",
+      kind: "print" | "download" | "download-landscape" | "updated",
     ) => {
       if (!codigoCuenta || printingLockRef.current) return;
       printingLockRef.current = true;
       setBusyAction({ id: row.idOrdenVenta, kind });
 
       try {
-        const data = await loadPrintData(row);
+        const sheets = await loadPrintSheets(row);
+        const primary = sheets[0];
+        if (!primary) {
+          throw new Error("No hay datos para generar el PDF.");
+        }
+
         if (kind === "print") {
-          await printOrdenTareaAlmacen(data, { codigoCuenta });
+          await printOrdenTareaAlmacen(primary, { codigoCuenta });
           return;
         }
         if (kind === "download") {
-          await downloadOrdenTareaAlmacenPdf(data);
+          await downloadOrdenTareaAlmacenPdf(primary);
+          return;
+        }
+        if (kind === "download-landscape") {
+          await downloadOrdenTareaAlmacenLandscapePdfs(sheets);
           return;
         }
 
         const response = await fetch(
-          `/captura-orden/${encodeURIComponent(row.idOrdenVenta)}/api`,
+          `/captura-orden/${encodeURIComponent(row.idOrdenVenta)}/api?all=1`,
         );
         const body = (await response.json()) as {
           error?: string;
-          captura?: { payload: import("../surtido/orden-surtido.types").OrdenSurtidoCapturaPayload } | null;
+          capturas?: Array<{
+            idOrdenTrabajo?: string;
+            payload: import("../surtido/orden-surtido.types").OrdenSurtidoCapturaPayload;
+          }>;
+          captura?: {
+            payload: import("../surtido/orden-surtido.types").OrdenSurtidoCapturaPayload;
+          } | null;
         };
         if (!response.ok) {
           throw new Error(body.error || "No se pudo cargar la captura.");
         }
-        if (!body.captura?.payload) {
+
+        const capturas = body.capturas ?? [];
+        if (capturas.length === 0 && !body.captura?.payload) {
           window.alert(
             "Aún no hay PDF actualizado. El jefe debe escanear el QR y subir la foto de la hoja llenada.",
           );
           return;
         }
+
         const { applySurtidoToPrintData } = await import(
           "../surtido/apply-surtido-to-print"
         );
-        const updated = applySurtidoToPrintData(data, body.captura.payload);
-        await downloadOrdenTareaAlmacenPdf(updated, {
+
+        const capturaByOt = new Map(
+          capturas.map((item) => [
+            normalizeIdOrdenTrabajo(item.idOrdenTrabajo),
+            item.payload,
+          ]),
+        );
+        const legacyPayload =
+          capturaByOt.get("") ?? body.captura?.payload ?? null;
+
+        const updatedSheets = sheets.map((sheet) => {
+          const ot = normalizeIdOrdenTrabajo(sheet.idOrdenTrabajo);
+          const payload = capturaByOt.get(ot) ?? (ot ? null : legacyPayload);
+          if (!payload) return sheet;
+          return applySurtidoToPrintData(sheet, payload);
+        });
+
+        await downloadOrdenTareaAlmacenLandscapePdfs(updatedSheets, {
           filenameSuffix: "actualizado",
         });
       } catch (error: unknown) {
@@ -209,7 +245,7 @@ export function OperadorOrdenesVentaPageContent({
         setBusyAction(null);
       }
     },
-    [codigoCuenta, loadPrintData],
+    [codigoCuenta, loadPrintSheets],
   );
 
   const columns = useMemo(
@@ -293,11 +329,23 @@ export function OperadorOrdenesVentaPageContent({
                         }}
                         disabled={busyId && busyAction?.kind === "print"}
                       />
+                      {process.env.NODE_ENV === "development" ? (
+                        <PolariaTableDownloadButton
+                          label="Descargar PDF vertical"
+                          onClick={() => {
+                            void runOrdenOutput(row, "download");
+                          }}
+                          disabled={busyId && busyAction?.kind === "download"}
+                        />
+                      ) : null}
                       <PolariaTableDownloadButton
+                        label="Descargar PDF horizontal"
                         onClick={() => {
-                          void runOrdenOutput(row, "download");
+                          void runOrdenOutput(row, "download-landscape");
                         }}
-                        disabled={busyId && busyAction?.kind === "download"}
+                        disabled={
+                          busyId && busyAction?.kind === "download-landscape"
+                        }
                       />
                       <PolariaTableDownloadButton
                         label="Descargar PDF actualizado (surtido)"

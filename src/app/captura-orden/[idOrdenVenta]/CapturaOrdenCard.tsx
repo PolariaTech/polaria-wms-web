@@ -14,6 +14,7 @@ function labelPrecision(precision: number): string {
 
 interface CapturaOrdenCardProps {
   idOrdenVenta: string;
+  idOrdenTrabajo: string;
   meta: CapturaOrdenMetaView;
   flashOk: boolean;
   flashError: string | null;
@@ -26,6 +27,7 @@ interface CapturaOrdenCardProps {
  */
 export function CapturaOrdenCard({
   idOrdenVenta,
+  idOrdenTrabajo,
   meta,
   flashOk,
   flashError,
@@ -53,6 +55,11 @@ export function CapturaOrdenCard({
           <p className="polaria-text-card-title mt-1 text-polaria-teal">
             {meta.folio}
           </p>
+          {idOrdenTrabajo ? (
+            <p className="polaria-text-caption mt-1 text-polaria-w-50">
+              Orden de trabajo
+            </p>
+          ) : null}
         </div>
         {meta.tieneCaptura || showOk ? (
           <span className="polaria-text-badge shrink-0 rounded-lg border border-polaria-t-20 bg-polaria-bg/60 px-2.5 py-1 text-polaria-teal">
@@ -109,6 +116,7 @@ export function CapturaOrdenCard({
 
       <CapturaOrdenUploadForm
         idOrdenVenta={idOrdenVenta}
+        idOrdenTrabajo={idOrdenTrabajo}
         onFilePicked={onFilePicked}
       />
     </section>

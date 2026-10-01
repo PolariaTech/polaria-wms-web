@@ -22,6 +22,16 @@ export interface LineaExtraida {
   cajas: number | null;
   presentacion: string | null;
   especificacion: string | null;
+  /** PO / número de pedido del hotel (agrupa órdenes de trabajo). */
+  numeroPedido: string | null;
+  /** Centro de consumo / almacén destino del renglón. */
+  almacen: string | null;
+  numeroAlmacen: string | null;
+  referenciaPedido: string | null;
+  codigoProductoCliente: string | null;
+  responsableExterno: string | null;
+  /** Precio unitario del documento (columna Precio), si viene. */
+  precioUnitario: number | null;
 }
 
 export interface PedidoExtraido {
@@ -30,6 +40,11 @@ export interface PedidoExtraido {
   observaciones: string | null;
   /** Número/código de orden de compra del hotel/cliente (PO, OC, etc.). */
   ordenCompraHotel: string | null;
+  /**
+   * Nombre del comprador/hotel/cliente tal como aparece en el mensaje o archivo.
+   * El frontend lo cruza contra el catálogo de compradores.
+   */
+  nombreCliente: string | null;
   rfc: string | null;
   // Petición del usuario (2026-09-04) — nueva regla de precedencia: estos son datos de
   // la FICHA del cliente (normalmente ya registrados y cargados aparte desde la BD), pero
@@ -50,8 +65,18 @@ export interface PedidoExtraido {
   lote: (typeof SI_NO)[number] | null;
   temperatura: (typeof SI_NO)[number] | null;
   lineas: LineaExtraida[];
+  /**
+   * Renglones crudos estilo origen_correo (para agrupar hijas / persistir jsonb).
+   * Se arma en el servidor a partir de las líneas extraídas.
+   */
+  origenCorreo: import("../utils/origen-correo-ordenes-trabajo").OrigenCorreoRenglon[];
   advertencia: string | null;
   archivosNoLegibles: string[];
+  /**
+   * Texto a persistir en origen_texto / notas generales del PDF.
+   * Cuerpo del correo (.eml) o mensaje pegado — no el dump de adjuntos.
+   */
+  textoOrigen?: string | null;
 }
 
 interface ExtraerPedidoInput {
@@ -161,6 +186,13 @@ interface LineaExtraidaRaw {
   cajas: number | null;
   presentacion: string | null;
   especificacion: string | null;
+  numeroPedido: string | null;
+  almacen: string | null;
+  numeroAlmacen: string | null;
+  referenciaPedido: string | null;
+  codigoProductoCliente: string | null;
+  responsableExterno: string | null;
+  precioUnitario: number | null;
 }
 
 interface PedidoExtraidoRaw {
@@ -168,6 +200,7 @@ interface PedidoExtraidoRaw {
   centroConsumo: string | null;
   observaciones: string | null;
   ordenCompraHotel: string | null;
+  nombreCliente: string | null;
   rfc: string | null;
   regimen: (typeof REGIMENES)[number] | null;
   direccion: string | null;
@@ -209,6 +242,11 @@ const RESPONSE_SCHEMA = {
         type: ["string", "null"],
         description:
           "Identificador de la orden de compra del hotel/cliente para ESTE pedido. INTERPRETA el documento: no busques solo una etiqueta fija. El rótulo cambia según el emisor (ej. 'PO NUMBER', 'PO #', 'P.O.', 'Purchase Order', 'Orden de compra', 'OC', 'Nº OC', 'No. de orden', 'Order No.', 'Customer PO', 'Requisition', 'Req #'). Extrae el CÓDIGO/NÚMERO asociado a esa idea (ej. 'CUNMC0046026'), no el título del documento ni el Customer Account # ni fechas. Si hay varios candidatos, elige el que claramente identifica la orden de compra del cliente (suele estar cerca del encabezado PURCHASE ORDER / ORDEN DE COMPRA). null solo si de verdad no aparece ningún identificador de OC/PO.",
+      },
+      nombreCliente: {
+        type: ["string", "null"],
+        description:
+          "Nombre del comprador / hotel / cliente / razón social / cuenta que hace el pedido, tal como aparece en el mensaje o documento (ej. 'Hotel Ava Resorts Cancun', 'Aureliano Buendía', 'Marriott Cancun'). Busca etiquetas como Cliente, Customer, Bill To, Sold To, Hotel, Property, Account Name, Compañía. Devuelve el nombre legible (no el PO ni el RFC). null solo si de verdad no aparece ningún nombre de cliente/hotel.",
       },
       rfc: {
         type: ["string", "null"],
@@ -327,6 +365,41 @@ const RESPONSE_SCHEMA = {
               description:
                 "Cualquier nota/calidad/uso mencionado sobre este producto en particular (ej. 'bien firme, se usa el jueves'). null si no hay.",
             },
+            numeroPedido: {
+              type: ["string", "null"],
+              description:
+                "Número/código de pedido del hotel para ESTE renglón (PO line order, Numero pedido, Order No. distinto por destino). Si el documento trae varios pedidos (387529 Banquetes, 387531 Cocina, etc.), cada línea lleva el suyo. null si no hay.",
+            },
+            almacen: {
+              type: ["string", "null"],
+              description:
+                "Almacén / cocina / centro de consumo de ESTE renglón, tomado de la columna Almacén / Centro de consumo de la tabla (ej. 'BAWH Bar Whisky', 'COPM Coc Plaza Mx', 'COCINA PRINCIPAL'). NO uses el almacén genérico del encabezado (Almacén General, Facturar A) si la fila trae el suyo. null solo si la fila no indica destino.",
+            },
+            numeroAlmacen: {
+              type: ["string", "null"],
+              description:
+                "Código numérico del almacén si viene (ej. '001'). null si no.",
+            },
+            referenciaPedido: {
+              type: ["string", "null"],
+              description:
+                "Texto de referencia del pedido/renglón (ej. 'FYV BANQUETES PARA ENTREGA 29/09/2026…'). null si no.",
+            },
+            codigoProductoCliente: {
+              type: ["string", "null"],
+              description:
+                "SKU/código del producto según el cliente (ej. '00000889'). null si no.",
+            },
+            responsableExterno: {
+              type: ["string", "null"],
+              description:
+                "Nombre del responsable externo/contacto del pedido si aparece por renglón. null si no.",
+            },
+            precioUnitario: {
+              type: ["number", "null"],
+              description:
+                "Precio unitario de ESTE renglón tomado de la columna Precio / P.U. / Precio unitario del documento (número, sin símbolo de moneda ni comas de miles). Ej. 33.00 o 188.00. null si la fila no trae precio.",
+            },
           },
           required: [
             "textoOriginal",
@@ -336,6 +409,13 @@ const RESPONSE_SCHEMA = {
             "cajas",
             "presentacion",
             "especificacion",
+            "numeroPedido",
+            "almacen",
+            "numeroAlmacen",
+            "referenciaPedido",
+            "codigoProductoCliente",
+            "responsableExterno",
+            "precioUnitario",
           ],
           additionalProperties: false,
         },
@@ -346,6 +426,7 @@ const RESPONSE_SCHEMA = {
       "centroConsumo",
       "observaciones",
       "ordenCompraHotel",
+      "nombreCliente",
       "rfc",
       "regimen",
       "direccion",
@@ -546,9 +627,12 @@ export async function extraerPedido({
     buildPresentacionesContext(presentaciones),
     `Reglas importantes:`,
     `- Tu trabajo es solo interpretar lenguaje: identificar qué dice el texto y a qué se refiere. NUNCA hagas cuentas (sumar, multiplicar, calcular una fecha) — eso lo hace el backend con código después de que tú extraigas los datos en crudo.`,
-    `- Completa TODOS los campos del schema cuando el mensaje/archivos los mencionen de forma explícita o inequívoca (fecha, centro, orden de compra/PO, dirección, andén, contacto, teléfono, ventanas/horarios, políticas, observaciones y cada línea). No dejes null un dato que sí aparece.`,
+    `- Completa TODOS los campos del schema cuando el mensaje/archivos los mencionen de forma explícita o inequívoca (fecha, centro, orden de compra/PO, nombre del cliente/hotel, dirección, andén, contacto, teléfono, ventanas/horarios, políticas, observaciones y cada línea). No dejes null un dato que sí aparece.`,
     `- Solo extrae lo que el mensaje/archivos realmente dicen. No inventes cantidades, presentaciones, fechas, direcciones ni contactos que no estén respaldados.`,
-    `- Una línea por producto distinto mencionado.`,
+    `- "nombreCliente": nombre del hotel/comprador/cliente/razón social si aparece (Customer, Bill To, Hotel, Property, Cliente, etc.). No uses el PO ni el RFC como nombre. null solo si no hay ningún nombre.`,
+    `- Una línea por cada fila de producto del documento. Si hay VARIOS Numero pedido / PO, o el MISMO PO con DISTINTOS Almacén / centro de consumo (ej. BAWH Bar Whisky vs COPM Coc Plaza Mx), emite una línea por cada producto×destino con numeroPedido y almacen de ESA fila. NO mezcles destinos ni pedidos en una sola línea. NO omitas filas de páginas intermedias.`,
+    `- "numeroPedido" + "almacen" separan órdenes de trabajo: mismo PO + distinto almacén = otra hija; distinto PO = otra hija aunque el almacén coincida. Copia el texto completo del almacén de la columna (código + nombre).`,
+    `- "precioUnitario": si el documento trae columna Precio / P.U. / Importe unitario por fila, cópialo en cada línea (número). No uses el total/importe de la fila; solo el precio unitario.`,
     `- "cantidad" es el número TOTAL si viene explícito y directo (ej. '40 kilos'); si el mensaje solo da cajas + presentación sin decir el total, deja "cantidad" en null.`,
     `- "observaciones" es del pedido completo, no repitas ahí lo que ya va en una línea.`,
     `- "ordenCompraHotel": interpreta cuál es el identificador de la orden de compra del hotel/cliente. El nombre del campo en el documento VARÍA (PO NUMBER, PO #, Purchase Order, Orden de compra, OC, Nº OC, Order No., Customer PO, etc.). Devuelve solo el código/número (ej. CUNMC0046026), no confundas con Customer Account #, fechas ni el título "PURCHASE ORDER". null solo si no hay ningún identificador de OC/PO.`,
@@ -628,12 +712,58 @@ export async function extraerPedido({
   const parsed = JSON.parse(raw) as PedidoExtraidoRaw;
 
   const lineas: LineaExtraida[] = parsed.lineas.map((l) => ({
-    ...l,
+    textoOriginal: l.textoOriginal,
+    productoCatalogo: l.productoCatalogo,
     // El cálculo determinista manda siempre que sea posible (cajas + presentación con
     // peso parseable); el número que haya dado la IA solo se usa cuando no hay nada
     // que calcular — así el resultado no depende de si el modelo decidió o no hacer
     // la multiplicación por su cuenta.
     cantidad: calcularCantidadDesdeCajas(l.cajas, l.presentacion) ?? l.cantidad,
+    unidad: l.unidad,
+    cajas: l.cajas,
+    presentacion: l.presentacion,
+    especificacion: l.especificacion,
+    numeroPedido: l.numeroPedido?.trim() || null,
+    almacen: l.almacen?.trim() || null,
+    numeroAlmacen: l.numeroAlmacen?.trim() || null,
+    referenciaPedido: l.referenciaPedido?.trim() || null,
+    codigoProductoCliente: l.codigoProductoCliente?.trim() || null,
+    responsableExterno: l.responsableExterno?.trim() || null,
+    precioUnitario:
+      l.precioUnitario != null &&
+      Number.isFinite(l.precioUnitario) &&
+      l.precioUnitario > 0
+        ? l.precioUnitario
+        : null,
+  }));
+
+  const fechaLabel = parsed.fechaEntregaTexto?.trim() || null;
+  const origenCorreo = lineas.map((l, index) => ({
+    Fecha: fechaLabel || "",
+    Unidad: l.unidad === "KGM" ? "KGS" : l.unidad || "",
+    Almacen: l.almacen || parsed.centroConsumo || "",
+    Horario: "",
+    Cantidad: l.cantidad ?? 0,
+    Producto: l.textoOriginal || l.productoCatalogo || "",
+    Precio:
+      l.precioUnitario != null &&
+      Number.isFinite(l.precioUnitario) &&
+      l.precioUnitario > 0
+        ? l.precioUnitario
+        : "",
+    "Numero correo": "",
+    "Numero pedido": l.numeroPedido || parsed.ordenCompraHotel || "",
+    "Nombre cliente":
+      (typeof parsed.nombreCliente === "string"
+        ? parsed.nombreCliente.trim()
+        : "") || "",
+    "Numero almacen": l.numeroAlmacen || "",
+    "Codigo producto": l.codigoProductoCliente || "",
+    "Referencia pedido": l.referenciaPedido || "",
+    "Responsable externo": l.responsableExterno || "",
+    "Responsable interno": "",
+    "Referencia del cliente": "",
+    _lineaIndex: index,
   }));
 
   // Base para el hallazgo "sin logging de costo" (dominio Integraciones) y el hallazgo
@@ -672,6 +802,7 @@ export async function extraerPedido({
     centroConsumo: parsed.centroConsumo,
     observaciones: parsed.observaciones,
     ordenCompraHotel: parsed.ordenCompraHotel?.trim() || null,
+    nombreCliente: parsed.nombreCliente?.trim() || null,
     rfc: parsed.rfc,
     regimen: parsed.regimen,
     direccion: parsed.direccion,
@@ -685,6 +816,7 @@ export async function extraerPedido({
     lote: parsed.lote,
     temperatura: parsed.temperatura,
     lineas,
+    origenCorreo,
     advertencia: parsed.advertencia,
     archivosNoLegibles,
   };

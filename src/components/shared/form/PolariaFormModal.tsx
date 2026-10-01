@@ -20,6 +20,8 @@ export interface PolariaFormModalProps {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   error?: string | null;
   isSubmitting?: boolean;
+  /** Icono/slot de carga en el botón enviar (por defecto spinner). */
+  submittingIndicator?: ReactNode;
   /** Deshabilita solo el botón de envío (sin bloquear cerrar/cancelar). */
   submitDisabled?: boolean;
   submitLabel?: string;
@@ -34,6 +36,8 @@ export interface PolariaFormModalProps {
   scrollClassName?: string;
   /** Reemplaza el botón principal del pie (p. ej. acción de detalle). */
   footerAction?: ReactNode;
+  /** Contenido a la izquierda del pie (p. ej. paginación), siempre visible fuera del scroll. */
+  footerLeading?: ReactNode;
   /** Oculta por completo la barra de acciones del pie (p. ej. modales de solo lectura). */
   hideFooter?: boolean;
   /** Oculta el botón Cerrar de la cabecera (deja el del pie). */
@@ -74,6 +78,7 @@ export function PolariaFormModal({
   onSubmit,
   error,
   isSubmitting = false,
+  submittingIndicator,
   submitDisabled = false,
   submitLabel = "Guardar",
   cancelLabel = "Cancelar",
@@ -83,6 +88,7 @@ export function PolariaFormModal({
   size,
   scrollClassName: scrollClassNameProp,
   footerAction,
+  footerLeading,
   hideFooter = false,
   hideHeaderClose = false,
   asForm = true,
@@ -156,7 +162,8 @@ export function PolariaFormModal({
     scrollClassNameProp,
   );
   const footerClassName = cn(
-    "flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-polaria-w-08",
+    "flex shrink-0 flex-wrap items-center gap-3 border-t border-polaria-w-08",
+    footerLeading ? "justify-between" : "justify-end",
     compact ? "mt-3 pt-3" : "mt-4 pt-4",
   );
 
@@ -177,46 +184,56 @@ export function PolariaFormModal({
 
       {hideFooter ? null : (
         <div className={footerClassName}>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className={cn(
-              "rounded-xl border border-polaria-w-08 px-4 py-2.5",
-              "polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal",
-              "disabled:cursor-not-allowed disabled:opacity-50",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-            )}
-          >
-            {cancelLabel}
-          </button>
+          {footerLeading ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              {footerLeading}
+            </div>
+          ) : null}
 
-          {footerAction ?? (
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <button
-              type={asForm ? "submit" : "button"}
-              disabled={isSubmitting || submitDisabled}
-              onClick={
-                asForm
-                  ? undefined
-                  : (event) => {
-                      onSubmit(
-                        event as unknown as FormEvent<HTMLFormElement>,
-                      );
-                    }
-              }
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
               className={cn(
-                "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
-                "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
-                "disabled:cursor-not-allowed disabled:opacity-60",
+                "rounded-xl border border-polaria-w-08 px-4 py-2.5",
+                "polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal",
+                "disabled:cursor-not-allowed disabled:opacity-50",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
               )}
             >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : null}
-              {submitLabel}
+              {cancelLabel}
             </button>
-          )}
+
+            {footerAction ?? (
+              <button
+                type={asForm ? "submit" : "button"}
+                disabled={isSubmitting || submitDisabled}
+                onClick={
+                  asForm
+                    ? undefined
+                    : (event) => {
+                        onSubmit(
+                          event as unknown as FormEvent<HTMLFormElement>,
+                        );
+                      }
+                }
+                className={cn(
+                  "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
+                  "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
+                  "disabled:cursor-not-allowed disabled:opacity-60",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                )}
+              >
+                {isSubmitting ? (
+                  submittingIndicator ?? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  )
+                ) : null}
+                {submitLabel}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </>

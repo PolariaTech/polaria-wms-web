@@ -20,6 +20,7 @@ import {
 import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
+import { MateoIaLoadingScreen } from "@/components/mateo/MateoIaLoadingScreen";
 import {
   formatDecimalInputEs,
   formatKgEs,
@@ -62,6 +63,9 @@ import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-no
 import { OrdenVentaCompradorPickerModal } from "./OrdenVentaCompradorPickerModal";
 import { OrdenVentaProductoPickerModal } from "./OrdenVentaProductoPickerModal";
 import { leerPedidoConIaApi } from "../services/sales-ai.api";
+import { OrdenTrabajoPreviewList } from "./OrdenTrabajoPreviewList";
+import { OrdenTrabajoPager } from "./OrdenTrabajoPager";
+import { OrigenPedidoBodyView } from "./OrigenPedidoBodyView";
 import {
   buildOrdenVentaCapturaObservaciones,
   isAfterWarehouseCutoff,
@@ -70,13 +74,21 @@ import {
   tomorrowIsoDate,
 } from "../utils/build-orden-venta-captura-observaciones";
 import {
+  groupOrigenCorreoToOrdenesTrabajo,
+  type OrigenCorreoRenglon,
+  type OrdenTrabajoHija,
+} from "../utils/origen-correo-ordenes-trabajo";
+import {
   isVentanaDesdeMayorQueHasta,
   validatePedidoCabecera,
 } from "../utils/pedido-form-validation";
+import { hasOtPagerRequiredBlocking } from "../utils/ot-pager-required";
+import { cleanCorreoBodyForNotas } from "../utils/texto-origen-pedido";
 import {
   mapPedidoExtraidoToForm,
   type CampoDiscrepancia,
 } from "../utils/map-pedido-extraido-to-form";
+import { matchCompradorFromNombre } from "../utils/match-comprador-from-nombre";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/prefill-orden-venta-from-comprador";
 import {
   formatCompradorOrdenVenta,
@@ -90,7 +102,7 @@ interface OrdenVentaCreateModalProps {
   idOrdenVenta?: string | null;
 }
 
-type CaptureStep = "start" | "form";
+type CaptureStep = "start" | "preview" | "form";
 type StartMode = "first_time" | "scratch" | "docs";
 type PickerKind = "comprador" | "producto" | null;
 
@@ -112,6 +124,8 @@ interface LineaVentaForm {
   precioManual?: boolean;
   aliasCliente?: string;
   filledByIa?: boolean;
+  /** Clave de orden de trabajo para paginar el formulario docs. */
+  otId?: string;
 }
 
 function fieldControlClass(params: {
@@ -314,6 +328,13 @@ export function OrdenVentaCreateModal({
   const [registrarTemperatura, setRegistrarTemperatura] = useState("");
   const [origenTexto, setOrigenTexto] = useState("");
   const [origenArchivoFiles, setOrigenArchivoFiles] = useState<File[]>([]);
+  const [origenCorreoDraft, setOrigenCorreoDraft] = useState<
+    OrigenCorreoRenglon[]
+  >([]);
+  const [ordenesTrabajoPreview, setOrdenesTrabajoPreview] = useState<
+    OrdenTrabajoHija[]
+  >([]);
+  const [formOtPage, setFormOtPage] = useState(0);
   const [lineas, setLineas] = useState<LineaVentaForm[]>([]);
   const [productosBase, setProductosBase] = useState<ProductoVentaOption[]>(
     [],
@@ -416,19 +437,134 @@ export function OrdenVentaCreateModal({
     });
   }, [precioOverrideByProducto, productosBase]);
 
+  const ordenesTrabajoForm = useMemo(() => {
+    if (ordenesTrabajoPreview.length > 0) return ordenesTrabajoPreview;
+    return groupOrigenCorreoToOrdenesTrabajo(origenCorreoDraft);
+  }, [ordenesTrabajoPreview, origenCorreoDraft]);
+
+  const previewHijas = ordenesTrabajoForm;
+
+  const formOtSafePagePreview =
+    previewHijas.length > 0
+      ? Math.min(formOtPage, previewHijas.length - 1)
+      : 0;
+
+  const paginarPorOt =
+    startMode === "docs" &&
+    ordenesTrabajoForm.length > 1 &&
+    lineas.some((linea) => Boolean(linea.otId));
+
+  const formOtSafePage = paginarPorOt
+    ? Math.min(formOtPage, ordenesTrabajoForm.length - 1)
+    : 0;
+
+  const hijaFormActiva = paginarPorOt
+    ? (ordenesTrabajoForm[formOtSafePage] ?? null)
+    : null;
+
+  useEffect(() => {
+    if (step !== "form" || startMode !== "docs") return;
+
+    const hija =
+      hijaFormActiva ??
+      (ordenesTrabajoForm.length === 1 ? ordenesTrabajoForm[0] : null);
+    const almacen = hija?.almacen?.trim() || "";
+    if (!almacen) return;
+
+    setCentroConsumo(almacen);
+    setAutoFields((prev) => {
+      if (prev.has("centroConsumo")) return prev;
+      const next = new Set(prev);
+      next.add("centroConsumo");
+      return next;
+    });
+    setWarnFields((prev) => {
+      if (!prev.has("centroConsumo")) return prev;
+      const next = new Set(prev);
+      next.delete("centroConsumo");
+      return next;
+    });
+    setMissingFields((prev) => {
+      if (!prev.has("centroConsumo")) return prev;
+      const next = new Set(prev);
+      next.delete("centroConsumo");
+      return next;
+    });
+  }, [
+    hijaFormActiva,
+    ordenesTrabajoForm,
+    startMode,
+    step,
+  ]);
+
+  const lineasConIndice = useMemo(() => {
+    const indexed = lineas.map((linea, index) => ({ linea, index }));
+    if (!hijaFormActiva) return indexed;
+    const filtradas = indexed.filter(
+      ({ linea }) => linea.otId === hijaFormActiva.id,
+    );
+    return filtradas.length > 0 ? filtradas : indexed;
+  }, [hijaFormActiva, lineas]);
+
+  const lineasParaTotales = useMemo(
+    () => lineasConIndice.map(({ linea }) => linea),
+    [lineasConIndice],
+  );
+
+  const otPagerNextBlocked = useMemo(() => {
+    if (!paginarPorOt || step !== "form") return false;
+    return hasOtPagerRequiredBlocking({
+      idComprador,
+      exigeOc,
+      ordenCompraHotel,
+      idBodegaDestino,
+      fechaEntrega,
+      todayIso: todayIsoDate(),
+      ventanaDesde,
+      ventanaHasta,
+      lineasPagina: lineasConIndice.map(({ linea }) => ({
+        cantidadInput: linea.cantidadInput,
+        precioInput: linea.precioInput,
+      })),
+    });
+  }, [
+    exigeOc,
+    fechaEntrega,
+    idBodegaDestino,
+    idComprador,
+    lineasConIndice,
+    ordenCompraHotel,
+    paginarPorOt,
+    step,
+    ventanaDesde,
+    ventanaHasta,
+  ]);
+
   const subtotalVenta = useMemo(
-    () => lineas.reduce((sum, linea) => sum + lineAmounts(linea).bruto, 0),
-    [lineas],
+    () =>
+      lineasParaTotales.reduce(
+        (sum, linea) => sum + lineAmounts(linea).bruto,
+        0,
+      ),
+    [lineasParaTotales],
   );
 
   const descuentosVenta = useMemo(
-    () => lineas.reduce((sum, linea) => sum + lineAmounts(linea).descuento, 0),
-    [lineas],
+    () =>
+      lineasParaTotales.reduce(
+        (sum, linea) => sum + lineAmounts(linea).descuento,
+        0,
+      ),
+    [lineasParaTotales],
   );
 
   const ivaVenta = useMemo(
-    () => lineas.reduce((sum, linea) => sum + lineAmounts(linea).iva, 0),
-    [lineas],
+    () =>
+      lineasParaTotales.reduce(
+        (sum, linea) => sum + lineAmounts(linea).iva,
+        0,
+      ),
+    [lineasParaTotales],
   );
 
   const totalVenta = useMemo(
@@ -438,11 +574,11 @@ export function OrdenVentaCreateModal({
 
   const pesoTotalKg = useMemo(
     () =>
-      lineas.reduce((sum, linea) => {
+      lineasParaTotales.reduce((sum, linea) => {
         const cantidad = parseDecimalEs(linea.cantidadInput) ?? 0;
         return sum + Math.max(0, cantidad);
       }, 0),
-    [lineas],
+    [lineasParaTotales],
   );
 
   useEffect(() => {
@@ -475,6 +611,9 @@ export function OrdenVentaCreateModal({
     setRegistrarTemperatura("");
     setOrigenTexto("");
     setOrigenArchivoFiles([]);
+    setOrigenCorreoDraft([]);
+    setOrdenesTrabajoPreview([]);
+    setFormOtPage(0);
     setLineas([]);
     setProductosBase([]);
     setPrecioOverrideByProducto({});
@@ -573,7 +712,16 @@ export function OrdenVentaCreateModal({
         setAceptaSustituciones(detalle.acepta_sustituciones?.trim() || "");
         setRequiereLote(detalle.requiere_lote?.trim() || "");
         setRegistrarTemperatura(detalle.registrar_temperatura?.trim() || "");
-        setOrigenTexto(detalle.origen_texto?.trim() || "");
+        setOrigenTexto(
+          cleanCorreoBodyForNotas(detalle.origen_texto?.trim() || ""),
+        );
+        const origenCorreoRows = Array.isArray(detalle.origen_correo)
+          ? (detalle.origen_correo as OrigenCorreoRenglon[])
+          : [];
+        setOrigenCorreoDraft(origenCorreoRows);
+        setOrdenesTrabajoPreview(
+          groupOrigenCorreoToOrdenesTrabajo(origenCorreoRows),
+        );
         if (detalle.id_bodega_destino?.trim()) {
           setIdBodegaDestino(detalle.id_bodega_destino.trim());
         }
@@ -714,6 +862,12 @@ export function OrdenVentaCreateModal({
       setFichaComprador(null);
       setExigeOc(false);
     setError(null);
+      setMissingFields((prev) => {
+        if (!prev.has("cliente")) return prev;
+        const next = new Set(prev);
+        next.delete("cliente");
+        return next;
+      });
       setPrecioOverrideByProducto({});
       setEquivalenciaByProducto({});
 
@@ -786,12 +940,13 @@ export function OrdenVentaCreateModal({
           unidadMedida: row.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
           precioUnitario: row.precioUnitario,
           precioInput: formatPrecioInput(row.precioUnitario),
+          otId: hijaFormActiva?.id,
         },
       ];
     });
     setError(null);
     setIdBodegaDestino((prev) => prev || row.idBodega);
-  }, []);
+  }, [hijaFormActiva?.id]);
 
   useEffect(() => {
     if (!cantidadFocusId || picker !== null) return;
@@ -944,10 +1099,6 @@ export function OrdenVentaCreateModal({
       setError("No hay cuenta activa.");
       return;
     }
-    if (!idComprador) {
-      setError("Selecciona un cliente.");
-      return;
-    }
     if (!origenTexto.trim() && origenArchivoFiles.length === 0) {
       setError("Pega el texto del pedido o adjunta al menos un archivo.");
       return;
@@ -959,17 +1110,58 @@ export function OrdenVentaCreateModal({
     try {
       const pedido = await leerPedidoConIaApi({
         codigoCuenta,
-        cliente: compradorLabel || idComprador,
+        cliente: compradorLabel || undefined,
         texto: origenTexto,
         archivos: origenArchivoFiles,
       });
 
-      const fichaBase = fichaComprador
+      const matchedComprador = matchCompradorFromNombre(
+        pedido.nombreCliente,
+        compradores,
+      );
+
+      let fichaForMap = fichaComprador;
+      let idCompradorForMap = idComprador;
+      let telefonoForMap = telefono;
+
+      // Solo auto-asigna comprador si el usuario aún no eligió uno.
+      // Match estricto (nombre/código exacto); no cambia una selección manual.
+      if (matchedComprador && !idComprador) {
+        handleSelectComprador(matchedComprador);
+        idCompradorForMap = matchedComprador.idComprador;
+        telefonoForMap = matchedComprador.telefono?.trim() || telefono;
+        try {
+          const detalle = await getCompradorAdmin({
+            codigoCuenta,
+            idComprador: matchedComprador.idComprador,
+          });
+          if (selectedCompradorIdRef.current === matchedComprador.idComprador) {
+            applyCompradorPrefill(matchedComprador, detalle.ficha);
+            fichaForMap = detalle.ficha;
+          }
+        } catch {
+          /* se mantiene el match; ficha puede quedar vacía */
+        }
+      } else if (!idComprador && pedido.nombreCliente?.trim()) {
+        selectedCompradorIdRef.current = "";
+        setIdComprador("");
+        setCompradorLabel(`No encontrado: ${pedido.nombreCliente.trim()}`);
+        setFichaComprador(null);
+        setExigeOc(false);
+      } else if (!idComprador) {
+        selectedCompradorIdRef.current = "";
+        setIdComprador("");
+        setCompradorLabel("");
+        setFichaComprador(null);
+        setExigeOc(false);
+      }
+
+      const fichaBase = fichaForMap
         ? buildOrdenVentaPrefillFromComprador({
-            ficha: fichaComprador,
+            ficha: fichaForMap,
             telefonoComprador:
-              compradores.find((row) => row.idComprador === idComprador)
-                ?.telefono ?? telefono,
+              compradores.find((row) => row.idComprador === idCompradorForMap)
+                ?.telefono ?? telefonoForMap,
           })
         : {
             centroConsumo,
@@ -978,7 +1170,7 @@ export function OrdenVentaCreateModal({
             direccion,
             anden,
             contacto,
-            telefono,
+            telefono: telefonoForMap,
             aceptaSustituciones: "",
             requiereLote: "",
             registrarTemperatura: "",
@@ -1021,7 +1213,13 @@ export function OrdenVentaCreateModal({
       setRegistrarTemperatura(mapped.registrarTemperatura);
       setAutoFields(mapped.autoFields);
       setWarnFields(mapped.warnFields);
-      setMissingFields(mapped.missingFields);
+      const nextMissing = new Set(mapped.missingFields);
+      if (!matchedComprador && !idCompradorForMap) {
+        nextMissing.add("cliente");
+      } else {
+        nextMissing.delete("cliente");
+      }
+      setMissingFields(nextMissing);
       setDiscrepancias(mapped.discrepancias);
       setLineas(
         mapped.lineas.map((linea) => ({
@@ -1039,8 +1237,10 @@ export function OrdenVentaCreateModal({
           unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
           precioUnitario: linea.precioUnitario,
           precioInput: formatPrecioInput(linea.precioUnitario),
+          precioManual: linea.precioManual,
           aliasCliente: linea.aliasCliente,
           filledByIa: linea.filledByIa,
+          otId: linea.otId,
         })),
       );
 
@@ -1056,9 +1256,28 @@ export function OrdenVentaCreateModal({
           "No se reconocieron productos del catálogo. Revisa el pedido y agrégalos a mano.",
         );
       }
+      if (!matchedComprador && !idCompradorForMap) {
+        avisos.push(
+          pedido.nombreCliente?.trim()
+            ? `El cliente «${pedido.nombreCliente.trim()}» no está en compradores. Selecciónalo para continuar.`
+            : "Selecciona el cliente para continuar.",
+        );
+      }
 
       setStartMode("docs");
-      setStep("form");
+      const origenRows = Array.isArray(pedido.origenCorreo)
+        ? pedido.origenCorreo
+        : [];
+      setOrigenCorreoDraft(origenRows);
+      setOrdenesTrabajoPreview(groupOrigenCorreoToOrdenesTrabajo(origenRows));
+      setFormOtPage(0);
+      // Persistir body del correo / mensaje para notas generales del PDF.
+      if (!origenTexto.trim() && pedido.textoOrigen?.trim()) {
+        setOrigenTexto(cleanCorreoBodyForNotas(pedido.textoOrigen));
+      } else if (origenTexto.trim()) {
+        setOrigenTexto(cleanCorreoBodyForNotas(origenTexto));
+      }
+      setStep(origenRows.length > 0 ? "preview" : "form");
       setError(avisos.length > 0 ? avisos.join(" ") : null);
     } catch (err) {
       setError(
@@ -1071,6 +1290,7 @@ export function OrdenVentaCreateModal({
     }
   }, [
     anden,
+    applyCompradorPrefill,
     centroConsumo,
     codigoCuenta,
     compradorLabel,
@@ -1078,6 +1298,7 @@ export function OrdenVentaCreateModal({
     contacto,
     direccion,
     fichaComprador,
+    handleSelectComprador,
     idComprador,
     observaciones,
     origenArchivoFiles,
@@ -1184,7 +1405,9 @@ export function OrdenVentaCreateModal({
       setIsSaving(true);
 
       const persistOrigenTexto =
-        isEditing || startMode === "docs" ? origenTexto : "";
+        isEditing || startMode === "docs"
+          ? cleanCorreoBodyForNotas(origenTexto)
+          : "";
       const persistOrigenArchivos =
         startMode === "docs" ? origenArchivos : [];
       const notasLineasText = lineas
@@ -1233,6 +1456,7 @@ export function OrdenVentaCreateModal({
         registrarTemperatura,
         origenTexto: persistOrigenTexto,
         origenArchivos: persistOrigenArchivos,
+        origenCorreo: origenCorreoDraft,
         notasLineas: notasLineasText,
         notasAlmacen: observaciones,
         observaciones: buildOrdenVentaCapturaObservaciones({
@@ -1354,6 +1578,7 @@ export function OrdenVentaCreateModal({
       onCreated,
       ordenCompraHotel,
       origenArchivos,
+      origenCorreoDraft,
       origenTexto,
       pendingEmitId,
       bodegasDestino,
@@ -1381,7 +1606,6 @@ export function OrdenVentaCreateModal({
       : "Captura manual";
 
   const docsReady =
-    Boolean(idComprador) &&
     Boolean(origenTexto.trim() || origenArchivoFiles.length > 0) &&
     productos.length > 0 &&
     !isReadingIa;
@@ -1407,33 +1631,51 @@ export function OrdenVentaCreateModal({
     });
   }, []);
 
+  const showMateoLoading = open && (isReadingIa || isSaving);
+  const mateoLoadingMessage = isReadingIa
+    ? "Cargando pedido…"
+    : "Enviando pedido…";
+
   return (
     <>
+      {showMateoLoading ? (
+        <MateoIaLoadingScreen message={mateoLoadingMessage} />
+      ) : null}
+
       <PolariaFormModal
-        open={open}
+        open={open && !showMateoLoading}
         onClose={onClose}
         title={
           isEditing
             ? "Editar pedido"
             : step === "form"
               ? "Pedido"
-              : "Nuevo pedido"
+              : step === "preview"
+                ? "Órdenes de trabajo detectadas"
+                : "Nuevo pedido"
         }
         description={
           isEditing
             ? "Actualiza los datos del pedido"
             : step === "form"
               ? formDescription
-              : startMode === "docs"
-                ? "Tengo el mensaje o archivos"
-                : "¿Cómo quieres empezar?"
+              : step === "preview"
+                ? "Previsualización antes de confirmar el formulario"
+                : startMode === "docs"
+                  ? "Tengo el mensaje o archivos"
+                  : "¿Cómo quieres empezar?"
         }
         onSubmit={(event) => {
           void handleSubmit(event);
         }}
         error={error}
-        isSubmitting={isSaving}
-        submitDisabled={isLoading || !hasProductos || lineas.length === 0}
+        isSubmitting={false}
+        submitDisabled={
+          step === "preview" ||
+          isLoading ||
+          !hasProductos ||
+          lineas.length === 0
+        }
         submitLabel={
           isEditing && editingEstado !== "borrador"
             ? "Guardar cambios"
@@ -1443,7 +1685,54 @@ export function OrdenVentaCreateModal({
         size={step === "start" ? "lg" : "2xl"}
         hideHeaderClose
         asForm={step === "form"}
-        footerAction={step === "start" ? <></> : undefined}
+        footerLeading={
+          step === "preview" && previewHijas.length > 1 ? (
+            <OrdenTrabajoPager
+              page={formOtSafePagePreview}
+              total={previewHijas.length}
+              onPrev={() => setFormOtPage((p) => Math.max(0, p - 1))}
+              onNext={() =>
+                setFormOtPage((p) =>
+                  Math.min(Math.max(previewHijas.length - 1, 0), p + 1),
+                )
+              }
+            />
+          ) : step === "form" && paginarPorOt ? (
+            <OrdenTrabajoPager
+              page={formOtSafePage}
+              total={ordenesTrabajoForm.length}
+              label="Pedido OT"
+              nextDisabled={otPagerNextBlocked}
+              nextDisabledHint="Completa los campos obligatorios (*) para continuar"
+              onPrev={() => setFormOtPage((p) => Math.max(0, p - 1))}
+              onNext={() =>
+                setFormOtPage((p) =>
+                  Math.min(ordenesTrabajoForm.length - 1, p + 1),
+                )
+              }
+            />
+          ) : undefined
+        }
+        footerAction={
+          step === "preview" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setFormOtPage(0);
+                setStep("form");
+                setError(null);
+              }}
+              className={cn(
+                "rounded-xl bg-polaria-teal px-5 py-2.5",
+                "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
+              )}
+            >
+              Continuar al formulario
+            </button>
+          ) : step === "start" ? (
+            <></>
+          ) : undefined
+        }
         closeOnEscape={
           picker === null &&
           !isCompradorCreateOpen &&
@@ -1470,7 +1759,7 @@ export function OrdenVentaCreateModal({
               )}
             >
               <p className="polaria-text-card-title text-base text-polaria-w">
-                Primera vez
+                Registrar comprador
               </p>
             </button>
 
@@ -1526,18 +1815,18 @@ export function OrdenVentaCreateModal({
             <PolariaFormField
                 id="orden-venta-docs-cliente"
                 label="Cliente"
-                hint="De esto dependen los precios y la traducción de nombres de producto."
+                hint="Opcional aquí: si el archivo trae el comprador y existe en catálogo, se asigna solo. Si no, lo eliges después."
               compact
-                required
             >
               <JefeBodegaModalSearchField
                   id="orden-venta-docs-cliente"
                 value={compradorLabel}
-                  placeholder="Selecciona el cliente"
+                  placeholder="Selecciona el cliente (opcional)"
                   ariaLabel="Cliente"
                   compact
                   controlClassName={fieldControlClass({
-                    missing: !idComprador,
+                    field: "cliente",
+                    missingFields,
                   })}
                 onSearchClick={() => setPicker("comprador")}
               />
@@ -1642,17 +1931,25 @@ export function OrdenVentaCreateModal({
                 onClick={() => {
                   void openFormFromDocs();
                 }}
-                disabled={!docsReady}
+                disabled={!docsReady || isReadingIa}
                 className={cn(
-                  "mt-4 rounded-xl bg-polaria-teal px-5 py-2.5",
+                  "mt-4 inline-flex items-center justify-center gap-2.5 rounded-xl bg-polaria-teal px-5 py-2.5",
                   "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
                   "disabled:cursor-not-allowed disabled:opacity-50",
                 )}
               >
-                {isReadingIa ? "Leyendo el pedido…" : "Leer y llenar el formulario"}
+                Leer y llenar el formulario
               </button>
             </div>
           </div>
+        ) : null}
+
+        {step === "preview" && !isLoading ? (
+          <OrdenTrabajoPreviewList
+            clienteLabel={compradorLabel}
+            hijas={previewHijas}
+            page={formOtSafePagePreview}
+          />
         ) : null}
 
         {step === "form" && !isLoading ? (
@@ -1676,6 +1973,23 @@ export function OrdenVentaCreateModal({
               </p>
             </div>
 
+            {paginarPorOt && hijaFormActiva ? (
+              <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
+                <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
+                  Orden de trabajo {formOtSafePage + 1}/{ordenesTrabajoForm.length}
+                </p>
+                <p className="mt-1 polaria-text-card-title text-polaria-w">
+                  {hijaFormActiva.label}
+                </p>
+                <p className="mt-0.5 polaria-text-caption text-polaria-w-50">
+                  Centro: {hijaFormActiva.almacen || "—"}
+                  {hijaFormActiva.numeroPedido
+                    ? ` · OC ${hijaFormActiva.numeroPedido}`
+                    : ""}
+                </p>
+              </div>
+            ) : null}
+
             {!hasProductos ? (
               <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-4 py-3 polaria-text-body-sm text-polaria-warning">
                 {emptyCatalogMessage}
@@ -1688,9 +2002,7 @@ export function OrdenVentaCreateModal({
                   De dónde salió este pedido
                 </p>
                 {origenTexto.trim() ? (
-                  <p className="mt-2 border-l-2 border-polaria-teal pl-3 polaria-text-body-sm text-polaria-w">
-                    «{origenTexto.trim()}»
-                  </p>
+                  <OrigenPedidoBodyView text={origenTexto} />
                 ) : null}
                 {origenArchivos.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -1730,6 +2042,8 @@ export function OrdenVentaCreateModal({
                         ariaLabel="Cliente"
                         compact
                         controlClassName={fieldControlClass({
+                          field: "cliente",
+                          missingFields,
                           missing: !idComprador,
                         })}
                         onSearchClick={() => setPicker("comprador")}
@@ -2127,7 +2441,7 @@ export function OrdenVentaCreateModal({
                       </tr>
                     </thead>
                     <tbody>
-                        {lineas.length === 0 ? (
+                        {lineasConIndice.length === 0 ? (
                           <tr>
                             <td
                               colSpan={9}
@@ -2138,11 +2452,11 @@ export function OrdenVentaCreateModal({
                             </td>
                           </tr>
                         ) : (
-                          lineas.map((linea, index) => {
+                          lineasConIndice.map(({ linea, index }) => {
                             const { importe } = lineAmounts(linea);
                             return (
                               <tr
-                                key={linea.idProducto}
+                                key={`${linea.idProducto}-${index}`}
                           className="border-b border-polaria-w-08 last:border-b-0"
                         >
                                 <td className="px-1 py-2 align-top">
@@ -2354,7 +2668,7 @@ export function OrdenVentaCreateModal({
 
                 <div className="hidden" aria-hidden>
                   {lineas.map((linea, index) => (
-                    <div key={`hidden-pack-${linea.idProducto}`}>
+                    <div key={`hidden-pack-${linea.idProducto}-${index}`}>
                       <input
                         aria-label={`Cajas de ${linea.nombre}`}
                         tabIndex={-1}
@@ -2494,15 +2808,10 @@ export function OrdenVentaCreateModal({
                             compact
                             fieldClassName="sm:col-span-2"
                           />
-                          <p className="sm:col-span-3 polaria-text-body-sm text-polaria-w-50">
-                            El WMS no timbra CFDI. Estos datos salen del comprador
-                            y se resuelven en facturación.
-                          </p>
                         </div>
                       ) : (
                         <p className="polaria-text-body-sm text-polaria-w-50">
-                          Selecciona un cliente para ver su ficha fiscal. El WMS
-                          no timbra CFDI.
+                          Selecciona un cliente para ver su ficha fiscal.
                         </p>
                       )}
                     </div>
