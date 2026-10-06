@@ -104,7 +104,7 @@ export function PerfilMetaRow({
 }
 
 export const perfilPrimaryButtonClass =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-polaria-teal px-5 py-2.5 font-semibold text-polaria-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-polaria-teal px-5 py-2.5 font-semibold text-polaria-on-teal transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const perfilGhostButtonClass =
   "inline-flex min-h-11 items-center justify-center rounded-xl border border-polaria-w-08 bg-transparent px-4 py-2.5 polaria-text-body-sm font-medium text-polaria-w-50 transition hover:border-polaria-t-20 hover:text-polaria-w disabled:cursor-not-allowed disabled:opacity-60";

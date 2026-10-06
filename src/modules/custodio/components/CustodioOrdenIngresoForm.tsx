@@ -384,7 +384,7 @@ export function CustodioOrdenIngresoForm({
           "mt-auto w-full rounded-xl px-3 py-3 font-semibold leading-snug transition",
           "disabled:cursor-not-allowed disabled:opacity-50",
           canSubmit && !isSubmitting
-            ? "bg-polaria-teal text-sm font-semibold text-polaria-bg hover:opacity-90"
+            ? "bg-polaria-teal text-sm font-semibold text-polaria-on-teal hover:opacity-90"
             : "border border-polaria-w-08 bg-polaria-w-08 polaria-text-caption text-polaria-w-50",
         )}
       >

@@ -507,7 +507,7 @@ export function CustodioOrdenSalidaColumn({
                       onClick={handleArmarPaquete}
                       className={cn(
                         "mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5",
-                        "bg-polaria-teal polaria-text-body-sm font-semibold text-polaria-bg",
+                        "bg-polaria-teal polaria-text-body-sm font-semibold text-polaria-on-teal",
                         "transition hover:opacity-90",
                         "disabled:cursor-not-allowed disabled:opacity-50",
                       )}
@@ -586,7 +586,7 @@ export function CustodioOrdenSalidaColumn({
                   onClick={() => void handleEnviarPaquete()}
                   className={cn(
                     "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5",
-                    "bg-polaria-teal polaria-text-body-sm font-semibold text-polaria-bg",
+                    "bg-polaria-teal polaria-text-body-sm font-semibold text-polaria-on-teal",
                     "transition hover:opacity-90",
                     "disabled:cursor-not-allowed disabled:opacity-50",
                   )}

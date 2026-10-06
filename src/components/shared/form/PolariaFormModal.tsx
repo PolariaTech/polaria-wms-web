@@ -220,7 +220,7 @@ export function PolariaFormModal({
                 }
                 className={cn(
                   "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
-                  "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
+                  "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
                   "disabled:cursor-not-allowed disabled:opacity-60",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
                 )}

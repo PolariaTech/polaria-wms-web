@@ -32,7 +32,7 @@ export function PerfilThemeToggle() {
             "polaria-text-body-sm font-medium transition",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
             isDark
-              ? "bg-polaria-teal text-polaria-bg shadow-sm"
+              ? "bg-polaria-teal text-polaria-on-teal shadow-sm"
               : "text-polaria-w-50 hover:text-polaria-w",
           )}
         >
@@ -48,7 +48,7 @@ export function PerfilThemeToggle() {
             "polaria-text-body-sm font-medium transition",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
             !isDark
-              ? "bg-polaria-teal text-polaria-bg shadow-sm"
+              ? "bg-polaria-teal text-polaria-on-teal shadow-sm"
               : "text-polaria-w-50 hover:text-polaria-w",
           )}
         >

@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { campoSurtido } from "../surtido/apply-surtido-to-print";
+import { campoSurtido, campoSurtidoExact } from "../surtido/apply-surtido-to-print";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 import { PRODUCTOS_POR_HOJA_TAREA } from "./map-orden-tarea-almacen";
 
@@ -348,7 +348,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
     y += roleH + roleGap;
   }
   y += 1;
-  const incidenciasTexto = campoSurtido(
+  const incidenciasTexto = campoSurtidoExact(
     data.surtido,
     "incidencias",
     "Incidencias",

@@ -126,6 +126,29 @@ describe("PolariaDataTable", () => {
     expect(button).not.toHaveTextContent("Importar Excel");
   });
 
+  it("el CTA primario usa tinta fija sobre teal", () => {
+    render(
+      <PolariaDataTable<Row>
+        title="Solicitudes de compra"
+        isLoading={false}
+        error={null}
+        rows={[]}
+        columns={columns}
+        getRowKey={(row) => row.id}
+        emptyMessage="Sin registros"
+        primaryAction={{
+          label: "Nueva solicitud",
+          onClick: () => undefined,
+        }}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: /Nueva solicitud/i });
+    expect(button.className).toContain("bg-polaria-teal");
+    expect(button.className).toContain("text-polaria-on-teal");
+    expect(button.className).not.toContain("text-polaria-bg");
+  });
+
   it("muestra estado vacío", () => {
     render(
       <PolariaDataTable<Row>

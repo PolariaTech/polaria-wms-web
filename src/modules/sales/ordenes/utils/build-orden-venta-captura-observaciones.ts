@@ -320,10 +320,21 @@ export function notaCapturaForProducto(
   const prefix = `${nombre}: `;
   for (const line of notasLineas.split("\n")) {
     if (line.startsWith(prefix)) {
-      return line.slice(prefix.length).trim();
+      return stripSurtidoMetaFromEspecificacion(
+        line.slice(prefix.length).trim(),
+      );
     }
   }
   return "";
+}
+
+/** Quita prep/inc que no pertenecen a la columna Especificación del PDF. */
+export function stripSurtidoMetaFromEspecificacion(raw: string): string {
+  return raw
+    .replace(/\s*·\s*prep\s+[^·]+/gi, "")
+    .replace(/\s*·\s*inc\s+[A-Za-z0-9]+/gi, "")
+    .replace(/\s*·\s*$/g, "")
+    .trim();
 }
 
 export function formatCapturaFecha(value: string): string {

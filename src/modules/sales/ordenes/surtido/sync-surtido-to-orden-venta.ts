@@ -165,21 +165,25 @@ function buildNotasLineasFromSurtido(
 ): string {
   const lines: string[] = [];
   for (const linea of payload.lineas ?? []) {
-    const parts: string[] = [];
-    if (linea.especificacion?.trim()) {
-      parts.push(linea.especificacion.trim());
+    // Solo especificación de producto → columna Especificación del PDF.
+    // prep / código de incidencia / nota de fila no van aquí (no son especificación).
+    const espec = linea.especificacion?.trim();
+    if (!espec) continue;
+    const incidencias = (
+      payload.campos?.incidencias ||
+      payload.campos?.Incidencias ||
+      ""
+    ).trim();
+    if (
+      incidencias &&
+      espec.toLowerCase().replace(/\s+/g, " ") ===
+        incidencias.toLowerCase().replace(/\s+/g, " ")
+    ) {
+      continue;
     }
-    if (linea.cantidadPreparada?.trim()) {
-      parts.push(`prep ${linea.cantidadPreparada.trim()}`);
-    }
-    if (linea.codigoIncidencia?.trim()) {
-      parts.push(`inc ${linea.codigoIncidencia.trim()}`);
-    }
-    if (linea.nota?.trim()) parts.push(linea.nota.trim());
-    if (parts.length === 0) continue;
     const producto =
       productosByIndex.get(linea.indice)?.trim() || `Línea ${linea.indice}`;
-    lines.push(`${producto}: ${parts.join(" · ")}`);
+    lines.push(`${producto}: ${espec}`);
   }
   return lines.join("\n");
 }

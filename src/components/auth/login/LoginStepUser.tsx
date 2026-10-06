@@ -121,7 +121,7 @@ export function LoginStepUser({
           type="submit"
           disabled={isLoading || !identificador.trim()}
           className={cn(
-            "flex w-full items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-3 text-sm font-semibold text-polaria-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60",
+            "flex w-full items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-3 text-sm font-semibold text-polaria-on-teal transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60",
           )}
         >
           {isLoading ? (

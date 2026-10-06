@@ -19,7 +19,7 @@ export function LoginStepSuccess({ session }: LoginStepSuccessProps) {
     <div className="polaria-card-glow rounded-2xl border border-polaria-t-20 bg-polaria-t-08 p-6 backdrop-blur-xl sm:p-8">
       <div className="flex flex-col items-center text-center">
         <div className="polaria-teal-glow mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-polaria-teal">
-          <Check className="h-10 w-10 text-polaria-bg" strokeWidth={3} />
+          <Check className="h-10 w-10 text-polaria-on-teal" strokeWidth={3} />
         </div>
 
         <h2 className="text-2xl font-bold text-polaria-w">

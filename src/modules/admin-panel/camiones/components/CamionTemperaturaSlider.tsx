@@ -50,7 +50,7 @@ export function CamionTemperaturaSlider({
               className={cn(
                 "rounded-lg border px-2.5 py-1 text-xs font-medium transition",
                 active
-                  ? "border-polaria-teal bg-polaria-teal text-polaria-bg"
+                  ? "border-polaria-teal bg-polaria-teal text-polaria-on-teal"
                   : "border-polaria-t-20 bg-polaria-w-08 text-polaria-w-50 hover:border-polaria-teal hover:text-polaria-w",
                 "disabled:cursor-not-allowed disabled:opacity-50",
               )}

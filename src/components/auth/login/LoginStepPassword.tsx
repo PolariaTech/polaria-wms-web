@@ -99,7 +99,7 @@ export function LoginStepPassword({
             type="submit"
             disabled={isLoading || !password}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-3 text-sm font-semibold text-polaria-bg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60",
+              "flex flex-1 items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-3 text-sm font-semibold text-polaria-on-teal transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60",
             )}
           >
             {isLoading ? (

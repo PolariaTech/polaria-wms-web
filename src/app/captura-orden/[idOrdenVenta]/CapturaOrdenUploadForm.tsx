@@ -16,17 +16,11 @@ interface CapturaOrdenUploadFormProps {
   idOrdenVenta: string;
   idOrdenTrabajo?: string;
   onFilePicked?: () => void;
+  onUploadOk?: () => void;
 }
 
 const MAX_SELECT_BYTES = 10 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 3.5 * 1024 * 1024;
-
-function labelPrecision(precision: number): string {
-  if (precision >= 85) return "Alta";
-  if (precision >= 60) return "Media";
-  if (precision >= 35) return "Baja";
-  return "Muy baja";
-}
 
 function formatSize(file: File): string {
   return `${file.name || "foto.jpg"} · ${(file.size / (1024 * 1024)).toFixed(1)} MB`;
@@ -75,19 +69,21 @@ export function CapturaOrdenUploadForm({
   idOrdenVenta,
   idOrdenTrabajo = "",
   onFilePicked,
+  onUploadOk,
 }: CapturaOrdenUploadFormProps) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<File | null>(null);
   const lastKeyRef = useRef("");
   const uploadingRef = useRef(false);
   const uploadFnRef = useRef<(picked?: File) => void>(() => {});
+  const onUploadOkRef = useRef(onUploadOk);
+  onUploadOkRef.current = onUploadOk;
 
   const [fileLabel, setFileLabel] = useState<string | null>(null);
   const [hasFile, setHasFile] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [precision, setPrecision] = useState<number | null>(null);
 
   const actionUrl = ROUTES.capturaOrdenApi(
     idOrdenVenta,
@@ -108,7 +104,6 @@ export function CapturaOrdenUploadForm({
         setFileLabel(formatSize(picked));
         setHasFile(true);
         setError(null);
-        setPrecision(null);
         setDone(false);
       });
       window.setTimeout(() => uploadFnRef.current(picked), 0);
@@ -213,7 +208,6 @@ export function CapturaOrdenUploadForm({
         let data: {
           ok?: boolean;
           error?: string;
-          precisionEstimada?: number;
         } = {};
         try {
           data = (await response.json()) as typeof data;
@@ -223,11 +217,7 @@ export function CapturaOrdenUploadForm({
 
         if (response.ok && data.ok) {
           setDone(true);
-          setPrecision(
-            typeof data.precisionEstimada === "number"
-              ? data.precisionEstimada
-              : null,
-          );
+          onUploadOkRef.current?.();
           return;
         }
 
@@ -246,18 +236,7 @@ export function CapturaOrdenUploadForm({
 
   uploadFnRef.current = upload;
 
-  const resetAll = () => {
-    uploadingRef.current = false;
-    lastKeyRef.current = "";
-    fileRef.current = null;
-    if (cameraRef.current) cameraRef.current.value = "";
-    setFileLabel(null);
-    setHasFile(false);
-    setSubmitting(false);
-    setDone(false);
-    setError(null);
-    setPrecision(null);
-  };
+  if (done) return null;
 
   const pickerClass =
     "absolute inset-0 z-20 m-0 h-full w-full cursor-pointer p-0";
@@ -265,23 +244,17 @@ export function CapturaOrdenUploadForm({
     opacity: 0.01,
     fontSize: 16,
     WebkitTapHighlightColor: "transparent",
-    pointerEvents: submitting || done ? "none" : "auto",
+    pointerEvents: submitting ? "none" : "auto",
   } as const;
 
   const pillClass =
-    "relative flex h-14 w-full items-center justify-center overflow-hidden rounded-full bg-polaria-teal px-6 font-semibold text-polaria-bg hover:opacity-90";
+    "relative flex h-14 w-full items-center justify-center overflow-hidden rounded-full bg-polaria-teal px-6 font-semibold text-polaria-on-teal hover:opacity-90";
 
   return (
     <div className="space-y-4">
-      {fileLabel && !done ? (
+      {fileLabel ? (
         <p className="text-center polaria-text-caption text-polaria-w-50">
           {fileLabel}
-        </p>
-      ) : null}
-
-      {precision != null && done ? (
-        <p className="text-center polaria-text-body-sm text-polaria-teal">
-          {precision}% · {labelPrecision(precision)}
         </p>
       ) : null}
 
@@ -291,50 +264,36 @@ export function CapturaOrdenUploadForm({
         </p>
       ) : null}
 
-      {!done ? (
-        submitting ? (
-          <div className={cn(pillClass, "pointer-events-none opacity-70")}>
-            Subiendo…
-          </div>
-        ) : (
-          <div className={pillClass}>
-            <input
-              ref={cameraRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={onReactChange}
-              className={pickerClass}
-              style={pickerStyle}
-              aria-label="Tomar foto"
-            />
-            <span className="pointer-events-none relative z-0 flex items-center gap-3 text-sm font-semibold text-polaria-bg">
-              <svg
-                viewBox="0 0 24 24"
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M4.5 8.5h2.2l1.1-2h6.4l1.1 2H19.5A1.5 1.5 0 0 1 21 10v7.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V10A1.5 1.5 0 0 1 4.5 8.5Z" />
-                <circle cx="12" cy="13.5" r="3.1" />
-              </svg>
-              <span className="h-5 w-px bg-polaria-w-08" aria-hidden />
-              Tomar foto
-            </span>
-          </div>
-        )
+      {submitting ? (
+        <div className={cn(pillClass, "pointer-events-none opacity-70")}>
+          Subiendo…
+        </div>
       ) : (
-        <button
-          type="button"
-          onClick={resetAll}
-          className="flex h-14 w-full items-center justify-center rounded-full border border-polaria-t-20 bg-polaria-t-08 font-semibold text-polaria-w hover:opacity-90"
-        >
-          Tomar otra foto
-        </button>
+        <div className={pillClass}>
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={onReactChange}
+            className={pickerClass}
+            style={pickerStyle}
+            aria-label="Tomar foto"
+          />
+          <svg
+            viewBox="0 0 24 24"
+            className="pointer-events-none relative z-0 h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M4.5 8.5h2.2l1.1-2h6.4l1.1 2H19.5A1.5 1.5 0 0 1 21 10v7.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V10A1.5 1.5 0 0 1 4.5 8.5Z" />
+            <circle cx="12" cy="13.5" r="3.1" />
+          </svg>
+        </div>
       )}
     </div>
   );

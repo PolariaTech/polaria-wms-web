@@ -180,7 +180,7 @@ export function PolariaDataTable<T>({
                 action.disabled
                   ? "cursor-not-allowed border border-polaria-w-08 text-polaria-w-20 opacity-60"
                   : action.variant === "primary"
-                    ? "bg-polaria-teal text-polaria-bg hover:opacity-90"
+                    ? "bg-polaria-teal text-polaria-on-teal hover:opacity-90"
                     : "border border-polaria-t-20 text-polaria-teal hover:bg-polaria-t-08",
               )}
             >
@@ -195,7 +195,7 @@ export function PolariaDataTable<T>({
               onClick={primaryAction.onClick}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-xl bg-polaria-teal px-4 py-2",
-                "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
+                "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
               )}
             >

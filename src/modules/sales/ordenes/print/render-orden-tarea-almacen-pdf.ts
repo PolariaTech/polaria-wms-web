@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import {
   campoSurtido,
+  campoSurtidoExact,
   checkSurtido,
 } from "../surtido/apply-surtido-to-print";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
@@ -616,7 +617,7 @@ export function buildOrdenTareaAlmacenPdf(
     }
   });
   y += sigH + 3;
-  const incidenciasTexto = campoSurtido(
+  const incidenciasTexto = campoSurtidoExact(
     data.surtido,
     "incidencias",
     "Incidencias",
