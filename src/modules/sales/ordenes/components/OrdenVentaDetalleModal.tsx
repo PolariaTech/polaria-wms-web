@@ -15,6 +15,8 @@ import {
 } from "../../shared/constants/sales-status";
 import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
 import { getOrdenVentaDetalle } from "../../shared/services/sales.service";
+import { postOrdenVentaLog } from "../services/orden-venta-log.client";
+import { useAuthStore } from "@/stores/auth.store";
 import type {
   OrdenVentaDetalleRow,
   OrdenVentaLineaRow,
@@ -41,6 +43,7 @@ import {
   resolveOrdenVentaLineaTitulo,
   sumOrdenVentaCantidadKg,
 } from "../utils/orden-venta-display";
+import { OrdenTrabajoLogPanel } from "./OrdenTrabajoLogPanel";
 
 interface OrdenVentaDetalleModalProps {
   idOrdenVenta: string | null;
@@ -169,18 +172,26 @@ function DetalleContent({
   return (
     <>
       {hija ? (
-        <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
-          <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
-            Orden de trabajo
-          </p>
-          <p className="mt-1 polaria-text-body-sm font-semibold text-polaria-w">
-            {hija.label}
-          </p>
-          {hija.referenciaPedido ? (
-            <p className="mt-1 polaria-text-caption text-polaria-w-50">
-              {hija.referenciaPedido}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
+            <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
+              Orden de trabajo
             </p>
-          ) : null}
+            <p className="mt-1 polaria-text-body-sm font-semibold text-polaria-w">
+              {hija.label}
+            </p>
+            {hija.referenciaPedido ? (
+              <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                {hija.referenciaPedido}
+              </p>
+            ) : null}
+          </div>
+          <OrdenTrabajoLogPanel
+            idOrdenVenta={orden.id_orden_venta}
+            codigoCuenta={orden.codigo_cuenta}
+            createdAt={orden.created_at || orden.fecha_pedido}
+            autorNombre={orden.vendedor}
+          />
         </div>
       ) : null}
 
@@ -474,6 +485,18 @@ export function OrdenVentaDetalleModal({
               }
             : prev,
         );
+        const session = useAuthStore.getState().session;
+        if (codigoCuenta) {
+          void postOrdenVentaLog({
+            idOrdenVenta,
+            codigoCuenta,
+            accion: "cambio_estado",
+            mensaje: `Pedido emitido por ${session?.nombre?.trim() || "usuario"}.`,
+            idUsuario: session?.idUsuario ?? null,
+            autorNombre: session?.nombre ?? null,
+            payloadExtra: { estadoNuevo: row.estado },
+          });
+        }
         onEmitted?.();
         reloadDetalle({ silent: true });
       })
