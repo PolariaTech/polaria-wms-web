@@ -48,6 +48,7 @@ import {
 } from "../../shared/constants/sales-status";
 import { fetchProductosVentaCatalogo } from "../../shared/services/sales-catalog.api";
 import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
+import { postOrdenVentaLog } from "../services/orden-venta-log.client";
 import {
   createOrdenVenta,
   getCuentaIdBodegaDefault,
@@ -1585,10 +1586,28 @@ export function OrdenVentaCreateModal({
         if (isEditing && editingId) {
           await updateOrdenVenta({ ...payload, idOrdenVenta: editingId });
           idOrdenVenta = editingId;
+          void postOrdenVentaLog({
+            idOrdenVenta: editingId,
+            codigoCuenta,
+            accion: "actualizacion",
+            mensaje: `Orden actualizada por ${session?.nombre?.trim() || "usuario"}.`,
+            idUsuario: idCreador || null,
+            autorNombre: session?.nombre ?? null,
+            idBodega: payload.idBodega ?? null,
+          });
         } else if (!idOrdenVenta) {
           const created = await createOrdenVenta(payload);
           idOrdenVenta = created.idOrdenVenta;
           setPendingEmitId(idOrdenVenta);
+          void postOrdenVentaLog({
+            idOrdenVenta,
+            codigoCuenta,
+            accion: "creacion",
+            mensaje: `Esta orden fue creada por ${session?.nombre?.trim() || payload.vendedor?.trim() || "vendedor"}.`,
+            idUsuario: idCreador || null,
+            autorNombre: session?.nombre || payload.vendedor || null,
+            idBodega: payload.idBodega ?? null,
+          });
         }
 
         if (shouldEmit) {
@@ -1601,6 +1620,15 @@ export function OrdenVentaCreateModal({
 
           try {
             await emitirOrdenVentaApi(idOrdenVenta);
+            void postOrdenVentaLog({
+              idOrdenVenta,
+              codigoCuenta,
+              accion: "cambio_estado",
+              mensaje: `Pedido enviado a bodega (emitido) por ${session?.nombre?.trim() || "usuario"}.`,
+              idUsuario: idCreador || null,
+              autorNombre: session?.nombre ?? null,
+              payloadExtra: { estadoNuevo: "confirmada" },
+            });
           } catch (emitErr: unknown) {
             // Si el pedido ya salió a bodega en un intento previo, no bloquear.
             const emitMessage =
@@ -1673,6 +1701,7 @@ export function OrdenVentaCreateModal({
       pendingEmitId,
       bodegasDestino,
       prioridad,
+      session,
       startMode,
       discrepancias,
       step,

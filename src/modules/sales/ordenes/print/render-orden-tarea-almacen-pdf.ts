@@ -530,40 +530,41 @@ export function buildOrdenTareaAlmacenPdf(
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
   y += 3;
 
+  // Alistó/Revisó/Factura/Retorno: caja en blanco; tras escaneo se vuelca lo escrito.
+  // Solo Despachó tiene dos campos (nombre + fecha) con títulos Firma/Fecha.
   const roles: Array<{
     role: string;
-    showNombreHora: boolean;
-    nombreKeys: string[];
-    horaKeys: string[];
+    esDespacho?: boolean;
+    textoKeys: string[];
+    fechaKeys?: string[];
   }> = [
     {
       role: "Alistó",
-      showNombreHora: false,
-      nombreKeys: [],
-      horaKeys: [],
+      textoKeys: ["alistoNombre", "Alistó nombre", "Alistó"],
     },
     {
       role: "Revisó",
-      showNombreHora: false,
-      nombreKeys: [],
-      horaKeys: [],
+      textoKeys: ["revisoNombre", "Revisó nombre", "Revisó"],
     },
     {
       role: "Factura (OK)",
-      showNombreHora: false,
-      nombreKeys: [],
-      horaKeys: [],
+      textoKeys: [
+        "facturaOkNombre",
+        "Factura (OK) nombre",
+        "documentoNombre",
+        "Documentó nombre",
+      ],
     },
     {
       role: "Despachó",
-      showNombreHora: true,
-      nombreKeys: [
+      esDespacho: true,
+      textoKeys: [
         "despachoFirma",
         "Despachó firma",
         "despachoNombre",
         "Despachó nombre",
       ],
-      horaKeys: [
+      fechaKeys: [
         "despachoFecha",
         "Despachó fecha",
         "despachoHora",
@@ -572,9 +573,7 @@ export function buildOrdenTareaAlmacenPdf(
     },
     {
       role: "Retorno",
-      showNombreHora: false,
-      nombreKeys: [],
-      horaKeys: [],
+      textoKeys: ["retornoNombre", "Retorno nombre", "Retorno"],
     },
   ];
   const sigW = CONTENT_W / roles.length;
@@ -584,35 +583,46 @@ export function buildOrdenTareaAlmacenPdf(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.text(item.role, x + 1.6, y + 1.6, { baseline: "top" });
-    if (!item.showNombreHora) return;
 
-    const nombre = campoSurtido(data.surtido, ...item.nombreKeys);
-    const firma = campoSurtido(data.surtido, ...item.horaKeys);
-    if (nombre) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.text(nombre, x + 1.6, y + 12.2, {
-        baseline: "top",
-        maxWidth: sigW / 2 - 3,
-      });
-    } else {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.8);
-      doc.text("Firma", x + 1.6, y + 12.2, { baseline: "top" });
+    const texto = campoSurtido(data.surtido, ...item.textoKeys);
+    if (item.esDespacho) {
+      const fecha = campoSurtido(data.surtido, ...(item.fechaKeys ?? []));
+      if (texto) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.text(texto, x + 1.6, y + 12.2, {
+          baseline: "top",
+          maxWidth: sigW / 2 - 3,
+        });
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.8);
+        doc.text("Firma", x + 1.6, y + 12.2, { baseline: "top" });
+      }
+      if (fecha) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.text(fecha, x + sigW - 1.6, y + 12.2, {
+          align: "right",
+          baseline: "top",
+        });
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.8);
+        doc.text("Fecha", x + sigW - 1.6, y + 12.2, {
+          align: "right",
+          baseline: "top",
+        });
+      }
+      return;
     }
-    if (firma) {
+
+    if (texto) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6.5);
-      doc.text(firma, x + sigW - 1.6, y + 12.2, {
-        align: "right",
+      doc.text(texto, x + 1.6, y + 12.2, {
         baseline: "top",
-      });
-    } else {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.8);
-      doc.text("Fecha", x + sigW - 1.6, y + 12.2, {
-        align: "right",
-        baseline: "top",
+        maxWidth: sigW - 3.2,
       });
     }
   });
