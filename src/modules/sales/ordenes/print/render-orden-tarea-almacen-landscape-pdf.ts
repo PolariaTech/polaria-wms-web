@@ -190,11 +190,11 @@ export function drawOrdenTareaAlmacenLandscapePage(
 ): void {
   const folio = data.folio || "—";
   const isActualizado = Boolean(data.surtido);
-  const factura = campoSurtido(
+  // Exacto: no usar "factura" suelto (fuzzy cruzaba con Factura (OK) nombre).
+  const factura = campoSurtidoExact(
     data.surtido,
     "facturaAsociada",
     "Factura asociada",
-    "factura",
   );
 
   const leftX = MARGIN;

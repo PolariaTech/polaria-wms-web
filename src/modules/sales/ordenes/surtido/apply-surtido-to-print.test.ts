@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applySurtidoToPrintData } from "./apply-surtido-to-print";
+import {
+  applySurtidoToPrintData,
+  campoSurtido,
+  campoSurtidoExact,
+} from "./apply-surtido-to-print";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
 
 const BASE: OrdenTareaAlmacenPrintData = {
@@ -100,6 +104,31 @@ describe("applySurtidoToPrintData", () => {
 
     expect(updated.lineas[0]?.especificacion).toBe("sin hielo");
     expect(updated.surtido?.campos.incidencias).toBe("");
+  });
+
+  it("no pinta Factura asociada con el nombre de Factura (OK)", () => {
+    const payload = {
+      campos: {
+        facturaOkNombre: "Luis Cantillo",
+        "Factura (OK) nombre": "Luis Cantillo",
+        alistoNombre: "Luis Cantillo",
+      },
+      checks: {},
+      lineas: [],
+    };
+    const updated = applySurtidoToPrintData(BASE, payload);
+
+    expect(
+      campoSurtidoExact(
+        updated.surtido,
+        "facturaAsociada",
+        "Factura asociada",
+      ),
+    ).toBe("");
+    // Regresión: alias corto "factura" no debe cruzar con Factura (OK).
+    expect(campoSurtido(payload, "facturaAsociada", "Factura asociada", "factura")).toBe(
+      "",
+    );
   });
 
   it("rellena cabecera vacía del PDF con lo manuscrito", () => {

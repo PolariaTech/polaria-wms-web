@@ -4,6 +4,7 @@ import type {
   OrdenSurtidoLineaCaptura,
 } from "../surtido/orden-surtido.types";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
+import { sanitizeFacturaAsociada } from "./openai-surtido.client";
 
 function normalizeLooseText(value: string): string {
   return value
@@ -79,12 +80,19 @@ export function applySurtidoToPrintData(
   original: OrdenTareaAlmacenPrintData,
   surtido: OrdenSurtidoCapturaPayload,
 ): OrdenTareaAlmacenPrintData {
+  const camposLimpios = { ...surtido.campos };
+  sanitizeFacturaAsociada(camposLimpios);
+  const surtidoLimpio: OrdenSurtidoCapturaPayload = {
+    ...surtido,
+    campos: camposLimpios,
+  };
+
   const byIndex = new Map(
-    surtido.lineas.map((linea) => [linea.indice, linea] as const),
+    surtidoLimpio.lineas.map((linea) => [linea.indice, linea] as const),
   );
 
   const incidenciasRaw = campoSurtidoExact(
-    surtido,
+    surtidoLimpio,
     "incidencias",
     "Incidencias",
   );
@@ -118,7 +126,7 @@ export function applySurtidoToPrintData(
     centroConsumo: fillIfEmpty(
       original.centroConsumo,
       campoSurtido(
-        surtido,
+        surtidoLimpio,
         "centroConsumo",
         "Centro de consumo",
         "Centro de consumo / cocina",
@@ -126,7 +134,7 @@ export function applySurtidoToPrintData(
     ),
     numeroOrdenCliente:
       campoSurtido(
-        surtido,
+        surtidoLimpio,
         "numeroOrdenCliente",
         "ordenCompraHotel",
         "# de orden del cliente",
@@ -134,11 +142,11 @@ export function applySurtidoToPrintData(
         "Orden de compra del hotel",
       ) || original.numeroOrdenCliente,
     fechaEntrega:
-      campoSurtido(surtido, "fechaEntrega", "Fecha de entrega") ||
+      campoSurtido(surtidoLimpio, "fechaEntrega", "Fecha de entrega") ||
       original.fechaEntrega,
     horaEntrega:
       campoSurtido(
-        surtido,
+        surtidoLimpio,
         "horaEntrega",
         "Hora de entrega",
         "horaComprometida",
@@ -147,7 +155,7 @@ export function applySurtidoToPrintData(
     direccionEntrega: fillIfEmpty(
       original.direccionEntrega,
       campoSurtido(
-        surtido,
+        surtidoLimpio,
         "direccionEntrega",
         "Dirección de entrega",
         "Direccion de entrega",
@@ -155,13 +163,13 @@ export function applySurtidoToPrintData(
     ),
     notasGenerales: original.notasGenerales,
     surtido: {
-      ...surtido,
+      ...surtidoLimpio,
       campos: {
-        ...surtido.campos,
+        ...surtidoLimpio.campos,
         incidencias,
         Incidencias: incidencias,
       },
-      checks: surtido.checks ?? {},
+      checks: surtidoLimpio.checks ?? {},
     },
     lineas,
   };
@@ -220,13 +228,14 @@ export function campoSurtido(
     if (exact?.[1]?.trim()) return exact[1].trim();
   }
   // Fuzzy solo si la clave pedida no es incidencias (evita cruces con especificación).
+  // Evitar needles cortas tipo "factura" → matcheaban "facturaoknombre".
   const askingIncidencias = keys.some(
     (key) => normalizeCampoKey(key) === "incidencias",
   );
   if (askingIncidencias) return "";
   for (const key of keys) {
     const needle = normalizeCampoKey(key);
-    if (!needle) continue;
+    if (!needle || needle.length < 10) continue;
     const found = entries.find(([k, v]) => k.includes(needle) && v?.trim());
     if (found?.[1]?.trim()) return found[1].trim();
   }
