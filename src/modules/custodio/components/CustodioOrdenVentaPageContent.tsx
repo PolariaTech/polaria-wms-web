@@ -8,7 +8,10 @@ import {
 } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import { formatEstadoOrdenVenta } from "@/modules/sales/shared/constants/sales-status";
+import {
+  formatEstadoOrdenVenta,
+  variantEstadoOrdenVenta,
+} from "@/modules/sales/shared/constants/sales-status";
 import { listOrdenesVentaOperador } from "@/modules/sales";
 import type { OrdenVentaOperadorRow } from "@/modules/sales";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
@@ -21,18 +24,8 @@ import { CustodioTabPageShell } from "./CustodioTabPageShell";
 import { CustodioTableCellText } from "./CustodioTableCellText";
 
 function renderEstadoBadge(estado: OrdenVentaOperadorRow["estado"]) {
-  const normalized = estado.toLowerCase();
-  const variant =
-    normalized === "despachada" || normalized === "cerrada"
-      ? "positive"
-      : normalized === "cancelada"
-        ? "neutral"
-        : normalized === "confirmada" || normalized === "en_preparacion"
-          ? "warning"
-          : "neutral";
-
   return (
-    <PolariaTableBadge variant={variant}>
+    <PolariaTableBadge variant={variantEstadoOrdenVenta(estado)}>
       {formatEstadoOrdenVenta(estado)}
     </PolariaTableBadge>
   );
@@ -101,7 +94,7 @@ export function CustodioOrdenVentaPageContent() {
         },
         {
           id: "fecha",
-          header: "Fecha",
+          header: "Fecha de creación",
           cell: (row: OrdenVentaOperadorRow) => formatDateTime(row.fecha),
           headerClassName: custodioOrdenVentaColumnClass("fecha"),
           cellClassName: custodioOrdenVentaColumnClass("fecha"),

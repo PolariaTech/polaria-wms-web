@@ -30,6 +30,7 @@ export function applySurtidoToPrintData(
         "numeroOrdenCliente",
         "ordenCompraHotel",
         "# de orden del cliente",
+        "Orden de compra del cliente",
         "Orden de compra del hotel",
       ) || original.numeroOrdenCliente,
     fechaEntrega:
@@ -52,13 +53,7 @@ export function applySurtidoToPrintData(
         "Direccion de entrega",
       ),
     ),
-    notasGenerales:
-      campoSurtido(
-        surtido,
-        "notasGenerales",
-        "Notas generales",
-        "notasAlmacen",
-      ) || original.notasGenerales,
+    notasGenerales: original.notasGenerales,
     surtido: {
       ...surtido,
       checks: surtido.checks ?? {},

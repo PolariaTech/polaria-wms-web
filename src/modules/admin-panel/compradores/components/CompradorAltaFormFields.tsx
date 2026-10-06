@@ -367,7 +367,7 @@ export function CompradorAltaFormFields({
             id={`${idPrefix}-comercial`}
             label="Nombre comercial"
             value={form.nombreComercial}
-            placeholder="Hotel Xcaret"
+            placeholder="Cliente ejemplo"
             onChange={(event) =>
               onChange({ ...form, nombreComercial: event.target.value })
             }
@@ -512,7 +512,7 @@ export function CompradorAltaFormFields({
             id={`${idPrefix}-correo-cfdi`}
             label="Correos para envío del CFDI"
             value={ficha.correosCfdi}
-            placeholder="cuentasporpagar@hotel.com, compras@hotel.com"
+            placeholder="cuentasporpagar@cliente.com, compras@cliente.com"
             onChange={(event) =>
               patchFicha(form, onChange, { correosCfdi: event.target.value })
             }
@@ -531,7 +531,7 @@ export function CompradorAltaFormFields({
               className="mt-0.5 accent-polaria-teal"
             />
             <span className="polaria-text-body-sm text-polaria-w">
-              El hotel requiere complemento de pago por cada abono recibido
+              El cliente requiere complemento de pago por cada abono recibido
             </span>
           </label>
         </div>
@@ -817,7 +817,7 @@ export function CompradorAltaFormFields({
         show={show("canales")}
         bare={bare}
         title="Canales de pedido"
-        optional="Desde dónde llegan los pedidos de este hotel"
+        optional="Desde dónde llegan los pedidos de este cliente"
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <PolariaFormInput
@@ -847,7 +847,7 @@ export function CompradorAltaFormFields({
             id={`${idPrefix}-correos-pedido`}
             label="Correos desde los que piden"
             value={ficha.correosPedido}
-            placeholder="chef@hotel.com, almacen@hotel.com"
+            placeholder="chef@cliente.com, almacen@cliente.com"
             onChange={(event) =>
               patchFicha(form, onChange, { correosPedido: event.target.value })
             }
@@ -868,7 +868,7 @@ export function CompradorAltaFormFields({
               className="mt-0.5 accent-polaria-teal"
             />
             <span className="polaria-text-body-sm text-polaria-w">
-              El hotel opera un portal de proveedores con sus propios requisitos y
+              El cliente opera un portal de proveedores con sus propios requisitos y
               calendario
             </span>
           </label>
@@ -973,7 +973,7 @@ export function CompradorAltaFormFields({
             <textarea
               id={`${idPrefix}-devol`}
               value={ficha.politicaDevolucion}
-              placeholder="Qué pasa si el hotel rechaza producto al recibir"
+              placeholder="Qué pasa si el cliente rechaza producto al recibir"
               onChange={(event) =>
                 patchFicha(form, onChange, {
                   politicaDevolucion: event.target.value,

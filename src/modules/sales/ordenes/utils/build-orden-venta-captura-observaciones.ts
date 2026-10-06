@@ -1,3 +1,5 @@
+import { isCuerpoMensajeFormato } from "./texto-origen-pedido";
+
 export interface OrdenVentaCapturaExtra {
   fechaEntrega: string;
   ventanaDesde: string;
@@ -55,6 +57,7 @@ const LABELED_FIELDS = [
   ["Fecha de entrega", "fechaEntrega"],
   ["Ventana de entrega", "ventanaEntrega"],
   ["Prioridad", "prioridad"],
+  ["Orden de compra del cliente", "ordenCompraHotel"],
   ["Orden de compra del hotel", "ordenCompraHotel"],
   ["Centro de consumo", "centroConsumo"],
   ["Vendedor", "vendedor"],
@@ -74,6 +77,13 @@ const LABELED_FIELDS = [
 ] as const;
 
 type LabeledFieldKey = (typeof LABELED_FIELDS)[number][1];
+
+const HIDDEN_CAPTURA_KEYS = new Set<LabeledFieldKey>([
+  "turno",
+  "horaSalida",
+  "chofer",
+  "unidad",
+]);
 
 function pushLabeled(
   lines: string[],
@@ -110,7 +120,7 @@ export function buildOrdenVentaCapturaObservaciones(
     );
   }
   pushLabeled(datos, "Prioridad", extra.prioridad, ["Normal"]);
-  pushLabeled(datos, "Orden de compra del hotel", extra.ordenCompraHotel);
+  pushLabeled(datos, "Orden de compra del cliente", extra.ordenCompraHotel);
   pushLabeled(datos, "Centro de consumo", extra.centroConsumo);
   pushLabeled(datos, "Vendedor", extra.vendedor);
   pushLabeled(datos, "Moneda", extra.moneda);
@@ -119,10 +129,6 @@ export function buildOrdenVentaCapturaObservaciones(
   pushLabeled(datos, "Andén", extra.anden);
   pushLabeled(datos, "Contacto", extra.contacto);
   pushLabeled(datos, "Teléfono", extra.telefono);
-  pushLabeled(datos, "Turno que prepara", extra.turno);
-  pushLabeled(datos, "Hora sugerida de salida", extra.horaSalida);
-  pushLabeled(datos, "Chofer", extra.chofer, ["Por asignar"]);
-  pushLabeled(datos, "Unidad", extra.unidad);
   pushLabeled(datos, "Sustituciones", extra.aceptaSustituciones);
   pushLabeled(datos, "Requiere lote", extra.requiereLote);
   pushLabeled(datos, "Registrar temperatura", extra.registrarTemperatura);
@@ -199,6 +205,37 @@ function looksLikeProductNotes(block: string): boolean {
   });
 }
 
+const CAPTURA_TAIL_START =
+  /^(Archivos:|Fecha de entrega: |Ventana de entrega: |Prioridad: |Orden de compra del cliente: |Orden de compra del hotel: |Centro de consumo: |Vendedor: |Moneda: |Bodega destino: |Dirección de entrega: |Andén: |Contacto: |Teléfono: |Turno que prepara: |Hora sugerida de salida: |Chofer: |Unidad: |Sustituciones: |Requiere lote: |Registrar temperatura: )/;
+
+function peelPedidoOriginal(text: string): { origenTexto: string; rest: string } {
+  const idx = text.search(/^Pedido original:\s*/m);
+  if (idx === -1) return { origenTexto: "", rest: text };
+
+  const before = text.slice(0, idx).trim();
+  const after = text.slice(idx).replace(/^Pedido original:\s*/, "");
+  if (!isCuerpoMensajeFormato(after) && !after.trimStart().startsWith("[[")) {
+    return { origenTexto: "", rest: text };
+  }
+
+  const lines = after.split("\n");
+  const origenLines: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i]!;
+    if (i > 0 && CAPTURA_TAIL_START.test(line) && !line.includes("|")) {
+      break;
+    }
+    origenLines.push(line);
+    i += 1;
+  }
+
+  return {
+    origenTexto: origenLines.join("\n").trim(),
+    rest: [before, lines.slice(i).join("\n").trim()].filter(Boolean).join("\n\n"),
+  };
+}
+
 /** Lee la ficha de captura persistida en observaciones. */
 export function parseOrdenVentaCapturaObservaciones(
   raw: string | null | undefined,
@@ -207,14 +244,23 @@ export function parseOrdenVentaCapturaObservaciones(
   const text = raw?.trim() ?? "";
   if (!text) return parsed;
 
+  const peeled = peelPedidoOriginal(text);
+  if (peeled.origenTexto) parsed.origenTexto = peeled.origenTexto;
+
   const leftovers: string[] = [];
 
-  for (const block of text.split(/\n\n+/)) {
+  for (const block of peeled.rest.split(/\n\n+/)) {
     const trimmed = block.trim();
     if (!trimmed) continue;
 
     if (trimmed.startsWith("Pedido original:")) {
-      parsed.origenTexto = trimmed.replace(/^Pedido original:\s*/, "").trim();
+      if (!parsed.origenTexto) {
+        parsed.origenTexto = trimmed.replace(/^Pedido original:\s*/, "").trim();
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith("[[texto]]") || trimmed.startsWith("[[tabla]]")) {
       continue;
     }
 
@@ -242,10 +288,21 @@ export function parseOrdenVentaCapturaObservaciones(
   const noteBlocks: string[] = [];
   const obsBlocks: string[] = [];
   for (const block of leftovers) {
-    if (looksLikeProductNotes(block)) {
-      noteBlocks.push(block);
+    const keptLines: string[] = [];
+    for (const line of block.split("\n")) {
+      const match = matchLabeledLine(line.trim());
+      if (match && HIDDEN_CAPTURA_KEYS.has(match.key)) {
+        if (!parsed[match.key]) parsed[match.key] = match.value;
+        continue;
+      }
+      keptLines.push(line);
+    }
+    const kept = keptLines.join("\n").trim();
+    if (!kept) continue;
+    if (looksLikeProductNotes(kept)) {
+      noteBlocks.push(kept);
     } else {
-      obsBlocks.push(block);
+      obsBlocks.push(kept);
     }
   }
 

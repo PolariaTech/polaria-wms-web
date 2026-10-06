@@ -4,7 +4,7 @@ import {
   extraerPedido,
   type PedidoExtraido,
 } from "@/modules/sales/ordenes/ai/openai-pedido.client";
-import { listProductosVentaCatalogoServer } from "@/modules/sales/shared/services/sales-catalog.server";
+import { listProductoCatalogoClavesServer } from "@/modules/sales/shared/services/sales-catalog.server";
 import { buildTextoOrigenPedido } from "@/modules/sales/ordenes/utils/texto-origen-pedido";
 import OpenAI from "openai";
 
@@ -18,10 +18,6 @@ const PRESENTACIONES = [
 
 const MAX_FILES = 8;
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
-
-function catalogKey(nombre: string, codigo: string): string {
-  return `${nombre} (${codigo})`;
-}
 
 /**
  * BFF local: misma lógica que antes (extractors + OpenAI + catálogo).
@@ -89,10 +85,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const inicio = Date.now();
 
   try {
-    const productos = await listProductosVentaCatalogoServer(codigoCuenta);
-    const catalogoClaves = productos.map((p) =>
-      catalogKey(p.nombre, p.codigo),
-    );
+    const catalogoClaves = await listProductoCatalogoClavesServer(codigoCuenta);
 
     if (catalogoClaves.length === 0) {
       return NextResponse.json(
@@ -113,7 +106,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
 
     const archivosExtraidos = await extractFiles(uploaded);
-    const textoOrigen = buildTextoOrigenPedido(texto, archivosExtraidos);
+    const textoOrigenCrudo = buildTextoOrigenPedido(texto, archivosExtraidos);
     const hoyISO = new Date().toISOString().slice(0, 10);
 
     const { pedido, uso } = await extraerPedido({
@@ -123,6 +116,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       catalogoClaves,
       presentaciones: [...PRESENTACIONES],
     });
+
+    const textoOrigen = pedido.textoOrigen?.trim() || textoOrigenCrudo;
 
     console.log(
       JSON.stringify({

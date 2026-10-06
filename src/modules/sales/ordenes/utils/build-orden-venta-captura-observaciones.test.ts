@@ -140,15 +140,21 @@ describe("parseOrdenVentaCapturaObservaciones", () => {
     expect(parsed.anden).toBe("Andén 3");
     expect(parsed.contacto).toBe("Chef Uc");
     expect(parsed.telefono).toBe("998 000 0000");
-    expect(parsed.turno).toBe("PM");
-    expect(parsed.horaSalida).toBe("04:30");
-    expect(parsed.chofer).toBe("Luis");
-    expect(parsed.unidad).toBe("Camión 2");
     expect(parsed.aceptaSustituciones).toBe("Sí, con aviso");
     expect(parsed.requiereLote).toBe("Sí");
     expect(parsed.registrarTemperatura).toBe("No");
     expect(parsed.notasLineas).toBe("Fresa: Firme — se usa el jueves");
     expect(parsed.observaciones).toBe("Entrega temprano");
+    expect(buildOrdenVentaCapturaObservaciones(extra) ?? "").toContain(
+      "Orden de compra del cliente: OC-88",
+    );
+  });
+
+  it("sigue leyendo la etiqueta anterior de orden de compra del hotel", () => {
+    const parsed = parseOrdenVentaCapturaObservaciones(
+      "Orden de compra del hotel: OC-88",
+    );
+    expect(parsed.ordenCompraHotel).toBe("OC-88");
   });
 
   it("deja el texto libre como observaciones si no hay ficha de captura", () => {
@@ -156,6 +162,34 @@ describe("parseOrdenVentaCapturaObservaciones", () => {
     expect(parsed.observaciones).toBe("Nota vieja del pedido");
     expect(parsed.fechaEntrega).toBe("");
     expect(parsed.centroConsumo).toBe("");
+  });
+
+  it("no duplica el cuerpo formateado de la IA en observaciones", () => {
+    const extra: OrdenVentaCapturaExtra = {
+      ...EMPTY,
+      origenTexto: [
+        "[[texto]]",
+        "Buenas tardes,",
+        "",
+        "[[tabla]]",
+        "Fecha | Clave Sap | Producto",
+        "27.08.2026 | X200062800 | BLUE BERRY",
+        "",
+        "[[texto]]",
+        "Favor de confirmar",
+      ].join("\n"),
+      origenArchivos: ["pedido.eml"],
+      fechaEntrega: "2026-08-27",
+      observaciones: "Entregar completo",
+    };
+    const parsed = parseOrdenVentaCapturaObservaciones(
+      buildOrdenVentaCapturaObservaciones(extra),
+    );
+    expect(parsed.origenTexto).toContain("[[tabla]]");
+    expect(parsed.origenTexto).toContain("BLUE BERRY");
+    expect(parsed.observaciones).toBe("Entregar completo");
+    expect(parsed.observaciones).not.toContain("BLUE BERRY");
+    expect(parsed.observaciones).not.toContain("[[tabla]]");
   });
 
   it("formatea fecha ISO y nota de línea por producto", () => {

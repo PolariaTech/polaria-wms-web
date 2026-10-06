@@ -69,9 +69,7 @@ function readFirstFile(
 }
 
 /**
- * Misma activación que antes: hasFile + flushSync.
- * Dos inputs simples (cámara / galería) para que iOS abra el picker.
- * Sin <form action> para que Safari no recargue al volver de Fotos.
+ * Un solo input de cámara. Sin <form action> para que Safari no recargue al volver.
  */
 export function CapturaOrdenUploadForm({
   idOrdenVenta,
@@ -79,10 +77,10 @@ export function CapturaOrdenUploadForm({
   onFilePicked,
 }: CapturaOrdenUploadFormProps) {
   const cameraRef = useRef<HTMLInputElement>(null);
-  const galleryRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<File | null>(null);
   const lastKeyRef = useRef("");
   const uploadingRef = useRef(false);
+  const uploadFnRef = useRef<(picked?: File) => void>(() => {});
 
   const [fileLabel, setFileLabel] = useState<string | null>(null);
   const [hasFile, setHasFile] = useState(false);
@@ -113,26 +111,24 @@ export function CapturaOrdenUploadForm({
         setPrecision(null);
         setDone(false);
       });
+      window.setTimeout(() => uploadFnRef.current(picked), 0);
     },
     [hasFile, onFilePicked],
   );
 
   const ingestFromInput = useCallback(() => {
     if (submitting || done) return;
-    const file = readFirstFile(galleryRef.current, cameraRef.current);
+    const file = readFirstFile(cameraRef.current);
     if (!file) return;
     acceptFile(file);
   }, [acceptFile, done, submitting]);
 
   useEffect(() => {
     const camera = cameraRef.current;
-    const gallery = galleryRef.current;
 
     const onPick = () => ingestFromInput();
     camera?.addEventListener("change", onPick);
     camera?.addEventListener("input", onPick);
-    gallery?.addEventListener("change", onPick);
-    gallery?.addEventListener("input", onPick);
 
     const onReturn = () => {
       window.setTimeout(ingestFromInput, 0);
@@ -150,8 +146,6 @@ export function CapturaOrdenUploadForm({
     return () => {
       camera?.removeEventListener("change", onPick);
       camera?.removeEventListener("input", onPick);
-      gallery?.removeEventListener("change", onPick);
-      gallery?.removeEventListener("input", onPick);
       window.removeEventListener("focus", onReturn);
       window.removeEventListener("pageshow", onReturn);
       document.removeEventListener("visibilitychange", onVisibility);
@@ -163,12 +157,13 @@ export function CapturaOrdenUploadForm({
     if (file) acceptFile(file);
   };
 
-  const upload = () => {
+  const upload = (picked?: File) => {
     if (submitting || done || uploadingRef.current) return;
 
     const original =
+      picked ??
       fileRef.current ??
-      readFirstFile(galleryRef.current, cameraRef.current);
+      readFirstFile(cameraRef.current);
     if (!original) {
       setError("Selecciona una foto de la hoja llenada.");
       return;
@@ -249,12 +244,13 @@ export function CapturaOrdenUploadForm({
     })();
   };
 
+  uploadFnRef.current = upload;
+
   const resetAll = () => {
     uploadingRef.current = false;
     lastKeyRef.current = "";
     fileRef.current = null;
     if (cameraRef.current) cameraRef.current.value = "";
-    if (galleryRef.current) galleryRef.current.value = "";
     setFileLabel(null);
     setHasFile(false);
     setSubmitting(false);
@@ -272,115 +268,74 @@ export function CapturaOrdenUploadForm({
     pointerEvents: submitting || done ? "none" : "auto",
   } as const;
 
+  const pillClass =
+    "relative flex h-14 w-full items-center justify-center overflow-hidden rounded-full bg-polaria-teal px-6 font-semibold text-polaria-bg hover:opacity-90";
+
   return (
     <div className="space-y-4">
-      <div
-        className={cn(
-          "flex w-full flex-col items-stretch gap-3 rounded-2xl border border-dashed px-4 py-5 text-center",
-          hasFile
-            ? "border-polaria-teal bg-polaria-t-08"
-            : "border-polaria-t-20 bg-polaria-bg/40",
-        )}
-      >
-        <p className="polaria-text-body font-semibold text-polaria-w">
-          {hasFile ? "Foto seleccionada" : "Tomar o elegir foto"}
+      {fileLabel && !done ? (
+        <p className="text-center polaria-text-caption text-polaria-w-50">
+          {fileLabel}
         </p>
-        <p className="polaria-text-caption text-polaria-w-50">
-          {fileLabel ?? "JPG, PNG o HEIC · máx. 10 MB"}
-        </p>
-
-        {!done ? (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div
-              className={cn(
-                "relative h-12 overflow-hidden rounded-xl bg-polaria-teal",
-                submitting && "opacity-50",
-              )}
-            >
-              <input
-                ref={cameraRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={onReactChange}
-                className={pickerClass}
-                style={pickerStyle}
-                aria-label="Tomar foto"
-              />
-              <span className="pointer-events-none relative z-0 flex h-full items-center justify-center px-3 text-sm font-semibold text-polaria-bg">
-                Tomar foto
-              </span>
-            </div>
-            <div
-              className={cn(
-                "relative h-12 overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08",
-                submitting && "opacity-50",
-              )}
-            >
-              <input
-                ref={galleryRef}
-                type="file"
-                accept="image/*"
-                onChange={onReactChange}
-                className={pickerClass}
-                style={pickerStyle}
-                aria-label="Elegir de galería"
-              />
-              <span className="pointer-events-none relative z-0 flex h-full items-center justify-center px-3 text-sm font-semibold text-polaria-w">
-                Elegir de galería
-              </span>
-            </div>
-          </div>
-        ) : null}
-      </div>
+      ) : null}
 
       {precision != null && done ? (
-        <div className="rounded-xl border border-polaria-t-20 bg-polaria-bg/40 px-4 py-3 text-center">
-          <p className="polaria-text-label text-polaria-w-50">
-            Precisión de extracción
-          </p>
-          <p className="mt-1 polaria-text-card-title text-polaria-teal">
-            {precision}% · {labelPrecision(precision)}
-          </p>
-        </div>
+        <p className="text-center polaria-text-body-sm text-polaria-teal">
+          {precision}% · {labelPrecision(precision)}
+        </p>
       ) : null}
 
       {error ? (
-        <p role="alert" className="polaria-text-caption text-polaria-w-50">
+        <p role="alert" className="text-center polaria-text-caption text-polaria-w-50">
           {error}
         </p>
       ) : null}
 
       {!done ? (
+        submitting ? (
+          <div className={cn(pillClass, "pointer-events-none opacity-70")}>
+            Subiendo…
+          </div>
+        ) : (
+          <div className={pillClass}>
+            <input
+              ref={cameraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={onReactChange}
+              className={pickerClass}
+              style={pickerStyle}
+              aria-label="Tomar foto"
+            />
+            <span className="pointer-events-none relative z-0 flex items-center gap-3 text-sm font-semibold text-polaria-bg">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M4.5 8.5h2.2l1.1-2h6.4l1.1 2H19.5A1.5 1.5 0 0 1 21 10v7.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V10A1.5 1.5 0 0 1 4.5 8.5Z" />
+                <circle cx="12" cy="13.5" r="3.1" />
+              </svg>
+              <span className="h-5 w-px bg-polaria-w-08" aria-hidden />
+              Tomar foto
+            </span>
+          </div>
+        )
+      ) : (
         <button
           type="button"
-          disabled={!hasFile || submitting}
-          onClick={upload}
-          className={cn(
-            "w-full rounded-xl bg-polaria-teal px-4 py-3.5 font-semibold text-polaria-bg",
-            "hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40",
-          )}
+          onClick={resetAll}
+          className="flex h-14 w-full items-center justify-center rounded-full border border-polaria-t-20 bg-polaria-t-08 font-semibold text-polaria-w hover:opacity-90"
         >
-          {submitting ? "Subiendo…" : "Subir y leer hoja"}
+          Tomar otra foto
         </button>
-      ) : (
-        <div className="space-y-3">
-          <p className="polaria-text-body-sm text-center text-polaria-teal">
-            Listo. El operador ya puede descargar el PDF actualizado.
-          </p>
-          <button
-            type="button"
-            onClick={resetAll}
-            className="w-full rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3 font-semibold text-polaria-w hover:opacity-90"
-          >
-            Subir otra foto
-          </button>
-        </div>
       )}
-
-      <p className="polaria-text-caption text-center text-polaria-w-20">
-        Elige la foto y luego pulsa subir.
-      </p>
     </div>
   );
 }

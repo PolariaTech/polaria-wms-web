@@ -82,7 +82,8 @@ function extractFromHtml(buffer: Buffer): string {
         format: "dataTable",
         options: {
           uppercaseHeaderCells: false,
-          maxColumnWidth: 32,
+          // 32 cortaba celdas (“Baja” / “California”) y rompía la tabla.
+          maxColumnWidth: 200,
         },
       },
     ],

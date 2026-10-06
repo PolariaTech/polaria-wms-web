@@ -49,6 +49,7 @@ describe("mapPedidoExtraidoToForm", () => {
         observaciones: "",
       },
       tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
     });
 
     expect(mapped.anden).toBe("Andén 1");
@@ -107,6 +108,7 @@ describe("mapPedidoExtraidoToForm", () => {
         observaciones: "",
       },
       tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
     });
 
     expect(mapped.lineas).toHaveLength(1);
@@ -187,6 +189,7 @@ describe("mapPedidoExtraidoToForm", () => {
         observaciones: "",
       },
       tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
     });
 
     expect(mapped.lineas).toHaveLength(2);
@@ -216,6 +219,7 @@ describe("mapPedidoExtraidoToForm", () => {
         observaciones: "",
       },
       tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
     });
 
     expect(mapped.ordenCompraHotel).toBe("CUNMC0046026");
@@ -245,6 +249,7 @@ describe("mapPedidoExtraidoToForm", () => {
         observaciones: "",
       },
       tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
     });
 
     expect(mapped.direccion).toBe("Calle nueva");
@@ -252,5 +257,92 @@ describe("mapPedidoExtraidoToForm", () => {
     expect(mapped.missingFields.has("contacto")).toBe(false);
     expect(mapped.missingFields.has("telefono")).toBe(false);
     expect(mapped.missingFields.size).toBe(0);
+  });
+
+  it("prioriza dirección de la solicitud sobre la ficha del comprador", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        direccion: "Av. Solución 123, Parque Xcaret",
+      },
+      productos: [],
+      ficha: {
+        centroConsumo: "Cocina",
+        ventanaDesde: "06:00",
+        ventanaHasta: "10:00",
+        direccion: "No — entrega urbana local",
+        anden: "Andén 1",
+        contacto: "Ana",
+        telefono: "555",
+        aceptaSustituciones: "No — surtir parcial",
+        requiereLote: "No",
+        registrarTemperatura: "No",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
+    });
+
+    expect(mapped.direccion).toBe("Av. Solución 123, Parque Xcaret");
+    expect(mapped.warnFields.has("direccion")).toBe(true);
+    expect(
+      mapped.discrepancias.some((d) => d.campo === "Dirección de entrega"),
+    ).toBe(true);
+  });
+
+  it("usa dirección de ficha si la solicitud no trae ninguna", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: emptyPedido(),
+      productos: [],
+      ficha: {
+        centroConsumo: "Cocina",
+        ventanaDesde: "06:00",
+        ventanaHasta: "10:00",
+        direccion: "Km 250 Carretera Federal",
+        anden: "Andén 1",
+        contacto: "Ana",
+        telefono: "555",
+        aceptaSustituciones: "No — surtir parcial",
+        requiereLote: "No",
+        registrarTemperatura: "No",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
+    });
+
+    expect(mapped.direccion).toBe("Km 250 Carretera Federal");
+  });
+
+  it("marca fecha de entrega atrasada como advertencia, no como bloqueo", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        fechaEntrega: "2026-08-27",
+      },
+      productos: [],
+      ficha: {
+        centroConsumo: "",
+        ventanaDesde: "",
+        ventanaHasta: "",
+        direccion: "",
+        anden: "",
+        contacto: "",
+        telefono: "",
+        aceptaSustituciones: "",
+        requiereLote: "",
+        registrarTemperatura: "",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
+    });
+
+    expect(mapped.fechaEntrega).toBe("2026-08-27");
+    expect(mapped.warnFields.has("fechaEntrega")).toBe(true);
+    expect(mapped.autoFields.has("fechaEntrega")).toBe(false);
+    expect(mapped.discrepancias.some((d) => d.campo === "Fecha de entrega")).toBe(
+      true,
+    );
   });
 });

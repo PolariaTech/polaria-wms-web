@@ -58,16 +58,24 @@ const DETALLE: OrdenVentaDetalleRow = {
 };
 
 describe("orden de tarea almacén", () => {
-  it("pone el body del correo/mensaje en notas generales", () => {
+  it("pone notas clave del correo en notas generales (sin tablas ni saludos)", () => {
     const data = mapOrdenVentaToAlmacenPrintData({
       listRow: LIST_ROW,
       detalle: {
         ...DETALLE,
-        origen_texto: "Pedido de FYV para Hotel Ava. Llevar 3 juegos.",
+        origen_texto: [
+          "Buenas tardes,",
+          "Pedido de FYV para Hotel Ava. Llevar 3 juegos.",
+          "Clave Sap   Texto breve   Um",
+          "X200011700  AGUACATE       KG",
+          "Gracias",
+        ].join("\n"),
         notas_almacen: "nota interna almacén",
       },
     });
     expect(data.notasGenerales).toContain("Pedido de FYV");
+    expect(data.notasGenerales).toContain("Llevar 3 juegos");
+    expect(data.notasGenerales).not.toContain("Clave Sap");
     expect(data.notasGenerales).not.toContain("nota interna");
   });
 
@@ -139,7 +147,7 @@ describe("orden de tarea almacén", () => {
     expect(html).toContain("Dirección de entrega");
     expect(html).toContain("# de orden del cliente");
     expect(html).toContain("Factura asociada");
-    expect(html).toContain("Escanear y fotografiar");
+    expect(html).not.toContain("Escanear y fotografiar");
     expect(html).not.toContain("<label>Impresa</label>");
     expect(html).not.toContain("Turno que prepara");
     expect(html).not.toContain("Chofer");
@@ -162,8 +170,8 @@ describe("orden de tarea almacén", () => {
     expect(html).toContain("Factura (OK)");
     expect(html).toContain("Retorno");
     expect(html).toContain("Despachó");
-    expect(html).toContain("Nombre");
     expect(html).toContain("Firma");
+    expect(html).toContain("Fecha");
     expect(html).not.toContain("Cómo se llena");
     expect(html).not.toContain("Foto:");
     expect(html).not.toContain("Notas generales:");
@@ -171,7 +179,9 @@ describe("orden de tarea almacén", () => {
     expect(html).toContain("Incidencias");
     expect(html).not.toContain(">Productos<");
     expect(html).toContain("page-meta");
-    expect(html).toContain("Orden de tarea 1/1");
+    expect(html).toContain("Impresa");
+    expect(html).not.toContain("Orden de tarea 1/1");
+    expect(html).toContain("Orden de trabajo");
     expect(html).not.toContain("Hoja 1 de 1");
     expect(html).not.toMatch(/page-meta[^>]*>OV-/);
     expect(html).toContain('class="notes-block"');
@@ -277,6 +287,8 @@ describe("orden de tarea almacén", () => {
     expect(sheets).toHaveLength(2);
     expect(sheets[0]?.tareaIndex).toBe(1);
     expect(sheets[0]?.tareaTotal).toBe(2);
+    expect(sheets[0]?.ordenTrabajo).toBe("1/2");
+    expect(sheets[1]?.ordenTrabajo).toBe("2/2");
     expect(sheets[1]?.tareaIndex).toBe(2);
     expect(sheets[1]?.tareaTotal).toBe(2);
     expect(sheets[0]?.idOrdenTrabajo).not.toBe(sheets[1]?.idOrdenTrabajo);
@@ -288,5 +300,69 @@ describe("orden de tarea almacén", () => {
 
     const multi = buildOrdenTareaAlmacenLandscapePdfMulti(sheets);
     expect(multi.getNumberOfPages()).toBe(2);
+  });
+
+  it("parte una OT en hojas de 49 productos y etiqueta 1-n/N, 2-n/N", () => {
+    const lineas = Array.from({ length: 50 }, (_, i) => ({
+      id_linea_orden_venta: `l-${i + 1}`,
+      id_producto: `p-${i + 1}`,
+      cantidad_pedida: 1,
+      precio_unitario: 10,
+      producto: {
+        sku: `SKU-${i + 1}`,
+        descripcion: `Producto ${i + 1}`,
+      },
+    }));
+    const origenOt1 = Array.from({ length: 50 }, (_, i) => ({
+      "Numero pedido": "100",
+      Almacen: "Bar",
+      Producto: `Producto ${i + 1}`,
+      Cantidad: 1,
+    }));
+    const sheets = mapOrdenVentaToAlmacenPrintSheets({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        lineas: [
+          ...lineas,
+          {
+            id_linea_orden_venta: "l-b",
+            id_producto: "p-b",
+            cantidad_pedida: 5,
+            precio_unitario: 200,
+            producto: { sku: "B", descripcion: "Producto B" },
+          },
+        ],
+        origen_correo: [
+          ...origenOt1,
+          {
+            "Numero pedido": "200",
+            Almacen: "Cocina",
+            Producto: "Producto B",
+            Cantidad: 5,
+          },
+        ],
+      },
+      printedAt: new Date("2026-08-26T17:44:00"),
+    });
+
+    expect(sheets).toHaveLength(3);
+    expect(sheets[0]?.ordenTrabajo).toBe("1-1/2");
+    expect(sheets[0]?.lineas).toHaveLength(49);
+    expect(sheets[0]?.lineaInicio).toBe(1);
+    expect(sheets[1]?.ordenTrabajo).toBe("2-1/2");
+    expect(sheets[1]?.lineas).toHaveLength(1);
+    expect(sheets[1]?.lineaInicio).toBe(50);
+    expect(sheets[1]?.idOrdenTrabajo).toBe(sheets[0]?.idOrdenTrabajo);
+    expect(sheets[2]?.ordenTrabajo).toBe("2/2");
+    expect(sheets[2]?.lineas).toHaveLength(1);
+    expect(sheets[2]?.idOrdenTrabajo).not.toBe(sheets[0]?.idOrdenTrabajo);
+
+    const html = buildOrdenTareaAlmacenHtml(sheets[1]!);
+    expect(html).toContain("2-1/2");
+    expect(html).toContain(">50<");
+
+    const multi = buildOrdenTareaAlmacenLandscapePdfMulti(sheets);
+    expect(multi.getNumberOfPages()).toBe(3);
   });
 });

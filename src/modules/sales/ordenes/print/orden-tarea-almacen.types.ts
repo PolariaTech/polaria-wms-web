@@ -29,6 +29,10 @@ export interface OrdenTareaAlmacenPrintData {
   cliente: string;
   centroConsumo: string;
   numeroOrdenCliente: string;
+  /** Índice de OT en esta OV, p.ej. "1/9" o "1-2/9" si la OT ocupa varias hojas. */
+  ordenTrabajo: string;
+  /** Número de renglón del primer producto de esta hoja (1-based). */
+  lineaInicio?: number;
   fechaEntrega: string;
   /** Ventana / hora comprometida de entrega. */
   horaEntrega: string;

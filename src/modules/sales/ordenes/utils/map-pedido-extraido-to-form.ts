@@ -1,12 +1,17 @@
 import type { PedidoExtraido } from "../ai/openai-pedido.client";
 import type { ProductoVentaOption } from "../../shared/types/sales.types";
 import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-nombre";
+import { formatCapturaFecha } from "./build-orden-venta-captura-observaciones";
 import {
   aplicarEmpaqueInicialLinea,
   collectMissingFieldsDocs,
   type CampoOperativoDocs,
 } from "./empaque-lineas";
 import { groupKeyOrigenCorreo } from "./origen-correo-ordenes-trabajo";
+import {
+  FECHA_ENTREGA_ATRASADA_WARNING,
+  isFechaEntregaAtrasada,
+} from "./pedido-form-validation";
 
 export interface LineaVentaFromIa {
   idProducto: string;
@@ -34,6 +39,8 @@ export interface LineaVentaFromIa {
 
 export interface CampoDiscrepancia {
   campo: string;
+  /** Clave del campo del formulario para poder aplicar el reemplazo. */
+  fieldKey: string;
   db: string;
   ia: string;
 }
@@ -124,7 +131,7 @@ function compareOverride(params: {
   // Ficha del comprador manda: la IA solo completa huecos (evita basura del PDF/correo).
   if (preferFicha && valorDb.trim()) {
     if (norm(valorDb) !== norm(ia)) {
-      discrepancias.push({ campo: label, db: valorDb, ia });
+      discrepancias.push({ campo: label, fieldKey, db: valorDb, ia });
     }
     return;
   }
@@ -138,7 +145,7 @@ function compareOverride(params: {
   if (valorDb.trim()) {
     warnFields.add(fieldKey);
     autoFields.delete(fieldKey);
-    discrepancias.push({ campo: label, db: valorDb || "—", ia });
+    discrepancias.push({ campo: label, fieldKey, db: valorDb || "—", ia });
   } else {
     autoFields.add(fieldKey);
   }
@@ -146,7 +153,8 @@ function compareOverride(params: {
 
 /**
  * Traduce PedidoExtraido al estado del modal, respetando:
- * ficha del cliente primero; si la IA trae valor distinto, gana el pedido (warn).
+ * ficha del cliente primero en datos de comprador; dirección de entrega
+ * prioriza la solicitud y solo cae a ficha si el pedido no trae dirección.
  */
 export function mapPedidoExtraidoToForm(params: {
   pedido: PedidoExtraido;
@@ -165,8 +173,9 @@ export function mapPedidoExtraidoToForm(params: {
     observaciones: string;
   };
   tomorrowIso: string;
+  todayIso: string;
 }): PedidoIaFormPatch {
-  const { pedido, productos, ficha, tomorrowIso } = params;
+  const { pedido, productos, ficha, tomorrowIso, todayIso } = params;
   const autoFields = new Set<string>();
   const warnFields = new Set<string>();
   const discrepancias: CampoDiscrepancia[] = [];
@@ -204,7 +213,18 @@ export function mapPedidoExtraidoToForm(params: {
 
   const fecha = pedido.fechaEntrega?.trim() || tomorrowIso;
   patch.fechaEntrega = fecha;
-  autoFields.add("fechaEntrega");
+  if (isFechaEntregaAtrasada(fecha, todayIso)) {
+    warnFields.add("fechaEntrega");
+    autoFields.delete("fechaEntrega");
+    discrepancias.push({
+      campo: "Fecha de entrega",
+      fieldKey: "fechaEntrega",
+      db: "Hoy o posterior",
+      ia: `${formatCapturaFecha(fecha)} · ${FECHA_ENTREGA_ATRASADA_WARNING}`,
+    });
+  } else {
+    autoFields.add("fechaEntrega");
+  }
 
   if (pedido.ordenCompraHotel?.trim()) {
     patch.ordenCompraHotel = pedido.ordenCompraHotel.trim();
@@ -230,7 +250,7 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
-    preferFicha: true,
+    // La solicitud manda: si el pedido trae dirección, se usa esa; si no, la de ficha.
   });
   compareOverride({
     fieldKey: "anden",
@@ -321,9 +341,11 @@ export function mapPedidoExtraidoToForm(params: {
     preferFicha: true,
   });
 
-  // Observaciones del formulario = solo ficha del comprador (andén, tolerancia, etc.).
-  // El body del correo / mensaje va a origen_texto → notas generales del PDF.
-  // No mezclar pedido.observaciones de la IA aquí (suele ser el cuerpo del correo).
+  // Observaciones del formulario = ficha del comprador, salvo que la IA
+  // haya extraído especificaciones cortas para notas generales de almacén.
+  if (pedido.notasGeneralesAlmacen?.trim()) {
+    patch.observaciones = pedido.notasGeneralesAlmacen.trim();
+  }
 
   const byKey = new Map(
     productos.map((p) => [catalogKey(p.nombre, p.codigo), p] as const),

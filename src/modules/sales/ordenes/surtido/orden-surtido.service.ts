@@ -16,7 +16,12 @@ import {
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
 } from "../utils/origen-correo-ordenes-trabajo";
-import { cleanCorreoBodyForNotas, flattenNotasForPdf } from "../utils/texto-origen-pedido";
+import { filterLineasByOrdenTrabajoHija } from "../utils/filter-lineas-by-orden-trabajo";
+import { extractNotasClaveCorreo } from "../utils/texto-origen-pedido";
+import {
+  computeEstadoAlistamientoFromCapturas,
+  puedeAplicarEstadoAlistamiento,
+} from "./compute-estado-alistamiento";
 import type {
   OrdenSurtidoCapturaPayload,
   OrdenSurtidoCapturaRow,
@@ -298,35 +303,8 @@ export async function buildPrintDataAdmin(
     hija = hijas[index] ?? null;
     tareaIndex = index + 1;
     if (hija) {
-      const keys = new Set(
-        hija.renglones.flatMap((row) => {
-          const out: string[] = [];
-          const prod = (row.Producto ?? "").trim().toLowerCase();
-          const cod = (row["Codigo producto"] ?? "").trim().toLowerCase();
-          if (prod) out.push(prod);
-          if (cod) out.push(cod);
-          return out;
-        }),
-      );
-      if (keys.size > 0) {
-        const matched = lineasAll.filter((linea) => {
-          const titulo = resolveTituloProducto(linea.producto).toLowerCase();
-          const prod =
-            Array.isArray(linea.producto) ? linea.producto[0] : linea.producto;
-          const sku =
-            prod && typeof prod === "object" && "sku" in prod
-              ? String((prod as { sku?: string | null }).sku ?? "")
-                  .trim()
-                  .toLowerCase()
-              : "";
-          return (
-            keys.has(titulo) ||
-            (Boolean(sku) && keys.has(sku)) ||
-            [...keys].some((k) => titulo.includes(k) || k.includes(titulo))
-          );
-        });
-        if (matched.length > 0) lineas = matched;
-      }
+      const matched = filterLineasByOrdenTrabajoHija(lineasAll, hija);
+      if (matched.length > 0) lineas = matched;
     }
   }
 
@@ -376,12 +354,10 @@ export async function buildPrintDataAdmin(
     }
     return captura.ventanaEntrega.trim();
   })();
-  const notasGenerales = flattenNotasForPdf(
-    cleanCorreoBodyForNotas(
-      (typeof orden.origen_texto === "string" && orden.origen_texto.trim()) ||
-        captura.origenTexto.trim() ||
-        "",
-    ),
+  const notasGenerales = extractNotasClaveCorreo(
+    (typeof orden.origen_texto === "string" && orden.origen_texto.trim()) ||
+      captura.origenTexto.trim() ||
+      "",
   );
 
   return {
@@ -394,6 +370,7 @@ export async function buildPrintDataAdmin(
     cliente,
     centroConsumo,
     numeroOrdenCliente,
+    ordenTrabajo: `${tareaIndex > 0 ? tareaIndex : 1}/${tareaTotal > 0 ? tareaTotal : 1}`,
     fechaEntrega: fechaEntregaRaw ? formatCapturaFecha(fechaEntregaRaw) : "",
     horaEntrega,
     direccionEntrega,
@@ -583,36 +560,7 @@ export async function applySurtidoCapturaToOrdenVenta(input: {
     const hija = ot ? (hijas.find((item) => item.id === ot) ?? null) : null;
 
     if (hija) {
-      const keys = new Set(
-        hija.renglones.flatMap((row) => {
-          const out: string[] = [];
-          const prod = (row.Producto ?? "").trim().toLowerCase();
-          const cod = (row["Codigo producto"] ?? "").trim().toLowerCase();
-          if (prod) out.push(prod);
-          if (cod) out.push(cod);
-          return out;
-        }),
-      );
-      const matched =
-        keys.size === 0
-          ? allLineas
-          : allLineas.filter((linea) => {
-              const titulo = resolveTituloProducto(linea.producto).toLowerCase();
-              const prod = Array.isArray(linea.producto)
-                ? linea.producto[0]
-                : linea.producto;
-              const sku =
-                prod && typeof prod === "object" && "sku" in prod
-                  ? String((prod as { sku?: string | null }).sku ?? "")
-                      .trim()
-                      .toLowerCase()
-                  : "";
-              return (
-                keys.has(titulo) ||
-                (Boolean(sku) && keys.has(sku)) ||
-                [...keys].some((k) => titulo.includes(k) || k.includes(titulo))
-              );
-            });
+      const matched = filterLineasByOrdenTrabajoHija(allLineas, hija);
       lineasDb = matched.length > 0 ? matched : allLineas;
     } else {
       lineasDb = allLineas;
@@ -700,4 +648,81 @@ export async function applySurtidoCapturaToOrdenVenta(input: {
     updatedHeader: Object.keys(headerUpdate).length > 1,
     updatedLineas,
   };
+}
+
+/**
+ * Tras subir una foto QR, actualiza el estado de la OV:
+ * confirmada → alistamiento (parcial) → alistada (todas las OT con foto).
+ */
+export async function syncOrdenVentaEstadoAlistamiento(input: {
+  idOrdenVenta: string;
+}): Promise<{ estado: string | null; updated: boolean }> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) throw new Error("Supabase admin no configurado.");
+
+  const ctx = await resolveOrdenAdminContext(admin, input.idOrdenVenta);
+  if (!ctx) {
+    throw new Error("Orden de venta no encontrada para alistamiento.");
+  }
+
+  const { data: orden, error: ordenError } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta",
+  )
+    .select("id_orden_venta,estado,origen_correo")
+    .eq("id_orden_venta", input.idOrdenVenta)
+    .maybeSingle();
+
+  if (ordenError) throw new Error(ordenError.message);
+  if (!orden) {
+    throw new Error("Orden de venta no encontrada para alistamiento.");
+  }
+
+  const estadoActual = String(orden.estado ?? "").trim();
+  if (!puedeAplicarEstadoAlistamiento(estadoActual)) {
+    return { estado: estadoActual || null, updated: false };
+  }
+
+  const hijas = groupOrigenCorreoToOrdenesTrabajo(
+    parseOrigenCorreoJson(orden.origen_correo),
+  );
+  const capturas = await listOrdenSurtidoCapturas(input.idOrdenVenta);
+  const conFoto = new Set(
+    capturas
+      .map((row) => normalizeIdOrdenTrabajo(row.idOrdenTrabajo))
+      .filter(Boolean),
+  );
+
+  const totalOrdenesTrabajo = hijas.length;
+  const ordenesTrabajoConFoto =
+    totalOrdenesTrabajo === 0
+      ? capturas.length > 0
+        ? 1
+        : 0
+      : hijas.filter((hija) => conFoto.has(hija.id)).length;
+
+  const siguiente = computeEstadoAlistamientoFromCapturas({
+    totalOrdenesTrabajo,
+    ordenesTrabajoConFoto,
+  });
+
+  if (!siguiente || siguiente === estadoActual) {
+    return { estado: estadoActual, updated: false };
+  }
+
+  const { error: updateError } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta",
+  )
+    .update({
+      estado: siguiente,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id_orden_venta", input.idOrdenVenta);
+
+  if (updateError) throw new Error(updateError.message);
+
+  return { estado: siguiente, updated: true };
 }

@@ -14,7 +14,7 @@ export function hasOtPagerRequiredBlocking(params: {
   idComprador: string;
   exigeOc: boolean;
   ordenCompraHotel: string;
-  idBodegaDestino: string;
+  idBodegaDestino?: string;
   fechaEntrega: string;
   todayIso: string;
   ventanaDesde: string;
@@ -23,7 +23,6 @@ export function hasOtPagerRequiredBlocking(params: {
 }): boolean {
   if (!params.idComprador.trim()) return true;
   if (params.exigeOc && !params.ordenCompraHotel.trim()) return true;
-  if (!params.idBodegaDestino.trim()) return true;
 
   const cabecera = validatePedidoCabecera({
     fechaEntrega: params.fechaEntrega,

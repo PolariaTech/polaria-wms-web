@@ -421,7 +421,7 @@ export function CompradorDetalleModal({
       {!isLoading && activeTab === "equivalencia" ? (
         <div className="flex flex-col gap-3">
           <p className="polaria-text-body-sm text-polaria-w-50">
-            Cómo le dice este hotel a cada producto del catálogo.
+            Cómo le dice este cliente a cada producto del catálogo.
           </p>
           <CompradorEquivalenciasTable rows={equivalencias} />
         </div>

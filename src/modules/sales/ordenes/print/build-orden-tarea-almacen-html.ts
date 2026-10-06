@@ -38,8 +38,9 @@ const SHEET_CSS = `
   .qrbox svg{width:100%;height:100%;display:block;}
   .qrcap{font-size:9.6px;margin-top:3px;text-align:center;font-weight:600;line-height:1.25;}
   .notes-block{margin:6px 0 4px;font-size:11px;}
-  .notes-block .nlbl{font-weight:700;margin:0 0 2px;font-size:11px;}
+  .notes-block .nlbl{font-weight:700;margin:0 0 8px;font-size:11px;line-height:1.2;}
   .notes-block .nline{border-bottom:1px solid #000;height:14px;margin:0 0 2px;}
+  .notes-block.incidencias .nline{height:22px;margin:0 0 7px;}
   .notes-block .nval{font-size:10.5px;line-height:1.2;min-height:1.2em;}
   .comb{display:inline-block;vertical-align:middle;font-size:0;}
   .comb i{display:inline-block;width:13px;height:17px;border:1px solid #555;margin:0;}
@@ -114,7 +115,7 @@ function buildProductRows(
       ? fieldValue(linea.cantidadSolicitada)
       : COMB3;
     rows.push(
-      `<tr><td class="n">${index + 1}</td>` +
+      `<tr><td class="n">${(data.lineaInicio ?? 1) + index}</td>` +
         `<td class="prod">${linea ? fieldValue(linea.producto) : ""}</td>` +
         `<td class="spec">${linea ? fieldValue(linea.especificacion) : ""}</td>` +
         `<td class="cc">${cantidad}</td>` +
@@ -151,19 +152,24 @@ function buildNotesBlock(
   value = "",
   lineCount = 2,
   label = "",
+  variant: "notas" | "incidencias" = "notas",
 ): string {
+  const hasLabel = Boolean(label.trim());
+  const contentStart = hasLabel ? 1 : 0;
   const lines: string[] = [];
   for (let index = 0; index < lineCount; index += 1) {
     const content =
-      index === 0 && value
+      index === contentStart && value
         ? `<div class="nval">${fieldValue(value)}</div>`
         : "";
     lines.push(`<div class="nline">${content}</div>`);
   }
-  const title = label
+  const title = hasLabel
     ? `<div class="nlbl">${escapeOrdenTareaHtml(label)}</div>`
     : "";
-  return `<div class="notes-block">${title}${lines.join("")}</div>`;
+  const cls =
+    variant === "incidencias" ? "notes-block incidencias" : "notes-block";
+  return `<div class="${cls}">${title}${lines.join("")}</div>`;
 }
 
 export function buildOrdenTareaAlmacenHtml(
@@ -182,7 +188,7 @@ export function buildOrdenTareaAlmacenHtml(
 </head>
 <body>
 <div class="sheet">
-  <div class="page-meta mono">Orden de tarea ${data.tareaIndex && data.tareaIndex > 0 ? data.tareaIndex : 1}/${data.tareaTotal && data.tareaTotal > 0 ? data.tareaTotal : 1} &nbsp;·&nbsp; Impresa ${fieldValue(data.impresa)}</div>
+  <div class="page-meta mono">Impresa ${fieldValue(data.impresa)}</div>
   <table class="hdr"><tr>
     <td class="fields">
       <table class="hdr-grid">
@@ -192,7 +198,18 @@ export function buildOrdenTareaAlmacenHtml(
             <label>Tarea de Almacen</label>
             <div class="v mono">${folio}</div>
           </td>
-          <td><label># de orden del cliente</label><div class="v">${fieldValue(data.numeroOrdenCliente)}</div></td>
+          <td class="split">
+            <div class="split-row">
+              <div class="split-half">
+                <label># de orden del cliente</label>
+                <div class="v">${fieldValue(data.numeroOrdenCliente)}</div>
+              </div>
+              <div class="split-half">
+                <label>Orden de trabajo</label>
+                <div class="v">${fieldValue(data.ordenTrabajo || "1/1")}</div>
+              </div>
+            </div>
+          </td>
           <td><label>Factura asociada</label><div class="v mono">_______________</div></td>
         </tr>
         <tr>
@@ -218,7 +235,6 @@ export function buildOrdenTareaAlmacenHtml(
     </td>
     <td class="qr">
       <div class="qrbox">${QR_SVG}</div>
-      <div class="qrcap">Escanear y fotografiar</div>
     </td>
   </tr></table>
   ${buildNotesBlock(data.notasGenerales, 3)}
@@ -231,10 +247,10 @@ export function buildOrdenTareaAlmacenHtml(
     <td class="sig"><div class="role">Alistó</div></td>
     <td class="sig"><div class="role">Revisó</div></td>
     <td class="sig"><div class="role">Factura (OK)</div></td>
-    <td class="sig"><div class="role">Despachó</div><div class="cap">Nombre &nbsp;&nbsp;&nbsp; Firma</div></td>
+    <td class="sig"><div class="role">Despachó</div><div class="cap">Firma &nbsp;&nbsp;&nbsp; Fecha</div></td>
     <td class="sig"><div class="role">Retorno</div></td>
   </tr></table>
-  ${buildNotesBlock("", 6, "Incidencias")}
+  ${buildNotesBlock("", 8, "Incidencias", "incidencias")}
 </div>
 </body>
 </html>`;

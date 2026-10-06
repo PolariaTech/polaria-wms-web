@@ -21,6 +21,7 @@ import {
 import {
   formatEstadoOrdenVenta,
   puedeEditarOrdenVenta,
+  variantEstadoOrdenVenta,
 } from "../../shared/constants/sales-status";
 import { useOrdenesVentaSubscription } from "../../shared/hooks/useOrdenesVentaSubscription";
 import {
@@ -48,18 +49,8 @@ interface OrdenesVentaPageData {
   idsConPdfActualizado: Set<string>;
 }
 function renderEstadoBadge(estado: string) {
-  const normalized = estado.toLowerCase();
-  const variant =
-    normalized === "despachada" || normalized === "cerrada"
-      ? "positive"
-      : normalized === "cancelada"
-        ? "neutral"
-        : normalized === "confirmada" || normalized === "en_preparacion"
-          ? "warning"
-          : "neutral";
-
   return (
-    <PolariaTableBadge variant={variant}>
+    <PolariaTableBadge variant={variantEstadoOrdenVenta(estado)}>
       {formatEstadoOrdenVenta(estado)}
     </PolariaTableBadge>
   );
@@ -286,7 +277,7 @@ export function OperadorOrdenesVentaPageContent({
       },
       {
         id: "fecha",
-        header: "Fecha",
+        header: "Fecha de creación",
         headerClassName: ordenVentaTableColumnClass("fecha", "header"),
         cellClassName: ordenVentaTableColumnClass("fecha"),
         cell: (row: OrdenVentaOperadorRow) => formatDateTime(row.fecha),

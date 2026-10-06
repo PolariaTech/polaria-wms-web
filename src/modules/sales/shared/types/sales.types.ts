@@ -3,6 +3,8 @@ import type { OrigenCorreoRenglon } from "@/modules/sales/ordenes/utils/origen-c
 export type EstadoOrdenVenta =
   | "borrador"
   | "confirmada"
+  | "alistamiento"
+  | "alistada"
   | "en_preparacion"
   | "parcialmente_despachada"
   | "despachada"
@@ -118,7 +120,7 @@ export interface OrdenVentaDetalleRow extends OrdenVentaRow {
 export interface CreateOrdenVentaInput {
   codigoCuenta: string;
   idBodega?: string | null;
-  idBodegaDestino: string;
+  idBodegaDestino?: string | null;
   idComprador: string;
   lineas?: OrdenVentaLineaInput[];
   /** @deprecated Usar `lineas`. Se mantiene por compatibilidad. */

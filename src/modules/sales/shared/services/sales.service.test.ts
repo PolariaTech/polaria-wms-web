@@ -250,7 +250,10 @@ describe("sales.service", () => {
       "fecha_pedido",
       getOrdersVisibleSinceDate(7),
     );
-    expect(chain.order).toHaveBeenCalledWith("fecha_pedido", {
+    expect(chain.order).toHaveBeenCalledWith("created_at", {
+      ascending: false,
+    });
+    expect(chain.order).toHaveBeenCalledWith("id_orden_venta", {
       ascending: false,
     });
   });
@@ -315,6 +318,58 @@ describe("sales.service", () => {
     expect(rows[0]?.total).toBe(2000);
   });
 
+  it("listOrdenesVentaOperador ordena por fecha de creación, más reciente primero", async () => {
+    const ordenMock = createSupabaseMock({
+      data: [
+        {
+          id_orden_venta: "ov-old",
+          codigo_cuenta: "CUENTA-01",
+          id_bodega: "BOD-01",
+          id_cliente: "cli-1",
+          id_comprador: null,
+          id_planta: null,
+          id_creador: null,
+          id_bodega_destino: null,
+          codigo: "OV-OLD",
+          estado: "borrador",
+          fecha_pedido: "2026-10-06",
+          observaciones: null,
+          created_at: "2026-10-02T10:00:00.000Z",
+          updated_at: "2026-10-06T10:00:00.000Z",
+        },
+        {
+          id_orden_venta: "ov-new",
+          codigo_cuenta: "CUENTA-01",
+          id_bodega: "BOD-01",
+          id_cliente: "cli-1",
+          id_comprador: null,
+          id_planta: null,
+          id_creador: null,
+          id_bodega_destino: null,
+          codigo: "OV-NEW",
+          estado: "borrador",
+          fecha_pedido: "2026-10-02",
+          observaciones: null,
+          created_at: "2026-10-05T20:54:00.000Z",
+          updated_at: "2026-10-05T20:54:00.000Z",
+        },
+      ],
+    });
+    const lineaMock = createSupabaseMock({ data: [] });
+    const client = {
+      from: vi.fn((table: string) => {
+        if (table === "orden_venta_linea") return lineaMock.chain;
+        return ordenMock.chain;
+      }),
+    } as unknown as SupabaseClient;
+
+    setSupabaseClientForTests(client);
+
+    const rows = await listOrdenesVentaOperador({ codigoCuenta: "CUENTA-01" });
+
+    expect(rows.map((row) => row.venta)).toEqual(["OV-NEW", "OV-OLD"]);
+  });
+
   it("listOrdenesVentaOperador pide lineas en tandas para no reventar el in de PostgREST", async () => {
     const ordenes = Array.from({ length: 81 }, (_, index) => ({
       id_orden_venta: `ov-${index + 1}`,
@@ -350,7 +405,7 @@ describe("sales.service", () => {
 
     expect(lineaMock.chain.in).toHaveBeenCalledTimes(2);
     expect(lineaMock.chain.in.mock.calls[0]?.[1]).toHaveLength(80);
-    expect(lineaMock.chain.in.mock.calls[1]?.[1]).toEqual(["ov-81"]);
+    expect(lineaMock.chain.in.mock.calls[1]?.[1]).toHaveLength(1);
   });
 
   it("listProductosVentaCatalogo lista productos activos y suma stock de almacenamiento", async () => {

@@ -203,6 +203,7 @@ function drawProductRow(
   index: number,
   linea: OrdenTareaAlmacenPrintData["lineas"][number] | undefined,
   shaded = false,
+  lineaInicio = 1,
 ): number {
   if (shaded) {
     doc.setFillColor(232, 232, 232);
@@ -212,7 +213,7 @@ function drawProductRow(
   let cursorX = startX;
   const mid = y + PRODUCT_BODY_H / 2;
   const values = [
-    String(index + 1),
+    String(lineaInicio + index),
     linea?.producto ?? "",
     linea?.especificacion ?? "",
     linea?.cantidadSolicitada ?? "",
@@ -258,7 +259,7 @@ function writePageNumbers(doc: jsPDF, impresa: string) {
     doc.setFontSize(7);
     doc.setTextColor(80);
     doc.text(
-      `Orden de tarea ${page}/${total}  ·  Impresa ${impresa}`,
+      `Impresa ${impresa}`,
       MARGIN,
       4.5,
       { baseline: "top" },
@@ -273,12 +274,21 @@ function drawNotesLines(
   label: string,
   value = "",
   lineCount = 2,
+  lineStep = 5.2,
+  startOnSecondLine = false,
+  allowPageBreak = true,
 ): number {
-  const labelH = label.trim() ? 5.5 : 0;
-  const blockH = labelH + lineCount * 5.2;
-  y = ensureSpace(doc, y, blockH + 2);
+  const hasLabel = Boolean(label.trim());
+  const labelH = hasLabel ? 5.5 : 0;
+  if (allowPageBreak) {
+    const blockH = labelH + lineCount * lineStep;
+    y = ensureSpace(doc, y, blockH + 2);
+  } else {
+    const remaining = PAGE_BOTTOM - y - labelH;
+    lineCount = Math.max(4, Math.min(lineCount, Math.floor(remaining / lineStep)));
+  }
   let lineY = y;
-  if (label.trim()) {
+  if (hasLabel) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.text(`${label}:`, MARGIN, y, { baseline: "top" });
@@ -287,37 +297,38 @@ function drawNotesLines(
     lineY = y + 3.2;
   }
   doc.setDrawColor(0);
-  doc.setLineWidth(0.35);
+  doc.setLineWidth(0.45);
 
   const textW = CONTENT_W - 2;
-  const lineStep = 5.2;
   const trimmed = value.replace(/\s+/g, " ").trim();
+  const contentOffset = startOnSecondLine ? 1 : 0;
+  const contentSlots = Math.max(0, lineCount - contentOffset);
   let lines: string[] = [];
   let fontSize = 7.5;
 
-  if (trimmed) {
+  if (trimmed && contentSlots > 0) {
     doc.setFont("helvetica", "normal");
     for (const size of [7.5, 6.5, 5.5, 4.8, 4.2]) {
       doc.setFontSize(size);
       const wrapped = doc.splitTextToSize(trimmed, textW);
       const all = Array.isArray(wrapped) ? wrapped : [wrapped];
-      if (all.length <= lineCount) {
+      if (all.length <= contentSlots) {
         lines = all;
         fontSize = size;
         break;
       }
-      lines = all.slice(0, lineCount);
+      lines = all.slice(0, contentSlots);
       fontSize = size;
     }
   }
 
   for (let index = 0; index < lineCount; index += 1) {
     doc.line(MARGIN, lineY, MARGIN + CONTENT_W, lineY);
-    const lineText = lines[index];
+    const lineText = lines[index - contentOffset];
     if (lineText) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(fontSize);
-      doc.text(lineText, MARGIN + 1, lineY - 1.2, { baseline: "bottom" });
+      doc.text(lineText, MARGIN + 1, lineY - 1.4, { baseline: "bottom" });
     }
     lineY += lineStep;
   }
@@ -362,17 +373,30 @@ export function buildOrdenTareaAlmacenPdf(
     col,
     rowH,
     "Tarea de Almacen",
-    isActualizado ? `${folio}\nActualizada` : folio,
+    folio,
     true,
   );
-  field(
+  if (isActualizado) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.text("Actualizada", MARGIN + col - 1.6, y + 1.4, {
+      align: "right",
+      baseline: "top",
+    });
+  }
+  splitField(
     doc,
     MARGIN + col,
     y,
     col,
     rowH,
-    "# de orden del cliente",
-    data.numeroOrdenCliente,
+    { label: "# de orden del cliente", value: data.numeroOrdenCliente },
+    {
+      label: "Orden de trabajo",
+      value:
+        data.ordenTrabajo ||
+        `${data.tareaIndex && data.tareaIndex > 0 ? data.tareaIndex : 1}/${data.tareaTotal && data.tareaTotal > 0 ? data.tareaTotal : 1}`,
+    },
   );
   field(doc, MARGIN + col * 2, y, col, rowH, "Factura asociada", factura);
 
@@ -399,14 +423,6 @@ export function buildOrdenTareaAlmacenPdf(
       baseline: "middle",
     });
   }
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(5.5);
-  doc.text("Escanear y fotografiar", qrX + QR_SIZE / 2, qrY + QR_SIZE + 1, {
-    align: "center",
-    baseline: "top",
-    maxWidth: QR_SIZE + QR_GAP,
-  });
-
   y += rowH;
   // Fila 2: Cliente · Centro · Fecha|Hora (un solo campo partido)
   field(doc, MARGIN, y, col, rowH, "Cliente", data.cliente, true);
@@ -485,8 +501,24 @@ export function buildOrdenTareaAlmacenPdf(
       const leftIndex = pageStart + row;
       const rightIndex = pageStart + MIN_PRODUCT_ROWS_PER_COL + row;
       const shaded = row % 2 === 1;
-      drawProductRow(doc, y, leftX, leftIndex, data.lineas[leftIndex], shaded);
-      drawProductRow(doc, y, rightX, rightIndex, data.lineas[rightIndex], shaded);
+      drawProductRow(
+        doc,
+        y,
+        leftX,
+        leftIndex,
+        data.lineas[leftIndex],
+        shaded,
+        data.lineaInicio ?? 1,
+      );
+      drawProductRow(
+        doc,
+        y,
+        rightX,
+        rightIndex,
+        data.lineas[rightIndex],
+        shaded,
+        data.lineaInicio ?? 1,
+      );
       y += PRODUCT_BODY_H;
     }
   }
@@ -505,43 +537,43 @@ export function buildOrdenTareaAlmacenPdf(
   }> = [
     {
       role: "Alistó",
-      showNombreHora: true,
-      nombreKeys: ["alistoNombre", "Alistó nombre", "Alistó"],
-      horaKeys: ["alistoHora", "Alistó hora"],
+      showNombreHora: false,
+      nombreKeys: [],
+      horaKeys: [],
     },
     {
       role: "Revisó",
-      showNombreHora: true,
-      nombreKeys: ["revisoNombre", "Revisó nombre", "Revisó"],
-      horaKeys: ["revisoHora", "Revisó hora"],
+      showNombreHora: false,
+      nombreKeys: [],
+      horaKeys: [],
     },
     {
       role: "Factura (OK)",
-      showNombreHora: true,
-      nombreKeys: [
-        "facturaOkNombre",
-        "Factura (OK) nombre",
-        "documentoNombre",
-        "Documentó nombre",
-      ],
-      horaKeys: [
-        "facturaOkHora",
-        "Factura (OK) hora",
-        "documentoHora",
-        "Documentó hora",
-      ],
+      showNombreHora: false,
+      nombreKeys: [],
+      horaKeys: [],
     },
     {
       role: "Despachó",
       showNombreHora: true,
-      nombreKeys: ["despachoNombre", "Despachó nombre"],
-      horaKeys: ["despachoHora", "Despachó hora"],
+      nombreKeys: [
+        "despachoFirma",
+        "Despachó firma",
+        "despachoNombre",
+        "Despachó nombre",
+      ],
+      horaKeys: [
+        "despachoFecha",
+        "Despachó fecha",
+        "despachoHora",
+        "Despachó hora",
+      ],
     },
     {
       role: "Retorno",
-      showNombreHora: true,
-      nombreKeys: ["retornoNombre", "Retorno nombre", "Retorno"],
-      horaKeys: ["retornoHora", "Retorno hora"],
+      showNombreHora: false,
+      nombreKeys: [],
+      horaKeys: [],
     },
   ];
   const sigW = CONTENT_W / roles.length;
@@ -565,7 +597,7 @@ export function buildOrdenTareaAlmacenPdf(
     } else {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(6.8);
-      doc.text("Nombre", x + 1.6, y + 12.2, { baseline: "top" });
+      doc.text("Firma", x + 1.6, y + 12.2, { baseline: "top" });
     }
     if (firma) {
       doc.setFont("helvetica", "bold");
@@ -577,27 +609,19 @@ export function buildOrdenTareaAlmacenPdf(
     } else {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(6.8);
-      doc.text("Firma", x + sigW - 1.6, y + 12.2, {
+      doc.text("Fecha", x + sigW - 1.6, y + 12.2, {
         align: "right",
         baseline: "top",
       });
     }
   });
   y += sigH + 3;
-  const incidenciaLineStep = 5.2;
-  const incidenciaLabelH = 5.5;
-  // Reserva 2 mm del ensureSpace interno de drawNotesLines.
-  const incidenciaRemaining = PAGE_BOTTOM - y - incidenciaLabelH - 2;
-  const incidenciaLines = Math.max(
-    3,
-    Math.floor(incidenciaRemaining / incidenciaLineStep),
-  );
   const incidenciasTexto = campoSurtido(
     data.surtido,
     "incidencias",
     "Incidencias",
   );
-  drawNotesLines(doc, y, "Incidencias", incidenciasTexto, incidenciaLines);
+  drawNotesLines(doc, y, "Incidencias", incidenciasTexto, 9, 7.5, true, false);
 
   writePageNumbers(doc, data.impresa);
   return doc;

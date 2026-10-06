@@ -13,6 +13,32 @@ interface CapturaOrdenViewProps {
   flashPrecision: number | null;
 }
 
+function CapturaCameraMark() {
+  return (
+    <div
+      className="relative mx-auto flex h-20 w-20 items-center justify-center"
+      aria-hidden
+    >
+      <span className="absolute left-0 top-0 h-5 w-5 rounded-tl-md border-l-2 border-t-2 border-polaria-teal" />
+      <span className="absolute right-0 top-0 h-5 w-5 rounded-tr-md border-r-2 border-t-2 border-polaria-teal" />
+      <span className="absolute bottom-0 left-0 h-5 w-5 rounded-bl-md border-b-2 border-l-2 border-polaria-teal" />
+      <span className="absolute bottom-0 right-0 h-5 w-5 rounded-br-md border-b-2 border-r-2 border-polaria-teal" />
+      <svg
+        viewBox="0 0 24 24"
+        className="h-9 w-9 text-polaria-teal"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M4.5 8.5h2.2l1.1-2h6.4l1.1 2H19.5A1.5 1.5 0 0 1 21 10v7.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V10A1.5 1.5 0 0 1 4.5 8.5Z" />
+        <circle cx="12" cy="13.5" r="3.1" />
+      </svg>
+    </div>
+  );
+}
+
 /**
  * Shell de captura pública (QR). La interacción vive en CapturaOrdenCard (cliente).
  */
@@ -33,43 +59,41 @@ export function CapturaOrdenView({
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-[-10%] h-[420px] w-[420px] -translate-x-1/2 rounded-full border border-polaria-t-20"
+        className="pointer-events-none absolute left-[-20%] top-[-8%] h-[280px] w-[280px] rounded-full border border-polaria-t-20"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-[8%] h-[280px] w-[280px] -translate-x-1/2 rounded-full border border-polaria-t-08"
+        className="pointer-events-none absolute bottom-[-12%] right-[-18%] h-[240px] w-[240px] rounded-full border border-polaria-t-08"
       />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-8 sm:py-10">
-        <header className="mb-8 flex flex-col items-center text-center">
+      <div className="relative z-10 mx-auto flex w-full max-w-sm flex-1 flex-col px-6 pb-10 pt-12">
+        <header className="flex flex-col items-center text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
             alt="Polaria"
-            width={240}
-            height={64}
+            width={200}
+            height={54}
             decoding="async"
-            className="h-auto w-40 sm:w-48"
+            className="h-auto w-36"
           />
-          <p className="polaria-text-caption mt-4 text-polaria-teal">
-            Captura de surtido
-          </p>
-          <h1 className="polaria-text-card-title mt-1 max-w-sm">
-            Foto de la hoja surtida
+          <div className="mt-10">
+            <CapturaCameraMark />
+          </div>
+          <h1 className="polaria-text-display mt-6 text-center">
+            Captura
           </h1>
-          <p className="polaria-text-body-sm mt-2 max-w-md text-polaria-w-50">
-            Sube una foto o tómala desde aquí. Verás el avance y la precisión
-            de lectura.
+          <p className="polaria-text-subtitle mt-3">
+            Toma una foto clara desde aquí.
           </p>
         </header>
 
-        <main className="flex flex-1 flex-col">
+        <main className="mt-8 flex flex-1 flex-col gap-6">
           {error ? (
             <section
               role="alert"
-              className="space-y-3 rounded-2xl border border-polaria-t-20 bg-polaria-t-08 px-5 py-6"
+              className="rounded-2xl border border-polaria-t-20 bg-polaria-t-08 px-5 py-5"
             >
-              <p className="polaria-text-label text-polaria-w-50">No disponible</p>
               <p className="polaria-text-body-sm text-polaria-w">{error}</p>
             </section>
           ) : meta ? (
@@ -84,7 +108,7 @@ export function CapturaOrdenView({
           ) : (
             <section
               role="alert"
-              className="space-y-3 rounded-2xl border border-polaria-t-20 bg-polaria-t-08 px-5 py-6"
+              className="rounded-2xl border border-polaria-t-20 bg-polaria-t-08 px-5 py-5"
             >
               <p className="polaria-text-body-sm text-polaria-w">
                 No se encontró la orden.
@@ -92,10 +116,6 @@ export function CapturaOrdenView({
             </section>
           )}
         </main>
-
-        <footer className="mt-8 text-center polaria-text-caption text-polaria-w-20">
-          polaria
-        </footer>
       </div>
     </div>
   );

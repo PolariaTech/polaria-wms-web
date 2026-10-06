@@ -20,10 +20,12 @@ import {
   type OrdenTrabajoHija,
 } from "../utils/origen-correo-ordenes-trabajo";
 import {
-  cleanCorreoBodyForNotas,
-  flattenNotasForPdf,
+  extractNotasClaveCorreo,
+  fitNotasGeneralesPdf,
 } from "../utils/texto-origen-pedido";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
+
+export const PRODUCTOS_POR_HOJA_TAREA = 49;
 
 export function formatOrdenTareaImpresaAt(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
@@ -43,6 +45,61 @@ function formatFechaEntrega(value: string | null | undefined): string {
   return `${day}/${month}/${year}`;
 }
 
+function formatOrdenTrabajoCorto(
+  index: number,
+  total: number,
+  hojaOt = 1,
+  hojasOt = 1,
+): string {
+  const i = index > 0 ? index : 1;
+  const t = total > 0 ? total : 1;
+  if (hojasOt <= 1) return `${i}/${t}`;
+  return `${hojaOt}-${i}/${t}`;
+}
+
+function paginarHojaPorProductos(
+  sheet: OrdenTareaAlmacenPrintData,
+): OrdenTareaAlmacenPrintData[] {
+  const lineas = sheet.lineas ?? [];
+  const tareaIndex = sheet.tareaIndex && sheet.tareaIndex > 0 ? sheet.tareaIndex : 1;
+  const tareaTotal = sheet.tareaTotal && sheet.tareaTotal > 0 ? sheet.tareaTotal : 1;
+  const hojasOt = Math.max(1, Math.ceil(lineas.length / PRODUCTOS_POR_HOJA_TAREA));
+  if (hojasOt <= 1) {
+    return [
+      {
+        ...sheet,
+        lineaInicio: 1,
+        ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
+      },
+    ];
+  }
+  const pages: OrdenTareaAlmacenPrintData[] = [];
+  for (let hoja = 0; hoja < hojasOt; hoja += 1) {
+    const start = hoja * PRODUCTOS_POR_HOJA_TAREA;
+    pages.push({
+      ...sheet,
+      lineas: lineas.slice(start, start + PRODUCTOS_POR_HOJA_TAREA),
+      lineaInicio: start + 1,
+      ordenTrabajo: formatOrdenTrabajoCorto(
+        tareaIndex,
+        tareaTotal,
+        hoja + 1,
+        hojasOt,
+      ),
+    });
+  }
+  return pages;
+}
+
+function resolveNotasGenerales(input: {
+  origenTexto: string;
+  notasAlmacen: string;
+}): string {
+  const deCorreo = extractNotasClaveCorreo(input.origenTexto);
+  const deAlmacen = input.notasAlmacen.trim();
+  const almacenEsSurtido = /surtido\s*\(\s*foto\s*qr\s*\)/i.test(deAlmacen);
+  return fitNotasGeneralesPdf(deCorreo || (almacenEsSurtido ? "" : deAlmacen));
+}
 function formatHoraEntrega(input: {
   ventanaDesde?: string | null;
   ventanaHasta?: string | null;
@@ -95,6 +152,7 @@ function buildBaseSheet(input: {
       cliente: listRow.comprador,
       centroConsumo: hija?.almacen ?? "",
       numeroOrdenCliente: hija?.numeroPedido || listRow.venta,
+      ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
       fechaEntrega: hija?.fecha
         ? formatCapturaFecha(hija.fecha)
         : formatFechaEntrega(listRow.fecha),
@@ -127,6 +185,7 @@ function buildBaseSheet(input: {
       hija?.numeroPedido ||
       captura.ordenCompraHotel.trim() ||
       detalle.codigo,
+    ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
     fechaEntrega: hija?.fecha
       ? formatCapturaFecha(hija.fecha)
       : fechaEntregaCaptura
@@ -145,14 +204,11 @@ function buildBaseSheet(input: {
       detalle.bodega_destino_nombre?.trim() ||
       detalle.bodega_nombre?.trim() ||
       "",
-    /** Body del correo / mensaje pegado (origen), no notas de almacén. */
-    notasGenerales: flattenNotasForPdf(
-      cleanCorreoBodyForNotas(
-        detalle.origen_texto?.trim() ||
-          captura.origenTexto.trim() ||
-          "",
-      ),
-    ),
+    notasGenerales: resolveNotasGenerales({
+      origenTexto:
+        detalle.origen_texto?.trim() || captura.origenTexto.trim() || "",
+      notasAlmacen: detalle.notas_almacen?.trim() || "",
+    }),
     lineas: mapLineasPrint(
       lineas,
       detalle.notas_lineas?.trim() || captura.notasLineas,
@@ -189,7 +245,7 @@ export function mapOrdenVentaToAlmacenPrintSheets(input: {
   );
 
   if (hijas.length === 0) {
-    return [
+    return paginarHojaPorProductos(
       buildBaseSheet({
         listRow,
         detalle,
@@ -199,20 +255,22 @@ export function mapOrdenVentaToAlmacenPrintSheets(input: {
         tareaIndex: 1,
         tareaTotal: 1,
       }),
-    ];
+    );
   }
 
   const total = hijas.length;
-  return hijas.map((hija, index) =>
-    buildBaseSheet({
-      listRow,
-      detalle,
-      printedAt,
-      hija,
-      lineas: filterLineasByOrdenTrabajoHija(allLineas, hija),
-      tareaIndex: index + 1,
-      tareaTotal: total,
-    }),
+  return hijas.flatMap((hija, index) =>
+    paginarHojaPorProductos(
+      buildBaseSheet({
+        listRow,
+        detalle,
+        printedAt,
+        hija,
+        lineas: filterLineasByOrdenTrabajoHija(allLineas, hija),
+        tareaIndex: index + 1,
+        tareaTotal: total,
+      }),
+    ),
   );
 }
 

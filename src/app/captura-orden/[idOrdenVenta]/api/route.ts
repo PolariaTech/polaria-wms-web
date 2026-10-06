@@ -10,6 +10,7 @@ import {
   getOrdenMetaPublica,
   getOrdenSurtidoCaptura,
   listOrdenSurtidoCapturas,
+  syncOrdenVentaEstadoAlistamiento,
   upsertOrdenSurtidoCaptura,
 } from "@/modules/sales/ordenes/surtido/orden-surtido.service";
 import { normalizeIdOrdenTrabajo } from "@/modules/sales/ordenes/utils/origen-correo-ordenes-trabajo";
@@ -305,6 +306,19 @@ export async function POST(
       modelo,
     });
 
+    let estadoAlistamiento: string | null = null;
+    try {
+      const alistamiento = await syncOrdenVentaEstadoAlistamiento({
+        idOrdenVenta,
+      });
+      estadoAlistamiento = alistamiento.estado;
+    } catch (estadoError) {
+      console.error(
+        "[captura-orden] sync estado alistamiento falló:",
+        estadoError instanceof Error ? estadoError.message : estadoError,
+      );
+    }
+
     try {
       const sync = await applySurtidoCapturaToOrdenVenta({
         idOrdenVenta,
@@ -321,6 +335,7 @@ export async function POST(
           idOrdenTrabajo: resolvedOt,
           precisionEstimada,
           captura,
+          estadoAlistamiento,
           ovSync: sync,
         },
         200,
@@ -339,6 +354,7 @@ export async function POST(
           idOrdenTrabajo: resolvedOt,
           precisionEstimada,
           captura,
+          estadoAlistamiento,
           ovSync: { updatedHeader: false, updatedLineas: 0, error: syncMessage },
         },
         200,

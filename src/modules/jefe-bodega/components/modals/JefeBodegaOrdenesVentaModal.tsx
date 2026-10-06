@@ -13,6 +13,7 @@ import {
   formatEstadoOrdenVenta,
   getOrdenVentaDetalle,
   listOrdenesVentaOperadorParaJefe,
+  variantEstadoOrdenVenta,
   type OrdenVentaOperadorRow,
 } from "@/modules/sales";
 import { downloadOrdenTareaAlmacenPdf } from "@/modules/sales/ordenes/print/download-orden-tarea-almacen-pdf";
@@ -26,25 +27,20 @@ interface JefeBodegaOrdenesVentaModalProps {
   idBodega?: string | null;
 }
 
-const ESTADOS_VISIBLE = new Set(["confirmada", "en_preparacion"]);
+const ESTADOS_VISIBLE = new Set([
+  "confirmada",
+  "alistamiento",
+  "alistada",
+  "en_preparacion",
+]);
 
 function normalizeSearch(value: string): string {
   return value.trim().toLowerCase();
 }
 
 function renderEstadoBadge(estado: string) {
-  const normalized = estado.toLowerCase();
-  const variant =
-    normalized === "despachada" || normalized === "cerrada"
-      ? "positive"
-      : normalized === "cancelada"
-        ? "neutral"
-        : normalized === "confirmada" || normalized === "en_preparacion"
-          ? "warning"
-          : "neutral";
-
   return (
-    <PolariaTableBadge variant={variant}>
+    <PolariaTableBadge variant={variantEstadoOrdenVenta(estado)}>
       {formatEstadoOrdenVenta(estado)}
     </PolariaTableBadge>
   );

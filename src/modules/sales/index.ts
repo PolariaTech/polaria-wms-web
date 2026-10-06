@@ -13,6 +13,7 @@ export {
   CATALOGO_VENTA_EMPTY_MESSAGE,
   formatEstadoOrdenVenta,
   puedeEditarOrdenVenta,
+  variantEstadoOrdenVenta,
 } from "./shared/constants/sales-status";
 
 export {

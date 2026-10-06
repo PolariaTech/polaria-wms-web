@@ -3,6 +3,36 @@
 import { cn } from "@/lib/utils/cn";
 import { parseOrigenPedidoBlocks } from "../utils/texto-origen-pedido";
 
+const CHIP_CLASS =
+  "rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-2 py-1 polaria-text-caption text-polaria-w-50";
+
+/** Origen del pedido: archivo o indicador de mensaje pegado, sin el cuerpo. */
+export function OrigenPedidoSourceView({
+  archivos,
+  tieneTexto,
+}: {
+  archivos: readonly string[];
+  tieneTexto: boolean;
+}) {
+  const chips =
+    archivos.length > 0
+      ? archivos
+      : tieneTexto
+        ? ["Mensaje pegado"]
+        : [];
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {chips.map((name) => (
+        <span key={name} className={CHIP_CLASS}>
+          {name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Muestra el cuerpo del correo/mensaje con tablas HTML reales cuando el texto
  * trae columnas alineadas (salida dataTable de html-to-text).

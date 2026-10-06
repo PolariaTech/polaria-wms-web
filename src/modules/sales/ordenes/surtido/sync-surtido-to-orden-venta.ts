@@ -276,6 +276,7 @@ export function buildOrdenVentaPatchFromSurtido(input: {
       "numeroOrdenCliente",
       "ordenCompraHotel",
       "# de orden del cliente",
+      "Orden de compra del cliente",
       "Orden de compra del hotel",
     ),
   );

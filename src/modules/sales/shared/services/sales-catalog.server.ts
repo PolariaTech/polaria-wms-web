@@ -184,6 +184,39 @@ async function fetchPreciosProductoMap(
   return mapLatestPrecioProductoById((data ?? []) as PrecioProductoRow[]);
 }
 
+/** Solo claves de catálogo para IA (sin stock). Evita warehouse_state y el filtro de bodega. */
+export async function listProductoCatalogoClavesServer(
+  codigoCuenta: string,
+): Promise<string[]> {
+  const cuenta = codigoCuenta.trim();
+  if (!cuenta) return [];
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) {
+    throw new Error("Supabase admin no configurado.");
+  }
+
+  const schemaName = await resolveTenantSchemaForCuenta(admin, cuenta);
+  const from = tenantFrom(admin, schemaName);
+
+  const { data, error } = await from("producto")
+    .select("id_producto,sku,descripcion,metadatos_catalogo,esta_activo")
+    .eq("codigo_cuenta", cuenta)
+    .eq("esta_activo", true)
+    .order("descripcion", { ascending: true })
+    .limit(1000);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as ProductoCatalogoRow[]).map((row) => {
+    const codigo = row.sku?.trim() || row.id_producto?.slice(0, 8) || "";
+    const nombre = resolveNombreProductoVenta(row, codigo);
+    return `${nombre} (${codigo})`;
+  });
+}
+
 /** Catálogo completo de productos de la cuenta + kg disponibles (puede ser 0). */
 export async function listProductosVentaCatalogoServer(
   codigoCuenta: string,
