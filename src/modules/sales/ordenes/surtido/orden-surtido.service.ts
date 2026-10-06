@@ -370,6 +370,7 @@ export async function buildPrintDataAdmin(
     cliente,
     centroConsumo,
     numeroOrdenCliente,
+    ordenTrabajo: `${tareaIndex > 0 ? tareaIndex : 1}/${tareaTotal > 0 ? tareaTotal : 1}`,
     fechaEntrega: fechaEntregaRaw ? formatCapturaFecha(fechaEntregaRaw) : "",
     horaEntrega,
     direccionEntrega,

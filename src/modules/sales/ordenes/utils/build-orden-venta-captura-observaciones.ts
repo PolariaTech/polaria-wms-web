@@ -76,6 +76,8 @@ const LABELED_FIELDS = [
   ["Registrar temperatura", "registrarTemperatura"],
 ] as const;
 
+type LabeledFieldKey = (typeof LABELED_FIELDS)[number][1];
+
 const HIDDEN_CAPTURA_KEYS = new Set<LabeledFieldKey>([
   "turno",
   "horaSalida",
