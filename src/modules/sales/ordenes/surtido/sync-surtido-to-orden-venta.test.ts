@@ -59,12 +59,37 @@ describe("buildOrdenVentaPatchFromSurtido", () => {
     expect(flat.hora_salida).toBe("04:30");
     expect(flat.chofer).toBe("Luis Mendoza");
     expect(flat.unidad).toBe("Camión 12");
-    expect(flat.observaciones).not.toContain("Chofer:");
+    expect(flat.observaciones ?? "").not.toContain("Chofer:");
     expect(flat.notas_almacen).toContain("Factura asociada: F-99");
-    expect(flat.notas_lineas).toContain("HAMBURGUESA");
+    expect(flat.notas_lineas).toBeUndefined();
     expect(lineas).toEqual([
       { indice: 1, cantidadDespachada: 5, notaLinea: "ok" },
     ]);
+  });
+
+  it("guarda especificación de línea sin mezclar incidencias ni prep", () => {
+    const { flat } = buildOrdenVentaPatchFromSurtido({
+      payload: {
+        campos: { incidencias: "Retraso en andén" },
+        checks: {},
+        lineas: [
+          {
+            indice: 1,
+            especificacion: "Firme",
+            cantidadPreparada: "5 kg",
+            codigoIncidencia: "A",
+            nota: "ok",
+          },
+        ],
+      },
+      observacionesActuales: null,
+      productosByIndex: new Map([[1, "HAMBURGUESA"]]),
+    });
+
+    expect(flat.notas_lineas).toBe("HAMBURGUESA: Firme");
+    expect(flat.notas_lineas).not.toContain("prep");
+    expect(flat.notas_lineas).not.toContain("inc");
+    expect(flat.notas_almacen).toContain("Incidencias: Retraso en andén");
   });
 
   it("rellena campos de pedido manuscritos que estaban vacíos", () => {

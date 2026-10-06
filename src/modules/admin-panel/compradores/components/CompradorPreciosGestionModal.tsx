@@ -544,7 +544,7 @@ export function CompradorPreciosGestionModal({
               }
               className={cn(
                 ACTION_BUTTON_CLASS,
-                "bg-polaria-teal text-polaria-bg hover:opacity-90",
+                "bg-polaria-teal text-polaria-on-teal hover:opacity-90",
                 "disabled:cursor-not-allowed disabled:opacity-60",
               )}
             >
@@ -668,7 +668,7 @@ export function CompradorPreciosGestionModal({
               }
               className={cn(
                 ACTION_BUTTON_CLASS,
-                "bg-polaria-teal text-polaria-bg hover:opacity-90",
+                "bg-polaria-teal text-polaria-on-teal hover:opacity-90",
                 "disabled:cursor-not-allowed disabled:opacity-60",
               )}
             >
@@ -805,7 +805,7 @@ export function CompradorPreciosGestionModal({
               }
               className={cn(
                 ACTION_BUTTON_CLASS,
-                "bg-polaria-teal text-polaria-bg hover:opacity-90",
+                "bg-polaria-teal text-polaria-on-teal hover:opacity-90",
                 "disabled:cursor-not-allowed disabled:opacity-60",
               )}
             >

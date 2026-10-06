@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   isPolariaTheme,
@@ -18,5 +20,15 @@ describe("polaria theme", () => {
 
   it("sin storage vuelve a oscuro", () => {
     expect(readStoredPolariaTheme()).toBe("dark");
+  });
+
+  it("define --on-teal fijo en dark y light", () => {
+    const css = readFileSync(
+      resolve(process.cwd(), "src/app/globals.css"),
+      "utf8",
+    );
+    expect(css).toMatch(/html\[data-theme="dark"\][\s\S]*?--on-teal:\s*#020609/);
+    expect(css).toMatch(/html\[data-theme="light"\][\s\S]*?--on-teal:\s*#020609/);
+    expect(css).toContain("--color-polaria-on-teal: var(--on-teal)");
   });
 });

@@ -799,7 +799,7 @@ function TabButton({
       className={cn(
         "rounded-xl px-4 py-2 text-sm font-medium transition",
         active
-          ? "bg-polaria-teal text-polaria-bg"
+          ? "bg-polaria-teal text-polaria-on-teal"
           : "border border-polaria-t-20 text-polaria-w-50 hover:bg-polaria-t-08",
       )}
     >
@@ -830,7 +830,7 @@ function ActionButton({
       className={cn(
         "inline-flex min-w-[7rem] items-center justify-center rounded-xl px-4 py-2.5 polaria-text-body-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
         primary
-          ? "bg-polaria-teal text-polaria-bg hover:opacity-90"
+          ? "bg-polaria-teal text-polaria-on-teal hover:opacity-90"
           : "border border-polaria-teal text-polaria-teal hover:bg-polaria-t-08",
       )}
     >

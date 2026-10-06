@@ -38,8 +38,13 @@ describe("CapturaOrdenUploadForm", () => {
     const user = userEvent.setup();
     const fetchMock = stubFetchOk();
     const onFilePicked = vi.fn();
+    const onUploadOk = vi.fn();
     render(
-      <CapturaOrdenUploadForm idOrdenVenta="ov-1" onFilePicked={onFilePicked} />,
+      <CapturaOrdenUploadForm
+        idOrdenVenta="ov-1"
+        onFilePicked={onFilePicked}
+        onUploadOk={onUploadOk}
+      />,
     );
 
     const file = new File([new Uint8Array([1, 2, 3, 4])], "hoja.jpg", {
@@ -48,13 +53,20 @@ describe("CapturaOrdenUploadForm", () => {
     await user.upload(cameraInput(), file);
 
     expect(onFilePicked).toHaveBeenCalled();
-    expect(await screen.findByText(/90% · alta/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalled();
+    await vi.waitFor(() => expect(onUploadOk).toHaveBeenCalled());
+    expect(screen.queryByText(/90%|muy baja|tomar otra foto/i)).toBeNull();
   });
 
   it("sube si el input tiene archivo tras change nativo", async () => {
     const fetchMock = stubFetchOk();
-    render(<CapturaOrdenUploadForm idOrdenVenta="ov-native" />);
+    const onUploadOk = vi.fn();
+    render(
+      <CapturaOrdenUploadForm
+        idOrdenVenta="ov-native"
+        onUploadOk={onUploadOk}
+      />,
+    );
     const input = cameraInput();
     const file = new File([new Uint8Array([9, 8, 7])], "hoja.jpg", {
       type: "image/jpeg",
@@ -71,15 +83,18 @@ describe("CapturaOrdenUploadForm", () => {
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    expect(await screen.findByText(/90% · alta/i)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalled();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await vi.waitFor(() => expect(onUploadOk).toHaveBeenCalled());
   });
 
   it("sube con fetch JSON y no navega la página", async () => {
     const user = userEvent.setup();
     const fetchMock = stubFetchOk();
+    const onUploadOk = vi.fn();
 
-    render(<CapturaOrdenUploadForm idOrdenVenta="ov-1" />);
+    render(
+      <CapturaOrdenUploadForm idOrdenVenta="ov-1" onUploadOk={onUploadOk} />,
+    );
 
     const file = new File([new Uint8Array([1, 2, 3, 4])], "hoja.jpg", {
       type: "image/jpeg",
@@ -90,6 +105,6 @@ describe("CapturaOrdenUploadForm", () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.method).toBe("POST");
     expect(init.headers).toMatchObject({ Accept: "application/json" });
-    expect(await screen.findByText(/tomar otra foto/i)).toBeInTheDocument();
+    await vi.waitFor(() => expect(onUploadOk).toHaveBeenCalled());
   });
 });

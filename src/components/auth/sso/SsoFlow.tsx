@@ -99,7 +99,7 @@ export function SsoFlow() {
       >
         <Link
           href={ROUTES.login}
-          className="inline-block rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-bg hover:opacity-90"
+          className="inline-block rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-on-teal hover:opacity-90"
         >
           Ir a iniciar sesión
         </Link>
@@ -112,7 +112,7 @@ export function SsoFlow() {
       <AuthStatusCard title="No se pudo conectar" message={errorMessage ?? ""}>
         <Link
           href={ROUTES.login}
-          className="inline-block rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-bg hover:opacity-90"
+          className="inline-block rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-on-teal hover:opacity-90"
         >
           Ir a iniciar sesión
         </Link>

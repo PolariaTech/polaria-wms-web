@@ -118,7 +118,7 @@ export function MateoIaLoadingMark({
         <span
           className={cn(
             "polaria-text-caption font-semibold tracking-wide",
-            tone === "onTeal" ? "text-polaria-bg" : "text-polaria-teal",
+            tone === "onTeal" ? "text-polaria-on-teal" : "text-polaria-teal",
           )}
         >
           {label}

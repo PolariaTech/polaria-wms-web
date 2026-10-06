@@ -49,6 +49,59 @@ describe("applySurtidoToPrintData", () => {
     expect(updated.surtido?.checks.turnoPm).toBe(true);
   });
 
+  it("no mete el texto de Incidencias en la columna Especificación", () => {
+    const updated = applySurtidoToPrintData(
+      {
+        ...BASE,
+        lineas: [
+          {
+            producto: "Hamburguesa",
+            especificacion: "Firme",
+            cantidadSolicitada: "5 kg",
+          },
+        ],
+      },
+      {
+        campos: { incidencias: "Faltó media caja en andén 2" },
+        checks: {},
+        lineas: [
+          {
+            indice: 1,
+            especificacion: "Faltó media caja en andén 2",
+          },
+        ],
+      },
+    );
+
+    expect(updated.lineas[0]?.especificacion).toBe("Firme");
+    expect(updated.surtido?.campos.incidencias).toBe(
+      "Faltó media caja en andén 2",
+    );
+  });
+
+  it("no pone en Incidencias lo que es especificación de producto", () => {
+    const updated = applySurtidoToPrintData(
+      {
+        ...BASE,
+        lineas: [
+          {
+            producto: "Hamburguesa",
+            especificacion: "sin hielo",
+            cantidadSolicitada: "5 kg",
+          },
+        ],
+      },
+      {
+        campos: { incidencias: "sin hielo" },
+        checks: {},
+        lineas: [{ indice: 1, especificacion: "sin hielo" }],
+      },
+    );
+
+    expect(updated.lineas[0]?.especificacion).toBe("sin hielo");
+    expect(updated.surtido?.campos.incidencias).toBe("");
+  });
+
   it("rellena cabecera vacía del PDF con lo manuscrito", () => {
     const updated = applySurtidoToPrintData(
       {

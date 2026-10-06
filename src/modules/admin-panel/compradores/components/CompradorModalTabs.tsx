@@ -29,7 +29,7 @@ export function CompradorModalTabs<T extends string>({
               "rounded-xl px-4 py-2 polaria-text-body-sm font-medium transition",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
               isActive
-                ? "bg-polaria-teal text-polaria-bg"
+                ? "bg-polaria-teal text-polaria-on-teal"
                 : "border border-polaria-t-20 text-polaria-w-50 hover:bg-polaria-t-08 hover:text-polaria-w",
             )}
           >

@@ -1809,7 +1809,7 @@ export function OrdenVentaCreateModal({
               }}
               className={cn(
                 "rounded-xl bg-polaria-teal px-5 py-2.5",
-                "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
+                "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
               )}
             >
               Continuar al formulario
@@ -1823,7 +1823,7 @@ export function OrdenVentaCreateModal({
               disabled={!docsReady || isReadingIa}
               className={cn(
                 "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-5 py-2.5",
-                "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
+                "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
                 "disabled:cursor-not-allowed disabled:opacity-50",
               )}
             >

@@ -126,7 +126,7 @@ export function TransportePageContent({
                     }
                     setSelectedViaje(row);
                   }}
-                  className="rounded-xl bg-polaria-teal px-3 py-2 text-xs font-semibold text-polaria-bg transition hover:opacity-90"
+                  className="rounded-xl bg-polaria-teal px-3 py-2 text-xs font-semibold text-polaria-on-teal transition hover:opacity-90"
                 >
                   Realizar entrega
                 </button>

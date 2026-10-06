@@ -7,6 +7,8 @@ html[data-theme="dark"] {
   --bg: #020609;
   --teal: #00e5cc;
   --w: #f8f8f6;
+  /* Tinta sobre teal: siempre oscura (no se invierte con el tema) */
+  --on-teal: #020609;
 
   /* Variantes con opacidad */
   --t20: rgba(0, 229, 204, 0.2);
@@ -58,6 +60,7 @@ html[data-theme="light"] {
   --bg: #f4f7f6;
   --teal: #009e8f;
   --w: #020609;
+  --on-teal: #020609;
 
   --t20: rgba(0, 158, 143, 0.28);
   --t08: rgba(0, 158, 143, 0.1);
@@ -109,6 +112,7 @@ html[data-theme="light"] {
   --color-polaria-bg: var(--bg);
   --color-polaria-teal: var(--teal);
   --color-polaria-w: var(--w);
+  --color-polaria-on-teal: var(--on-teal);
   --color-polaria-black: var(--black-pure);
 
   /* Opacidad teal */

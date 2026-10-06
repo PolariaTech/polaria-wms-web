@@ -14,6 +14,7 @@ Al implementar o modificar **cualquier diseño UI**, usar exclusivamente la pale
 | `--bg` | `#020609` | Fondo principal |
 | `--teal` | `#00e5cc` | Acento de marca, CTAs, highlights |
 | `--w` | `#f8f8f6` | Texto principal |
+| `--on-teal` | `#020609` | Texto sobre botones/fondos teal (fijo en dark/light) |
 
 ## Variantes de opacidad
 
@@ -34,7 +35,7 @@ Al implementar o modificar **cualquier diseño UI**, usar exclusivamente la pale
 
 ```
 bg-polaria-bg          text-polaria-w
-bg-polaria-teal        text-polaria-bg (texto sobre botón teal)
+bg-polaria-teal        text-polaria-on-teal (texto sobre botón teal)
 text-polaria-teal      text-polaria-w-50
 border-polaria-t-20    bg-polaria-t-08
 bg-polaria-w-08
@@ -52,7 +53,7 @@ Usar siempre `.polaria-text-*` y `.polaria-topbar-*` en pantallas nuevas.
 ## Ejemplo botón primario
 
 ```tsx
-<button className="rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-bg hover:opacity-90">
+<button className="rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-on-teal hover:opacity-90">
   Continuar
 </button>
 ```

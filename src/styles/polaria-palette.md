@@ -9,6 +9,7 @@ Fuente de verdad visual del proyecto. Definida en `src/app/globals.css` como CSS
 | `--bg` | `#020609` | `bg-polaria-bg` |
 | `--teal` | `#00e5cc` | `text-polaria-teal`, `bg-polaria-teal` |
 | `--w` | `#f8f8f6` | `text-polaria-w` |
+| `--on-teal` | `#020609` | `text-polaria-on-teal` (texto sobre botones teal; fijo en dark/light) |
 
 ## Variantes con opacidad
 
@@ -57,4 +58,4 @@ Fuente de verdad visual del proyecto. Definida en `src/app/globals.css` como CSS
 2. **Base oscura** `--bg` para fondos; **teal** para acentos; **blanco cálido** `--w` para texto principal.
 3. Texto secundario → `--w50`; terciario → `--w20`.
 4. Bordes y highlights → `--t20` o `--t08`.
-5. Botones primarios: `bg-polaria-teal text-polaria-bg`.
+5. Botones primarios: `bg-polaria-teal text-polaria-on-teal` (nunca `text-polaria-bg` sobre teal: en modo claro `--bg` se aclara y el contraste falla).

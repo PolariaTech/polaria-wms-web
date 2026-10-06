@@ -345,7 +345,7 @@ export function SolicitudCompraCreateModal({
               type="button"
               onClick={addLine}
               disabled={disabled || productos.length === 0}
-              className="inline-flex items-center justify-center gap-1 rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1 rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 disabled:opacity-50"
             >
               <Plus className="h-4 w-4" aria-hidden />
               Agregar

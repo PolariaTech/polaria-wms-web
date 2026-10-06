@@ -429,7 +429,7 @@ export function TransporteEntregaModal({
               type="button"
               disabled={saving || loadingDetalle || !detalle}
               onClick={handleNext}
-              className="rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90 disabled:opacity-50"
+              className="rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 disabled:opacity-50"
             >
               Siguiente
             </button>
@@ -438,7 +438,7 @@ export function TransporteEntregaModal({
               type="button"
               disabled={saving || loadingDetalle || !detalle}
               onClick={() => void handleEntregar()}
-              className="rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90 disabled:opacity-50"
+              className="rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 disabled:opacity-50"
             >
               {saving ? "Cerrando…" : "Cerrar entrega"}
             </button>
@@ -535,7 +535,7 @@ export function TransporteEntregaModal({
             Evidencia de la entrega (foto) *
           </span>
           <div className="relative flex min-h-[9rem] flex-col items-center justify-center rounded-xl border-2 border-dashed border-polaria-t-20 bg-polaria-t-08 px-4 py-6">
-            <span className="rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-bold text-polaria-bg">
+            <span className="rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-bold text-polaria-on-teal">
               {fotoFile ? "Cambiar foto" : "Elegir archivo"}
             </span>
             <span className="mt-2 polaria-text-caption text-polaria-w-50">
@@ -607,7 +607,7 @@ export function TransporteEntregaModal({
               className={cn(
                 "rounded-xl border px-3 py-2.5 polaria-text-body-sm font-semibold transition",
                 conforme === true
-                  ? "border-polaria-teal bg-polaria-teal text-polaria-bg"
+                  ? "border-polaria-teal bg-polaria-teal text-polaria-on-teal"
                   : "border-polaria-t-20 bg-polaria-w-08 text-polaria-w hover:border-polaria-teal",
               )}
             >

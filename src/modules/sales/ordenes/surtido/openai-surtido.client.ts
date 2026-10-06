@@ -147,7 +147,7 @@ const SURTIDO_SCHEMA = {
           especificacion: {
             ...NULLABLE_STRING,
             description:
-              "Texto manuscrito en la columna Especificación (null si no hay nada escrito a mano).",
+              "Texto manuscrito SOLO en la columna Especificación de esa fila. null si vacío. NUNCA uses el bloque Incidencias.",
           },
           cantidadPreparada: NULLABLE_STRING,
           codigoIncidencia: {
@@ -364,11 +364,15 @@ export async function extraerSurtidoDesdeFoto(input: {
           "nombres y horas de Alistó/Revisó/Documentó/Despachó, y recepción (nombre, cargo, hora, motivo).\n" +
           "5) Si en el snapshot estaban vacíos y ahora hay manuscrito, llena también: " +
           "centroConsumo, fechaEntrega, numeroOrdenCliente, direccionEntrega.\n" +
-          "6) Checks: turnoPm, turnoNocheAm; incidencias de la orden; mercancía coincide / dentro / fuera de tolerancia; recepción.\n" +
-          "7) Por cada fila de producto con marcas: indice (#), especificacion manuscrita, cantidadPreparada, " +
+          "6) Checks: turnoPm, turnoNocheAm; casillas de incidencia (fuera de horario, sin factura, etc.); mercancía coincide / dentro / fuera de tolerancia; recepción.\n" +
+          "6b) cabecera.incidencias: SOLO el texto manuscrito del bloque inferior etiquetado «Incidencias:». " +
+          "NUNCA copies ahí lo de la columna Especificación ni notas de producto.\n" +
+          "7) Por cada fila de producto con marcas: indice (#), especificacion = SOLO manuscrito de la columna «Especificación» de esa fila " +
+          "(null si vacía o si el texto es del bloque Incidencias), cantidadPreparada, " +
           "codigoIncidencia (A–F), nota, alisto, reviso.\n" +
           "8) En camposExtra mete cualquier otro texto manuscrito con su etiqueta visible.\n" +
-          "9) Conserva unidades y formato (ej. «5 kg», «09:30», «PM»). No inventes valores.",
+          "9) Conserva unidades y formato (ej. «5 kg», «09:30», «PM»). No inventes valores.\n" +
+          "10) Incidencias ≠ Especificación: son campos distintos; no los intercambies ni dupliques.",
       },
       {
         role: "user",
