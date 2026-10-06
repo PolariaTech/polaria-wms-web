@@ -358,11 +358,11 @@ export function buildOrdenTareaAlmacenPdf(
 
   const folio = data.folio || "—";
   const isActualizado = Boolean(data.surtido);
-  const factura = campoSurtido(
+  // Exacto: no usar "factura" suelto (fuzzy cruzaba con Factura (OK) nombre).
+  const factura = campoSurtidoExact(
     data.surtido,
     "facturaAsociada",
     "Factura asociada",
-    "factura",
   );
 
   // Toda la grilla a la izquierda del QR, columnas alineadas.

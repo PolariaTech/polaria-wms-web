@@ -132,6 +132,7 @@ const SURTIDO_SCHEMA = {
         additionalProperties: false,
         required: [
           "indice",
+          "productoImpreso",
           "especificacion",
           "cantidadPreparada",
           "codigoIncidencia",
@@ -144,10 +145,15 @@ const SURTIDO_SCHEMA = {
             type: "integer",
             description: "Número de fila # en la tabla de productos (1-based).",
           },
+          productoImpreso: {
+            ...NULLABLE_STRING,
+            description:
+              "Nombre del producto IMPRESO de la misma fila donde está el manuscrito/checkbox (copiar del snapshot). Obliga a alinear la fila correcta.",
+          },
           especificacion: {
             ...NULLABLE_STRING,
             description:
-              "Texto manuscrito SOLO en la columna Especificación de esa fila. null si vacío. NUNCA uses el bloque Incidencias.",
+              "Texto manuscrito SOLO en la columna Especificación de esa misma fila (misma banda horizontal del producto). null si vacío. NUNCA uses el bloque Incidencias ni muevas el texto a otra fila.",
           },
           cantidadPreparada: NULLABLE_STRING,
           codigoIncidencia: {
@@ -155,8 +161,16 @@ const SURTIDO_SCHEMA = {
             description: "Código A–F (u otro) escrito en Cód.",
           },
           nota: NULLABLE_STRING,
-          alisto: NULLABLE_BOOL,
-          reviso: NULLABLE_BOOL,
+          alisto: {
+            ...NULLABLE_BOOL,
+            description:
+              "Checkbox Alistó de ESA fila (columna derecha). true si hay X/✓/marca en el cuadrito de la fila; false si vacío.",
+          },
+          reviso: {
+            ...NULLABLE_BOOL,
+            description:
+              "Checkbox Revisó de ESA fila (columna derecha). true si hay X/✓/marca en el cuadrito de la fila; false si vacío.",
+          },
         },
       },
     },
@@ -245,7 +259,211 @@ function asCamposExtra(value: unknown): Record<string, string> {
   return out;
 }
 
-function normalizePayload(raw: unknown): OrdenSurtidoCapturaPayload {
+function normalizeProductoKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+}
+
+function campoValor(
+  campos: Record<string, string>,
+  ...keys: string[]
+): string | undefined {
+  for (const key of keys) {
+    const valor = campos[key]?.trim();
+    if (valor) return valor;
+  }
+  return undefined;
+}
+
+function clearCampo(campos: Record<string, string>, ...keys: string[]): void {
+  for (const key of keys) delete campos[key];
+}
+
+function setCampoNombre(
+  campos: Record<string, string>,
+  canonical: (typeof CABECERA_KEYS)[number],
+  valor: string,
+): void {
+  campos[canonical] = valor;
+  campos[CABECERA_LABELS[canonical]] = valor;
+}
+
+/** Factura asociada ≠ firmas: no debe llevar nombres de Alistó/Revisó/Despachó/etc. */
+export function sanitizeFacturaAsociada(
+  campos: Record<string, string>,
+): void {
+  const factura = campoValor(campos, "facturaAsociada", "Factura asociada");
+  if (!factura) return;
+
+  const firmas = [
+    campoValor(campos, "alistoNombre", "Alistó nombre", "Alistó"),
+    campoValor(campos, "revisoNombre", "Revisó nombre", "Revisó"),
+    campoValor(campos, "facturaOkNombre", "Factura (OK) nombre"),
+    campoValor(campos, "documentoNombre", "Documentó nombre"),
+    campoValor(campos, "despachoNombre", "Despachó nombre", "Despachó"),
+    campoValor(campos, "despachoFirma", "Despachó firma"),
+    campoValor(campos, "retornoNombre", "Retorno nombre", "Retorno"),
+  ]
+    .filter((v): v is string => Boolean(v))
+    .map((v) => normalizeProductoKey(v));
+
+  const facturaKey = normalizeProductoKey(factura);
+  const coincideFirma = firmas.some(
+    (firma) =>
+      facturaKey === firma ||
+      firma.includes(facturaKey) ||
+      facturaKey.includes(firma),
+  );
+  // Nº de factura suele traer dígitos; un nombre de persona sin dígitos es basura típica.
+  const pareceNombreSinFolio =
+    !/\d/.test(factura) && /^[\p{L}\s.'’-]+$/u.test(factura.trim());
+
+  if (coincideFirma || pareceNombreSinFolio) {
+    clearCampo(campos, "facturaAsociada", "Factura asociada", "factura");
+  }
+}
+
+/** Si Revisó (u otro) solo trajo el apellido y otro campo tiene el nombre completo, completa. */
+export function expandNombresParcialesFirmas(
+  campos: Record<string, string>,
+): void {
+  const candidatos = [
+    campoValor(campos, "alistoNombre", "Alistó nombre", "Alistó"),
+    campoValor(campos, "despachoNombre", "Despachó nombre", "Despachó"),
+    campoValor(campos, "despachoFirma", "Despachó firma"),
+    campoValor(campos, "retornoNombre", "Retorno nombre", "Retorno"),
+    campoValor(campos, "facturaOkNombre", "Factura (OK) nombre"),
+  ].filter((v): v is string => Boolean(v));
+
+  const targets: Array<{
+    canonical: (typeof CABECERA_KEYS)[number];
+    keys: string[];
+  }> = [
+    {
+      canonical: "revisoNombre",
+      keys: ["revisoNombre", "Revisó nombre", "Revisó"],
+    },
+    {
+      canonical: "alistoNombre",
+      keys: ["alistoNombre", "Alistó nombre", "Alistó"],
+    },
+    {
+      canonical: "facturaOkNombre",
+      keys: ["facturaOkNombre", "Factura (OK) nombre"],
+    },
+    {
+      canonical: "retornoNombre",
+      keys: ["retornoNombre", "Retorno nombre", "Retorno"],
+    },
+  ];
+
+  for (const target of targets) {
+    const actual = campoValor(campos, ...target.keys);
+    if (!actual) continue;
+    const tokens = actual.trim().split(/\s+/);
+    if (tokens.length !== 1) continue;
+    const tokenKey = normalizeProductoKey(tokens[0] ?? "");
+    if (!tokenKey) continue;
+
+    for (const candidato of candidatos) {
+      if (normalizeProductoKey(candidato) === normalizeProductoKey(actual)) {
+        continue;
+      }
+      const parts = candidato.trim().split(/\s+/);
+      if (parts.length < 2) continue;
+      if (parts.some((p) => normalizeProductoKey(p) === tokenKey)) {
+        setCampoNombre(campos, target.canonical, candidato.trim());
+        break;
+      }
+    }
+  }
+}
+
+type LineaRawCaptura = {
+  indice: number;
+  productoImpreso: string | null;
+  especificacion: string | null;
+  cantidadPreparada: string | null;
+  codigoIncidencia: string | null;
+  nota: string | null;
+  alisto: boolean | null;
+  reviso: boolean | null;
+};
+
+/** Reescribe indice usando productoImpreso del snapshot cuando el modelo desfasó la fila. */
+export function remapLineasPorProducto(
+  lineas: LineaRawCaptura[],
+  original: OrdenTareaAlmacenPrintData,
+): OrdenSurtidoCapturaPayload["lineas"] {
+  const byKey = new Map<string, number>();
+  original.lineas.forEach((linea, index) => {
+    const key = normalizeProductoKey(linea.producto || "");
+    if (key && !byKey.has(key)) byKey.set(key, index + 1);
+  });
+
+  const merged = new Map<number, OrdenSurtidoCapturaPayload["lineas"][number]>();
+
+  for (const row of lineas) {
+    let indice = row.indice;
+    const productoKey = row.productoImpreso
+      ? normalizeProductoKey(row.productoImpreso)
+      : "";
+    if (productoKey) {
+      const matched = byKey.get(productoKey);
+      if (matched) {
+        indice = matched;
+      } else {
+        // Match parcial: "BLUE BERRY" ↔ "BLUEBERRY" o contiene
+        for (const [key, idx] of byKey) {
+          if (key.includes(productoKey) || productoKey.includes(key)) {
+            indice = idx;
+            break;
+          }
+        }
+      }
+    }
+
+    const prev = merged.get(indice);
+    const mergeBool = (
+      a: boolean | null | undefined,
+      b: boolean | null | undefined,
+    ): boolean | null => {
+      if (a === true || b === true) return true;
+      if (a === false || b === false) return false;
+      return a ?? b ?? null;
+    };
+    merged.set(indice, {
+      indice,
+      especificacion: row.especificacion ?? prev?.especificacion ?? null,
+      cantidadPreparada:
+        row.cantidadPreparada ?? prev?.cantidadPreparada ?? null,
+      codigoIncidencia: row.codigoIncidencia ?? prev?.codigoIncidencia ?? null,
+      nota: row.nota ?? prev?.nota ?? null,
+      alisto: mergeBool(row.alisto, prev?.alisto),
+      reviso: mergeBool(row.reviso, prev?.reviso),
+    });
+  }
+
+  return [...merged.values()].sort((a, b) => a.indice - b.indice);
+}
+
+export function refineSurtidoPayload(
+  payload: OrdenSurtidoCapturaPayload,
+): OrdenSurtidoCapturaPayload {
+  const campos = { ...payload.campos };
+  sanitizeFacturaAsociada(campos);
+  expandNombresParcialesFirmas(campos);
+  return { ...payload, campos };
+}
+
+function normalizePayload(
+  raw: unknown,
+  original: OrdenTareaAlmacenPrintData,
+): OrdenSurtidoCapturaPayload {
   const obj =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
 
@@ -295,7 +513,7 @@ function normalizePayload(raw: unknown): OrdenSurtidoCapturaPayload {
   }
 
   const lineasRaw = Array.isArray(obj.lineas) ? obj.lineas : [];
-  const lineas = lineasRaw
+  const lineasParsed: LineaRawCaptura[] = lineasRaw
     .map((item) => {
       if (!item || typeof item !== "object") return null;
       const row = item as Record<string, unknown>;
@@ -303,6 +521,7 @@ function normalizePayload(raw: unknown): OrdenSurtidoCapturaPayload {
       if (!Number.isFinite(indice) || indice < 1) return null;
       return {
         indice: Math.floor(indice),
+        productoImpreso: asNullableString(row.productoImpreso),
         especificacion: asNullableString(row.especificacion),
         cantidadPreparada: asNullableString(row.cantidadPreparada),
         codigoIncidencia: asNullableString(row.codigoIncidencia),
@@ -313,13 +532,17 @@ function normalizePayload(raw: unknown): OrdenSurtidoCapturaPayload {
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
 
-  return {
+  const base: OrdenSurtidoCapturaPayload = {
     campos,
     checks,
-    lineas,
+    lineas: remapLineasPorProducto(lineasParsed, original),
     observacionesIa: asNullableString(obj.observacionesIa),
     precisionEstimada: null,
   };
+
+  sanitizeFacturaAsociada(base.campos);
+  expandNombresParcialesFirmas(base.campos);
+  return base;
 }
 
 export async function extraerSurtidoDesdeFoto(input: {
@@ -356,23 +579,34 @@ export async function extraerSurtidoDesdeFoto(input: {
           "Comparas la foto con el snapshot del PDF ORIGINAL. " +
           "Debes extraer TODO lo manuscrito y TODAS las casillas marcadas, mapeándolas a cabecera / checks / lineas. " +
           "Reglas:\n" +
-          "1) Solo valores escritos o corregidos a mano, o checkboxes con X/✓/raya clara.\n" +
+          "1) Solo valores escritos o corregidos a mano, o checkboxes con X/✓/raya clara. NUNCA inventes.\n" +
           "2) No copies texto ya impreso (cliente, productos, cantidades solicitadas) salvo que se haya tachado/reescrito a mano.\n" +
           "3) Si un campo está vacío o ilegible → null. Si un checkbox está vacío → false; si no se ve → null.\n" +
-          "4) Cabecera de almacén: facturaAsociada, horaComprometida, horaSugeridaSalida, chofer, unidad, " +
-          "renglonesSurtidosCompletos, cajas15kg, cajas21kg, totalBultosCamion, toleranciaPesoPct, " +
-          "nombres y horas de Alistó/Revisó/Documentó/Despachó, y recepción (nombre, cargo, hora, motivo).\n" +
-          "5) Si en el snapshot estaban vacíos y ahora hay manuscrito, llena también: " +
+          "4) facturaAsociada = SOLO el folio/número de factura manuscrito junto a la etiqueta «Factura asociada» " +
+          "(arriba, cerca de cliente/# orden). NUNCA pongas ahí un nombre de persona. " +
+          "Los nombres van SOLO en las cajas de firma Alistó / Revisó / Factura (OK) / Despachó / Retorno.\n" +
+          "4b) Cajas de firma independientes: lee CADA caja por separado. Si una caja está en blanco → null. " +
+          "NO copies el nombre de Despachó/Alistó a Factura (OK), Revisó u otras cajas vacías.\n" +
+          "4c) Nombres de firma: captura el nombre COMPLETO tal como está escrito (nombre + apellido). " +
+          "No truncues a solo el apellido.\n" +
+          "5) Cabecera también: horaComprometida, horaSugeridaSalida, chofer, unidad, " +
+          "renglonesSurtidosCompletos, cajas15kg, cajas21kg, totalBultosCamion, toleranciaPesoPct, recepción.\n" +
+          "6) Si en el snapshot estaban vacíos y ahora hay manuscrito, llena también: " +
           "centroConsumo, fechaEntrega, numeroOrdenCliente, direccionEntrega.\n" +
-          "6) Checks: turnoPm, turnoNocheAm; casillas de incidencia (fuera de horario, sin factura, etc.); mercancía coincide / dentro / fuera de tolerancia; recepción.\n" +
-          "6b) cabecera.incidencias: SOLO el texto manuscrito del bloque inferior etiquetado «Incidencias:». " +
-          "NUNCA copies ahí lo de la columna Especificación ni notas de producto.\n" +
-          "7) Por cada fila de producto con marcas: indice (#), especificacion = SOLO manuscrito de la columna «Especificación» de esa fila " +
-          "(null si vacía o si el texto es del bloque Incidencias), cantidadPreparada, " +
-          "codigoIncidencia (A–F), nota, alisto, reviso.\n" +
-          "8) En camposExtra mete cualquier otro texto manuscrito con su etiqueta visible.\n" +
-          "9) Conserva unidades y formato (ej. «5 kg», «09:30», «PM»). No inventes valores.\n" +
-          "10) Incidencias ≠ Especificación: son campos distintos; no los intercambies ni dupliques.",
+          "7) Checks: turnoPm, turnoNocheAm; casillas de incidencia; mercancía; recepción.\n" +
+          "7b) cabecera.incidencias: SOLO el texto del bloque inferior «Incidencias:». " +
+          "NUNCA copies ahí la columna Especificación.\n" +
+          "8) Filas de producto — ALINEACIÓN ESTRICTA:\n" +
+          "   - Usa el # y el nombre de producto del snapshot.\n" +
+          "   - productoImpreso = nombre impreso de la fila donde VES el manuscrito/checkbox.\n" +
+          "   - especificacion = texto manuscrito en la columna Especificación de ESA misma fila " +
+          "(misma banda horizontal). Si «grandes» está a la altura de BLUE BERRY → indice de BLUE BERRY, " +
+          "NO de la fila de abajo.\n" +
+          "   - alisto/reviso = checkboxes de la DERECHA de ESA misma fila. Revisa fila por fila " +
+          "(incluida la #1); cualquier X/✓/marca dentro del cuadrito → true.\n" +
+          "9) En camposExtra mete cualquier otro texto manuscrito con su etiqueta visible.\n" +
+          "10) Conserva unidades y formato (ej. «5 kg», «09:30»). No inventes valores.\n" +
+          "11) Incidencias ≠ Especificación ≠ Factura asociada ≠ cajas de firma.",
       },
       {
         role: "user",
@@ -383,7 +617,9 @@ export async function extraerSurtidoDesdeFoto(input: {
               "Snapshot del PDF ORIGINAL (referencia de lo ya impreso):\n" +
               snapshot +
               "\n\nAnaliza la foto adjunta de la misma hoja ya surtida/llenada. " +
-              "Llena cabecera, checks y lineas con TODO lo manuscrito y marcado.",
+              "Llena cabecera, checks y lineas con TODO lo manuscrito y marcado. " +
+              "Para cada linea incluye productoImpreso del snapshot de esa fila. " +
+              "Alinea especificacion y checkboxes a la fila correcta por posición vertical.",
           },
           {
             type: "image_url",
@@ -409,5 +645,5 @@ export async function extraerSurtidoDesdeFoto(input: {
     throw new Error("La respuesta de OpenAI no es JSON válido.");
   }
 
-  return { payload: normalizePayload(parsed), modelo };
+  return { payload: normalizePayload(parsed, input.original), modelo };
 }
