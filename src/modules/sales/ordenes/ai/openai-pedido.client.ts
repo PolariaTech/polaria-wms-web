@@ -11,6 +11,10 @@ import {
   calcularCantidadDesdeCajas,
   pesoPorCajaKg,
 } from "../utils/empaque-lineas";
+import {
+  serializeCuerpoMensaje,
+  type CuerpoMensajeBloque,
+} from "../utils/texto-origen-pedido";
 
 export { calcularCantidadDesdeCajas, pesoPorCajaKg };
 
@@ -38,6 +42,11 @@ export interface PedidoExtraido {
   fechaEntrega: string | null;
   centroConsumo: string | null;
   observaciones: string | null;
+  /**
+   * Palabras clave / especificaciones para notas generales del PDF de almacén.
+   * Corto (cabe en ~3 renglones). No es el cuerpo del correo.
+   */
+  notasGeneralesAlmacen?: string | null;
   /** Número/código de orden de compra del hotel/cliente (PO, OC, etc.). */
   ordenCompraHotel: string | null;
   /**
@@ -73,8 +82,7 @@ export interface PedidoExtraido {
   advertencia: string | null;
   archivosNoLegibles: string[];
   /**
-   * Texto a persistir en origen_texto / notas generales del PDF.
-   * Cuerpo del correo (.eml) o mensaje pegado — no el dump de adjuntos.
+   * Cuerpo del correo organizado por la IA (texto + tablas) para persistir en origen_texto.
    */
   textoOrigen?: string | null;
 }
@@ -199,6 +207,7 @@ interface PedidoExtraidoRaw {
   fechaEntregaTexto: string | null;
   centroConsumo: string | null;
   observaciones: string | null;
+  notasGeneralesAlmacen: string | null;
   ordenCompraHotel: string | null;
   nombreCliente: string | null;
   rfc: string | null;
@@ -215,6 +224,7 @@ interface PedidoExtraidoRaw {
   temperatura: (typeof SI_NO)[number] | null;
   lineas: LineaExtraidaRaw[];
   advertencia: string | null;
+  cuerpoMensaje: CuerpoMensajeBloque[];
 }
 
 const RESPONSE_SCHEMA = {
@@ -237,6 +247,11 @@ const RESPONSE_SCHEMA = {
         type: ["string", "null"],
         description:
           "Observación general corta del pedido completo (no de una línea de producto), parafraseada del mensaje. null si no aplica.",
+      },
+      notasGeneralesAlmacen: {
+        type: ["string", "null"],
+        description:
+          "SOLO palabras clave o especificaciones de almacén extraídas del mensaje (madurez, andén, 3 juegos de OC, sin sustitutos, etc.). Máximo 160 caracteres, para 3 renglones impresos. NO copies el cuerpo del correo, saludos, tablas de productos, firma ni dirección. null si el mensaje no trae ninguna especificación útil.",
       },
       ordenCompraHotel: {
         type: ["string", "null"],
@@ -323,6 +338,38 @@ const RESPONSE_SCHEMA = {
         type: ["string", "null"],
         description:
           "Cuando el texto y/o los archivos NO parecen tener relación con un pedido de fruta/verdura para un hotel (ej. es un contrato, un currículum, spam, contenido irrelevante, o está vacío/ilegible), explica brevemente por qué en una frase. Si sí es un pedido (aunque venga incompleto), deja null.",
+      },
+      cuerpoMensaje: {
+        type: "array",
+        description:
+          "Cuerpo del correo/mensaje ORGANIZADO para mostrarlo al usuario: prosa (saludo, instrucciones, firma) y tablas reales. No inventes filas ni celdas. Une celdas partidas por salto de línea (ej. 'Baja' + 'California' → 'Baja California'). Quita cabeceras De/From/Subject y disclaimers legales. Conserva hora de entrega, notas y firma.",
+        items: {
+          type: "object",
+          properties: {
+            tipo: {
+              type: "string",
+              enum: ["texto", "tabla"],
+              description:
+                "'texto' = párrafos con saltos de línea. 'tabla' = matriz de celdas (primera fila = encabezados).",
+            },
+            texto: {
+              type: ["string", "null"],
+              description:
+                "Prosa del bloque si tipo=texto. null si tipo=tabla.",
+            },
+            filas: {
+              type: ["array", "null"],
+              description:
+                "Filas de la tabla si tipo=tabla (cada fila es un array de celdas string). Primera fila = encabezados. null si tipo=texto.",
+              items: {
+                type: "array",
+                items: { type: "string" },
+              },
+            },
+          },
+          required: ["tipo", "texto", "filas"],
+          additionalProperties: false,
+        },
       },
       lineas: {
         type: "array",
@@ -425,6 +472,7 @@ const RESPONSE_SCHEMA = {
       "fechaEntregaTexto",
       "centroConsumo",
       "observaciones",
+      "notasGeneralesAlmacen",
       "ordenCompraHotel",
       "nombreCliente",
       "rfc",
@@ -440,6 +488,7 @@ const RESPONSE_SCHEMA = {
       "lote",
       "temperatura",
       "advertencia",
+      "cuerpoMensaje",
       "lineas",
     ],
     additionalProperties: false,
@@ -487,6 +536,30 @@ function buildUserContent({
   }
 
   return partes;
+}
+
+function normalizeCuerpoMensaje(raw: unknown): CuerpoMensajeBloque[] {
+  if (!Array.isArray(raw)) return [];
+  const bloques: CuerpoMensajeBloque[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const tipo = (item as { tipo?: unknown }).tipo;
+    const texto = (item as { texto?: unknown }).texto;
+    const filas = (item as { filas?: unknown }).filas;
+    if (tipo === "tabla" && Array.isArray(filas)) {
+      const rows = filas
+        .filter((row): row is unknown[] => Array.isArray(row))
+        .map((row) => row.map((cell) => String(cell ?? "").trim()));
+      if (rows.length > 0) {
+        bloques.push({ tipo: "tabla", texto: null, filas: rows });
+      }
+      continue;
+    }
+    if (tipo === "texto" && typeof texto === "string" && texto.trim()) {
+      bloques.push({ tipo: "texto", texto: texto.trim(), filas: null });
+    }
+  }
+  return bloques;
 }
 
 export function formatISO(d: Date): string {
@@ -635,6 +708,7 @@ export async function extraerPedido({
     `- "precioUnitario": si el documento trae columna Precio / P.U. / Importe unitario por fila, cópialo en cada línea (número). No uses el total/importe de la fila; solo el precio unitario.`,
     `- "cantidad" es el número TOTAL si viene explícito y directo (ej. '40 kilos'); si el mensaje solo da cajas + presentación sin decir el total, deja "cantidad" en null.`,
     `- "observaciones" es del pedido completo, no repitas ahí lo que ya va en una línea.`,
+    `- "notasGeneralesAlmacen": 1-2 frases o viñetas cortas con especificaciones de almacén (máx. 160 caracteres). Nunca el cuerpo completo del correo.`,
     `- "ordenCompraHotel": interpreta cuál es el identificador de la orden de compra del hotel/cliente. El nombre del campo en el documento VARÍA (PO NUMBER, PO #, Purchase Order, Orden de compra, OC, Nº OC, Order No., Customer PO, etc.). Devuelve solo el código/número (ej. CUNMC0046026), no confundas con Customer Account #, fechas ni el título "PURCHASE ORDER". null solo si no hay ningún identificador de OC/PO.`,
     `- "rfc" solo si el mensaje/documento lo declara explícitamente; nunca lo infieras del nombre del cliente.`,
     `- "regimen", "direccion", "anden", "contacto", "telefono", "horarioDesde", "horarioHasta", "tolerancia", "sustituciones", "lote" y "temperatura": si el pedido los declara para ESTA entrega, llénalos (aunque suelan vivir en la ficha del cliente). Si no aparecen, null — no inventes el valor habitual.`,
@@ -642,6 +716,7 @@ export async function extraerPedido({
     `- "centroConsumo" debe quedar null si el mensaje expresa incertidumbre sobre cuál es, incluso si menciona un valor tentativo de pasada.`,
     `- "fechaEntregaTexto" se extrae aunque sea la única palabra de fecha del mensaje (ej. un mensaje que es solo "mañana").`,
     `- Si el texto y los archivos, en conjunto, NO describen un pedido de fruta/verdura (ej. son spam, un documento administrativo sin relación, contenido vacío o ilegible), deja "lineas" vacío y usa "advertencia" para explicarlo — no inventes líneas solo para llenar algo.`,
+    `- "cuerpoMensaje": reconstruye el cuerpo del correo para lectura. Si hay tabla de productos, un bloque tipo=tabla con encabezados y UNA fila por renglón (celdas completas, sin cortes). El resto (saludo, hora de entrega, cierre, firma) va en bloques tipo=texto. No copies la tabla otra vez como prosa. No inventes datos.`,
   ].join("\n");
 
   // AUDITORÍA 2026-09-03 · Hallazgo #5 (Alto) — sin temperature/seed fijado, el mismo
@@ -801,6 +876,7 @@ export async function extraerPedido({
     fechaEntrega: resolverFechaEntrega(parsed.fechaEntregaTexto, hoyISO),
     centroConsumo: parsed.centroConsumo,
     observaciones: parsed.observaciones,
+    notasGeneralesAlmacen: parsed.notasGeneralesAlmacen?.trim() || null,
     ordenCompraHotel: parsed.ordenCompraHotel?.trim() || null,
     nombreCliente: parsed.nombreCliente?.trim() || null,
     rfc: parsed.rfc,
@@ -819,6 +895,7 @@ export async function extraerPedido({
     origenCorreo,
     advertencia: parsed.advertencia,
     archivosNoLegibles,
+    textoOrigen: serializeCuerpoMensaje(normalizeCuerpoMensaje(parsed.cuerpoMensaje)) || null,
   };
 
   return { pedido, uso };

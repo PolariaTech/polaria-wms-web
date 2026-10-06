@@ -59,7 +59,7 @@ describe("buildOrdenVentaPatchFromSurtido", () => {
     expect(flat.hora_salida).toBe("04:30");
     expect(flat.chofer).toBe("Luis Mendoza");
     expect(flat.unidad).toBe("Camión 12");
-    expect(flat.observaciones).toContain("Chofer: Luis Mendoza");
+    expect(flat.observaciones).not.toContain("Chofer:");
     expect(flat.notas_almacen).toContain("Factura asociada: F-99");
     expect(flat.notas_lineas).toContain("HAMBURGUESA");
     expect(lineas).toEqual([
@@ -102,7 +102,7 @@ describe("buildOrdenVentaPatchFromSurtido", () => {
     });
 
     expect(flat.chofer).toBe("Nuevo");
-    expect(flat.observaciones).toContain("Chofer: Nuevo");
+    expect(flat.observaciones).not.toContain("Chofer:");
     expect(flat.observaciones).toContain("Prioridad: Urgente");
   });
 

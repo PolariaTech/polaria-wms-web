@@ -8,6 +8,18 @@ export function isVentanaDesdeMayorQueHasta(
   return from > to;
 }
 
+/** Fecha de entrega anterior a hoy: se acepta, solo advertencia. */
+export function isFechaEntregaAtrasada(
+  fechaEntrega: string,
+  todayIso: string,
+): boolean {
+  const fecha = fechaEntrega.trim();
+  return Boolean(fecha) && fecha < todayIso;
+}
+
+export const FECHA_ENTREGA_ATRASADA_WARNING =
+  "La fecha de entrega es anterior a hoy.";
+
 export function validatePedidoCabecera(params: {
   fechaEntrega: string;
   todayIso: string;
@@ -17,13 +29,6 @@ export function validatePedidoCabecera(params: {
   if (!params.fechaEntrega.trim()) {
     return {
       message: "Ingresa la fecha de entrega.",
-      fields: ["fechaEntrega"],
-    };
-  }
-
-  if (params.fechaEntrega < params.todayIso) {
-    return {
-      message: "La fecha de entrega no puede ser anterior a hoy.",
       fields: ["fechaEntrega"],
     };
   }

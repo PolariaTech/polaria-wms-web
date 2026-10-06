@@ -9,7 +9,10 @@ import { cn } from "@/lib/utils/cn";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { withCuentaSchema } from "@/lib/supabase/cuenta-schema";
-import { formatEstadoOrdenVenta } from "../../shared/constants/sales-status";
+import {
+  formatEstadoOrdenVenta,
+  variantEstadoOrdenVenta,
+} from "../../shared/constants/sales-status";
 import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
 import { getOrdenVentaDetalle } from "../../shared/services/sales.service";
 import type {
@@ -27,7 +30,10 @@ import {
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
 } from "../utils/origen-correo-ordenes-trabajo";
-import { OrigenPedidoBodyView } from "./OrigenPedidoBodyView";
+import {
+  OrigenPedidoBodyView,
+  OrigenPedidoSourceView,
+} from "./OrigenPedidoBodyView";
 import {
   formatCompradorOrdenVenta,
   formatOrdenVentaLineaTotal,
@@ -84,18 +90,8 @@ function TextValue({ value }: { value: string | undefined }) {
 }
 
 function renderEstadoBadge(estado: string) {
-  const normalized = estado.toLowerCase();
-  const variant =
-    normalized === "despachada" || normalized === "cerrada"
-      ? "positive"
-      : normalized === "cancelada"
-        ? "neutral"
-        : normalized === "confirmada" || normalized === "en_preparacion"
-          ? "warning"
-          : "neutral";
-
   return (
-    <PolariaTableBadge variant={variant}>
+    <PolariaTableBadge variant={variantEstadoOrdenVenta(estado)}>
       {formatEstadoOrdenVenta(estado)}
     </PolariaTableBadge>
   );
@@ -129,7 +125,6 @@ function DetalleContent({
       hija?.almacen ||
       orden.centro_consumo?.trim() ||
       fromObs.centroConsumo,
-    vendedor: orden.vendedor?.trim() || fromObs.vendedor,
     moneda: orden.moneda?.trim() || fromObs.moneda,
     bodegaDestino:
       orden.bodega_destino_label?.trim() || fromObs.bodegaDestino,
@@ -155,8 +150,16 @@ function DetalleContent({
       fromObs.fechaEntrega,
     ventanaEntrega: ventanaFlat || fromObs.ventanaEntrega,
     notasLineas: orden.notas_lineas?.trim() || fromObs.notasLineas,
+    origenTexto: orden.origen_texto?.trim() || fromObs.origenTexto,
+    origenArchivos: orden.origen_archivos
+      ? orden.origen_archivos
+          .split(",")
+          .map((name) => name.trim())
+          .filter(Boolean)
+      : fromObs.origenArchivos,
   };
   const prioridad = captura.prioridad.trim();
+  const cuerpoMensaje = captura.origenTexto || captura.observaciones;
   const pesoHija = lineItems.reduce((s, l) => s + l.cantidad_pedida, 0);
   const totalHija = lineItems.reduce(
     (s, l) => s + l.cantidad_pedida * l.precio_unitario,
@@ -183,37 +186,23 @@ function DetalleContent({
 
       {captura.origenTexto || captura.origenArchivos.length > 0 ? (
         <CaptureSection title="De dónde salió este pedido">
-          {captura.origenTexto ? (
-            <OrigenPedidoBodyView text={captura.origenTexto} />
-          ) : null}
-          {captura.origenArchivos.length > 0 ? (
-            <div className={cn("flex flex-wrap gap-2", captura.origenTexto && "mt-2")}>
-              {captura.origenArchivos.map((name) => (
-                <span
-                  key={name}
-                  className="rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-2 py-1 polaria-text-caption text-polaria-w-50"
-                >
-                  {name}
-                </span>
-              ))}
-            </div>
-          ) : null}
+          <OrigenPedidoSourceView
+            archivos={captura.origenArchivos}
+            tieneTexto={Boolean(captura.origenTexto)}
+          />
         </CaptureSection>
       ) : null}
 
       <CaptureSection title="Datos del pedido">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <MetaField label="Cliente">{formatCompradorOrdenVenta(orden)}</MetaField>
-          <MetaField label="Orden de compra del hotel">
+          <MetaField label="Orden de compra del cliente">
             <TextValue value={captura.ordenCompraHotel} />
           </MetaField>
           <MetaField label="Centro de consumo / cocina">
             <TextValue value={captura.centroConsumo} />
           </MetaField>
-          <MetaField label="Vendedor">
-            <TextValue value={captura.vendedor} />
-          </MetaField>
-          <MetaField label="Fecha de captura">
+          <MetaField label="Fecha de creación">
             {formatDateTime(orden.created_at || orden.fecha_pedido)}
           </MetaField>
           <MetaField label="Fecha de entrega">
@@ -240,16 +229,6 @@ function DetalleContent({
             )}
           </MetaField>
           <MetaField label="Estado">{renderEstadoBadge(orden.estado)}</MetaField>
-          <MetaField label="Bodega origen">
-            <TextValue value={orden.bodega_nombre ?? ""} />
-          </MetaField>
-          <MetaField label="Bodega destino">
-            <TextValue
-              value={
-                orden.bodega_destino_nombre?.trim() || captura.bodegaDestino
-              }
-            />
-          </MetaField>
           <MetaField label="Moneda">
             <TextValue value={captura.moneda || "MXN"} />
           </MetaField>
@@ -264,23 +243,11 @@ function DetalleContent({
           <MetaField label="Andén / punto de recepción">
             <TextValue value={captura.anden} />
           </MetaField>
-          <MetaField label="Contacto en el hotel">
+          <MetaField label="Contacto del cliente">
             <TextValue value={captura.contacto} />
           </MetaField>
           <MetaField label="Teléfono del contacto">
             <TextValue value={captura.telefono} />
-          </MetaField>
-          <MetaField label="Turno que prepara">
-            <TextValue value={captura.turno} />
-          </MetaField>
-          <MetaField label="Hora sugerida de salida">
-            <TextValue value={captura.horaSalida} />
-          </MetaField>
-          <MetaField label="Chofer">
-            <TextValue value={captura.chofer} />
-          </MetaField>
-          <MetaField label="Unidad">
-            <TextValue value={captura.unidad} />
           </MetaField>
         </div>
       </CaptureSection>
@@ -367,28 +334,9 @@ function DetalleContent({
         )}
       </CaptureSection>
 
-      <CaptureSection title="Almacén y política del cliente">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <MetaField label="Peso total (kg)">
-            {formatKgEs(hija ? pesoHija : sumOrdenVentaCantidadKg(orden))}
-          </MetaField>
-          <MetaField label="¿Acepta sustituciones?">
-            <TextValue value={captura.aceptaSustituciones} />
-          </MetaField>
-          <MetaField label="Requiere lote / trazabilidad">
-            <TextValue value={captura.requiereLote} />
-          </MetaField>
-          <MetaField label="Registrar temperatura al entregar">
-            <TextValue value={captura.registrarTemperatura} />
-          </MetaField>
-        </div>
-      </CaptureSection>
-
-      {captura.observaciones ? (
-        <CaptureSection title="Observaciones">
-          <p className="whitespace-pre-wrap polaria-text-body-sm text-polaria-w">
-            {captura.observaciones}
-          </p>
+      {cuerpoMensaje ? (
+        <CaptureSection title="Cuerpo del mensaje">
+          <OrigenPedidoBodyView text={cuerpoMensaje} className="mt-0" />
         </CaptureSection>
       ) : null}
     </>

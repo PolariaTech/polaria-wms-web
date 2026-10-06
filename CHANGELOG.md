@@ -2,6 +2,13 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.9.12 — 2026-10-06
+
+- Captura de OV: fecha atrasada con aviso, bodega de origen, pickers, cuerpo del mensaje, textos de cliente.
+- Estados **Alistamiento** / **Alistada** tras fotos QR.
+- Hoja de almacén: OT `1-2/9` si hay más de 49 productos, notas del correo, incidencias.
+- Listado de OV por fecha de creación (más reciente primero).
+
 ## 2.8.20 — 2026-10-01
 
 - Órdenes de venta: OT por pedido+almacén, pager, preview, precios del documento, body correo en notas.

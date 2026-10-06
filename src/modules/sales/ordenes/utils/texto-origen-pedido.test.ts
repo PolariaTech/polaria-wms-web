@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildTextoOrigenPedido,
   cleanCorreoBodyForNotas,
+  extractNotasClaveCorreo,
+  fitNotasGeneralesPdf,
   flattenNotasForPdf,
   parseOrigenPedidoBlocks,
+  serializeCuerpoMensaje,
 } from "./texto-origen-pedido";
 
 describe("parseOrigenPedidoBlocks", () => {
@@ -27,6 +30,44 @@ describe("parseOrigenPedidoBlocks", () => {
       expect(blocks[1].rows[0]?.[1]).toBe("Clave Sap");
       expect(blocks[1].rows[1]?.[1]).toBe("X200011700");
       expect(blocks[1].rows[1]?.[2]).toBe("AGUACATE JASS");
+    }
+  });
+
+  it("une celdas partidas por wrap y arma tabla", () => {
+    const raw = [
+      "Buenas tardes,",
+      "Fecha de entrega   Clave Sap    Texto breve   Centro de costo",
+      "27.08.2026         X200062800   BLUE BERRY    Ayb Xc Restaurant Baja",
+      " California",
+    ].join("\n");
+    const blocks = parseOrigenPedidoBlocks(raw);
+    expect(blocks[1]?.type).toBe("table");
+    if (blocks[1]?.type === "table") {
+      expect(blocks[1].rows[1]?.join(" ")).toContain("Baja California");
+    }
+  });
+
+  it("renderiza el cuerpo organizado por la IA como prosa + tabla", () => {
+    const raw = serializeCuerpoMensaje([
+      {
+        tipo: "texto",
+        texto: "Buenas tardes,\nHora de entrega 6:00 am",
+        filas: null,
+      },
+      {
+        tipo: "tabla",
+        texto: null,
+        filas: [
+          ["Fecha de entrega", "Clave Sap", "Texto breve de material"],
+          ["27.08.2026", "X200062800", "BLUE BERRY"],
+        ],
+      },
+      { tipo: "texto", texto: "Favor de confirmar de recibido", filas: null },
+    ]);
+    const blocks = parseOrigenPedidoBlocks(raw);
+    expect(blocks.map((b) => b.type)).toEqual(["text", "table", "text"]);
+    if (blocks[1]?.type === "table") {
+      expect(blocks[1].rows[1]?.[2]).toBe("BLUE BERRY");
     }
   });
 });
@@ -111,6 +152,55 @@ describe("flattenNotasForPdf", () => {
         "Buen Dia Homero.\n\nEl motivo de mi correo.\n\nSaludos",
       ),
     ).toBe("Buen Dia Homero. El motivo de mi correo. Saludos");
+  });
+});
+
+describe("fitNotasGeneralesPdf", () => {
+  it("recorta sin partir la última palabra", () => {
+    const long = Array.from({ length: 40 }, (_, i) => `dato${i}`).join(" ");
+    const fitted = fitNotasGeneralesPdf(long, 40);
+    expect(fitted.length).toBeLessThanOrEqual(40);
+    expect(fitted.endsWith(" ")).toBe(false);
+    expect(fitted.includes("dato0")).toBe(true);
+  });
+});
+
+describe("extractNotasClaveCorreo", () => {
+  it("deja solo notas útiles, sin saludos ni tablas de productos", () => {
+    const raw = [
+      "Buenas tardes,",
+      "Favor de enviar maduro, no verde. Entregar por andén 3.",
+      "",
+      "Fecha de entrega   Clave Sap    Texto breve de material   Um   Pedido",
+      "                   X200011700   AGUACATE JASS             KG   37",
+      "",
+      "Gracias",
+      "Saludos",
+    ].join("\n");
+
+    expect(extractNotasClaveCorreo(raw)).toBe(
+      "Favor de enviar maduro, no verde. Entregar por andén 3.",
+    );
+  });
+
+  it("saca del correo solo la especificación de entrega, no el cuerpo ni la firma", () => {
+    const raw = [
+      "Buenas tardes,",
+      "Envío adjunto pedido para entregar el 27 DE AGOSTO DE 2026 en Parque Xcaret:",
+      "Hora de entrega 6:00 am",
+      "Favor de confirmar de recibido",
+      "Nancy Guadalupe Pérez Cruz",
+      "Gestor de Inventarios",
+      "CONTRALORIA",
+      "XCARET",
+      "nperezcru@xcaret.com",
+    ].join("\n");
+    expect(extractNotasClaveCorreo(raw)).toContain("27 DE AGOSTO DE 2026");
+    expect(extractNotasClaveCorreo(raw)).toContain("Parque Xcaret");
+    expect(extractNotasClaveCorreo(raw)).toContain("Hora de entrega 6:00 am");
+    expect(extractNotasClaveCorreo(raw)).not.toContain("Buenas tardes");
+    expect(extractNotasClaveCorreo(raw)).not.toContain("Nancy");
+    expect(extractNotasClaveCorreo(raw)).not.toContain("nperezcru");
   });
 });
 

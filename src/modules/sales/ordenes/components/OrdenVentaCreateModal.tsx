@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -62,10 +62,11 @@ import {
 import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-nombre";
 import { OrdenVentaCompradorPickerModal } from "./OrdenVentaCompradorPickerModal";
 import { OrdenVentaProductoPickerModal } from "./OrdenVentaProductoPickerModal";
+import { OrdenVentaTablePickerModal } from "./OrdenVentaTablePickerModal";
 import { leerPedidoConIaApi } from "../services/sales-ai.api";
 import { OrdenTrabajoPreviewList } from "./OrdenTrabajoPreviewList";
 import { OrdenTrabajoPager } from "./OrdenTrabajoPager";
-import { OrigenPedidoBodyView } from "./OrigenPedidoBodyView";
+import { OrigenPedidoSourceView } from "./OrigenPedidoBodyView";
 import {
   buildOrdenVentaCapturaObservaciones,
   isAfterWarehouseCutoff,
@@ -79,11 +80,13 @@ import {
   type OrdenTrabajoHija,
 } from "../utils/origen-correo-ordenes-trabajo";
 import {
+  FECHA_ENTREGA_ATRASADA_WARNING,
+  isFechaEntregaAtrasada,
   isVentanaDesdeMayorQueHasta,
   validatePedidoCabecera,
 } from "../utils/pedido-form-validation";
 import { hasOtPagerRequiredBlocking } from "../utils/ot-pager-required";
-import { cleanCorreoBodyForNotas } from "../utils/texto-origen-pedido";
+import { cleanCorreoBodyForNotas, isCuerpoMensajeFormato } from "../utils/texto-origen-pedido";
 import {
   mapPedidoExtraidoToForm,
   type CampoDiscrepancia,
@@ -104,7 +107,7 @@ interface OrdenVentaCreateModalProps {
 
 type CaptureStep = "start" | "preview" | "form";
 type StartMode = "first_time" | "scratch" | "docs";
-type PickerKind = "comprador" | "producto" | null;
+type PickerKind = "comprador" | "producto" | "moneda" | "bodega" | null;
 
 interface LineaVentaForm {
   idProducto: string;
@@ -207,14 +210,8 @@ const MONEDA_OPTIONS = [
   { value: "USD", label: "USD" },
 ] as const;
 
-const TURNO_OPTIONS = [
-  { value: "", label: "—" },
-  { value: "PM", label: "PM" },
-  { value: "Noche / AM", label: "Noche / AM" },
-] as const;
-
 function formatCompradorLabel(row: CompradorListRow): string {
-  return `${row.codigo} — ${row.comprador}`;
+  return row.comprador.trim();
 }
 
 interface BodegaDestinoOption {
@@ -393,6 +390,24 @@ export function OrdenVentaCreateModal({
 
   const hasProductos = productos.length > 0;
   const afterCutoff = isAfterWarehouseCutoff();
+  const fechaEntregaAtrasada = isFechaEntregaAtrasada(
+    fechaEntrega,
+    todayIsoDate(),
+  );
+  const avisosValidacion: CampoDiscrepancia[] = [
+    ...discrepancias,
+    ...(fechaEntregaAtrasada &&
+    !discrepancias.some((item) => item.fieldKey === "fechaEntrega")
+      ? [
+          {
+            campo: "Fecha de entrega",
+            fieldKey: "fechaEntrega",
+            db: "Hoy o posterior",
+            ia: FECHA_ENTREGA_ATRASADA_WARNING,
+          },
+        ]
+      : []),
+  ];
 
   const productosParaAgregar = useMemo(
     () =>
@@ -572,15 +587,6 @@ export function OrdenVentaCreateModal({
     [descuentosVenta, ivaVenta, subtotalVenta],
   );
 
-  const pesoTotalKg = useMemo(
-    () =>
-      lineasParaTotales.reduce((sum, linea) => {
-        const cantidad = parseDecimalEs(linea.cantidadInput) ?? 0;
-        return sum + Math.max(0, cantidad);
-      }, 0),
-    [lineasParaTotales],
-  );
-
   useEffect(() => {
     if (!open) return;
 
@@ -713,7 +719,11 @@ export function OrdenVentaCreateModal({
         setRequiereLote(detalle.requiere_lote?.trim() || "");
         setRegistrarTemperatura(detalle.registrar_temperatura?.trim() || "");
         setOrigenTexto(
-          cleanCorreoBodyForNotas(detalle.origen_texto?.trim() || ""),
+          (() => {
+            const raw = detalle.origen_texto?.trim() || "";
+            if (!raw) return "";
+            return isCuerpoMensajeFormato(raw) ? raw : cleanCorreoBodyForNotas(raw);
+          })(),
         );
         const origenCorreoRows = Array.isArray(detalle.origen_correo)
           ? (detalle.origen_correo as OrigenCorreoRenglon[])
@@ -851,6 +861,84 @@ export function OrdenVentaCreateModal({
       setObservaciones(prefill.observaciones);
     },
     [],
+  );
+
+  const applyDiscrepanciaFieldValue = useCallback(
+    (fieldKey: string, value: string) => {
+      const next = value.trim();
+      switch (fieldKey) {
+        case "fechaEntrega":
+          setFechaEntrega(next);
+          break;
+        case "centroConsumo":
+          setCentroConsumo(next);
+          break;
+        case "direccion":
+          setDireccion(next);
+          break;
+        case "anden":
+          setAnden(next);
+          break;
+        case "contacto":
+          setContacto(next);
+          break;
+        case "telefono":
+          setTelefono(next);
+          break;
+        case "ventanaDesde":
+          setVentanaDesde(next);
+          break;
+        case "ventanaHasta":
+          setVentanaHasta(next);
+          break;
+        case "aceptaSustituciones":
+          setAceptaSustituciones(next);
+          break;
+        case "requiereLote":
+          setRequiereLote(next);
+          break;
+        case "registrarTemperatura":
+          setRegistrarTemperatura(next);
+          break;
+        case "observaciones":
+          setObservaciones(next);
+          break;
+        default:
+          break;
+      }
+    },
+    [],
+  );
+
+  /** Reemplaza el valor de la solicitud por el de ficha y vuelve al formulario. */
+  const handleReemplazarDiscrepancia = useCallback(
+    (item: CampoDiscrepancia) => {
+      const fichaValue =
+        item.fieldKey === "fechaEntrega" && item.db === "Hoy o posterior"
+          ? todayIsoDate()
+          : item.db === "—"
+            ? ""
+            : item.db;
+
+      applyDiscrepanciaFieldValue(item.fieldKey, fichaValue);
+
+      setDiscrepancias((prev) =>
+        prev.filter((row) => row.fieldKey !== item.fieldKey),
+      );
+      setWarnFields((prev) => {
+        if (!prev.has(item.fieldKey)) return prev;
+        const next = new Set(prev);
+        next.delete(item.fieldKey);
+        return next;
+      });
+      setAutoFields((prev) => {
+        const next = new Set(prev);
+        next.add(item.fieldKey);
+        return next;
+      });
+      setConfirmDiscrepanciasOpen(false);
+    },
+    [applyDiscrepanciaFieldValue],
   );
 
   const handleSelectComprador = useCallback(
@@ -1194,6 +1282,7 @@ export function OrdenVentaCreateModal({
           observaciones: fichaBase.observaciones,
         },
         tomorrowIso: tomorrowIsoDate(),
+        todayIso: todayIsoDate(),
       });
 
       setFechaEntrega(mapped.fechaEntrega);
@@ -1272,10 +1361,14 @@ export function OrdenVentaCreateModal({
       setOrdenesTrabajoPreview(groupOrigenCorreoToOrdenesTrabajo(origenRows));
       setFormOtPage(0);
       // Persistir body del correo / mensaje para notas generales del PDF.
-      if (!origenTexto.trim() && pedido.textoOrigen?.trim()) {
-        setOrigenTexto(cleanCorreoBodyForNotas(pedido.textoOrigen));
+      if (pedido.textoOrigen?.trim()) {
+        setOrigenTexto(pedido.textoOrigen.trim());
       } else if (origenTexto.trim()) {
-        setOrigenTexto(cleanCorreoBodyForNotas(origenTexto));
+        setOrigenTexto(
+          isCuerpoMensajeFormato(origenTexto)
+            ? origenTexto
+            : cleanCorreoBodyForNotas(origenTexto),
+        );
       }
       setStep(origenRows.length > 0 ? "preview" : "form");
       setError(avisos.length > 0 ? avisos.join(" ") : null);
@@ -1345,11 +1438,6 @@ export function OrdenVentaCreateModal({
         return;
       }
 
-      if (!idBodegaDestino) {
-        setError("Selecciona una bodega destino.");
-        return;
-      }
-
       const cabeceraError = validatePedidoCabecera({
         fechaEntrega,
         todayIso: todayIsoDate(),
@@ -1406,7 +1494,9 @@ export function OrdenVentaCreateModal({
 
       const persistOrigenTexto =
         isEditing || startMode === "docs"
-          ? cleanCorreoBodyForNotas(origenTexto)
+          ? isCuerpoMensajeFormato(origenTexto)
+            ? origenTexto.trim()
+            : cleanCorreoBodyForNotas(origenTexto)
           : "";
       const persistOrigenArchivos =
         startMode === "docs" ? origenArchivos : [];
@@ -1632,15 +1722,10 @@ export function OrdenVentaCreateModal({
   }, []);
 
   const showMateoLoading = open && (isReadingIa || isSaving);
-  const mateoLoadingMessage = isReadingIa
-    ? "Cargando pedido…"
-    : "Enviando pedido…";
 
   return (
     <>
-      {showMateoLoading ? (
-        <MateoIaLoadingScreen message={mateoLoadingMessage} />
-      ) : null}
+      {showMateoLoading ? <MateoIaLoadingScreen /> : null}
 
       <PolariaFormModal
         open={open && !showMateoLoading}
@@ -1728,6 +1813,24 @@ export function OrdenVentaCreateModal({
               )}
             >
               Continuar al formulario
+            </button>
+          ) : step === "start" && startMode === "docs" ? (
+            <button
+              type="button"
+              onClick={() => {
+                void openFormFromDocs();
+              }}
+              disabled={!docsReady || isReadingIa}
+              className={cn(
+                "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-5 py-2.5",
+                "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+              )}
+            >
+              {isReadingIa ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : null}
+              Continuar
             </button>
           ) : step === "start" ? (
             <></>
@@ -1925,21 +2028,6 @@ export function OrdenVentaCreateModal({
                   ) : null}
                 </PolariaFormField>
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  void openFormFromDocs();
-                }}
-                disabled={!docsReady || isReadingIa}
-                className={cn(
-                  "mt-4 inline-flex items-center justify-center gap-2.5 rounded-xl bg-polaria-teal px-5 py-2.5",
-                  "polaria-text-body-sm font-semibold text-polaria-bg transition hover:opacity-90",
-                  "disabled:cursor-not-allowed disabled:opacity-50",
-                )}
-              >
-                Leer y llenar el formulario
-              </button>
             </div>
           </div>
         ) : null}
@@ -2001,21 +2089,12 @@ export function OrdenVentaCreateModal({
                 <p className="polaria-text-label text-polaria-w">
                   De dónde salió este pedido
                 </p>
-                {origenTexto.trim() ? (
-                  <OrigenPedidoBodyView text={origenTexto} />
-                ) : null}
-                {origenArchivos.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {origenArchivos.map((name) => (
-                      <span
-                        key={name}
-                        className="rounded-lg border border-polaria-w-08 bg-polaria-t-08 px-2 py-1 polaria-text-caption text-polaria-w-50"
-                      >
-                        {name}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
+                <div className="mt-2">
+                  <OrigenPedidoSourceView
+                    archivos={origenArchivos}
+                    tieneTexto={Boolean(origenTexto.trim())}
+                  />
+                </div>
                 {vendedorNombre ? (
                   <p className="mt-2 polaria-text-caption text-polaria-w-50">
                     Capturado por {vendedorNombre}
@@ -2052,7 +2131,7 @@ export function OrdenVentaCreateModal({
 
                     <PolariaFormInput
                       id="orden-venta-oc-hotel"
-                      label="Orden de compra del hotel"
+                      label="Orden de compra del cliente"
                       value={ordenCompraHotel}
                       onChange={(event) => {
                         setOrdenCompraHotel(event.target.value);
@@ -2097,30 +2176,30 @@ export function OrdenVentaCreateModal({
                     />
 
                     <PolariaFormInput
-                      id="orden-venta-vendedor"
-                      label="Vendedor"
-                      value={vendedorNombre || "—"}
-                      readOnly
-                      compact
-                    />
-
-                    <PolariaFormInput
                       id="orden-venta-fecha-entrega"
                       label="Fecha de entrega"
                       type="date"
                       value={fechaEntrega}
-                      min={todayIsoDate()}
                       onChange={(event) => {
                         setFechaEntrega(event.target.value);
                         clearFieldMarks("fechaEntrega");
                       }}
+                      hint={
+                        isFechaEntregaAtrasada(fechaEntrega, todayIsoDate())
+                          ? FECHA_ENTREGA_ATRASADA_WARNING
+                          : undefined
+                      }
                       controlClassName={fieldControlClass({
                         field: "fechaEntrega",
                         autoFields,
-                        warnFields,
+                        warnFields: isFechaEntregaAtrasada(
+                          fechaEntrega,
+                          todayIsoDate(),
+                        )
+                          ? new Set([...warnFields, "fechaEntrega"])
+                          : warnFields,
                         missingFields,
-                        missing:
-                          !fechaEntrega || fechaEntrega < todayIsoDate(),
+                        missing: !fechaEntrega,
                       })}
                       compact
                     />
@@ -2196,38 +2275,24 @@ export function OrdenVentaCreateModal({
                       compact
                     />
 
-                    <PolariaFormSelect
+                    <PolariaFormField
                       id="orden-venta-moneda"
                       label="Moneda"
-                      value={moneda}
-                      onChange={(event) => setMoneda(event.target.value)}
-                      options={MONEDA_OPTIONS}
                       compact
-                    />
-
-                    <PolariaFormSelect
-                      id="orden-venta-bodega-destino"
-                      label="Bodega destino"
-                      value={idBodegaDestino}
-                      onChange={(event) => setIdBodegaDestino(event.target.value)}
-                      options={[
-                        { value: "", label: "Selecciona una bodega" },
-                        ...bodegasDestino.map((bodega) => ({
-                          value: bodega.idBodega,
-                          label: bodega.label,
-                        })),
-                      ]}
-                      required
-                      controlClassName={fieldControlClass({
-                        missing: !idBodegaDestino,
-                      })}
-                      compact
-                      fieldClassName="sm:col-span-2"
-                    />
+                    >
+                      <JefeBodegaModalSearchField
+                        id="orden-venta-moneda"
+                        value={moneda}
+                        placeholder="Selecciona una moneda"
+                        ariaLabel="Moneda"
+                        compact
+                        onSearchClick={() => setPicker("moneda")}
+                      />
+                    </PolariaFormField>
 
                     <PolariaFormInput
                       id="orden-venta-observaciones"
-                      label="Observaciones"
+                      label="Cuerpo del mensaje"
                       value={observaciones}
                       placeholder="Notas para almacén"
                       onChange={(event) => {
@@ -2283,7 +2348,7 @@ export function OrdenVentaCreateModal({
                     />
                     <PolariaFormInput
                       id="orden-venta-contacto"
-                      label="Contacto en el hotel"
+                      label="Contacto del cliente"
                       value={contacto}
                       onChange={(event) => {
                         setContacto(event.target.value);
@@ -2314,39 +2379,6 @@ export function OrdenVentaCreateModal({
                       })}
                       compact
                     />
-                    <div className="hidden" aria-hidden>
-                      <PolariaFormSelect
-                        id="orden-venta-turno"
-                        label="Turno que prepara"
-                        value={turno}
-                        onChange={(event) => setTurno(event.target.value)}
-                        options={TURNO_OPTIONS}
-                        compact
-                      />
-                      <PolariaFormInput
-                        id="orden-venta-hora-salida"
-                        label="Hora sugerida de salida"
-                        type="time"
-                        value={horaSalida}
-                        onChange={(event) => setHoraSalida(event.target.value)}
-                        compact
-                      />
-                      <PolariaFormInput
-                        id="orden-venta-chofer"
-                        label="Chofer"
-                        value={chofer}
-                        placeholder="Por asignar"
-                        onChange={(event) => setChofer(event.target.value)}
-                        compact
-                      />
-                      <PolariaFormInput
-                        id="orden-venta-unidad"
-                        label="Unidad"
-                        value={unidad}
-                        onChange={(event) => setUnidad(event.target.value)}
-                        compact
-                      />
-                    </div>
                 </div>
                 </CaptureSection>
 
@@ -2654,18 +2686,6 @@ export function OrdenVentaCreateModal({
                   </button>
                 </CaptureSection>
 
-                <CaptureSection title="Almacén">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <PolariaFormInput
-                      id="orden-venta-peso"
-                      label="Peso total (kg)"
-                      value={formatKgEs(pesoTotalKg)}
-                      readOnly
-                      compact
-                    />
-            </div>
-                </CaptureSection>
-
                 <div className="hidden" aria-hidden>
                   {lineas.map((linea, index) => (
                     <div key={`hidden-pack-${linea.idProducto}-${index}`}>
@@ -2839,6 +2859,38 @@ export function OrdenVentaCreateModal({
         onSelect={handleSelectProducto}
       />
 
+      <OrdenVentaTablePickerModal
+        open={picker === "moneda"}
+        onClose={() => setPicker(null)}
+        title="Seleccionar moneda"
+        description="Monedas disponibles para el pedido."
+        columns={["Moneda"]}
+        rows={MONEDA_OPTIONS.map((option) => ({
+          id: option.value,
+          cells: [option.label],
+        }))}
+        selectedId={moneda}
+        searchPlaceholder="Buscar moneda"
+        emptyLabel="No hay monedas disponibles."
+        onSelect={(row) => setMoneda(row.id)}
+      />
+
+      <OrdenVentaTablePickerModal
+        open={picker === "bodega"}
+        onClose={() => setPicker(null)}
+        title="Seleccionar bodega de origen"
+        description="Bodegas disponibles de la cuenta."
+        columns={["Bodega"]}
+        rows={bodegasDestino.map((bodega) => ({
+          id: bodega.idBodega,
+          cells: [bodega.label],
+        }))}
+        selectedId={idBodegaDestino || null}
+        searchPlaceholder="Buscar bodega"
+        emptyLabel="No hay bodegas registradas."
+        onSelect={(row) => setIdBodegaDestino(row.id)}
+      />
+
       <CompradorCreateModal
         open={isCompradorCreateOpen}
         stackLevel="elevated"
@@ -2867,13 +2919,26 @@ export function OrdenVentaCreateModal({
         cancelLabel="Revisar"
         size="lg"
       >
-        {discrepancias.length > 0 ? (
+        {avisosValidacion.length > 0 ? (
           <ul className="divide-y divide-polaria-w-08 rounded-xl border border-polaria-w-08">
-            {discrepancias.map((item) => (
-              <li key={item.campo} className="px-3 py-2.5 sm:px-3.5">
-                <p className="polaria-text-caption font-semibold uppercase tracking-wide text-polaria-warning">
-                  {item.campo}
-                </p>
+            {avisosValidacion.map((item) => (
+              <li key={item.fieldKey || item.campo} className="px-3 py-2.5 sm:px-3.5">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="polaria-text-caption font-semibold uppercase tracking-wide text-polaria-warning">
+                    {item.campo}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleReemplazarDiscrepancia(item)}
+                    className={cn(
+                      "rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2.5 py-1",
+                      "polaria-text-caption font-semibold text-polaria-teal transition hover:opacity-90",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                    )}
+                  >
+                    Reemplazar
+                  </button>
+                </div>
                 <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
                   <div>
                     <p className="polaria-text-caption text-polaria-w-20">
@@ -2924,7 +2989,13 @@ export function OrdenVentaCreateModal({
         }
         confirmLabel="Confirmar"
         cancelLabel="Revisar"
-      />
+      >
+        {fechaEntregaAtrasada ? (
+          <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-4 py-3 polaria-text-body-sm text-polaria-warning">
+            {FECHA_ENTREGA_ATRASADA_WARNING}
+          </p>
+        ) : null}
+      </PolariaConfirmDialog>
     </>
   );
 }

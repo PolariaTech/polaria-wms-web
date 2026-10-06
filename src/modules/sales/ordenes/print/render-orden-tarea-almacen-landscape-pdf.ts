@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { campoSurtido } from "../surtido/apply-surtido-to-print";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
+import { PRODUCTOS_POR_HOJA_TAREA } from "./map-orden-tarea-almacen";
 
 /**
  * Variante 2 columnas (hoja carta vertical):
@@ -64,10 +65,24 @@ function field(
   doc.text(label, x + 1.2, y + 1.2, { baseline: "top" });
   if (!value.trim()) return;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  const wrapped = doc.splitTextToSize(value.trim(), w - 2.4);
-  const shown = (Array.isArray(wrapped) ? wrapped : [wrapped]).slice(0, 2);
-  doc.text(shown, x + 1.2, y + 4.8, {
+  const innerW = w - 2.4;
+  const valueTop = y + 4.8;
+  const valueMaxH = Math.max(3.2, h - 6);
+  let fontSize = 7.5;
+  let lines: string[] = [];
+  let lineH = 3.2;
+  while (fontSize >= 6) {
+    doc.setFontSize(fontSize);
+    lineH = fontSize * 0.4;
+    lines = doc.splitTextToSize(value.trim(), innerW);
+    const maxLines = Math.max(1, Math.floor(valueMaxH / lineH));
+    if (lines.length <= maxLines || fontSize === 6) {
+      lines = lines.slice(0, maxLines);
+      break;
+    }
+    fontSize -= 0.4;
+  }
+  doc.text(lines, x + 1.2, valueTop, {
     baseline: "top",
     lineHeightFactor: 1.05,
   });
@@ -117,49 +132,52 @@ function drawNotesLines(
   label = "",
   value = "",
   lineCount = 2,
+  lineStep = 5,
+  startOnSecondLine = false,
 ): number {
   let lineY = y;
-  if (label.trim()) {
+  const hasLabel = Boolean(label.trim());
+  if (hasLabel) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.text(`${label}:`, x, y, { baseline: "top" });
-    lineY = y + 4.5;
+    lineY = y + 5.2;
   } else {
     lineY = y + 3;
   }
   doc.setDrawColor(0);
-  doc.setLineWidth(0.35);
+  doc.setLineWidth(0.45);
 
   const textW = w - 2;
-  const lineStep = 5;
   const trimmed = value.replace(/\s+/g, " ").trim();
+  const contentOffset = startOnSecondLine ? 1 : 0;
+  const contentSlots = Math.max(0, lineCount - contentOffset);
   let lines: string[] = [];
   let fontSize = 7;
 
-  if (trimmed) {
+  if (trimmed && contentSlots > 0) {
     doc.setFont("helvetica", "normal");
-    // Reduce fuente hasta que quepa en las N líneas disponibles.
     for (const size of [7, 6.2, 5.4, 4.8, 4.2]) {
       doc.setFontSize(size);
       const wrapped = doc.splitTextToSize(trimmed, textW);
       const all = Array.isArray(wrapped) ? wrapped : [wrapped];
-      if (all.length <= lineCount) {
+      if (all.length <= contentSlots) {
         lines = all;
         fontSize = size;
         break;
       }
-      lines = all.slice(0, lineCount);
+      lines = all.slice(0, contentSlots);
       fontSize = size;
     }
   }
 
   for (let index = 0; index < lineCount; index += 1) {
     doc.line(x, lineY, x + w, lineY);
-    const lineText = lines[index];
+    const lineText = lines[index - contentOffset];
     if (lineText) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(fontSize);
-      doc.text(lineText, x + 1, lineY - 1.1, { baseline: "bottom" });
+      doc.text(lineText, x + 1, lineY - 1.4, { baseline: "bottom" });
     }
     lineY += lineStep;
   }
@@ -189,14 +207,10 @@ export function drawOrdenTareaAlmacenLandscapePage(
     data.tareaIndex && data.tareaIndex > 0 ? data.tareaIndex : 1;
   const tareaTotal =
     data.tareaTotal && data.tareaTotal > 0 ? data.tareaTotal : 1;
-  doc.text(
-    `Orden de tarea ${tareaIndex}/${tareaTotal}  ·  Impresa ${data.impresa}`,
-    MARGIN,
-    4.5,
-    {
-      baseline: "top",
-    },
-  );
+  const ordenTrabajo = data.ordenTrabajo || `${tareaIndex}/${tareaTotal}`;
+  doc.text(`Impresa ${data.impresa}`, MARGIN, 4.5, {
+    baseline: "top",
+  });
   doc.setTextColor(0);
 
   let y = MARGIN + 5;
@@ -223,13 +237,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
       baseline: "middle",
     });
   }
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(5.2);
-  doc.text("Escanear y fotografiar", leftX + LEFT_W / 2, y + QR_SIZE + 1, {
-    align: "center",
-    baseline: "top",
-  });
-  y += QR_SIZE + 5.5;
+  y += QR_SIZE + 2;
 
   const rowH = 10;
   field(
@@ -239,18 +247,26 @@ export function drawOrdenTareaAlmacenLandscapePage(
     LEFT_W,
     rowH,
     "Tarea de Almacen",
-    isActualizado ? `${folio}\nActualizada` : folio,
+    folio,
     true,
   );
+  if (isActualizado) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.text("Actualizada", leftX + LEFT_W - 1.4, y + 1.3, {
+      align: "right",
+      baseline: "top",
+    });
+  }
   y += rowH;
-  field(
+  splitField(
     doc,
     leftX,
     y,
     LEFT_W,
     rowH,
-    "# de orden del cliente",
-    data.numeroOrdenCliente,
+    { label: "# de orden del cliente", value: data.numeroOrdenCliente },
+    { label: "Orden de trabajo", value: ordenTrabajo },
   );
   y += rowH;
   field(doc, leftX, y, LEFT_W, rowH, "Factura asociada", factura);
@@ -289,46 +305,26 @@ export function drawOrdenTareaAlmacenLandscapePage(
     nombreKeys?: string[];
     firmaKeys?: string[];
   }> = [
-    {
-      role: "Alistó",
-      showNombreFirma: true,
-      nombreKeys: ["alistoNombre", "Alistó nombre", "Alistó"],
-      firmaKeys: ["alistoHora", "Alistó hora"],
-    },
-    {
-      role: "Revisó",
-      showNombreFirma: true,
-      nombreKeys: ["revisoNombre", "Revisó nombre", "Revisó"],
-      firmaKeys: ["revisoHora", "Revisó hora"],
-    },
-    {
-      role: "Factura (OK)",
-      showNombreFirma: true,
-      nombreKeys: [
-        "facturaOkNombre",
-        "Factura (OK) nombre",
-        "documentoNombre",
-        "Documentó nombre",
-      ],
-      firmaKeys: [
-        "facturaOkHora",
-        "Factura (OK) hora",
-        "documentoHora",
-        "Documentó hora",
-      ],
-    },
+    { role: "Alistó" },
+    { role: "Revisó" },
+    { role: "Factura (OK)" },
     {
       role: "Despachó",
       showNombreFirma: true,
-      nombreKeys: ["despachoNombre", "Despachó nombre"],
-      firmaKeys: ["despachoHora", "Despachó hora"],
+      nombreKeys: [
+        "despachoFirma",
+        "Despachó firma",
+        "despachoNombre",
+        "Despachó nombre",
+      ],
+      firmaKeys: [
+        "despachoFecha",
+        "Despachó fecha",
+        "despachoHora",
+        "Despachó hora",
+      ],
     },
-    {
-      role: "Retorno",
-      showNombreFirma: true,
-      nombreKeys: ["retornoNombre", "Retorno nombre", "Retorno"],
-      firmaKeys: ["retornoHora", "Retorno hora"],
-    },
+    { role: "Retorno" },
   ];
   const roleH = 11;
   const roleGap = 1.2;
@@ -343,8 +339,8 @@ export function drawOrdenTareaAlmacenLandscapePage(
       const firma = campoSurtido(data.surtido, ...(item.firmaKeys ?? []));
       doc.setFont("helvetica", "normal");
       doc.setFontSize(6);
-      doc.text(nombre || "Nombre", leftX + 1.4, y + 8.5, { baseline: "top" });
-      doc.text(firma || "Firma", leftX + LEFT_W - 1.4, y + 8.5, {
+      doc.text(nombre || "Firma", leftX + 1.4, y + 8.5, { baseline: "top" });
+      doc.text(firma || "Fecha", leftX + LEFT_W - 1.4, y + 8.5, {
         align: "right",
         baseline: "top",
       });
@@ -352,13 +348,6 @@ export function drawOrdenTareaAlmacenLandscapePage(
     y += roleH + roleGap;
   }
   y += 1;
-  const incidenciaLineStep = 5;
-  const incidenciaLabelH = 4.5;
-  const incidenciaRemaining = PAGE_BOTTOM - y - incidenciaLabelH;
-  const incidenciaLines = Math.max(
-    3,
-    Math.floor(incidenciaRemaining / incidenciaLineStep),
-  );
   const incidenciasTexto = campoSurtido(
     data.surtido,
     "incidencias",
@@ -371,7 +360,9 @@ export function drawOrdenTareaAlmacenLandscapePage(
     LEFT_W,
     "Incidencias",
     incidenciasTexto,
-    incidenciaLines,
+    8,
+    6.5,
+    true,
   );
 
   // ——— Derecha: productos hasta el margen inferior ———
@@ -393,9 +384,9 @@ export function drawOrdenTareaAlmacenLandscapePage(
   let py = MARGIN + 5;
   const headerH = 6.5;
   const availableForRows = PAGE_BOTTOM - py - headerH;
-  const productRows = Math.max(
-    1,
-    Math.floor(availableForRows / PRODUCT_BODY_MIN_H),
+  const productRows = Math.min(
+    PRODUCTOS_POR_HOJA_TAREA,
+    Math.max(1, Math.floor(availableForRows / PRODUCT_BODY_MIN_H)),
   );
   const bodyH = Math.min(PRODUCT_BODY_MAX_H, availableForRows / productRows);
 
@@ -429,7 +420,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
     let cursorX = rightX;
     const mid = py + bodyH / 2;
     const values = [
-      String(index + 1),
+      String((data.lineaInicio ?? 1) + index),
       linea?.producto ?? "",
       linea?.especificacion ?? "",
       linea?.cantidadSolicitada ?? "",

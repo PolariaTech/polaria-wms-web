@@ -62,6 +62,17 @@ describe("hasOtPagerRequiredBlocking", () => {
         ...base,
         ordenCompraHotel: "",
         exigeOc: false,
+        idBodegaDestino: "",
+      }),
+    ).toBe(false);
+  });
+
+  it("no bloquea por fecha de entrega atrasada", () => {
+    expect(
+      hasOtPagerRequiredBlocking({
+        ...base,
+        fechaEntrega: "2026-09-20",
+        todayIso: "2026-10-01",
       }),
     ).toBe(false);
   });

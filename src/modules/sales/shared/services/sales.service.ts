@@ -35,6 +35,16 @@ const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
 const ORDEN_VENTA_COLUMNS =
   "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at";
 
+/** Más reciente primero (fecha de creación); id como desempate estable. */
+function sortOrdenesVentaPorCreacionDesc(rows: OrdenVentaRow[]): OrdenVentaRow[] {
+  return [...rows].sort((a, b) => {
+    const ta = Date.parse(a.created_at || a.fecha_pedido) || 0;
+    const tb = Date.parse(b.created_at || b.fecha_pedido) || 0;
+    if (tb !== ta) return tb - ta;
+    return b.id_orden_venta.localeCompare(a.id_orden_venta);
+  });
+}
+
 const COMPRADOR_COLUMNS = "id_comprador,nombre";
 
 const ORDEN_VENTA_DETALLE_FLAT_COLUMNS =
@@ -598,7 +608,7 @@ export async function listOrdenesVenta(
 ): Promise<OrdenVentaRow[]> {
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 
-  return runDomainQuery((client) => {
+  const rows = await runDomainQuery((client) => {
     const query = applyRecentOrdersFilter(
       applyTenantFilters(
         client.from("orden_venta").select(ORDEN_VENTA_COLUMNS),
@@ -606,7 +616,8 @@ export async function listOrdenesVenta(
       ),
       "fecha_pedido",
     )
-      .order("fecha_pedido", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id_orden_venta", { ascending: false })
       .limit(limit);
 
     return query as unknown as Promise<{
@@ -614,6 +625,8 @@ export async function listOrdenesVenta(
       error: { message: string } | null;
     }>;
   });
+
+  return sortOrdenesVentaPorCreacionDesc(rows);
 }
 
 export async function listOrdenesVentaOperador(
@@ -650,7 +663,8 @@ export async function listOrdenesVentaOperadorParaJefe(params: {
         .or(`id_bodega.eq.${idBodega},id_bodega_destino.eq.${idBodega}`),
       "fecha_pedido",
     )
-      .order("fecha_pedido", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id_orden_venta", { ascending: false })
       .limit(limit);
 
     return query as unknown as Promise<{
@@ -659,7 +673,7 @@ export async function listOrdenesVentaOperadorParaJefe(params: {
     }>;
   });
 
-  return enrichOrdenesVentaOperador(rows);
+  return enrichOrdenesVentaOperador(sortOrdenesVentaPorCreacionDesc(rows));
 }
 
 async function enrichOrdenesVentaOperador(
@@ -854,7 +868,7 @@ export async function createOrdenVenta(
 ): Promise<OrdenVentaOperadorRow> {
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
   const idComprador = input.idComprador.trim();
-  const idBodegaDestino = input.idBodegaDestino.trim();
+  const idBodegaDestino = input.idBodegaDestino?.trim() || null;
   const observaciones = input.observaciones?.trim() || null;
   const idCreador = input.idCreador?.trim() || null;
 
@@ -874,13 +888,6 @@ export async function createOrdenVenta(
   if (!idComprador) {
     throw new DomainServiceError(
       "Selecciona un comprador.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  if (!idBodegaDestino) {
-    throw new DomainServiceError(
-      "Selecciona una bodega destino.",
       "INVALID_ARGUMENT",
     );
   }

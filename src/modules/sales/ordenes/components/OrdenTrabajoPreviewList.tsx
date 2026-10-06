@@ -68,7 +68,7 @@ export function OrdenTrabajoPreviewList({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Meta label="Cliente" value={clienteLabel} />
               <Meta
-                label="Orden de compra del hotel"
+                label="Orden de compra del cliente"
                 value={hija.numeroPedido}
               />
               <Meta

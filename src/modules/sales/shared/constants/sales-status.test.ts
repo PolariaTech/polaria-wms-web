@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { puedeEditarOrdenVenta } from "./sales-status";
 
 describe("puedeEditarOrdenVenta", () => {
-  it("permite borrador, confirmada y en preparación", () => {
+  it("permite borrador, confirmada, alistamiento, alistada y en preparación", () => {
     expect(puedeEditarOrdenVenta("borrador")).toBe(true);
     expect(puedeEditarOrdenVenta("confirmada")).toBe(true);
+    expect(puedeEditarOrdenVenta("alistamiento")).toBe(true);
+    expect(puedeEditarOrdenVenta("alistada")).toBe(true);
     expect(puedeEditarOrdenVenta("en_preparacion")).toBe(true);
   });
 
