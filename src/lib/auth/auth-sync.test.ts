@@ -89,7 +89,7 @@ describe("auth-sync", () => {
     expect(isActiveAuthSession("same", "same")).toBe(true);
   });
 
-  it("no considera activa una sesión de más de un mes", () => {
+  it("no considera activa una sesión de más de 7 días", () => {
     const started = Date.now() - SESSION_MAX_AGE_MS - 1;
     useAuthStore.setState({
       accessToken: "same",
@@ -100,7 +100,7 @@ describe("auth-sync", () => {
     expect(isActiveAuthSession("same", "same")).toBe(false);
   });
 
-  it("cierra la sesión persistida si ya pasó un mes", () => {
+  it("cierra la sesión persistida si ya pasaron 7 días", () => {
     const started = Date.now() - SESSION_MAX_AGE_MS - 1;
     useAuthStore.setState({
       accessToken: "expired-token",

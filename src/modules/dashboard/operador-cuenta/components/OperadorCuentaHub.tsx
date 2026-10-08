@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PolariaSelectionCard } from "@/components/shared/cards/PolariaSelectionCard";
 import { PolariaSelectionGrid } from "@/components/shared/cards/PolariaSelectionGrid";
+import { countOrdenesVentaPorConfirmar } from "@/modules/sales";
+import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
   OPERADOR_CUENTA_HUB_OPTIONS,
   type OperadorCuentaHubOptionId,
@@ -11,6 +13,29 @@ import {
 
 export function OperadorCuentaHub() {
   const router = useRouter();
+  const { codigoCuenta } = useCompany();
+  const [ventasPorConfirmar, setVentasPorConfirmar] = useState(0);
+
+  useEffect(() => {
+    if (!codigoCuenta?.trim()) {
+      setVentasPorConfirmar(0);
+      return;
+    }
+
+    let cancelled = false;
+
+    void countOrdenesVentaPorConfirmar(codigoCuenta)
+      .then((count) => {
+        if (!cancelled) setVentasPorConfirmar(count);
+      })
+      .catch(() => {
+        if (!cancelled) setVentasPorConfirmar(0);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [codigoCuenta]);
 
   const handleOptionClick = useCallback(
     (optionId: string) => {
@@ -37,19 +62,26 @@ export function OperadorCuentaHub() {
         aria-label="Accesos operador de cuenta"
         className="px-0 sm:px-0"
       >
-        {OPERADOR_CUENTA_HUB_OPTIONS.map((option) => (
-          <PolariaSelectionCard
-            key={option.id}
-            option={{
-              id: option.id,
-              title: option.title,
-              icon: option.icon,
-            }}
-            onClick={(optionId) =>
-              handleOptionClick(optionId as OperadorCuentaHubOptionId)
-            }
-          />
-        ))}
+        {OPERADOR_CUENTA_HUB_OPTIONS.map((option) => {
+          const isVentas = option.id === "ventas";
+          const badgeCount = isVentas ? ventasPorConfirmar : 0;
+
+          return (
+            <PolariaSelectionCard
+              key={option.id}
+              option={{
+                id: option.id,
+                title: option.title,
+                icon: option.icon,
+              }}
+              badgeCount={badgeCount}
+              highlighted={isVentas && badgeCount > 0}
+              onClick={(optionId) =>
+                handleOptionClick(optionId as OperadorCuentaHubOptionId)
+              }
+            />
+          );
+        })}
       </PolariaSelectionGrid>
     </main>
   );

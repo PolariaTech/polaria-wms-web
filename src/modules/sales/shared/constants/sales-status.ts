@@ -1,30 +1,53 @@
 import type { EstadoOrdenVenta } from "../types/sales.types";
 
 export const ESTADO_ORDEN_VENTA_LABELS: Record<EstadoOrdenVenta, string> = {
-  borrador: "Borrador",
+  por_confirmar: "Por confirmar",
   confirmada: "Confirmada",
   alistamiento: "Alistamiento",
-  alistada: "Alistada",
-  en_preparacion: "En preparación",
-  parcialmente_despachada: "Parc. despachada",
-  despachada: "Despachada",
-  cerrada: "Cerrada",
-  cancelada: "Cancelada",
+  alistada: "Alistado",
 };
 
+/** Orden de los 4 estados en filtros de UI. */
+export const ESTADOS_ORDEN_VENTA: readonly EstadoOrdenVenta[] = [
+  "por_confirmar",
+  "confirmada",
+  "alistamiento",
+  "alistada",
+] as const;
+
+/** Mapea valores legados de BD/API a los 4 estados de negocio. */
+const ESTADO_ORDEN_VENTA_NORMALIZE: Record<string, EstadoOrdenVenta> = {
+  borrador: "por_confirmar",
+  por_confirmar: "por_confirmar",
+  confirmada: "confirmada",
+  alistamiento: "alistamiento",
+  alistada: "alistada",
+  en_preparacion: "alistamiento",
+  parcialmente_despachada: "alistada",
+  despachada: "alistada",
+  cerrada: "alistada",
+  cancelada: "por_confirmar",
+};
+
+export function normalizeEstadoOrdenVenta(
+  estado: string | null | undefined,
+): EstadoOrdenVenta {
+  if (!estado?.trim()) return "por_confirmar";
+  return ESTADO_ORDEN_VENTA_NORMALIZE[estado.trim()] ?? "por_confirmar";
+}
+
 export function formatEstadoOrdenVenta(estado: string): string {
-  return ESTADO_ORDEN_VENTA_LABELS[estado as EstadoOrdenVenta] ?? estado;
+  return ESTADO_ORDEN_VENTA_LABELS[normalizeEstadoOrdenVenta(estado)];
 }
 
 export const CATALOGO_VENTA_EMPTY_MESSAGE =
   "Necesitás productos en el catálogo de la cuenta para crear ventas manuales." as const;
 
 const ESTADOS_ORDEN_VENTA_EDITABLES: ReadonlySet<EstadoOrdenVenta> = new Set([
-  "borrador",
+  "por_confirmar",
   "confirmada",
   "alistamiento",
   "alistada",
-  "en_preparacion",
 ]);
 
 export function puedeEditarOrdenVenta(estado: string): boolean {
@@ -36,15 +59,8 @@ export function variantEstadoOrdenVenta(
   estado: string,
 ): "positive" | "warning" | "neutral" {
   const normalized = estado.toLowerCase();
-  if (
-    normalized === "despachada" ||
-    normalized === "cerrada" ||
-    normalized === "alistada"
-  ) {
+  if (normalized === "alistada" || normalized === "despachada" || normalized === "cerrada") {
     return "positive";
-  }
-  if (normalized === "cancelada") {
-    return "neutral";
   }
   if (
     normalized === "confirmada" ||
@@ -53,5 +69,6 @@ export function variantEstadoOrdenVenta(
   ) {
     return "warning";
   }
+  // por_confirmar y legacy cancelada
   return "neutral";
 }

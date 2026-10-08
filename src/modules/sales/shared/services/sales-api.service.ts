@@ -19,7 +19,7 @@ async function postVentasApi<T>(path: string, body?: unknown): Promise<T> {
   }
 }
 
-/** Emite una OV en borrador (confirmación operativa + tareas de bodega). Requiere API Nest. */
+/** Emite una OV por confirmar (confirmación operativa + tareas de bodega). Requiere API Nest. */
 export async function emitirOrdenVentaApi(
   idOrdenVenta: string,
 ): Promise<OrdenVentaOperadorRow> {

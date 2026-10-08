@@ -2,6 +2,7 @@
 
 import QRCode from "qrcode";
 import { normalizeIdOrdenTrabajo } from "../utils/origen-correo-ordenes-trabajo";
+import { stampOrdenTareaImpresaNow } from "./map-orden-tarea-almacen";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
 function sanitizePdfFilename(folio: string): string {
@@ -71,7 +72,8 @@ export async function printOrdenTareaAlmacen(
   const { buildOrdenTareaAlmacenPdf } = await import(
     "./render-orden-tarea-almacen-pdf"
   );
-  const withQr = await withQrDataUrl(data);
+  const stamped = stampOrdenTareaImpresaNow([data])[0]!;
+  const withQr = await withQrDataUrl(stamped);
   const pdf = buildOrdenTareaAlmacenPdf(withQr);
   const pdfBase64 = pdf.output("datauristring").split(",")[1] ?? "";
 
@@ -105,7 +107,8 @@ export async function downloadOrdenTareaAlmacenPdf(
     ? `-${options.filenameSuffix.trim()}`
     : "";
   const filename = `orden-venta-${folio}${suffix}.pdf`;
-  const withQr = await withQrDataUrl(data);
+  const stamped = stampOrdenTareaImpresaNow([data])[0]!;
+  const withQr = await withQrDataUrl(stamped);
   const pdf = buildOrdenTareaAlmacenPdf(withQr);
   pdf.save(filename);
 }
@@ -122,13 +125,40 @@ export async function downloadOrdenTareaAlmacenLandscapePdfs(
   sheets: readonly OrdenTareaAlmacenPrintData[],
   options?: { filenameSuffix?: string },
 ): Promise<void> {
+  const { blob, filename } = await buildOrdenTareaAlmacenLandscapePdfBlob(
+    sheets,
+    options,
+  );
+  const url = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Blob + nombre para vista previa en la app (sin forzar descarga). */
+export async function buildOrdenTareaAlmacenLandscapePdfBlob(
+  sheets: readonly OrdenTareaAlmacenPrintData[],
+  options?: { filenameSuffix?: string },
+): Promise<{ blob: Blob; filename: string }> {
   if (sheets.length === 0) {
-    throw new Error("No hay órdenes de trabajo para descargar.");
+    throw new Error("No hay órdenes de trabajo para previsualizar.");
   }
   const { buildOrdenTareaAlmacenLandscapePdfMulti } = await import(
     "./render-orden-tarea-almacen-landscape-pdf"
   );
-  const withQr = await Promise.all(sheets.map((sheet) => withQrDataUrl(sheet)));
+  const stamped = stampOrdenTareaImpresaNow(sheets);
+  const withQr = await Promise.all(stamped.map((sheet) => withQrDataUrl(sheet)));
   const pdf = buildOrdenTareaAlmacenLandscapePdfMulti(withQr);
-  pdf.save(multiFilename(withQr, options));
+  return {
+    blob: pdf.output("blob"),
+    filename: multiFilename(withQr, options),
+  };
 }

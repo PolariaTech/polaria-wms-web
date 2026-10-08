@@ -6,6 +6,7 @@ import {
   fitNotasGeneralesPdf,
   flattenNotasForPdf,
   parseOrigenPedidoBlocks,
+  sanitizeNotasGeneralesPedido,
   serializeCuerpoMensaje,
 } from "./texto-origen-pedido";
 
@@ -165,7 +166,63 @@ describe("fitNotasGeneralesPdf", () => {
   });
 });
 
+describe("sanitizeNotasGeneralesPedido", () => {
+  it("respeta notas cortas capturadas en Polaria", () => {
+    expect(sanitizeNotasGeneralesPedido("Maduro · andén 3")).toBe(
+      "Maduro · andén 3",
+    );
+  });
+
+  it("no deja el hilo aplanado; saca especificaciones del cuerpo origen", () => {
+    const junk =
+      "---------- Forwarded message ----------. De: Daniel Galvis. Date: jue, 1 oct 2026 a la(s) 9:53 a.m.. AGOSTO DE 2026. ---------------------------. *De:*";
+    const origen = [
+      "Buenas tardes,",
+      "Envío adjunto pedido para entregar el 27 DE AGOSTO DE 2026 en Parque Xcaret:",
+      "Hora de entrega 6:00 am",
+      "Favor de confirmar de recibido",
+      "Nancy Guadalupe Pérez Cruz",
+    ].join("\n");
+    const notes = sanitizeNotasGeneralesPedido(junk, origen);
+    expect(notes).not.toContain("Forwarded message");
+    expect(notes).not.toContain("Daniel Galvis");
+    expect(notes).toMatch(/Entrega 27 DE AGOSTO DE 2026/i);
+    expect(notes).toMatch(/Destino:\s*Parque Xcaret/i);
+    expect(notes).toMatch(/6:00\s*am/i);
+  });
+
+  it("si solo hay basura de forward sin cuerpo, deja vacío", () => {
+    expect(
+      sanitizeNotasGeneralesPedido(
+        "---------- Forwarded message ----------. De: Daniel Galvis. Date: jue.",
+      ),
+    ).toBe("");
+  });
+});
+
 describe("extractNotasClaveCorreo", () => {
+  it("prioriza el bloque Observaciones del cliente de una cotización", () => {
+    const raw = [
+      "DATOS DEL CLIENTE",
+      "Cliente: Carnitas Michoacan",
+      "Observaciones del cliente:",
+      "- la piña que no este muy madura",
+      "- el aguacate NO muy maduro que esten Enrriados",
+      "Gracias...",
+      "Horario de recepción:",
+      "La recepción de mercancía es hasta las 13:00 hrs",
+      "Madurez:",
+      "Verde: sin madurar",
+    ].join("\n");
+
+    const notes = extractNotasClaveCorreo(raw);
+    expect(notes).toMatch(/piña/i);
+    expect(notes).toMatch(/aguacate/i);
+    expect(notes).toMatch(/enrriad/i);
+    expect(notes).not.toContain("13:00");
+    expect(notes).not.toContain("sin madurar");
+  });
+
   it("deja solo notas útiles, sin saludos ni tablas de productos", () => {
     const raw = [
       "Buenas tardes,",
@@ -195,12 +252,12 @@ describe("extractNotasClaveCorreo", () => {
       "XCARET",
       "nperezcru@xcaret.com",
     ].join("\n");
-    expect(extractNotasClaveCorreo(raw)).toContain("27 DE AGOSTO DE 2026");
-    expect(extractNotasClaveCorreo(raw)).toContain("Parque Xcaret");
-    expect(extractNotasClaveCorreo(raw)).toContain("Hora de entrega 6:00 am");
-    expect(extractNotasClaveCorreo(raw)).not.toContain("Buenas tardes");
-    expect(extractNotasClaveCorreo(raw)).not.toContain("Nancy");
-    expect(extractNotasClaveCorreo(raw)).not.toContain("nperezcru");
+    const notes = extractNotasClaveCorreo(raw);
+    expect(notes).toMatch(/Entrega 27 DE AGOSTO DE 2026 a las 6:00 am/i);
+    expect(notes).toMatch(/Destino:\s*Parque Xcaret/i);
+    expect(notes).not.toContain("Buenas tardes");
+    expect(notes).not.toContain("Nancy");
+    expect(notes).not.toContain("nperezcru");
   });
 });
 

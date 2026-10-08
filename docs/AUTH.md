@@ -39,6 +39,7 @@ Tras `GET /auth/me`, el frontend persiste el contexto completo del tenant:
 | Criterio | API Nest (`polaria-wms-api`) | Supabase client (`@/lib/supabase/client`) |
 |----------|------------------------------|-------------------------------------------|
 | **Autenticación** | Bearer JWT del login WMS | Mismo JWT sincronizado con `syncSupabaseAuthSession` |
+| **Renovación** | Tras refresh Supabase, el store actualiza el Bearer; `apiRequest` reintenta una vez ante 401 | `onAuthStateChange` / `refreshSession` (sesión WMS **7 días**) |
 | **Cuándo usar** | Escrituras, reglas de negocio, transacciones, integraciones | Lecturas simples filtradas por RLS en tablas expuestas |
 | **Validación** | DTOs, guards, TenantContext en servidor | Políticas RLS en Postgres |
 | **Ejemplos** | Login, prelogin, logout, SSO Mateo, ingresos, movimientos | Listados de catálogo, lookups de ubicaciones, consultas read-only |

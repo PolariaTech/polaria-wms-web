@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildNotasLineasText,
   buildOrdenVentaCapturaObservaciones,
   formatCapturaFecha,
   isAfterWarehouseCutoff,
+  notaCapturaForLinea,
   notaCapturaForProducto,
   parseOrdenVentaCapturaObservaciones,
+  stripSurtidoFotoQrFromNotas,
   todayIsoDate,
   tomorrowIsoDate,
   type OrdenVentaCapturaExtra,
@@ -197,5 +200,75 @@ describe("parseOrdenVentaCapturaObservaciones", () => {
     expect(
       notaCapturaForProducto("Fresa: Firme · 2 cajas", "Fresa"),
     ).toBe("Firme · 2 cajas");
+  });
+
+  it("no aplica especificación legado a otra OT del mismo producto", () => {
+    const raw = "BLUE BERRY: grandy";
+    expect(
+      notaCapturaForLinea(raw, {
+        nombre: "BLUE BERRY",
+        cantidad: 0.3,
+        otId: "pedido:450|almacen:troglodita",
+        allowUnscoped: false,
+      }),
+    ).toBe("");
+    expect(
+      notaCapturaForLinea(raw, {
+        nombre: "BLUE BERRY",
+        allowUnscoped: true,
+      }),
+    ).toBe("grandy");
+  });
+
+  it("persiste y lee nota acotada por OT + cantidad", () => {
+    const text = buildNotasLineasText([
+      {
+        nombre: "BLUE BERRY",
+        cantidad: 0.3,
+        otId: "ot-a",
+        especificacion: "grandy",
+      },
+      {
+        nombre: "BLUE BERRY",
+        cantidad: 0.25,
+        otId: "ot-b",
+        especificacion: "",
+      },
+    ]);
+    expect(
+      notaCapturaForLinea(text, {
+        nombre: "BLUE BERRY",
+        cantidad: 0.3,
+        otId: "ot-a",
+      }),
+    ).toBe("grandy");
+    expect(
+      notaCapturaForLinea(text, {
+        nombre: "BLUE BERRY",
+        cantidad: 0.25,
+        otId: "ot-b",
+      }),
+    ).toBe("");
+  });
+});
+
+describe("stripSurtidoFotoQrFromNotas", () => {
+  it("deja solo las notas del pedido y quita el bloque de surtido QR", () => {
+    const raw = [
+      "Maduro · andén 3",
+      "",
+      "Surtido (foto QR):",
+      "Incidencias: No recuentre todo",
+      "Alistó: Luis Cantillo",
+    ].join("\n");
+    expect(stripSurtidoFotoQrFromNotas(raw)).toBe("Maduro · andén 3");
+  });
+
+  it("devuelve vacío si solo hay metadatos de surtido", () => {
+    expect(
+      stripSurtidoFotoQrFromNotas(
+        "Surtido (foto QR):\nIncidencias: No recuentre todo\nAlistó: Luis",
+      ),
+    ).toBe("");
   });
 });

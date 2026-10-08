@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/auth-storage";
 import { isMateoSsoExitInProgress } from "@/lib/auth/mateo-sso-exit";
 import { isSessionExpired } from "@/lib/auth/auth-session-timeout";
+import { refreshAuthTokens } from "@/lib/auth/refresh-auth-tokens";
 import { logoutWithToken } from "@/modules/auth";
 
 type PersistedAuthSlice = {
@@ -71,7 +72,7 @@ function isCurrentSessionExpired(): boolean {
   return isSessionExpired(resolveSessionStartedAt());
 }
 
-/** Memoria y localStorage deben coincidir, y no haber superado el mes de sesión. */
+/** Memoria y localStorage deben coincidir, y no haber superado los 7 días de sesión. */
 export function isActiveAuthSession(
   memoryToken: string | null,
   persistedToken: string | null = getPersistedAccessToken(),
@@ -115,12 +116,14 @@ export function syncAuthWithPersistedStorage(): boolean {
 let revalidateInFlight: Promise<void> | null = null;
 
 /**
- * Al volver a la pestaña solo alineamos storage (logout en otra pestaña).
- * No llamamos getMe / hydrateSession: eso ponía isLoading y desmontaba la UI.
+ * Al volver a la pestaña solo alineamos storage (logout en otra pestaña)
+ * y renovamos el JWT si hace falta. No llamamos getMe / hydrateSession:
+ * eso ponía isLoading y desmontaba la UI.
  */
 function syncOnForeground(): void {
   ensureAuthOnlyInLocalStorage();
-  syncAuthWithPersistedStorage();
+  if (!syncAuthWithPersistedStorage()) return;
+  void refreshAuthTokens().catch(() => undefined);
 }
 
 /** Relee storage y valida el token contra el API cuando corresponde. */

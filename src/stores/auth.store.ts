@@ -40,11 +40,13 @@ interface AuthState {
   refreshToken: string | null;
   context: AuthContext | null;
   session: AuthSession | null;
-  /** Epoch ms del login/SSO. La sesión dura como máximo 23 días. */
+  /** Epoch ms del login/SSO. La sesión dura como máximo 7 días. */
   sessionStartedAt: number | null;
   isHydrated: boolean;
   isLoading: boolean;
   setTokens: (tokens: AuthTokens, context: AuthContextInput) => void;
+  /** Renueva JWT sin reiniciar el tope de 7 días (`sessionStartedAt`). */
+  updateSessionTokens: (tokens: AuthTokens) => void;
   setSession: (session: AuthSession) => void;
   clearAuth: () => void;
   /** Limpia sesión sin notificar (evita router.replace a /login durante SSO a Mateo). */
@@ -83,6 +85,23 @@ export const useAuthStore = create<AuthState>()(
           tokens.accessToken,
           tokens.refreshToken,
         );
+      },
+
+      updateSessionTokens: (tokens) => {
+        const { accessToken, refreshToken } = get();
+        if (
+          accessToken === tokens.accessToken &&
+          refreshToken === tokens.refreshToken
+        ) {
+          return;
+        }
+
+        set({
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        });
+        ensureAuthOnlyInLocalStorage();
+        notifyAuthChanged();
       },
 
       setSession: (session) => {
@@ -177,7 +196,21 @@ export const useAuthStore = create<AuthState>()(
             const nextSession = await getMe();
             get().setSession(nextSession);
             return nextSession;
-          } catch {
+          } catch (error) {
+            const status =
+              error &&
+              typeof error === "object" &&
+              "status" in error &&
+              typeof (error as { status: unknown }).status === "number"
+                ? (error as { status: number }).status
+                : null;
+
+            // 401 tras refresh fallido: sesión realmente inválida.
+            if (status === 401) {
+              clearAuthAndPersistedStorage(get().clearAuth);
+              return null;
+            }
+
             // Error de red al volver a la pestaña: no borrar sesión válida.
             if (get().session && get().isHydrated) {
               return get().session;

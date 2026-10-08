@@ -311,21 +311,111 @@ export function parseOrdenVentaCapturaObservaciones(
   return parsed;
 }
 
+function normalizeQtyKey(cantidad: number): string {
+  if (!Number.isFinite(cantidad)) return "";
+  const rounded = Math.round(cantidad * 1000) / 1000;
+  return String(rounded);
+}
+
+/** Clave de nota de línea acotada a OT + producto + cantidad. */
+export function formatNotaLineaKey(input: {
+  nombre: string;
+  cantidad: number;
+  otId?: string | null;
+}): string {
+  const nombre = input.nombre.trim();
+  const qty = normalizeQtyKey(input.cantidad);
+  const ot = input.otId?.trim() || "";
+  if (ot && qty) return `ot:${ot}|${nombre}|${qty}`;
+  if (ot) return `ot:${ot}|${nombre}`;
+  if (qty) return `${nombre}|${qty}`;
+  return nombre;
+}
+
 export function notaCapturaForProducto(
   notasLineas: string,
   productoNombre: string,
 ): string {
-  const nombre = productoNombre.trim();
+  return notaCapturaForLinea(notasLineas, {
+    nombre: productoNombre,
+    allowUnscoped: true,
+  });
+}
+
+/**
+ * Lee la especificación de una línea.
+ * Prioridad: ot+nombre+qty → ot+nombre → nombre+qty → (opcional) nombre solo.
+ * El formato legado `PRODUCTO: nota` no se aplica a otra OT si hay contexto otId.
+ */
+export function notaCapturaForLinea(
+  notasLineas: string,
+  input: {
+    nombre: string;
+    cantidad?: number;
+    otId?: string | null;
+    /** Solo para vistas sin OT (o compat). Con otId suele ir false. */
+    allowUnscoped?: boolean;
+  },
+): string {
+  const nombre = input.nombre.trim();
   if (!nombre || !notasLineas.trim()) return "";
-  const prefix = `${nombre}: `;
-  for (const line of notasLineas.split("\n")) {
-    if (line.startsWith(prefix)) {
-      return stripSurtidoMetaFromEspecificacion(
-        line.slice(prefix.length).trim(),
-      );
+
+  const qty =
+    input.cantidad != null && Number.isFinite(input.cantidad)
+      ? normalizeQtyKey(input.cantidad)
+      : "";
+  const ot = input.otId?.trim() || "";
+  const allowUnscoped = input.allowUnscoped === true && !ot;
+
+  const candidates: string[] = [];
+  if (ot && qty) candidates.push(`ot:${ot}|${nombre}|${qty}: `);
+  if (ot) candidates.push(`ot:${ot}|${nombre}: `);
+  if (qty) candidates.push(`${nombre}|${qty}: `);
+  if (allowUnscoped) candidates.push(`${nombre}: `);
+
+  for (const prefix of candidates) {
+    for (const line of notasLineas.split("\n")) {
+      if (line.startsWith(prefix)) {
+        return stripSurtidoMetaFromEspecificacion(
+          line.slice(prefix.length).trim(),
+        );
+      }
     }
   }
   return "";
+}
+
+export function buildNotasLineasText(
+  lineas: readonly {
+    nombre: string;
+    cantidad: number;
+    otId?: string | null;
+    especificacion: string;
+    descuentoPct?: number | null;
+    ivaPct?: string | null;
+  }[],
+): string {
+  return lineas
+    .flatMap((linea) => {
+      const bits: string[] = [];
+      if (linea.especificacion.trim()) {
+        bits.push(linea.especificacion.trim());
+      }
+      if (linea.descuentoPct != null && linea.descuentoPct > 0) {
+        bits.push(`desc ${linea.descuentoPct}%`);
+      }
+      if (linea.ivaPct && linea.ivaPct !== "0") {
+        bits.push(`IVA ${linea.ivaPct}%`);
+      }
+      if (bits.length === 0) return [];
+      const key = formatNotaLineaKey({
+        nombre: linea.nombre,
+        cantidad: linea.cantidad,
+        otId: linea.otId,
+      });
+      return [`${key}: ${bits.join(" · ")}`];
+    })
+    .join("\n");
 }
 
 /** Quita prep/inc que no pertenecen a la columna Especificación del PDF. */
@@ -334,6 +424,16 @@ export function stripSurtidoMetaFromEspecificacion(raw: string): string {
     .replace(/\s*·\s*prep\s+[^·]+/gi, "")
     .replace(/\s*·\s*inc\s+[A-Za-z0-9]+/gi, "")
     .replace(/\s*·\s*$/g, "")
+    .trim();
+}
+
+/**
+ * Quita el bloque que el sync de surtido (foto QR) appendea a `notas_almacen`.
+ * Ese bloque no es “Notas generales” del pedido.
+ */
+export function stripSurtidoFotoQrFromNotas(raw: string): string {
+  return raw
+    .replace(/(?:\n\n+)?Surtido\s*\(\s*foto\s*qr\s*\)\s*:[\s\S]*$/i, "")
     .trim();
 }
 

@@ -12,7 +12,17 @@ import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { listAlmacenamientoVentaUbicacionIds } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-zone-ubicaciones";
 import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bodega/types/estado-bodega.types";
 import type { WarehouseStateRow } from "@/modules/inventory/shared/types/inventory.types";
-import { puedeEditarOrdenVenta } from "../constants/sales-status";
+import {
+  normalizeEstadoOrdenVenta,
+  puedeEditarOrdenVenta,
+} from "../constants/sales-status";
+import { listCompradoresAdmin } from "@/modules/admin-panel/compradores/services/compradores.service";
+import {
+  collectOrdenesCompraCliente,
+  countOrdenesTrabajo,
+} from "../../ordenes/utils/orden-venta-tabla-meta";
+import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/materialize-ov-desde-origen";
+import { parseOrigenCorreoJson } from "../../ordenes/utils/origen-correo-ordenes-trabajo";
 import { resolveNombreProductoVenta } from "../utils/producto-venta-nombre";
 import {
   mapLatestPrecioProductoById,
@@ -34,6 +44,15 @@ const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
 
 const ORDEN_VENTA_COLUMNS =
   "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at";
+
+/** Listado operador: OCC + origen_correo para contar OT y buscar OCC. */
+const ORDEN_VENTA_OPERADOR_LIST_COLUMNS =
+  `${ORDEN_VENTA_COLUMNS},orden_compra_hotel,origen_correo`;
+
+type OrdenVentaOperadorListRow = OrdenVentaRow & {
+  orden_compra_hotel?: string | null;
+  origen_correo?: unknown;
+};
 
 /** Más reciente primero (fecha de creación); id como desempate estable. */
 function sortOrdenesVentaPorCreacionDesc(rows: OrdenVentaRow[]): OrdenVentaRow[] {
@@ -293,10 +312,60 @@ function mapStockRowToProductoOption(
   };
 }
 
-function generateOrdenVentaCodigo(): string {
-  const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `OV-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+const OV_CODIGO_DIGITS = 8;
+const OV_CODIGO_MAX = 10 ** OV_CODIGO_DIGITS - 1;
+/** Formato canónico: OV-00000001. También acepta el numérico puro legado. */
+const OV_CODIGO_PATTERN = /^(?:OV-)?(\d{8})$/i;
+
+/** Consecutivo por cuenta: OV-00000001, OV-00000002, … */
+export function formatOrdenVentaCodigo(secuencia: number): string {
+  if (!Number.isFinite(secuencia) || secuencia < 1) {
+    throw new DomainServiceError(
+      "No se pudo generar el código de la orden de venta.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  if (secuencia > OV_CODIGO_MAX) {
+    throw new DomainServiceError(
+      "Se agotó el consecutivo de órdenes de venta (8 dígitos).",
+      "INVALID_ARGUMENT",
+    );
+  }
+  return `OV-${String(Math.trunc(secuencia)).padStart(OV_CODIGO_DIGITS, "0")}`;
+}
+
+function parseOrdenVentaSecuencia(codigo: string): number | null {
+  const match = OV_CODIGO_PATTERN.exec(codigo.trim());
+  if (!match) return null;
+  const n = Number(match[1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Siguiente código OV-######## para la cuenta.
+ * Solo considera el formato secuencial; los legados `OV-YYYYMMDD-HHMMSS` no cuentan.
+ */
+async function allocateOrdenVentaCodigo(codigoCuenta: string): Promise<string> {
+  const rows = await runDomainQuery<{ codigo: string }[]>((client) => {
+    const query = client
+      .from("orden_venta")
+      .select("codigo")
+      .eq("codigo_cuenta", codigoCuenta)
+      .limit(DEFAULT_LIST_LIMIT);
+
+    return query as unknown as Promise<{
+      data: { codigo: string }[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  let max = 0;
+  for (const row of rows) {
+    const n = parseOrdenVentaSecuencia(row.codigo ?? "");
+    if (n != null && n > max) max = n;
+  }
+
+  return formatOrdenVentaCodigo(max + 1);
 }
 
 async function resolveBodegaVenta(
@@ -569,7 +638,7 @@ async function fetchPreciosUnitariosProductos(
 }
 
 function mapOrdenVentaOperadorRow(
-  row: OrdenVentaRow,
+  row: OrdenVentaOperadorListRow,
   compradorLabels: Map<string, string>,
   lineasResumen: Map<string, OrdenVentaLineasResumen>,
   bodegaDestinoLabels: Map<string, string>,
@@ -582,10 +651,16 @@ function mapOrdenVentaOperadorRow(
   const destino = row.id_bodega_destino
     ? (bodegaDestinoLabels.get(row.id_bodega_destino) ?? "—")
     : "—";
+  const occTodas = collectOrdenesCompraCliente({
+    ordenCompraHotel: row.orden_compra_hotel,
+    origenCorreo: row.origen_correo,
+  });
 
   return {
     idOrdenVenta: row.id_orden_venta,
     venta: row.codigo,
+    occ: occTodas[0] ?? "—",
+    occTodas,
     cuenta: row.codigo_cuenta,
     comprador: row.id_comprador
       ? (compradorLabels.get(row.id_comprador) ?? "—")
@@ -593,8 +668,9 @@ function mapOrdenVentaOperadorRow(
     productos: formatProductosResumen(resumen.count),
     cantidadKg: resumen.cantidadKg,
     total: resumen.total,
-    estado: row.estado,
+    estado: normalizeEstadoOrdenVenta(row.estado),
     fecha: row.created_at || row.fecha_pedido,
+    ordenesTrabajo: countOrdenesTrabajo(row.origen_correo),
     destino,
     idBodega: row.id_bodega,
     idBodegaDestino: row.id_bodega_destino,
@@ -626,19 +702,66 @@ export async function listOrdenesVenta(
     }>;
   });
 
-  return sortOrdenesVentaPorCreacionDesc(rows);
+  return sortOrdenesVentaPorCreacionDesc(rows).map((row) => ({
+    ...row,
+    estado: normalizeEstadoOrdenVenta(row.estado),
+  }));
+}
+
+/**
+ * Cuenta OV en por_confirmar visibles en el listado de ventas
+ * (misma ventana de fecha que `listOrdenesVentaOperador`).
+ */
+export async function countOrdenesVentaPorConfirmar(
+  codigoCuenta: string,
+): Promise<number> {
+  const codigo = requireCodigoCuenta(codigoCuenta);
+
+  const result = await runDomainQuery<{ count: number }>((client) => {
+    const query = applyRecentOrdersFilter(
+      client
+        .from("orden_venta")
+        .select("*", { count: "exact", head: true })
+        .eq("codigo_cuenta", codigo)
+        .eq("estado", "por_confirmar"),
+      "fecha_pedido",
+    );
+
+    return query.then(({ count, error }: { count: number | null; error: { message: string } | null }) => ({
+      data: { count: count ?? 0 },
+      error,
+    }));
+  });
+
+  return result.count;
 }
 
 export async function listOrdenesVentaOperador(
   params: TenantListParams,
 ): Promise<OrdenVentaOperadorRow[]> {
-  const rows = await listOrdenesVenta({
-    codigoCuenta: params.codigoCuenta,
-    idBodega: params.idBodega,
-    limit: params.limit,
+  const limit = params.limit ?? DEFAULT_LIST_LIMIT;
+
+  const rows = await runDomainQuery<OrdenVentaOperadorListRow[]>((client) => {
+    const query = applyRecentOrdersFilter(
+      applyTenantFilters(
+        client.from("orden_venta").select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS),
+        params,
+      ),
+      "fecha_pedido",
+    )
+      .order("created_at", { ascending: false })
+      .order("id_orden_venta", { ascending: false })
+      .limit(limit);
+
+    return query as unknown as Promise<{
+      data: OrdenVentaOperadorListRow[] | null;
+      error: { message: string } | null;
+    }>;
   });
 
-  return enrichOrdenesVentaOperador(rows);
+  return enrichOrdenesVentaOperador(
+    sortOrdenesVentaPorCreacionDesc(rows),
+  );
 }
 
 /**
@@ -654,11 +777,11 @@ export async function listOrdenesVentaOperadorParaJefe(params: {
   const idBodega = requireIdBodega(params.idBodega);
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 
-  const rows = await runDomainQuery<OrdenVentaRow[]>((client) => {
+  const rows = await runDomainQuery<OrdenVentaOperadorListRow[]>((client) => {
     const query = applyRecentOrdersFilter(
       client
         .from("orden_venta")
-        .select(ORDEN_VENTA_COLUMNS)
+        .select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS)
         .eq("codigo_cuenta", codigoCuenta)
         .or(`id_bodega.eq.${idBodega},id_bodega_destino.eq.${idBodega}`),
       "fecha_pedido",
@@ -668,7 +791,7 @@ export async function listOrdenesVentaOperadorParaJefe(params: {
       .limit(limit);
 
     return query as unknown as Promise<{
-      data: OrdenVentaRow[] | null;
+      data: OrdenVentaOperadorListRow[] | null;
       error: { message: string } | null;
     }>;
   });
@@ -677,7 +800,7 @@ export async function listOrdenesVentaOperadorParaJefe(params: {
 }
 
 async function enrichOrdenesVentaOperador(
-  rows: OrdenVentaRow[],
+  rows: OrdenVentaOperadorListRow[],
 ): Promise<OrdenVentaOperadorRow[]> {
   const compradorIds = rows
     .map((row) => row.id_comprador)
@@ -862,7 +985,7 @@ function ordenVentaCaptureFields(
   };
 }
 
-/** Crea una OV en borrador con una o más líneas (scope tenant, Supabase directo). */
+/** Crea una OV en por_confirmar con una o más líneas (scope tenant, Supabase directo). */
 export async function createOrdenVenta(
   input: CreateOrdenVentaInput & { idOrdenVenta?: string },
 ): Promise<OrdenVentaOperadorRow> {
@@ -1035,6 +1158,7 @@ export async function createOrdenVenta(
       }>;
     });
   } else {
+    const codigo = await allocateOrdenVentaCodigo(codigoCuenta);
     orden = await runDomainMutation<OrdenVentaRow>((client) => {
       const query = client
         .from("orden_venta")
@@ -1046,8 +1170,8 @@ export async function createOrdenVenta(
           id_creador: idCreador,
           id_bodega_destino: idBodegaDestino,
           ...capture,
-          codigo: generateOrdenVentaCodigo(),
-          estado: "borrador",
+          codigo,
+          estado: "por_confirmar",
           observaciones,
         })
         .select(ORDEN_VENTA_COLUMNS)
@@ -1077,6 +1201,7 @@ export async function createOrdenVenta(
           precio_unitario: precioUnitario,
           cajas: linea.cajas ?? null,
           presentacion: linea.presentacion?.trim() || null,
+          match_producto: linea.matchProducto ?? null,
         };
       }),
     );
@@ -1171,6 +1296,7 @@ function mapOrdenVentaDetalleRow(
 
   return {
     ...orden,
+    estado: normalizeEstadoOrdenVenta(orden.estado),
     comprador_nombre: compradorRel?.nombre?.trim() || null,
     comprador_codigo: compradorRel?.codigo?.trim() || null,
     bodega_nombre: bodegaLabels.get(orden.id_bodega) ?? null,
@@ -1186,6 +1312,157 @@ export interface GetOrdenVentaDetalleParams {
   idOrdenVenta: string;
 }
 
+/**
+ * Si una OV por_confirmar llegó del bot/tercero solo con origen_correo
+ * (sin líneas ni comprador), materializa cabecera + líneas desde ese JSON.
+ */
+export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
+  codigoCuenta: string;
+  idOrdenVenta: string;
+}): Promise<{ materializado: boolean; lineas: number }> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idOrdenVenta = params.idOrdenVenta.trim();
+  if (!idOrdenVenta) return { materializado: false, lineas: 0 };
+
+  const header = await runDomainQuery<{
+    estado: string;
+    id_comprador: string | null;
+    orden_compra_hotel: string | null;
+    centro_consumo: string | null;
+    contacto_entrega: string | null;
+    fecha_entrega: string | null;
+    origen_correo: unknown;
+  } | null>((client) => {
+    const query = client
+      .from("orden_venta")
+      .select(
+        "estado,id_comprador,orden_compra_hotel,centro_consumo,contacto_entrega,fecha_entrega,origen_correo",
+      )
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_orden_venta", idOrdenVenta)
+      .maybeSingle();
+
+    return query as unknown as Promise<{
+      data: {
+        estado: string;
+        id_comprador: string | null;
+        orden_compra_hotel: string | null;
+        centro_consumo: string | null;
+        contacto_entrega: string | null;
+        fecha_entrega: string | null;
+        origen_correo: unknown;
+      } | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  if (!header) return { materializado: false, lineas: 0 };
+  if (normalizeEstadoOrdenVenta(header.estado) !== "por_confirmar") {
+    return { materializado: false, lineas: 0 };
+  }
+
+  const origen = parseOrigenCorreoJson(header.origen_correo);
+  if (origen.length === 0) return { materializado: false, lineas: 0 };
+
+  const lineasExistentes = await runDomainQuery<
+    { id_linea_orden_venta: string }[]
+  >((client) => {
+    const query = client
+      .from("orden_venta_linea")
+      .select("id_linea_orden_venta")
+      .eq("id_orden_venta", idOrdenVenta)
+      .limit(1);
+
+    return query as unknown as Promise<{
+      data: { id_linea_orden_venta: string }[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  const headerLineasCount = lineasExistentes.length;
+  const needsLines = headerLineasCount === 0;
+  const needsHeader =
+    !header.id_comprador?.trim() ||
+    !header.orden_compra_hotel?.trim() ||
+    !header.centro_consumo?.trim() ||
+    !header.contacto_entrega?.trim() ||
+    !header.fecha_entrega?.trim();
+
+  if (!needsLines && !needsHeader) {
+    return { materializado: false, lineas: headerLineasCount };
+  }
+
+  const [productos, compradores] = await Promise.all([
+    listProductosVentaCatalogo({ codigoCuenta }),
+    listCompradoresAdmin({ codigoCuenta, limit: 5000 }),
+  ]);
+
+  const plan = buildMaterializeOvDesdeOrigenPlan({
+    origenCorreo: origen,
+    productos,
+    compradores,
+  });
+
+  const patch: Record<string, unknown> = {};
+  if (!header.id_comprador?.trim() && plan.idComprador) {
+    patch.id_comprador = plan.idComprador;
+  }
+  if (!header.orden_compra_hotel?.trim() && plan.ordenCompraHotel) {
+    patch.orden_compra_hotel = plan.ordenCompraHotel;
+  }
+  if (!header.centro_consumo?.trim() && plan.centroConsumo) {
+    patch.centro_consumo = plan.centroConsumo;
+  }
+  if (!header.contacto_entrega?.trim() && plan.contactoEntrega) {
+    patch.contacto_entrega = plan.contactoEntrega;
+  }
+  if (!header.fecha_entrega?.trim() && plan.fechaEntrega) {
+    patch.fecha_entrega = plan.fechaEntrega;
+  }
+
+  if (Object.keys(patch).length > 0) {
+    await runDomainMutation((client) => {
+      const query = client
+        .from("orden_venta")
+        .update(patch)
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_orden_venta", idOrdenVenta);
+
+      return query as unknown as Promise<{
+        data: unknown;
+        error: { message: string } | null;
+      }>;
+    });
+  }
+
+  let inserted = 0;
+  if (needsLines && plan.lineas.length > 0) {
+    await runDomainMutation((client) => {
+      const query = client.from("orden_venta_linea").insert(
+        plan.lineas.map((linea) => ({
+          id_orden_venta: idOrdenVenta,
+          id_producto: linea.idProducto,
+          cantidad_pedida: linea.cantidadPedida,
+          precio_unitario: linea.precioUnitario > 0 ? linea.precioUnitario : 0,
+          cajas: null,
+          presentacion: null,
+        })),
+      );
+
+      return query as unknown as Promise<{
+        data: unknown;
+        error: { message: string } | null;
+      }>;
+    });
+    inserted = plan.lineas.length;
+  }
+
+  return {
+    materializado: inserted > 0 || Object.keys(patch).length > 0,
+    lineas: inserted || headerLineasCount,
+  };
+}
+
 export async function getOrdenVentaDetalle(
   params: GetOrdenVentaDetalleParams,
 ): Promise<OrdenVentaDetalleRow> {
@@ -1198,6 +1475,12 @@ export async function getOrdenVentaDetalle(
       "INVALID_ARGUMENT",
     );
   }
+
+  // OVs del bot/tercero: a veces llegan solo con origen_correo.
+  await materializeOrdenVentaDesdeOrigenSiVacia({
+    codigoCuenta,
+    idOrdenVenta,
+  });
 
   const row = await runDomainQuery<OrdenVentaDetalleDbRow | null>((client) => {
     const query = client

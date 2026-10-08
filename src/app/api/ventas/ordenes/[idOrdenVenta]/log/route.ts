@@ -38,6 +38,7 @@ export async function GET(
   const idOrdenVenta = rawId?.trim() ?? "";
   const search = new URL(request.url).searchParams;
   const codigoCuenta = search.get("codigoCuenta")?.trim() ?? "";
+  const idOrdenTrabajo = search.get("idOrdenTrabajo")?.trim() || null;
   const fallbackCreatedAt = search.get("createdAt")?.trim() || null;
   const fallbackAutor = search.get("autor")?.trim() || null;
 
@@ -52,6 +53,7 @@ export async function GET(
     const entries = await listOrdenVentaLogServer({
       idOrdenVenta,
       codigoCuenta,
+      idOrdenTrabajo,
       fallbackCreatedAt,
       fallbackAutor,
     });
@@ -82,6 +84,7 @@ export async function POST(
     idBodega?: string | null;
     idUsuario?: string | null;
     autorNombre?: string | null;
+    idOrdenTrabajo?: string | null;
     payloadExtra?: Record<string, unknown>;
   };
   try {
@@ -113,6 +116,7 @@ export async function POST(
       accion: accion as TipoAuditoria,
       mensaje,
       autorNombre: body.autorNombre,
+      idOrdenTrabajo: body.idOrdenTrabajo,
       payloadExtra: body.payloadExtra,
     });
     return NextResponse.json({ entry }, { status: entry ? 201 : 202 });

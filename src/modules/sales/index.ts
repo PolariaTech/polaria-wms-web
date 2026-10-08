@@ -11,12 +11,16 @@ export type {
 
 export {
   CATALOGO_VENTA_EMPTY_MESSAGE,
+  ESTADO_ORDEN_VENTA_LABELS,
+  ESTADOS_ORDEN_VENTA,
   formatEstadoOrdenVenta,
+  normalizeEstadoOrdenVenta,
   puedeEditarOrdenVenta,
   variantEstadoOrdenVenta,
 } from "./shared/constants/sales-status";
 
 export {
+  countOrdenesVentaPorConfirmar,
   createOrdenVenta,
   getOrdenVentaDetalle,
   listOrdenesVenta,

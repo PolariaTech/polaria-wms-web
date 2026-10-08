@@ -25,6 +25,9 @@ export interface OrdenTareaAlmacenPrintData {
   /** Total de órdenes de trabajo / hojas de esta OV. */
   tareaTotal?: number;
   folio: string;
+  /** Fecha/hora de creación de la OV. */
+  creada: string;
+  /** Fecha/hora en que se generó/imprimió esta hoja. */
   impresa: string;
   cliente: string;
   centroConsumo: string;

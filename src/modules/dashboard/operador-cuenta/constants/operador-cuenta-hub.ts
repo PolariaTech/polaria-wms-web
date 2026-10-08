@@ -31,7 +31,7 @@ export const OPERADOR_CUENTA_HUB_OPTIONS: readonly OperadorCuentaHubOption[] = [
     id: "ventas",
     title: "Ventas",
     icon: ShoppingCart,
-    href: ROUTES.dashboardVentas,
+    href: ROUTES.dashboardVentasOrdenes,
   },
   {
     id: "bodega-interna",

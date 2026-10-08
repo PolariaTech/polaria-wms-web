@@ -38,12 +38,11 @@ describe("getOperadorCuentaBreadcrumbTrail", () => {
     ]);
   });
 
-  it("genera Inicio / Ventas / Órdenes venta", () => {
+  it("genera Inicio / Ventas para órdenes de venta", () => {
     expect(getOperadorCuentaBreadcrumbTrail(ROUTES.dashboardVentasOrdenes)).toEqual(
       [
         { label: "Inicio", href: ROUTES.dashboard },
-        { label: "Ventas", href: ROUTES.dashboardVentas },
-        { label: "Órdenes venta" },
+        { label: "Ventas" },
       ],
     );
   });

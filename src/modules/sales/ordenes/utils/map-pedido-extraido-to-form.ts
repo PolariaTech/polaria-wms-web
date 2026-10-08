@@ -7,11 +7,28 @@ import {
   collectMissingFieldsDocs,
   type CampoOperativoDocs,
 } from "./empaque-lineas";
+import {
+  findTypoRivalProductos,
+  rankProductosCatalogo,
+  scoreProductoMatch,
+  shouldAutoAcceptProductoSuggestion,
+} from "./find-closest-producto-catalogo";
 import { groupKeyOrigenCorreo } from "./origen-correo-ordenes-trabajo";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
   isFechaEntregaAtrasada,
 } from "./pedido-form-validation";
+import { sanitizeNotasGeneralesPedido } from "./texto-origen-pedido";
+
+export interface SugerenciaProductoCatalogo {
+  idProducto: string;
+  nombre: string;
+  codigo: string;
+  idBodega: string;
+  kgDisponible: number;
+  unidadMedida: string;
+  precioUnitario: number;
+}
 
 export interface LineaVentaFromIa {
   idProducto: string;
@@ -35,6 +52,16 @@ export interface LineaVentaFromIa {
   otId: string;
   packHint?: string;
   autoPackFields?: Array<"cajasInput" | "presentacion" | "cantidadInput">;
+  /**
+   * Sin match confiable de catálogo: hay que aceptar sugerencia, elegir otro o borrar.
+   */
+  catalogPending?: boolean;
+  /** Varios productos del catálogo se parecen: el usuario debe elegir. */
+  catalogAmbiguo?: boolean;
+  /** Producto más cercano del catálogo (sugerencia primaria de Mateo). */
+  sugerencia?: SugerenciaProductoCatalogo | null;
+  /** Otras coincidencias cercanas cuando hay ambigüedad o empate. */
+  sugerenciasAlternativas?: SugerenciaProductoCatalogo[];
 }
 
 export interface CampoDiscrepancia {
@@ -84,20 +111,192 @@ function norm(value: string | null | undefined): string {
   return (value ?? "").toString().trim().toLowerCase();
 }
 
+function normalizeCatalogKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/\s+/g, " ");
+}
+
+/** Código entre paréntesis: "NOMBRE (SKU)" o texto con Cód. (115001005). */
+function extractCodigoFromCatalogKey(key: string): string | null {
+  const trimmed = key.trim();
+  const atEnd = trimmed.match(/\(([^()]+)\)\s*$/);
+  if (atEnd?.[1]?.trim()) return atEnd[1].trim();
+  // Cualquier (código alfanumérico) en el texto — típico en PDFs de cotización.
+  const any = trimmed.match(/\(([A-Z0-9][A-Z0-9._-]{2,}|[0-9]{4,})\)/i);
+  return any?.[1]?.trim() || null;
+}
+
 function parsePrecioIa(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value) || value <= 0) return null;
   return value;
 }
 
-/** Solo clave exacta de catálogo "NOMBRE (SKU)" — sin fuzzy (evita productos equivocados). */
+/**
+ * Resuelve la clave que Mateo devolvió contra el catálogo real.
+ * Acepta: exacta, case-insensitive, por SKU único entre paréntesis,
+ * o por código de producto del cliente si calza un SKU único.
+ * Nunca fuzzy libre aquí: eso solo alimenta sugerencias pendientes.
+ */
 function resolveProductoMatch(
   linea: {
+    textoOriginal?: string | null;
     productoCatalogo: string | null;
+    codigoProductoCliente?: string | null;
   },
   byKey: Map<string, ProductoVentaOption>,
+  byCodigo: Map<string, ProductoVentaOption[]>,
+  byKeyNorm: Map<string, ProductoVentaOption>,
 ): ProductoVentaOption | undefined {
-  if (!linea.productoCatalogo) return undefined;
-  return byKey.get(linea.productoCatalogo);
+  const clave = linea.productoCatalogo?.trim();
+  if (clave) {
+    const exact = byKey.get(clave);
+    if (exact) return exact;
+
+    const byNorm = byKeyNorm.get(normalizeCatalogKey(clave));
+    if (byNorm) return byNorm;
+
+    const codigoClave = extractCodigoFromCatalogKey(clave);
+    if (codigoClave) {
+      const hits = byCodigo.get(norm(codigoClave)) ?? [];
+      if (hits.length === 1) return hits[0];
+    }
+  }
+
+  const codigoCliente = linea.codigoProductoCliente?.trim();
+  if (codigoCliente) {
+    const hits = byCodigo.get(norm(codigoCliente)) ?? [];
+    if (hits.length === 1) return hits[0];
+  }
+
+  // Código en el texto del cliente (ej. «AGUACATE EXTRA … (115001005)»).
+  const codigoEnTexto = extractCodigoFromCatalogKey(
+    linea.textoOriginal?.trim() || "",
+  );
+  if (codigoEnTexto) {
+    const hits = byCodigo.get(norm(codigoEnTexto)) ?? [];
+    if (hits.length === 1) return hits[0];
+  }
+
+  return undefined;
+}
+
+function toSugerencia(
+  producto: ProductoVentaOption,
+): SugerenciaProductoCatalogo {
+  return {
+    idProducto: producto.idProducto,
+    nombre: stripLeadingProductoCodigo(producto.nombre, producto.codigo),
+    codigo: producto.codigo,
+    idBodega: producto.idBodega,
+    kgDisponible: producto.kgDisponible,
+    unidadMedida: producto.unidadMedida,
+    precioUnitario: producto.precioUnitario,
+  };
+}
+
+/**
+ * Rivales solo por typo (jass/hass). Variantes de talla/color de la misma familia
+ * no cuentan: si Mateo/SKU ya encontró el producto, se asigna sin pedir confirmación.
+ */
+function findVecinosAmbiguos(
+  query: string,
+  chosen: ProductoVentaOption,
+  productos: ProductoVentaOption[],
+): ProductoVentaOption[] {
+  if (!query.trim()) return [];
+  return findTypoRivalProductos(query, chosen, productos);
+}
+
+/**
+ * Rankea sugerencias cruzando texto del cliente, clave Mateo y SKU cliente.
+ * Fusiona candidatos y marca ambigüedad si hay empate cercano.
+ */
+function pickSugerencias(
+  linea: {
+    textoOriginal?: string | null;
+    productoCatalogo?: string | null;
+    codigoProductoCliente?: string | null;
+  },
+  productos: ProductoVentaOption[],
+): {
+  sugerencia: SugerenciaProductoCatalogo | null;
+  alternativas: SugerenciaProductoCatalogo[];
+  ambiguo: boolean;
+  topScore: number;
+  secondScore: number | null;
+  queryUsed: string;
+} {
+  const queries = [
+    linea.textoOriginal?.trim(),
+    linea.productoCatalogo?.trim(),
+    linea.codigoProductoCliente?.trim(),
+  ].filter((q): q is string => Boolean(q));
+
+  if (queries.length === 0 || productos.length === 0) {
+    return {
+      sugerencia: null,
+      alternativas: [],
+      ambiguo: false,
+      topScore: 0,
+      secondScore: null,
+      queryUsed: "",
+    };
+  }
+
+  const byId = new Map<
+    string,
+    { producto: ProductoVentaOption; score: number }
+  >();
+  let anyAmbiguous = false;
+  let queryUsed = queries[0] ?? "";
+
+  for (const query of queries) {
+    const ranked = rankProductosCatalogo(query, productos);
+    if (ranked.ambiguous) anyAmbiguous = true;
+    for (const candidate of ranked.candidates) {
+      const prev = byId.get(candidate.producto.idProducto);
+      if (!prev || candidate.score > prev.score) {
+        byId.set(candidate.producto.idProducto, candidate);
+        if (!prev || candidate.score > prev.score) {
+          queryUsed = query;
+        }
+      }
+    }
+  }
+
+  const merged = [...byId.values()].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.producto.nombre.localeCompare(b.producto.nombre, "es");
+  });
+
+  if (merged.length === 0) {
+    return {
+      sugerencia: null,
+      alternativas: [],
+      ambiguo: false,
+      topScore: 0,
+      secondScore: null,
+      queryUsed,
+    };
+  }
+
+  const top = merged[0]!;
+  const second = merged[1];
+  const closeTie =
+    Boolean(second) && top.score - (second?.score ?? 0) < 0.1;
+
+  return {
+    sugerencia: toSugerencia(top.producto),
+    alternativas: merged.slice(1, 3).map((c) => toSugerencia(c.producto)),
+    ambiguo: anyAmbiguous || closeTie,
+    topScore: top.score,
+    secondScore: second?.score ?? null,
+    queryUsed,
+  };
 }
 
 function compareOverride(params: {
@@ -152,9 +351,10 @@ function compareOverride(params: {
 }
 
 /**
- * Traduce PedidoExtraido al estado del modal, respetando:
- * ficha del cliente primero en datos de comprador; dirección de entrega
- * prioriza la solicitud y solo cae a ficha si el pedido no trae dirección.
+ * Traduce PedidoExtraido al estado del modal.
+ * Entrega (dirección, andén, contacto, teléfono, ventana): lo que Mateo
+ * leyó del correo, mensaje o PDF manda; la ficha del comprador solo
+ * rellena lo que el documento no trajo.
  */
 export function mapPedidoExtraidoToForm(params: {
   pedido: PedidoExtraido;
@@ -241,6 +441,7 @@ export function mapPedidoExtraidoToForm(params: {
     discrepancias,
     preferFicha: true,
   });
+  // Entrega: documento primero; ficha solo si Mateo no encontró el dato.
   compareOverride({
     fieldKey: "direccion",
     label: "Dirección de entrega",
@@ -250,7 +451,6 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
-    // La solicitud manda: si el pedido trae dirección, se usa esa; si no, la de ficha.
   });
   compareOverride({
     fieldKey: "anden",
@@ -261,7 +461,6 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
-    preferFicha: true,
   });
   compareOverride({
     fieldKey: "contacto",
@@ -272,7 +471,6 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
-    preferFicha: true,
   });
   compareOverride({
     fieldKey: "telefono",
@@ -283,7 +481,6 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
-    preferFicha: true,
   });
   compareOverride({
     fieldKey: "ventanaDesde",
@@ -294,7 +491,6 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
-    preferFicha: true,
   });
   compareOverride({
     fieldKey: "ventanaHasta",
@@ -305,7 +501,6 @@ export function mapPedidoExtraidoToForm(params: {
     autoFields,
     warnFields,
     discrepancias,
-    preferFicha: true,
   });
   compareOverride({
     fieldKey: "aceptaSustituciones",
@@ -341,23 +536,43 @@ export function mapPedidoExtraidoToForm(params: {
     preferFicha: true,
   });
 
-  // Observaciones del formulario = ficha del comprador, salvo que la IA
-  // haya extraído especificaciones cortas para notas generales de almacén.
-  if (pedido.notasGeneralesAlmacen?.trim()) {
-    patch.observaciones = pedido.notasGeneralesAlmacen.trim();
+  // Notas generales: IA corta o especificaciones del correo (nunca el hilo).
+  const notasIa =
+    pedido.notasGeneralesAlmacen?.trim() ||
+    pedido.observaciones?.trim() ||
+    "";
+  const sanitized = sanitizeNotasGeneralesPedido(
+    notasIa,
+    pedido.textoOrigen,
+  );
+  if (sanitized) {
+    patch.observaciones = sanitized;
+    autoFields.add("observaciones");
   }
 
   const byKey = new Map(
     productos.map((p) => [catalogKey(p.nombre, p.codigo), p] as const),
   );
+  const byKeyNorm = new Map(
+    productos.map(
+      (p) =>
+        [normalizeCatalogKey(catalogKey(p.nombre, p.codigo)), p] as const,
+    ),
+  );
+  const byCodigo = new Map<string, ProductoVentaOption[]>();
+  for (const p of productos) {
+    const key = norm(p.codigo);
+    if (!key) continue;
+    const list = byCodigo.get(key) ?? [];
+    list.push(p);
+    byCodigo.set(key, list);
+  }
 
   const lineas: LineaVentaFromIa[] = [];
 
   for (const linea of pedido.lineas) {
-    const match = resolveProductoMatch(linea, byKey);
-    if (!match) {
-      continue;
-    }
+    const match = resolveProductoMatch(linea, byKey, byCodigo, byKeyNorm);
+    const textoOriginal = linea.textoOriginal?.trim() || "";
 
     const presentacion =
       linea.presentacion && PRESENTACION_SET.has(linea.presentacion)
@@ -377,33 +592,164 @@ export function mapPedidoExtraidoToForm(params: {
     };
     const empaque = aplicarEmpaqueInicialLinea(baseLinea);
     const precioDoc = parsePrecioIa(linea.precioUnitario);
-    const precioUnitario = precioDoc ?? match.precioUnitario;
+    // Misma clave que groupOrigenCorreoToOrdenesTrabajo (sin fallbacks de
+    // cabecera): si no, el pager OT filtra y la página queda sin productos.
     const otId = groupKeyOrigenCorreo({
-      "Numero pedido": linea.numeroPedido || pedido.ordenCompraHotel || "",
-      Almacen: linea.almacen || pedido.centroConsumo || "",
+      "Numero pedido": linea.numeroPedido || "",
+      Almacen: linea.almacen || "",
       "Referencia pedido": linea.referenciaPedido || "",
     });
 
+    if (match) {
+      // Aunque Mateo dio clave exacta, si el texto del cliente también
+      // se parece a OTRO producto (typo jass/hass, variantes), pedir confirmación.
+      const vecinos = findVecinosAmbiguos(textoOriginal || match.nombre, match, productos);
+      if (vecinos.length > 0) {
+        const precioUnitario =
+          precioDoc ?? match.precioUnitario;
+        lineas.push({
+          idProducto: "",
+          nombre: textoOriginal || stripLeadingProductoCodigo(match.nombre, match.codigo),
+          codigo: "—",
+          idBodega: match.idBodega,
+          cantidadInput: empaque.cantidadInput,
+          cajasInput: empaque.cajasInput,
+          presentacion: empaque.presentacion,
+          especificacion: linea.especificacion?.trim() || "",
+          descuentoPctInput: "0",
+          ivaPct: "0",
+          kgDisponible: match.kgDisponible,
+          unidadMedida: match.unidadMedida,
+          precioUnitario,
+          precioManual: precioDoc != null,
+          aliasCliente: textoOriginal,
+          filledByIa: true,
+          otId,
+          packHint: empaque.packHint,
+          autoPackFields: empaque.autoPackFields,
+          catalogPending: true,
+          catalogAmbiguo: true,
+          sugerencia: toSugerencia(match),
+          sugerenciasAlternativas: vecinos.map(toSugerencia),
+        });
+        continue;
+      }
+
+      const precioUnitario = precioDoc ?? match.precioUnitario;
+      lineas.push({
+        idProducto: match.idProducto,
+        nombre: stripLeadingProductoCodigo(match.nombre, match.codigo),
+        codigo: match.codigo,
+        idBodega: match.idBodega,
+        cantidadInput: empaque.cantidadInput,
+        cajasInput: empaque.cajasInput,
+        presentacion: empaque.presentacion,
+        especificacion: linea.especificacion?.trim() || "",
+        descuentoPctInput: "0",
+        ivaPct: "0",
+        kgDisponible: match.kgDisponible,
+        unidadMedida: match.unidadMedida,
+        precioUnitario,
+        precioManual: precioDoc != null,
+        aliasCliente: textoOriginal,
+        filledByIa: true,
+        otId,
+        packHint: empaque.packHint,
+        autoPackFields: empaque.autoPackFields,
+        catalogPending: false,
+        catalogAmbiguo: false,
+        sugerencia: null,
+        sugerenciasAlternativas: [],
+      });
+      continue;
+    }
+
+    // Sin clave exacta de Mateo: sugerencias cercanas; auto-asignar si es claro.
+    const picked = pickSugerencias(linea, productos);
+    const { sugerencia, alternativas, ambiguo } = picked;
+    const precioUnitario =
+      precioDoc ?? sugerencia?.precioUnitario ?? 0;
+
+    const codigoClienteNorm = norm(linea.codigoProductoCliente);
+    const codigoEnTextoNorm = norm(
+      extractCodigoFromCatalogKey(textoOriginal) ?? "",
+    );
+    const mismoCodigo =
+      Boolean(sugerencia) &&
+      (codigoClienteNorm === norm(sugerencia?.codigo) ||
+        codigoEnTextoNorm === norm(sugerencia?.codigo));
+
+    const autoAccept =
+      sugerencia != null &&
+      (mismoCodigo ||
+        shouldAutoAcceptProductoSuggestion({
+          query: picked.queryUsed || textoOriginal,
+          sugerenciaNombre: sugerencia.nombre,
+          sugerenciaCodigo: sugerencia.codigo,
+          topScore: picked.topScore,
+          secondScore: picked.secondScore,
+          ambiguous: ambiguo,
+        }));
+
+    if (autoAccept && sugerencia) {
+      const catalogo = productos.find(
+        (p) => p.idProducto === sugerencia.idProducto,
+      );
+      lineas.push({
+        idProducto: sugerencia.idProducto,
+        nombre: stripLeadingProductoCodigo(
+          catalogo?.nombre ?? sugerencia.nombre,
+          sugerencia.codigo,
+        ),
+        codigo: sugerencia.codigo,
+        idBodega: sugerencia.idBodega,
+        cantidadInput: empaque.cantidadInput,
+        cajasInput: empaque.cajasInput,
+        presentacion: empaque.presentacion,
+        especificacion: linea.especificacion?.trim() || "",
+        descuentoPctInput: "0",
+        ivaPct: "0",
+        kgDisponible: sugerencia.kgDisponible,
+        unidadMedida: sugerencia.unidadMedida,
+        precioUnitario,
+        precioManual: precioDoc != null,
+        aliasCliente: textoOriginal,
+        filledByIa: true,
+        otId,
+        packHint: empaque.packHint,
+        autoPackFields: empaque.autoPackFields,
+        catalogPending: false,
+        catalogAmbiguo: false,
+        sugerencia: null,
+        sugerenciasAlternativas: [],
+      });
+      continue;
+    }
+
     lineas.push({
-      idProducto: match.idProducto,
-      nombre: stripLeadingProductoCodigo(match.nombre, match.codigo),
-      codigo: match.codigo,
-      idBodega: match.idBodega,
+      idProducto: "",
+      nombre: textoOriginal || "Producto sin catálogo",
+      codigo: "—",
+      idBodega: sugerencia?.idBodega ?? "",
       cantidadInput: empaque.cantidadInput,
       cajasInput: empaque.cajasInput,
       presentacion: empaque.presentacion,
       especificacion: linea.especificacion?.trim() || "",
       descuentoPctInput: "0",
       ivaPct: "0",
-      kgDisponible: match.kgDisponible,
-      unidadMedida: match.unidadMedida,
+      kgDisponible: sugerencia?.kgDisponible ?? 0,
+      unidadMedida: sugerencia?.unidadMedida ?? "",
       precioUnitario,
       precioManual: precioDoc != null,
-      aliasCliente: linea.textoOriginal?.trim() || "",
+      aliasCliente: textoOriginal,
       filledByIa: true,
       otId,
       packHint: empaque.packHint,
       autoPackFields: empaque.autoPackFields,
+      catalogPending: true,
+      catalogAmbiguo: ambiguo,
+      sugerencia,
+      sugerenciasAlternativas: alternativas,
     });
   }
 

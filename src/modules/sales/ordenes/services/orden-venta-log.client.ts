@@ -15,6 +15,7 @@ function authHeaders(): HeadersInit {
 export async function fetchOrdenVentaLog(params: {
   idOrdenVenta: string;
   codigoCuenta: string;
+  idOrdenTrabajo?: string | null;
   createdAt?: string | null;
   autor?: string | null;
 }): Promise<OrdenVentaLogEntry[]> {
@@ -23,6 +24,9 @@ export async function fetchOrdenVentaLog(params: {
   if (!id || !codigoCuenta) return [];
 
   const qs = new URLSearchParams({ codigoCuenta });
+  if (params.idOrdenTrabajo?.trim()) {
+    qs.set("idOrdenTrabajo", params.idOrdenTrabajo.trim());
+  }
   if (params.createdAt?.trim()) qs.set("createdAt", params.createdAt.trim());
   if (params.autor?.trim()) qs.set("autor", params.autor.trim());
 
@@ -45,6 +49,7 @@ export async function postOrdenVentaLog(params: {
   idBodega?: string | null;
   idUsuario?: string | null;
   autorNombre?: string | null;
+  idOrdenTrabajo?: string | null;
   payloadExtra?: Record<string, unknown>;
 }): Promise<void> {
   const id = params.idOrdenVenta.trim();
@@ -62,6 +67,7 @@ export async function postOrdenVentaLog(params: {
         idBodega: params.idBodega ?? null,
         idUsuario: params.idUsuario ?? null,
         autorNombre: params.autorNombre ?? null,
+        idOrdenTrabajo: params.idOrdenTrabajo ?? null,
         payloadExtra: params.payloadExtra ?? undefined,
       }),
     });

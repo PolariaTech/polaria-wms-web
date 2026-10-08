@@ -4,18 +4,34 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { fetchOrdenVentaLog } from "../services/orden-venta-log.client";
 import type { OrdenVentaLogEntry } from "../types/orden-venta-log.types";
+import { filterLogEntriesVisible } from "../utils/filter-log-entries-visible";
 
 interface OrdenTrabajoLogPanelProps {
   idOrdenVenta: string;
   codigoCuenta: string;
+  /** Filtra eventos de esta OT (+ eventos de toda la OV). */
+  idOrdenTrabajo?: string | null;
   createdAt?: string | null;
   autorNombre?: string | null;
 }
 
-function LogLine({ entry }: { entry: OrdenVentaLogEntry }) {
+function LogLine({
+  entry,
+  full = false,
+}: {
+  entry: OrdenVentaLogEntry;
+  /** En el modal se muestra el mensaje completo (sin clamp). */
+  full?: boolean;
+}) {
   return (
     <li className="min-w-0 border-b border-polaria-w-08 py-1.5 last:border-b-0">
-      <p className="line-clamp-2 polaria-text-caption text-polaria-w">
+      <p
+        className={
+          full
+            ? "whitespace-pre-wrap polaria-text-caption text-polaria-w"
+            : "line-clamp-2 polaria-text-caption text-polaria-w"
+        }
+      >
         {entry.mensaje}
       </p>
       <p className="mt-0.5 polaria-text-caption text-polaria-w-20">
@@ -94,7 +110,7 @@ function OrdenTrabajoLogModal({
           ) : (
             <ul className="space-y-0">
               {entries.map((entry) => (
-                <LogLine key={entry.id} entry={entry} />
+                <LogLine key={entry.id} entry={entry} full />
               ))}
             </ul>
           )}
@@ -105,11 +121,12 @@ function OrdenTrabajoLogModal({
 }
 
 /**
- * Vista compacta del log (máx. 3) junto a la OT; click abre el historial completo.
+ * Vista compacta del log: solo el último evento; click abre el historial completo.
  */
 export function OrdenTrabajoLogPanel({
   idOrdenVenta,
   codigoCuenta,
+  idOrdenTrabajo,
   createdAt,
   autorNombre,
 }: OrdenTrabajoLogPanelProps) {
@@ -123,11 +140,12 @@ export function OrdenTrabajoLogPanel({
     void fetchOrdenVentaLog({
       idOrdenVenta,
       codigoCuenta,
+      idOrdenTrabajo,
       createdAt,
       autor: autorNombre,
     })
       .then((rows) => {
-        if (!cancelled) setEntries(rows);
+        if (!cancelled) setEntries(filterLogEntriesVisible(rows));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -135,11 +153,12 @@ export function OrdenTrabajoLogPanel({
     return () => {
       cancelled = true;
     };
-  }, [autorNombre, codigoCuenta, createdAt, idOrdenVenta]);
+  }, [autorNombre, codigoCuenta, createdAt, idOrdenTrabajo, idOrdenVenta]);
 
   useEffect(() => load(), [load]);
 
-  const preview = entries.slice(0, 3);
+  // entries vienen ordenados por created_at DESC (más reciente primero).
+  const latest = entries[0] ?? null;
 
   return (
     <>
@@ -154,20 +173,20 @@ export function OrdenTrabajoLogPanel({
         </p>
         {loading ? (
           <p className="mt-2 polaria-text-caption text-polaria-w-50">Cargando…</p>
-        ) : preview.length === 0 ? (
+        ) : !latest ? (
           <p className="mt-2 polaria-text-caption text-polaria-w-50">
             Sin eventos aún.
           </p>
         ) : (
           <ul className="mt-1">
-            {preview.map((entry) => (
-              <LogLine key={entry.id} entry={entry} />
-            ))}
+            <LogLine entry={latest} />
           </ul>
         )}
-        <p className="mt-2 polaria-text-caption text-polaria-teal">
-          Ver historial completo
-        </p>
+        {latest ? (
+          <p className="mt-2 polaria-text-caption text-polaria-teal">
+            Ver historial completo
+          </p>
+        ) : null}
       </button>
 
       <OrdenTrabajoLogModal

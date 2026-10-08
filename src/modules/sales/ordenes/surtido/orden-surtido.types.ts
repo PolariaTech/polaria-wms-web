@@ -55,3 +55,26 @@ export interface OrdenSurtidoCapturaRow {
   modelo: string | null;
   updatedAt: string;
 }
+
+/** Una foto del historial (incluye reemplazos). */
+export interface OrdenSurtidoCapturaFotoRow {
+  idFoto: string;
+  idOrdenVenta: string;
+  idOrdenTrabajo: string;
+  codigoCuenta: string;
+  urlFoto: string;
+  createdAt: string;
+}
+
+/** Resumen de OT con fotos en el historial. */
+export interface OrdenSurtidoCapturaOtConFotos {
+  idOrdenTrabajo: string;
+  totalFotos: number;
+  ultimaAt: string;
+  previewUrl: string;
+  /** Etiqueta legible (pedido — centro). */
+  label: string;
+  numeroPedido: string;
+  /** Centro de consumo / almacén de la OT. */
+  centroConsumo: string;
+}

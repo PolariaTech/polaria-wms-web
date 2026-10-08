@@ -31,7 +31,6 @@ const ESTADOS_VISIBLE = new Set([
   "confirmada",
   "alistamiento",
   "alistada",
-  "en_preparacion",
 ]);
 
 function normalizeSearch(value: string): string {

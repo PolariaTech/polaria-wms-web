@@ -33,7 +33,22 @@ export async function syncSupabaseAuthSession(
   const supabase = createSupabaseBrowserClient();
 
   if (!accessToken) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
+    return;
+  }
+
+  const { data } = await supabase.auth.getSession();
+  if (data.session?.access_token === accessToken) {
+    return;
+  }
+
+  // No pisar un access renovado por el cliente Supabase con un token viejo del store.
+  if (
+    data.session?.access_token &&
+    data.session.refresh_token &&
+    refreshToken &&
+    data.session.refresh_token === refreshToken
+  ) {
     return;
   }
 

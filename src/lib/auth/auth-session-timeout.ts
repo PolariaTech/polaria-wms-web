@@ -1,8 +1,8 @@
 /**
- * Duración máxima de una sesión WMS: 23 días desde el login (o SSO).
- * Debe quedar bajo el tope de setTimeout del navegador (~24.8 días / 2^31-1 ms).
+ * Duración máxima de una sesión WMS: 7 días desde el login (o SSO).
+ * Alineado al máximo de JWT expiry de Supabase (604800 s).
  */
-export const SESSION_MAX_AGE_MS = 23 * 24 * 60 * 60 * 1000;
+export const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function isSessionExpired(
   sessionStartedAt: number | null | undefined,
