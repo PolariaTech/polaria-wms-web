@@ -1,15 +1,11 @@
 import type { OrigenCorreoRenglon } from "@/modules/sales/ordenes/utils/origen-correo-ordenes-trabajo";
 
+/** Estados de negocio de OV (solo estos cuatro). */
 export type EstadoOrdenVenta =
-  | "borrador"
+  | "por_confirmar"
   | "confirmada"
   | "alistamiento"
-  | "alistada"
-  | "en_preparacion"
-  | "parcialmente_despachada"
-  | "despachada"
-  | "cerrada"
-  | "cancelada";
+  | "alistada";
 
 export interface OrdenVentaRow {
   id_orden_venta: string;
@@ -31,6 +27,13 @@ export interface OrdenVentaRow {
 export interface OrdenVentaOperadorRow {
   idOrdenVenta: string;
   venta: string;
+  /** Primera OCC visible en tabla. */
+  occ: string;
+  /**
+   * Todas las OCC de la OV (primera + resto).
+   * En tabla se muestra la primera y un "+" si hay más; alimentan el buscador.
+   */
+  occTodas: string[];
   cuenta: string;
   comprador: string;
   productos: string;
@@ -38,6 +41,8 @@ export interface OrdenVentaOperadorRow {
   total: number;
   estado: EstadoOrdenVenta;
   fecha: string;
+  /** Cantidad de órdenes de trabajo (OT) de la OV. */
+  ordenesTrabajo: number;
   destino: string;
   idBodega: string;
   idBodegaDestino: string | null;
@@ -60,6 +65,19 @@ export interface ProductoVentaOption {
   unidadMedida: string;
 }
 
+/** Snapshot de matching Mateo ↔ catálogo (persistido en orden_venta_linea.match_producto). */
+export interface MatchProductoRef {
+  idProducto: string | null;
+  nombre: string;
+  codigo: string;
+}
+
+export interface MatchProductoLinea {
+  textoCliente: string;
+  sugeridoMateo: MatchProductoRef | null;
+  elegidoUsuario: MatchProductoRef;
+}
+
 export interface OrdenVentaLineaInput {
   idProducto: string;
   cantidadPedida: number;
@@ -67,6 +85,8 @@ export interface OrdenVentaLineaInput {
   precioUnitario?: number | null;
   cajas?: number | null;
   presentacion?: string | null;
+  /** Auditoría: texto cliente, sugerencia Mateo y elección del usuario. */
+  matchProducto?: MatchProductoLinea | null;
 }
 
 export interface OrdenVentaLineaRow {

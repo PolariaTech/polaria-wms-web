@@ -1,5 +1,14 @@
 import type { ReactNode } from "react";
-import { Ban, CheckCircle2, Download, Pencil, Printer, Trash2 } from "lucide-react";
+import {
+  Ban,
+  CheckCircle2,
+  Download,
+  FileText,
+  Images,
+  Pencil,
+  Printer,
+  Trash2,
+} from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 export function PolariaTableCode({ children }: { children: ReactNode }) {
@@ -39,6 +48,8 @@ const ICON_ACTION_CLASS = cn(
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
 );
 
+const ICON_ACTION_GLYPH_CLASS = "h-4 w-4";
+
 /** Agrupa acciones de fila siempre en horizontal. */
 export function PolariaTableActionGroup({ children }: { children: ReactNode }) {
   return (
@@ -68,7 +79,7 @@ export function PolariaTableEditButton({
       disabled={disabled}
       className={cn(ICON_ACTION_CLASS, disabled && "cursor-not-allowed opacity-50")}
     >
-      <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      <Pencil className={ICON_ACTION_GLYPH_CLASS} strokeWidth={1.75} aria-hidden />
     </button>
   );
 }
@@ -94,7 +105,7 @@ export function PolariaTableDisableButton({
       disabled={disabled}
       className={cn(ICON_ACTION_CLASS, disabled && "cursor-not-allowed opacity-50")}
     >
-      <Ban className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      <Ban className={ICON_ACTION_GLYPH_CLASS} strokeWidth={1.75} aria-hidden />
     </button>
   );
 }
@@ -120,7 +131,7 @@ export function PolariaTableEnableButton({
       disabled={disabled}
       className={cn(ICON_ACTION_CLASS, disabled && "cursor-not-allowed opacity-50")}
     >
-      <CheckCircle2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      <CheckCircle2 className={ICON_ACTION_GLYPH_CLASS} strokeWidth={1.75} aria-hidden />
     </button>
   );
 }
@@ -169,16 +180,12 @@ export function PolariaTablePrintButton({
     <button
       type="button"
       aria-label={label}
+      title={label}
       onClick={onClick}
       disabled={disabled}
-      className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition",
-        "hover:bg-polaria-t-08",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-        disabled && "cursor-not-allowed opacity-50",
-      )}
+      className={cn(ICON_ACTION_CLASS, disabled && "cursor-not-allowed opacity-50")}
     >
-      <Printer className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      <Printer className={ICON_ACTION_GLYPH_CLASS} strokeWidth={1.75} aria-hidden />
     </button>
   );
 }
@@ -201,14 +208,61 @@ export function PolariaTableDownloadButton({
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition",
-        "hover:bg-polaria-t-08",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-        disabled && "cursor-not-allowed opacity-50",
-      )}
+      className={cn(ICON_ACTION_CLASS, disabled && "cursor-not-allowed opacity-50")}
     >
-      <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      <Download className={ICON_ACTION_GLYPH_CLASS} strokeWidth={1.75} aria-hidden />
+    </button>
+  );
+}
+
+interface PolariaTableDocumentButtonProps {
+  label?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}
+
+/** Vista previa de PDF / documento (no descarga). */
+export function PolariaTableDocumentButton({
+  label = "Descarga",
+  onClick,
+  disabled = false,
+}: PolariaTableDocumentButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(ICON_ACTION_CLASS, disabled && "cursor-not-allowed opacity-50")}
+    >
+      <FileText className={ICON_ACTION_GLYPH_CLASS} strokeWidth={1.75} aria-hidden />
+    </button>
+  );
+}
+
+interface PolariaTableImagesButtonProps {
+  label?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}
+
+/** Galería de fotos (p. ej. capturas desde QR). */
+export function PolariaTableImagesButton({
+  label = "Fotos",
+  onClick,
+  disabled = false,
+}: PolariaTableImagesButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(ICON_ACTION_CLASS, disabled && "cursor-not-allowed opacity-50")}
+    >
+      <Images className={ICON_ACTION_GLYPH_CLASS} strokeWidth={1.75} aria-hidden />
     </button>
   );
 }

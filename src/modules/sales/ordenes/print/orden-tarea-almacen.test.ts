@@ -6,18 +6,25 @@ import type {
 import { buildOrdenTareaAlmacenHtml } from "./build-orden-tarea-almacen-html";
 import { buildOrdenTareaAlmacenLandscapePdf, buildOrdenTareaAlmacenLandscapePdfMulti } from "./render-orden-tarea-almacen-landscape-pdf";
 import { buildOrdenTareaAlmacenPdf } from "./render-orden-tarea-almacen-pdf";
-import { mapOrdenVentaToAlmacenPrintData, mapOrdenVentaToAlmacenPrintSheets } from "./map-orden-tarea-almacen";
+import {
+  formatOrdenTareaImpresaAt,
+  mapOrdenVentaToAlmacenPrintData,
+  mapOrdenVentaToAlmacenPrintSheets,
+} from "./map-orden-tarea-almacen";
 
 const LIST_ROW: OrdenVentaOperadorRow = {
   idOrdenVenta: "ov-1",
   venta: "OV-001",
+  occ: "—",
+  occTodas: [],
   cuenta: "CUENTA-01",
   comprador: "Retail Norte",
   productos: "1 producto",
   cantidadKg: 10,
   total: 10000,
-  estado: "borrador",
+  estado: "por_confirmar",
   fecha: "2026-06-28T12:00:00.000Z",
+  ordenesTrabajo: 1,
   destino: "Bodega central",
   idBodega: "bod-1",
   idBodegaDestino: null,
@@ -33,7 +40,7 @@ const DETALLE: OrdenVentaDetalleRow = {
   id_creador: null,
   id_bodega_destino: null,
   codigo: "OV-001",
-  estado: "borrador",
+  estado: "por_confirmar",
   fecha_pedido: "2026-06-28T12:00:00.000Z",
   observaciones: null,
   created_at: "2026-06-28T12:00:00.000Z",
@@ -92,6 +99,34 @@ describe("orden de tarea almacén", () => {
     expect(data.lineas[0]?.producto).toBe("HPR FROZEN-PORK RACKS");
     expect(data.lineas[0]?.especificacion).toBe("");
     expect(data.lineas[0]?.cantidadSolicitada).toContain("10");
+    expect(data.creada).toBe(
+      formatOrdenTareaImpresaAt(new Date(DETALLE.created_at)),
+    );
+    expect(data.impresa).toBe(
+      formatOrdenTareaImpresaAt(new Date("2026-08-26T17:44:00")),
+    );
+    // dd/mm/aaaa HH:mm
+    expect(data.creada).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
+    expect(data.impresa).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
+  });
+
+  it("Creada usa created_at de la OV y no la hora de impresión", () => {
+    const data = mapOrdenVentaToAlmacenPrintData({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        created_at: "2026-06-28T12:00:00.000Z",
+        fecha_pedido: "2026-06-28T12:00:00.000Z",
+      },
+      printedAt: new Date("2026-10-08T14:06:00.000Z"),
+    });
+    expect(data.creada).toBe(
+      formatOrdenTareaImpresaAt(new Date("2026-06-28T12:00:00.000Z")),
+    );
+    expect(data.impresa).toBe(
+      formatOrdenTareaImpresaAt(new Date("2026-10-08T14:06:00.000Z")),
+    );
+    expect(data.creada).not.toBe(data.impresa);
   });
 
   it("lee centro, entrega y especificación desde la captura del pedido", () => {
@@ -127,10 +162,12 @@ describe("orden de tarea almacén", () => {
     const html = buildOrdenTareaAlmacenHtml(data);
 
     expect(html).toContain("OV-001");
-    expect(html).toContain("<label>Tarea de Almacen</label>");
+    expect(html).toContain("<label>Orden de venta</label>");
+    expect(html).not.toContain("<label>Tarea de Almacén</label>");
+    expect(html).toContain("Creada ");
+    expect(html).toContain("Impresa ");
     expect(html).toContain("HPR FROZEN-PORK RACKS");
     expect(html).not.toContain("ORDEN DE VENTA");
-    expect(html).not.toContain("<label>Orden de venta</label>");
     expect(html).not.toContain(">Folio<");
     expect(html).not.toContain("<label>Folio</label>");
     expect(html).toContain("216mm 330mm");
@@ -179,6 +216,7 @@ describe("orden de tarea almacén", () => {
     expect(html).toContain("Incidencias");
     expect(html).not.toContain(">Productos<");
     expect(html).toContain("page-meta");
+    expect(html).toContain("Creada");
     expect(html).toContain("Impresa");
     expect(html).not.toContain("Orden de tarea 1/1");
     expect(html).toContain("Orden de trabajo");

@@ -70,4 +70,60 @@ describe("apiRequest tenant headers", () => {
     expect(headers.get("X-Codigo-Cuenta")).toBe("CUENTA-01");
     expect(headers.get("X-Id-Bodega")).toBe("BOD-01");
   });
+
+  it("reintenta una vez tras 401 si el refresh renueva el token", async () => {
+    vi.resetModules();
+
+    let token = "old-token";
+    vi.doMock("@/lib/auth/refresh-auth-tokens", () => ({
+      refreshAuthTokens: vi.fn().mockImplementation(async () => {
+        token = "new-token";
+        return true;
+      }),
+    }));
+
+    const { apiRequest, setAccessTokenGetter: setToken } = await import(
+      "@/services/api/api"
+    );
+    const { setTenantHeadersGetter: setTenant } = await import(
+      "@/lib/utils/tenant-headers"
+    );
+
+    setToken(() => token);
+    setTenant(() => ({
+      codigoEmpresa: "ACME",
+      codigoCuenta: "CUENTA-01",
+      idBodega: "BOD-01",
+    }));
+
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async () => {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            ok: false,
+            status: 401,
+            json: async () => ({ message: "Token inválido o expirado" }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: true }),
+        };
+      }),
+    );
+
+    const result = await apiRequest<{ ok: boolean }>("/auth/me", {
+      method: "GET",
+      auth: true,
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const secondHeaders = vi.mocked(fetch).mock.calls[1][1]?.headers as Headers;
+    expect(secondHeaders.get("Authorization")).toBe("Bearer new-token");
+  });
 });

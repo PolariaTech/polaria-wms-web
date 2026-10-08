@@ -63,7 +63,21 @@ describe("useAuthStore", () => {
     vi.restoreAllMocks();
   });
 
-  it("cierra la sesión al hidratar si pasó un mes", async () => {
+  it("renueva tokens sin reiniciar sessionStartedAt", () => {
+    const started = 1_700_000_000_000;
+    useAuthStore.setState({ sessionStartedAt: started });
+
+    useAuthStore.getState().updateSessionTokens({
+      accessToken: "rotated-access",
+      refreshToken: "rotated-refresh",
+    });
+
+    expect(useAuthStore.getState().accessToken).toBe("rotated-access");
+    expect(useAuthStore.getState().refreshToken).toBe("rotated-refresh");
+    expect(useAuthStore.getState().sessionStartedAt).toBe(started);
+  });
+
+  it("cierra la sesión al hidratar si pasaron 7 días", async () => {
     useAuthStore.setState({
       sessionStartedAt: Date.now() - SESSION_MAX_AGE_MS - 1,
     });

@@ -12,23 +12,27 @@ describe("orden-venta-api.mapper", () => {
         productos: "2 productos",
         cantidadKg: 15,
         total: 2000,
-        estado: "en_preparacion",
+        estado: "alistamiento",
         fechaPedido: "2026-07-09",
         destino: "Bodega Sur",
       }),
     ).toEqual({
       idOrdenVenta: "ov-1",
       venta: "OV-001",
+      occ: "—",
+      occTodas: [],
       cuenta: "ACME",
       comprador: "Retail Norte",
       productos: "2 productos",
       cantidadKg: 15,
       total: 2000,
-      estado: "en_preparacion",
+      estado: "alistamiento",
       fecha: "2026-07-09",
+      ordenesTrabajo: 1,
       destino: "Bodega Sur",
       idBodega: "",
       idBodegaDestino: null,
     });
   });
 });
+

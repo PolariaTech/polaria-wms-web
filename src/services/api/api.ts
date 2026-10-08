@@ -89,32 +89,47 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const { body, auth = false, headers, ...rest } = options;
 
-  const requestHeaders = new Headers(headers);
-  requestHeaders.set("Content-Type", "application/json");
+  const buildHeaders = (): Headers => {
+    const requestHeaders = new Headers(headers);
+    requestHeaders.set("Content-Type", "application/json");
 
-  if (auth) {
-    const token = accessTokenGetter?.();
-    if (token) {
-      requestHeaders.set("Authorization", `Bearer ${token}`);
+    if (auth) {
+      const token = accessTokenGetter?.();
+      if (token) {
+        requestHeaders.set("Authorization", `Bearer ${token}`);
+      }
+      applyTenantHeaders(requestHeaders);
     }
-    applyTenantHeaders(requestHeaders);
-  }
 
-  let response: Response;
-  try {
-    response = await fetch(`${getApiBaseUrl()}${path}`, {
-      ...rest,
-      headers: requestHeaders,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-  } catch (error) {
-    const isOffline =
-      typeof navigator !== "undefined" && navigator.onLine === false;
-    const hint = isOffline
-      ? "Sin conexión a internet."
-      : "No se pudo conectar con el servidor. Verifica que polaria-wms-api esté en ejecución.";
-    const detail = error instanceof Error ? error.message : "Error de red";
-    throw new ApiError(`${hint} (${detail})`, 0, "NETWORK_ERROR");
+    return requestHeaders;
+  };
+
+  const doFetch = async (): Promise<Response> => {
+    try {
+      return await fetch(`${getApiBaseUrl()}${path}`, {
+        ...rest,
+        headers: buildHeaders(),
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    } catch (error) {
+      const isOffline =
+        typeof navigator !== "undefined" && navigator.onLine === false;
+      const hint = isOffline
+        ? "Sin conexión a internet."
+        : "No se pudo conectar con el servidor. Verifica que polaria-wms-api esté en ejecución.";
+      const detail = error instanceof Error ? error.message : "Error de red";
+      throw new ApiError(`${hint} (${detail})`, 0, "NETWORK_ERROR");
+    }
+  };
+
+  let response = await doFetch();
+
+  if (!response.ok && response.status === 401 && auth) {
+    const { refreshAuthTokens } = await import("@/lib/auth/refresh-auth-tokens");
+    const refreshed = await refreshAuthTokens();
+    if (refreshed) {
+      response = await doFetch();
+    }
   }
 
   if (!response.ok) {

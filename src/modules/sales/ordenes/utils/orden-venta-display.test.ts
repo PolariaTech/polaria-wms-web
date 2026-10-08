@@ -15,7 +15,7 @@ const ORDEN: OrdenVentaDetalleRow = {
   id_creador: null,
   id_bodega_destino: null,
   codigo: "OV-001",
-  estado: "borrador",
+  estado: "por_confirmar",
   fecha_pedido: "2026-06-28",
   observaciones: null,
   created_at: "2026-06-28T12:00:00.000Z",

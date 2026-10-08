@@ -1,7 +1,5 @@
-import type {
-  EstadoOrdenVenta,
-  OrdenVentaOperadorRow,
-} from "../types/sales.types";
+import { normalizeEstadoOrdenVenta } from "../constants/sales-status";
+import type { OrdenVentaOperadorRow } from "../types/sales.types";
 
 function readString(
   row: Record<string, unknown>,
@@ -36,21 +34,38 @@ function readNumber(
 export function mapOrdenVentaOperadorApiRow(
   raw: Record<string, unknown>,
 ): OrdenVentaOperadorRow {
-  const estado = readString(raw, "estado") as EstadoOrdenVenta | null;
+  const estado = normalizeEstadoOrdenVenta(readString(raw, "estado"));
+
+  const occTodasRaw = raw.occTodas ?? raw.occ_todas;
+  const occTodas = Array.isArray(occTodasRaw)
+    ? occTodasRaw
+        .map((item) => (typeof item === "string" ? item.trim() : ""))
+        .filter(Boolean)
+    : [];
+  const occ =
+    readString(raw, "occ", "ordenCompraHotel", "orden_compra_hotel") ??
+    occTodas[0] ??
+    "—";
 
   return {
     idOrdenVenta:
       readString(raw, "idOrdenVenta", "id_orden_venta") ?? "",
     venta: readString(raw, "venta", "codigo") ?? "—",
+    occ,
+    occTodas: occTodas.length > 0 ? occTodas : occ !== "—" ? [occ] : [],
     cuenta: readString(raw, "cuenta", "codigoCuenta", "codigo_cuenta") ?? "—",
     comprador: readString(raw, "comprador", "compradorNombre") ?? "—",
     productos: readString(raw, "productos") ?? "—",
     cantidadKg: readNumber(raw, "cantidadKg", "cantidad_kg"),
     total: readNumber(raw, "total"),
-    estado: estado ?? "borrador",
+    estado,
     fecha:
       readString(raw, "fecha", "createdAt", "created_at", "fechaPedido", "fecha_pedido") ??
       "",
+    ordenesTrabajo: Math.max(
+      1,
+      Math.trunc(readNumber(raw, "ordenesTrabajo", "ordenes_trabajo")),
+    ),
     destino: readString(raw, "destino", "bodegaDestinoNombre") ?? "—",
     idBodega: readString(raw, "idBodega", "id_bodega") ?? "",
     idBodegaDestino: readString(raw, "idBodegaDestino", "id_bodega_destino"),

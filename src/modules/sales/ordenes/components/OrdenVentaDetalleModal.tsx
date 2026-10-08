@@ -23,9 +23,17 @@ import type {
 } from "../../shared/types/sales.types";
 import {
   formatCapturaFecha,
-  notaCapturaForProducto,
+  notaCapturaForLinea,
   parseOrdenVentaCapturaObservaciones,
+  stripSurtidoFotoQrFromNotas,
 } from "../utils/build-orden-venta-captura-observaciones";
+import { resolveSkuVisible } from "../utils/resolve-sku-visible";
+import {
+  cleanCorreoBodyForNotas,
+  isCuerpoMensajeFormato,
+  looksLikeCorreoCuerpoEnNotas,
+  sanitizeNotasGeneralesPedido,
+} from "../utils/texto-origen-pedido";
 import { filterLineasByOrdenTrabajoHija } from "../utils/filter-lineas-by-orden-trabajo";
 import {
   groupOrigenCorreoToOrdenesTrabajo,
@@ -109,8 +117,31 @@ function DetalleContent({
 }) {
   const allLineItems = orden.lineas ?? [];
   const lineItems: OrdenVentaLineaRow[] = useMemo(() => {
-    return filterLineasByOrdenTrabajoHija(allLineItems, hija);
+    // Enriquecer con nombre aunque el SKU esté archivado (ARCH-*), para empatar OT.
+    const enriched = allLineItems.map((linea) => ({
+      ...linea,
+      matchNombre: resolveOrdenVentaLineaTitulo(linea),
+      matchCodigo: linea.producto?.sku ?? "",
+    }));
+    return filterLineasByOrdenTrabajoHija(enriched, hija, {
+      emptyFallback: "none",
+    });
   }, [allLineItems, hija]);
+
+  const origenRenglonesFallback = useMemo(() => {
+    if (lineItems.length > 0) return [];
+    if (hija?.renglones?.length) return hija.renglones;
+    return parseOrigenCorreoJson(orden.origen_correo);
+  }, [hija, lineItems.length, orden.origen_correo]);
+
+  const clienteOrigenFallback = useMemo(() => {
+    const fromComprador = formatCompradorOrdenVenta(orden);
+    if (fromComprador && fromComprador !== "—") return fromComprador;
+    const rows = parseOrigenCorreoJson(orden.origen_correo);
+    return (
+      rows.map((r) => r["Nombre cliente"]?.trim()).find(Boolean) || "—"
+    );
+  }, [orden]);
 
   const fromObs = parseOrdenVentaCapturaObservaciones(orden.observaciones);
   const ventanaFlat =
@@ -162,7 +193,30 @@ function DetalleContent({
       : fromObs.origenArchivos,
   };
   const prioridad = captura.prioridad.trim();
-  const cuerpoMensaje = captura.origenTexto || captura.observaciones;
+  // Cuerpo: origen_texto / bloque "Pedido original" / observaciones crudas del correo.
+  const cuerpoMensaje = (() => {
+    const fromOrigen = captura.origenTexto.trim();
+    if (fromOrigen) return fromOrigen;
+    const obsRaw = (orden.observaciones ?? "").trim();
+    const obsParsed = captura.observaciones.trim();
+    const candidate =
+      (looksLikeCorreoCuerpoEnNotas(obsParsed) || obsParsed.length > 180
+        ? obsParsed
+        : "") ||
+      (looksLikeCorreoCuerpoEnNotas(obsRaw) || obsRaw.length > 180
+        ? obsRaw
+        : "");
+    if (!candidate) return "";
+    if (isCuerpoMensajeFormato(candidate)) return candidate;
+    return cleanCorreoBodyForNotas(candidate) || candidate;
+  })();
+  const notasGenerales = sanitizeNotasGeneralesPedido(
+    stripSurtidoFotoQrFromNotas(orden.notas_almacen ?? "") ||
+      (looksLikeCorreoCuerpoEnNotas(captura.observaciones)
+        ? ""
+        : captura.observaciones.trim()),
+    cuerpoMensaje,
+  );
   const pesoHija = lineItems.reduce((s, l) => s + l.cantidad_pedida, 0);
   const totalHija = lineItems.reduce(
     (s, l) => s + l.cantidad_pedida * l.precio_unitario,
@@ -171,42 +225,43 @@ function DetalleContent({
 
   return (
     <>
-      {hija ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
-            <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
-              Orden de trabajo
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
+          <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
+            Orden de trabajo
+          </p>
+          <p className="mt-1 polaria-text-body-sm font-semibold text-polaria-w">
+            {hija?.label ?? orden.codigo}
+          </p>
+          {hija?.referenciaPedido ? (
+            <p className="mt-1 polaria-text-caption text-polaria-w-50">
+              {hija.referenciaPedido}
             </p>
-            <p className="mt-1 polaria-text-body-sm font-semibold text-polaria-w">
-              {hija.label}
-            </p>
-            {hija.referenciaPedido ? (
-              <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                {hija.referenciaPedido}
-              </p>
-            ) : null}
-          </div>
-          <OrdenTrabajoLogPanel
-            idOrdenVenta={orden.id_orden_venta}
-            codigoCuenta={orden.codigo_cuenta}
-            createdAt={orden.created_at || orden.fecha_pedido}
-            autorNombre={orden.vendedor}
-          />
+          ) : null}
         </div>
-      ) : null}
+        <OrdenTrabajoLogPanel
+          idOrdenVenta={orden.id_orden_venta}
+          codigoCuenta={orden.codigo_cuenta}
+          idOrdenTrabajo={hija?.id ?? null}
+          createdAt={orden.created_at || orden.fecha_pedido}
+          autorNombre={orden.vendedor}
+        />
+      </div>
 
-      {captura.origenTexto || captura.origenArchivos.length > 0 ? (
+      {cuerpoMensaje || captura.origenArchivos.length > 0 ? (
         <CaptureSection title="De dónde salió este pedido">
           <OrigenPedidoSourceView
             archivos={captura.origenArchivos}
-            tieneTexto={Boolean(captura.origenTexto)}
+            tieneTexto={Boolean(cuerpoMensaje)}
           />
         </CaptureSection>
       ) : null}
 
       <CaptureSection title="Datos del pedido">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <MetaField label="Cliente">{formatCompradorOrdenVenta(orden)}</MetaField>
+          <MetaField label="Cliente">
+            <TextValue value={clienteOrigenFallback} />
+          </MetaField>
           <MetaField label="Orden de compra del cliente">
             <TextValue value={captura.ordenCompraHotel} />
           </MetaField>
@@ -243,6 +298,11 @@ function DetalleContent({
           <MetaField label="Moneda">
             <TextValue value={captura.moneda || "MXN"} />
           </MetaField>
+          <div className="sm:col-span-3">
+            <MetaField label="Notas generales">
+              <TextValue value={notasGenerales} />
+            </MetaField>
+          </div>
         </div>
       </CaptureSection>
 
@@ -264,10 +324,74 @@ function DetalleContent({
       </CaptureSection>
 
       <CaptureSection title="Productos">
-        {lineItems.length === 0 ? (
+        {lineItems.length === 0 && origenRenglonesFallback.length === 0 ? (
           <p className="polaria-text-body-sm text-polaria-w-50">
             Sin líneas registradas.
           </p>
+        ) : lineItems.length === 0 ? (
+          <div className="overflow-hidden rounded-xl border border-polaria-w-08">
+            <p className="border-b border-polaria-t-20 bg-polaria-warning-bg/40 px-3 py-2 polaria-text-caption text-polaria-warning">
+              Productos del correo (aún sin ligar al catálogo). Se materializan
+              al abrir / confirmar la OV.
+            </p>
+            <table className="w-full table-fixed border-collapse text-left">
+              <colgroup>
+                <col className="w-[52%]" />
+                <col className="w-[24%]" />
+                <col className="w-[24%]" />
+              </colgroup>
+              <thead className="bg-polaria-w-08">
+                <tr className="border-b border-polaria-t-20">
+                  <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+                    Producto
+                  </th>
+                  <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
+                    Cantidad
+                  </th>
+                  <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
+                    Precio
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {origenRenglonesFallback.map((row, index) => {
+                  const qty =
+                    typeof row.Cantidad === "number"
+                      ? row.Cantidad
+                      : Number(String(row.Cantidad ?? "").replace(",", ".")) ||
+                        0;
+                  const precio =
+                    typeof row.Precio === "number"
+                      ? row.Precio
+                      : Number(String(row.Precio ?? "").replace(",", ".")) ||
+                        0;
+                  return (
+                    <tr
+                      key={`origen-${index}-${row.Producto ?? ""}`}
+                      className="border-b border-polaria-w-08 last:border-b-0"
+                    >
+                      <td className="px-3 py-2.5 align-middle">
+                        <p className="polaria-text-body-sm font-medium text-polaria-w">
+                          {row.Producto?.trim() || "Producto"}
+                        </p>
+                        <p className="polaria-text-caption text-polaria-w-50">
+                          {row["Codigo producto"]?.trim()
+                            ? `Cód. ${row["Codigo producto"]}`
+                            : "Del correo"}
+                        </p>
+                      </td>
+                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
+                        {formatKgEs(qty)} kg
+                      </td>
+                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
+                        {precio > 0 ? `$${formatPrecioEs(precio)}` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-polaria-w-08">
             <table className="w-full table-fixed border-collapse text-left">
@@ -296,7 +420,17 @@ function DetalleContent({
               <tbody>
                 {lineItems.map((linea) => {
                   const titulo = resolveOrdenVentaLineaTitulo(linea);
-                  const nota = notaCapturaForProducto(captura.notasLineas, titulo);
+                  const nota = notaCapturaForLinea(captura.notasLineas, {
+                    nombre: titulo,
+                    cantidad: linea.cantidad_pedida,
+                    otId: hija?.id,
+                    allowUnscoped: !hija,
+                  });
+                  const skuVisible = resolveSkuVisible({
+                    linea,
+                    origenRenglones: hija?.renglones ?? undefined,
+                    hija,
+                  });
                   return (
                     <tr
                       key={linea.id_linea_orden_venta}
@@ -307,7 +441,7 @@ function DetalleContent({
                           {titulo}
                         </p>
                         <p className="polaria-text-caption text-polaria-w-50">
-                          {linea.producto?.sku ? `SKU ${linea.producto.sku}` : "kg"}
+                          {skuVisible ? `SKU ${skuVisible}` : "kg"}
                           {nota ? ` · ${nota}` : null}
                         </p>
                       </td>
@@ -465,7 +599,7 @@ export function OrdenVentaDetalleModal({
     };
   }, [codigoCuenta, idOrdenVenta, loadDetalle]);
 
-  const puedeEmitir = !inspect && orden?.estado === "borrador";
+  const puedeEmitir = !inspect && orden?.estado === "por_confirmar";
 
   const handleEmitir = () => {
     if (!idOrdenVenta || !puedeEmitir || isEmitting) {
@@ -494,6 +628,7 @@ export function OrdenVentaDetalleModal({
             mensaje: `Pedido emitido por ${session?.nombre?.trim() || "usuario"}.`,
             idUsuario: session?.idUsuario ?? null,
             autorNombre: session?.nombre ?? null,
+            idOrdenTrabajo: hijaId,
             payloadExtra: { estadoNuevo: row.estado },
           });
         }

@@ -208,7 +208,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
   const tareaTotal =
     data.tareaTotal && data.tareaTotal > 0 ? data.tareaTotal : 1;
   const ordenTrabajo = data.ordenTrabajo || `${tareaIndex}/${tareaTotal}`;
-  doc.text(`Impresa ${data.impresa}`, MARGIN, 4.5, {
+  doc.text(`Creada ${data.creada}  ·  Impresa ${data.impresa}`, MARGIN, 4.5, {
     baseline: "top",
   });
   doc.setTextColor(0);
@@ -240,33 +240,35 @@ export function drawOrdenTareaAlmacenLandscapePage(
   y += QR_SIZE + 2;
 
   const rowH = 10;
-  field(
-    doc,
-    leftX,
-    y,
-    LEFT_W,
-    rowH,
-    "Tarea de Almacen",
-    folio,
-    true,
-  );
-  if (isActualizado) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.2);
-    doc.text("Actualizada", leftX + LEFT_W - 1.4, y + 1.3, {
-      align: "right",
-      baseline: "top",
-    });
-  }
-  y += rowH;
+  // Fila 1: Orden de venta · Orden de trabajo
   splitField(
     doc,
     leftX,
     y,
     LEFT_W,
     rowH,
-    { label: "# de orden del cliente", value: data.numeroOrdenCliente },
+    { label: "Orden de venta", value: folio },
     { label: "Orden de trabajo", value: ordenTrabajo },
+    true,
+  );
+  if (isActualizado) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.text("Actualizada", leftX + LEFT_W / 2 - 1.4, y + 1.3, {
+      align: "right",
+      baseline: "top",
+    });
+  }
+  y += rowH;
+  // Fila 2: # de orden del cliente (ancho completo)
+  field(
+    doc,
+    leftX,
+    y,
+    LEFT_W,
+    rowH,
+    "# de orden del cliente",
+    data.numeroOrdenCliente,
   );
   y += rowH;
   field(doc, leftX, y, LEFT_W, rowH, "Factura asociada", factura);

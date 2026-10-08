@@ -9,6 +9,8 @@ import {
   buildPrintDataAdmin,
   getOrdenMetaPublica,
   getOrdenSurtidoCaptura,
+  listOrdenSurtidoCapturaFotos,
+  listOrdenSurtidoCapturaOtsConFotos,
   listOrdenSurtidoCapturas,
   syncOrdenVentaEstadoAlistamiento,
   upsertOrdenSurtidoCaptura,
@@ -114,14 +116,54 @@ export async function GET(
   }
 
   const idOrdenTrabajo = readOtFromRequest(request);
+  const searchParams = new URL(request.url).searchParams;
   const wantAll =
-    new URL(request.url).searchParams.get("all") === "1" ||
-    new URL(request.url).searchParams.get("all") === "true";
+    searchParams.get("all") === "1" || searchParams.get("all") === "true";
+  const wantHistorial =
+    searchParams.get("historial") === "1" ||
+    searchParams.get("historial") === "true";
 
   try {
     const meta = await getOrdenMetaPublica(idOrdenVenta, idOrdenTrabajo || null);
     if (!meta) {
       return NextResponse.json({ error: "Orden no encontrada." }, { status: 404 });
+    }
+
+    if (wantHistorial) {
+      if (searchParams.has("ot") || idOrdenTrabajo) {
+        const fotos = await listOrdenSurtidoCapturaFotos(
+          idOrdenVenta,
+          idOrdenTrabajo || "",
+        );
+        return NextResponse.json({
+          idOrdenVenta: meta.idOrdenVenta,
+          folio: meta.folio,
+          idOrdenTrabajo: idOrdenTrabajo || "",
+          fotos: fotos.map((foto) => ({
+            idFoto: foto.idFoto,
+            idOrdenTrabajo: foto.idOrdenTrabajo,
+            urlFoto: foto.urlFoto,
+            createdAt: foto.createdAt,
+          })),
+        });
+      }
+
+      const ordenesTrabajo = await listOrdenSurtidoCapturaOtsConFotos(
+        idOrdenVenta,
+      );
+      return NextResponse.json({
+        idOrdenVenta: meta.idOrdenVenta,
+        folio: meta.folio,
+        ordenesTrabajo: ordenesTrabajo.map((ot) => ({
+          idOrdenTrabajo: ot.idOrdenTrabajo,
+          totalFotos: ot.totalFotos,
+          ultimaAt: ot.ultimaAt,
+          previewUrl: ot.previewUrl,
+          label: ot.label,
+          numeroPedido: ot.numeroPedido,
+          centroConsumo: ot.centroConsumo,
+        })),
+      });
     }
 
     if (wantAll) {

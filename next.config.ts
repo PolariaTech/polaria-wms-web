@@ -13,9 +13,9 @@ const apiBaseUrl = normalizeApiBaseUrl(
     "https://polaria-wms-api.onrender.com",
 );
 
-/** Excluye route handlers locales de n8n; el resto de /api/* se proxya a Nest. */
+/** Excluye route handlers locales; el resto de /api/* se proxya a Nest. */
 export const NEST_API_REWRITE_SOURCE =
-  "/api/:path((?!pedido-proveedor$)(?!solicitud-compra$)(?!evidencia-transporte$)(?!ventas/leer-pedido$)(?!ventas/imprimir-orden$)(?!ventas/productos-catalogo$)(?!reportes/).*)";
+  "/api/:path((?!pedido-proveedor$)(?!solicitud-compra$)(?!evidencia-transporte$)(?!ventas/leer-pedido$)(?!ventas/imprimir-orden$)(?!ventas/productos-catalogo$)(?!ventas/ordenes/[^/]+/log$)(?!reportes/).*)";
 
 const BASE_SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },

@@ -41,8 +41,7 @@ const OPERADOR_CUENTA_BREADCRUMBS: Readonly<
   ],
   [ROUTES.dashboardVentasOrdenes]: [
     { label: "Inicio", href: ROUTES.dashboard },
-    { label: "Ventas", href: ROUTES.dashboardVentas },
-    { label: "Órdenes venta" },
+    { label: "Ventas" },
   ],
   [ROUTES.dashboardBodegaExternaCuenta]: [
     { label: "Inicio", href: ROUTES.dashboard },

@@ -9,6 +9,7 @@ import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.ty
 const BASE: OrdenTareaAlmacenPrintData = {
   idOrdenVenta: "ov-1",
   folio: "OV-1",
+  creada: "07/09 09:00",
   impresa: "08/09 10:00",
   cliente: "Cliente",
   centroConsumo: "Cocina",

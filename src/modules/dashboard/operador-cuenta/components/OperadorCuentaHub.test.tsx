@@ -55,6 +55,6 @@ describe("OperadorCuentaHub", () => {
 
     await user.click(screen.getByRole("button", { name: "Ventas" }));
 
-    expect(mockPush).toHaveBeenCalledWith(ROUTES.dashboardVentas);
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.dashboardVentasOrdenes);
   });
 });

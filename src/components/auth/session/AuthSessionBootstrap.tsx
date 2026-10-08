@@ -21,7 +21,7 @@ import { useAuthStore } from "@/stores/auth.store";
  * Mantiene una única sesión coherente entre pestañas:
  * - Sin token en localStorage → saca de rutas protegidas.
  * - Con token en otra pestaña → saca de /login.
- * - Al cumplir 23 días desde el login cierra Polaria (y con ello Mateo Support).
+ * - Al cumplir 7 días desde el login cierra Polaria (y con ello Mateo Support).
  */
 export function AuthSessionBootstrap() {
   const pathname = usePathname();

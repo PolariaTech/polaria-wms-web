@@ -10,8 +10,9 @@ import {
 } from "../utils/orden-venta-display";
 import {
   formatCapturaFecha,
-  notaCapturaForProducto,
+  notaCapturaForLinea,
   parseOrdenVentaCapturaObservaciones,
+  stripSurtidoFotoQrFromNotas,
 } from "../utils/build-orden-venta-captura-observaciones";
 import { filterLineasByOrdenTrabajoHija } from "../utils/filter-lineas-by-orden-trabajo";
 import {
@@ -22,17 +23,59 @@ import {
 import {
   extractNotasClaveCorreo,
   fitNotasGeneralesPdf,
+  looksLikeEmailHeaderJunk,
+  sanitizeNotasGeneralesPedido,
 } from "../utils/texto-origen-pedido";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
 export const PRODUCTOS_POR_HOJA_TAREA = 49;
 
+/** Formato meta del PDF: dd/mm/aaaa HH:mm (hora local). */
 export function formatOrdenTareaImpresaAt(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear());
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${day}/${month} ${hours}:${minutes}`;
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+}
+
+/**
+ * Fecha/hora de creación de la OV (`created_at`).
+ * No usa la hora de impresión como fallback (evitar Creada ≈ Impresa).
+ */
+export function resolveOrdenTareaCreadaAt(input: {
+  createdAt?: string | null;
+  fechaPedido?: string | null;
+}): Date | null {
+  for (const raw of [input.createdAt, input.fechaPedido]) {
+    if (!raw?.trim()) continue;
+    const date = new Date(raw);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  return null;
+}
+
+/** Marca «Impresa» con el instante actual (al generar/imprimir el PDF). */
+export function stampOrdenTareaImpresaNow(
+  sheets: readonly OrdenTareaAlmacenPrintData[],
+  at: Date = new Date(),
+): OrdenTareaAlmacenPrintData[] {
+  const impresa = formatOrdenTareaImpresaAt(at);
+  return sheets.map((sheet) => ({ ...sheet, impresa }));
+}
+
+/** Texto meta del PDF: creación + impresión. */
+export function formatOrdenTareaPageMeta(input: {
+  creada: string;
+  impresa: string;
+}): string {
+  const creada = input.creada.trim();
+  const impresa = input.impresa.trim();
+  if (creada && impresa) return `Creada ${creada}  ·  Impresa ${impresa}`;
+  if (creada) return `Creada ${creada}`;
+  if (impresa) return `Impresa ${impresa}`;
+  return "";
 }
 
 function formatFechaEntrega(value: string | null | undefined): string {
@@ -95,10 +138,14 @@ function resolveNotasGenerales(input: {
   origenTexto: string;
   notasAlmacen: string;
 }): string {
-  const deCorreo = extractNotasClaveCorreo(input.origenTexto);
-  const deAlmacen = input.notasAlmacen.trim();
-  const almacenEsSurtido = /surtido\s*\(\s*foto\s*qr\s*\)/i.test(deAlmacen);
-  return fitNotasGeneralesPdf(deCorreo || (almacenEsSurtido ? "" : deAlmacen));
+  // PDF: preferir especificaciones del correo; si no hay, notas de captura.
+  const deCorreo = fitNotasGeneralesPdf(
+    extractNotasClaveCorreo(input.origenTexto),
+  );
+  if (deCorreo && !looksLikeEmailHeaderJunk(deCorreo)) return deCorreo;
+  return sanitizeNotasGeneralesPedido(
+    stripSurtidoFotoQrFromNotas(input.notasAlmacen),
+  );
 }
 function formatHoraEntrega(input: {
   ventanaDesde?: string | null;
@@ -117,10 +164,16 @@ function formatHoraEntrega(input: {
 function mapLineasPrint(
   lineas: readonly OrdenVentaLineaRow[],
   notasLineas: string,
+  hija?: OrdenTrabajoHija | null,
 ): OrdenTareaAlmacenPrintData["lineas"] {
   return lineas.map((linea) => {
     const producto = resolveOrdenVentaLineaTitulo(linea);
-    const nota = notaCapturaForProducto(notasLineas, producto);
+    const nota = notaCapturaForLinea(notasLineas, {
+      nombre: producto,
+      cantidad: linea.cantidad_pedida,
+      otId: hija?.id,
+      allowUnscoped: !hija,
+    });
     return {
       producto,
       especificacion: nota,
@@ -148,6 +201,12 @@ function buildBaseSheet(input: {
       tareaIndex,
       tareaTotal,
       folio: listRow.venta,
+      creada: (() => {
+        const created = resolveOrdenTareaCreadaAt({
+          createdAt: listRow.fecha,
+        });
+        return created ? formatOrdenTareaImpresaAt(created) : "";
+      })(),
       impresa: formatOrdenTareaImpresaAt(printedAt),
       cliente: listRow.comprador,
       centroConsumo: hija?.almacen ?? "",
@@ -174,6 +233,13 @@ function buildBaseSheet(input: {
     tareaIndex,
     tareaTotal,
     folio: detalle.codigo,
+    creada: (() => {
+      const created = resolveOrdenTareaCreadaAt({
+        createdAt: detalle.created_at,
+        fechaPedido: detalle.fecha_pedido,
+      });
+      return created ? formatOrdenTareaImpresaAt(created) : "";
+    })(),
     impresa: formatOrdenTareaImpresaAt(printedAt),
     cliente: formatCompradorNombreOrdenVenta(detalle),
     centroConsumo:
@@ -212,6 +278,7 @@ function buildBaseSheet(input: {
     lineas: mapLineasPrint(
       lineas,
       detalle.notas_lineas?.trim() || captura.notasLineas,
+      hija,
     ),
   };
 }

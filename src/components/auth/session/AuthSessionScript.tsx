@@ -8,7 +8,7 @@ import { SESSION_MAX_AGE_MS } from "@/lib/auth/auth-session-timeout";
  * Script síncrono que corre antes de React.
  * - Importa sesión desde #polaria-auth= (SSO Mateo → WMS).
  * - Fuerza polaria-auth solo en localStorage (nunca sessionStorage).
- * - Purga sesiones de más de 23 días (o legacy sin marca de inicio).
+ * - Purga sesiones de más de 7 días (o legacy sin marca de inicio).
  * - Evita que bfcache muestre rutas protegidas sin sesión.
  */
 export function AuthSessionScript() {

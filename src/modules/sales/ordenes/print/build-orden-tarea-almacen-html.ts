@@ -188,29 +188,28 @@ export function buildOrdenTareaAlmacenHtml(
 </head>
 <body>
 <div class="sheet">
-  <div class="page-meta mono">Impresa ${fieldValue(data.impresa)}</div>
+  <div class="page-meta mono">Creada ${fieldValue(data.creada)}  ·  Impresa ${fieldValue(data.impresa)}</div>
   <table class="hdr"><tr>
     <td class="fields">
       <table class="hdr-grid">
         <colgroup><col><col><col></colgroup>
         <tr>
           <td class="ov">
-            <label>Tarea de Almacen</label>
+            <label>Orden de venta</label>
             <div class="v mono">${folio}</div>
           </td>
-          <td class="split">
-            <div class="split-row">
-              <div class="split-half">
-                <label># de orden del cliente</label>
-                <div class="v">${fieldValue(data.numeroOrdenCliente)}</div>
-              </div>
-              <div class="split-half">
-                <label>Orden de trabajo</label>
-                <div class="v">${fieldValue(data.ordenTrabajo || "1/1")}</div>
-              </div>
-            </div>
+          <td>
+            <label>Orden de trabajo</label>
+            <div class="v">${fieldValue(data.ordenTrabajo || "1/1")}</div>
           </td>
           <td><label>Factura asociada</label><div class="v mono">_______________</div></td>
+        </tr>
+        <tr>
+          <td class="ov" colspan="2">
+            <label># de orden del cliente</label>
+            <div class="v">${fieldValue(data.numeroOrdenCliente)}</div>
+          </td>
+          <td></td>
         </tr>
         <tr>
           <td class="hi"><label>Cliente</label><div class="v">${fieldValue(data.cliente)}</div></td>

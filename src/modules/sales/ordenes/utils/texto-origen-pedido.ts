@@ -7,10 +7,32 @@ const LEGAL_CUT_MARKERS = [
 ];
 
 const FORWARD_HEADER_END =
-  /^(?:-+)\s*Forwarded message\s*(?:-+)\s*$/im;
+  /^(?:-+)\s*Forwarded message\s*(?:-+)\.?\s*$/im;
 
 const HEADER_START =
-  /^(?:De|From|Date|Fecha|Subject|Asunto|To|Para|Cc|Cco|Bcc|Enviado el|Sent):/i;
+  /^(?:\*+)?(?:De|From|Date|Fecha|Subject|Asunto|To|Para|Cc|Cco|Bcc|Enviado el|Sent)(?:\*+)?\s*:/i;
+
+/** Reparte cabeceras de forward aplanadas en líneas para poder limpiarlas. */
+function rebreakFlattenedCorreo(raw: string): string {
+  return raw
+    .replace(/\r\n/g, "\n")
+    .replace(/\s*(-{3,}\s*Forwarded message\s*-{3,})\.?\s*/gi, "\n$1\n")
+    .replace(
+      /\s+(\*?(?:De|From|Date|Fecha|Subject|Asunto|To|Para|Cc|Cco|Bcc|Enviado el|Sent)\*?\s*:)/gi,
+      "\n$1",
+    )
+    .replace(/\s+(-{5,})\.?\s*/g, "\n$1\n");
+}
+
+function isEmailChromeLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (FORWARD_HEADER_END.test(trimmed)) return true;
+  if (/^-+$/.test(trimmed)) return true;
+  if (HEADER_START.test(trimmed)) return true;
+  if (/^\*?(?:De|From)\*?\s*:?\s*$/i.test(trimmed)) return true;
+  return false;
+}
 
 const MAX_TEXTO_ORIGEN_CHARS = 12000;
 
@@ -148,15 +170,23 @@ function normalizeLinePreserveTables(line: string): string {
  * Conserva el espaciado de tablas ASCII para que sigan leyéndose en columnas.
  */
 export function cleanCorreoBodyForNotas(raw: string): string {
-  let text = raw.replace(/\r\n/g, "\n").trim();
+  let text = rebreakFlattenedCorreo(raw).trim();
   if (!text) return "";
 
-  const forwardMatch = FORWARD_HEADER_END.exec(text);
-  if (forwardMatch?.index != null) {
+  // Puede haber varios forwards anidados: nos quedamos con el cuerpo tras el último.
+  let forwardMatch = FORWARD_HEADER_END.exec(text);
+  while (forwardMatch?.index != null) {
     text = text.slice(forwardMatch.index + forwardMatch[0].length).trim();
+    forwardMatch = FORWARD_HEADER_END.exec(text);
   }
 
   text = stripEmailHeadersBlock(text);
+  // Cabeceras sueltas que quedaron tras un forward aplanado.
+  text = text
+    .split("\n")
+    .filter((line) => !isEmailChromeLine(line))
+    .join("\n")
+    .trim();
 
   for (const marker of LEGAL_CUT_MARKERS) {
     const match = marker.exec(text);
@@ -231,6 +261,93 @@ export function fitNotasGeneralesPdf(
   return cut || flat.slice(0, maxChars).trim();
 }
 
+/**
+ * Detecta cuando “notas generales” trae el cuerpo del correo (forward, cabeceras, hilo)
+ * en vez de una nota corta de almacén.
+ */
+export function looksLikeCorreoCuerpoEnNotas(raw: string): boolean {
+  const text = raw.trim();
+  if (!text) return false;
+  if (isCuerpoMensajeFormato(text)) return true;
+  if (/forwarded message/i.test(text)) return true;
+  if (/\b(RV:|Fwd:|FW:)\b/i.test(text) && text.length > 200) return true;
+  const headerHits = (
+    text.match(
+      /(?:^|\n)\s*\*?(?:De|From|Date|Fecha|Subject|Asunto|To|Para|Cc)\*?\s*:/gi,
+    ) ?? []
+  ).length;
+  if (headerHits >= 2) return true;
+  if (/@[\w.-]+\.\w+/.test(text) && text.length > NOTAS_GENERALES_PDF_MAX_CHARS) {
+    return true;
+  }
+  return false;
+}
+
+/** Tras “extraer”, ¿sigue siendo basura de cabeceras de correo? */
+export function looksLikeEmailHeaderJunk(raw: string): boolean {
+  const text = flattenNotasForPdf(raw);
+  if (!text) return false;
+  if (/forwarded message/i.test(text)) return true;
+  if (HEADER_START.test(text)) return true;
+  const stripped = text
+    .replace(/-{3,}.*?-{3,}\.?/gi, " ")
+    .replace(
+      /\*?(?:De|From|Date|Fecha|Subject|Asunto|To|Para|Cc|Cco|Bcc)\*?\s*:[^.]*\.?/gi,
+      " ",
+    )
+    .replace(/[.\-\s*]+/g, " ")
+    .trim();
+  return stripped.length < 16;
+}
+
+/**
+ * Notas generales de almacén.
+ * - Nota corta de Polaria → se respeta.
+ * - Correo / forward → saca especificaciones del cuerpo (`origenTexto` si viene).
+ */
+export function sanitizeNotasGeneralesPedido(
+  raw: string,
+  origenTexto?: string | null,
+): string {
+  const text = raw.trim();
+  const origen = origenTexto?.trim() ?? "";
+
+  if (
+    text &&
+    !looksLikeCorreoCuerpoEnNotas(text) &&
+    !looksLikeEmailHeaderJunk(text)
+  ) {
+    return text;
+  }
+
+  const fromObservaciones = origen
+    ? fitNotasGeneralesPdf(extractObservacionesClienteBlock(origen))
+    : "";
+  if (fromObservaciones && !looksLikeEmailHeaderJunk(fromObservaciones)) {
+    return fromObservaciones;
+  }
+
+  const fromOrigen = origen
+    ? fitNotasGeneralesPdf(extractNotasClaveCorreo(origen))
+    : "";
+  if (fromOrigen && !looksLikeEmailHeaderJunk(fromOrigen)) {
+    return fromOrigen;
+  }
+
+  if (!text) return "";
+  const fromRaw = fitNotasGeneralesPdf(extractNotasClaveCorreo(text));
+  if (fromRaw && !looksLikeEmailHeaderJunk(fromRaw)) return fromRaw;
+  return "";
+}
+
+/** Títulos de sección que suelen llevar notas útiles del cliente (cotizaciones/PDF). */
+const OBSERVACIONES_CLIENTE_HEADER =
+  /^(?:observaciones(?:\s+del\s+cliente)?|notas(?:\s+del\s+cliente)?|comentarios(?:\s+del\s+cliente)?|indicaciones(?:\s+del\s+cliente)?|instrucciones(?:\s+del\s+cliente)?|aviso(?:s)?(?:\s+al\s+almace[nñ])?|notas\s+generales)\s*:?\s*$/i;
+
+/** Siguiente sección del PDF de cotización que corta el bloque de observaciones. */
+const OBSERVACIONES_SECTION_END =
+  /^(?:horario\s+de\s+recepci[oó]n|madurez|venta\s+por\s+pieza|vigencia|datos\s+del\s+cliente|factura\s+fiscal|condiciones|pol[ií]tica)\s*:?\s*$/i;
+
 function salvageSpecFromLine(line: string): string {
   const trimmed = line.trim().replace(/[:.]+$/, "");
   const entregar = /para entregar\s+(.+)/i.exec(trimmed);
@@ -244,11 +361,97 @@ function salvageSpecFromLine(line: string): string {
 }
 
 /**
+ * Si el texto trae «Observaciones del cliente» (u homólogos), prioriza ese bloque.
+ */
+export function extractObservacionesClienteBlock(raw: string): string {
+  const lines = raw.replace(/\r\n/g, "\n").split("\n");
+  const kept: string[] = [];
+  let inBlock = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim().replace(/^[-•*]\s*/, "").trim();
+    if (!trimmed) {
+      if (inBlock && kept.length > 0) break;
+      continue;
+    }
+    if (OBSERVACIONES_CLIENTE_HEADER.test(trimmed)) {
+      inBlock = true;
+      continue;
+    }
+    if (inBlock) {
+      if (OBSERVACIONES_SECTION_END.test(trimmed)) break;
+      if (isGreetingOrFillerLine(trimmed) && !/madur|enrriad|verde|firme|hielo/i.test(trimmed)) {
+        continue;
+      }
+      kept.push(trimmed);
+    }
+  }
+
+  return flattenNotasForPdf(kept.join(". "));
+}
+
+/** Compacta trozos “el DATE en PLACE” + “Hora de entrega TIME” al estilo Polaria. */
+function formatNotasEntregaAlmacen(parts: readonly string[]): string {
+  const flat = parts.map((p) => p.trim()).filter(Boolean);
+  if (flat.length === 0) return "";
+
+  let fecha = "";
+  let destino = "";
+  let hora = "";
+  const other: string[] = [];
+
+  for (const part of flat) {
+    const entregaEn =
+      /^(?:el\s+)?(\d{1,2}\s+DE\s+[A-ZÁÉÍÓÚÑ]+(?:\s+DE\s+\d{4})?)\s+en\s+(.+)$/i.exec(
+        part,
+      );
+    if (entregaEn) {
+      fecha = entregaEn[1]!.trim();
+      destino = entregaEn[2]!.trim().replace(/[:.]+$/, "");
+      continue;
+    }
+    const horaMatch =
+      /^hora de entrega\s+(.+)$/i.exec(part) ||
+      /^(?:a\s+las\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm|hrs?|h)?)$/i.exec(part);
+    if (horaMatch && /^hora de entrega/i.test(part)) {
+      hora = horaMatch[1]!.trim();
+      continue;
+    }
+    other.push(part);
+  }
+
+  const composed: string[] = [];
+  if (fecha) {
+    composed.push(
+      hora
+        ? `Entrega ${fecha} a las ${hora}`
+        : `Entrega ${fecha}`,
+    );
+  } else if (hora) {
+    composed.push(`Hora de entrega ${hora}`);
+  }
+  if (destino) composed.push(`Destino: ${destino}`);
+  composed.push(...other);
+  return flattenNotasForPdf(composed.join(". "));
+}
+
+/**
  * Solo lo clave del correo para notas generales del PDF:
  * prosa útil (notas/especificaciones), sin tablas de productos ni saludos.
  */
 export function extractNotasClaveCorreo(raw: string): string {
-  const blocks = parseOrigenPedidoBlocks(raw);
+  const prepared = cleanCorreoBodyForNotas(raw);
+  // Prioridad: bloque «Observaciones del cliente» (cotizaciones / PDF).
+  const fromObservaciones = extractObservacionesClienteBlock(
+    isCuerpoMensajeFormato(raw) ? raw : prepared,
+  );
+  if (fromObservaciones) {
+    return fitNotasGeneralesPdf(fromObservaciones);
+  }
+
+  const blocks = parseOrigenPedidoBlocks(
+    isCuerpoMensajeFormato(raw) ? raw : prepared,
+  );
   const prose = blocks
     .filter((block): block is { type: "text"; text: string } => block.type === "text")
     .map((block) => block.text)
@@ -260,6 +463,8 @@ export function extractNotasClaveCorreo(raw: string): string {
   for (const line of prose.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
+    if (OBSERVACIONES_CLIENTE_HEADER.test(trimmed)) continue;
+    if (isEmailChromeLine(trimmed)) continue;
     if (isGreetingOrFillerLine(trimmed)) {
       const salvage = salvageSpecFromLine(trimmed);
       if (salvage) kept.push(salvage);
@@ -268,7 +473,8 @@ export function extractNotasClaveCorreo(raw: string): string {
     kept.push(trimmed);
   }
 
-  return flattenNotasForPdf(kept.join(". "));
+  const formatted = formatNotasEntregaAlmacen(kept);
+  return formatted || flattenNotasForPdf(kept.join(". "));
 }
 
 function parseCuerpoMensajeFormato(raw: string): OrigenPedidoBlock[] | null {

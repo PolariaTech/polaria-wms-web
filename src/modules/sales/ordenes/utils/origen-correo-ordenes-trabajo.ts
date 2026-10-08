@@ -24,6 +24,22 @@ export interface OrigenCorreoRenglon {
   "Responsable externo"?: string;
   "Responsable interno"?: string;
   "Referencia del cliente"?: string;
+  /** Ventana de entrega (hora desde), ej. "06:00". */
+  "Ventana desde"?: string;
+  /** Ventana de entrega (hora hasta), ej. "06:00". */
+  "Ventana hasta"?: string;
+  /** Dirección / destino de entrega. */
+  "Direccion entrega"?: string;
+  /** Destino corto (ej. Parque Xcaret) si no hay dirección completa. */
+  Destino?: string;
+  /** Andén / punto de recepción. */
+  Anden?: string;
+  /** Teléfono del contacto de entrega. */
+  "Telefono contacto"?: string;
+  /** Prioridad del pedido (Normal / Urgente). */
+  Prioridad?: string;
+  /** Notas generales / instrucciones de entrega. */
+  "Notas generales"?: string;
   /** Índice en el array original / vínculo con línea del formulario. */
   _lineaIndex?: number;
 }
@@ -151,4 +167,58 @@ export function normalizeIdOrdenTrabajo(
   value: string | null | undefined,
 ): string {
   return (value ?? "").trim();
+}
+
+/**
+ * Parsea la clave `pedido:…|almacen:…` (o `ref:…`) a campos legibles.
+ * El almacén de la clave es el centro de consumo de la OT.
+ */
+export function parseIdOrdenTrabajoFields(idOrdenTrabajo: string): {
+  numeroPedido: string;
+  centroConsumo: string;
+  label: string;
+} {
+  const raw = normalizeIdOrdenTrabajo(idOrdenTrabajo);
+  if (!raw) {
+    return {
+      numeroPedido: "",
+      centroConsumo: "",
+      label: "Hoja (sin OT)",
+    };
+  }
+
+  const pedidoMatch = raw.match(/pedido:([^|]+)/i);
+  const almacenMatch = raw.match(/almacen:([^|]+)/i);
+  const refMatch = raw.match(/ref:([^|]+)/i);
+
+  const numeroPedido = (pedidoMatch?.[1] ?? "").trim();
+  const centroConsumo = (almacenMatch?.[1] ?? "").trim();
+  const referencia = (refMatch?.[1] ?? "").trim();
+
+  const pedido =
+    numeroPedido && numeroPedido !== "_" ? numeroPedido : "";
+  const centro =
+    centroConsumo && centroConsumo !== "_" ? centroConsumo : "";
+
+  if (pedido && centro) {
+    return {
+      numeroPedido: pedido,
+      centroConsumo: centro,
+      label: `${pedido} — ${centro}`,
+    };
+  }
+  if (centro) {
+    return { numeroPedido: pedido, centroConsumo: centro, label: centro };
+  }
+  if (pedido) {
+    return { numeroPedido: pedido, centroConsumo: "", label: pedido };
+  }
+  if (referencia && referencia !== "_") {
+    return {
+      numeroPedido: "",
+      centroConsumo: "",
+      label: referencia,
+    };
+  }
+  return { numeroPedido: "", centroConsumo: "", label: raw };
 }

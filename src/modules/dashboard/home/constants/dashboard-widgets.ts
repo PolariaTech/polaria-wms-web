@@ -37,7 +37,7 @@ export const DASHBOARD_WIDGETS: Record<
     title: "OV pendientes",
     description: "Órdenes de venta en preparación o despacho parcial",
     icon: ShoppingCart,
-    href: ROUTES.dashboardVentas,
+    href: ROUTES.dashboardVentasOrdenes,
     kind: "metric",
   },
   "sol-compra": {
@@ -92,7 +92,7 @@ export const DASHBOARD_WIDGETS: Record<
     kind: "actions",
     quickActions: [
       { label: "Mapa de bodega", href: ROUTES.dashboardMapa },
-      { label: "Ventas / despacho", href: ROUTES.dashboardVentas },
+      { label: "Ventas / despacho", href: ROUTES.dashboardVentasOrdenes },
     ],
   },
   "cola-procesamiento": {

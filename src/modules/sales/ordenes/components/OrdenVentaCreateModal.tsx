@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Replace, Trash2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -45,6 +45,7 @@ import { useCompany } from "@/providers/tenant/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
 import {
   CATALOGO_VENTA_EMPTY_MESSAGE,
+  normalizeEstadoOrdenVenta,
 } from "../../shared/constants/sales-status";
 import { fetchProductosVentaCatalogo } from "../../shared/services/sales-catalog.api";
 import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
@@ -71,12 +72,21 @@ import { OrigenPedidoSourceView } from "./OrigenPedidoBodyView";
 import {
   buildOrdenVentaCapturaObservaciones,
   isAfterWarehouseCutoff,
-  notaCapturaForProducto,
+  buildNotasLineasText,
+  notaCapturaForLinea,
+  parseOrdenVentaCapturaObservaciones,
+  stripSurtidoFotoQrFromNotas,
   todayIsoDate,
   tomorrowIsoDate,
 } from "../utils/build-orden-venta-captura-observaciones";
 import {
+  assignOtIdsToFormLineas,
+  filterLineasByOrdenTrabajoHija,
+} from "../utils/filter-lineas-by-orden-trabajo";
+import { resolveSkuVisible } from "../utils/resolve-sku-visible";
+import {
   groupOrigenCorreoToOrdenesTrabajo,
+  parseOrigenCorreoJson,
   type OrigenCorreoRenglon,
   type OrdenTrabajoHija,
 } from "../utils/origen-correo-ordenes-trabajo";
@@ -87,12 +97,21 @@ import {
   validatePedidoCabecera,
 } from "../utils/pedido-form-validation";
 import { hasOtPagerRequiredBlocking } from "../utils/ot-pager-required";
-import { cleanCorreoBodyForNotas, isCuerpoMensajeFormato } from "../utils/texto-origen-pedido";
+import {
+  cleanCorreoBodyForNotas,
+  isCuerpoMensajeFormato,
+  sanitizeNotasGeneralesPedido,
+} from "../utils/texto-origen-pedido";
 import {
   mapPedidoExtraidoToForm,
   type CampoDiscrepancia,
 } from "../utils/map-pedido-extraido-to-form";
-import { matchCompradorFromNombre } from "../utils/match-comprador-from-nombre";
+import { buildMatchProductoLinea } from "../utils/build-match-producto";
+import {
+  rankCompradoresFromNombre,
+  shouldAutoAssignComprador,
+} from "../utils/match-comprador-from-nombre";
+import { buildPedidoExtraidoFromOrigenCorreo } from "../utils/pedido-from-origen-correo";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/prefill-orden-venta-from-comprador";
 import {
   formatCompradorOrdenVenta,
@@ -106,9 +125,19 @@ interface OrdenVentaCreateModalProps {
   idOrdenVenta?: string | null;
 }
 
-type CaptureStep = "start" | "preview" | "form";
+type CaptureStep = "start" | "preview" | "pickOt" | "form";
 type StartMode = "first_time" | "scratch" | "docs";
 type PickerKind = "comprador" | "producto" | "moneda" | "bodega" | null;
+
+interface LineaSugerenciaCatalogo {
+  idProducto: string;
+  nombre: string;
+  codigo: string;
+  idBodega: string;
+  kgDisponible: number;
+  unidadMedida: string;
+  precioUnitario: number;
+}
 
 interface LineaVentaForm {
   idProducto: string;
@@ -130,6 +159,12 @@ interface LineaVentaForm {
   filledByIa?: boolean;
   /** Clave de orden de trabajo para paginar el formulario docs. */
   otId?: string;
+  /** Sin producto de catálogo asignado (flujo Mateo / docs). */
+  catalogPending?: boolean;
+  /** Varios productos del catálogo se parecen. */
+  catalogAmbiguo?: boolean;
+  sugerencia?: LineaSugerenciaCatalogo | null;
+  sugerenciasAlternativas?: LineaSugerenciaCatalogo[];
 }
 
 function fieldControlClass(params: {
@@ -250,6 +285,51 @@ function resolveBodegaDestinoInicial(
   return "";
 }
 
+function sugerenciaToOption(
+  sug: LineaSugerenciaCatalogo,
+): ProductoVentaOption {
+  return {
+    idProducto: sug.idProducto,
+    label: `${sug.nombre} (${sug.codigo})`,
+    idCliente: null,
+    idBodega: sug.idBodega,
+    codigo: sug.codigo,
+    nombre: sug.nombre,
+    kgDisponible: sug.kgDisponible,
+    precioUnitario: sug.precioUnitario,
+    unidadMedida: sug.unidadMedida,
+  };
+}
+
+function applyProductoToLinea(
+  linea: LineaVentaForm,
+  row: ProductoVentaOption,
+): LineaVentaForm {
+  const keepPrecio =
+    Boolean(linea.precioManual) &&
+    linea.precioUnitario > 0 &&
+    linea.precioInput.trim().length > 0;
+  return {
+    ...linea,
+    idProducto: row.idProducto,
+    nombre: stripLeadingProductoCodigo(row.nombre, row.codigo),
+    codigo: row.codigo,
+    idBodega: row.idBodega,
+    kgDisponible: row.kgDisponible,
+    unidadMedida: row.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+    precioUnitario: keepPrecio ? linea.precioUnitario : row.precioUnitario,
+    precioInput: keepPrecio
+      ? linea.precioInput
+      : formatPrecioInput(row.precioUnitario),
+    precioManual: keepPrecio,
+    catalogPending: false,
+    catalogAmbiguo: false,
+    sugerencia: null,
+    sugerenciasAlternativas: [],
+    filledByIa: false,
+  };
+}
+
 function formatPrecioInput(value: number): string {
   if (!Number.isFinite(value) || value === 0) return "";
   return formatDecimalInputEs(value);
@@ -363,8 +443,13 @@ export function OrdenVentaCreateModal({
   const [pendingEmitId, setPendingEmitId] = useState<string | null>(null);
   const [editingEstado, setEditingEstado] = useState<string | null>(null);
   const [picker, setPicker] = useState<PickerKind>(null);
+  /** Índice de línea a reemplazar en el picker de producto; null = agregar. */
+  const [replaceLineaIndex, setReplaceLineaIndex] = useState<number | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [formDataReady, setFormDataReady] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isReadingIa, setIsReadingIa] = useState(false);
   const [isDocsDropActive, setIsDocsDropActive] = useState(false);
@@ -374,6 +459,14 @@ export function OrdenVentaCreateModal({
     null,
   );
   const [exigeOc, setExigeOc] = useState(false);
+  /** Nombre de cliente que Mateo leyó cuando no hubo match exacto. */
+  const [compradorNombreIa, setCompradorNombreIa] = useState<string | null>(
+    null,
+  );
+  /** Sugerencias fuzzy de compradores (más cercanas al texto de Mateo). */
+  const [compradorSugerencias, setCompradorSugerencias] = useState<
+    CompradorListRow[]
+  >([]);
   const [autoFields, setAutoFields] = useState<Set<string>>(() => new Set());
   const [warnFields, setWarnFields] = useState<Set<string>>(() => new Set());
   const [missingFields, setMissingFields] = useState<Set<string>>(
@@ -387,6 +480,7 @@ export function OrdenVentaCreateModal({
   const skipDiscrepanciaConfirmRef = useRef(false);
   const skipSaveConfirmRef = useRef(false);
   const docsFileInputRef = useRef<HTMLInputElement | null>(null);
+  const bootstrapPromiseRef = useRef<Promise<void> | null>(null);
   const [cantidadFocusId, setCantidadFocusId] = useState<string | null>(null);
 
   const hasProductos = productos.length > 0;
@@ -414,18 +508,42 @@ export function OrdenVentaCreateModal({
     () =>
       productos.filter(
         (producto) =>
-          !lineas.some((linea) => linea.idProducto === producto.idProducto),
+          !lineas.some(
+            (linea) =>
+              Boolean(linea.idProducto) &&
+              linea.idProducto === producto.idProducto,
+          ),
       ),
     [lineas, productos],
   );
 
+  const productosParaPicker = useMemo(() => {
+    if (replaceLineaIndex == null) return productosParaAgregar;
+    const currentId = lineas[replaceLineaIndex]?.idProducto ?? "";
+    return productos.filter(
+      (producto) =>
+        producto.idProducto === currentId ||
+        !lineas.some(
+          (linea, i) =>
+            i !== replaceLineaIndex &&
+            Boolean(linea.idProducto) &&
+            linea.idProducto === producto.idProducto,
+        ),
+    );
+  }, [lineas, productos, productosParaAgregar, replaceLineaIndex]);
+
   const puedeAgregarProducto = productosParaAgregar.length > 0;
+  const hasCatalogPending = lineas.some(
+    (linea) => linea.catalogPending || !linea.idProducto,
+  );
 
   useEffect(() => {
     setLineas((prev) => {
       let changed = false;
       const next = prev.map((linea) => {
-        if (linea.precioManual) return linea;
+        if (linea.precioManual || !linea.idProducto || linea.catalogPending) {
+          return linea;
+        }
         const override = precioOverrideByProducto[linea.idProducto];
         if (override != null) {
           if (linea.precioUnitario === override) return linea;
@@ -484,26 +602,85 @@ export function OrdenVentaCreateModal({
     const hija =
       hijaFormActiva ??
       (ordenesTrabajoForm.length === 1 ? ordenesTrabajoForm[0] : null);
-    const almacen = hija?.almacen?.trim() || "";
-    if (!almacen) return;
+    if (!hija) return;
 
-    setCentroConsumo(almacen);
+    const first = hija.renglones[0];
+    const almacen =
+      hija.almacen?.trim() ||
+      first?.Almacen?.trim() ||
+      first?.["Numero almacen"]?.trim() ||
+      "";
+    if (almacen) {
+      setCentroConsumo(almacen);
+    }
+    if (hija.numeroPedido?.trim()) {
+      setOrdenCompraHotel(hija.numeroPedido.trim());
+    }
+    const fechaHija = toDateInputValue(hija.fecha);
+    const fechaIso = /^\d{4}-\d{2}-\d{2}$/.test(fechaHija) ? fechaHija : "";
+    if (fechaIso) {
+      setFechaEntrega(fechaIso);
+    }
+    const contactoHija =
+      hija.responsableExterno?.trim() ||
+      first?.["Responsable externo"]?.trim() ||
+      "";
+    if (contactoHija) {
+      setContacto(contactoHija);
+    }
+    const telefonoHija = first?.["Telefono contacto"]?.trim() || "";
+    if (telefonoHija) setTelefono(telefonoHija);
+    const direccionHija =
+      first?.["Direccion entrega"]?.trim() || first?.Destino?.trim() || "";
+    if (direccionHija) setDireccion(direccionHija);
+    const andenHija = first?.Anden?.trim() || "";
+    if (andenHija) setAnden(andenHija);
+    const ventanaDesdeHija = first?.["Ventana desde"]?.trim() || "";
+    if (ventanaDesdeHija) setVentanaDesde(ventanaDesdeHija);
+    const ventanaHastaHija = first?.["Ventana hasta"]?.trim() || "";
+    if (ventanaHastaHija) setVentanaHasta(ventanaHastaHija);
+    const notasHija = first?.["Notas generales"]?.trim() || "";
+    if (notasHija) setObservaciones(notasHija);
+    const prioridadHija = first?.Prioridad?.trim() || "";
+    if (prioridadHija) setPrioridad(prioridadHija);
+
     setAutoFields((prev) => {
-      if (prev.has("centroConsumo")) return prev;
       const next = new Set(prev);
-      next.add("centroConsumo");
+      if (almacen) next.add("centroConsumo");
+      if (hija.numeroPedido?.trim()) next.add("ordenCompraHotel");
+      if (fechaIso) next.add("fechaEntrega");
+      if (contactoHija) next.add("contacto");
+      if (telefonoHija) next.add("telefono");
+      if (direccionHija) next.add("direccion");
+      if (andenHija) next.add("anden");
+      if (ventanaDesdeHija) next.add("ventanaDesde");
+      if (ventanaHastaHija) next.add("ventanaHasta");
       return next;
     });
     setWarnFields((prev) => {
-      if (!prev.has("centroConsumo")) return prev;
       const next = new Set(prev);
       next.delete("centroConsumo");
+      next.delete("ordenCompraHotel");
+      next.delete("fechaEntrega");
+      next.delete("contacto");
+      next.delete("telefono");
+      next.delete("direccion");
+      next.delete("anden");
+      next.delete("ventanaDesde");
+      next.delete("ventanaHasta");
       return next;
     });
     setMissingFields((prev) => {
-      if (!prev.has("centroConsumo")) return prev;
       const next = new Set(prev);
       next.delete("centroConsumo");
+      next.delete("ordenCompraHotel");
+      next.delete("fechaEntrega");
+      next.delete("contacto");
+      next.delete("telefono");
+      next.delete("direccion");
+      next.delete("anden");
+      next.delete("ventanaDesde");
+      next.delete("ventanaHasta");
       return next;
     });
   }, [
@@ -516,11 +693,86 @@ export function OrdenVentaCreateModal({
   const lineasConIndice = useMemo(() => {
     const indexed = lineas.map((linea, index) => ({ linea, index }));
     if (!hijaFormActiva) return indexed;
-    const filtradas = indexed.filter(
+
+    const byOtId = indexed.filter(
       ({ linea }) => linea.otId === hijaFormActiva.id,
     );
-    return filtradas.length > 0 ? filtradas : indexed;
+    if (byOtId.length > 0) return byOtId;
+
+    // Fallback: emparejar por nombre/código/cantidad (igual que el detalle).
+    const wrapped = indexed.map(({ linea, index }) => ({
+      index,
+      linea,
+      cantidad_pedida: parseDecimalEs(linea.cantidadInput) ?? 0,
+      matchNombre: linea.aliasCliente || linea.nombre,
+      matchCodigo: linea.codigo,
+      producto: {
+        sku: linea.codigo,
+        descripcion: linea.aliasCliente || linea.nombre,
+        metadatos_catalogo: null,
+      },
+    }));
+    return filterLineasByOrdenTrabajoHija(wrapped, hijaFormActiva, {
+      emptyFallback: "none",
+    }).map(({ linea, index }) => ({ linea, index }));
   }, [hijaFormActiva, lineas]);
+
+  // Si el filtro OT dejó la página vacía, materializa líneas desde origen_correo.
+  const seededOtIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!open) {
+      seededOtIdsRef.current = new Set();
+      return;
+    }
+    if (step !== "form" || !hijaFormActiva) return;
+    if (hijaFormActiva.renglones.length === 0) return;
+    if (seededOtIdsRef.current.has(hijaFormActiva.id)) return;
+
+    const hasForOt = lineas.some(
+      (linea) => linea.otId === hijaFormActiva.id,
+    );
+    if (hasForOt) {
+      seededOtIdsRef.current.add(hijaFormActiva.id);
+      return;
+    }
+
+    const seeded: LineaVentaForm[] = hijaFormActiva.renglones.map((row) => {
+      const qty = parseDecimalEs(String(row.Cantidad ?? "")) ?? 0;
+      const precio =
+        typeof row.Precio === "number"
+          ? row.Precio
+          : (parseDecimalEs(String(row.Precio ?? "")) ?? 0);
+      const nombre = row.Producto?.trim() || "Producto del correo";
+      const codigo = row["Codigo producto"]?.trim() || "—";
+      return {
+        idProducto: "",
+        nombre,
+        codigo,
+        idBodega: "",
+        cantidadInput: qty > 0 ? formatDecimalInputEs(qty) : "",
+        cajasInput: "",
+        presentacion: "",
+        especificacion: "",
+        descuentoPctInput: "",
+        ivaPct: "0",
+        kgDisponible: 0,
+        unidadMedida: UNIDAD_MEDIDA_VENTA_DEFAULT,
+        precioUnitario: precio,
+        precioInput: formatPrecioInput(precio),
+        precioManual: precio > 0,
+        aliasCliente: nombre,
+        filledByIa: true,
+        otId: hijaFormActiva.id,
+        catalogPending: true,
+        catalogAmbiguo: false,
+        sugerencia: null,
+        sugerenciasAlternativas: [],
+      };
+    });
+
+    seededOtIdsRef.current.add(hijaFormActiva.id);
+    setLineas((prev) => [...prev, ...seeded]);
+  }, [hijaFormActiva, lineas, open, step]);
 
   const lineasParaTotales = useMemo(
     () => lineasConIndice.map(({ linea }) => linea),
@@ -596,6 +848,8 @@ export function OrdenVentaCreateModal({
     setIsCompradorCreateOpen(false);
     setIdComprador("");
     setCompradorLabel("");
+    setCompradorNombreIa(null);
+    setCompradorSugerencias([]);
     selectedCompradorIdRef.current = "";
     setFechaEntrega("");
     setVentanaDesde("");
@@ -631,6 +885,7 @@ export function OrdenVentaCreateModal({
     setPendingEmitId(null);
     setEditingEstado(null);
     setPicker(null);
+    setReplaceLineaIndex(null);
     setAutoFields(new Set());
     setWarnFields(new Set());
     setMissingFields(new Set());
@@ -649,9 +904,19 @@ export function OrdenVentaCreateModal({
 
     if (!codigoCuenta) return;
 
-    setIsLoading(true);
+    // Pedido nuevo: mostrar «¿Cómo quieres empezar?» al instante.
+    // Edición: sí bloqueamos hasta tener detalle + catálogo.
+    // OV externa por_confirmar: pantalla Mateo mientras interpreta origen_correo.
+    setFormDataReady(false);
+    if (isEditing) {
+      setIsLoading(true);
+      setIsReadingIa(true);
+    } else {
+      // Evita spinner residual de una edición/apertura previa.
+      setIsLoading(false);
+    }
 
-    void Promise.all([
+    const bootstrap = Promise.all([
       fetchProductosVentaCatalogo(codigoCuenta),
       listCompradoresAdmin({ codigoCuenta }),
       listBodegasInternasVinculadasAdmin({ codigoCuenta }),
@@ -660,8 +925,7 @@ export function OrdenVentaCreateModal({
       editingId
         ? getOrdenVentaDetalle({ codigoCuenta, idOrdenVenta: editingId })
         : Promise.resolve(null),
-    ])
-      .then(
+    ]).then(
         ([
           productoRows,
           compradorRows,
@@ -707,7 +971,14 @@ export function OrdenVentaCreateModal({
         setMoneda(detalle.moneda?.trim() || "MXN");
         setOrdenCompraHotel(detalle.orden_compra_hotel?.trim() || "");
         setCentroConsumo(detalle.centro_consumo?.trim() || "");
-        setObservaciones(detalle.notas_almacen?.trim() || "");
+        setObservaciones(
+          sanitizeNotasGeneralesPedido(
+            stripSurtidoFotoQrFromNotas(detalle.notas_almacen ?? "") ||
+              parseOrdenVentaCapturaObservaciones(detalle.observaciones)
+                .observaciones,
+            detalle.origen_texto,
+          ),
+        );
         setDireccion(detalle.direccion_entrega?.trim() || "");
         setAnden(detalle.anden?.trim() || "");
         setContacto(detalle.contacto_entrega?.trim() || "");
@@ -726,29 +997,158 @@ export function OrdenVentaCreateModal({
             return isCuerpoMensajeFormato(raw) ? raw : cleanCorreoBodyForNotas(raw);
           })(),
         );
-        const origenCorreoRows = Array.isArray(detalle.origen_correo)
-          ? (detalle.origen_correo as OrigenCorreoRenglon[])
-          : [];
+        const origenCorreoRows = parseOrigenCorreoJson(detalle.origen_correo);
+        const hijasEdit = groupOrigenCorreoToOrdenesTrabajo(origenCorreoRows);
         setOrigenCorreoDraft(origenCorreoRows);
-        setOrdenesTrabajoPreview(
-          groupOrigenCorreoToOrdenesTrabajo(origenCorreoRows),
-        );
+        setOrdenesTrabajoPreview(hijasEdit);
         if (detalle.id_bodega_destino?.trim()) {
           setIdBodegaDestino(detalle.id_bodega_destino.trim());
         }
 
-        const notasLineas = detalle.notas_lineas?.trim() || "";
-        setLineas(
-          (detalle.lineas ?? []).map((linea) => {
+        const esExternoPorConfirmar =
+          normalizeEstadoOrdenVenta(detalle.estado) === "por_confirmar" &&
+          origenCorreoRows.length > 0;
+
+        // OV del tercero: Mateo interpreta origen_correo → preview OT → formulario.
+        if (esExternoPorConfirmar) {
+          const pedido = buildPedidoExtraidoFromOrigenCorreo({
+            origenCorreo: origenCorreoRows,
+            origenTexto: detalle.origen_texto,
+            notasAlmacen: detalle.notas_almacen,
+          });
+
+          const compradorRank = rankCompradoresFromNombre(
+            pedido.nombreCliente,
+            compradorRows,
+          );
+          const autoComprador = shouldAutoAssignComprador(compradorRank);
+          let idCompradorForMap = idCompradorDetalle;
+          let telefonoForMap = "";
+
+          if (autoComprador && !idCompradorDetalle) {
+            handleSelectComprador(autoComprador);
+            idCompradorForMap = autoComprador.idComprador;
+            telefonoForMap = autoComprador.telefono?.trim() || "";
+            setCompradorNombreIa(null);
+            setCompradorSugerencias([]);
+          } else if (!idCompradorDetalle && pedido.nombreCliente?.trim()) {
+            const nombreIa = pedido.nombreCliente.trim();
+            selectedCompradorIdRef.current = "";
+            setIdComprador("");
+            setCompradorLabel(nombreIa);
+            setCompradorNombreIa(nombreIa);
+            setCompradorSugerencias(
+              compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
+            );
+          }
+
+          const prioridadOrigen = origenCorreoRows
+            .map((r) => r.Prioridad?.trim())
+            .find(Boolean);
+          if (prioridadOrigen) setPrioridad(prioridadOrigen);
+
+          const mapped = mapPedidoExtraidoToForm({
+            pedido,
+            productos: productoRows,
+            ficha: {
+              centroConsumo: detalle.centro_consumo?.trim() || "",
+              ventanaDesde: detalle.ventana_desde?.trim() || "",
+              ventanaHasta: detalle.ventana_hasta?.trim() || "",
+              direccion: detalle.direccion_entrega?.trim() || "",
+              anden: detalle.anden?.trim() || "",
+              contacto: detalle.contacto_entrega?.trim() || "",
+              telefono:
+                detalle.telefono_contacto?.trim() || telefonoForMap || "",
+              aceptaSustituciones: detalle.acepta_sustituciones?.trim() || "",
+              requiereLote: detalle.requiere_lote?.trim() || "",
+              registrarTemperatura:
+                detalle.registrar_temperatura?.trim() || "",
+              observaciones:
+                sanitizeNotasGeneralesPedido(
+                  stripSurtidoFotoQrFromNotas(detalle.notas_almacen ?? "") ||
+                    "",
+                  detalle.origen_texto,
+                ) || "",
+            },
+            tomorrowIso: tomorrowIsoDate(),
+            todayIso: todayIsoDate(),
+          });
+
+          setFechaEntrega(mapped.fechaEntrega);
+          setCentroConsumo(mapped.centroConsumo);
+          setObservaciones(mapped.observaciones);
+          if (mapped.ordenCompraHotel.trim()) {
+            setOrdenCompraHotel(mapped.ordenCompraHotel);
+          }
+          setDireccion(mapped.direccion);
+          setAnden(mapped.anden);
+          setContacto(mapped.contacto);
+          setTelefono(mapped.telefono);
+          setVentanaDesde(mapped.ventanaDesde);
+          setVentanaHasta(mapped.ventanaHasta);
+          setAceptaSustituciones(mapped.aceptaSustituciones);
+          setRequiereLote(mapped.requiereLote);
+          setRegistrarTemperatura(mapped.registrarTemperatura);
+          setAutoFields(mapped.autoFields);
+          setWarnFields(mapped.warnFields);
+          const nextMissing = new Set(mapped.missingFields);
+          if (!autoComprador && !idCompradorForMap) {
+            nextMissing.add("cliente");
+          } else {
+            nextMissing.delete("cliente");
+          }
+          setMissingFields(nextMissing);
+          setDiscrepancias(mapped.discrepancias);
+          setLineas(
+            mapped.lineas.map((linea) => ({
+              idProducto: linea.idProducto,
+              nombre: linea.nombre,
+              codigo: linea.codigo,
+              idBodega: linea.idBodega,
+              cantidadInput: linea.cantidadInput,
+              cajasInput: linea.cajasInput,
+              presentacion: linea.presentacion,
+              especificacion: linea.especificacion,
+              descuentoPctInput: linea.descuentoPctInput,
+              ivaPct: "0",
+              kgDisponible: linea.kgDisponible,
+              unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+              precioUnitario: linea.precioUnitario,
+              precioInput: formatPrecioInput(linea.precioUnitario),
+              precioManual: linea.precioManual,
+              aliasCliente: linea.aliasCliente,
+              filledByIa: linea.filledByIa,
+              otId: linea.otId,
+              catalogPending: linea.catalogPending,
+              catalogAmbiguo: linea.catalogAmbiguo,
+              sugerencia: linea.sugerencia ?? null,
+              sugerenciasAlternativas: linea.sugerenciasAlternativas ?? [],
+            })),
+          );
+          setStartMode("docs");
+          setFormOtPage(0);
+          setStep("preview");
+        } else {
+          const detalleLineas = detalle.lineas ?? [];
+          const notasLineas = detalle.notas_lineas?.trim() || "";
+          const lineasEditBase = detalleLineas.map((linea) => {
             const catalogo = productoRows.find(
               (row) => row.idProducto === linea.id_producto,
             );
+            const skuFromOrigen = resolveSkuVisible({
+              linea,
+              origenRenglones: origenCorreoRows,
+            });
+            const skuRaw = linea.producto?.sku?.trim() || "";
+            const skuUsable =
+              skuRaw && !skuRaw.toUpperCase().startsWith("ARCH-")
+                ? skuRaw
+                : "";
             const codigo =
-              catalogo?.codigo || linea.producto?.sku?.trim() || linea.id_producto.slice(0, 8);
-            const nombre = stripLeadingProductoCodigo(
-              catalogo?.nombre || resolveOrdenVentaLineaTitulo(linea),
-              codigo,
-            );
+              catalogo?.codigo || skuUsable || skuFromOrigen || "";
+            const nombreRaw =
+              catalogo?.nombre || resolveOrdenVentaLineaTitulo(linea);
+            const nombre = stripLeadingProductoCodigo(nombreRaw, codigo);
             return {
               idProducto: linea.id_producto,
               nombre,
@@ -760,7 +1160,7 @@ export function OrdenVentaCreateModal({
                   ? formatDecimalInputEs(linea.cajas)
                   : "",
               presentacion: linea.presentacion?.trim() || "",
-              especificacion: notaCapturaForProducto(notasLineas, nombre),
+              especificacion: "",
               descuentoPctInput: "",
               ivaPct: "0",
               kgDisponible: catalogo?.kgDisponible ?? 0,
@@ -768,10 +1168,35 @@ export function OrdenVentaCreateModal({
                 catalogo?.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
               precioUnitario: linea.precio_unitario,
               precioInput: formatPrecioInput(linea.precio_unitario),
-              precioManual: true,
+              precioManual: true as const,
             };
-          }),
-        );
+          });
+          const lineasConOt = assignOtIdsToFormLineas(
+            lineasEditBase,
+            hijasEdit,
+            (raw) => parseDecimalEs(raw) ?? 0,
+          );
+          setLineas(
+            lineasConOt.map((linea) => ({
+              ...linea,
+              especificacion: notaCapturaForLinea(notasLineas, {
+                nombre: linea.nombre,
+                cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
+                otId: linea.otId,
+                allowUnscoped:
+                  !linea.otId &&
+                  lineasConOt.filter((l) => l.nombre === linea.nombre)
+                    .length === 1,
+              }),
+            })),
+          );
+
+          if (hijasEdit.length > 0) {
+            setStartMode("docs");
+            setFormOtPage(0);
+            setStep(hijasEdit.length > 1 ? "pickOt" : "form");
+          }
+        }
 
         if (idCompradorDetalle) {
           void getCompradorAdmin({
@@ -827,8 +1252,10 @@ export function OrdenVentaCreateModal({
               setEquivalenciaByProducto({});
             });
         }
-      })
-      .catch((err) => {
+      });
+
+    bootstrapPromiseRef.current = bootstrap
+      .catch((err: unknown) => {
         setError(
           err instanceof Error
             ? err.message
@@ -836,9 +1263,25 @@ export function OrdenVentaCreateModal({
         );
       })
       .finally(() => {
+        setFormDataReady(true);
         setIsLoading(false);
+        setIsReadingIa(false);
       });
   }, [codigoCuenta, editingId, isEditing, open]);
+
+  /** Espera catálogo/compradores/bodegas si aún no terminaron (pedido nuevo). */
+  const ensureFormDataReady = useCallback(async () => {
+    if (formDataReady) return true;
+    setIsLoading(true);
+    try {
+      await bootstrapPromiseRef.current;
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [formDataReady]);
 
   const applyCompradorPrefill = useCallback(
     (row: CompradorListRow, ficha: CompradorAltaFicha) => {
@@ -911,15 +1354,34 @@ export function OrdenVentaCreateModal({
     [],
   );
 
-  /** Reemplaza el valor de la solicitud por el de ficha y vuelve al formulario. */
+  /**
+   * «Reemplazar / Usar ficha» solo si Mateo no trajo el dato y la ficha sí lo tiene.
+   * Si Mateo ya llenó el pedido, no hace falta el botón (solo aviso informativo).
+   * Excepción: fecha atrasada → «Usar hoy».
+   */
+  const canReemplazarDiscrepancia = useCallback((item: CampoDiscrepancia) => {
+    if (item.fieldKey === "fechaEntrega" && item.db === "Hoy o posterior") {
+      return true;
+    }
+    const fichaVal = item.db?.trim() ?? "";
+    if (!fichaVal || fichaVal === "—") return false;
+    const pedidoVal = item.ia?.trim() ?? "";
+    // Mateo ya escribió algo en el pedido → no ofrecer pisar con ficha.
+    if (pedidoVal && pedidoVal !== "—") return false;
+    return true;
+  }, []);
+
+  /** Aplica ficha (o hoy) al campo del formulario. */
   const handleReemplazarDiscrepancia = useCallback(
     (item: CampoDiscrepancia) => {
+      if (!canReemplazarDiscrepancia(item)) return;
+
       const fichaValue =
         item.fieldKey === "fechaEntrega" && item.db === "Hoy o posterior"
           ? todayIsoDate()
           : item.db === "—"
             ? ""
-            : item.db;
+            : item.db.trim();
 
       applyDiscrepanciaFieldValue(item.fieldKey, fichaValue);
 
@@ -932,33 +1394,55 @@ export function OrdenVentaCreateModal({
         next.delete(item.fieldKey);
         return next;
       });
+      setMissingFields((prev) => {
+        if (!prev.has(item.fieldKey)) return prev;
+        const next = new Set(prev);
+        next.delete(item.fieldKey);
+        return next;
+      });
       setAutoFields((prev) => {
         const next = new Set(prev);
         next.add(item.fieldKey);
         return next;
       });
-      setConfirmDiscrepanciasOpen(false);
+      // No cerrar el diálogo: el usuario ve el ítem desaparecer y decide
+      // «Enviar igual» o «Revisar». Cerrar al instante hacía parecer que no aplicaba.
     },
-    [applyDiscrepanciaFieldValue],
+    [applyDiscrepanciaFieldValue, canReemplazarDiscrepancia],
   );
 
   const handleSelectComprador = useCallback(
-    (row: CompradorListRow) => {
+    (
+      row: CompradorListRow,
+      options?: {
+        /**
+         * Al aceptar sugerencia de Mateo: solo enlaza el cliente.
+         * No pisa entrega, notas, precios ni productos ya leídos del pedido.
+         */
+        preservePedidoData?: boolean;
+      },
+    ) => {
+      const preservePedido = Boolean(options?.preservePedidoData);
       selectedCompradorIdRef.current = row.idComprador;
-    setIdComprador(row.idComprador);
-    setCompradorLabel(formatCompradorLabel(row));
-      setTelefono(row.telefono?.trim() || "");
-      setFichaComprador(null);
-      setExigeOc(false);
-    setError(null);
+      setIdComprador(row.idComprador);
+      setCompradorLabel(formatCompradorLabel(row));
+      setCompradorNombreIa(null);
+      setCompradorSugerencias([]);
+      setError(null);
       setMissingFields((prev) => {
         if (!prev.has("cliente")) return prev;
         const next = new Set(prev);
         next.delete("cliente");
         return next;
       });
-      setPrecioOverrideByProducto({});
-      setEquivalenciaByProducto({});
+
+      if (!preservePedido) {
+        setTelefono(row.telefono?.trim() || "");
+        setFichaComprador(null);
+        setExigeOc(false);
+        setPrecioOverrideByProducto({});
+        setEquivalenciaByProducto({});
+      }
 
       if (!codigoCuenta) return;
 
@@ -968,6 +1452,16 @@ export function OrdenVentaCreateModal({
       })
         .then((detalle) => {
           if (selectedCompradorIdRef.current !== row.idComprador) return;
+          if (preservePedido) {
+            // Solo ficha / exige OC; el pedido de Mateo se queda como está.
+            const prefill = buildOrdenVentaPrefillFromComprador({
+              ficha: detalle.ficha,
+              telefonoComprador: row.telefono,
+            });
+            setFichaComprador(detalle.ficha);
+            setExigeOc(prefill.exigeOc);
+            return;
+          }
           applyCompradorPrefill(row, detalle.ficha);
         })
         .catch(() => {
@@ -976,6 +1470,8 @@ export function OrdenVentaCreateModal({
             "Se seleccionó el cliente, pero no se pudieron cargar sus datos de alta.",
           );
         });
+
+      if (preservePedido) return;
 
       void listCompradorProductoAliasAdmin({
         codigoCuenta,
@@ -1006,36 +1502,79 @@ export function OrdenVentaCreateModal({
     [applyCompradorPrefill, codigoCuenta],
   );
 
-  const handleSelectProducto = useCallback((row: ProductoVentaOption) => {
-    setCantidadFocusId(row.idProducto);
-    setLineas((prev) => {
-      if (prev.some((linea) => linea.idProducto === row.idProducto)) {
-        return prev;
+  const handleSelectProducto = useCallback(
+    (row: ProductoVentaOption) => {
+      if (replaceLineaIndex != null) {
+        const index = replaceLineaIndex;
+        setLineas((prev) =>
+          prev.map((linea, i) =>
+            i === index ? applyProductoToLinea(linea, row) : linea,
+          ),
+        );
+        setReplaceLineaIndex(null);
+        setCantidadFocusId(row.idProducto);
+        setError(null);
+        setIdBodegaDestino((prev) => prev || row.idBodega);
+        return;
       }
-      return [
-        ...prev,
-        {
-          idProducto: row.idProducto,
-          nombre: stripLeadingProductoCodigo(row.nombre, row.codigo),
-          codigo: row.codigo,
-          idBodega: row.idBodega,
-          cantidadInput: "",
-          cajasInput: "",
-          presentacion: "",
-          especificacion: "",
-          descuentoPctInput: "",
-          ivaPct: "0",
-          kgDisponible: row.kgDisponible,
-          unidadMedida: row.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
-          precioUnitario: row.precioUnitario,
-          precioInput: formatPrecioInput(row.precioUnitario),
-          otId: hijaFormActiva?.id,
-        },
-      ];
-    });
-    setError(null);
-    setIdBodegaDestino((prev) => prev || row.idBodega);
-  }, [hijaFormActiva?.id]);
+
+      setCantidadFocusId(row.idProducto);
+      setLineas((prev) => {
+        if (prev.some((linea) => linea.idProducto === row.idProducto)) {
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            idProducto: row.idProducto,
+            nombre: stripLeadingProductoCodigo(row.nombre, row.codigo),
+            codigo: row.codigo,
+            idBodega: row.idBodega,
+            cantidadInput: "",
+            cajasInput: "",
+            presentacion: "",
+            especificacion: "",
+            descuentoPctInput: "",
+            ivaPct: "0",
+            kgDisponible: row.kgDisponible,
+            unidadMedida: row.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+            precioUnitario: row.precioUnitario,
+            precioInput: formatPrecioInput(row.precioUnitario),
+            otId: hijaFormActiva?.id,
+            catalogPending: false,
+            catalogAmbiguo: false,
+            sugerencia: null,
+            sugerenciasAlternativas: [],
+          },
+        ];
+      });
+      setError(null);
+      setIdBodegaDestino((prev) => prev || row.idBodega);
+    },
+    [hijaFormActiva?.id, replaceLineaIndex],
+  );
+
+  const handleOpenReplaceProducto = useCallback((index: number) => {
+    setReplaceLineaIndex(index);
+    setPicker("producto");
+  }, []);
+
+  const handleAcceptSugerencia = useCallback(
+    (index: number, sug?: LineaSugerenciaCatalogo | null) => {
+      setLineas((prev) => {
+        const linea = prev[index];
+        const chosen = sug ?? linea?.sugerencia;
+        if (!linea || !chosen) return prev;
+        return prev.map((row, i) =>
+          i === index
+            ? applyProductoToLinea(row, sugerenciaToOption(chosen))
+            : row,
+        );
+      });
+      setError(null);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!cantidadFocusId || picker !== null) return;
@@ -1149,15 +1688,19 @@ export function OrdenVentaCreateModal({
 
   const openFormFromScratch = useCallback(() => {
     setStartMode("scratch");
-    setStep("form");
     setError(null);
-  }, []);
+    void ensureFormDataReady().then((ok) => {
+      if (ok) setStep("form");
+    });
+  }, [ensureFormDataReady]);
 
   const openFirstTimeFlow = useCallback(() => {
     setStartMode("first_time");
     setError(null);
     setIsCompradorCreateOpen(true);
-  }, []);
+    // Precarga en background mientras registran al comprador.
+    void ensureFormDataReady();
+  }, [ensureFormDataReady]);
 
   const handleCompradorCreatedForSale = useCallback(
     (created: CompradorListRow) => {
@@ -1171,11 +1714,13 @@ export function OrdenVentaCreateModal({
       });
       handleSelectComprador(created);
       setStartMode("scratch");
-      setStep("form");
       setError(null);
       setIsCompradorCreateOpen(false);
+      void ensureFormDataReady().then((ok) => {
+        if (ok) setStep("form");
+      });
     },
-    [handleSelectComprador],
+    [ensureFormDataReady, handleSelectComprador],
   );
 
   const origenArchivos = useMemo(
@@ -1193,6 +1738,9 @@ export function OrdenVentaCreateModal({
       return;
     }
 
+    const ready = await ensureFormDataReady();
+    if (!ready) return;
+
     setIsReadingIa(true);
     setError(null);
 
@@ -1204,43 +1752,50 @@ export function OrdenVentaCreateModal({
         archivos: origenArchivoFiles,
       });
 
-      const matchedComprador = matchCompradorFromNombre(
+      const compradorRank = rankCompradoresFromNombre(
         pedido.nombreCliente,
         compradores,
       );
+      const autoComprador = shouldAutoAssignComprador(compradorRank);
 
       let fichaForMap = fichaComprador;
       let idCompradorForMap = idComprador;
       let telefonoForMap = telefono;
 
-      // Solo auto-asigna comprador si el usuario aún no eligió uno.
-      // Match estricto (nombre/código exacto); no cambia una selección manual.
-      if (matchedComprador && !idComprador) {
-        handleSelectComprador(matchedComprador);
-        idCompradorForMap = matchedComprador.idComprador;
-        telefonoForMap = matchedComprador.telefono?.trim() || telefono;
+      // Solo auto-asigna si el usuario aún no eligió uno (exacto o fuzzy muy claro).
+      if (autoComprador && !idComprador) {
+        handleSelectComprador(autoComprador);
+        idCompradorForMap = autoComprador.idComprador;
+        telefonoForMap = autoComprador.telefono?.trim() || telefono;
         try {
           const detalle = await getCompradorAdmin({
             codigoCuenta,
-            idComprador: matchedComprador.idComprador,
+            idComprador: autoComprador.idComprador,
           });
-          if (selectedCompradorIdRef.current === matchedComprador.idComprador) {
-            applyCompradorPrefill(matchedComprador, detalle.ficha);
+          if (selectedCompradorIdRef.current === autoComprador.idComprador) {
+            applyCompradorPrefill(autoComprador, detalle.ficha);
             fichaForMap = detalle.ficha;
           }
         } catch {
           /* se mantiene el match; ficha puede quedar vacía */
         }
       } else if (!idComprador && pedido.nombreCliente?.trim()) {
+        const nombreIa = pedido.nombreCliente.trim();
         selectedCompradorIdRef.current = "";
         setIdComprador("");
-        setCompradorLabel(`No encontrado: ${pedido.nombreCliente.trim()}`);
+        setCompradorLabel(nombreIa);
+        setCompradorNombreIa(nombreIa);
+        setCompradorSugerencias(
+          compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
+        );
         setFichaComprador(null);
         setExigeOc(false);
       } else if (!idComprador) {
         selectedCompradorIdRef.current = "";
         setIdComprador("");
         setCompradorLabel("");
+        setCompradorNombreIa(null);
+        setCompradorSugerencias([]);
         setFichaComprador(null);
         setExigeOc(false);
       }
@@ -1304,7 +1859,7 @@ export function OrdenVentaCreateModal({
       setAutoFields(mapped.autoFields);
       setWarnFields(mapped.warnFields);
       const nextMissing = new Set(mapped.missingFields);
-      if (!matchedComprador && !idCompradorForMap) {
+      if (!autoComprador && !idCompradorForMap) {
         nextMissing.add("cliente");
       } else {
         nextMissing.delete("cliente");
@@ -1331,6 +1886,10 @@ export function OrdenVentaCreateModal({
           aliasCliente: linea.aliasCliente,
           filledByIa: linea.filledByIa,
           otId: linea.otId,
+          catalogPending: linea.catalogPending,
+          catalogAmbiguo: linea.catalogAmbiguo,
+          sugerencia: linea.sugerencia ?? null,
+          sugerenciasAlternativas: linea.sugerenciasAlternativas ?? [],
         })),
       );
 
@@ -1341,15 +1900,27 @@ export function OrdenVentaCreateModal({
           `No se pudieron leer: ${mapped.archivosNoLegibles.join(", ")}. Se guardan como respaldo.`,
         );
       }
+      const pendingCatalog = mapped.lineas.filter(
+        (linea) => linea.catalogPending,
+      ).length;
       if (mapped.lineas.length === 0 && !mapped.advertencia) {
         avisos.push(
-          "No se reconocieron productos del catálogo. Revisa el pedido y agrégalos a mano.",
+          "No se reconocieron productos del pedido. Revisa el mensaje y agrégalos a mano.",
+        );
+      } else if (pendingCatalog > 0) {
+        avisos.push(
+          pendingCatalog === 1
+            ? "1 producto sin catálogo."
+            : `${pendingCatalog} productos sin catálogo.`,
         );
       }
-      if (!matchedComprador && !idCompradorForMap) {
+      if (!autoComprador && !idCompradorForMap) {
+        const sugeridos = compradorRank.candidates.length;
         avisos.push(
           pedido.nombreCliente?.trim()
-            ? `El cliente «${pedido.nombreCliente.trim()}» no está en compradores. Selecciónalo para continuar.`
+            ? sugeridos > 0
+              ? `El cliente «${pedido.nombreCliente.trim()}» no coincide exacto: revisa la sugerencia o elige otro.`
+              : `El cliente «${pedido.nombreCliente.trim()}» no está en clientes. Selecciónalo para continuar.`
             : "Selecciona el cliente para continuar.",
         );
       }
@@ -1391,6 +1962,7 @@ export function OrdenVentaCreateModal({
     compradores,
     contacto,
     direccion,
+    ensureFormDataReady,
     fichaComprador,
     handleSelectComprador,
     idComprador,
@@ -1431,6 +2003,11 @@ export function OrdenVentaCreateModal({
         setError(
           "Este cliente exige orden de compra para facturar. Captúrala en el pedido.",
         );
+        return;
+      }
+
+      if (lineas.some((linea) => linea.catalogPending || !linea.idProducto)) {
+        setError("Hay productos sin catálogo. Elige uno o quita la línea.");
         return;
       }
 
@@ -1482,6 +2059,21 @@ export function OrdenVentaCreateModal({
             return parsed != null && parsed > 0 ? parsed : null;
           })(),
           presentacion: linea.presentacion.trim() || null,
+          matchProducto: buildMatchProductoLinea({
+            textoCliente: linea.aliasCliente || linea.nombre,
+            sugeridoMateo: linea.sugerencia
+              ? {
+                  idProducto: linea.sugerencia.idProducto,
+                  nombre: linea.sugerencia.nombre,
+                  codigo: linea.sugerencia.codigo,
+                }
+              : null,
+            elegidoUsuario: {
+              idProducto: linea.idProducto,
+              nombre: linea.nombre,
+              codigo: linea.codigo,
+            },
+          }),
         });
       }
 
@@ -1501,23 +2093,16 @@ export function OrdenVentaCreateModal({
           : "";
       const persistOrigenArchivos =
         startMode === "docs" ? origenArchivos : [];
-      const notasLineasText = lineas
-        .flatMap((linea) => {
-          const bits: string[] = [];
-          if (linea.especificacion.trim()) {
-            bits.push(linea.especificacion.trim());
-          }
-          const descPct = parseDecimalEs(linea.descuentoPctInput);
-          if (descPct != null && descPct > 0) {
-            bits.push(`desc ${descPct}%`);
-          }
-          if (linea.ivaPct && linea.ivaPct !== "0") {
-            bits.push(`IVA ${linea.ivaPct}%`);
-          }
-          if (bits.length === 0) return [];
-          return [`${linea.nombre}: ${bits.join(" · ")}`];
-        })
-        .join("\n");
+      const notasLineasText = buildNotasLineasText(
+        lineas.map((linea) => ({
+          nombre: linea.nombre,
+          cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
+          otId: linea.otId,
+          especificacion: linea.especificacion,
+          descuentoPct: parseDecimalEs(linea.descuentoPctInput),
+          ivaPct: linea.ivaPct,
+        })),
+      );
 
       const payload = {
         codigoCuenta,
@@ -1549,7 +2134,7 @@ export function OrdenVentaCreateModal({
         origenArchivos: persistOrigenArchivos,
         origenCorreo: origenCorreoDraft,
         notasLineas: notasLineasText,
-        notasAlmacen: observaciones,
+        notasAlmacen: sanitizeNotasGeneralesPedido(observaciones),
         observaciones: buildOrdenVentaCapturaObservaciones({
           fechaEntrega,
           ventanaDesde,
@@ -1580,9 +2165,21 @@ export function OrdenVentaCreateModal({
       };
 
       let idOrdenVenta = isEditing ? editingId : pendingEmitId;
-      const shouldEmit = !isEditing || editingEstado === "borrador";
+      const shouldEmit = !isEditing || editingEstado === "por_confirmar";
 
       try {
+        const autorLog =
+          session?.nombre?.trim() ||
+          payload.vendedor?.trim() ||
+          "usuario";
+        const otActivaId =
+          hijaFormActiva?.id ??
+          (ordenesTrabajoForm.length === 1
+            ? ordenesTrabajoForm[0]?.id
+            : null) ??
+          null;
+        const otCount = ordenesTrabajoForm.length;
+
         if (isEditing && editingId) {
           await updateOrdenVenta({ ...payload, idOrdenVenta: editingId });
           idOrdenVenta = editingId;
@@ -1590,10 +2187,11 @@ export function OrdenVentaCreateModal({
             idOrdenVenta: editingId,
             codigoCuenta,
             accion: "actualizacion",
-            mensaje: `Orden actualizada por ${session?.nombre?.trim() || "usuario"}.`,
+            mensaje: `Orden de trabajo editada por ${autorLog}.`,
             idUsuario: idCreador || null,
             autorNombre: session?.nombre ?? null,
             idBodega: payload.idBodega ?? null,
+            idOrdenTrabajo: otActivaId,
           });
         } else if (!idOrdenVenta) {
           const created = await createOrdenVenta(payload);
@@ -1603,10 +2201,14 @@ export function OrdenVentaCreateModal({
             idOrdenVenta,
             codigoCuenta,
             accion: "creacion",
-            mensaje: `Esta orden fue creada por ${session?.nombre?.trim() || payload.vendedor?.trim() || "vendedor"}.`,
+            mensaje:
+              otCount > 1
+                ? `Esta orden de trabajo fue creada por ${autorLog} (${otCount} órdenes de trabajo).`
+                : `Esta orden de trabajo fue creada por ${autorLog}.`,
             idUsuario: idCreador || null,
             autorNombre: session?.nombre || payload.vendedor || null,
             idBodega: payload.idBodega ?? null,
+            payloadExtra: otCount > 0 ? { ordenesTrabajo: otCount } : undefined,
           });
         }
 
@@ -1624,7 +2226,7 @@ export function OrdenVentaCreateModal({
               idOrdenVenta,
               codigoCuenta,
               accion: "cambio_estado",
-              mensaje: `Pedido enviado a bodega (emitido) por ${session?.nombre?.trim() || "usuario"}.`,
+              mensaje: `Pedido enviado a bodega (emitido) por ${autorLog}.`,
               idUsuario: idCreador || null,
               autorNombre: session?.nombre ?? null,
               payloadExtra: { estadoNuevo: "confirmada" },
@@ -1634,7 +2236,8 @@ export function OrdenVentaCreateModal({
             const emitMessage =
               emitErr instanceof DomainServiceError ? emitErr.message : "";
             const maybeAlreadyEmitted =
-              emitMessage.includes("borrador") ||
+              emitMessage.includes("por confirmar") ||
+              emitMessage.includes("por_confirmar") ||
               emitMessage.includes("estado");
 
             if (!maybeAlreadyEmitted || !codigoCuenta) {
@@ -1645,11 +2248,7 @@ export function OrdenVentaCreateModal({
               codigoCuenta,
               idOrdenVenta,
             });
-            if (
-              detalle.estado === "borrador" ||
-              detalle.estado === "cancelada" ||
-              detalle.estado === "cerrada"
-            ) {
+            if (detalle.estado === "por_confirmar") {
               throw emitErr;
             }
           }
@@ -1662,7 +2261,7 @@ export function OrdenVentaCreateModal({
         const message =
           err instanceof DomainServiceError
             ? err.message
-            : isEditing && editingEstado !== "borrador"
+            : isEditing && editingEstado !== "por_confirmar"
               ? "No se pudieron guardar los cambios."
               : idOrdenVenta
                 ? "No se pudo enviar el pedido a la bodega destino."
@@ -1760,24 +2359,28 @@ export function OrdenVentaCreateModal({
         open={open && !showMateoLoading}
         onClose={onClose}
         title={
-          isEditing
-            ? "Editar pedido"
-            : step === "form"
-              ? "Pedido"
-              : step === "preview"
-                ? "Órdenes de trabajo detectadas"
-                : "Nuevo pedido"
+          isEditing && step === "pickOt"
+            ? "Órdenes de trabajo"
+            : isEditing
+              ? "Editar pedido"
+              : step === "form"
+                ? "Pedido"
+                : step === "preview"
+                  ? "Órdenes de trabajo detectadas"
+                  : "Nuevo pedido"
         }
         description={
-          isEditing
-            ? "Actualiza los datos del pedido"
-            : step === "form"
-              ? formDescription
-              : step === "preview"
-                ? "Previsualización antes de confirmar el formulario"
-                : startMode === "docs"
-                  ? "Tengo el mensaje o archivos"
-                  : "¿Cómo quieres empezar?"
+          isEditing && step === "pickOt"
+            ? "Elige qué orden de trabajo quieres editar"
+            : isEditing
+              ? "Actualiza los datos del pedido"
+              : step === "form"
+                ? formDescription
+                : step === "preview"
+                  ? "Previsualización antes de confirmar el formulario"
+                  : startMode === "docs"
+                    ? "Tengo el mensaje o archivos"
+                    : "¿Cómo quieres empezar?"
         }
         onSubmit={(event) => {
           void handleSubmit(event);
@@ -1786,12 +2389,14 @@ export function OrdenVentaCreateModal({
         isSubmitting={false}
         submitDisabled={
           step === "preview" ||
+          step === "pickOt" ||
           isLoading ||
           !hasProductos ||
-          lineas.length === 0
+          lineas.length === 0 ||
+          hasCatalogPending
         }
         submitLabel={
-          isEditing && editingEstado !== "borrador"
+          isEditing && editingEstado !== "por_confirmar"
             ? "Guardar cambios"
             : "Validar y enviar"
         }
@@ -1800,7 +2405,9 @@ export function OrdenVentaCreateModal({
         hideHeaderClose
         asForm={step === "form"}
         footerLeading={
-          step === "preview" && previewHijas.length > 1 ? (
+          step === "pickOt" ? (
+            <></>
+          ) : step === "preview" && previewHijas.length > 1 ? (
             <OrdenTrabajoPager
               page={formOtSafePagePreview}
               total={previewHijas.length}
@@ -1828,7 +2435,9 @@ export function OrdenVentaCreateModal({
           ) : undefined
         }
         footerAction={
-          step === "preview" ? (
+          step === "pickOt" ? (
+            <></>
+          ) : step === "preview" ? (
             <button
               type="button"
               onClick={() => {
@@ -1874,11 +2483,14 @@ export function OrdenVentaCreateModal({
         closeOnBackdrop={false}
         submitOnEnter={false}
       >
-        {isLoading ? (
+        {isLoading &&
+        (isEditing || step !== "start" || startMode === "scratch") ? (
           <PolariaStatusLoading embedded className="py-4" />
         ) : null}
 
-        {step === "start" && !isLoading && startMode !== "docs" ? (
+        {step === "start" &&
+        startMode !== "docs" &&
+        !(startMode === "scratch" && isLoading) ? (
           <div className="flex flex-row flex-wrap justify-center gap-3">
             <button
               type="button"
@@ -1930,7 +2542,7 @@ export function OrdenVentaCreateModal({
           </div>
         ) : null}
 
-        {step === "start" && !isLoading && startMode === "docs" ? (
+        {step === "start" && startMode === "docs" ? (
           <div className="flex flex-col gap-3">
             <button
               type="button"
@@ -1962,6 +2574,31 @@ export function OrdenVentaCreateModal({
                   })}
                 onSearchClick={() => setPicker("comprador")}
               />
+              {!idComprador && compradorSugerencias.length > 0 ? (
+                <div className="mt-2 space-y-1.5">
+                  <p className="polaria-text-caption text-polaria-teal">
+                    {compradorNombreIa
+                      ? `¿Quién es «${compradorNombreIa}»?`
+                      : "Clientes parecidos:"}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {compradorSugerencias.map((row) => (
+                      <button
+                        key={row.idComprador}
+                        type="button"
+                        onClick={() =>
+                          handleSelectComprador(row, {
+                            preservePedidoData: true,
+                          })
+                        }
+                        className="rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
+                      >
+                        {row.comprador}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </PolariaFormField>
 
               <div className="mt-3">
@@ -2069,20 +2706,78 @@ export function OrdenVentaCreateModal({
           />
         ) : null}
 
+        {step === "pickOt" && !isLoading ? (
+          <div className="space-y-4">
+            <p className="polaria-text-body-sm text-polaria-w-50">
+              Esta venta tiene{" "}
+              <span className="font-semibold text-polaria-teal">
+                {ordenesTrabajoForm.length} órdenes de trabajo
+              </span>
+              . Elige cuál quieres editar.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {ordenesTrabajoForm.map((hija, index) => (
+                <button
+                  key={hija.id}
+                  type="button"
+                  onClick={() => {
+                    setFormOtPage(index);
+                    setStep("form");
+                    setError(null);
+                  }}
+                  className={cn(
+                    "rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-4 text-left transition",
+                    "hover:border-polaria-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                  )}
+                >
+                  <p className="polaria-text-body-sm font-semibold text-polaria-w">
+                    {hija.label}
+                  </p>
+                  <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                    {hija.renglones.length} producto
+                    {hija.renglones.length === 1 ? "" : "s"} ·{" "}
+                    {formatKgEs(hija.totalCantidad)} kg
+                  </p>
+                  {hija.almacen ? (
+                    <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                      {hija.almacen}
+                    </p>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {step === "form" && !isLoading ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("start");
-                  setStartMode(null);
-                  setError(null);
-                }}
-                className="polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
-              >
-                ← Volver al inicio
-              </button>
+              {isEditing && ordenesTrabajoForm.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("pickOt");
+                    setError(null);
+                  }}
+                  className="polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
+                >
+                  ← Ver todas las órdenes de trabajo
+                </button>
+              ) : !isEditing ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("start");
+                    setStartMode(null);
+                    setError(null);
+                  }}
+                  className="polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
+                >
+                  ← Volver al inicio
+                </button>
+              ) : (
+                <span />
+              )}
               <p className="polaria-text-caption text-polaria-w-50">
                 {afterCutoff
                   ? "Después del corte de las 17:00 — el almacén no tendrá a quién preguntarle hasta las 02:00"
@@ -2155,7 +2850,32 @@ export function OrdenVentaCreateModal({
                           missing: !idComprador,
                         })}
                         onSearchClick={() => setPicker("comprador")}
-                  />
+                      />
+                      {!idComprador && compradorSugerencias.length > 0 ? (
+                        <div className="mt-2 space-y-1.5">
+                          <p className="polaria-text-caption text-polaria-teal">
+                            {compradorNombreIa
+                              ? `¿Quién es «${compradorNombreIa}»?`
+                              : "Clientes parecidos:"}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {compradorSugerencias.map((row) => (
+                              <button
+                                key={row.idComprador}
+                                type="button"
+                                onClick={() =>
+                                  handleSelectComprador(row, {
+                                    preservePedidoData: true,
+                                  })
+                                }
+                                className="rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
+                              >
+                                {row.comprador}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                 </PolariaFormField>
 
                     <PolariaFormInput
@@ -2321,9 +3041,9 @@ export function OrdenVentaCreateModal({
 
                     <PolariaFormInput
                       id="orden-venta-observaciones"
-                      label="Cuerpo del mensaje"
+                      label="Notas generales"
                       value={observaciones}
-                      placeholder="Notas para almacén"
+                      placeholder="Notas generales para almacén"
                       onChange={(event) => {
                         setObservaciones(event.target.value);
                         clearFieldMarks("observaciones");
@@ -2515,27 +3235,102 @@ export function OrdenVentaCreateModal({
                         ) : (
                           lineasConIndice.map(({ linea, index }) => {
                             const { importe } = lineAmounts(linea);
+                            const pending = Boolean(
+                              linea.catalogPending || !linea.idProducto,
+                            );
+                            const cantidadFocusKey =
+                              linea.idProducto || `pending-${index}`;
                             return (
                               <tr
-                                key={`${linea.idProducto}-${index}`}
-                          className="border-b border-polaria-w-08 last:border-b-0"
+                                key={`${linea.idProducto || "pending"}-${index}`}
+                          className={cn(
+                            "border-b border-polaria-w-08 last:border-b-0",
+                            pending && "bg-polaria-warning-bg/40",
+                          )}
                         >
                                 <td className="px-1 py-2 align-top">
                             <p className="truncate polaria-text-body-sm font-medium text-polaria-w">
-                              {linea.nombre}
+                              {pending
+                                ? linea.aliasCliente || linea.nombre
+                                : linea.nombre}
                             </p>
                             <p className="polaria-text-caption text-polaria-w-50">
-                                    {linea.codigo}
+                                    {pending ? "Sin catálogo" : linea.codigo}
                             </p>
-                                  {linea.aliasCliente ? (
-                                    <p className="mt-1 polaria-text-caption text-polaria-teal">
-                                      Cliente escribió «{linea.aliasCliente}»
-                                    </p>
-                                  ) : null}
+                                  {pending ? (
+                                    <div className="mt-1.5 space-y-1.5">
+                                      {linea.sugerencia ? (
+                                        <p className="polaria-text-caption text-polaria-teal">
+                                          ¿«{linea.sugerencia.nombre}» (
+                                          {linea.sugerencia.codigo})?
+                                        </p>
+                                      ) : null}
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {linea.sugerencia ? (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleAcceptSugerencia(index)
+                                            }
+                                            className="rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
+                                          >
+                                            Usar esta
+                                          </button>
+                                        ) : null}
+                                        {linea.sugerenciasAlternativas?.map(
+                                          (alt) => (
+                                            <button
+                                              key={alt.idProducto}
+                                              type="button"
+                                              onClick={() =>
+                                                handleAcceptSugerencia(
+                                                  index,
+                                                  alt,
+                                                )
+                                              }
+                                              className="rounded-lg border border-polaria-t-20 px-2 py-1 polaria-text-caption font-semibold text-polaria-w transition hover:bg-polaria-w-08"
+                                            >
+                                              {alt.nombre}
+                                            </button>
+                                          ),
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleOpenReplaceProducto(index)
+                                          }
+                                          className="rounded-lg border border-polaria-t-20 px-2 py-1 polaria-text-caption font-semibold text-polaria-w transition hover:bg-polaria-w-08"
+                                        >
+                                          Catálogo
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {linea.aliasCliente ? (
+                                        <p className="mt-1 polaria-text-caption text-polaria-teal">
+                                          Cliente escribió «{linea.aliasCliente}»
+                                        </p>
+                                      ) : null}
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleOpenReplaceProducto(index)
+                                        }
+                                        className="mt-1 inline-flex items-center gap-1 polaria-text-caption font-medium text-polaria-w-50 transition hover:text-polaria-teal"
+                                      >
+                                        <Replace
+                                          className="h-3 w-3"
+                                          aria-hidden
+                                        />
+                                        Cambiar producto
+                                      </button>
+                                    </>
+                                  )}
                           </td>
                                 <td className="px-1 py-2 align-top">
                                   <input
-                                    id={`orden-venta-cantidad-${linea.idProducto}`}
+                                    id={`orden-venta-cantidad-${cantidadFocusKey}`}
                                     aria-label={`Cantidad de ${linea.nombre}`}
                                     type="text"
                                     inputMode="decimal"
@@ -2568,10 +3363,6 @@ export function OrdenVentaCreateModal({
                                           : undefined),
                                     )}
                                   />
-                                  <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                                    Disp. {formatKgEs(linea.kgDisponible)}{" "}
-                                    {linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT}
-                                  </p>
                           </td>
                                 <td className="px-1 py-2 align-top">
                                   <input
@@ -2683,7 +3474,7 @@ export function OrdenVentaCreateModal({
                               type="button"
                               onClick={() => handleRemoveLinea(index)}
                                     className="rounded-lg p-1.5 text-polaria-w-50 transition hover:bg-polaria-w-08 hover:text-polaria-danger"
-                                    aria-label={`Quitar ${linea.nombre}`}
+                                    aria-label={`Quitar ${linea.aliasCliente || linea.nombre}`}
                             >
                               <Trash2 className="h-4 w-4" aria-hidden />
                             </button>
@@ -2700,6 +3491,7 @@ export function OrdenVentaCreateModal({
                     type="button"
                     onClick={() => {
                       if (puedeAgregarProducto) {
+                        setReplaceLineaIndex(null);
                         setPicker("producto");
                       }
                     }}
@@ -2882,10 +3674,27 @@ export function OrdenVentaCreateModal({
 
       <OrdenVentaProductoPickerModal
         open={picker === "producto"}
-        onClose={() => setPicker(null)}
-        productos={productosParaAgregar}
-        selectedId={null}
+        onClose={() => {
+          setPicker(null);
+          setReplaceLineaIndex(null);
+        }}
+        productos={productosParaPicker}
+        selectedId={
+          replaceLineaIndex != null
+            ? lineas[replaceLineaIndex]?.idProducto || null
+            : null
+        }
         onSelect={handleSelectProducto}
+        title={
+          replaceLineaIndex != null
+            ? "Reemplazar producto"
+            : "Seleccionar producto"
+        }
+        description={
+          replaceLineaIndex != null
+            ? "Elige el producto del catálogo para esta línea del pedido."
+            : "Catálogo completo de productos de la cuenta."
+        }
       />
 
       <OrdenVentaTablePickerModal
@@ -2950,23 +3759,36 @@ export function OrdenVentaCreateModal({
       >
         {avisosValidacion.length > 0 ? (
           <ul className="divide-y divide-polaria-w-08 rounded-xl border border-polaria-w-08">
-            {avisosValidacion.map((item) => (
+            {avisosValidacion.map((item) => {
+              const showReemplazar = canReemplazarDiscrepancia(item);
+              const reemplazarLabel =
+                item.fieldKey === "fechaEntrega" &&
+                item.db === "Hoy o posterior"
+                  ? "Usar hoy"
+                  : "Usar ficha";
+              return (
               <li key={item.fieldKey || item.campo} className="px-3 py-2.5 sm:px-3.5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <p className="polaria-text-caption font-semibold uppercase tracking-wide text-polaria-warning">
                     {item.campo}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => handleReemplazarDiscrepancia(item)}
-                    className={cn(
-                      "rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2.5 py-1",
-                      "polaria-text-caption font-semibold text-polaria-teal transition hover:opacity-90",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
-                    )}
-                  >
-                    Reemplazar
-                  </button>
+                  {showReemplazar ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        handleReemplazarDiscrepancia(item);
+                      }}
+                      className={cn(
+                        "rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2.5 py-1",
+                        "polaria-text-caption font-semibold text-polaria-teal transition hover:opacity-90",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                      )}
+                    >
+                      {reemplazarLabel}
+                    </button>
+                  ) : null}
                 </div>
                 <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
                   <div>
@@ -2987,7 +3809,8 @@ export function OrdenVentaCreateModal({
                   </div>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         ) : (
           <p className="polaria-text-body-sm text-polaria-w-50">
@@ -3007,12 +3830,12 @@ export function OrdenVentaCreateModal({
           } as FormEvent<HTMLFormElement>);
         }}
         title={
-          isEditing && editingEstado !== "borrador"
+          isEditing && editingEstado !== "por_confirmar"
             ? "¿Guardar los cambios?"
             : "¿Enviar este pedido?"
         }
         description={
-          isEditing && editingEstado !== "borrador"
+          isEditing && editingEstado !== "por_confirmar"
             ? "Se actualizarán los datos del pedido."
             : "Se enviará el pedido a bodega."
         }

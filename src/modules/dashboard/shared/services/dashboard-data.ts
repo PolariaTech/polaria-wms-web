@@ -50,11 +50,7 @@ export async function fetchDashboardWidgetMetric(
       return countRows("orden_venta", (query) =>
         query
           .eq("codigo_cuenta", codigoCuenta)
-          .in("estado", [
-            "confirmada",
-            "en_preparacion",
-            "parcialmente_despachada",
-          ]),
+          .in("estado", ["por_confirmar", "confirmada", "alistamiento"]),
       );
 
     case "sol-compra":

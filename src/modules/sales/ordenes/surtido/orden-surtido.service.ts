@@ -8,11 +8,15 @@ import {
   notaCapturaForProducto,
   parseOrdenVentaCapturaObservaciones,
 } from "../utils/build-orden-venta-captura-observaciones";
-import { formatOrdenTareaImpresaAt } from "../print/map-orden-tarea-almacen";
+import {
+  formatOrdenTareaImpresaAt,
+  resolveOrdenTareaCreadaAt,
+} from "../print/map-orden-tarea-almacen";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
 import {
   groupOrigenCorreoToOrdenesTrabajo,
   normalizeIdOrdenTrabajo,
+  parseIdOrdenTrabajoFields,
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
 } from "../utils/origen-correo-ordenes-trabajo";
@@ -23,6 +27,8 @@ import {
   puedeAplicarEstadoAlistamiento,
 } from "./compute-estado-alistamiento";
 import type {
+  OrdenSurtidoCapturaFotoRow,
+  OrdenSurtidoCapturaOtConFotos,
   OrdenSurtidoCapturaPayload,
   OrdenSurtidoCapturaRow,
 } from "./orden-surtido.types";
@@ -64,6 +70,29 @@ function mapRow(row: CapturaDbRow): OrdenSurtidoCapturaRow {
 
 const CAPTURA_SELECT =
   "id_captura,id_orden_venta,id_orden_trabajo,codigo_cuenta,url_foto,payload,modelo,updated_at";
+
+const FOTO_SELECT =
+  "id_foto,id_orden_venta,id_orden_trabajo,codigo_cuenta,url_foto,created_at";
+
+interface CapturaFotoDbRow {
+  id_foto: string;
+  id_orden_venta: string;
+  id_orden_trabajo?: string | null;
+  codigo_cuenta: string;
+  url_foto: string;
+  created_at: string;
+}
+
+function mapFotoRow(row: CapturaFotoDbRow): OrdenSurtidoCapturaFotoRow {
+  return {
+    idFoto: row.id_foto,
+    idOrdenVenta: row.id_orden_venta,
+    idOrdenTrabajo: normalizeIdOrdenTrabajo(row.id_orden_trabajo),
+    codigoCuenta: row.codigo_cuenta,
+    urlFoto: row.url_foto,
+    createdAt: row.created_at,
+  };
+}
 
 
 function resolveTituloProducto(producto: unknown): string {
@@ -366,6 +395,13 @@ export async function buildPrintDataAdmin(
     tareaIndex,
     tareaTotal,
     folio: orden.codigo,
+    creada: (() => {
+      const created = resolveOrdenTareaCreadaAt({
+        createdAt: orden.created_at,
+        fechaPedido: orden.fecha_pedido,
+      });
+      return created ? formatOrdenTareaImpresaAt(created) : "";
+    })(),
     impresa: formatOrdenTareaImpresaAt(new Date()),
     cliente,
     centroConsumo,
@@ -487,7 +523,173 @@ export async function upsertOrdenSurtidoCaptura(input: {
     .single();
 
   if (error) throw new Error(error.message);
-  return mapRow(data as CapturaDbRow);
+  const row = mapRow(data as CapturaDbRow);
+
+  const urlFoto = input.urlFoto?.trim() ?? "";
+  if (urlFoto) {
+    try {
+      await appendOrdenSurtidoCapturaFoto({
+        idOrdenVenta: input.idOrdenVenta,
+        idOrdenTrabajo,
+        codigoCuenta: input.codigoCuenta,
+        urlFoto,
+        schemaName,
+      });
+    } catch (fotoError) {
+      console.error(
+        "[surtido] append historial foto falló:",
+        fotoError instanceof Error ? fotoError.message : fotoError,
+      );
+    }
+  }
+
+  return row;
+}
+
+async function appendOrdenSurtidoCapturaFoto(input: {
+  idOrdenVenta: string;
+  idOrdenTrabajo: string;
+  codigoCuenta: string;
+  urlFoto: string;
+  schemaName: string | null;
+}): Promise<void> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) throw new Error("Supabase admin no configurado.");
+
+  const { error } = await adminFrom(
+    admin,
+    input.schemaName,
+    "orden_venta_surtido_captura_foto",
+  ).insert({
+    id_orden_venta: input.idOrdenVenta,
+    id_orden_trabajo: input.idOrdenTrabajo,
+    codigo_cuenta: input.codigoCuenta,
+    url_foto: input.urlFoto,
+    created_at: new Date().toISOString(),
+  });
+
+  if (error) throw new Error(error.message);
+
+  try {
+    const { recordOrdenVentaLogServer } = await import(
+      "../services/orden-venta-log.server"
+    );
+    const label = input.idOrdenTrabajo.trim() || "OT";
+    await recordOrdenVentaLogServer({
+      idOrdenVenta: input.idOrdenVenta,
+      codigoCuenta: input.codigoCuenta,
+      accion: "actualizacion",
+      mensaje: `Foto de surtido subida (orden de trabajo).`,
+      idOrdenTrabajo: input.idOrdenTrabajo || null,
+      payloadExtra: {
+        tipo: "foto_surtido",
+        idOrdenTrabajo: label,
+        urlFoto: input.urlFoto,
+      },
+    });
+  } catch (logError) {
+    console.warn(
+      "[surtido] log foto falló:",
+      logError instanceof Error ? logError.message : logError,
+    );
+  }
+}
+
+/** OTs de una OV que tienen al menos una foto en el historial. */
+export async function listOrdenSurtidoCapturaOtsConFotos(
+  idOrdenVenta: string,
+): Promise<OrdenSurtidoCapturaOtConFotos[]> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) throw new Error("Supabase admin no configurado.");
+
+  const ctx = await resolveOrdenAdminContext(admin, idOrdenVenta);
+  if (!ctx) return [];
+
+  const { data, error } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta_surtido_captura_foto",
+  )
+    .select(FOTO_SELECT)
+    .eq("id_orden_venta", idOrdenVenta)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (error) throw new Error(error.message);
+
+  const hijasById = new Map<string, OrdenTrabajoHija>();
+  try {
+    const { data: ordenRow } = await adminFrom(
+      admin,
+      ctx.schemaName,
+      "orden_venta",
+    )
+      .select("origen_correo")
+      .eq("id_orden_venta", idOrdenVenta)
+      .maybeSingle();
+    const hijas = groupOrigenCorreoToOrdenesTrabajo(
+      parseOrigenCorreoJson(
+        (ordenRow as { origen_correo?: unknown } | null)?.origen_correo,
+      ),
+    );
+    for (const hija of hijas) {
+      hijasById.set(hija.id, hija);
+    }
+  } catch {
+    // Sin origen_correo: se usa parseo de la clave OT.
+  }
+
+  const byOt = new Map<string, OrdenSurtidoCapturaOtConFotos>();
+  for (const raw of data ?? []) {
+    const foto = mapFotoRow(raw as CapturaFotoDbRow);
+    const existing = byOt.get(foto.idOrdenTrabajo);
+    if (!existing) {
+      const hija = hijasById.get(foto.idOrdenTrabajo);
+      const parsed = parseIdOrdenTrabajoFields(foto.idOrdenTrabajo);
+      byOt.set(foto.idOrdenTrabajo, {
+        idOrdenTrabajo: foto.idOrdenTrabajo,
+        totalFotos: 1,
+        ultimaAt: foto.createdAt,
+        previewUrl: foto.urlFoto,
+        label: hija?.label || parsed.label,
+        numeroPedido: hija?.numeroPedido || parsed.numeroPedido,
+        centroConsumo: hija?.almacen || parsed.centroConsumo,
+      });
+      continue;
+    }
+    existing.totalFotos += 1;
+  }
+
+  return [...byOt.values()].sort((a, b) =>
+    b.ultimaAt.localeCompare(a.ultimaAt),
+  );
+}
+
+/** Historial de fotos de una OT concreta (incluye reemplazos). */
+export async function listOrdenSurtidoCapturaFotos(
+  idOrdenVenta: string,
+  idOrdenTrabajo?: string | null,
+): Promise<OrdenSurtidoCapturaFotoRow[]> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) throw new Error("Supabase admin no configurado.");
+
+  const ctx = await resolveOrdenAdminContext(admin, idOrdenVenta);
+  if (!ctx) return [];
+
+  const ot = normalizeIdOrdenTrabajo(idOrdenTrabajo);
+  const { data, error } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta_surtido_captura_foto",
+  )
+    .select(FOTO_SELECT)
+    .eq("id_orden_venta", idOrdenVenta)
+    .eq("id_orden_trabajo", ot)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => mapFotoRow(row as CapturaFotoDbRow));
 }
 
 /**

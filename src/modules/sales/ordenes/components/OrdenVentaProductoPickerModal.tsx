@@ -14,6 +14,8 @@ interface OrdenVentaProductoPickerModalProps {
   productos: ProductoVentaOption[];
   selectedId?: string | null;
   onSelect: (producto: ProductoVentaOption) => void;
+  title?: string;
+  description?: string;
 }
 
 function normalizeSearch(value: string): string {
@@ -30,6 +32,8 @@ export function OrdenVentaProductoPickerModal({
   productos,
   selectedId = null,
   onSelect,
+  title = "Seleccionar producto",
+  description = "Catálogo completo de productos de la cuenta.",
 }: OrdenVentaProductoPickerModalProps) {
   const [query, setQuery] = useState("");
 
@@ -53,8 +57,8 @@ export function OrdenVentaProductoPickerModal({
     <PolariaFormModal
       open={open}
       onClose={handleClose}
-      title="Seleccionar producto"
-      description="Catálogo completo de productos de la cuenta."
+      title={title}
+      description={description}
       onSubmit={(event) => event.preventDefault()}
       asForm={false}
       hideHeaderClose

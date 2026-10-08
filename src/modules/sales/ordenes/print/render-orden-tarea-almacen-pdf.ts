@@ -252,7 +252,7 @@ function drawProductRow(
   return y + PRODUCT_BODY_H;
 }
 
-function writePageNumbers(doc: jsPDF, impresa: string) {
+function writePageNumbers(doc: jsPDF, creada: string, impresa: string) {
   const total = doc.getNumberOfPages();
   for (let page = 1; page <= total; page += 1) {
     doc.setPage(page);
@@ -260,7 +260,7 @@ function writePageNumbers(doc: jsPDF, impresa: string) {
     doc.setFontSize(7);
     doc.setTextColor(80);
     doc.text(
-      `Impresa ${impresa}`,
+      `Creada ${creada}  ·  Impresa ${impresa}`,
       MARGIN,
       4.5,
       { baseline: "top" },
@@ -365,18 +365,13 @@ export function buildOrdenTareaAlmacenPdf(
     "Factura asociada",
   );
 
+  const ordenTrabajo =
+    data.ordenTrabajo ||
+    `${data.tareaIndex && data.tareaIndex > 0 ? data.tareaIndex : 1}/${data.tareaTotal && data.tareaTotal > 0 ? data.tareaTotal : 1}`;
+
   // Toda la grilla a la izquierda del QR, columnas alineadas.
-  // Fila 1: Tarea de Almacen · # orden · Factura
-  field(
-    doc,
-    MARGIN,
-    y,
-    col,
-    rowH,
-    "Tarea de Almacen",
-    folio,
-    true,
-  );
+  // Fila 1: Orden de venta · Orden de trabajo · Factura
+  field(doc, MARGIN, y, col, rowH, "Orden de venta", folio, true);
   if (isActualizado) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
@@ -385,20 +380,7 @@ export function buildOrdenTareaAlmacenPdf(
       baseline: "top",
     });
   }
-  splitField(
-    doc,
-    MARGIN + col,
-    y,
-    col,
-    rowH,
-    { label: "# de orden del cliente", value: data.numeroOrdenCliente },
-    {
-      label: "Orden de trabajo",
-      value:
-        data.ordenTrabajo ||
-        `${data.tareaIndex && data.tareaIndex > 0 ? data.tareaIndex : 1}/${data.tareaTotal && data.tareaTotal > 0 ? data.tareaTotal : 1}`,
-    },
-  );
+  field(doc, MARGIN + col, y, col, rowH, "Orden de trabajo", ordenTrabajo);
   field(doc, MARGIN + col * 2, y, col, rowH, "Factura asociada", factura);
 
   const qrX = MARGIN + gridW + QR_GAP;
@@ -425,7 +407,18 @@ export function buildOrdenTareaAlmacenPdf(
     });
   }
   y += rowH;
-  // Fila 2: Cliente · Centro · Fecha|Hora (un solo campo partido)
+  // Fila 2: # de orden del cliente (2 cols) · vacío alineado con Factura
+  field(
+    doc,
+    MARGIN,
+    y,
+    col * 2,
+    rowH,
+    "# de orden del cliente",
+    data.numeroOrdenCliente,
+  );
+  y += rowH;
+  // Fila 3: Cliente · Centro · Fecha|Hora
   field(doc, MARGIN, y, col, rowH, "Cliente", data.cliente, true);
   field(
     doc,
@@ -634,6 +627,6 @@ export function buildOrdenTareaAlmacenPdf(
   );
   drawNotesLines(doc, y, "Incidencias", incidenciasTexto, 9, 7.5, true, false);
 
-  writePageNumbers(doc, data.impresa);
+  writePageNumbers(doc, data.creada, data.impresa);
   return doc;
 }

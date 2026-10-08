@@ -486,7 +486,7 @@ describe("vistas operativas dashboard", () => {
     expect(listTareasCola).not.toHaveBeenCalled();
   });
 
-  it("ventas muestra opción Órdenes venta para operador de cuenta", () => {
+  it("ventas redirige al operador de cuenta a órdenes de venta", async () => {
     mockSession = {
       ...baseSession,
       idRol: WmsRol.operador_cuenta,
@@ -494,12 +494,12 @@ describe("vistas operativas dashboard", () => {
       nivelRol: "cuenta",
     };
 
-    render(<DashboardVentasPage />);
+    const { container } = render(<DashboardVentasPage />);
 
-    expect(screen.getByRole("heading", { name: "Ventas" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Órdenes venta" }),
-    ).toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith("/dashboard/ventas/ordenes");
+    });
     expect(listOrdenesVenta).not.toHaveBeenCalled();
   });
 
@@ -515,13 +515,16 @@ describe("vistas operativas dashboard", () => {
       {
         idOrdenVenta: "ov-1",
         venta: "OV-001",
+        occ: "OC-100",
+        occTodas: ["OC-100", "OC-200"],
         cuenta: "CUENTA-01",
         comprador: "Retail Norte",
         productos: "2 productos",
         cantidadKg: 15,
         total: 2000,
-        estado: "borrador",
+        estado: "por_confirmar",
         fecha: "2026-06-28T12:00:00.000Z",
+        ordenesTrabajo: 2,
         destino: "—",
         idBodega: "bod-1",
         idBodegaDestino: null,
@@ -541,11 +544,17 @@ describe("vistas operativas dashboard", () => {
 
     await waitFor(() => {
       expect(listOrdenesVentaOperador).toHaveBeenCalled();
-      expect(screen.getByText("Venta")).toBeInTheDocument();
+      expect(screen.getByText("OV")).toBeInTheDocument();
+      expect(screen.getByText("OCC")).toBeInTheDocument();
       expect(screen.getByText("Comprador")).toBeInTheDocument();
+      expect(screen.getByText("OT")).toBeInTheDocument();
       expect(screen.getByText("Acciones")).toBeInTheDocument();
       expect(screen.getByText("OV-001")).toBeInTheDocument();
+      expect(screen.getByText("OC-100")).toBeInTheDocument();
+      expect(screen.getByLabelText("1 OCC más")).toBeInTheDocument();
+      expect(screen.queryByText("OC-200")).not.toBeInTheDocument();
       expect(screen.getByText("Retail Norte")).toBeInTheDocument();
+      expect(screen.getByText("2")).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Imprimir" }),
       ).toBeInTheDocument();

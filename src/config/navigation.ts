@@ -136,7 +136,7 @@ export const TENANT_NAV: readonly NavItem[] = [
     ],
   },
   {
-    href: ROUTES.dashboardVentas,
+    href: ROUTES.dashboardVentasOrdenes,
     label: "Ventas",
     icon: ShoppingCart,
     scopes: ["tenant"],
