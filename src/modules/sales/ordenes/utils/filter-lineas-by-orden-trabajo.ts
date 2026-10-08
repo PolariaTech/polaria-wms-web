@@ -223,8 +223,8 @@ export function assignOtIdsToFormLineas<T extends LineaFormOt>(
   lineas: readonly T[],
   hijas: readonly OrdenTrabajoHija[],
   parseCantidad: (raw: string) => number,
-): T[] {
-  if (hijas.length === 0) return [...lineas];
+): Array<T & { otId?: string }> {
+  if (hijas.length === 0) return lineas.map((linea) => ({ ...linea }));
 
   const wrapped = lineas.map((linea, index) => ({
     index,

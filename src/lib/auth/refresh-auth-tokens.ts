@@ -37,8 +37,11 @@ export async function refreshAuthTokens(): Promise<boolean> {
         await syncSupabaseAuthSession(state.accessToken, state.refreshToken);
       }
 
+      const refreshToken = useAuthStore.getState().refreshToken;
+      if (!refreshToken) return false;
+
       const { data, error } = await supabase.auth.refreshSession({
-        refresh_token: useAuthStore.getState().refreshToken ?? undefined,
+        refresh_token: refreshToken,
       });
 
       if (error || !data.session?.access_token || !data.session.refresh_token) {

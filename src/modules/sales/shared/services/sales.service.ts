@@ -322,13 +322,13 @@ export function formatOrdenVentaCodigo(secuencia: number): string {
   if (!Number.isFinite(secuencia) || secuencia < 1) {
     throw new DomainServiceError(
       "No se pudo generar el código de la orden de venta.",
-      "INTERNAL",
+      "INVALID_ARGUMENT",
     );
   }
   if (secuencia > OV_CODIGO_MAX) {
     throw new DomainServiceError(
       "Se agotó el consecutivo de órdenes de venta (8 dígitos).",
-      "INTERNAL",
+      "INVALID_ARGUMENT",
     );
   }
   return `OV-${String(Math.trunc(secuencia)).padStart(OV_CODIGO_DIGITS, "0")}`;
