@@ -9,6 +9,8 @@ const CABECERA_PESOS: Array<{ keys: string[]; peso: number }> = [
   { keys: ["facturaAsociada", "Factura asociada"], peso: 8 },
   { keys: ["alistoNombre", "Alistó nombre"], peso: 5 },
   { keys: ["despachoNombre", "Despachó nombre"], peso: 5 },
+  { keys: ["facturaOkFolio", "Factura (OK) folio"], peso: 5 },
+  { keys: ["facturaOkFirma", "Factura (OK) firma"], peso: 5 },
   { keys: ["recepcionNombre", "Recepción nombre"], peso: 5 },
 ];
 

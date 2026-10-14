@@ -10,8 +10,6 @@ import {
   PolariaTableCode,
   PolariaTableEditButton,
 } from "@/components/shared/table/PolariaTableCells";
-import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
-import { accesoProductoFromFlags, accesoProductoLabel } from "@/lib/auth/cuenta-producto-access";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import {
   USUARIOS_EMPTY_MESSAGE,
@@ -66,14 +64,6 @@ export function UsuariosListView({ codigoCuenta }: UsuariosListViewProps) {
         cell: (row) => row.cuenta,
       },
       {
-        id: "telefono",
-        header: "Teléfono",
-        cell: (row) =>
-          formatInternationalPhoneDisplay(
-            row.telefono === "—" ? null : row.telefono,
-          ),
-      },
-      {
         id: "credenciales",
         header: "Credenciales",
         cell: (row) =>
@@ -82,17 +72,6 @@ export function UsuariosListView({ codigoCuenta }: UsuariosListViewProps) {
           ) : (
             <PolariaTableBadge variant="neutral">No</PolariaTableBadge>
           ),
-      },
-      {
-        id: "producto",
-        header: "Producto",
-        cell: (row) => (
-          <PolariaTableBadge>
-            {accesoProductoLabel(
-              accesoProductoFromFlags(row.accesoWms, row.accesoMateo),
-            )}
-          </PolariaTableBadge>
-        ),
       },
       {
         id: "acciones",

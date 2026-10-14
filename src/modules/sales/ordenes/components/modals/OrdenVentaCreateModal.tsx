@@ -1,6 +1,16 @@
 "use client";
 
-import { Loader2, Plus, Replace, Trash2 } from "lucide-react";
+import {
+  FileText,
+  Loader2,
+  Paperclip,
+  Plus,
+  Replace,
+  Trash2,
+  Upload,
+  UserRound,
+  X,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -46,29 +56,32 @@ import { useAuthStore } from "@/stores/auth.store";
 import {
   CATALOGO_VENTA_EMPTY_MESSAGE,
   normalizeEstadoOrdenVenta,
-} from "../../shared/constants/sales-status";
-import { fetchProductosVentaCatalogo } from "../../shared/services/sales-catalog.api";
-import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
-import { postOrdenVentaLog } from "../services/orden-venta-log.client";
+} from "../../../shared/constants/sales-status";
+import { fetchProductosVentaCatalogo } from "../../../shared/services/sales-catalog.api";
+import { emitirOrdenVentaApi } from "../../../shared/services/sales-api.service";
+import { postOrdenVentaLog } from "../../services/orden-venta-log.client";
 import {
   createOrdenVenta,
   getCuentaIdBodegaDefault,
   getOrdenVentaDetalle,
   updateOrdenVenta,
-} from "../../shared/services/sales.service";
+} from "../../../shared/services/sales.service";
 import {
   UNIDAD_MEDIDA_VENTA_DEFAULT,
   type OrdenVentaLineaInput,
   type ProductoVentaOption,
-} from "../../shared/types/sales.types";
-import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-nombre";
-import { OrdenVentaCompradorPickerModal } from "./OrdenVentaCompradorPickerModal";
-import { OrdenVentaProductoPickerModal } from "./OrdenVentaProductoPickerModal";
-import { OrdenVentaTablePickerModal } from "./OrdenVentaTablePickerModal";
-import { leerPedidoConIaApi } from "../services/sales-ai.api";
-import { OrdenTrabajoPreviewList } from "./OrdenTrabajoPreviewList";
-import { OrdenTrabajoPager } from "./OrdenTrabajoPager";
-import { OrigenPedidoSourceView } from "./OrigenPedidoBodyView";
+} from "../../../shared/types/sales.types";
+import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
+import { NoIdentificadoBadge } from "../shared/NoIdentificadoBadge";
+import { OrdenVentaClientesSugerenciasPickerModal } from "../pickers/OrdenVentaClientesSugerenciasPickerModal";
+import { OrdenVentaCompradorPickerModal } from "../pickers/OrdenVentaCompradorPickerModal";
+import { OrdenVentaProductoPickerModal } from "../pickers/OrdenVentaProductoPickerModal";
+import { OrdenVentaSugerenciasPickerModal } from "../pickers/OrdenVentaSugerenciasPickerModal";
+import { OrdenVentaTablePickerModal } from "../pickers/OrdenVentaTablePickerModal";
+import { leerPedidoConIaApi } from "../../services/sales-ai.api";
+import { OrdenTrabajoPreviewList } from "../orden-trabajo/OrdenTrabajoPreviewList";
+import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
+import { OrigenPedidoSourceView } from "../shared/OrigenPedidoBodyView";
 import {
   buildOrdenVentaCapturaObservaciones,
   isAfterWarehouseCutoff,
@@ -78,45 +91,46 @@ import {
   stripSurtidoFotoQrFromNotas,
   todayIsoDate,
   tomorrowIsoDate,
-} from "../utils/build-orden-venta-captura-observaciones";
+} from "../../utils/build-orden-venta-captura-observaciones";
 import {
   assignOtIdsToFormLineas,
   filterLineasByOrdenTrabajoHija,
-} from "../utils/filter-lineas-by-orden-trabajo";
-import { resolveSkuVisible } from "../utils/resolve-sku-visible";
+} from "../../utils/filter-lineas-by-orden-trabajo";
+import { resolveSkuVisible } from "../../utils/resolve-sku-visible";
 import {
   groupOrigenCorreoToOrdenesTrabajo,
   parseOrigenCorreoJson,
   type OrigenCorreoRenglon,
   type OrdenTrabajoHija,
-} from "../utils/origen-correo-ordenes-trabajo";
+} from "../../utils/origen-correo-ordenes-trabajo";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
   isFechaEntregaAtrasada,
   isVentanaDesdeMayorQueHasta,
   validatePedidoCabecera,
-} from "../utils/pedido-form-validation";
-import { hasOtPagerRequiredBlocking } from "../utils/ot-pager-required";
+} from "../../utils/pedido-form-validation";
+import { hasOtPagerRequiredBlocking } from "../../utils/ot-pager-required";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
   sanitizeNotasGeneralesPedido,
-} from "../utils/texto-origen-pedido";
+} from "../../utils/texto-origen-pedido";
 import {
   mapPedidoExtraidoToForm,
   type CampoDiscrepancia,
-} from "../utils/map-pedido-extraido-to-form";
-import { buildMatchProductoLinea } from "../utils/build-match-producto";
+} from "../../utils/map-pedido-extraido-to-form";
+import { rankProductosCatalogo } from "../../utils/find-closest-producto-catalogo";
+import { buildMatchProductoLinea } from "../../utils/build-match-producto";
 import {
   rankCompradoresFromNombre,
   shouldAutoAssignComprador,
-} from "../utils/match-comprador-from-nombre";
-import { buildPedidoExtraidoFromOrigenCorreo } from "../utils/pedido-from-origen-correo";
-import { buildOrdenVentaPrefillFromComprador } from "../utils/prefill-orden-venta-from-comprador";
+} from "../../utils/match-comprador-from-nombre";
+import { buildPedidoExtraidoFromOrigenCorreo } from "../../utils/pedido-from-origen-correo";
+import { buildOrdenVentaPrefillFromComprador } from "../../utils/prefill-orden-venta-from-comprador";
 import {
   formatCompradorOrdenVenta,
   resolveOrdenVentaLineaTitulo,
-} from "../utils/orden-venta-display";
+} from "../../utils/orden-venta-display";
 
 interface OrdenVentaCreateModalProps {
   open: boolean;
@@ -127,7 +141,39 @@ interface OrdenVentaCreateModalProps {
 
 type CaptureStep = "start" | "preview" | "pickOt" | "form";
 type StartMode = "first_time" | "scratch" | "docs";
-type PickerKind = "comprador" | "producto" | "moneda" | "bodega" | null;
+type PickerKind =
+  | "comprador"
+  | "producto"
+  | "sugerencias"
+  | "sugerenciasComprador"
+  | "moneda"
+  | "bodega"
+  | null;
+
+function formatProductoNombreConSku(nombre: string, codigo: string): string {
+  const name = nombre.trim();
+  const sku = codigo.trim();
+  if (!name) return sku && sku !== "—" ? `(${sku})` : "";
+  if (!sku || sku === "—") return name;
+  if (name.toLowerCase().includes(`(${sku.toLowerCase()})`)) return name;
+  return `${name} (${sku})`;
+}
+
+function collectSugerenciasLinea(
+  linea: LineaVentaForm,
+): LineaSugerenciaCatalogo[] {
+  const out: LineaSugerenciaCatalogo[] = [];
+  const seen = new Set<string>();
+  for (const sug of [
+    linea.sugerencia,
+    ...(linea.sugerenciasAlternativas ?? []),
+  ]) {
+    if (!sug?.idProducto || seen.has(sug.idProducto)) continue;
+    seen.add(sug.idProducto);
+    out.push(sug);
+  }
+  return out;
+}
 
 interface LineaSugerenciaCatalogo {
   idProducto: string;
@@ -298,6 +344,45 @@ function sugerenciaToOption(
     kgDisponible: sug.kgDisponible,
     precioUnitario: sug.precioUnitario,
     unidadMedida: sug.unidadMedida,
+  };
+}
+
+function toLineaSugerencia(row: ProductoVentaOption): LineaSugerenciaCatalogo {
+  return {
+    idProducto: row.idProducto,
+    nombre: row.nombre,
+    codigo: row.codigo,
+    idBodega: row.idBodega,
+    kgDisponible: row.kgDisponible,
+    precioUnitario: row.precioUnitario,
+    unidadMedida: row.unidadMedida,
+  };
+}
+
+/** Sugerencias de catálogo para un texto del cliente (Mateo / origen_correo). */
+function suggestFromCatalogo(
+  query: string,
+  catalogo: readonly ProductoVentaOption[],
+): {
+  sugerencia: LineaSugerenciaCatalogo | null;
+  sugerenciasAlternativas: LineaSugerenciaCatalogo[];
+  catalogAmbiguo: boolean;
+} {
+  const ranked = rankProductosCatalogo(query, catalogo);
+  const top = ranked.candidates[0];
+  if (!top) {
+    return {
+      sugerencia: null,
+      sugerenciasAlternativas: [],
+      catalogAmbiguo: false,
+    };
+  }
+  return {
+    sugerencia: toLineaSugerencia(top.producto),
+    sugerenciasAlternativas: ranked.candidates
+      .slice(1)
+      .map((c) => toLineaSugerencia(c.producto)),
+    catalogAmbiguo: ranked.ambiguous,
   };
 }
 
@@ -664,7 +749,7 @@ export function OrdenVentaCreateModal({
       next.delete("fechaEntrega");
       next.delete("contacto");
       next.delete("telefono");
-      next.delete("direccion");
+      if (direccionHija) next.delete("direccion");
       next.delete("anden");
       next.delete("ventanaDesde");
       next.delete("ventanaHasta");
@@ -677,7 +762,8 @@ export function OrdenVentaCreateModal({
       next.delete("fechaEntrega");
       next.delete("contacto");
       next.delete("telefono");
-      next.delete("direccion");
+      // Solo quitar el rojo si esta OT sí trajo dirección; si no, conservar el de Mateo.
+      if (direccionHija) next.delete("direccion");
       next.delete("anden");
       next.delete("ventanaDesde");
       next.delete("ventanaHasta");
@@ -744,19 +830,22 @@ export function OrdenVentaCreateModal({
           : (parseDecimalEs(String(row.Precio ?? "")) ?? 0);
       const nombre = row.Producto?.trim() || "Producto del correo";
       const codigo = row["Codigo producto"]?.trim() || "—";
+      const query = [nombre, codigo !== "—" ? codigo : ""].filter(Boolean).join(" ");
+      const suggested = suggestFromCatalogo(query, productos);
       return {
         idProducto: "",
         nombre,
         codigo,
-        idBodega: "",
+        idBodega: suggested.sugerencia?.idBodega ?? "",
         cantidadInput: qty > 0 ? formatDecimalInputEs(qty) : "",
         cajasInput: "",
         presentacion: "",
         especificacion: "",
         descuentoPctInput: "",
         ivaPct: "0",
-        kgDisponible: 0,
-        unidadMedida: UNIDAD_MEDIDA_VENTA_DEFAULT,
+        kgDisponible: suggested.sugerencia?.kgDisponible ?? 0,
+        unidadMedida:
+          suggested.sugerencia?.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
         precioUnitario: precio,
         precioInput: formatPrecioInput(precio),
         precioManual: precio > 0,
@@ -764,15 +853,59 @@ export function OrdenVentaCreateModal({
         filledByIa: true,
         otId: hijaFormActiva.id,
         catalogPending: true,
-        catalogAmbiguo: false,
-        sugerencia: null,
-        sugerenciasAlternativas: [],
+        catalogAmbiguo: suggested.catalogAmbiguo,
+        sugerencia: suggested.sugerencia,
+        sugerenciasAlternativas: suggested.sugerenciasAlternativas,
       };
     });
 
     seededOtIdsRef.current.add(hijaFormActiva.id);
     setLineas((prev) => [...prev, ...seeded]);
-  }, [hijaFormActiva, lineas, open, step]);
+  }, [hijaFormActiva, lineas, open, productos, step]);
+
+  // Recalcula sugerencias cuando el catálogo/equivalencias llegan o mejoran
+  // (p. ej. después de elegir cliente, o si el match inicial falló por typo).
+  useEffect(() => {
+    if (!open || productos.length === 0) return;
+    setLineas((prev) => {
+      let changed = false;
+      const next = prev.map((linea) => {
+        if (!linea.catalogPending || linea.idProducto) return linea;
+        const query = (linea.aliasCliente || linea.nombre || "").trim();
+        if (!query) return linea;
+        const suggested = suggestFromCatalogo(query, productos);
+        if (!suggested.sugerencia) return linea;
+        const samePrimary =
+          linea.sugerencia?.idProducto === suggested.sugerencia.idProducto;
+        const sameAlts =
+          (linea.sugerenciasAlternativas?.length ?? 0) ===
+            suggested.sugerenciasAlternativas.length &&
+          (linea.sugerenciasAlternativas ?? []).every(
+            (alt, i) =>
+              alt.idProducto ===
+              suggested.sugerenciasAlternativas[i]?.idProducto,
+          );
+        if (samePrimary && sameAlts) return linea;
+        changed = true;
+        return {
+          ...linea,
+          idBodega: linea.idBodega || suggested.sugerencia.idBodega,
+          kgDisponible:
+            linea.kgDisponible > 0
+              ? linea.kgDisponible
+              : suggested.sugerencia.kgDisponible,
+          unidadMedida:
+            linea.unidadMedida ||
+            suggested.sugerencia.unidadMedida ||
+            UNIDAD_MEDIDA_VENTA_DEFAULT,
+          catalogAmbiguo: suggested.catalogAmbiguo,
+          sugerencia: suggested.sugerencia,
+          sugerenciasAlternativas: suggested.sugerenciasAlternativas,
+        };
+      });
+      return changed ? next : prev;
+    });
+  }, [equivalenciaByProducto, open, productos]);
 
   const lineasParaTotales = useMemo(
     () => lineasConIndice.map(({ linea }) => linea),
@@ -1097,6 +1230,8 @@ export function OrdenVentaCreateModal({
           } else {
             nextMissing.delete("cliente");
           }
+          if (!mapped.direccion.trim()) nextMissing.add("direccion");
+          else nextMissing.delete("direccion");
           setMissingFields(nextMissing);
           setDiscrepancias(mapped.discrepancias);
           setLineas(
@@ -1559,6 +1694,11 @@ export function OrdenVentaCreateModal({
     setPicker("producto");
   }, []);
 
+  const handleOpenSugerenciasProducto = useCallback((index: number) => {
+    setReplaceLineaIndex(index);
+    setPicker("sugerencias");
+  }, []);
+
   const handleAcceptSugerencia = useCallback(
     (index: number, sug?: LineaSugerenciaCatalogo | null) => {
       setLineas((prev) => {
@@ -1572,6 +1712,8 @@ export function OrdenVentaCreateModal({
         );
       });
       setError(null);
+      setPicker(null);
+      setReplaceLineaIndex(null);
     },
     [],
   );
@@ -1864,6 +2006,8 @@ export function OrdenVentaCreateModal({
       } else {
         nextMissing.delete("cliente");
       }
+      if (!mapped.direccion.trim()) nextMissing.add("direccion");
+      else nextMissing.delete("direccion");
       setMissingFields(nextMissing);
       setDiscrepancias(mapped.discrepancias);
       setLineas(
@@ -1910,8 +2054,8 @@ export function OrdenVentaCreateModal({
       } else if (pendingCatalog > 0) {
         avisos.push(
           pendingCatalog === 1
-            ? "1 producto sin catálogo."
-            : `${pendingCatalog} productos sin catálogo.`,
+            ? "1 producto no identificado."
+            : `${pendingCatalog} productos no identificados.`,
         );
       }
       if (!autoComprador && !idCompradorForMap) {
@@ -2007,7 +2151,9 @@ export function OrdenVentaCreateModal({
       }
 
       if (lineas.some((linea) => linea.catalogPending || !linea.idProducto)) {
-        setError("Hay productos sin catálogo. Elige uno o quita la línea.");
+        setError(
+          "Hay productos no identificados. Elige uno del catálogo o quita la línea.",
+        );
         return;
       }
 
@@ -2323,10 +2469,11 @@ export function OrdenVentaCreateModal({
       ? "Desde mensaje o archivos · revisa y completa el pedido"
       : "Captura manual";
 
+  const docsHasContent = Boolean(
+    origenTexto.trim() || origenArchivoFiles.length > 0,
+  );
   const docsReady =
-    Boolean(origenTexto.trim() || origenArchivoFiles.length > 0) &&
-    productos.length > 0 &&
-    !isReadingIa;
+    docsHasContent && productos.length > 0 && !isReadingIa;
 
   const appendDocsFiles = useCallback((files: FileList | File[]) => {
     const next = Array.from(files).slice(0, 8);
@@ -2379,7 +2526,7 @@ export function OrdenVentaCreateModal({
                 : step === "preview"
                   ? "Previsualización antes de confirmar el formulario"
                   : startMode === "docs"
-                    ? "Tengo el mensaje o archivos"
+                    ? "Mateo lee el mensaje o los archivos del pedido"
                     : "¿Cómo quieres empezar?"
         }
         onSubmit={(event) => {
@@ -2543,7 +2690,7 @@ export function OrdenVentaCreateModal({
         ) : null}
 
         {step === "start" && startMode === "docs" ? (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             <button
               type="button"
               onClick={() => {
@@ -2555,16 +2702,23 @@ export function OrdenVentaCreateModal({
               ← Volver al inicio
             </button>
 
-            <div className="rounded-2xl border border-polaria-t-20 bg-polaria-t-08 p-4">
-            <PolariaFormField
-                id="orden-venta-docs-cliente"
-                label="Cliente"
-                hint="Opcional aquí: si el archivo trae el comprador y existe en catálogo, se asigna solo. Si no, lo eliges después."
-              compact
-            >
-              <JefeBodegaModalSearchField
+            <section className="overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08">
+              <div className="flex items-center gap-2 border-b border-polaria-w-08 px-4 py-2.5">
+                <UserRound
+                  className="h-4 w-4 shrink-0 text-polaria-teal"
+                  aria-hidden
+                />
+                <h3 className="polaria-text-label uppercase tracking-wide text-polaria-teal">
+                  Cliente
+                </h3>
+                <span className="rounded-md border border-polaria-t-20 bg-polaria-bg/40 px-1.5 py-0.5 polaria-text-caption text-polaria-w-50">
+                  opcional
+                </span>
+              </div>
+              <div className="space-y-2 p-4">
+                <JefeBodegaModalSearchField
                   id="orden-venta-docs-cliente"
-                value={compradorLabel}
+                  value={compradorLabel}
                   placeholder="Selecciona el cliente (opcional)"
                   ariaLabel="Cliente"
                   compact
@@ -2572,62 +2726,89 @@ export function OrdenVentaCreateModal({
                     field: "cliente",
                     missingFields,
                   })}
-                onSearchClick={() => setPicker("comprador")}
-              />
-              {!idComprador && compradorSugerencias.length > 0 ? (
-                <div className="mt-2 space-y-1.5">
-                  <p className="polaria-text-caption text-polaria-teal">
-                    {compradorNombreIa
-                      ? `¿Quién es «${compradorNombreIa}»?`
-                      : "Clientes parecidos:"}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {compradorSugerencias.map((row) => (
-                      <button
-                        key={row.idComprador}
-                        type="button"
-                        onClick={() =>
-                          handleSelectComprador(row, {
-                            preservePedidoData: true,
-                          })
-                        }
-                        className="rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
-                      >
-                        {row.comprador}
-                      </button>
-                    ))}
+                  onSearchClick={() => setPicker("comprador")}
+                />
+                <p className="polaria-text-caption text-polaria-w-50">
+                  Si el archivo trae el comprador y está en catálogo, Mateo lo
+                  asigna solo. Si no, lo eliges después.
+                </p>
+                {!idComprador &&
+                (Boolean(compradorNombreIa) ||
+                  compradorSugerencias.length > 0) ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <NoIdentificadoBadge />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPicker(
+                          compradorSugerencias.length > 0
+                            ? "sugerenciasComprador"
+                            : "comprador",
+                        )
+                      }
+                      className="rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
+                    >
+                      Elegir cliente
+                    </button>
                   </div>
-                </div>
-              ) : null}
-            </PolariaFormField>
+                ) : null}
+              </div>
+            </section>
 
-              <div className="mt-3">
-                <PolariaFormField
-                  id="orden-venta-docs-texto"
-                  label="Texto del pedido"
-                  hint="Pega aquí el mensaje tal cual llegó. No lo resumas."
-                  compact
-                >
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <section className="flex min-h-[16rem] flex-col overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08">
+                <div className="flex items-center justify-between gap-2 border-b border-polaria-w-08 px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <FileText
+                      className="h-4 w-4 shrink-0 text-polaria-teal"
+                      aria-hidden
+                    />
+                    <h3 className="polaria-text-label uppercase tracking-wide text-polaria-teal">
+                      Mensaje
+                    </h3>
+                  </div>
+                  {origenTexto.trim() ? (
+                    <span className="rounded-md border border-polaria-t-20 bg-polaria-bg/50 px-1.5 py-0.5 polaria-text-caption font-semibold text-polaria-teal">
+                      listo
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex flex-1 flex-col gap-2 p-4">
                   <textarea
                     id="orden-venta-docs-texto"
                     value={origenTexto}
                     onChange={(event) => setOrigenTexto(event.target.value)}
-                    placeholder="Pega aquí el mensaje tal cual llegó. No lo resumas."
+                    placeholder="Pega aquí el WhatsApp, correo o nota tal cual llegó. No lo resumas."
                     className={cn(
                       POLARIA_FORM_INPUT_CLASS_COMPACT,
-                      "min-h-[6.5rem] resize-y",
+                      "min-h-[10rem] flex-1 resize-y",
                     )}
                   />
-                </PolariaFormField>
-              </div>
+                  <p className="polaria-text-caption text-polaria-w-50">
+                    Texto crudo del cliente o del hotel.
+                  </p>
+                </div>
+              </section>
 
-              <div className="mt-3">
-                <PolariaFormField
-                  id="orden-venta-docs-archivos"
-                  label="Archivos"
-                  hint="Se leen PDF, Excel, CSV, Word, correos (.eml) y fotos. Otros formatos se guardan como respaldo sin leerse."
-                  compact
-                >
+              <section className="flex min-h-[16rem] flex-col overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08">
+                <div className="flex items-center justify-between gap-2 border-b border-polaria-w-08 px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <Paperclip
+                      className="h-4 w-4 shrink-0 text-polaria-teal"
+                      aria-hidden
+                    />
+                    <h3 className="polaria-text-label uppercase tracking-wide text-polaria-teal">
+                      Archivos
+                    </h3>
+                  </div>
+                  {origenArchivoFiles.length > 0 ? (
+                    <span className="rounded-md border border-polaria-t-20 bg-polaria-bg/50 px-1.5 py-0.5 polaria-text-caption font-semibold text-polaria-teal">
+                      {origenArchivoFiles.length} adjunto
+                      {origenArchivoFiles.length === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex flex-1 flex-col gap-3 p-4">
                   <label
                     htmlFor="orden-venta-docs-archivos"
                     onDragOver={(event) => {
@@ -2641,14 +2822,30 @@ export function OrdenVentaCreateModal({
                       appendDocsFiles(event.dataTransfer.files);
                     }}
                     className={cn(
-                      "block cursor-pointer rounded-xl border border-dashed px-4 py-4 text-center",
-                      "polaria-text-body-sm transition",
+                      "flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-6 text-center transition",
                       isDocsDropActive
-                        ? "border-polaria-teal bg-polaria-t-08 text-polaria-teal"
-                        : "border-polaria-t-20 bg-polaria-w-08 text-polaria-w-50 hover:border-polaria-teal hover:text-polaria-teal",
+                        ? "border-polaria-teal bg-polaria-teal/10 text-polaria-teal polaria-card-glow"
+                        : "border-polaria-t-20 bg-polaria-bg/35 text-polaria-w-50 hover:border-polaria-teal hover:bg-polaria-t-08 hover:text-polaria-teal",
                     )}
                   >
-                    Arrastra o selecciona archivos
+                    <span
+                      className={cn(
+                        "flex h-11 w-11 items-center justify-center rounded-full border",
+                        isDocsDropActive
+                          ? "border-polaria-teal bg-polaria-teal/15 text-polaria-teal"
+                          : "border-polaria-t-20 bg-polaria-t-08 text-polaria-teal",
+                      )}
+                    >
+                      <Upload className="h-5 w-5" aria-hidden />
+                    </span>
+                    <span className="polaria-text-body-sm font-semibold text-polaria-w">
+                      {isDocsDropActive
+                        ? "Suelta los archivos aquí"
+                        : "Arrastra o selecciona"}
+                    </span>
+                    <span className="max-w-[16rem] polaria-text-caption text-polaria-w-50">
+                      PDF, Excel, CSV, Word, correos (.eml) y fotos
+                    </span>
                     <input
                       id="orden-venta-docs-archivos"
                       ref={docsFileInputRef}
@@ -2662,14 +2859,20 @@ export function OrdenVentaCreateModal({
                       }}
                     />
                   </label>
+
                   {origenArchivoFiles.length > 0 ? (
-                    <ul className="mt-2 flex flex-wrap gap-2">
+                    <ul className="space-y-1.5">
                       {origenArchivoFiles.map((file) => (
                         <li
                           key={`${file.name}-${file.size}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-2 py-1 polaria-text-caption text-polaria-w"
+                          className="flex items-center gap-2 rounded-xl border border-polaria-t-20 bg-polaria-bg/45 px-2.5 py-2"
                         >
-                          <span>{file.name}</span>
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal">
+                            <FileText className="h-3.5 w-3.5" aria-hidden />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate polaria-text-caption font-medium text-polaria-w">
+                            {file.name}
+                          </span>
                           <button
                             type="button"
                             aria-label={`Quitar ${file.name}`}
@@ -2684,17 +2887,32 @@ export function OrdenVentaCreateModal({
                                 ),
                               )
                             }
-                            className="text-polaria-w-50 transition hover:text-polaria-danger"
+                            className="rounded-md p-1 text-polaria-w-50 transition hover:bg-polaria-w-08 hover:text-polaria-danger"
                           >
-                            ×
+                            <X className="h-3.5 w-3.5" aria-hidden />
                           </button>
                         </li>
                       ))}
                     </ul>
-                  ) : null}
-                </PolariaFormField>
-              </div>
+                  ) : (
+                    <p className="polaria-text-caption text-polaria-w-50">
+                      Otros formatos se guardan como respaldo sin leerse.
+                    </p>
+                  )}
+                </div>
+              </section>
             </div>
+
+            {docsHasContent ? (
+              <p className="rounded-xl border border-polaria-t-20 bg-polaria-teal/10 px-3 py-2.5 polaria-text-caption text-polaria-teal">
+                Listo para Continuar: Mateo va a leer lo que pegaste o
+                adjuntaste.
+              </p>
+            ) : (
+              <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-2.5 polaria-text-caption text-polaria-w-50">
+                Agrega un mensaje o al menos un archivo para continuar.
+              </p>
+            )}
           </div>
         ) : null}
 
@@ -2851,29 +3069,24 @@ export function OrdenVentaCreateModal({
                         })}
                         onSearchClick={() => setPicker("comprador")}
                       />
-                      {!idComprador && compradorSugerencias.length > 0 ? (
-                        <div className="mt-2 space-y-1.5">
-                          <p className="polaria-text-caption text-polaria-teal">
-                            {compradorNombreIa
-                              ? `¿Quién es «${compradorNombreIa}»?`
-                              : "Clientes parecidos:"}
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {compradorSugerencias.map((row) => (
-                              <button
-                                key={row.idComprador}
-                                type="button"
-                                onClick={() =>
-                                  handleSelectComprador(row, {
-                                    preservePedidoData: true,
-                                  })
-                                }
-                                className="rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
-                              >
-                                {row.comprador}
-                              </button>
-                            ))}
-                          </div>
+                      {!idComprador &&
+                      (Boolean(compradorNombreIa) ||
+                        compradorSugerencias.length > 0) ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <NoIdentificadoBadge />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPicker(
+                                compradorSugerencias.length > 0
+                                  ? "sugerenciasComprador"
+                                  : "comprador",
+                              )
+                            }
+                            className="rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
+                          >
+                            Elegir cliente
+                          </button>
                         </div>
                       ) : null}
                 </PolariaFormField>
@@ -3245,89 +3458,60 @@ export function OrdenVentaCreateModal({
                                 key={`${linea.idProducto || "pending"}-${index}`}
                           className={cn(
                             "border-b border-polaria-w-08 last:border-b-0",
-                            pending && "bg-polaria-warning-bg/40",
+                            pending &&
+                              "border-l-2 border-l-polaria-warning bg-polaria-warning-bg/55",
                           )}
                         >
                                 <td className="px-1 py-2 align-top">
-                            <p className="truncate polaria-text-body-sm font-medium text-polaria-w">
-                              {pending
-                                ? linea.aliasCliente || linea.nombre
-                                : linea.nombre}
-                            </p>
-                            <p className="polaria-text-caption text-polaria-w-50">
-                                    {pending ? "Sin catálogo" : linea.codigo}
-                            </p>
+                                  <div className="flex min-w-0 items-center gap-1.5">
+                                    <p className="min-w-0 truncate polaria-text-body-sm font-medium text-polaria-w">
+                                      {formatProductoNombreConSku(
+                                        pending
+                                          ? linea.aliasCliente || linea.nombre
+                                          : linea.nombre,
+                                        linea.codigo,
+                                      )}
+                                    </p>
+                                    {pending ? <NoIdentificadoBadge /> : null}
+                                  </div>
                                   {pending ? (
-                                    <div className="mt-1.5 space-y-1.5">
-                                      {linea.sugerencia ? (
-                                        <p className="polaria-text-caption text-polaria-teal">
-                                          ¿«{linea.sugerencia.nombre}» (
-                                          {linea.sugerencia.codigo})?
-                                        </p>
-                                      ) : null}
-                                      <div className="flex flex-wrap gap-1.5">
-                                        {linea.sugerencia ? (
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              handleAcceptSugerencia(index)
-                                            }
-                                            className="rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
-                                          >
-                                            Usar esta
-                                          </button>
-                                        ) : null}
-                                        {linea.sugerenciasAlternativas?.map(
-                                          (alt) => (
-                                            <button
-                                              key={alt.idProducto}
-                                              type="button"
-                                              onClick={() =>
-                                                handleAcceptSugerencia(
-                                                  index,
-                                                  alt,
-                                                )
-                                              }
-                                              className="rounded-lg border border-polaria-t-20 px-2 py-1 polaria-text-caption font-semibold text-polaria-w transition hover:bg-polaria-w-08"
-                                            >
-                                              {alt.nombre}
-                                            </button>
-                                          ),
-                                        )}
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleOpenReplaceProducto(index)
-                                          }
-                                          className="rounded-lg border border-polaria-t-20 px-2 py-1 polaria-text-caption font-semibold text-polaria-w transition hover:bg-polaria-w-08"
-                                        >
-                                          Catálogo
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      {linea.aliasCliente ? (
-                                        <p className="mt-1 polaria-text-caption text-polaria-teal">
-                                          Cliente escribió «{linea.aliasCliente}»
-                                        </p>
-                                      ) : null}
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleOpenReplaceProducto(index)
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (
+                                          collectSugerenciasLinea(linea).length >
+                                          0
+                                        ) {
+                                          handleOpenSugerenciasProducto(index);
+                                        } else {
+                                          handleOpenReplaceProducto(index);
                                         }
-                                        className="mt-1 inline-flex items-center gap-1 polaria-text-caption font-medium text-polaria-w-50 transition hover:text-polaria-teal"
-                                      >
-                                        <Replace
-                                          className="h-3 w-3"
-                                          aria-hidden
-                                        />
-                                        Cambiar producto
-                                      </button>
-                                    </>
+                                      }}
+                                      className="mt-1.5 rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
+                                    >
+                                      Elegir producto
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleOpenReplaceProducto(index)
+                                      }
+                                      className="mt-1 inline-flex items-center gap-1 polaria-text-caption font-medium text-polaria-w-50 transition hover:text-polaria-teal"
+                                      title={
+                                        linea.aliasCliente
+                                          ? `Cliente: ${linea.aliasCliente}`
+                                          : "Cambiar producto"
+                                      }
+                                    >
+                                      <Replace
+                                        className="h-3 w-3"
+                                        aria-hidden
+                                      />
+                                      Cambiar
+                                    </button>
                                   )}
-                          </td>
+                                </td>
                                 <td className="px-1 py-2 align-top">
                                   <input
                                     id={`orden-venta-cantidad-${cantidadFocusKey}`}
@@ -3672,6 +3856,18 @@ export function OrdenVentaCreateModal({
         onSelect={handleSelectComprador}
       />
 
+      <OrdenVentaClientesSugerenciasPickerModal
+        open={picker === "sugerenciasComprador"}
+        onClose={() => setPicker(null)}
+        textoCliente={compradorNombreIa || compradorLabel}
+        sugerencias={compradorSugerencias}
+        onSelect={(row) => {
+          handleSelectComprador(row, { preservePedidoData: true });
+          setPicker(null);
+        }}
+        onOpenCatalogo={() => setPicker("comprador")}
+      />
+
       <OrdenVentaProductoPickerModal
         open={picker === "producto"}
         onClose={() => {
@@ -3695,6 +3891,34 @@ export function OrdenVentaCreateModal({
             ? "Elige el producto del catálogo para esta línea del pedido."
             : "Catálogo completo de productos de la cuenta."
         }
+      />
+
+      <OrdenVentaSugerenciasPickerModal
+        open={picker === "sugerencias"}
+        onClose={() => {
+          setPicker(null);
+          setReplaceLineaIndex(null);
+        }}
+        textoCliente={
+          replaceLineaIndex != null
+            ? lineas[replaceLineaIndex]?.aliasCliente ||
+              lineas[replaceLineaIndex]?.nombre
+            : null
+        }
+        sugerencias={
+          replaceLineaIndex != null && lineas[replaceLineaIndex]
+            ? collectSugerenciasLinea(lineas[replaceLineaIndex]!)
+            : []
+        }
+        onSelect={(sug) => {
+          if (replaceLineaIndex == null) return;
+          handleAcceptSugerencia(replaceLineaIndex, sug);
+        }}
+        onOpenCatalogo={() => {
+          const idx = replaceLineaIndex;
+          if (idx == null) return;
+          handleOpenReplaceProducto(idx);
+        }}
       />
 
       <OrdenVentaTablePickerModal

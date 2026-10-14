@@ -724,18 +724,18 @@ export function CustodioOrdenSalidaColumn({
         ) : (
           <div className="max-h-[min(55dvh,26rem)] overflow-auto rounded-xl border border-polaria-w-08">
             <table className="w-full min-w-[36rem] border-collapse text-left">
-              <thead className="sticky top-0 bg-polaria-t-08">
-                <tr className="border-b border-polaria-t-20">
-                  <th className="px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
+              <thead className="sticky top-0 z-10 bg-polaria-bg">
+                <tr className="border-b border-polaria-t-20 bg-polaria-bg">
+                  <th className="bg-polaria-bg px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
                     Venta
                   </th>
-                  <th className="px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
+                  <th className="bg-polaria-bg px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
                     Comprador
                   </th>
-                  <th className="px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
+                  <th className="bg-polaria-bg px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
                     Producto
                   </th>
-                  <th className="px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
+                  <th className="bg-polaria-bg px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50">
                     Cantidad
                   </th>
                 </tr>

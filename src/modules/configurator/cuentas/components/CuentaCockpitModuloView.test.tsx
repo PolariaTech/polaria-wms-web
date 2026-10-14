@@ -58,6 +58,14 @@ vi.mock("@/modules/configurator/usuarios/components/UsuariosListView", () => ({
   UsuariosListView: () => <div>usuarios</div>,
 }));
 
+vi.mock("@/modules/configurator/impresoras/components/ImpresorasListView", () => ({
+  ImpresorasListView: ({
+    codigoCuenta,
+  }: {
+    codigoCuenta?: string | null;
+  }) => <div>{`impresoras ${codigoCuenta ?? ""}`}</div>,
+}));
+
 vi.mock("@/modules/purchases", () => ({
   ComprasPageContent: ({
     codigoCuenta,
@@ -102,6 +110,14 @@ vi.mock(
 );
 
 describe("CuentaCockpitModuloView", () => {
+  it("muestra impresoras de la cuenta", () => {
+    render(
+      <CuentaCockpitModuloView codigoCuenta="49M04" modulo="impresoras" />,
+    );
+
+    expect(screen.getByText("impresoras 49M04")).toBeInTheDocument();
+  });
+
   it("muestra el catálogo real de la cuenta en modo inspect", () => {
     render(
       <CuentaCockpitModuloView codigoCuenta="49M04" modulo="catalogo" />,

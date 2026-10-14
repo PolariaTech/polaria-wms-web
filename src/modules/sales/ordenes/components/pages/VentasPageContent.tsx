@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { ModuleListPage } from "@/components/shared/module/ModuleListPage";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { useTenantList } from "@/hooks/shared/useTenantList";
-import { listOrdenesVenta } from "../../shared/services/sales.service";
+import { listOrdenesVenta } from "../../../shared/services/sales.service";
 
 export function VentasPageContent() {
   const loadOrdenes = useCallback(

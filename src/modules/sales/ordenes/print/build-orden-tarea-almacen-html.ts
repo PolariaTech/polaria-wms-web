@@ -71,8 +71,10 @@ const SHEET_CSS = `
   table.products-wrap > tbody > tr > td{border:0;padding:0;vertical-align:top;width:50%;}
   table.signs{width:100%;border-collapse:separate;border-spacing:8px;table-layout:fixed;margin-top:2px;}
   table.signs td.sig{border:1.2px solid #000;padding:4px 6px;vertical-align:top;}
+  table.signs td.sig-tall{min-height:64px;height:64px;}
   .sig .role{font-size:10.5px;font-weight:700;}
   .sig .cap{font-size:9.5px;margin-top:18px;}
+  .sig-tall .cap{margin-top:36px;}
   @media print{
     html,body{margin:0;background:#fff;}
     .sheet{box-shadow:none;margin:0;width:auto;min-height:0;padding:0;page-break-inside:avoid;}
@@ -245,7 +247,7 @@ export function buildOrdenTareaAlmacenHtml(
   <table class="signs"><tr>
     <td class="sig"><div class="role">Alistó</div></td>
     <td class="sig"><div class="role">Revisó</div></td>
-    <td class="sig"><div class="role">Factura (OK)</div></td>
+    <td class="sig sig-tall"><div class="role">Factura (OK)</div><div class="cap">Folio &nbsp;&nbsp;&nbsp; Firma</div></td>
     <td class="sig"><div class="role">Despachó</div><div class="cap">Firma &nbsp;&nbsp;&nbsp; Fecha</div></td>
     <td class="sig"><div class="role">Retorno</div></td>
   </tr></table>

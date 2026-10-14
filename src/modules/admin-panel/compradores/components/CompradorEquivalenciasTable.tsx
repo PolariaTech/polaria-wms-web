@@ -5,7 +5,7 @@ import { formatPrecioEs } from "@/lib/utils/decimal-es";
 import type { CompradorProductoAliasListRow } from "../services/comprador-producto-alias.service";
 
 const HEAD =
-  "sticky top-0 z-[1] border-b border-polaria-t-20 bg-polaria-t-08 px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50";
+  "sticky top-0 z-10 border-b border-polaria-t-20 bg-polaria-bg px-3 py-2.5 polaria-text-caption font-medium text-polaria-w-50";
 const CELL =
   "border-b border-polaria-w-08 border-r border-polaria-w-08 px-0 py-0 polaria-text-body-sm last:border-r-0";
 const CELL_PAD = "px-3 py-2.5";

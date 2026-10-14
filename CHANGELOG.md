@@ -2,6 +2,25 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.11.23 — 2026-10-14
+
+### Configurador
+- Impresoras viven en el cockpit de cada cuenta (`/configurador/cuentas/[codigo]/impresoras`): cuenta fijada al alta, sin bodega (aplica a toda la cuenta). Tres caminos: QZ Tray, Brother correo, Epson Connect.
+- La ruta vieja `/configurador/asignacion/impresoras` redirige a Cuentas.
+- Lista de usuarios: se ocultan columnas Teléfono y Producto. Modal crear usuario rediseñado (secciones Identidad / Rol / Credenciales + tarjetas WMS/Mateo).
+
+### Auth
+- Login: botón ojo para mostrar/ocultar contraseña.
+
+### Ventas / OV
+- Componentes de `ordenes/components` reorganizados en `pages/`, `modals/`, `pickers/`, `orden-trabajo/`, `shared/`.
+- Dirección de entrega vacía tras Mateo se marca en rojo (no se pierde el aviso al aplicar OT).
+- PDF hoja de almacén: caja **Factura (OK)** al doble de alto con **Folio** (izq) y **Firma** (der); se capturan y persisten `facturaOkFolio` / `facturaOkFirma`.
+- Lectura de surtido (Mateo visión): reglas más estrictas de colocación por caja + sanitización Folio↔Firma.
+
+### Versión
+- Producto `2.11.23` (`POLARIA_PRODUCT_VERSION`, `package.json`).
+
 ## 2.9.17 — 2026-10-08
 
 - Órdenes de venta: al guardar una línea se persiste `match_producto` (texto del cliente, sugerencia de Mateo y producto elegido por el usuario).

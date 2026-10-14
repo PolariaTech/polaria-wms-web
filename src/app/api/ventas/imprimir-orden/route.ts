@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getImpresoraActivaCuenta } from "@/modules/configurator/impresoras/services/impresoras.service";
+import { printPdfViaEmail } from "@/modules/sales/ordenes/print/email-print.server";
 import { printPdfViaIpp } from "@/modules/sales/ordenes/print/ipp-print.server";
 
 /**
- * Intenta imprimir por IPP desde el servidor.
- * Si la impresora está en LAN privada (10.x / 192.168.x), Vercel no la alcanza:
- * el cliente debe usar QZ Tray. Esta ruta sirve cuando el Node corre en la misma red.
+ * Impresión desde servidor:
+ * - IPP (LAN, si el Node alcanza la impresora)
+ * - email / epson_connect → SMTP al correo de la impresora
+ * - resto → 409 USE_AGENT (cliente QZ Tray)
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const authHeader = request.headers.get("authorization");
@@ -30,7 +32,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const codigoCuenta = String(body.codigoCuenta ?? "").trim();
   const pdfBase64 = String(body.pdfBase64 ?? "").trim();
-  const jobName = String(body.jobName ?? "Orden Polaria").trim() || "Orden Polaria";
+  const jobName =
+    String(body.jobName ?? "Orden Polaria").trim() || "Orden Polaria";
 
   if (!codigoCuenta) {
     return NextResponse.json({ error: "Falta codigoCuenta." }, { status: 400 });
@@ -51,10 +54,51 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  if (target.modoEnvio === "email" || target.modoEnvio === "epson_connect") {
+    const to = target.emailDestino?.trim();
+    if (!to) {
+      return NextResponse.json(
+        {
+          error: "La impresora no tiene correo de destino configurado.",
+          code: "NO_EMAIL",
+          target,
+        },
+        { status: 400 },
+      );
+    }
+
+    try {
+      await printPdfViaEmail({
+        to,
+        jobName,
+        pdfBase64,
+        impresoraNombre: target.nombre,
+      });
+      return NextResponse.json({
+        ok: true,
+        via: target.modoEnvio,
+        impresora: target.nombre,
+      });
+    } catch (err) {
+      return NextResponse.json(
+        {
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo enviar el PDF por correo.",
+          code: "EMAIL_FAILED",
+          target,
+        },
+        { status: 502 },
+      );
+    }
+  }
+
   if (target.modoEnvio !== "ipp" && target.modoEnvio !== "raw_9100") {
     return NextResponse.json(
       {
-        error: "Esta impresora no usa IPP/JetDirect; el cliente debe usar QZ Tray.",
+        error:
+          "Esta impresora usa QZ Tray; el cliente debe imprimir desde el navegador.",
         code: "USE_AGENT",
         target,
       },

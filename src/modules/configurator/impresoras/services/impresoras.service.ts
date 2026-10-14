@@ -12,7 +12,12 @@ export type ImpresoraModoEnvio =
   | "sistema_local"
   | "ipp"
   | "raw_9100"
-  | "agente";
+  | "agente"
+  | "email"
+  | "epson_connect";
+
+/** Camino de configuración en UI (agrupa modos técnicos). */
+export type ImpresoraCamino = "qz" | "brother_email" | "epson_connect";
 export type ImpresoraTamanoPapel = "letter" | "legal" | "a4";
 export type ImpresoraOrientacion = "portrait" | "landscape";
 export type ImpresoraDuplex = "none" | "long_edge" | "short_edge";
@@ -38,6 +43,7 @@ export interface ImpresoraListRow {
   colaNombre: string | null;
   nombreSistema: string | null;
   idAgente: string | null;
+  emailDestino: string | null;
   usaTls: boolean;
   tamanoPapel: ImpresoraTamanoPapel;
   orientacion: ImpresoraOrientacion;
@@ -67,6 +73,7 @@ export interface CreateImpresoraInput {
   colaNombre?: string | null;
   nombreSistema?: string | null;
   idAgente?: string | null;
+  emailDestino?: string | null;
   usaTls?: boolean;
   tamanoPapel?: ImpresoraTamanoPapel;
   orientacion?: ImpresoraOrientacion;
@@ -96,6 +103,7 @@ interface ImpresoraDbRow {
   cola_nombre: string | null;
   nombre_sistema: string | null;
   id_agente: string | null;
+  email_destino?: string | null;
   usa_tls: boolean;
   tamano_papel: ImpresoraTamanoPapel;
   orientacion: ImpresoraOrientacion;
@@ -108,7 +116,7 @@ interface ImpresoraDbRow {
 }
 
 const IMPRESORA_LIST_COLUMNS =
-  "id_impresora,codigo_cuenta,id_usuario,id_bodega,nombre,codigo,marca,modelo,pais,ubicacion_texto,tipo_conexion,modo_envio,host_ip,puerto,cola_nombre,nombre_sistema,id_agente,usa_tls,tamano_papel,orientacion,duplex,color_modo,bandeja,copias_default,notas,esta_activa";
+  "id_impresora,codigo_cuenta,id_usuario,id_bodega,nombre,codigo,marca,modelo,pais,ubicacion_texto,tipo_conexion,modo_envio,host_ip,puerto,cola_nombre,nombre_sistema,id_agente,email_destino,usa_tls,tamano_papel,orientacion,duplex,color_modo,bandeja,copias_default,notas,esta_activa";
 
 const IMPRESORA_CREATE_COLUMNS = IMPRESORA_LIST_COLUMNS;
 
@@ -137,6 +145,7 @@ function mapListRow(
     colaNombre: row.cola_nombre,
     nombreSistema: row.nombre_sistema,
     idAgente: row.id_agente,
+    emailDestino: row.email_destino ?? null,
     usaTls: row.usa_tls,
     tamanoPapel: row.tamano_papel,
     orientacion: row.orientacion,
@@ -155,6 +164,10 @@ function defaultPuertoForModo(modo: ImpresoraModoEnvio): number | null {
   return null;
 }
 
+function isValidEmailDestino(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function validateCreateInput(input: CreateImpresoraInput): {
   nombre: string;
   codigo: string | null;
@@ -169,6 +182,7 @@ function validateCreateInput(input: CreateImpresoraInput): {
   colaNombre: string | null;
   nombreSistema: string | null;
   idAgente: string | null;
+  emailDestino: string | null;
   usaTls: boolean;
   tamanoPapel: ImpresoraTamanoPapel;
   orientacion: ImpresoraOrientacion;
@@ -185,6 +199,7 @@ function validateCreateInput(input: CreateImpresoraInput): {
   const nombreSistema = input.nombreSistema?.trim() || null;
   const idAgente = input.idAgente?.trim() || null;
   const colaNombre = input.colaNombre?.trim() || null;
+  const emailDestino = input.emailDestino?.trim().toLowerCase() || null;
   const copiasDefault = input.copiasDefault ?? 1;
   const puerto =
     input.puerto ?? defaultPuertoForModo(input.modoEnvio);
@@ -215,16 +230,27 @@ function validateCreateInput(input: CreateImpresoraInput): {
 
   if (input.modoEnvio === "sistema_local" && !nombreSistema) {
     throw new DomainServiceError(
-      "Indica el nombre de la impresora en el sistema operativo (USB / cola local).",
+      "Indica el nombre de la impresora en Windows (QZ Tray).",
       "INVALID_ARGUMENT",
     );
   }
 
   if (input.modoEnvio === "agente" && !idAgente && !nombreSistema) {
     throw new DomainServiceError(
-      "Indica el ID del agente (QZ Tray / PrintNode) o el nombre de cola del agente.",
+      "Indica el nombre de la impresora en Windows (QZ Tray).",
       "INVALID_ARGUMENT",
     );
+  }
+
+  if (input.modoEnvio === "email" || input.modoEnvio === "epson_connect") {
+    if (!emailDestino || !isValidEmailDestino(emailDestino)) {
+      throw new DomainServiceError(
+        input.modoEnvio === "email"
+          ? "Indica el correo de la impresora Brother."
+          : "Indica el correo Epson Connect de la impresora.",
+        "INVALID_ARGUMENT",
+      );
+    }
   }
 
   if (
@@ -262,6 +288,7 @@ function validateCreateInput(input: CreateImpresoraInput): {
     colaNombre,
     nombreSistema,
     idAgente,
+    emailDestino,
     usaTls: Boolean(input.usaTls),
     tamanoPapel: input.tamanoPapel ?? "letter",
     orientacion: input.orientacion ?? "portrait",
@@ -284,13 +311,14 @@ export interface ImpresoraPrintTarget {
   colaNombre: string | null;
   nombreSistema: string | null;
   idAgente: string | null;
+  emailDestino: string | null;
   usaTls: boolean;
   copiasDefault: number;
   tamanoPapel: ImpresoraTamanoPapel;
 }
 
 const IMPRESORA_PRINT_COLUMNS =
-  "id_impresora,codigo_cuenta,nombre,tipo_conexion,modo_envio,host_ip,puerto,cola_nombre,nombre_sistema,id_agente,usa_tls,copias_default,tamano_papel,esta_activa";
+  "id_impresora,codigo_cuenta,nombre,tipo_conexion,modo_envio,host_ip,puerto,cola_nombre,nombre_sistema,id_agente,email_destino,usa_tls,copias_default,tamano_papel,esta_activa";
 
 /** Impresora activa de la cuenta (nivel cuenta: id_usuario null primero). */
 export async function getImpresoraActivaCuenta(
@@ -311,6 +339,7 @@ export async function getImpresoraActivaCuenta(
       cola_nombre: string | null;
       nombre_sistema: string | null;
       id_agente: string | null;
+      email_destino: string | null;
       usa_tls: boolean;
       copias_default: number;
       tamano_papel: ImpresoraTamanoPapel;
@@ -339,6 +368,7 @@ export async function getImpresoraActivaCuenta(
             cola_nombre: string | null;
             nombre_sistema: string | null;
             id_agente: string | null;
+            email_destino: string | null;
             usa_tls: boolean;
             copias_default: number;
             tamano_papel: ImpresoraTamanoPapel;
@@ -366,6 +396,7 @@ export async function getImpresoraActivaCuenta(
     colaNombre: preferred.cola_nombre,
     nombreSistema: preferred.nombre_sistema,
     idAgente: preferred.id_agente,
+    emailDestino: preferred.email_destino ?? null,
     usaTls: preferred.usa_tls,
     copiasDefault: preferred.copias_default,
     tamanoPapel: preferred.tamano_papel,
@@ -464,6 +495,7 @@ export async function createImpresoraConfigurator(
         cola_nombre: validated.colaNombre,
         nombre_sistema: validated.nombreSistema,
         id_agente: validated.idAgente,
+        email_destino: validated.emailDestino,
         usa_tls: validated.usaTls,
         tamano_papel: validated.tamanoPapel,
         orientacion: validated.orientacion,
@@ -546,6 +578,7 @@ export async function updateImpresoraConfigurator(
         cola_nombre: validated.colaNombre,
         nombre_sistema: validated.nombreSistema,
         id_agente: validated.idAgente,
+        email_destino: validated.emailDestino,
         usa_tls: validated.usaTls,
         tamano_papel: validated.tamanoPapel,
         orientacion: validated.orientacion,
@@ -615,7 +648,47 @@ export function labelModoEnvio(modo: ImpresoraModoEnvio): string {
     case "sistema_local":
       return "Cola del sistema";
     case "agente":
-      return "Agente local";
+      return "QZ Tray";
+    case "email":
+      return "Brother · correo";
+    case "epson_connect":
+      return "Epson Connect";
+  }
+}
+
+export function caminoFromModoEnvio(modo: ImpresoraModoEnvio): ImpresoraCamino {
+  if (modo === "email") return "brother_email";
+  if (modo === "epson_connect") return "epson_connect";
+  return "qz";
+}
+
+export function labelCaminoImpresora(camino: ImpresoraCamino): string {
+  switch (camino) {
+    case "qz":
+      return "QZ Tray";
+    case "brother_email":
+      return "Brother · correo";
+    case "epson_connect":
+      return "Epson Connect";
+  }
+}
+
+export function defaultsForCamino(camino: ImpresoraCamino): {
+  modoEnvio: ImpresoraModoEnvio;
+  tipoConexion: ImpresoraTipoConexion;
+  marca: string;
+} {
+  switch (camino) {
+    case "qz":
+      return { modoEnvio: "agente", tipoConexion: "usb", marca: "" };
+    case "brother_email":
+      return { modoEnvio: "email", tipoConexion: "wifi", marca: "Brother" };
+    case "epson_connect":
+      return {
+        modoEnvio: "epson_connect",
+        tipoConexion: "wifi",
+        marca: "Epson",
+      };
   }
 }
 

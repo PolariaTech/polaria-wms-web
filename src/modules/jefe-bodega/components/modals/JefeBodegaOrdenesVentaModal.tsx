@@ -150,7 +150,7 @@ export function JefeBodegaOrdenesVentaModal({
       open={open}
       onClose={handleClose}
       title="Órdenes de venta"
-      description="Confirmadas · últimos 7 días · PDF para almacén"
+      description="Confirmadas · últimos 3 días · PDF para almacén"
       onSubmit={(event) => event.preventDefault()}
       asForm={false}
       hideHeaderClose
@@ -198,7 +198,7 @@ export function JefeBodegaOrdenesVentaModal({
       ) : filtered.length === 0 ? (
         <p className="polaria-text-body-sm text-polaria-w-50">
           {ordenes.length === 0
-            ? "No hay órdenes de venta en esta bodega (últimos 7 días)."
+            ? "No hay órdenes de venta en esta bodega (últimos 3 días)."
             : "Ninguna orden coincide con la búsqueda."}
         </p>
       ) : (

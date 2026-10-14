@@ -247,8 +247,8 @@ describe("sales.service", () => {
     expect(chain.eq).toHaveBeenCalledWith("codigo_cuenta", "CUENTA-01");
     expect(chain.eq).toHaveBeenCalledWith("id_bodega", "BOD-01");
     expect(chain.gte).toHaveBeenCalledWith(
-      "fecha_pedido",
-      getOrdersVisibleSinceDate(7),
+      "created_at",
+      getOrdersVisibleSinceDate(3),
     );
     expect(chain.order).toHaveBeenCalledWith("created_at", {
       ascending: false,

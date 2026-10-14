@@ -607,10 +607,14 @@ export function mapPedidoExtraidoToForm(params: {
       if (vecinos.length > 0) {
         const precioUnitario =
           precioDoc ?? match.precioUnitario;
+        const codigoCliente =
+          linea.codigoProductoCliente?.trim() ||
+          extractCodigoFromCatalogKey(textoOriginal) ||
+          "";
         lineas.push({
           idProducto: "",
           nombre: textoOriginal || stripLeadingProductoCodigo(match.nombre, match.codigo),
-          codigo: "—",
+          codigo: codigoCliente || "—",
           idBodega: match.idBodega,
           cantidadInput: empaque.cantidadInput,
           cajasInput: empaque.cajasInput,
@@ -726,10 +730,14 @@ export function mapPedidoExtraidoToForm(params: {
       continue;
     }
 
+    const codigoClientePending =
+      linea.codigoProductoCliente?.trim() ||
+      extractCodigoFromCatalogKey(textoOriginal) ||
+      "";
     lineas.push({
       idProducto: "",
-      nombre: textoOriginal || "Producto sin catálogo",
-      codigo: "—",
+      nombre: textoOriginal || "Producto no identificado",
+      codigo: codigoClientePending || "—",
       idBodega: sugerencia?.idBodega ?? "",
       cantidadInput: empaque.cantidadInput,
       cajasInput: empaque.cajasInput,

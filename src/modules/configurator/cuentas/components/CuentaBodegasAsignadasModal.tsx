@@ -118,18 +118,18 @@ export function CuentaBodegasAsignadasModal({
               <col className="w-[22%]" />
               <col className="w-[32%]" />
             </colgroup>
-            <thead className="sticky top-0 bg-polaria-t-08">
-              <tr className="border-b border-polaria-t-20">
-                <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+            <thead className="sticky top-0 z-10 bg-polaria-bg">
+              <tr className="border-b border-polaria-t-20 bg-polaria-bg">
+                <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   Default
                 </th>
-                <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+                <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   Nombre
                 </th>
-                <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+                <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   Tipo
                 </th>
-                <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+                <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   Capacidad
                 </th>
               </tr>

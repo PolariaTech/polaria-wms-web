@@ -12,46 +12,46 @@ import { withCuentaSchema } from "@/lib/supabase/cuenta-schema";
 import {
   formatEstadoOrdenVenta,
   variantEstadoOrdenVenta,
-} from "../../shared/constants/sales-status";
-import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
-import { getOrdenVentaDetalle } from "../../shared/services/sales.service";
-import { postOrdenVentaLog } from "../services/orden-venta-log.client";
+} from "../../../shared/constants/sales-status";
+import { emitirOrdenVentaApi } from "../../../shared/services/sales-api.service";
+import { getOrdenVentaDetalle } from "../../../shared/services/sales.service";
+import { postOrdenVentaLog } from "../../services/orden-venta-log.client";
 import { useAuthStore } from "@/stores/auth.store";
 import type {
   OrdenVentaDetalleRow,
   OrdenVentaLineaRow,
-} from "../../shared/types/sales.types";
+} from "../../../shared/types/sales.types";
 import {
   formatCapturaFecha,
   notaCapturaForLinea,
   parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
-} from "../utils/build-orden-venta-captura-observaciones";
-import { resolveSkuVisible } from "../utils/resolve-sku-visible";
+} from "../../utils/build-orden-venta-captura-observaciones";
+import { resolveSkuVisible } from "../../utils/resolve-sku-visible";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
   looksLikeCorreoCuerpoEnNotas,
   sanitizeNotasGeneralesPedido,
-} from "../utils/texto-origen-pedido";
-import { filterLineasByOrdenTrabajoHija } from "../utils/filter-lineas-by-orden-trabajo";
+} from "../../utils/texto-origen-pedido";
+import { filterLineasByOrdenTrabajoHija } from "../../utils/filter-lineas-by-orden-trabajo";
 import {
   groupOrigenCorreoToOrdenesTrabajo,
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
-} from "../utils/origen-correo-ordenes-trabajo";
+} from "../../utils/origen-correo-ordenes-trabajo";
 import {
   OrigenPedidoBodyView,
   OrigenPedidoSourceView,
-} from "./OrigenPedidoBodyView";
+} from "../shared/OrigenPedidoBodyView";
 import {
   formatCompradorOrdenVenta,
   formatOrdenVentaLineaTotal,
   formatOrdenVentaTotal,
   resolveOrdenVentaLineaTitulo,
   sumOrdenVentaCantidadKg,
-} from "../utils/orden-venta-display";
-import { OrdenTrabajoLogPanel } from "./OrdenTrabajoLogPanel";
+} from "../../utils/orden-venta-display";
+import { OrdenTrabajoLogPanel } from "../orden-trabajo/OrdenTrabajoLogPanel";
 
 interface OrdenVentaDetalleModalProps {
   idOrdenVenta: string | null;

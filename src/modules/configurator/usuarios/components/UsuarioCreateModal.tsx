@@ -9,11 +9,6 @@ import {
 } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaPasswordStrengthField } from "@/components/shared/form/PolariaPasswordStrengthField";
-import { PolariaPhoneInput } from "@/components/shared/form/PolariaPhoneInput";
-import {
-  isValidInternationalPhone,
-  normalizeInternationalPhone,
-} from "@/constants/ui/phone-countries";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { generateCodigoCuentaFromNombre } from "@/lib/utils/generate-codigo-cuenta";
 import {
@@ -52,7 +47,6 @@ const INITIAL_FORM = {
   codigoCuenta: "",
   idBodega: "",
   correo: "",
-  telefono: "",
   clave: "",
   accesoWms: true,
   accesoMateo: true,
@@ -159,14 +153,6 @@ export function UsuarioCreateModal({
       return;
     }
 
-    const telefono = form.telefono.trim()
-      ? normalizeInternationalPhone(form.telefono)
-      : "";
-    if (telefono && !isValidInternationalPhone(telefono)) {
-      setError("Ingresa un número de teléfono válido.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -182,7 +168,7 @@ export function UsuarioCreateModal({
               : null,
         idBodega: asignacionTipo === "bodega" ? form.idBodega : null,
         correo: form.correo,
-        telefono: telefono || null,
+        telefono: null,
         clave,
         accesoWms: form.accesoWms,
         accesoMateo: form.accesoMateo,
@@ -226,6 +212,7 @@ export function UsuarioCreateModal({
           placeholder="Selecciona un rol primero"
           readOnly
           disabled
+          compact
         />
       );
     }
@@ -248,6 +235,7 @@ export function UsuarioCreateModal({
             value: cuenta.codigoCuenta,
             label: cuenta.nombreComercial,
           }))}
+          compact
         />
       );
     }
@@ -275,6 +263,7 @@ export function UsuarioCreateModal({
             value: bodega.idBodega,
             label: `${bodega.nombre} (${bodega.codigo})`,
           }))}
+          compact
         />
       );
     }
@@ -287,6 +276,7 @@ export function UsuarioCreateModal({
           value={USUARIO_ASIGNACION_VALOR_FIJO[asignacionTipo] ?? ""}
           readOnly
           disabled
+          compact
         />
       );
     }
@@ -301,81 +291,100 @@ export function UsuarioCreateModal({
         onClose={handleClose}
         sectionLabel="Nuevo usuario"
         title="Crear usuario"
-        description="Completa los campos para registrar un usuario."
-        size="md"
+        description="Rol, asignación, correo y productos de acceso."
+        size="lg"
+        compact
+        closeOnEscape={!rolPickerOpen}
         onSubmit={(event) => {
           void handleSubmit(event);
         }}
         error={error}
         isSubmitting={isSubmitting}
+        submitDisabled={isLoadingOptions}
         submitLabel="Crear"
       >
-        <div className="flex flex-col gap-3">
-          <PolariaFormInput
-            id="usuario-nombre"
-            label="Nombre"
-            value={form.nombre}
-            placeholder="Nombre completo"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, nombre: event.target.value }))
-            }
-            disabled={disabled}
-            autoFocus
-          />
+        <div className="space-y-5">
+          <section className="space-y-2">
+            <p className="polaria-text-caption text-polaria-w-50">Identidad</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <PolariaFormInput
+                id="usuario-nombre"
+                label="Nombre"
+                value={form.nombre}
+                placeholder="Nombre completo"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    nombre: event.target.value,
+                  }))
+                }
+                disabled={disabled}
+                autoFocus
+                required
+                compact
+              />
+              <PolariaFormInput
+                id="usuario-correo"
+                label="Correo"
+                type="email"
+                autoComplete="email"
+                value={form.correo}
+                placeholder="correo@empresa.com"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    correo: event.target.value,
+                  }))
+                }
+                disabled={disabled}
+                required
+                compact
+              />
+            </div>
+          </section>
 
-          <PolariaFormField id="usuario-rol" label="Rol">
-            <JefeBodegaModalSearchField
-              id="usuario-rol"
-              value={rolLabel}
-              placeholder={
-                isLoadingOptions ? "Cargando roles…" : "Selecciona un rol"
+          <section className="space-y-2">
+            <p className="polaria-text-caption text-polaria-w-50">
+              Rol y asignación
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <PolariaFormField id="usuario-rol" label="Rol" required compact>
+                <JefeBodegaModalSearchField
+                  id="usuario-rol"
+                  value={rolLabel}
+                  placeholder={
+                    isLoadingOptions ? "Cargando roles…" : "Selecciona un rol"
+                  }
+                  ariaLabel="Rol"
+                  compact
+                  onSearchClick={
+                    disabled
+                      ? undefined
+                      : () => {
+                          setRolPickerOpen(true);
+                        }
+                  }
+                />
+              </PolariaFormField>
+              {renderAsignadoField()}
+            </div>
+          </section>
+
+          <section className="space-y-2">
+            <p className="polaria-text-caption text-polaria-w-50">
+              Credenciales
+            </p>
+            <PolariaPasswordStrengthField
+              id="usuario-clave"
+              label="Clave"
+              value={form.clave}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, clave: value }))
               }
-              ariaLabel="Rol"
-              onSearchClick={
-                disabled
-                  ? undefined
-                  : () => {
-                      setRolPickerOpen(true);
-                    }
-              }
+              disabled={disabled}
+              compact
             />
-          </PolariaFormField>
-
-          {renderAsignadoField()}
-
-          <PolariaFormInput
-            id="usuario-correo"
-            label="Correo"
-            type="email"
-            autoComplete="email"
-            value={form.correo}
-            placeholder="correo@empresa.com"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, correo: event.target.value }))
-            }
-            disabled={disabled}
-          />
-
-          <PolariaPhoneInput
-            id="usuario-telefono"
-            label="Teléfono"
-            value={form.telefono}
-            onChange={(value) =>
-              setForm((current) => ({ ...current, telefono: value }))
-            }
-            disabled={disabled}
-            hint="Opcional. Formato internacional."
-          />
-
-          <PolariaPasswordStrengthField
-            id="usuario-clave"
-            label="Clave"
-            value={form.clave}
-            onChange={(value) =>
-              setForm((current) => ({ ...current, clave: value }))
-            }
-            disabled={disabled}
-          />
+          </section>
 
           <CuentaAccesoGrantPanel
             estaActiva

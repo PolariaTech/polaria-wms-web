@@ -54,6 +54,24 @@ export function puedeEditarOrdenVenta(estado: string): boolean {
   return ESTADOS_ORDEN_VENTA_EDITABLES.has(estado as EstadoOrdenVenta);
 }
 
+/**
+ * Botón Editar en la lista de OV: solo en Confirmada.
+ * Por confirmar se revisa/emite con clic en la fila (flujo Mateo).
+ */
+export function puedeEditarOrdenVentaDesdeLista(estado: string): boolean {
+  return normalizeEstadoOrdenVenta(estado) === "confirmada";
+}
+
+/** Imprimir / PDF / fotos: solo desde confirmada en adelante. */
+const ESTADOS_ORDEN_VENTA_ACCIONES_ALMACEN: ReadonlySet<EstadoOrdenVenta> =
+  new Set(["confirmada", "alistamiento", "alistada"]);
+
+export function puedeAccionesAlmacenOrdenVenta(estado: string): boolean {
+  return ESTADOS_ORDEN_VENTA_ACCIONES_ALMACEN.has(
+    normalizeEstadoOrdenVenta(estado),
+  );
+}
+
 /** Variante de badge para el estado de la OV en tablas. */
 export function variantEstadoOrdenVenta(
   estado: string,

@@ -23,37 +23,38 @@ import {
   ESTADO_ORDEN_VENTA_LABELS,
   ESTADOS_ORDEN_VENTA,
   formatEstadoOrdenVenta,
-  puedeEditarOrdenVenta,
+  puedeAccionesAlmacenOrdenVenta,
+  puedeEditarOrdenVentaDesdeLista,
   variantEstadoOrdenVenta,
-} from "../../shared/constants/sales-status";
-import { useOrdenesVentaSubscription } from "../../shared/hooks/useOrdenesVentaSubscription";
+} from "../../../shared/constants/sales-status";
+import { useOrdenesVentaSubscription } from "../../../shared/hooks/useOrdenesVentaSubscription";
 import {
   ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS,
   ordenVentaTableColumnClass,
-} from "../constants/ordenes-venta-table-layout";
+} from "../../constants/ordenes-venta-table-layout";
 import {
   buildOrdenTareaAlmacenLandscapePdfBlob,
   printOrdenTareaAlmacen,
-} from "../print/download-orden-tarea-almacen-pdf";
-import { mapOrdenVentaToAlmacenPrintSheets } from "../print/map-orden-tarea-almacen";
+} from "../../print/download-orden-tarea-almacen-pdf";
+import { mapOrdenVentaToAlmacenPrintSheets } from "../../print/map-orden-tarea-almacen";
 import {
   getOrdenVentaDetalle,
   listOrdenesVentaOperador,
-} from "../../shared/services/sales.service";
+} from "../../../shared/services/sales.service";
 import type {
   EstadoOrdenVenta,
   OrdenVentaOperadorRow,
-} from "../../shared/types/sales.types";
-import { listOrdenIdsConSurtidoCaptura } from "../surtido/list-orden-ids-con-surtido-captura";
+} from "../../../shared/types/sales.types";
+import { listOrdenIdsConSurtidoCaptura } from "../../surtido/list-orden-ids-con-surtido-captura";
 import { useAuthStore } from "@/stores/auth.store";
-import { OrdenVentaCreateModal } from "./OrdenVentaCreateModal";
-import { OrdenVentaDetalleModal } from "./OrdenVentaDetalleModal";
+import { OrdenVentaCreateModal } from "../modals/OrdenVentaCreateModal";
+import { OrdenVentaDetalleModal } from "../modals/OrdenVentaDetalleModal";
 import {
   OrdenVentaFotosCapturaModal,
   type OrdenVentaFotoCapturaItem,
   type OrdenVentaOtConFotosItem,
-} from "./OrdenVentaFotosCapturaModal";
-import { OrdenVentaPdfPreviewModal } from "./OrdenVentaPdfPreviewModal";
+} from "../modals/OrdenVentaFotosCapturaModal";
+import { OrdenVentaPdfPreviewModal } from "../modals/OrdenVentaPdfPreviewModal";
 
 interface OrdenesVentaPageData {
   rows: OrdenVentaOperadorRow[];
@@ -213,7 +214,7 @@ export function OperadorOrdenesVentaPageContent({
         }
         await printOrdenTareaAlmacen(primary, { codigoCuenta });
         const { postOrdenVentaLog } = await import(
-          "../services/orden-venta-log.client"
+          "../../services/orden-venta-log.client"
         );
         const session = useAuthStore.getState().session;
         void postOrdenVentaLog({
@@ -492,6 +493,14 @@ export function OperadorOrdenesVentaPageContent({
               cell: (row: OrdenVentaOperadorRow) => {
                 const hasFotos = idsConFotosCaptura.has(row.idOrdenVenta);
                 const busyId = busyAction?.id === row.idOrdenVenta;
+                const puedeEditar = puedeEditarOrdenVentaDesdeLista(
+                  row.estado,
+                );
+                const puedeAlmacen = puedeAccionesAlmacenOrdenVenta(
+                  row.estado,
+                );
+                const bloqueadoHastaConfirmar =
+                  "Disponible cuando la orden esté confirmada";
                 return (
                   <span
                     onClick={(event) => event.stopPropagation()}
@@ -500,40 +509,61 @@ export function OperadorOrdenesVentaPageContent({
                     <PolariaTableActionGroup>
                       <PolariaTableEditButton
                         label={
-                          puedeEditarOrdenVenta(row.estado)
+                          puedeEditar
                             ? "Editar"
-                            : "Esta orden ya no se puede editar"
+                            : bloqueadoHastaConfirmar
                         }
-                        disabled={!puedeEditarOrdenVenta(row.estado)}
+                        disabled={!puedeEditar}
                         onClick={() => {
-                          if (!puedeEditarOrdenVenta(row.estado)) return;
+                          if (!puedeEditar) return;
                           setEditingId(row.idOrdenVenta);
                           setIsCreateOpen(true);
                         }}
                       />
                       <PolariaTablePrintButton
+                        label={
+                          puedeAlmacen
+                            ? "Imprimir"
+                            : bloqueadoHastaConfirmar
+                        }
                         onClick={() => {
+                          if (!puedeAlmacen) return;
                           void runPrint(row);
                         }}
-                        disabled={busyId && busyAction?.kind === "print"}
+                        disabled={
+                          !puedeAlmacen ||
+                          (busyId && busyAction?.kind === "print")
+                        }
                       />
                       <PolariaTableDocumentButton
-                        label="Descarga"
+                        label={
+                          puedeAlmacen
+                            ? "Descarga"
+                            : bloqueadoHastaConfirmar
+                        }
                         onClick={() => {
+                          if (!puedeAlmacen) return;
                           void openPdfPreview(row);
                         }}
-                        disabled={busyId && busyAction?.kind === "preview"}
+                        disabled={
+                          !puedeAlmacen ||
+                          (busyId && busyAction?.kind === "preview")
+                        }
                       />
                       <PolariaTableImagesButton
                         label={
-                          hasFotos
-                            ? "Fotos del QR"
-                            : "Aún no hay fotos del QR"
+                          !puedeAlmacen
+                            ? bloqueadoHastaConfirmar
+                            : hasFotos
+                              ? "Fotos del QR"
+                              : "Aún no hay fotos del QR"
                         }
                         onClick={() => {
+                          if (!puedeAlmacen || !hasFotos) return;
                           void openFotosCaptura(row);
                         }}
                         disabled={
+                          !puedeAlmacen ||
                           !hasFotos ||
                           (busyId && busyAction?.kind === "fotos")
                         }

@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import { formatDateTime } from "@/components/shared/utils/formatters";
-import { fetchOrdenVentaLog } from "../services/orden-venta-log.client";
-import type { OrdenVentaLogEntry } from "../types/orden-venta-log.types";
-import { filterLogEntriesVisible } from "../utils/filter-log-entries-visible";
+import { fetchOrdenVentaLog } from "../../services/orden-venta-log.client";
+import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
+import { filterLogEntriesVisible } from "../../utils/filter-log-entries-visible";
 
 interface OrdenTrabajoLogPanelProps {
   idOrdenVenta: string;

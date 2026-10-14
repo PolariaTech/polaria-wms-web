@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   formatEstadoOrdenVenta,
+  puedeAccionesAlmacenOrdenVenta,
   puedeEditarOrdenVenta,
+  puedeEditarOrdenVentaDesdeLista,
 } from "./sales-status";
 
 describe("puedeEditarOrdenVenta", () => {
@@ -18,6 +20,27 @@ describe("puedeEditarOrdenVenta", () => {
     expect(puedeEditarOrdenVenta("despachada")).toBe(false);
     expect(puedeEditarOrdenVenta("cerrada")).toBe(false);
     expect(puedeEditarOrdenVenta("cancelada")).toBe(false);
+  });
+});
+
+describe("puedeAccionesAlmacenOrdenVenta", () => {
+  it("bloquea por_confirmar", () => {
+    expect(puedeAccionesAlmacenOrdenVenta("por_confirmar")).toBe(false);
+  });
+
+  it("permite desde confirmada", () => {
+    expect(puedeAccionesAlmacenOrdenVenta("confirmada")).toBe(true);
+    expect(puedeAccionesAlmacenOrdenVenta("alistamiento")).toBe(true);
+    expect(puedeAccionesAlmacenOrdenVenta("alistada")).toBe(true);
+  });
+});
+
+describe("puedeEditarOrdenVentaDesdeLista", () => {
+  it("solo permite confirmada", () => {
+    expect(puedeEditarOrdenVentaDesdeLista("por_confirmar")).toBe(false);
+    expect(puedeEditarOrdenVentaDesdeLista("confirmada")).toBe(true);
+    expect(puedeEditarOrdenVentaDesdeLista("alistamiento")).toBe(false);
+    expect(puedeEditarOrdenVentaDesdeLista("alistada")).toBe(false);
   });
 });
 

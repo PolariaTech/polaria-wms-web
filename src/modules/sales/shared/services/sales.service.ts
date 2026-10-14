@@ -690,7 +690,7 @@ export async function listOrdenesVenta(
         client.from("orden_venta").select(ORDEN_VENTA_COLUMNS),
         params,
       ),
-      "fecha_pedido",
+      "created_at",
     )
       .order("created_at", { ascending: false })
       .order("id_orden_venta", { ascending: false })
@@ -724,7 +724,7 @@ export async function countOrdenesVentaPorConfirmar(
         .select("*", { count: "exact", head: true })
         .eq("codigo_cuenta", codigo)
         .eq("estado", "por_confirmar"),
-      "fecha_pedido",
+      "created_at",
     );
 
     return query.then(({ count, error }: { count: number | null; error: { message: string } | null }) => ({
@@ -747,7 +747,7 @@ export async function listOrdenesVentaOperador(
         client.from("orden_venta").select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS),
         params,
       ),
-      "fecha_pedido",
+      "created_at",
     )
       .order("created_at", { ascending: false })
       .order("id_orden_venta", { ascending: false })
@@ -784,7 +784,7 @@ export async function listOrdenesVentaOperadorParaJefe(params: {
         .select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS)
         .eq("codigo_cuenta", codigoCuenta)
         .or(`id_bodega.eq.${idBodega},id_bodega_destino.eq.${idBodega}`),
-      "fecha_pedido",
+      "created_at",
     )
       .order("created_at", { ascending: false })
       .order("id_orden_venta", { ascending: false })

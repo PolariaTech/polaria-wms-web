@@ -320,6 +320,8 @@ export function scoreProductoMatch(
 
   let overlap = 0;
   let synonymHits = 0;
+  let softHits = 0;
+  let matchedQueryTokens = 0;
 
   for (const token of qTokens) {
     const tokenForms = expandTokenForms(token);
@@ -332,6 +334,7 @@ export function scoreProductoMatch(
           : 1
         : 0.95;
       if (!exactOnProduct) synonymHits += 1;
+      matchedQueryTokens += 1;
       continue;
     }
 
@@ -339,6 +342,7 @@ export function scoreProductoMatch(
     if (formsOverlap(tokenForms, pForms)) {
       overlap += 0.95;
       synonymHits += 1;
+      matchedQueryTokens += 1;
       continue;
     }
 
@@ -347,6 +351,7 @@ export function scoreProductoMatch(
       if (tokensNearlyEqual(token, pToken)) {
         overlap += 0.92;
         matchedSoft = true;
+        softHits += 1;
         break;
       }
       // Prefijo truncado del tercero: "AGUAC" → "AGUACATE".
@@ -357,20 +362,23 @@ export function scoreProductoMatch(
       ) {
         overlap += 0.9;
         matchedSoft = true;
+        softHits += 1;
         break;
       }
       if (token.length >= 3 && pToken.includes(token)) {
         overlap += 0.6;
         matchedSoft = true;
+        softHits += 1;
         break;
       }
       if (pToken.length >= 3 && token.includes(pToken)) {
         overlap += 0.5;
         matchedSoft = true;
+        softHits += 1;
         break;
       }
     }
-    void matchedSoft;
+    if (matchedSoft) matchedQueryTokens += 1;
   }
 
   // Bonus si el compuesto completo del query cae en el producto (blue berry → blueberry).
@@ -391,6 +399,15 @@ export function scoreProductoMatch(
   // (query corto "blue berry" vs nombre largo "ARÁNDANOS/BLUEBERRIES (DOMO)").
   if (synonymHits > 0) {
     score = Math.max(score, Math.min(0.72, 0.45 + 0.2 * synonymHits));
+  }
+
+  // Query corto con typo (jass↔hass) vs nombre largo del catálogo: Jaccard se
+  // diluye con tokens extra del producto y caía bajo el umbral de sugerencia.
+  const queryCoverage = matchedQueryTokens / Math.max(qTokens.size, 1);
+  if (queryCoverage >= 0.99 && (softHits > 0 || synonymHits > 0)) {
+    score = Math.max(score, 0.55);
+  } else if (queryCoverage >= 0.75 && matchedQueryTokens >= 2) {
+    score = Math.max(score, 0.4);
   }
 
   // Penaliza tallas/números del pedido que el catálogo no trae (variantes distintas).

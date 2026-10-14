@@ -136,6 +136,38 @@ describe("rankProductosCatalogo", () => {
     expect(ranked.best?.idProducto).toBe("p5");
   });
 
+  it("sugiere AGUACATE JASS → Hass aunque el nombre del catálogo sea largo", () => {
+    const catalogoLargo: ProductoVentaOption[] = [
+      {
+        idProducto: "p-long",
+        label:
+          "AGUACATE HASS EXTRA CALIBRE 200 A 250 G PIEZA PREMIUM BODEGA CUN (115001005)",
+        idCliente: null,
+        idBodega: "b1",
+        codigo: "115001005",
+        nombre:
+          "AGUACATE HASS EXTRA CALIBRE 200 A 250 G PIEZA PREMIUM BODEGA CUN",
+        kgDisponible: 40,
+        precioUnitario: 78,
+        unidadMedida: "kg",
+      },
+      {
+        idProducto: "p-fresa",
+        label: "FRESA FRESCA (X200012100)",
+        idCliente: null,
+        idBodega: "b1",
+        codigo: "X200012100",
+        nombre: "FRESA FRESCA",
+        kgDisponible: 10,
+        precioUnitario: 120,
+        unidadMedida: "kg",
+      },
+    ];
+    const ranked = rankProductosCatalogo("AGUACATE JASS", catalogoLargo);
+    expect(ranked.best?.idProducto).toBe("p-long");
+    expect(ranked.candidates[0]?.score ?? 0).toBeGreaterThanOrEqual(0.22);
+  });
+
   it("devuelve hasta 3 candidatos ordenados", () => {
     const ranked = rankProductosCatalogo("aguacate", productos);
     expect(ranked.candidates.length).toBeGreaterThanOrEqual(2);

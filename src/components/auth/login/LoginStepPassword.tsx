@@ -1,6 +1,14 @@
 "use client";
 
-import { ArrowRight, CheckCircle2, Loader2, Lock } from "lucide-react";
+import { useState } from "react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+} from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { UserPreview } from "@/types/auth/auth";
 
@@ -27,6 +35,8 @@ export function LoginStepPassword({
   onBack,
   onSubmit,
 }: LoginStepPasswordProps) {
+  const [showPassword, setShowPassword] = useState(false);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit();
@@ -65,16 +75,34 @@ export function LoginStepPassword({
             <Lock className="h-4 w-4" />
             Contraseña
           </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Ingresa tu contraseña"
-            value={password}
-            onChange={(e) => onPasswordChange(e.target.value)}
-            disabled={isLoading}
-            className="w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-4 py-3 text-polaria-w placeholder:text-polaria-w-20 outline-none transition focus:border-polaria-t-20 focus:ring-1 focus:ring-polaria-t-20 disabled:opacity-60"
-          />
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="Ingresa tu contraseña"
+              value={password}
+              onChange={(e) => onPasswordChange(e.target.value)}
+              disabled={isLoading}
+              className="w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-3 pr-12 pl-4 text-polaria-w placeholder:text-polaria-w-20 outline-none transition focus:border-polaria-t-20 focus:ring-1 focus:ring-polaria-t-20 disabled:opacity-60"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              disabled={isLoading}
+              aria-label={
+                showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+              }
+              aria-pressed={showPassword}
+              className="absolute top-1/2 right-2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-polaria-w-50 transition hover:bg-polaria-t-08 hover:text-polaria-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal disabled:opacity-60"
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" aria-hidden />
+              ) : (
+                <Eye className="h-4 w-4" aria-hidden />
+              )}
+            </button>
+          </div>
         </div>
 
         {error && (

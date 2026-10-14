@@ -114,4 +114,29 @@ describe("groupOrigenCorreoToOrdenesTrabajo", () => {
     expect(hijas).toHaveLength(1);
     expect(hijas[0]?.id).toBe("default");
   });
+
+  it("mismo Oc Generada + distintos centros de costo Xcaret → 9 OTs (no 11)", () => {
+    const oc = "4501056534";
+    const rows: OrigenCorreoRenglon[] = [
+      { "Numero pedido": oc, Almacen: "Almacen General", Producto: "AGUACATE JASS", Cantidad: 37 },
+      { "Numero pedido": oc, Almacen: "Ayb Xc Producción De Banquetes", Producto: "BLUE BERRY", Cantidad: 0.5 },
+      { "Numero pedido": oc, Almacen: "Ayb Rest Veracruz", Producto: "FRESA FRESCA", Cantidad: 2 },
+      { "Numero pedido": oc, Almacen: "Panadería Ayb", Producto: "ZARZAMORA", Cantidad: 3 },
+      { "Numero pedido": oc, Almacen: "Ayb Xc Cena Gran Tlachco", Producto: "BLUE BERRY", Cantidad: 0.8 },
+      // Tres filas Troglodita (distintos Usuario en origen) = UNA sola OT
+      { "Numero pedido": oc, Almacen: "Ayb Xp Restaurant Troglodita", Producto: "FRESA FRESCA", Cantidad: 1 },
+      { "Numero pedido": oc, Almacen: "Ayb Xp Restaurant Troglodita", Producto: "FRAMBUESA", Cantidad: 1 },
+      { "Numero pedido": oc, Almacen: "Ayb Xp Restaurant Troglodita", Producto: "ZARZAMORA", Cantidad: 1 },
+      { "Numero pedido": oc, Almacen: "Ayb Xc Restaurant Jalisco", Producto: "FRESA FRESCA", Cantidad: 0.5 },
+      { "Numero pedido": oc, Almacen: "Ayb Xc Restaurant Baja California", Producto: "FRESA FRESCA", Cantidad: 2 },
+      { "Numero pedido": oc, Almacen: "Ayb Xc Restaurant Oaxaca", Producto: "FRESA FRESCA", Cantidad: 4 },
+    ];
+    const hijas = groupOrigenCorreoToOrdenesTrabajo(rows);
+    expect(hijas).toHaveLength(9);
+    const troglodita = hijas.find((h) =>
+      h.almacen.toLowerCase().includes("troglodita"),
+    );
+    expect(troglodita?.renglones).toHaveLength(3);
+    expect(troglodita?.numeroPedido).toBe(oc);
+  });
 });

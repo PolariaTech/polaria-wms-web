@@ -17,6 +17,7 @@ import {
   type CuentaCockpitModuloId,
 } from "@/modules/configurator/cuentas/constants/cuenta-cockpit";
 import { getCuentaGobiernoConfigurator } from "@/modules/configurator/cuentas/services/cuentas.service";
+import { ImpresorasListView } from "@/modules/configurator/impresoras/components/ImpresorasListView";
 import { UsuariosListView } from "@/modules/configurator/usuarios/components/UsuariosListView";
 import { ComprasPageContent } from "@/modules/purchases";
 import { OperadorOrdenesVentaPageContent } from "@/modules/sales";
@@ -33,6 +34,10 @@ export function CuentaCockpitModuloView({
 }: CuentaCockpitModuloViewProps) {
   if (modulo === "usuarios") {
     return <UsuariosListView codigoCuenta={codigoCuenta} />;
+  }
+
+  if (modulo === "impresoras") {
+    return <ImpresorasListView codigoCuenta={codigoCuenta} />;
   }
 
   if (modulo === "catalogo") {
