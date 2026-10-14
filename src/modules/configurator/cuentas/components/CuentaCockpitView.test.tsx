@@ -63,6 +63,20 @@ describe("CuentaCockpitView", () => {
     expect(mockPush).toHaveBeenCalledWith("/configurador/cuentas/MIT00/usuarios");
   });
 
+  it("navega a impresoras de la cuenta", async () => {
+    const user = userEvent.setup();
+
+    render(<CuentaCockpitView codigoCuenta="MIT00" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Mitre" })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /^Impresoras$/i }));
+
+    expect(mockPush).toHaveBeenCalledWith("/configurador/cuentas/MIT00/impresoras");
+  });
+
   it("muestra la card de carga al estilo SSO mientras llega la cuenta", () => {
     getCuentaGobiernoConfigurator.mockReturnValue(new Promise(() => {}));
 

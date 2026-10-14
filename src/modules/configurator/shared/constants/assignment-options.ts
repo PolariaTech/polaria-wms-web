@@ -1,4 +1,4 @@
-import { Printer, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 import type {
   AssignmentOption,
@@ -16,12 +16,6 @@ export const ASSIGNMENT_OPTIONS: AssignmentOption[] = [
     title: "Usuarios",
     icon: Users,
     href: ROUTES.configuratorAssignmentUsers,
-  },
-  {
-    id: "impresoras",
-    title: "Impresoras",
-    icon: Printer,
-    href: ROUTES.configuratorAssignmentPrinters,
   },
 ] as const;
 

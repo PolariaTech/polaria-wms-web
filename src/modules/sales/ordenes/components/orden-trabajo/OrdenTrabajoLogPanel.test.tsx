@@ -5,7 +5,7 @@ import { OrdenTrabajoLogPanel } from "./OrdenTrabajoLogPanel";
 
 const fetchOrdenVentaLog = vi.fn();
 
-vi.mock("../services/orden-venta-log.client", () => ({
+vi.mock("../../services/orden-venta-log.client", () => ({
   fetchOrdenVentaLog: (...args: unknown[]) => fetchOrdenVentaLog(...args),
 }));
 

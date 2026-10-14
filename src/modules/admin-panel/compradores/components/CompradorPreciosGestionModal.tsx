@@ -702,7 +702,7 @@ export function CompradorPreciosGestionModal({
           {importPreviewRows.length > 0 ? (
             <div className="max-h-80 overflow-auto rounded-xl border border-polaria-w-08">
               <table className="min-w-full border-collapse text-left">
-                <thead className="sticky top-0 bg-polaria-bg">
+                <thead className="sticky top-0 z-10 bg-polaria-bg">
                   <tr className="border-b border-polaria-w-08">
                     <th className="px-2 py-2 polaria-text-label uppercase tracking-wide text-polaria-teal">
                       Grupo

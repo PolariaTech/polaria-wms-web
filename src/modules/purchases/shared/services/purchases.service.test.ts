@@ -39,7 +39,7 @@ describe("purchases.service", () => {
     expect(chain.eq).toHaveBeenCalledWith("id_bodega", "BOD-01");
     expect(chain.gte).toHaveBeenCalledWith(
       "fecha_emision",
-      getOrdersVisibleSinceDate(7),
+      getOrdersVisibleSinceDate(3),
     );
     expect(chain.order).toHaveBeenCalledWith("fecha_emision", {
       ascending: false,

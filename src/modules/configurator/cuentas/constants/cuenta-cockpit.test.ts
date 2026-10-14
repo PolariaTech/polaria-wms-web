@@ -20,6 +20,7 @@ describe("cuenta-cockpit", () => {
 
   it("reconoce módulos del cockpit y los que se abren como modal", () => {
     expect(isCuentaCockpitModuloId("acceso")).toBe(true);
+    expect(isCuentaCockpitModuloId("impresoras")).toBe(true);
     expect(isCuentaCockpitModuloId("catalogo")).toBe(true);
     expect(isCuentaCockpitModuloId("otro")).toBe(false);
     expect(isCuentaCockpitModalModulo("acceso")).toBe(true);

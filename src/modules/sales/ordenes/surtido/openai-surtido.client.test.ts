@@ -4,6 +4,7 @@ import {
   expandNombresParcialesFirmas,
   remapLineasPorProducto,
   sanitizeFacturaAsociada,
+  sanitizeFacturaOkFolioFirma,
 } from "./openai-surtido.client";
 
 const original = {
@@ -53,6 +54,50 @@ describe("expandNombresParcialesFirmas", () => {
     expandNombresParcialesFirmas(campos);
     expect(campos.revisoNombre).toBe("Luis Cantillo");
     expect(campos["Revisó nombre"]).toBe("Luis Cantillo");
+  });
+
+  it("no completa Factura (OK) desde Despachó", () => {
+    const campos = {
+      facturaOkNombre: "Cantillo",
+      "Factura (OK) nombre": "Cantillo",
+      despachoNombre: "Luis Cantillo",
+    };
+    expandNombresParcialesFirmas(campos);
+    expect(campos.facturaOkNombre).toBe("Cantillo");
+  });
+});
+
+describe("sanitizeFacturaOkFolioFirma", () => {
+  it("intercambia folio y firma si vinieron invertidos", () => {
+    const campos = {
+      facturaOkFolio: "Ana Ruiz",
+      "Factura (OK) folio": "Ana Ruiz",
+      facturaOkFirma: "F-9081",
+      "Factura (OK) firma": "F-9081",
+    };
+    sanitizeFacturaOkFolioFirma(campos);
+    expect(campos.facturaOkFolio).toBe("F-9081");
+    expect(campos.facturaOkFirma).toBe("Ana Ruiz");
+  });
+
+  it("mueve un nombre puesto en folio hacia firma", () => {
+    const campos = {
+      facturaOkFolio: "Pedro Lopez",
+      "Factura (OK) folio": "Pedro Lopez",
+    };
+    sanitizeFacturaOkFolioFirma(campos);
+    expect(campos.facturaOkFolio).toBeUndefined();
+    expect(campos.facturaOkFirma).toBe("Pedro Lopez");
+  });
+
+  it("mueve un folio puesto en firma hacia folio", () => {
+    const campos = {
+      facturaOkFirma: "FAC-221",
+      "Factura (OK) firma": "FAC-221",
+    };
+    sanitizeFacturaOkFolioFirma(campos);
+    expect(campos.facturaOkFolio).toBe("FAC-221");
+    expect(campos.facturaOkFirma).toBeUndefined();
   });
 });
 

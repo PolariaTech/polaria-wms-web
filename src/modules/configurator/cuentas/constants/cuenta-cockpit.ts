@@ -5,6 +5,7 @@ import {
   Factory,
   LayoutGrid,
   Package,
+  Printer,
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
@@ -20,6 +21,7 @@ export type CuentaCockpitModuloId =
   | "acceso"
   | "usuarios"
   | "bodegas"
+  | "impresoras"
   | "catalogo"
   | "lista-precio"
   | "proveedores"
@@ -52,6 +54,7 @@ export const CUENTA_COCKPIT_SECTIONS: readonly CuentaCockpitSection[] = [
       { id: "acceso", title: "Acceso", icon: ShieldCheck },
       { id: "usuarios", title: "Usuarios", icon: Users },
       { id: "bodegas", title: "Bodegas", icon: Warehouse },
+      { id: "impresoras", title: "Impresoras", icon: Printer },
     ],
   },
   {
@@ -101,6 +104,16 @@ export const CUENTA_COCKPIT_MODULO_COPY = {
     futureActions: [
       "Ver bodegas asignadas",
       "Elegir bodega por defecto",
+    ],
+  },
+  impresoras: {
+    title: "Impresoras",
+    description:
+      "Impresoras de esta cuenta (QZ Tray, Brother correo o Epson Connect). Aplican a todos los usuarios de la cuenta.",
+    futureActions: [
+      "Configurar impresora",
+      "Elegir camino de envío",
+      "Probar impresión",
     ],
   },
   catalogo: {

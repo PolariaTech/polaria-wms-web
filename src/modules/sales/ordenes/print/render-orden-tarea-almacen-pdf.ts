@@ -517,19 +517,24 @@ export function buildOrdenTareaAlmacenPdf(
     }
   }
 
+  const facturaSigH = sigH * 2;
   y += 2;
-  y = ensureSpace(doc, y, 6 + sigH);
+  y = ensureSpace(doc, y, 6 + facturaSigH);
   doc.setLineWidth(0.5);
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
   y += 3;
 
-  // Alistó/Revisó/Factura/Retorno: caja en blanco; tras escaneo se vuelca lo escrito.
-  // Solo Despachó tiene dos campos (nombre + fecha) con títulos Firma/Fecha.
+  // Alistó/Revisó/Retorno: caja simple. Factura (OK): doble alto + Folio/Firma.
+  // Despachó: Firma/Fecha.
   const roles: Array<{
     role: string;
     esDespacho?: boolean;
+    esFacturaOk?: boolean;
+    height?: number;
     textoKeys: string[];
     fechaKeys?: string[];
+    folioKeys?: string[];
+    firmaKeys?: string[];
   }> = [
     {
       role: "Alistó",
@@ -541,11 +546,15 @@ export function buildOrdenTareaAlmacenPdf(
     },
     {
       role: "Factura (OK)",
-      textoKeys: [
+      esFacturaOk: true,
+      height: facturaSigH,
+      textoKeys: [],
+      folioKeys: ["facturaOkFolio", "Factura (OK) folio"],
+      firmaKeys: [
+        "facturaOkFirma",
+        "Factura (OK) firma",
         "facturaOkNombre",
         "Factura (OK) nombre",
-        "documentoNombre",
-        "Documentó nombre",
       ],
     },
     {
@@ -570,12 +579,49 @@ export function buildOrdenTareaAlmacenPdf(
     },
   ];
   const sigW = CONTENT_W / roles.length;
+  let maxSigH = sigH;
   roles.forEach((item, index) => {
     const x = MARGIN + sigW * index;
-    box(doc, x, y, sigW, sigH);
+    const h = item.height ?? sigH;
+    maxSigH = Math.max(maxSigH, h);
+    box(doc, x, y, sigW, h);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.text(item.role, x + 1.6, y + 1.6, { baseline: "top" });
+
+    const labelY = y + h - 3.8;
+    if (item.esFacturaOk) {
+      const folio = campoSurtido(data.surtido, ...(item.folioKeys ?? []));
+      const firma = campoSurtido(data.surtido, ...(item.firmaKeys ?? []));
+      if (folio) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.text(folio, x + 1.6, labelY, {
+          baseline: "top",
+          maxWidth: sigW / 2 - 3,
+        });
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.8);
+        doc.text("Folio", x + 1.6, labelY, { baseline: "top" });
+      }
+      if (firma) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.text(firma, x + sigW - 1.6, labelY, {
+          align: "right",
+          baseline: "top",
+        });
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.8);
+        doc.text("Firma", x + sigW - 1.6, labelY, {
+          align: "right",
+          baseline: "top",
+        });
+      }
+      return;
+    }
 
     const texto = campoSurtido(data.surtido, ...item.textoKeys);
     if (item.esDespacho) {
@@ -583,26 +629,26 @@ export function buildOrdenTareaAlmacenPdf(
       if (texto) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
-        doc.text(texto, x + 1.6, y + 12.2, {
+        doc.text(texto, x + 1.6, labelY, {
           baseline: "top",
           maxWidth: sigW / 2 - 3,
         });
       } else {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(6.8);
-        doc.text("Firma", x + 1.6, y + 12.2, { baseline: "top" });
+        doc.text("Firma", x + 1.6, labelY, { baseline: "top" });
       }
       if (fecha) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
-        doc.text(fecha, x + sigW - 1.6, y + 12.2, {
+        doc.text(fecha, x + sigW - 1.6, labelY, {
           align: "right",
           baseline: "top",
         });
       } else {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(6.8);
-        doc.text("Fecha", x + sigW - 1.6, y + 12.2, {
+        doc.text("Fecha", x + sigW - 1.6, labelY, {
           align: "right",
           baseline: "top",
         });
@@ -613,13 +659,13 @@ export function buildOrdenTareaAlmacenPdf(
     if (texto) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6.5);
-      doc.text(texto, x + 1.6, y + 12.2, {
+      doc.text(texto, x + 1.6, labelY, {
         baseline: "top",
         maxWidth: sigW - 3.2,
       });
     }
   });
-  y += sigH + 3;
+  y += maxSigH + 3;
   const incidenciasTexto = campoSurtidoExact(
     data.surtido,
     "incidencias",

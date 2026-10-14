@@ -36,8 +36,8 @@ export {
   listOrdenesVentaParaSalida,
 } from "./shared/services/sales-api.service";
 
-export { OperadorOrdenesVentaPageContent } from "./ordenes/components/OperadorOrdenesVentaPageContent";
-export { OrdenVentaCreateModal } from "./ordenes/components/OrdenVentaCreateModal";
-export { OrdenVentaDetalleModal } from "./ordenes/components/OrdenVentaDetalleModal";
+export { OperadorOrdenesVentaPageContent } from "./ordenes/components/pages/OperadorOrdenesVentaPageContent";
+export { OrdenVentaCreateModal } from "./ordenes/components/modals/OrdenVentaCreateModal";
+export { OrdenVentaDetalleModal } from "./ordenes/components/modals/OrdenVentaDetalleModal";
 export { VentasOperadorHub } from "./operador/components/VentasOperadorHub";
-export { VentasPageContent } from "./ordenes/components/VentasPageContent";
+export { VentasPageContent } from "./ordenes/components/pages/VentasPageContent";

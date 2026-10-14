@@ -5,8 +5,8 @@ import { useMemo, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { cn } from "@/lib/utils/cn";
-import type { ProductoVentaOption } from "../../shared/types/sales.types";
-import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-nombre";
+import type { ProductoVentaOption } from "../../../shared/types/sales.types";
+import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
 
 interface OrdenVentaProductoPickerModalProps {
   open: boolean;
@@ -104,21 +104,21 @@ export function OrdenVentaProductoPickerModal({
               <col className="w-[18%]" />
               <col className="w-[18%]" />
             </colgroup>
-            <thead className="sticky top-0 bg-polaria-t-08">
-              <tr className="border-b border-polaria-t-20">
-                <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+            <thead className="sticky top-0 z-10 bg-polaria-bg">
+              <tr className="border-b border-polaria-t-20 bg-polaria-bg">
+                <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   Nombre
                 </th>
-                <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+                <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   Equivalencia
                 </th>
-                <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+                <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   Código
                 </th>
-                <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
+                <th className="bg-polaria-bg px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
                   Precio/kg
                 </th>
-                <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
+                <th className="bg-polaria-bg px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
                   Kg disponible
                 </th>
               </tr>

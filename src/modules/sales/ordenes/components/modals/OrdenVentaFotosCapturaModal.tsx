@@ -10,7 +10,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { formatDateTime } from "@/components/shared/utils/formatters";
-import { parseIdOrdenTrabajoFields } from "../utils/origen-correo-ordenes-trabajo";
+import { parseIdOrdenTrabajoFields } from "../../utils/origen-correo-ordenes-trabajo";
 
 export interface OrdenVentaFotoCapturaItem {
   idFoto?: string;

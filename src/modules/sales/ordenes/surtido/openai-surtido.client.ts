@@ -36,6 +36,8 @@ const CABECERA_KEYS = [
   "documentoHora",
   "facturaOkNombre",
   "facturaOkHora",
+  "facturaOkFolio",
+  "facturaOkFirma",
   "despachoNombre",
   "despachoHora",
   "retornoNombre",
@@ -88,6 +90,8 @@ export const CABECERA_LABELS: Record<(typeof CABECERA_KEYS)[number], string> = {
   documentoHora: "Documentó hora",
   facturaOkNombre: "Factura (OK) nombre",
   facturaOkHora: "Factura (OK) hora",
+  facturaOkFolio: "Factura (OK) folio",
+  facturaOkFirma: "Factura (OK) firma",
   despachoNombre: "Despachó nombre",
   despachoHora: "Despachó hora",
   retornoNombre: "Retorno nombre",
@@ -292,6 +296,20 @@ function setCampoNombre(
   campos[CABECERA_LABELS[canonical]] = valor;
 }
 
+function pareceFolioManuscrito(valor: string): boolean {
+  const t = valor.trim();
+  if (!t) return false;
+  // Folios típicos: dígitos, F-123, FAC/2026, etc.
+  if (/\d/.test(t)) return true;
+  return /^[A-Z]{1,5}[-/._][A-Z0-9]+$/i.test(t);
+}
+
+function pareceNombrePersona(valor: string): boolean {
+  const t = valor.trim();
+  if (!t || /\d/.test(t)) return false;
+  return /^[\p{L}\s.'’-]+$/u.test(t);
+}
+
 /** Factura asociada ≠ firmas: no debe llevar nombres de Alistó/Revisó/Despachó/etc. */
 export function sanitizeFacturaAsociada(
   campos: Record<string, string>,
@@ -303,6 +321,7 @@ export function sanitizeFacturaAsociada(
     campoValor(campos, "alistoNombre", "Alistó nombre", "Alistó"),
     campoValor(campos, "revisoNombre", "Revisó nombre", "Revisó"),
     campoValor(campos, "facturaOkNombre", "Factura (OK) nombre"),
+    campoValor(campos, "facturaOkFirma", "Factura (OK) firma"),
     campoValor(campos, "documentoNombre", "Documentó nombre"),
     campoValor(campos, "despachoNombre", "Despachó nombre", "Despachó"),
     campoValor(campos, "despachoFirma", "Despachó firma"),
@@ -327,16 +346,103 @@ export function sanitizeFacturaAsociada(
   }
 }
 
+/**
+ * Corrige cruces Folio ↔ Firma dentro de «Factura (OK)».
+ * Folio = número/código; Firma = nombre de persona.
+ */
+export function sanitizeFacturaOkFolioFirma(
+  campos: Record<string, string>,
+): void {
+  let folio = campoValor(campos, "facturaOkFolio", "Factura (OK) folio");
+  let firma = campoValor(
+    campos,
+    "facturaOkFirma",
+    "Factura (OK) firma",
+    "facturaOkNombre",
+    "Factura (OK) nombre",
+  );
+
+  // Invertidos: nombre en folio y código en firma → swap.
+  if (
+    folio &&
+    firma &&
+    pareceNombrePersona(folio) &&
+    !pareceFolioManuscrito(folio) &&
+    pareceFolioManuscrito(firma)
+  ) {
+    const swappedFolio = firma.trim();
+    const swappedFirma = folio.trim();
+    setCampoNombre(campos, "facturaOkFolio", swappedFolio);
+    setCampoNombre(campos, "facturaOkFirma", swappedFirma);
+    setCampoNombre(campos, "facturaOkNombre", swappedFirma);
+    folio = swappedFolio;
+    firma = swappedFirma;
+  }
+
+  // Solo folio y parece nombre → mover a firma.
+  if (
+    folio &&
+    !firma &&
+    pareceNombrePersona(folio) &&
+    !pareceFolioManuscrito(folio)
+  ) {
+    const nombre = folio.trim();
+    setCampoNombre(campos, "facturaOkFirma", nombre);
+    setCampoNombre(campos, "facturaOkNombre", nombre);
+    clearCampo(campos, "facturaOkFolio", "Factura (OK) folio");
+  }
+
+  // Solo firma y parece folio → mover a folio.
+  if (firma && !folio && pareceFolioManuscrito(firma)) {
+    setCampoNombre(campos, "facturaOkFolio", firma.trim());
+    clearCampo(
+      campos,
+      "facturaOkFirma",
+      "Factura (OK) firma",
+      "facturaOkNombre",
+      "Factura (OK) nombre",
+    );
+    return;
+  }
+
+  // Folio con cara de nombre (y ya hay firma u otro dato) → no pertenece a folio.
+  const folioActual = campoValor(campos, "facturaOkFolio", "Factura (OK) folio");
+  if (
+    folioActual &&
+    pareceNombrePersona(folioActual) &&
+    !pareceFolioManuscrito(folioActual)
+  ) {
+    clearCampo(campos, "facturaOkFolio", "Factura (OK) folio");
+  }
+
+  // Fecha/hora en firma de Factura → no; limpia (pertenece a Despachó).
+  const firmaActual = campoValor(
+    campos,
+    "facturaOkFirma",
+    "Factura (OK) firma",
+    "facturaOkNombre",
+    "Factura (OK) nombre",
+  );
+  if (firmaActual && /^\d{1,2}[:.]\d{2}/.test(firmaActual.trim())) {
+    clearCampo(
+      campos,
+      "facturaOkFirma",
+      "Factura (OK) firma",
+      "facturaOkNombre",
+      "Factura (OK) nombre",
+    );
+  }
+}
+
 /** Si Revisó (u otro) solo trajo el apellido y otro campo tiene el nombre completo, completa. */
 export function expandNombresParcialesFirmas(
   campos: Record<string, string>,
 ): void {
+  // No cruzar Factura (OK) con Despachó/Alistó: evita poner el texto en la caja equivocada.
   const candidatos = [
     campoValor(campos, "alistoNombre", "Alistó nombre", "Alistó"),
-    campoValor(campos, "despachoNombre", "Despachó nombre", "Despachó"),
-    campoValor(campos, "despachoFirma", "Despachó firma"),
+    campoValor(campos, "revisoNombre", "Revisó nombre", "Revisó"),
     campoValor(campos, "retornoNombre", "Retorno nombre", "Retorno"),
-    campoValor(campos, "facturaOkNombre", "Factura (OK) nombre"),
   ].filter((v): v is string => Boolean(v));
 
   const targets: Array<{
@@ -350,10 +456,6 @@ export function expandNombresParcialesFirmas(
     {
       canonical: "alistoNombre",
       keys: ["alistoNombre", "Alistó nombre", "Alistó"],
-    },
-    {
-      canonical: "facturaOkNombre",
-      keys: ["facturaOkNombre", "Factura (OK) nombre"],
     },
     {
       canonical: "retornoNombre",
@@ -541,6 +643,7 @@ function normalizePayload(
   };
 
   sanitizeFacturaAsociada(base.campos);
+  sanitizeFacturaOkFolioFirma(base.campos);
   expandNombresParcialesFirmas(base.campos);
   return base;
 }
@@ -585,10 +688,21 @@ export async function extraerSurtidoDesdeFoto(input: {
           "4) facturaAsociada = SOLO el folio/número de factura manuscrito junto a la etiqueta «Factura asociada» " +
           "(arriba, cerca de cliente/# orden). NUNCA pongas ahí un nombre de persona. " +
           "Los nombres van SOLO en las cajas de firma Alistó / Revisó / Factura (OK) / Despachó / Retorno.\n" +
-          "4b) Cajas de firma independientes: lee CADA caja por separado. Si una caja está en blanco → null. " +
-          "NO copies el nombre de Despachó/Alistó a Factura (OK), Revisó u otras cajas vacías.\n" +
+          "4b) COLOCACIÓN ESTRICTA POR CAJA (columna izquierda, de arriba a abajo): " +
+          "Alistó → alistoNombre; Revisó → revisoNombre; Factura (OK) → facturaOkFolio/facturaOkFirma; " +
+          "Despachó → despachoNombre/despachoHora; Retorno → retornoNombre. " +
+          "SOLO asigna un valor al campo de la caja donde VES la tinta. " +
+          "Si la caja está en blanco → null. NUNCA copies el mismo texto a otra caja «por si acaso». " +
+          "NUNCA muevas un nombre de Despachó a Factura (OK) ni de Alistó a Revisó si esa caja está vacía.\n" +
           "4c) Nombres de firma: captura el nombre COMPLETO tal como está escrito (nombre + apellido). " +
           "No truncues a solo el apellido.\n" +
+          "4d) Caja «Factura (OK)» (más alta que las demás): " +
+          "esquina inferior IZQUIERDA (etiqueta Folio) → facturaOkFolio (número/código de factura, suele traer dígitos); " +
+          "esquina inferior DERECHA (etiqueta Firma) → facturaOkFirma (nombre de persona, sin dígitos). " +
+          "NUNCA pongas un nombre en facturaOkFolio ni un folio/número en facturaOkFirma. " +
+          "Si solo hay tinta en un lado, llena SOLO ese lado; el otro → null.\n" +
+          "4e) Despachó: inferior izquierda Firma → despachoNombre; inferior derecha Fecha → despachoHora. " +
+          "No pongas la fecha de Despachó en Factura (OK).\n" +
           "5) Cabecera también: horaComprometida, horaSugeridaSalida, chofer, unidad, " +
           "renglonesSurtidosCompletos, cajas15kg, cajas21kg, totalBultosCamion, toleranciaPesoPct, recepción.\n" +
           "6) Si en el snapshot estaban vacíos y ahora hay manuscrito, llena también: " +
@@ -619,7 +733,9 @@ export async function extraerSurtidoDesdeFoto(input: {
               "\n\nAnaliza la foto adjunta de la misma hoja ya surtida/llenada. " +
               "Llena cabecera, checks y lineas con TODO lo manuscrito y marcado. " +
               "Para cada linea incluye productoImpreso del snapshot de esa fila. " +
-              "Alinea especificacion y checkboxes a la fila correcta por posición vertical.",
+              "Alinea especificacion y checkboxes a la fila correcta por posición vertical. " +
+              "Prioridad máxima: cada manuscrito debe ir al campo de SU caja/etiqueta; " +
+              "si dudas entre dos campos, deja null en el dudoso (mejor vacío que mal colocado).",
           },
           {
             type: "image_url",

@@ -8,16 +8,16 @@ import {
 import { printPdfViaQzTray } from "./qz-tray-print";
 
 export type SilentPrintResult = {
-  via: "ipp" | "qz-tray";
+  via: "ipp" | "qz-tray" | "email" | "epson_connect";
   impresora: string;
 };
 
-async function tryIppFromApi(input: {
+async function tryServerPrint(input: {
   codigoCuenta: string;
   pdfBase64: string;
   jobName: string;
 }): Promise<
-  | { ok: true; impresora: string }
+  | { ok: true; via: "ipp" | "email" | "epson_connect"; impresora: string }
   | { ok: false; code?: string; target?: ImpresoraPrintTarget; error: string }
 > {
   const accessToken = useAuthStore.getState().accessToken;
@@ -40,25 +40,31 @@ async function tryIppFromApi(input: {
     error?: string;
     code?: string;
     impresora?: string;
+    via?: "ipp" | "email" | "epson_connect";
     target?: ImpresoraPrintTarget;
   };
 
   if (response.ok && data.ok) {
-    return { ok: true, impresora: data.impresora || "Impresora" };
+    return {
+      ok: true,
+      via: data.via ?? "ipp",
+      impresora: data.impresora || "Impresora",
+    };
   }
 
   return {
     ok: false,
     code: data.code,
     target: data.target,
-    error: data.error || "No se pudo imprimir por IPP.",
+    error: data.error || "No se pudo imprimir desde el servidor.",
   };
 }
 
 /**
- * Imprime el PDF en la impresora de la cuenta sin abrir el diálogo del navegador.
- * 1) Intenta IPP desde el servidor (si está en la misma LAN que la impresora).
- * 2) Si no alcanza, usa QZ Tray en este PC (recomendado en producción Vercel).
+ * Imprime el PDF según el camino de la impresora de la cuenta:
+ * - email / epson_connect → servidor (SMTP / Epson)
+ * - ipp → servidor (LAN) con fallback QZ
+ * - agente / sistema_local / raw → QZ Tray
  */
 export async function printPdfSilentToCuenta(input: {
   codigoCuenta: string;
@@ -77,11 +83,23 @@ export async function printPdfSilentToCuenta(input: {
     );
   }
 
+  if (target.modoEnvio === "email" || target.modoEnvio === "epson_connect") {
+    const cloud = await tryServerPrint({
+      codigoCuenta,
+      pdfBase64: input.pdfBase64,
+      jobName: input.jobName,
+    });
+    if (cloud.ok) {
+      return { via: cloud.via, impresora: cloud.impresora };
+    }
+    throw new Error(cloud.error);
+  }
+
   const preferAgent =
     target.modoEnvio === "agente" || target.modoEnvio === "sistema_local";
 
   if (!preferAgent && target.modoEnvio === "ipp") {
-    const ipp = await tryIppFromApi({
+    const ipp = await tryServerPrint({
       codigoCuenta,
       pdfBase64: input.pdfBase64,
       jobName: input.jobName,
@@ -90,7 +108,6 @@ export async function printPdfSilentToCuenta(input: {
       return { via: "ipp", impresora: ipp.impresora };
     }
     if (ipp.target) target = ipp.target;
-    // IPP_UNREACHABLE / USE_AGENT → cae a QZ Tray
   }
 
   try {
@@ -105,7 +122,7 @@ export async function printPdfSilentToCuenta(input: {
 
     if (target.modoEnvio === "ipp" && target.hostIp) {
       throw new Error(
-        `${qzMessage}\n\nLa impresora (${target.hostIp}) está en la red local: el servidor en la nube no puede alcanzarla. Instala QZ Tray en este PC (https://qz.io/download/), agrega la Epson en Windows con el mismo nombre «${target.nombreSistema || target.nombre}», deja QZ abierto y vuelve a imprimir.`,
+        `${qzMessage}\n\nLa impresora (${target.hostIp}) está en la red local: el servidor en la nube no puede alcanzarla. Instala QZ Tray en este PC (https://qz.io/download/), agrega la impresora en Windows con el mismo nombre «${target.nombreSistema || target.nombre}», deja QZ abierto y vuelve a imprimir.`,
       );
     }
 

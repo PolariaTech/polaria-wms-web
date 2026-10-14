@@ -63,15 +63,20 @@ export interface TenantListParams {
 
 export const DEFAULT_LIST_LIMIT = 1000;
 export const AUDIT_LIST_LIMIT = 25;
-export const ORDERS_VISIBLE_DAYS = 7;
+/** Ventana visible en listados OV/OC: hoy + 2 días previos (= 3 días calendario). */
+export const ORDERS_VISIBLE_DAYS = 3;
 
-/** Fecha local YYYY-MM-DD desde la cual se listan órdenes (últimos N días). */
+/**
+ * Fecha local YYYY-MM-DD desde la cual se listan órdenes.
+ * `days` incluye el día actual: p. ej. 3 → hoy, ayer y anteayer.
+ */
 export function getOrdersVisibleSinceDate(
   days: number = ORDERS_VISIBLE_DAYS,
   now: Date = new Date(),
 ): string {
+  const safeDays = Math.max(1, Math.floor(days));
   const since = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  since.setDate(since.getDate() - days);
+  since.setDate(since.getDate() - (safeDays - 1));
   const year = since.getFullYear();
   const month = String(since.getMonth() + 1).padStart(2, "0");
   const day = String(since.getDate()).padStart(2, "0");

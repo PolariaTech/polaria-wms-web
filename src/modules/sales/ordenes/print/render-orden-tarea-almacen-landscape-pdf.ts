@@ -301,13 +301,17 @@ export function drawOrdenTareaAlmacenLandscapePage(
   y = drawNotesLines(doc, leftX, y, LEFT_W, "", data.notasGenerales, 3);
   y += 2;
 
-  // Alistó/Revisó/Factura/Retorno: caja en blanco; tras escaneo se vuelca lo escrito.
-  // Solo Despachó tiene dos campos (nombre + fecha) con títulos Firma/Fecha.
+  // Alistó/Revisó/Retorno: caja simple. Factura (OK): doble alto + Folio/Firma.
+  // Despachó: Firma/Fecha.
   const roles: Array<{
     role: string;
     esDespacho?: boolean;
+    esFacturaOk?: boolean;
+    height?: number;
     textoKeys: string[];
     fechaKeys?: string[];
+    folioKeys?: string[];
+    firmaKeys?: string[];
   }> = [
     {
       role: "Alistó",
@@ -319,11 +323,15 @@ export function drawOrdenTareaAlmacenLandscapePage(
     },
     {
       role: "Factura (OK)",
-      textoKeys: [
+      esFacturaOk: true,
+      height: 22,
+      textoKeys: [],
+      folioKeys: ["facturaOkFolio", "Factura (OK) folio"],
+      firmaKeys: [
+        "facturaOkFirma",
+        "Factura (OK) firma",
         "facturaOkNombre",
         "Factura (OK) nombre",
-        "documentoNombre",
-        "Documentó nombre",
       ],
     },
     {
@@ -350,30 +358,46 @@ export function drawOrdenTareaAlmacenLandscapePage(
   const roleH = 11;
   const roleGap = 1.2;
   for (const item of roles) {
-    if (y + roleH > PAGE_BOTTOM) break;
-    box(doc, leftX, y, LEFT_W, roleH);
+    const h = item.height ?? roleH;
+    if (y + h > PAGE_BOTTOM) break;
+    box(doc, leftX, y, LEFT_W, h);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.text(item.role, leftX + 1.4, y + 1.6, { baseline: "top" });
-    const texto = campoSurtido(data.surtido, ...item.textoKeys);
-    if (item.esDespacho) {
-      const fecha = campoSurtido(data.surtido, ...(item.fechaKeys ?? []));
-      doc.setFont("helvetica", "normal");
+    const labelY = y + h - 2.5;
+    if (item.esFacturaOk) {
+      const folio = campoSurtido(data.surtido, ...(item.folioKeys ?? []));
+      const firma = campoSurtido(data.surtido, ...(item.firmaKeys ?? []));
+      doc.setFont("helvetica", folio ? "bold" : "normal");
       doc.setFontSize(6);
-      doc.text(texto || "Firma", leftX + 1.4, y + 8.5, { baseline: "top" });
-      doc.text(fecha || "Fecha", leftX + LEFT_W - 1.4, y + 8.5, {
+      doc.text(folio || "Folio", leftX + 1.4, labelY, { baseline: "top" });
+      doc.setFont("helvetica", firma ? "bold" : "normal");
+      doc.text(firma || "Firma", leftX + LEFT_W - 1.4, labelY, {
         align: "right",
         baseline: "top",
       });
-    } else if (texto) {
+    } else if (item.esDespacho) {
+      const texto = campoSurtido(data.surtido, ...item.textoKeys);
+      const fecha = campoSurtido(data.surtido, ...(item.fechaKeys ?? []));
       doc.setFont("helvetica", "normal");
       doc.setFontSize(6);
-      doc.text(texto, leftX + 1.4, y + 8.5, {
+      doc.text(texto || "Firma", leftX + 1.4, labelY, { baseline: "top" });
+      doc.text(fecha || "Fecha", leftX + LEFT_W - 1.4, labelY, {
+        align: "right",
         baseline: "top",
-        maxWidth: LEFT_W - 2.8,
       });
+    } else {
+      const texto = campoSurtido(data.surtido, ...item.textoKeys);
+      if (texto) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6);
+        doc.text(texto, leftX + 1.4, labelY, {
+          baseline: "top",
+          maxWidth: LEFT_W - 2.8,
+        });
+      }
     }
-    y += roleH + roleGap;
+    y += h + roleGap;
   }
   y += 1;
   const incidenciasTexto = campoSurtidoExact(
