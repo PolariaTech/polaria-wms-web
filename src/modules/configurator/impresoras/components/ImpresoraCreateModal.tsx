@@ -210,7 +210,7 @@ export function ImpresoraCreateModal({
         onClose={onClose}
         sectionLabel="Configurador"
         title={isEdit ? "Editar impresora" : "Configurar impresora"}
-        description={`Camino: ${labelCaminoImpresora(form.camino)}. Aplica a toda la cuenta.`}
+        description={`Camino: ${labelCaminoImpresora(form.camino)}. Una por cuenta: al imprimir se usa sola, sin diálogo.`}
         onSubmit={handleSubmit}
         error={error}
         isSubmitting={isSubmitting}

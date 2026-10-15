@@ -78,9 +78,7 @@ export async function printPdfSilentToCuenta(input: {
 
   let target = await getImpresoraActivaCuenta(codigoCuenta);
   if (!target) {
-    throw new Error(
-      "No hay impresora configurada para esta cuenta. Ve a Configurador → Asignación → Impresoras.",
-    );
+    throw new Error("No hay impresora configurada.");
   }
 
   if (target.modoEnvio === "email" || target.modoEnvio === "epson_connect") {

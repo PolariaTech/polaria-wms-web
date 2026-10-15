@@ -66,7 +66,7 @@ const CHECK_KEYS = [
 
 /** Etiquetas humanas para PDF / búsqueda flexible. */
 export const CABECERA_LABELS: Record<(typeof CABECERA_KEYS)[number], string> = {
-  facturaAsociada: "Factura asociada",
+  facturaAsociada: "Folio factura asociada",
   horaComprometida: "Hora comprometida",
   horaSugeridaSalida: "Hora sugerida de salida",
   chofer: "Chofer",
@@ -314,7 +314,12 @@ function pareceNombrePersona(valor: string): boolean {
 export function sanitizeFacturaAsociada(
   campos: Record<string, string>,
 ): void {
-  const factura = campoValor(campos, "facturaAsociada", "Factura asociada");
+  const factura = campoValor(
+    campos,
+    "facturaAsociada",
+    "Folio factura asociada",
+    "Factura asociada",
+  );
   if (!factura) return;
 
   const firmas = [
@@ -342,7 +347,13 @@ export function sanitizeFacturaAsociada(
     !/\d/.test(factura) && /^[\p{L}\s.'’-]+$/u.test(factura.trim());
 
   if (coincideFirma || pareceNombreSinFolio) {
-    clearCampo(campos, "facturaAsociada", "Factura asociada", "factura");
+    clearCampo(
+      campos,
+      "facturaAsociada",
+      "Folio factura asociada",
+      "Factura asociada",
+      "factura",
+    );
   }
 }
 
@@ -685,8 +696,8 @@ export async function extraerSurtidoDesdeFoto(input: {
           "1) Solo valores escritos o corregidos a mano, o checkboxes con X/✓/raya clara. NUNCA inventes.\n" +
           "2) No copies texto ya impreso (cliente, productos, cantidades solicitadas) salvo que se haya tachado/reescrito a mano.\n" +
           "3) Si un campo está vacío o ilegible → null. Si un checkbox está vacío → false; si no se ve → null.\n" +
-          "4) facturaAsociada = SOLO el folio/número de factura manuscrito junto a la etiqueta «Factura asociada» " +
-          "(arriba, cerca de cliente/# orden). NUNCA pongas ahí un nombre de persona. " +
+          "4) facturaAsociada = SOLO el folio/número de factura manuscrito junto a la etiqueta «Folio factura asociada» " +
+          "(arriba, cerca de cliente/# orden; antes «Factura asociada»). NUNCA pongas ahí un nombre de persona. " +
           "Los nombres van SOLO en las cajas de firma Alistó / Revisó / Factura (OK) / Despachó / Retorno.\n" +
           "4b) COLOCACIÓN ESTRICTA POR CAJA (columna izquierda, de arriba a abajo): " +
           "Alistó → alistoNombre; Revisó → revisoNombre; Factura (OK) → facturaOkFolio/facturaOkFirma; " +
@@ -720,7 +731,7 @@ export async function extraerSurtidoDesdeFoto(input: {
           "(incluida la #1); cualquier X/✓/marca dentro del cuadrito → true.\n" +
           "9) En camposExtra mete cualquier otro texto manuscrito con su etiqueta visible.\n" +
           "10) Conserva unidades y formato (ej. «5 kg», «09:30»). No inventes valores.\n" +
-          "11) Incidencias ≠ Especificación ≠ Factura asociada ≠ cajas de firma.",
+          "11) Incidencias ≠ Especificación ≠ Folio factura asociada ≠ cajas de firma.",
       },
       {
         role: "user",

@@ -98,7 +98,12 @@ function buildSurtidoNotasAlmacen(
     if (value) lines.push(`${label}: ${value}`);
   };
 
-  push("Factura asociada", "facturaAsociada", "Factura asociada");
+  push(
+    "Folio factura asociada",
+    "facturaAsociada",
+    "Folio factura asociada",
+    "Factura asociada",
+  );
   push("Hora comprometida", "horaComprometida", "Hora comprometida");
   push("Renglones surtidos", "renglonesSurtidosCompletos");
   push("Cajas 1.5 kg", "cajas15kg");

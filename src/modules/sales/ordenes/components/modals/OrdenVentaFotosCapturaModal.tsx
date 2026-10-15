@@ -7,7 +7,13 @@ import {
   ZoomOut,
   RotateCcw,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { parseIdOrdenTrabajoFields } from "../../utils/origen-correo-ordenes-trabajo";
@@ -73,36 +79,104 @@ export function OrdenVentaFotosCapturaModal({
 }: OrdenVentaFotosCapturaModalProps) {
   const [index, setIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
   const showingFotos = selectedOt !== null;
   const selectedDisplay = selectedOt
     ? resolveOtDisplay({ idOrdenTrabajo: selectedOt })
     : null;
 
+  const resetView = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setIsPanning(false);
+    dragRef.current = null;
+  }, []);
+
   useEffect(() => {
     if (!open || !showingFotos) {
       setIndex(0);
-      setZoom(1);
+      resetView();
       return;
     }
     setIndex(0);
-    setZoom(1);
-  }, [open, showingFotos, selectedOt, fotos]);
+    resetView();
+  }, [open, showingFotos, selectedOt, fotos, resetView]);
 
   const goPrev = useCallback(() => {
     setIndex((current) => {
       if (fotos.length <= 1) return current;
       return (current - 1 + fotos.length) % fotos.length;
     });
-    setZoom(1);
-  }, [fotos.length]);
+    resetView();
+  }, [fotos.length, resetView]);
 
   const goNext = useCallback(() => {
     setIndex((current) => {
       if (fotos.length <= 1) return current;
       return (current + 1) % fotos.length;
     });
-    setZoom(1);
-  }, [fotos.length]);
+    resetView();
+  }, [fotos.length, resetView]);
+
+  const setZoomClamped = useCallback((next: number) => {
+    const clamped = Math.min(4, Math.max(1, Number(next.toFixed(2))));
+    setZoom(clamped);
+    if (clamped <= 1) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, []);
+
+  const onPanPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (zoom <= 1 || event.button !== 0) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      dragRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: pan.x,
+        originY: pan.y,
+      };
+      setIsPanning(true);
+    },
+    [zoom, pan.x, pan.y],
+  );
+
+  const onPanPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      setPan({
+        x: drag.originX + (event.clientX - drag.startX),
+        y: drag.originY + (event.clientY - drag.startY),
+      });
+    },
+    [],
+  );
+
+  const onPanPointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      dragRef.current = null;
+      setIsPanning(false);
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // ignore
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!open || !showingFotos || fotos.length === 0) return;
@@ -110,25 +184,52 @@ export function OrdenVentaFotosCapturaModal({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        goPrev();
+        if (zoom > 1) {
+          setPan((p) => ({ ...p, x: p.x + 48 }));
+        } else {
+          goPrev();
+        }
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        goNext();
+        if (zoom > 1) {
+          setPan((p) => ({ ...p, x: p.x - 48 }));
+        } else {
+          goNext();
+        }
+      } else if (event.key === "ArrowUp") {
+        if (zoom > 1) {
+          event.preventDefault();
+          setPan((p) => ({ ...p, y: p.y + 48 }));
+        }
+      } else if (event.key === "ArrowDown") {
+        if (zoom > 1) {
+          event.preventDefault();
+          setPan((p) => ({ ...p, y: p.y - 48 }));
+        }
       } else if (event.key === "+" || event.key === "=") {
         event.preventDefault();
-        setZoom((z) => Math.min(4, Number((z + 0.25).toFixed(2))));
+        setZoomClamped(zoom + 0.25);
       } else if (event.key === "-") {
         event.preventDefault();
-        setZoom((z) => Math.max(1, Number((z - 0.25).toFixed(2))));
+        setZoomClamped(zoom - 0.25);
       } else if (event.key === "0") {
         event.preventDefault();
-        setZoom(1);
+        resetView();
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, showingFotos, fotos.length, goPrev, goNext]);
+  }, [
+    open,
+    showingFotos,
+    fotos.length,
+    goPrev,
+    goNext,
+    zoom,
+    setZoomClamped,
+    resetView,
+  ]);
 
   const description = showingFotos
     ? selectedDisplay?.centroConsumo
@@ -183,9 +284,7 @@ export function OrdenVentaFotosCapturaModal({
                     type="button"
                     aria-label="Alejar"
                     title="Alejar (−)"
-                    onClick={() =>
-                      setZoom((z) => Math.max(1, Number((z - 0.25).toFixed(2))))
-                    }
+                    onClick={() => setZoomClamped(zoom - 0.25)}
                     disabled={zoom <= 1}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition hover:bg-polaria-t-08 disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -195,7 +294,7 @@ export function OrdenVentaFotosCapturaModal({
                     type="button"
                     aria-label="Restablecer zoom"
                     title="Restablecer (0)"
-                    onClick={() => setZoom(1)}
+                    onClick={resetView}
                     className="inline-flex h-9 min-w-12 items-center justify-center rounded-lg border border-polaria-t-20 px-2 text-polaria-w-50 transition hover:bg-polaria-t-08 polaria-text-body-sm"
                   >
                     {Math.round(zoom * 100)}%
@@ -204,9 +303,7 @@ export function OrdenVentaFotosCapturaModal({
                     type="button"
                     aria-label="Acercar"
                     title="Acercar (+)"
-                    onClick={() =>
-                      setZoom((z) => Math.min(4, Number((z + 0.25).toFixed(2))))
-                    }
+                    onClick={() => setZoomClamped(zoom + 0.25)}
                     disabled={zoom >= 4}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition hover:bg-polaria-t-08 disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -216,7 +313,7 @@ export function OrdenVentaFotosCapturaModal({
                     type="button"
                     aria-label="Restablecer vista"
                     title="Restablecer vista"
-                    onClick={() => setZoom(1)}
+                    onClick={resetView}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition hover:bg-polaria-t-08"
                   >
                     <RotateCcw className="h-4 w-4" strokeWidth={1.75} />
@@ -226,14 +323,30 @@ export function OrdenVentaFotosCapturaModal({
 
               <div className="relative overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-bg">
                 <div
-                  className="flex max-h-[min(56vh,36rem)] min-h-[16rem] items-center justify-center overflow-auto p-2"
+                  className={`flex max-h-[min(56vh,36rem)] min-h-[16rem] items-center justify-center overflow-hidden p-2 touch-none ${
+                    zoom > 1
+                      ? isPanning
+                        ? "cursor-grabbing"
+                        : "cursor-grab"
+                      : ""
+                  }`}
+                  onPointerDown={onPanPointerDown}
+                  onPointerMove={onPanPointerMove}
+                  onPointerUp={onPanPointerUp}
+                  onPointerCancel={onPanPointerUp}
                   onWheel={(event) => {
-                    if (!event.ctrlKey && !event.metaKey) return;
+                    if (event.ctrlKey || event.metaKey) {
+                      event.preventDefault();
+                      const delta = event.deltaY > 0 ? -0.1 : 0.1;
+                      setZoomClamped(zoom + delta);
+                      return;
+                    }
+                    if (zoom <= 1) return;
                     event.preventDefault();
-                    const delta = event.deltaY > 0 ? -0.1 : 0.1;
-                    setZoom((z) =>
-                      Math.min(4, Math.max(1, Number((z + delta).toFixed(2)))),
-                    );
+                    setPan((p) => ({
+                      x: p.x - event.deltaX,
+                      y: p.y - event.deltaY,
+                    }));
                   }}
                 >
                   {active ? (
@@ -242,8 +355,12 @@ export function OrdenVentaFotosCapturaModal({
                       src={active.urlFoto}
                       alt={`Foto ${index + 1}`}
                       draggable={false}
-                      className="max-h-[min(52vh,34rem)] w-auto origin-center object-contain transition-transform duration-150"
-                      style={{ transform: `scale(${zoom})` }}
+                      className={`max-h-[min(52vh,34rem)] w-auto origin-center object-contain select-none ${
+                        isPanning ? "" : "transition-transform duration-150"
+                      }`}
+                      style={{
+                        transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                      }}
                     />
                   ) : null}
                 </div>
@@ -281,7 +398,7 @@ export function OrdenVentaFotosCapturaModal({
                           type="button"
                           onClick={() => {
                             setIndex(fotoIndex);
-                            setZoom(1);
+                            resetView();
                           }}
                           className={`overflow-hidden rounded-lg border transition ${
                             isActive
@@ -303,7 +420,9 @@ export function OrdenVentaFotosCapturaModal({
               ) : null}
 
               <p className="text-center text-polaria-w-20 polaria-text-body-sm">
-                Flechas ← → para cambiar · + / − para zoom · 0 para restablecer
+                {zoom > 1
+                  ? "Arrastra para mover · rueda para desplazar · flechas para pan · + / − zoom · 0 restablecer"
+                  : "Flechas ← → para cambiar foto · + / − para zoom · 0 para restablecer"}
               </p>
             </div>
           )}

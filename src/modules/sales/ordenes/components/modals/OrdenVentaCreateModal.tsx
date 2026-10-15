@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  AlertTriangle,
+  CheckCircle2,
   FileText,
   Loader2,
   Paperclip,
@@ -10,16 +12,19 @@ import {
   Upload,
   UserRound,
   X,
+  XCircle,
 } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type FormEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   PolariaFormField,
   PolariaFormInput,
@@ -157,6 +162,106 @@ function formatProductoNombreConSku(nombre: string, codigo: string): string {
   if (!sku || sku === "—") return name;
   if (name.toLowerCase().includes(`(${sku.toLowerCase()})`)) return name;
   return `${name} (${sku})`;
+}
+
+const CATALOG_STATUS_TONE_CLASS = {
+  teal: "text-polaria-teal",
+  warning: "text-polaria-warning",
+  danger: "text-polaria-danger",
+} as const;
+
+/** Tooltip en portal fijo: no lo corta overflow de tablas/modales. */
+function CatalogStatusHint({
+  label,
+  tone,
+  size = "sm",
+  children,
+}: {
+  label: string;
+  tone: keyof typeof CATALOG_STATUS_TONE_CLASS;
+  size?: "sm" | "md";
+  children: ReactNode;
+}) {
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
+    null,
+  );
+
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    const tip = tipRef.current;
+    if (!trigger || !tip) return;
+    const rect = trigger.getBoundingClientRect();
+    const tipRect = tip.getBoundingClientRect();
+    const gap = 6;
+    const pad = 8;
+    let top = rect.bottom + gap;
+    if (top + tipRect.height > window.innerHeight - pad) {
+      top = rect.top - tipRect.height - gap;
+    }
+    top = Math.max(pad, top);
+    let left = rect.left + rect.width / 2 - tipRect.width / 2;
+    left = Math.min(
+      Math.max(pad, left),
+      window.innerWidth - tipRect.width - pad,
+    );
+    setCoords({ top, left });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setCoords(null);
+      return;
+    }
+    updatePosition();
+    const onReposition = () => updatePosition();
+    window.addEventListener("scroll", onReposition, true);
+    window.addEventListener("resize", onReposition);
+    return () => {
+      window.removeEventListener("scroll", onReposition, true);
+      window.removeEventListener("resize", onReposition);
+    };
+  }, [open, updatePosition]);
+
+  return (
+    <>
+      <span
+        ref={triggerRef}
+        tabIndex={0}
+        aria-label={label}
+        className={cn(
+          "relative inline-flex shrink-0 items-center justify-center outline-none",
+          size === "md" ? "h-7 w-7" : null,
+          CATALOG_STATUS_TONE_CLASS[tone],
+        )}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+      >
+        {children}
+      </span>
+      {open
+        ? createPortal(
+            <span
+              ref={tipRef}
+              role="tooltip"
+              style={
+                coords
+                  ? { top: coords.top, left: coords.left }
+                  : { top: 0, left: 0, visibility: "hidden" as const }
+              }
+              className="pointer-events-none fixed z-[300] w-max max-w-[16rem] rounded-lg border border-polaria-t-20 bg-polaria-bg px-2 py-1 text-center polaria-text-caption text-polaria-w shadow-lg"
+            >
+              {label}
+            </span>,
+            document.body,
+          )
+        : null}
+    </>
+  );
 }
 
 function collectSugerenciasLinea(
@@ -3056,39 +3161,137 @@ export function OrdenVentaCreateModal({
                       required
                       className="sm:col-span-2"
                     >
-                      <JefeBodegaModalSearchField
-                        id="orden-venta-cliente"
-                        value={compradorLabel}
-                        placeholder="Selecciona un cliente"
-                        ariaLabel="Cliente"
-                        compact
-                        controlClassName={fieldControlClass({
-                          field: "cliente",
-                          missingFields,
-                          missing: !idComprador,
-                        })}
-                        onSearchClick={() => setPicker("comprador")}
-                      />
-                      {!idComprador &&
-                      (Boolean(compradorNombreIa) ||
-                        compradorSugerencias.length > 0) ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <NoIdentificadoBadge />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPicker(
-                                compradorSugerencias.length > 0
-                                  ? "sugerenciasComprador"
-                                  : "comprador",
-                              )
-                            }
-                            className="rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
-                          >
-                            Elegir cliente
-                          </button>
+                      {idComprador && compradorSugerencias.length === 0 ? (
+                        <div className="relative flex items-stretch">
+                          <input
+                            id="orden-venta-cliente"
+                            type="text"
+                            value={compradorLabel}
+                            title={compradorLabel || undefined}
+                            readOnly
+                            aria-label="Cliente"
+                            className={cn(
+                              POLARIA_FORM_INPUT_CLASS_COMPACT,
+                              "w-full truncate pr-[6.75rem]",
+                              fieldControlClass({
+                                field: "cliente",
+                                missingFields,
+                                missing: !idComprador,
+                              }),
+                            )}
+                          />
+                          <span className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 items-center gap-1">
+                            <CatalogStatusHint
+                              label="Cliente coincide con el catálogo"
+                              tone="teal"
+                              size="md"
+                            >
+                              <CheckCircle2
+                                className="h-4 w-4"
+                                strokeWidth={2}
+                                aria-hidden
+                              />
+                            </CatalogStatusHint>
+                            <button
+                              type="button"
+                              onClick={() => setPicker("comprador")}
+                              title="Cambiar cliente"
+                              aria-label="Cambiar cliente"
+                              className="inline-flex items-center gap-1 rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2 py-1 polaria-text-caption font-medium text-polaria-teal transition hover:bg-polaria-t-20"
+                            >
+                              <Replace className="h-3 w-3" aria-hidden />
+                              Cambiar
+                            </button>
+                          </span>
                         </div>
-                      ) : null}
+                      ) : !idComprador &&
+                        (Boolean(compradorNombreIa) ||
+                          compradorSugerencias.length > 0) ? (
+                        <div className="relative flex items-stretch">
+                          <input
+                            id="orden-venta-cliente"
+                            type="text"
+                            value={compradorLabel || compradorNombreIa || ""}
+                            title={
+                              compradorLabel || compradorNombreIa || undefined
+                            }
+                            readOnly
+                            aria-label="Cliente"
+                            className={cn(
+                              POLARIA_FORM_INPUT_CLASS_COMPACT,
+                              "w-full truncate pr-[7.5rem]",
+                              "!border-polaria-warning-border !bg-polaria-warning-bg",
+                            )}
+                          />
+                          <span className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 items-center gap-1">
+                            <CatalogStatusHint
+                              label="Cliente sin coincidencia exacta en el catálogo"
+                              tone="warning"
+                              size="md"
+                            >
+                              <AlertTriangle
+                                className="h-4 w-4"
+                                strokeWidth={2}
+                                aria-hidden
+                              />
+                            </CatalogStatusHint>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPicker(
+                                  compradorSugerencias.length > 0
+                                    ? "sugerenciasComprador"
+                                    : "comprador",
+                                )
+                              }
+                              title="Elegir cliente"
+                              aria-label="Elegir cliente"
+                              className="inline-flex items-center gap-1 rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-2 py-1 polaria-text-caption font-semibold text-polaria-warning transition hover:opacity-90"
+                            >
+                              Elegir
+                            </button>
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="relative flex items-stretch">
+                          <input
+                            id="orden-venta-cliente"
+                            type="text"
+                            value={compradorLabel}
+                            title={compradorLabel || undefined}
+                            readOnly
+                            placeholder="Selecciona un cliente"
+                            aria-label="Cliente"
+                            className={cn(
+                              POLARIA_FORM_INPUT_CLASS_COMPACT,
+                              "w-full truncate pr-[7.5rem]",
+                              "!border-polaria-danger-border !bg-polaria-danger-bg",
+                            )}
+                          />
+                          <span className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 items-center gap-1">
+                            <CatalogStatusHint
+                              label="Falta seleccionar un cliente"
+                              tone="danger"
+                              size="md"
+                            >
+                              <XCircle
+                                className="h-4 w-4"
+                                strokeWidth={2}
+                                aria-hidden
+                              />
+                            </CatalogStatusHint>
+                            <button
+                              type="button"
+                              onClick={() => setPicker("comprador")}
+                              title="Elegir cliente"
+                              aria-label="Elegir cliente"
+                              className="inline-flex items-center gap-1 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-2 py-1 polaria-text-caption font-semibold text-polaria-danger transition hover:opacity-90"
+                            >
+                              Elegir
+                            </button>
+                          </span>
+                        </div>
+                      )}
                 </PolariaFormField>
 
                     <PolariaFormInput
@@ -3451,6 +3654,12 @@ export function OrdenVentaCreateModal({
                             const pending = Boolean(
                               linea.catalogPending || !linea.idProducto,
                             );
+                            const tieneSugerenciasProducto =
+                              collectSugerenciasLinea(linea).length > 0;
+                            const productoError =
+                              pending && !tieneSugerenciasProducto;
+                            const productoWarn =
+                              pending && tieneSugerenciasProducto;
                             const cantidadFocusKey =
                               linea.idProducto || `pending-${index}`;
                             return (
@@ -3458,7 +3667,9 @@ export function OrdenVentaCreateModal({
                                 key={`${linea.idProducto || "pending"}-${index}`}
                           className={cn(
                             "border-b border-polaria-w-08 last:border-b-0",
-                            pending &&
+                            productoError &&
+                              "border-l-2 border-l-polaria-danger bg-polaria-danger-bg/55",
+                            productoWarn &&
                               "border-l-2 border-l-polaria-warning bg-polaria-warning-bg/55",
                           )}
                         >
@@ -3472,22 +3683,57 @@ export function OrdenVentaCreateModal({
                                         linea.codigo,
                                       )}
                                     </p>
-                                    {pending ? <NoIdentificadoBadge /> : null}
+                                    {!pending ? (
+                                      <CatalogStatusHint
+                                        label="Producto coincide con el catálogo"
+                                        tone="teal"
+                                      >
+                                        <CheckCircle2
+                                          className="h-3.5 w-3.5"
+                                          strokeWidth={2}
+                                          aria-hidden
+                                        />
+                                      </CatalogStatusHint>
+                                    ) : productoWarn ? (
+                                      <CatalogStatusHint
+                                        label="Producto sin coincidencia exacta en el catálogo"
+                                        tone="warning"
+                                      >
+                                        <AlertTriangle
+                                          className="h-3.5 w-3.5"
+                                          strokeWidth={2}
+                                          aria-hidden
+                                        />
+                                      </CatalogStatusHint>
+                                    ) : (
+                                      <CatalogStatusHint
+                                        label="Producto no identificado: elige uno del catálogo"
+                                        tone="danger"
+                                      >
+                                        <XCircle
+                                          className="h-3.5 w-3.5"
+                                          strokeWidth={2}
+                                          aria-hidden
+                                        />
+                                      </CatalogStatusHint>
+                                    )}
                                   </div>
                                   {pending ? (
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        if (
-                                          collectSugerenciasLinea(linea).length >
-                                          0
-                                        ) {
+                                        if (tieneSugerenciasProducto) {
                                           handleOpenSugerenciasProducto(index);
                                         } else {
                                           handleOpenReplaceProducto(index);
                                         }
                                       }}
-                                      className="mt-1.5 rounded-lg border border-polaria-teal px-2 py-1 polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08"
+                                      className={cn(
+                                        "mt-1.5 rounded-lg border px-2 py-1 polaria-text-caption font-semibold transition",
+                                        productoError
+                                          ? "border-polaria-danger-border bg-polaria-danger-bg text-polaria-danger hover:opacity-90"
+                                          : "border-polaria-warning-border bg-polaria-warning-bg text-polaria-warning hover:opacity-90",
+                                      )}
                                     >
                                       Elegir producto
                                     </button>

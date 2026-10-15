@@ -46,8 +46,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!target) {
     return NextResponse.json(
       {
-        error:
-          "No hay impresora activa para esta cuenta. Configúrala en Configurador → Impresoras.",
+        error: "No hay impresora configurada.",
         code: "NO_PRINTER",
       },
       { status: 404 },
