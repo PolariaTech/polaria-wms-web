@@ -183,7 +183,8 @@ describe("orden de tarea almacén", () => {
     expect(html).toContain("Fecha de entrega");
     expect(html).toContain("Dirección de entrega");
     expect(html).toContain("# de orden del cliente");
-    expect(html).toContain("Factura asociada");
+    expect(html).toContain("Folio factura asociada");
+    expect(html).not.toContain("<label>Factura asociada</label>");
     expect(html).not.toContain("Escanear y fotografiar");
     expect(html).not.toContain("<label>Impresa</label>");
     expect(html).not.toContain("Turno que prepara");

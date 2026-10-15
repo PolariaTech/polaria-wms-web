@@ -1,9 +1,11 @@
 import type {
   OrdenSurtidoCapturaPayload,
+  OrdenSurtidoCapturaRow,
   OrdenSurtidoChecks,
   OrdenSurtidoLineaCaptura,
 } from "../surtido/orden-surtido.types";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
+import { normalizeIdOrdenTrabajo } from "../utils/origen-correo-ordenes-trabajo";
 import { sanitizeFacturaAsociada } from "./openai-surtido.client";
 
 function normalizeLooseText(value: string): string {
@@ -73,6 +75,42 @@ export function resolveIncidenciasTexto(input: {
   }
 
   return raw;
+}
+
+/**
+ * Aplica capturas de surtido (por OT) a las hojas del PDF.
+ * Misma captura para todas las páginas de la misma OT.
+ */
+export function applySurtidoCapturasToPrintSheets(
+  sheets: readonly OrdenTareaAlmacenPrintData[],
+  capturas: readonly OrdenSurtidoCapturaRow[],
+): OrdenTareaAlmacenPrintData[] {
+  if (sheets.length === 0 || capturas.length === 0) {
+    return [...sheets];
+  }
+
+  // Más reciente primero (listOrdenSurtidoCapturasClient ya ordena updated_at desc).
+  const byOt = new Map<string, OrdenSurtidoCapturaPayload>();
+  for (const captura of capturas) {
+    const key = normalizeIdOrdenTrabajo(captura.idOrdenTrabajo);
+    if (!byOt.has(key)) {
+      byOt.set(key, captura.payload);
+    }
+  }
+
+  const legacy = byOt.get("") ?? null;
+  const only =
+    capturas.length === 1 ? capturas[0]!.payload : null;
+
+  return sheets.map((sheet) => {
+    const ot = normalizeIdOrdenTrabajo(sheet.idOrdenTrabajo);
+    const payload =
+      byOt.get(ot) ??
+      (ot ? only : legacy ?? only) ??
+      null;
+    if (!payload) return sheet;
+    return applySurtidoToPrintData(sheet, payload);
+  });
 }
 
 /** Combina el snapshot original con el payload IA para el PDF actualizado. */

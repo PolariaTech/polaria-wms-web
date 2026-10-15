@@ -32,18 +32,26 @@ function box(
   doc.rect(x, y, w, h, "S");
 }
 
-function markCheckbox(
+/** Casilla Alistó/Revisó: casi todo el ancho/alto de la celda, sin pegarse al borde. */
+function markTickCell(
   doc: jsPDF,
-  x: number,
-  y: number,
+  cellX: number,
+  cellY: number,
+  cellW: number,
+  cellH: number,
   checked: boolean,
-  size = 2.8,
 ) {
-  box(doc, x, y, size, size, 0.4);
+  const padX = 2.1;
+  const padY = 0.85;
+  const w = Math.max(2.2, cellW - padX * 2);
+  const h = Math.max(2.2, cellH - padY * 2);
+  const x = cellX + (cellW - w) / 2;
+  const y = cellY + (cellH - h) / 2;
+  box(doc, x, y, w, h, 0.4);
   if (!checked) return;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  doc.text("X", x + size / 2, y + size / 2, {
+  doc.setFontSize(Math.min(8, Math.max(6, h * 1.15)));
+  doc.text("X", x + w / 2, y + h / 2, {
     align: "center",
     baseline: "middle",
   });
@@ -194,6 +202,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
   const factura = campoSurtidoExact(
     data.surtido,
     "facturaAsociada",
+    "Folio factura asociada",
     "Factura asociada",
   );
 
@@ -240,7 +249,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
   y += QR_SIZE + 2;
 
   const rowH = 10;
-  // Fila 1: Orden de venta · Orden de trabajo
+  // Fila 1: Orden de venta · Orden de trabajo (impresos = borde fino)
   splitField(
     doc,
     leftX,
@@ -249,7 +258,6 @@ export function drawOrdenTareaAlmacenLandscapePage(
     rowH,
     { label: "Orden de venta", value: folio },
     { label: "Orden de trabajo", value: ordenTrabajo },
-    true,
   );
   if (isActualizado) {
     doc.setFont("helvetica", "bold");
@@ -271,9 +279,18 @@ export function drawOrdenTareaAlmacenLandscapePage(
     data.numeroOrdenCliente,
   );
   y += rowH;
-  field(doc, leftX, y, LEFT_W, rowH, "Factura asociada", factura);
+  field(
+    doc,
+    leftX,
+    y,
+    LEFT_W,
+    rowH,
+    "Folio factura asociada",
+    factura,
+    true,
+  );
   y += rowH;
-  field(doc, leftX, y, LEFT_W, rowH, "Cliente", data.cliente, true);
+  field(doc, leftX, y, LEFT_W, rowH, "Cliente", data.cliente);
   y += rowH;
   field(doc, leftX, y, LEFT_W, rowH, "Centro de consumo", data.centroConsumo);
   y += rowH;
@@ -301,17 +318,12 @@ export function drawOrdenTareaAlmacenLandscapePage(
   y = drawNotesLines(doc, leftX, y, LEFT_W, "", data.notasGenerales, 3);
   y += 2;
 
-  // Alistó/Revisó/Retorno: caja simple. Factura (OK): doble alto + Folio/Firma.
-  // Despachó: Firma/Fecha.
+  // Alistó/Revisó/Factura (OK)/Retorno: caja simple. Despachó: Firma/Fecha.
   const roles: Array<{
     role: string;
     esDespacho?: boolean;
-    esFacturaOk?: boolean;
-    height?: number;
     textoKeys: string[];
     fechaKeys?: string[];
-    folioKeys?: string[];
-    firmaKeys?: string[];
   }> = [
     {
       role: "Alistó",
@@ -323,11 +335,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
     },
     {
       role: "Factura (OK)",
-      esFacturaOk: true,
-      height: 22,
-      textoKeys: [],
-      folioKeys: ["facturaOkFolio", "Factura (OK) folio"],
-      firmaKeys: [
+      textoKeys: [
         "facturaOkFirma",
         "Factura (OK) firma",
         "facturaOkNombre",
@@ -358,25 +366,13 @@ export function drawOrdenTareaAlmacenLandscapePage(
   const roleH = 11;
   const roleGap = 1.2;
   for (const item of roles) {
-    const h = item.height ?? roleH;
-    if (y + h > PAGE_BOTTOM) break;
-    box(doc, leftX, y, LEFT_W, h);
+    if (y + roleH > PAGE_BOTTOM) break;
+    box(doc, leftX, y, LEFT_W, roleH, 0.6);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.text(item.role, leftX + 1.4, y + 1.6, { baseline: "top" });
-    const labelY = y + h - 2.5;
-    if (item.esFacturaOk) {
-      const folio = campoSurtido(data.surtido, ...(item.folioKeys ?? []));
-      const firma = campoSurtido(data.surtido, ...(item.firmaKeys ?? []));
-      doc.setFont("helvetica", folio ? "bold" : "normal");
-      doc.setFontSize(6);
-      doc.text(folio || "Folio", leftX + 1.4, labelY, { baseline: "top" });
-      doc.setFont("helvetica", firma ? "bold" : "normal");
-      doc.text(firma || "Firma", leftX + LEFT_W - 1.4, labelY, {
-        align: "right",
-        baseline: "top",
-      });
-    } else if (item.esDespacho) {
+    const labelY = y + roleH - 2.5;
+    if (item.esDespacho) {
       const texto = campoSurtido(data.surtido, ...item.textoKeys);
       const fecha = campoSurtido(data.surtido, ...(item.fechaKeys ?? []));
       doc.setFont("helvetica", "normal");
@@ -397,7 +393,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
         });
       }
     }
-    y += h + roleGap;
+    y += roleH + roleGap;
   }
   y += 1;
   const incidenciasTexto = campoSurtidoExact(
@@ -482,12 +478,13 @@ export function drawOrdenTareaAlmacenLandscapePage(
     for (let colIndex = 0; colIndex < scaledCols.length; colIndex += 1) {
       const col = scaledCols[colIndex]!;
       if (colIndex === 4 || colIndex === 5) {
-        markCheckbox(
+        markTickCell(
           doc,
-          cursorX + col.w / 2 - 1.3,
-          mid - 1.3,
+          cursorX,
+          py,
+          col.w,
+          bodyH,
           colIndex === 4 ? Boolean(linea?.alisto) : Boolean(linea?.reviso),
-          2.6,
         );
       } else if (values[colIndex]) {
         doc.setFont("helvetica", "normal");

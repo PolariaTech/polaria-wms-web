@@ -60,7 +60,7 @@ describe("buildOrdenVentaPatchFromSurtido", () => {
     expect(flat.chofer).toBe("Luis Mendoza");
     expect(flat.unidad).toBe("Camión 12");
     expect(flat.observaciones ?? "").not.toContain("Chofer:");
-    expect(flat.notas_almacen).toContain("Factura asociada: F-99");
+    expect(flat.notas_almacen).toContain("Folio factura asociada: F-99");
     expect(flat.notas_lineas).toBeUndefined();
     expect(lineas).toEqual([
       { indice: 1, cantidadDespachada: 5, notaLinea: "ok" },

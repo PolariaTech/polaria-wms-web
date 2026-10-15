@@ -27,22 +27,26 @@ function box(
   doc.rect(x, y, w, h, "S");
 }
 
-function checkbox(doc: jsPDF, x: number, y: number, size = 3.2) {
-  box(doc, x, y, size, size, 0.4);
-}
-
-function markCheckbox(
+/** Casilla Alistó/Revisó: casi todo el ancho/alto de la celda, sin pegarse al borde. */
+function markTickCell(
   doc: jsPDF,
-  x: number,
-  y: number,
+  cellX: number,
+  cellY: number,
+  cellW: number,
+  cellH: number,
   checked: boolean,
-  size = 3.2,
 ) {
-  checkbox(doc, x, y, size);
+  const padX = 2.1;
+  const padY = 0.85;
+  const w = Math.max(2.2, cellW - padX * 2);
+  const h = Math.max(2.2, cellH - padY * 2);
+  const x = cellX + (cellW - w) / 2;
+  const y = cellY + (cellH - h) / 2;
+  box(doc, x, y, w, h, 0.4);
   if (!checked) return;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(size >= 3.4 ? 9 : 8);
-  doc.text("X", x + size / 2, y + size / 2, {
+  doc.setFontSize(Math.min(8, Math.max(6, h * 1.15)));
+  doc.text("X", x + w / 2, y + h / 2, {
     align: "center",
     baseline: "middle",
   });
@@ -228,7 +232,7 @@ function drawProductRow(
     if (colIndex === 4 || colIndex === 5) {
       const checked =
         colIndex === 4 ? Boolean(linea?.alisto) : Boolean(linea?.reviso);
-      markCheckbox(doc, cursorX + colDef.w / 2 - 1.4, mid - 1.4, checked, 2.8);
+      markTickCell(doc, cursorX, y, colDef.w, PRODUCT_BODY_H, checked);
     } else if (value) {
       const size = colIndex === 1 || colIndex === 2 ? 5.5 : 6.5;
       doc.setFontSize(size);
@@ -362,6 +366,7 @@ export function buildOrdenTareaAlmacenPdf(
   const factura = campoSurtidoExact(
     data.surtido,
     "facturaAsociada",
+    "Folio factura asociada",
     "Factura asociada",
   );
 
@@ -370,8 +375,8 @@ export function buildOrdenTareaAlmacenPdf(
     `${data.tareaIndex && data.tareaIndex > 0 ? data.tareaIndex : 1}/${data.tareaTotal && data.tareaTotal > 0 ? data.tareaTotal : 1}`;
 
   // Toda la grilla a la izquierda del QR, columnas alineadas.
-  // Fila 1: Orden de venta · Orden de trabajo · Factura
-  field(doc, MARGIN, y, col, rowH, "Orden de venta", folio, true);
+  // Fila 1: Orden de venta · Orden de trabajo · Folio factura (mano = borde grueso)
+  field(doc, MARGIN, y, col, rowH, "Orden de venta", folio);
   if (isActualizado) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
@@ -381,7 +386,16 @@ export function buildOrdenTareaAlmacenPdf(
     });
   }
   field(doc, MARGIN + col, y, col, rowH, "Orden de trabajo", ordenTrabajo);
-  field(doc, MARGIN + col * 2, y, col, rowH, "Factura asociada", factura);
+  field(
+    doc,
+    MARGIN + col * 2,
+    y,
+    col,
+    rowH,
+    "Folio factura asociada",
+    factura,
+    true,
+  );
 
   const qrX = MARGIN + gridW + QR_GAP;
   const qrY = y;
@@ -419,7 +433,7 @@ export function buildOrdenTareaAlmacenPdf(
   );
   y += rowH;
   // Fila 3: Cliente · Centro · Fecha|Hora
-  field(doc, MARGIN, y, col, rowH, "Cliente", data.cliente, true);
+  field(doc, MARGIN, y, col, rowH, "Cliente", data.cliente);
   field(
     doc,
     MARGIN + col,
@@ -517,24 +531,18 @@ export function buildOrdenTareaAlmacenPdf(
     }
   }
 
-  const facturaSigH = sigH * 2;
   y += 2;
-  y = ensureSpace(doc, y, 6 + facturaSigH);
+  y = ensureSpace(doc, y, 6 + sigH);
   doc.setLineWidth(0.5);
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
   y += 3;
 
-  // Alistó/Revisó/Retorno: caja simple. Factura (OK): doble alto + Folio/Firma.
-  // Despachó: Firma/Fecha.
+  // Alistó/Revisó/Factura (OK)/Retorno: caja simple. Despachó: Firma/Fecha.
   const roles: Array<{
     role: string;
     esDespacho?: boolean;
-    esFacturaOk?: boolean;
-    height?: number;
     textoKeys: string[];
     fechaKeys?: string[];
-    folioKeys?: string[];
-    firmaKeys?: string[];
   }> = [
     {
       role: "Alistó",
@@ -546,11 +554,7 @@ export function buildOrdenTareaAlmacenPdf(
     },
     {
       role: "Factura (OK)",
-      esFacturaOk: true,
-      height: facturaSigH,
-      textoKeys: [],
-      folioKeys: ["facturaOkFolio", "Factura (OK) folio"],
-      firmaKeys: [
+      textoKeys: [
         "facturaOkFirma",
         "Factura (OK) firma",
         "facturaOkNombre",
@@ -579,50 +583,15 @@ export function buildOrdenTareaAlmacenPdf(
     },
   ];
   const sigW = CONTENT_W / roles.length;
-  let maxSigH = sigH;
+  const maxSigH = sigH;
   roles.forEach((item, index) => {
     const x = MARGIN + sigW * index;
-    const h = item.height ?? sigH;
-    maxSigH = Math.max(maxSigH, h);
-    box(doc, x, y, sigW, h);
+    box(doc, x, y, sigW, sigH, 0.6);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.text(item.role, x + 1.6, y + 1.6, { baseline: "top" });
 
-    const labelY = y + h - 3.8;
-    if (item.esFacturaOk) {
-      const folio = campoSurtido(data.surtido, ...(item.folioKeys ?? []));
-      const firma = campoSurtido(data.surtido, ...(item.firmaKeys ?? []));
-      if (folio) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.5);
-        doc.text(folio, x + 1.6, labelY, {
-          baseline: "top",
-          maxWidth: sigW / 2 - 3,
-        });
-      } else {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(6.8);
-        doc.text("Folio", x + 1.6, labelY, { baseline: "top" });
-      }
-      if (firma) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.5);
-        doc.text(firma, x + sigW - 1.6, labelY, {
-          align: "right",
-          baseline: "top",
-        });
-      } else {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(6.8);
-        doc.text("Firma", x + sigW - 1.6, labelY, {
-          align: "right",
-          baseline: "top",
-        });
-      }
-      return;
-    }
-
+    const labelY = y + sigH - 3.8;
     const texto = campoSurtido(data.surtido, ...item.textoKeys);
     if (item.esDespacho) {
       const fecha = campoSurtido(data.surtido, ...(item.fechaKeys ?? []));

@@ -11,6 +11,7 @@ import {
   PolariaTableImagesButton,
   PolariaTablePrintButton,
 } from "@/components/shared/table/PolariaTableCells";
+import { usePolariaToast } from "@/components/shared/toast/PolariaToastProvider";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { cn } from "@/lib/utils/cn";
@@ -34,7 +35,7 @@ import {
 } from "../../constants/ordenes-venta-table-layout";
 import {
   buildOrdenTareaAlmacenLandscapePdfBlob,
-  printOrdenTareaAlmacen,
+  printOrdenTareaAlmacenLandscape,
 } from "../../print/download-orden-tarea-almacen-pdf";
 import { mapOrdenVentaToAlmacenPrintSheets } from "../../print/map-orden-tarea-almacen";
 import {
@@ -45,7 +46,9 @@ import type {
   EstadoOrdenVenta,
   OrdenVentaOperadorRow,
 } from "../../../shared/types/sales.types";
+import { applySurtidoCapturasToPrintSheets } from "../../surtido/apply-surtido-to-print";
 import { listOrdenIdsConSurtidoCaptura } from "../../surtido/list-orden-ids-con-surtido-captura";
+import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
 import { useAuthStore } from "@/stores/auth.store";
 import { OrdenVentaCreateModal } from "../modals/OrdenVentaCreateModal";
 import { OrdenVentaDetalleModal } from "../modals/OrdenVentaDetalleModal";
@@ -77,6 +80,7 @@ export function OperadorOrdenesVentaPageContent({
     codigoCuenta: codigoCuentaProp,
     mode,
   });
+  const { showToast } = usePolariaToast();
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoOrdenVenta | null>(
     null,
   ); // null = Todos
@@ -195,7 +199,24 @@ export function OperadorOrdenesVentaPageContent({
         }
       }
 
-      return mapOrdenVentaToAlmacenPrintSheets({ listRow: row, detalle });
+      const sheets = mapOrdenVentaToAlmacenPrintSheets({
+        listRow: row,
+        detalle,
+      });
+
+      if (!codigoCuenta) return sheets;
+
+      try {
+        const capturas = await runScoped(() =>
+          listOrdenSurtidoCapturasClient({
+            codigoCuenta,
+            idOrdenVenta: row.idOrdenVenta,
+          }),
+        );
+        return applySurtidoCapturasToPrintSheets(sheets, capturas);
+      } catch {
+        return sheets;
+      }
     },
     [codigoCuenta, runScoped],
   );
@@ -208,11 +229,21 @@ export function OperadorOrdenesVentaPageContent({
 
       try {
         const sheets = await loadPrintSheets(row);
-        const primary = sheets[0];
-        if (!primary) {
+        if (sheets.length === 0) {
           throw new Error("No hay datos para generar el PDF.");
         }
-        await printOrdenTareaAlmacen(primary, { codigoCuenta });
+        // Mismo PDF horizontal multipágina que la previsualización (con surtido).
+        await printOrdenTareaAlmacenLandscape(sheets, { codigoCuenta });
+        const hojaLabel =
+          sheets.length === 1
+            ? "1 orden de trabajo enviada"
+            : `${sheets.length} órdenes de trabajo enviadas`;
+        showToast({
+          title: "✓ Órdenes de trabajo enviadas",
+          content: `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
+          variant: "success",
+          durationMs: 4500,
+        });
         const { postOrdenVentaLog } = await import(
           "../../services/orden-venta-log.client"
         );
@@ -221,24 +252,33 @@ export function OperadorOrdenesVentaPageContent({
           idOrdenVenta: row.idOrdenVenta,
           codigoCuenta,
           accion: "actualizacion",
-          mensaje: `PDF de almacén impreso por ${session?.nombre?.trim() || "usuario"}.`,
+          mensaje: `PDF de almacén enviado a impresora por ${session?.nombre?.trim() || "usuario"}.`,
           idUsuario: session?.idUsuario ?? null,
           autorNombre: session?.nombre ?? null,
           idBodega: row.idBodega ?? null,
           payloadExtra: { tipo: "impresion_pdf", hojas: sheets.length },
         });
       } catch (error: unknown) {
-        window.alert(
+        const message =
           error instanceof Error
             ? error.message
-            : "No se pudo generar el PDF.",
-        );
+            : "No se pudo enviar a la impresora.";
+        showToast({
+          title: message.includes("impresora configurada")
+            ? "No hay impresora configurada"
+            : "No se pudo imprimir",
+          content: message.includes("impresora configurada")
+            ? "Configura una en Configurador → Impresoras e inténtalo de nuevo."
+            : message,
+          variant: "error",
+          durationMs: 5000,
+        });
       } finally {
         printingLockRef.current = false;
         setBusyAction(null);
       }
     },
-    [codigoCuenta, loadPrintSheets],
+    [codigoCuenta, loadPrintSheets, showToast],
   );
 
   const openPdfPreview = useCallback(
@@ -590,7 +630,7 @@ export function OperadorOrdenesVentaPageContent({
       <div
         role="group"
         aria-label="Filtrar por estado"
-        className="flex w-full gap-2"
+        className="mb-4 flex w-full gap-2 sm:mb-5"
       >
         <button
           type="button"

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applySurtidoCapturasToPrintSheets,
   applySurtidoToPrintData,
   campoSurtido,
   campoSurtidoExact,
@@ -27,6 +28,72 @@ const BASE: OrdenTareaAlmacenPrintData = {
     },
   ],
 };
+
+describe("applySurtidoCapturasToPrintSheets", () => {
+  it("aplica captura por idOrdenTrabajo exacto", () => {
+    const sheets = [
+      { ...BASE, idOrdenTrabajo: "pedido:A|almacen:X" },
+      { ...BASE, idOrdenTrabajo: "pedido:B|almacen:Y" },
+    ];
+    const updated = applySurtidoCapturasToPrintSheets(sheets, [
+      {
+        idCaptura: "1",
+        idOrdenVenta: "ov",
+        idOrdenTrabajo: "pedido:A|almacen:X",
+        codigoCuenta: "023WA",
+        urlFoto: "https://example.com/a.jpg",
+        payload: {
+          campos: { Chofer: "Ana" },
+          checks: {},
+          lineas: [],
+        },
+        modelo: "test",
+        updatedAt: "2026-10-15T00:00:00Z",
+      },
+      {
+        idCaptura: "2",
+        idOrdenVenta: "ov",
+        idOrdenTrabajo: "pedido:B|almacen:Y",
+        codigoCuenta: "023WA",
+        urlFoto: "https://example.com/b.jpg",
+        payload: {
+          campos: { Chofer: "Luis" },
+          checks: {},
+          lineas: [],
+        },
+        modelo: "test",
+        updatedAt: "2026-10-15T00:00:00Z",
+      },
+    ]);
+    expect(updated[0]?.surtido?.campos.Chofer).toBe("Ana");
+    expect(updated[1]?.surtido?.campos.Chofer).toBe("Luis");
+  });
+
+  it("con una sola captura la aplica a todas las hojas", () => {
+    const sheets = [
+      { ...BASE, idOrdenTrabajo: "pedido:A|almacen:X" },
+      { ...BASE, idOrdenTrabajo: "pedido:B|almacen:Y" },
+    ];
+    const updated = applySurtidoCapturasToPrintSheets(sheets, [
+      {
+        idCaptura: "1",
+        idOrdenVenta: "ov",
+        idOrdenTrabajo: "pedido:A|almacen:X",
+        codigoCuenta: "023WA",
+        urlFoto: "https://example.com/a.jpg",
+        payload: {
+          campos: { Chofer: "Ana" },
+          checks: {},
+          lineas: [],
+        },
+        modelo: "test",
+        updatedAt: "2026-10-15T00:00:00Z",
+      },
+    ]);
+    expect(updated[0]?.surtido?.campos.Chofer).toBe("Ana");
+    expect(updated[1]?.surtido?.campos.Chofer).toBe("Ana");
+  });
+});
 
 describe("applySurtidoToPrintData", () => {
   it("rellena cantidad preparada y código de la fila", () => {
@@ -107,7 +174,7 @@ describe("applySurtidoToPrintData", () => {
     expect(updated.surtido?.campos.incidencias).toBe("");
   });
 
-  it("no pinta Factura asociada con el nombre de Factura (OK)", () => {
+  it("no pinta Folio factura asociada con el nombre de Factura (OK)", () => {
     const payload = {
       campos: {
         facturaOkNombre: "Luis Cantillo",
@@ -123,13 +190,20 @@ describe("applySurtidoToPrintData", () => {
       campoSurtidoExact(
         updated.surtido,
         "facturaAsociada",
+        "Folio factura asociada",
         "Factura asociada",
       ),
     ).toBe("");
     // Regresión: alias corto "factura" no debe cruzar con Factura (OK).
-    expect(campoSurtido(payload, "facturaAsociada", "Factura asociada", "factura")).toBe(
-      "",
-    );
+    expect(
+      campoSurtido(
+        payload,
+        "facturaAsociada",
+        "Folio factura asociada",
+        "Factura asociada",
+        "factura",
+      ),
+    ).toBe("");
   });
 
   it("rellena cabecera vacía del PDF con lo manuscrito", () => {

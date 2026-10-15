@@ -26,7 +26,6 @@ const SHEET_CSS = `
   table.hdr-grid col{width:33.333%;}
   table.hdr-grid td{border:1.2px solid #000;padding:4px 6px 5px;vertical-align:top;height:40px;overflow:hidden;}
   table.hdr-grid td.hi{border-width:2px;}
-  table.hdr-grid td.ov{border-width:2px;}
   table.hdr-grid td.addr{height:44px;}
   table.hdr-grid td.split{padding:0;}
   table.hdr-grid td.split .split-row{display:table;width:100%;height:100%;table-layout:fixed;}
@@ -64,17 +63,18 @@ const SHEET_CSS = `
   table.pt td.prod{font-size:9px;line-height:1.15;}
   table.pt td.spec{font-size:9px;}
   table.pt td.cc{text-align:center;}
-  table.pt td.tick{text-align:center;}
+  table.pt td.tick{text-align:center;padding:3px 5px;vertical-align:middle;}
   table.pt tbody tr{height:18px;}
-  .tk{width:12px;height:12px;border:1.6px solid #000;display:inline-block;}
+  .tk{
+    display:block;width:70%;height:12px;box-sizing:border-box;
+    border:1.6px solid #000;margin:0 auto;
+  }
   table.products-wrap{width:100%;border-collapse:separate;border-spacing:4px 0;table-layout:fixed;margin:0;}
   table.products-wrap > tbody > tr > td{border:0;padding:0;vertical-align:top;width:50%;}
   table.signs{width:100%;border-collapse:separate;border-spacing:8px;table-layout:fixed;margin-top:2px;}
-  table.signs td.sig{border:1.2px solid #000;padding:4px 6px;vertical-align:top;}
-  table.signs td.sig-tall{min-height:64px;height:64px;}
+  table.signs td.sig{border:2px solid #000;padding:4px 6px;vertical-align:top;}
   .sig .role{font-size:10.5px;font-weight:700;}
   .sig .cap{font-size:9.5px;margin-top:18px;}
-  .sig-tall .cap{margin-top:36px;}
   @media print{
     html,body{margin:0;background:#fff;}
     .sheet{box-shadow:none;margin:0;width:auto;min-height:0;padding:0;page-break-inside:avoid;}
@@ -196,7 +196,7 @@ export function buildOrdenTareaAlmacenHtml(
       <table class="hdr-grid">
         <colgroup><col><col><col></colgroup>
         <tr>
-          <td class="ov">
+          <td>
             <label>Orden de venta</label>
             <div class="v mono">${folio}</div>
           </td>
@@ -204,17 +204,17 @@ export function buildOrdenTareaAlmacenHtml(
             <label>Orden de trabajo</label>
             <div class="v">${fieldValue(data.ordenTrabajo || "1/1")}</div>
           </td>
-          <td><label>Factura asociada</label><div class="v mono">_______________</div></td>
+          <td class="hi"><label>Folio factura asociada</label><div class="v mono">_______________</div></td>
         </tr>
         <tr>
-          <td class="ov" colspan="2">
+          <td colspan="2">
             <label># de orden del cliente</label>
             <div class="v">${fieldValue(data.numeroOrdenCliente)}</div>
           </td>
           <td></td>
         </tr>
         <tr>
-          <td class="hi"><label>Cliente</label><div class="v">${fieldValue(data.cliente)}</div></td>
+          <td><label>Cliente</label><div class="v">${fieldValue(data.cliente)}</div></td>
           <td><label>Centro de consumo</label><div class="v">${fieldValue(data.centroConsumo)}</div></td>
           <td class="split">
             <div class="split-row">
@@ -247,7 +247,7 @@ export function buildOrdenTareaAlmacenHtml(
   <table class="signs"><tr>
     <td class="sig"><div class="role">Alistó</div></td>
     <td class="sig"><div class="role">Revisó</div></td>
-    <td class="sig sig-tall"><div class="role">Factura (OK)</div><div class="cap">Folio &nbsp;&nbsp;&nbsp; Firma</div></td>
+    <td class="sig"><div class="role">Factura (OK)</div></td>
     <td class="sig"><div class="role">Despachó</div><div class="cap">Firma &nbsp;&nbsp;&nbsp; Fecha</div></td>
     <td class="sig"><div class="role">Retorno</div></td>
   </tr></table>

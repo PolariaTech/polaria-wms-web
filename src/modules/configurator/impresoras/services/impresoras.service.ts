@@ -469,11 +469,60 @@ async function resolveUsuarioNombres(
   return map;
 }
 
+/**
+ * Una sola impresora activa por cuenta (nivel cuenta).
+ * Para cambiar de método o máquina hay que eliminar la actual.
+ */
+async function assertCuentaSinImpresoraActiva(params: {
+  codigoCuenta: string;
+  excludeIdImpresora?: string | null;
+}): Promise<void> {
+  const codigoCuenta = params.codigoCuenta.trim();
+  if (!codigoCuenta) return;
+
+  const rows = await runDomainQuery<
+    Array<{ id_impresora: string; nombre: string }>
+  >((client) => {
+    let query = client
+      .from("impresora")
+      .select("id_impresora,nombre")
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("esta_activa", true)
+      .is("id_usuario", null)
+      .limit(5);
+
+    const exclude = params.excludeIdImpresora?.trim();
+    if (exclude) {
+      query = query.neq("id_impresora", exclude);
+    }
+
+    return query as unknown as Promise<{
+      data: Array<{ id_impresora: string; nombre: string }> | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  const existing = rows[0];
+  if (!existing) return;
+
+  throw new DomainServiceError(
+    `La cuenta ya tiene la impresora «${existing.nombre}» activa. Elimínala para configurar otra. Al imprimir se usa automáticamente esa única impresora.`,
+    "INVALID_ARGUMENT",
+  );
+}
+
 /** Crea una impresora carta desde el configurador. */
 export async function createImpresoraConfigurator(
   input: CreateImpresoraInput,
 ): Promise<ImpresoraListRow> {
   const validated = validateCreateInput(input);
+
+  // Alta desde configurador = nivel cuenta (todos los usuarios).
+  if (!validated.idUsuario) {
+    await assertCuentaSinImpresoraActiva({
+      codigoCuenta: validated.codigoCuenta,
+    });
+  }
 
   const inserted = await runDomainMutation<ImpresoraDbRow | null>((client) => {
     const query = client
@@ -557,6 +606,14 @@ export async function updateImpresoraConfigurator(
   }
 
   const validated = validateCreateInput(input);
+  const estaActiva = input.estaActiva ?? true;
+
+  if (estaActiva) {
+    await assertCuentaSinImpresoraActiva({
+      codigoCuenta: validated.codigoCuenta,
+      excludeIdImpresora: idImpresora,
+    });
+  }
 
   const updated = await runDomainMutation<ImpresoraDbRow | null>((client) => {
     const query = client
@@ -587,7 +644,7 @@ export async function updateImpresoraConfigurator(
         bandeja: validated.bandeja,
         copias_default: validated.copiasDefault,
         notas: validated.notas,
-        esta_activa: input.estaActiva ?? true,
+        esta_activa: estaActiva,
         updated_at: new Date().toISOString(),
       })
       .eq("id_impresora", idImpresora)
@@ -616,6 +673,28 @@ export async function updateImpresoraConfigurator(
     nombres.get(updated.codigo_cuenta) ?? updated.codigo_cuenta,
     "Toda la cuenta",
   );
+}
+
+/** Elimina la impresora de la cuenta (permite configurar otra después). */
+export async function deleteImpresoraConfigurator(
+  idImpresora: string,
+): Promise<void> {
+  const id = idImpresora.trim();
+  if (!id) {
+    throw new DomainServiceError(
+      "Falta el id de la impresora.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  await runDomainMutation<null>((client) => {
+    const query = client.from("impresora").delete().eq("id_impresora", id);
+
+    return query as unknown as Promise<{
+      data: null;
+      error: { message: string } | null;
+    }>;
+  });
 }
 
 export function suggestModoEnvio(

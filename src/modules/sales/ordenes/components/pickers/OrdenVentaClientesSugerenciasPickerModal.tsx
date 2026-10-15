@@ -44,7 +44,7 @@ export function OrdenVentaClientesSugerenciasPickerModal({
               "polaria-text-body-sm font-semibold text-polaria-w transition hover:bg-polaria-w-08",
             )}
           >
-            Catálogo completo
+            Lista de clientes
           </button>
         ) : (
           <></>

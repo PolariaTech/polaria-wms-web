@@ -162,3 +162,40 @@ export async function buildOrdenTareaAlmacenLandscapePdfBlob(
     filename: multiFilename(withQr, options),
   };
 }
+
+/**
+ * Imprime el mismo PDF horizontal multipágina que la previsualización
+ * (incluye hojas con surtido actualizado).
+ */
+export async function printOrdenTareaAlmacenLandscape(
+  sheets: readonly OrdenTareaAlmacenPrintData[],
+  options?: { codigoCuenta?: string },
+): Promise<void> {
+  if (sheets.length === 0) {
+    throw new Error("No hay datos para generar el PDF.");
+  }
+  const codigoCuenta = options?.codigoCuenta?.trim();
+  if (!codigoCuenta) {
+    throw new Error(
+      "No se pudo imprimir: falta la cuenta activa. Recarga e inténtalo de nuevo.",
+    );
+  }
+
+  const { buildOrdenTareaAlmacenLandscapePdfMulti } = await import(
+    "./render-orden-tarea-almacen-landscape-pdf"
+  );
+  const stamped = stampOrdenTareaImpresaNow(sheets);
+  const withQr = await Promise.all(stamped.map((sheet) => withQrDataUrl(sheet)));
+  const pdf = buildOrdenTareaAlmacenLandscapePdfMulti(withQr);
+  const pdfBase64 = pdf.output("datauristring").split(",")[1] ?? "";
+  if (!pdfBase64) {
+    throw new Error("No se pudo generar el PDF para imprimir.");
+  }
+
+  const { printPdfSilentToCuenta } = await import("./print-silent-cuenta");
+  await printPdfSilentToCuenta({
+    codigoCuenta,
+    pdfBase64,
+    jobName: `OV ${sheets[0]?.folio || "Polaria"}`,
+  });
+}
