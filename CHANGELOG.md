@@ -2,6 +2,21 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.11.27 — 2026-10-15
+
+### Configurador / Impresoras
+- Una impresora activa por cuenta; hay que eliminarla para configurar otra.
+- Impresión silenciosa Brother/Epson con toasts («Órdenes de trabajo enviadas» / «No hay impresora configurada»).
+- UI lista: subtítulo corto, botón **+ Impresora**, header alineado.
+
+### Ventas / OV
+- Iconos de estado cliente/producto (teal / naranja / rojo) con tooltip en portal.
+- PDF almacén: bordes gruesos solo en campos a mano; Folio factura asociada; Factura (OK) tamaño normal sin Folio; casillas Alistó/Revisó ajustadas.
+- Preview/print con surtido; pan en fotos de captura; «Lista de clientes» en sugerencias.
+
+### Versión
+- Producto `2.11.27` (`POLARIA_PRODUCT_VERSION`, `package.json`, `VERSION`).
+
 ## 2.11.23 — 2026-10-14
 
 ### Configurador

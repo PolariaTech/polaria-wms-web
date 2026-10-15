@@ -123,15 +123,17 @@ export function PolariaDataTable<T>({
         className,
       )}
     >
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-polaria-w-08 px-5 py-4 sm:px-6">
-        <div>
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-polaria-w-08 px-5 py-4 sm:px-6">
+        <div className="min-w-0 shrink">
           <h2 className="polaria-text-card-title">{title}</h2>
           {subtitle ? (
-            <p className="polaria-text-caption mt-1">{subtitle}</p>
+            <p className="polaria-text-caption mt-1 text-polaria-w-50">
+              {subtitle}
+            </p>
           ) : null}
         </div>
 
-        <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
           <PolariaTableSearchField
             value={searchValue}
             onChange={search?.onChange ?? setInternalSearch}
@@ -139,7 +141,7 @@ export function PolariaDataTable<T>({
             disabled={isLoading}
           />
 
-          <span className="polaria-text-body-sm text-polaria-w-50">
+          <span className="polaria-text-body-sm whitespace-nowrap text-polaria-w-50">
             Total: {isLoading ? "—" : totalItems}
           </span>
 
@@ -150,7 +152,7 @@ export function PolariaDataTable<T>({
               disabled={isLoading || isRefreshing}
               aria-label="Actualizar tabla"
               className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition",
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition",
                 "hover:bg-polaria-t-08 disabled:cursor-not-allowed disabled:opacity-50",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
               )}
@@ -172,11 +174,11 @@ export function PolariaDataTable<T>({
               title={action.title ?? (action.iconOnly ? action.label : undefined)}
               aria-label={action.iconOnly ? action.label : undefined}
               className={cn(
-                "inline-flex items-center transition",
+                "inline-flex shrink-0 items-center transition",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
                 action.iconOnly
                   ? "h-9 w-9 justify-center rounded-lg"
-                  : "gap-1.5 rounded-xl px-4 py-2 polaria-text-body-sm font-semibold",
+                  : "h-9 gap-1.5 rounded-xl px-4 polaria-text-body-sm font-semibold",
                 action.disabled
                   ? "cursor-not-allowed border border-polaria-w-08 text-polaria-w-20 opacity-60"
                   : action.variant === "primary"
@@ -194,7 +196,7 @@ export function PolariaDataTable<T>({
               type="button"
               onClick={primaryAction.onClick}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-xl bg-polaria-teal px-4 py-2",
+                "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-polaria-teal px-4",
                 "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
               )}

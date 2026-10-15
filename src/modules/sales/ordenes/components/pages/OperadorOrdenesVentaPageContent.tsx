@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckCircle2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
@@ -11,7 +12,6 @@ import {
   PolariaTableImagesButton,
   PolariaTablePrintButton,
 } from "@/components/shared/table/PolariaTableCells";
-import { usePolariaToast } from "@/components/shared/toast/PolariaToastProvider";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { cn } from "@/lib/utils/cn";
@@ -80,7 +80,6 @@ export function OperadorOrdenesVentaPageContent({
     codigoCuenta: codigoCuentaProp,
     mode,
   });
-  const { showToast } = usePolariaToast();
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoOrdenVenta | null>(
     null,
   ); // null = Todos
@@ -89,6 +88,11 @@ export function OperadorOrdenesVentaPageContent({
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const printingLockRef = useRef(false);
   const fotosOrdenIdRef = useRef<string | null>(null);
+  const [printFeedback, setPrintFeedback] = useState<{
+    ok: boolean;
+    title: string;
+    detail: string;
+  } | null>(null);
   const [busyAction, setBusyAction] = useState<{
     id: string;
     kind: "print" | "preview" | "fotos";
@@ -238,11 +242,10 @@ export function OperadorOrdenesVentaPageContent({
           sheets.length === 1
             ? "1 orden de trabajo enviada"
             : `${sheets.length} órdenes de trabajo enviadas`;
-        showToast({
-          title: "✓ Órdenes de trabajo enviadas",
-          content: `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
-          variant: "success",
-          durationMs: 4500,
+        setPrintFeedback({
+          ok: true,
+          title: "Órdenes de trabajo enviadas",
+          detail: `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
         });
         const { postOrdenVentaLog } = await import(
           "../../services/orden-venta-log.client"
@@ -263,22 +266,22 @@ export function OperadorOrdenesVentaPageContent({
           error instanceof Error
             ? error.message
             : "No se pudo enviar a la impresora.";
-        showToast({
-          title: message.includes("impresora configurada")
+        const sinImpresora = message.includes("impresora configurada");
+        setPrintFeedback({
+          ok: false,
+          title: sinImpresora
             ? "No hay impresora configurada"
             : "No se pudo imprimir",
-          content: message.includes("impresora configurada")
-            ? "Configura una en Configurador → Impresoras e inténtalo de nuevo."
+          detail: sinImpresora
+            ? "Contacta al área de TI de Polaria para que configure la impresora de esta cuenta e inténtalo de nuevo."
             : message,
-          variant: "error",
-          durationMs: 5000,
         });
       } finally {
         printingLockRef.current = false;
         setBusyAction(null);
       }
     },
-    [codigoCuenta, loadPrintSheets, showToast],
+    [codigoCuenta, loadPrintSheets],
   );
 
   const openPdfPreview = useCallback(
@@ -758,6 +761,66 @@ export function OperadorOrdenesVentaPageContent({
           void reload();
         }}
       />
+
+      {printFeedback ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-3 sm:p-6"
+          role="presentation"
+        >
+          <button
+            type="button"
+            aria-label="Cerrar"
+            onClick={() => setPrintFeedback(null)}
+            className="absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm"
+          />
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="print-feedback-title"
+            aria-describedby="print-feedback-detail"
+            className="polaria-card-glow relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl"
+          >
+            <div className="px-5 pb-3 pt-6 sm:px-6">
+              <div className="flex flex-col items-center text-center">
+                {printFeedback.ok ? (
+                  <CheckCircle2
+                    className="h-12 w-12 text-polaria-teal"
+                    strokeWidth={1.75}
+                    aria-hidden
+                  />
+                ) : (
+                  <XCircle
+                    className="h-12 w-12 text-polaria-danger"
+                    strokeWidth={1.75}
+                    aria-hidden
+                  />
+                )}
+                <h2
+                  id="print-feedback-title"
+                  className="mt-4 polaria-text-title font-semibold text-polaria-w"
+                >
+                  {printFeedback.title}
+                </h2>
+                <p
+                  id="print-feedback-detail"
+                  className="mt-2 polaria-text-body-sm text-polaria-w-50"
+                >
+                  {printFeedback.detail}
+                </p>
+              </div>
+            </div>
+            <div className="border-t border-polaria-w-08 px-5 py-4 sm:px-6">
+              <button
+                type="button"
+                onClick={() => setPrintFeedback(null)}
+                className="w-full rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <OrdenVentaPdfPreviewModal
         open={Boolean(pdfPreview)}
