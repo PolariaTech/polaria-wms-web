@@ -33,7 +33,7 @@ export function PolariaTableSearchField({
         aria-label={placeholder}
         disabled={disabled}
         className={cn(
-          "min-w-[12rem] rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-2 pl-10 pr-3",
+          "h-9 min-w-[12rem] rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-0 pl-10 pr-3",
           "polaria-text-body-sm text-polaria-w placeholder:text-polaria-w-20 outline-none",
           "focus:border-polaria-t-20 focus:ring-1 focus:ring-polaria-t-20",
           "disabled:cursor-not-allowed disabled:opacity-50",

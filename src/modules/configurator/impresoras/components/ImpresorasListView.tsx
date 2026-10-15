@@ -151,13 +151,7 @@ export function ImpresorasListView({ codigoCuenta }: ImpresorasListViewProps) {
     <ConfiguratorListShell>
       <PolariaDataTable
         title={IMPRESORAS_TABLE_TITLE}
-        subtitle={
-          lockedCuenta
-            ? cuentaYaTieneActiva
-              ? "Esta cuenta ya tiene impresora. Al imprimir se usa sola. Para cambiar, elimínala y configura otra."
-              : "Configura una impresora para esta cuenta. Aplicará a todos sus usuarios; al imprimir se usa sola."
-            : IMPRESORAS_TABLE_SUBTITLE
-        }
+        subtitle={IMPRESORAS_TABLE_SUBTITLE}
         isLoading={isLoading}
         error={error}
         rows={rows}
@@ -171,8 +165,7 @@ export function ImpresorasListView({ codigoCuenta }: ImpresorasListViewProps) {
         primaryAction={
           canAdd
             ? {
-                label:
-                  rows.length === 0 ? "Configurar impresora" : "Agregar",
+                label: "Impresora",
                 onClick: () => {
                   setEditing(null);
                   setIsCreateOpen(true);
