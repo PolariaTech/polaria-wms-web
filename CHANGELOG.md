@@ -2,6 +2,14 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.11.28 — 2026-10-15
+
+### Impresión
+- Fix: el API de imprimir resuelve la impresora con service role en servidor (antes RLS/sin sesión devolvía «No hay impresora configurada» con Brother ya asignada).
+
+### Versión
+- Producto `2.11.28`.
+
 ## 2.11.27 — 2026-10-15
 
 ### Configurador / Impresoras

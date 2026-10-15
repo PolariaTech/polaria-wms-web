@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getImpresoraActivaCuenta } from "@/modules/configurator/impresoras/services/impresoras.service";
+import { getImpresoraActivaCuentaServer } from "@/modules/configurator/impresoras/services/impresoras.server";
 import { printPdfViaEmail } from "@/modules/sales/ordenes/print/email-print.server";
 import { printPdfViaIpp } from "@/modules/sales/ordenes/print/ipp-print.server";
 
@@ -42,7 +42,21 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Falta el PDF." }, { status: 400 });
   }
 
-  const target = await getImpresoraActivaCuenta(codigoCuenta);
+  let target;
+  try {
+    target = await getImpresoraActivaCuentaServer(codigoCuenta);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudo resolver la impresora de la cuenta.",
+        code: "PRINTER_LOOKUP_FAILED",
+      },
+      { status: 500 },
+    );
+  }
   if (!target) {
     return NextResponse.json(
       {
