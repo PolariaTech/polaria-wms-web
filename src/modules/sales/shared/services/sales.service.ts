@@ -22,6 +22,10 @@ import {
   countOrdenesTrabajo,
 } from "../../ordenes/utils/orden-venta-tabla-meta";
 import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/materialize-ov-desde-origen";
+import {
+  serializeOrigenArchivos,
+  type OrigenAdjunto,
+} from "../../ordenes/utils/origen-adjuntos";
 import { parseOrigenCorreoJson } from "../../ordenes/utils/origen-correo-ordenes-trabajo";
 import { resolveNombreProductoVenta } from "../utils/producto-venta-nombre";
 import {
@@ -945,13 +949,32 @@ export async function listProductosVentaCatalogo(
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
+function normalizeOrigenAdjuntosInput(
+  raw: CreateOrdenVentaInput["origenArchivos"],
+): OrigenAdjunto[] {
+  if (!raw || raw.length === 0) return [];
+  return raw
+    .map((item) =>
+      typeof item === "string"
+        ? { nombre: item.trim() }
+        : {
+            nombre: item.nombre.trim(),
+            url: item.url ?? null,
+            path: item.path ?? null,
+            mime: item.mime ?? null,
+            bytes: item.bytes ?? null,
+            resourceType: item.resourceType ?? null,
+          },
+    )
+    .filter((item) => item.nombre);
+}
+
 function ordenVentaCaptureFields(
   input: CreateOrdenVentaInput,
 ): Record<string, string | null | unknown> {
-  const origenArchivos =
-    input.origenArchivos && input.origenArchivos.length > 0
-      ? input.origenArchivos.join(", ")
-      : null;
+  const origenArchivos = serializeOrigenArchivos(
+    normalizeOrigenAdjuntosInput(input.origenArchivos),
+  );
 
   return {
     fecha_entrega: input.fechaEntrega?.trim() || null,
