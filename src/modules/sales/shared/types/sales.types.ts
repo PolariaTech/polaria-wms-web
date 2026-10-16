@@ -1,3 +1,4 @@
+import type { OrigenAdjunto } from "@/modules/sales/ordenes/utils/origen-adjuntos";
 import type { OrigenCorreoRenglon } from "@/modules/sales/ordenes/utils/origen-correo-ordenes-trabajo";
 
 /** Estados de negocio de OV (solo estos cuatro). */
@@ -172,7 +173,8 @@ export interface CreateOrdenVentaInput {
   requiereLote?: string;
   registrarTemperatura?: string;
   origenTexto?: string;
-  origenArchivos?: readonly string[];
+  /** Adjuntos de origen (nombre + URL Cloudinary). Nombres sueltos = legado. */
+  origenArchivos?: readonly OrigenAdjunto[] | readonly string[];
   /** Renglones estructurados del correo (órdenes de trabajo hijas). */
   origenCorreo?: readonly OrigenCorreoRenglon[];
   notasLineas?: string;

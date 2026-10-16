@@ -2,6 +2,15 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.11.29 — 2026-10-15
+
+### Ventas / OV
+- Cuerpo del mensaje colapsable (crear, editar y detalle) con chevron; oculto por defecto.
+- Adjuntos: subida a Supabase Storage (`ov-adjuntos/{cuenta}`), cards Ver/Descargar en el cuerpo; Cloudinary ya no se usa para PDF de OV (bloqueo ACL).
+
+### Versión
+- Producto `2.11.29`.
+
 ## 2.11.28 — 2026-10-15
 
 ### Impresión

@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
@@ -40,10 +41,15 @@ import {
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
 } from "../../utils/origen-correo-ordenes-trabajo";
+import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
 import {
   OrigenPedidoBodyView,
   OrigenPedidoSourceView,
 } from "../shared/OrigenPedidoBodyView";
+import {
+  nombresOrigenAdjuntos,
+  parseOrigenArchivos,
+} from "../../utils/origen-adjuntos";
 import {
   formatCompradorOrdenVenta,
   formatOrdenVentaLineaTotal,
@@ -64,10 +70,39 @@ interface OrdenVentaDetalleModalProps {
 function CaptureSection({
   title,
   children,
+  collapsible = false,
+  defaultOpen = true,
 }: {
   title: string;
   children: ReactNode;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  if (collapsible) {
+    return (
+      <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left polaria-text-label uppercase tracking-wide text-polaria-teal"
+          aria-expanded={open}
+        >
+          <span>{title}</span>
+          {open ? (
+            <ChevronUp className="h-4 w-4 shrink-0" aria-hidden />
+          ) : (
+            <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+          )}
+        </button>
+        {open ? (
+          <div className="border-t border-polaria-w-08 p-4">{children}</div>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
       <h3 className="border-b border-polaria-w-08 px-4 py-2.5 polaria-text-label uppercase tracking-wide text-polaria-teal">
@@ -185,13 +220,17 @@ function DetalleContent({
     ventanaEntrega: ventanaFlat || fromObs.ventanaEntrega,
     notasLineas: orden.notas_lineas?.trim() || fromObs.notasLineas,
     origenTexto: orden.origen_texto?.trim() || fromObs.origenTexto,
-    origenArchivos: orden.origen_archivos
-      ? orden.origen_archivos
-          .split(",")
-          .map((name) => name.trim())
-          .filter(Boolean)
-      : fromObs.origenArchivos,
+    origenArchivos: (() => {
+      const fromCol = parseOrigenArchivos(orden.origen_archivos);
+      if (fromCol.length > 0) return nombresOrigenAdjuntos(fromCol);
+      return fromObs.origenArchivos;
+    })(),
   };
+  const origenAdjuntos = (() => {
+    const fromCol = parseOrigenArchivos(orden.origen_archivos);
+    if (fromCol.length > 0) return fromCol;
+    return fromObs.origenArchivos.map((nombre) => ({ nombre }));
+  })();
   const prioridad = captura.prioridad.trim();
   // Cuerpo: origen_texto / bloque "Pedido original" / observaciones crudas del correo.
   const cuerpoMensaje = (() => {
@@ -479,9 +518,14 @@ function DetalleContent({
         )}
       </CaptureSection>
 
-      {cuerpoMensaje ? (
-        <CaptureSection title="Cuerpo del mensaje">
-          <OrigenPedidoBodyView text={cuerpoMensaje} className="mt-0" />
+      {cuerpoMensaje || origenAdjuntos.length > 0 ? (
+        <CaptureSection title="Cuerpo del mensaje" collapsible defaultOpen={false}>
+          <div className="space-y-4">
+            {cuerpoMensaje ? (
+              <OrigenPedidoBodyView text={cuerpoMensaje} className="mt-0" />
+            ) : null}
+            <OrigenAdjuntosCards adjuntos={origenAdjuntos} />
+          </div>
         </CaptureSection>
       ) : null}
     </>

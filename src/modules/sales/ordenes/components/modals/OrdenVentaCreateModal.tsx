@@ -3,6 +3,8 @@
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   FileText,
   Loader2,
   Paperclip,
@@ -86,7 +88,17 @@ import { OrdenVentaTablePickerModal } from "../pickers/OrdenVentaTablePickerModa
 import { leerPedidoConIaApi } from "../../services/sales-ai.api";
 import { OrdenTrabajoPreviewList } from "../orden-trabajo/OrdenTrabajoPreviewList";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
-import { OrigenPedidoSourceView } from "../shared/OrigenPedidoBodyView";
+import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
+import {
+  OrigenPedidoBodyView,
+  OrigenPedidoSourceView,
+} from "../shared/OrigenPedidoBodyView";
+import { uploadOvAdjuntosClient } from "../../services/ov-adjuntos.client";
+import {
+  nombresOrigenAdjuntos,
+  parseOrigenArchivos,
+  type OrigenAdjunto,
+} from "../../utils/origen-adjuntos";
 import {
   buildOrdenVentaCapturaObservaciones,
   isAfterWarehouseCutoff,
@@ -552,6 +564,47 @@ function CaptureSection({
   );
 }
 
+function CollapsibleCuerpoMensaje({
+  text,
+  adjuntos = [],
+  open,
+  onToggle,
+}: {
+  text: string;
+  adjuntos?: readonly OrigenAdjunto[];
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const trimmed = text.trim();
+  if (!trimmed && adjuntos.length === 0) return null;
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left polaria-text-label uppercase tracking-wide text-polaria-teal"
+        aria-expanded={open}
+      >
+        <span>Cuerpo del mensaje</span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0" aria-hidden />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+        )}
+      </button>
+      {open ? (
+        <div className="space-y-4 border-t border-polaria-w-08 p-4">
+          {trimmed ? (
+            <OrigenPedidoBodyView text={trimmed} className="mt-0" />
+          ) : null}
+          <OrigenAdjuntosCards adjuntos={adjuntos} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function toDateInputValue(value: string | null | undefined): string {
   const raw = value?.trim() ?? "";
   if (!raw) return "";
@@ -644,6 +697,9 @@ export function OrdenVentaCreateModal({
   const [isReadingIa, setIsReadingIa] = useState(false);
   const [isDocsDropActive, setIsDocsDropActive] = useState(false);
   const [showFiscal, setShowFiscal] = useState(false);
+  const [showCuerpo, setShowCuerpo] = useState(false);
+  /** Adjuntos ya persistidos (URL Cloudinary) al editar o tras subir. */
+  const [origenAdjuntos, setOrigenAdjuntos] = useState<OrigenAdjunto[]>([]);
   const [isCompradorCreateOpen, setIsCompradorCreateOpen] = useState(false);
   const [fichaComprador, setFichaComprador] = useState<CompradorAltaFicha | null>(
     null,
@@ -1137,6 +1193,8 @@ export function OrdenVentaCreateModal({
     setError(null);
     setIsSaving(false);
     setShowFiscal(false);
+    setShowCuerpo(false);
+    setOrigenAdjuntos([]);
     setFichaComprador(null);
     setExigeOc(false);
 
@@ -1235,6 +1293,7 @@ export function OrdenVentaCreateModal({
             return isCuerpoMensajeFormato(raw) ? raw : cleanCorreoBodyForNotas(raw);
           })(),
         );
+        setOrigenAdjuntos(parseOrigenArchivos(detalle.origen_archivos));
         const origenCorreoRows = parseOrigenCorreoJson(detalle.origen_correo);
         const hijasEdit = groupOrigenCorreoToOrdenesTrabajo(origenCorreoRows);
         setOrigenCorreoDraft(origenCorreoRows);
@@ -1970,10 +2029,22 @@ export function OrdenVentaCreateModal({
     [ensureFormDataReady, handleSelectComprador],
   );
 
-  const origenArchivos = useMemo(
-    () => origenArchivoFiles.map((file) => file.name),
-    [origenArchivoFiles],
-  );
+  const origenArchivosNombres = useMemo(() => {
+    const fromFiles = origenArchivoFiles.map((file) => file.name);
+    if (fromFiles.length > 0) return fromFiles;
+    return nombresOrigenAdjuntos(origenAdjuntos);
+  }, [origenArchivoFiles, origenAdjuntos]);
+
+  const adjuntosParaVista = useMemo((): OrigenAdjunto[] => {
+    if (origenArchivoFiles.length > 0) {
+      return origenArchivoFiles.map((file) => ({
+        nombre: file.name,
+        mime: file.type || null,
+        bytes: file.size,
+      }));
+    }
+    return origenAdjuntos;
+  }, [origenArchivoFiles, origenAdjuntos]);
 
   const openFormFromDocs = useCallback(async () => {
     if (!codigoCuenta) {
@@ -2342,8 +2413,31 @@ export function OrdenVentaCreateModal({
             ? origenTexto.trim()
             : cleanCorreoBodyForNotas(origenTexto)
           : "";
-      const persistOrigenArchivos =
-        startMode === "docs" ? origenArchivos : [];
+
+      let persistOrigenAdjuntos: OrigenAdjunto[] = origenAdjuntos;
+      try {
+        if (origenArchivoFiles.length > 0) {
+          const uploaded = await uploadOvAdjuntosClient(
+            origenArchivoFiles,
+            codigoCuenta,
+          );
+          persistOrigenAdjuntos = uploaded;
+          setOrigenAdjuntos(uploaded);
+        } else if (isEditing) {
+          persistOrigenAdjuntos = origenAdjuntos;
+        } else if (startMode !== "docs") {
+          persistOrigenAdjuntos = [];
+        }
+      } catch (uploadError) {
+        setIsSaving(false);
+        setError(
+          uploadError instanceof Error
+            ? uploadError.message
+            : "No se pudieron subir los adjuntos.",
+        );
+        return;
+      }
+
       const notasLineasText = buildNotasLineasText(
         lineas.map((linea) => ({
           nombre: linea.nombre,
@@ -2382,7 +2476,7 @@ export function OrdenVentaCreateModal({
         requiereLote,
         registrarTemperatura,
         origenTexto: persistOrigenTexto,
-        origenArchivos: persistOrigenArchivos,
+        origenArchivos: persistOrigenAdjuntos,
         origenCorreo: origenCorreoDraft,
         notasLineas: notasLineasText,
         notasAlmacen: sanitizeNotasGeneralesPedido(observaciones),
@@ -2409,7 +2503,7 @@ export function OrdenVentaCreateModal({
           requiereLote,
           registrarTemperatura,
           origenTexto: persistOrigenTexto,
-          origenArchivos: persistOrigenArchivos,
+          origenArchivos: nombresOrigenAdjuntos(persistOrigenAdjuntos),
           notasLineas: notasLineasText,
         }),
         idCreador: idCreador || null,
@@ -2545,7 +2639,8 @@ export function OrdenVentaCreateModal({
       onClose,
       onCreated,
       ordenCompraHotel,
-      origenArchivos,
+      origenAdjuntos,
+      origenArchivoFiles,
       origenCorreoDraft,
       origenTexto,
       pendingEmitId,
@@ -3022,11 +3117,19 @@ export function OrdenVentaCreateModal({
         ) : null}
 
         {step === "preview" && !isLoading ? (
-          <OrdenTrabajoPreviewList
-            clienteLabel={compradorLabel}
-            hijas={previewHijas}
-            page={formOtSafePagePreview}
-          />
+          <div className="flex flex-col gap-3">
+            <OrdenTrabajoPreviewList
+              clienteLabel={compradorLabel}
+              hijas={previewHijas}
+              page={formOtSafePagePreview}
+            />
+            <CollapsibleCuerpoMensaje
+              text={origenTexto}
+              adjuntos={adjuntosParaVista}
+              open={showCuerpo}
+              onToggle={() => setShowCuerpo((prev) => !prev)}
+            />
+          </div>
         ) : null}
 
         {step === "pickOt" && !isLoading ? (
@@ -3131,14 +3234,15 @@ export function OrdenVentaCreateModal({
               </p>
             ) : null}
 
-            {startMode === "docs" && (origenTexto.trim() || origenArchivos.length > 0) ? (
+            {startMode === "docs" &&
+            (origenTexto.trim() || origenArchivosNombres.length > 0) ? (
               <div className="rounded-xl border border-polaria-t-20 bg-polaria-w-08 px-4 py-3">
                 <p className="polaria-text-label text-polaria-w">
                   De dónde salió este pedido
                 </p>
                 <div className="mt-2">
                   <OrigenPedidoSourceView
-                    archivos={origenArchivos}
+                    archivos={origenArchivosNombres}
                     tieneTexto={Boolean(origenTexto.trim())}
                   />
                 </div>
@@ -4006,14 +4110,26 @@ export function OrdenVentaCreateModal({
                   />
                 </div>
 
+                <CollapsibleCuerpoMensaje
+                  text={origenTexto}
+                  adjuntos={adjuntosParaVista}
+                  open={showCuerpo}
+                  onToggle={() => setShowCuerpo((prev) => !prev)}
+                />
+
                 <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
                   <button
                     type="button"
                     onClick={() => setShowFiscal((prev) => !prev)}
-                    className="w-full px-4 py-2.5 text-left polaria-text-label uppercase tracking-wide text-polaria-teal"
+                    className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left polaria-text-label uppercase tracking-wide text-polaria-teal"
+                    aria-expanded={showFiscal}
                   >
-                    Datos fiscales — referencia{" "}
-                    {showFiscal ? "▴" : "▾"}
+                    <span>Datos fiscales — referencia</span>
+                    {showFiscal ? (
+                      <ChevronUp className="h-4 w-4 shrink-0" aria-hidden />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+                    )}
                   </button>
                   {showFiscal ? (
                     <div className="border-t border-polaria-w-08 p-4">
