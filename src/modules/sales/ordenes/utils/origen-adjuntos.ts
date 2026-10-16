@@ -85,23 +85,22 @@ export function serializeOrigenArchivos(
   items: readonly OrigenAdjunto[] | null | undefined,
 ): string | null {
   if (!items || items.length === 0) return null;
-  const cleaned = items
-    .map((item) => {
-      const nombre = item.nombre.trim();
-      if (!nombre) return null;
-      const url = item.url?.trim() || null;
-      return {
-        nombre,
-        ...(url ? { url } : {}),
-        ...(item.path?.trim() ? { path: item.path.trim() } : {}),
-        ...(item.mime?.trim() ? { mime: item.mime.trim() } : {}),
-        ...(typeof item.bytes === "number" && Number.isFinite(item.bytes)
-          ? { bytes: item.bytes }
-          : {}),
-        ...(item.resourceType ? { resourceType: item.resourceType } : {}),
-      } satisfies OrigenAdjunto;
-    })
-    .filter((row): row is OrigenAdjunto => row != null);
+  const cleaned: OrigenAdjunto[] = items.flatMap((item) => {
+    const nombre = item.nombre.trim();
+    if (!nombre) return [];
+    const url = item.url?.trim() || undefined;
+    const row: OrigenAdjunto = {
+      nombre,
+      ...(url ? { url } : {}),
+      ...(item.path?.trim() ? { path: item.path.trim() } : {}),
+      ...(item.mime?.trim() ? { mime: item.mime.trim() } : {}),
+      ...(typeof item.bytes === "number" && Number.isFinite(item.bytes)
+        ? { bytes: item.bytes }
+        : {}),
+      ...(item.resourceType ? { resourceType: item.resourceType } : {}),
+    };
+    return [row];
+  });
 
   if (cleaned.length === 0) return null;
   // Si ninguno tiene URL ni path, mantener formato legado legible.
