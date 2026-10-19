@@ -14,8 +14,11 @@ import {
   shouldAutoAcceptProductoSuggestion,
 } from "./find-closest-producto-catalogo";
 import { groupKeyOrigenCorreo } from "./origen-correo-ordenes-trabajo";
+import { extractEntregaDesdeTexto } from "./extract-entrega-desde-texto";
+import { parseFechaOrigen } from "./materialize-ov-desde-origen";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
+  FECHA_ENTREGA_DEFAULT_WARNING,
   isFechaEntregaAtrasada,
 } from "./pedido-form-validation";
 import { sanitizeNotasGeneralesPedido } from "./texto-origen-pedido";
@@ -411,7 +414,32 @@ export function mapPedidoExtraidoToForm(params: {
     if (patch[key]) autoFields.add(key);
   }
 
-  const fecha = pedido.fechaEntrega?.trim() || tomorrowIso;
+  // Fecha/hora del cuerpo u origen_correo mandan sobre el default de mañana.
+  const fechaFromOrigen = (() => {
+    for (const row of pedido.origenCorreo ?? []) {
+      const raw =
+        row && typeof row === "object" && "Fecha" in row
+          ? String((row as { Fecha?: unknown }).Fecha ?? "")
+          : "";
+      const parsed = parseFechaOrigen(raw);
+      if (parsed) return parsed;
+    }
+    return null;
+  })();
+  const fromBody = extractEntregaDesdeTexto(
+    [
+      pedido.textoOrigen,
+      pedido.observaciones,
+      pedido.notasGeneralesAlmacen,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    todayIso,
+  );
+  const fechaLeida =
+    pedido.fechaEntrega?.trim() || fechaFromOrigen || fromBody.fechaIso || null;
+  const fechaPorDefecto = !fechaLeida;
+  const fecha = fechaLeida || tomorrowIso;
   patch.fechaEntrega = fecha;
   if (isFechaEntregaAtrasada(fecha, todayIso)) {
     warnFields.add("fechaEntrega");
@@ -422,9 +450,23 @@ export function mapPedidoExtraidoToForm(params: {
       db: "Hoy o posterior",
       ia: `${formatCapturaFecha(fecha)} · ${FECHA_ENTREGA_ATRASADA_WARNING}`,
     });
+  } else if (fechaPorDefecto) {
+    warnFields.add("fechaEntrega");
+    autoFields.delete("fechaEntrega");
+    discrepancias.push({
+      campo: "Fecha de entrega",
+      fieldKey: "fechaEntrega",
+      db: "Leída del correo",
+      ia: `${formatCapturaFecha(fecha)} · ${FECHA_ENTREGA_DEFAULT_WARNING}`,
+    });
   } else {
     autoFields.add("fechaEntrega");
   }
+
+  const horarioDesdeIa =
+    pedido.horarioDesde?.trim() || fromBody.horarioDesde || null;
+  const horarioHastaIa =
+    pedido.horarioHasta?.trim() || fromBody.horarioHasta || null;
 
   if (pedido.ordenCompraHotel?.trim()) {
     patch.ordenCompraHotel = pedido.ordenCompraHotel.trim();
@@ -486,7 +528,7 @@ export function mapPedidoExtraidoToForm(params: {
     fieldKey: "ventanaDesde",
     label: "Ventana desde",
     valorDb: ficha.ventanaDesde,
-    valorIa: pedido.horarioDesde,
+    valorIa: horarioDesdeIa,
     patch,
     autoFields,
     warnFields,
@@ -496,7 +538,7 @@ export function mapPedidoExtraidoToForm(params: {
     fieldKey: "ventanaHasta",
     label: "Ventana hasta",
     valorDb: ficha.ventanaHasta,
-    valorIa: pedido.horarioHasta,
+    valorIa: horarioHastaIa,
     patch,
     autoFields,
     warnFields,

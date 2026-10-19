@@ -958,4 +958,75 @@ describe("mapPedidoExtraidoToForm", () => {
       true,
     );
   });
+
+  it("si no hay fecha leída, usa mañana pero lo marca como default explícito", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        fechaEntrega: null,
+        textoOrigen: "Haga clic en Responder\nwww.accorlive.com",
+      },
+      productos: [],
+      ficha: {
+        centroConsumo: "",
+        ventanaDesde: "",
+        ventanaHasta: "",
+        direccion: "",
+        anden: "",
+        contacto: "",
+        telefono: "",
+        aceptaSustituciones: "",
+        requiereLote: "",
+        registrarTemperatura: "",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-10-17",
+      todayIso: "2026-10-16",
+    });
+
+    expect(mapped.fechaEntrega).toBe("2026-10-17");
+    expect(mapped.warnFields.has("fechaEntrega")).toBe(true);
+    expect(mapped.autoFields.has("fechaEntrega")).toBe(false);
+    expect(
+      mapped.discrepancias.some((d) =>
+        d.ia.includes("Fecha por defecto (no leída del correo)"),
+      ),
+    ).toBe(true);
+  });
+
+  it("prioriza fecha y hora del cuerpo sobre el default de mañana", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        fechaEntrega: null,
+        horarioDesde: null,
+        horarioHasta: null,
+        textoOrigen: [
+          "Envío adjunto pedido para entregar el 27 DE AGOSTO DE 2026:",
+          "Hora de entrega 6:00 am",
+        ].join("\n"),
+      },
+      productos: [],
+      ficha: {
+        centroConsumo: "",
+        ventanaDesde: "10:00",
+        ventanaHasta: "",
+        direccion: "",
+        anden: "",
+        contacto: "",
+        telefono: "",
+        aceptaSustituciones: "",
+        requiereLote: "",
+        registrarTemperatura: "",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-09-07",
+      todayIso: "2026-08-20",
+    });
+
+    expect(mapped.fechaEntrega).toBe("2026-08-27");
+    expect(mapped.ventanaDesde).toBe("06:00");
+    expect(mapped.warnFields.has("fechaEntrega")).toBe(false);
+    expect(mapped.autoFields.has("fechaEntrega")).toBe(true);
+  });
 });
