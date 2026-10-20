@@ -5,9 +5,10 @@ export const ESTADO_ORDEN_VENTA_LABELS: Record<EstadoOrdenVenta, string> = {
   confirmada: "Confirmada",
   alistamiento: "Alistamiento",
   alistada: "Alistado",
+  cancelada: "Borrada",
 };
 
-/** Orden de los 4 estados en filtros de UI. */
+/** Orden de los 4 estados operativos en filtros de UI (sin cancelada). */
 export const ESTADOS_ORDEN_VENTA: readonly EstadoOrdenVenta[] = [
   "por_confirmar",
   "confirmada",
@@ -15,7 +16,7 @@ export const ESTADOS_ORDEN_VENTA: readonly EstadoOrdenVenta[] = [
   "alistada",
 ] as const;
 
-/** Mapea valores legados de BD/API a los 4 estados de negocio. */
+/** Mapea valores legados de BD/API a estados de negocio. */
 const ESTADO_ORDEN_VENTA_NORMALIZE: Record<string, EstadoOrdenVenta> = {
   borrador: "por_confirmar",
   por_confirmar: "por_confirmar",
@@ -26,7 +27,7 @@ const ESTADO_ORDEN_VENTA_NORMALIZE: Record<string, EstadoOrdenVenta> = {
   parcialmente_despachada: "alistada",
   despachada: "alistada",
   cerrada: "alistada",
-  cancelada: "por_confirmar",
+  cancelada: "cancelada",
 };
 
 export function normalizeEstadoOrdenVenta(
@@ -62,6 +63,13 @@ export function puedeEditarOrdenVentaDesdeLista(estado: string): boolean {
   return normalizeEstadoOrdenVenta(estado) === "confirmada";
 }
 
+/**
+ * Soft-delete («Borrar» en UI): solo OV por confirmar (p. ej. duplicados).
+ */
+export function puedeBorrarOrdenVenta(estado: string): boolean {
+  return normalizeEstadoOrdenVenta(estado) === "por_confirmar";
+}
+
 /** Imprimir / PDF / fotos: solo desde confirmada en adelante. */
 const ESTADOS_ORDEN_VENTA_ACCIONES_ALMACEN: ReadonlySet<EstadoOrdenVenta> =
   new Set(["confirmada", "alistamiento", "alistada"]);
@@ -76,17 +84,13 @@ export function puedeAccionesAlmacenOrdenVenta(estado: string): boolean {
 export function variantEstadoOrdenVenta(
   estado: string,
 ): "positive" | "warning" | "neutral" {
-  const normalized = estado.toLowerCase();
-  if (normalized === "alistada" || normalized === "despachada" || normalized === "cerrada") {
+  const normalized = normalizeEstadoOrdenVenta(estado);
+  if (normalized === "alistada") {
     return "positive";
   }
-  if (
-    normalized === "confirmada" ||
-    normalized === "alistamiento" ||
-    normalized === "en_preparacion"
-  ) {
+  if (normalized === "confirmada" || normalized === "alistamiento") {
     return "warning";
   }
-  // por_confirmar y legacy cancelada
+  // por_confirmar y cancelada
   return "neutral";
 }

@@ -31,7 +31,8 @@ export function OrdenVentaCompradorPickerModal({
     const needle = normalizeSearch(query);
     if (!needle) return compradores;
     return compradores.filter((row) => {
-      const haystack = `${row.codigo} ${row.comprador} ${row.telefono ?? ""}`.toLowerCase();
+      const haystack =
+        `${row.codigo} ${row.comprador} ${row.rfc ?? ""} ${row.telefono ?? ""}`.toLowerCase();
       return haystack.includes(needle);
     });
   }, [compradores, query]);
@@ -45,15 +46,15 @@ export function OrdenVentaCompradorPickerModal({
     <PolariaFormModal
       open={open}
       onClose={handleClose}
-      title="Seleccionar comprador"
-      description="Compradores activos de la cuenta."
+      title="Seleccionar cliente"
+      description="Clientes activos de la cuenta."
       onSubmit={(event) => event.preventDefault()}
       asForm={false}
       hideHeaderClose
       footerAction={<></>}
       cancelLabel="Cerrar"
       compact
-      size="md"
+      size="lg"
     >
       {compradores.length > 4 ? (
         <div className="relative mb-3">
@@ -65,8 +66,8 @@ export function OrdenVentaCompradorPickerModal({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por código o nombre"
-            aria-label="Buscar comprador"
+            placeholder="Buscar por código, cliente o RFC"
+            aria-label="Buscar cliente"
             className={cn(
               "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-2.5 pl-10 pr-4",
               "polaria-text-body-sm text-polaria-w placeholder:text-polaria-w-20 outline-none",
@@ -79,15 +80,16 @@ export function OrdenVentaCompradorPickerModal({
       {filtered.length === 0 ? (
         <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">
           {query.trim()
-            ? "No hay compradores que coincidan con la búsqueda."
-            : "No hay compradores registrados."}
+            ? "No hay clientes que coincidan con la búsqueda."
+            : "No hay clientes registrados."}
         </p>
       ) : (
         <div className="max-h-[min(55dvh,24rem)] overflow-auto rounded-xl border border-polaria-w-08">
           <table className="w-full table-fixed border-collapse text-left">
             <colgroup>
-              <col className="w-[32%]" />
-              <col className="w-[68%]" />
+              <col className="w-[22%]" />
+              <col className="w-[48%]" />
+              <col className="w-[30%]" />
             </colgroup>
             <thead className="sticky top-0 z-10 bg-polaria-bg">
               <tr className="border-b border-polaria-t-20 bg-polaria-bg">
@@ -95,7 +97,10 @@ export function OrdenVentaCompradorPickerModal({
                   Código
                 </th>
                 <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
-                  Comprador
+                  Cliente
+                </th>
+                <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+                  RFC
                 </th>
               </tr>
             </thead>
@@ -133,6 +138,9 @@ export function OrdenVentaCompradorPickerModal({
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm">
                       {row.comprador}
+                    </td>
+                    <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
+                      {row.rfc?.trim() || "—"}
                     </td>
                   </tr>
                 );

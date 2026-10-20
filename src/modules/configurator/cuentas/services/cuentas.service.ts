@@ -672,3 +672,263 @@ export async function updateCuentaBodegaDefaultConfigurator(
     idBodegaDefault: updated.id_bodega_default?.trim() || null,
   };
 }
+
+export interface CuentaOvSlaConfig {
+  codigoCuenta: string;
+  codigoEmpresa: string;
+  ovSlaMinutos: number;
+  ovAlertaMinutos: number;
+}
+
+export interface UpdateCuentaOvSlaInput {
+  codigoCuenta: string;
+  codigoEmpresa: string;
+  ovSlaMinutos: number;
+  ovAlertaMinutos: number;
+}
+
+const OV_SLA_DEFAULT = 60;
+const OV_ALERTA_DEFAULT = 45;
+
+function normalizeOvMinutos(
+  value: number | null | undefined,
+  fallback: number,
+): number {
+  const n = Math.trunc(Number(value));
+  return Number.isFinite(n) && n >= 1 ? n : fallback;
+}
+
+/** Lee umbrales SLA/alerta OV de la cuenta (schema empresa o public). */
+export async function getCuentaOvSlaConfigurator(
+  codigoCuenta: string,
+): Promise<CuentaOvSlaConfig | null> {
+  const codigo = normalizeCodigoCuentaInput(codigoCuenta);
+  if (!codigo) return null;
+
+  const cuenta = await findCuentaAcrossSchemas(codigo);
+  if (!cuenta?.codigo_cuenta || !cuenta.codigo_empresa) return null;
+
+  const row = await withEmpresaSchema(cuenta.codigo_empresa, () =>
+    runDomainQuery<{
+      codigo_cuenta: string;
+      codigo_empresa: string;
+      ov_sla_minutos: number | null;
+      ov_alerta_minutos: number | null;
+    } | null>((client) => {
+      const query = client
+        .from("cuenta")
+        .select("codigo_cuenta,codigo_empresa,ov_sla_minutos,ov_alerta_minutos")
+        .eq("codigo_cuenta", codigo)
+        .maybeSingle();
+
+      return query as unknown as Promise<{
+        data: {
+          codigo_cuenta: string;
+          codigo_empresa: string;
+          ov_sla_minutos: number | null;
+          ov_alerta_minutos: number | null;
+        } | null;
+        error: { message: string } | null;
+      }>;
+    }),
+  );
+
+  if (!row) return null;
+
+  return {
+    codigoCuenta: row.codigo_cuenta,
+    codigoEmpresa: row.codigo_empresa,
+    ovSlaMinutos: normalizeOvMinutos(row.ov_sla_minutos, OV_SLA_DEFAULT),
+    ovAlertaMinutos: normalizeOvMinutos(row.ov_alerta_minutos, OV_ALERTA_DEFAULT),
+  };
+}
+
+/** Guarda umbrales SLA/alerta OV por cuenta. */
+export async function updateCuentaOvSlaConfigurator(
+  input: UpdateCuentaOvSlaInput,
+): Promise<CuentaOvSlaConfig> {
+  const codigoCuenta = normalizeCodigoCuentaInput(input.codigoCuenta);
+  const codigoEmpresa = input.codigoEmpresa.trim().toUpperCase();
+  const ovSlaMinutos = Math.trunc(input.ovSlaMinutos);
+  const ovAlertaMinutos = Math.trunc(input.ovAlertaMinutos);
+
+  if (!codigoCuenta) {
+    throw new DomainServiceError(
+      "El código de la cuenta es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  if (!codigoEmpresa) {
+    throw new DomainServiceError(
+      "La empresa de la cuenta es obligatoria.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  if (!Number.isFinite(ovSlaMinutos) || ovSlaMinutos < 1) {
+    throw new DomainServiceError(
+      "El SLA debe ser al menos 1 minuto.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  if (!Number.isFinite(ovAlertaMinutos) || ovAlertaMinutos < 1) {
+    throw new DomainServiceError(
+      "La alerta debe ser al menos 1 minuto.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  if (ovAlertaMinutos > ovSlaMinutos) {
+    throw new DomainServiceError(
+      "La alerta no puede ser mayor que el SLA.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const updated = await withEmpresaSchema(codigoEmpresa, () =>
+    runDomainMutation<{
+      codigo_cuenta: string;
+      codigo_empresa: string;
+      ov_sla_minutos: number;
+      ov_alerta_minutos: number;
+    } | null>((client) => {
+      const query = client
+        .from("cuenta")
+        .update({
+          ov_sla_minutos: ovSlaMinutos,
+          ov_alerta_minutos: ovAlertaMinutos,
+        })
+        .eq("codigo_cuenta", codigoCuenta)
+        .select("codigo_cuenta,codigo_empresa,ov_sla_minutos,ov_alerta_minutos")
+        .single();
+
+      return query as unknown as Promise<{
+        data: {
+          codigo_cuenta: string;
+          codigo_empresa: string;
+          ov_sla_minutos: number;
+          ov_alerta_minutos: number;
+        } | null;
+        error: { message: string } | null;
+      }>;
+    }),
+  );
+
+  if (!updated) {
+    throw new DomainServiceError("Cuenta no encontrada.", "INVALID_ARGUMENT");
+  }
+
+  return {
+    codigoCuenta: updated.codigo_cuenta,
+    codigoEmpresa: updated.codigo_empresa,
+    ovSlaMinutos: updated.ov_sla_minutos,
+    ovAlertaMinutos: updated.ov_alerta_minutos,
+  };
+}
+
+export interface CuentaOvAutoImprimirConfig {
+  codigoCuenta: string;
+  codigoEmpresa: string;
+  autoImprimir: boolean;
+}
+
+export interface UpdateCuentaOvAutoImprimirInput {
+  codigoCuenta: string;
+  codigoEmpresa: string;
+  autoImprimir: boolean;
+}
+
+/** Lee si la cuenta autoimprime OV al Validar y enviar. */
+export async function getCuentaOvAutoImprimirConfigurator(
+  codigoCuenta: string,
+): Promise<CuentaOvAutoImprimirConfig | null> {
+  const codigo = normalizeCodigoCuentaInput(codigoCuenta);
+  if (!codigo) return null;
+
+  const cuenta = await findCuentaAcrossSchemas(codigo);
+  if (!cuenta?.codigo_cuenta || !cuenta.codigo_empresa) return null;
+
+  const row = await withEmpresaSchema(cuenta.codigo_empresa, () =>
+    runDomainQuery<{
+      codigo_cuenta: string;
+      codigo_empresa: string;
+      ov_auto_imprimir: boolean | null;
+    } | null>((client) => {
+      const query = client
+        .from("cuenta")
+        .select("codigo_cuenta,codigo_empresa,ov_auto_imprimir")
+        .eq("codigo_cuenta", codigo)
+        .maybeSingle();
+
+      return query as unknown as Promise<{
+        data: {
+          codigo_cuenta: string;
+          codigo_empresa: string;
+          ov_auto_imprimir: boolean | null;
+        } | null;
+        error: { message: string } | null;
+      }>;
+    }),
+  );
+
+  if (!row) return null;
+
+  return {
+    codigoCuenta: row.codigo_cuenta,
+    codigoEmpresa: row.codigo_empresa,
+    autoImprimir: Boolean(row.ov_auto_imprimir),
+  };
+}
+
+/** Activa o desactiva autoimpresión OV al Validar y enviar (por cuenta). */
+export async function updateCuentaOvAutoImprimirConfigurator(
+  input: UpdateCuentaOvAutoImprimirInput,
+): Promise<CuentaOvAutoImprimirConfig> {
+  const codigoCuenta = normalizeCodigoCuentaInput(input.codigoCuenta);
+  const codigoEmpresa = input.codigoEmpresa.trim().toUpperCase();
+
+  if (!codigoCuenta) {
+    throw new DomainServiceError(
+      "El código de la cuenta es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  if (!codigoEmpresa) {
+    throw new DomainServiceError(
+      "La empresa de la cuenta es obligatoria.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const updated = await withEmpresaSchema(codigoEmpresa, () =>
+    runDomainMutation<{
+      codigo_cuenta: string;
+      codigo_empresa: string;
+      ov_auto_imprimir: boolean;
+    } | null>((client) => {
+      const query = client
+        .from("cuenta")
+        .update({ ov_auto_imprimir: Boolean(input.autoImprimir) })
+        .eq("codigo_cuenta", codigoCuenta)
+        .select("codigo_cuenta,codigo_empresa,ov_auto_imprimir")
+        .single();
+
+      return query as unknown as Promise<{
+        data: {
+          codigo_cuenta: string;
+          codigo_empresa: string;
+          ov_auto_imprimir: boolean;
+        } | null;
+        error: { message: string } | null;
+      }>;
+    }),
+  );
+
+  if (!updated) {
+    throw new DomainServiceError("Cuenta no encontrada.", "INVALID_ARGUMENT");
+  }
+
+  return {
+    codigoCuenta: updated.codigo_cuenta,
+    codigoEmpresa: updated.codigo_empresa,
+    autoImprimir: Boolean(updated.ov_auto_imprimir),
+  };
+}

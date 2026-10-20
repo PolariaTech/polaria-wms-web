@@ -156,6 +156,65 @@ describe("mapPedidoExtraidoToForm", () => {
     expect(mapped.warnFields.has("anden")).toBe(true);
   });
 
+  it("convierte galón de 5 L a cantidad LTR y precio por litro", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        lineas: [
+          {
+            textoOriginal: "Jugo de Limón fresco galón de 5 litros",
+            productoCatalogo: "JUGO DE LIMON (105001548)",
+            cantidad: 1,
+            unidad: "UN",
+            cajas: null,
+            presentacion: null,
+            especificacion: null,
+            numeroPedido: "MYG-0015033",
+            almacen: null,
+            numeroAlmacen: null,
+            referenciaPedido: null,
+            codigoProductoCliente: null,
+            responsableExterno: null,
+            precioUnitario: 350,
+          },
+        ],
+      },
+      productos: [
+        {
+          idProducto: "jugo-1",
+          label: "JUGO DE LIMON (105001548)",
+          idCliente: null,
+          idBodega: "b1",
+          codigo: "105001548",
+          nombre: "JUGO DE LIMON",
+          kgDisponible: 100,
+          precioUnitario: 0,
+          unidadMedida: "LTR",
+        },
+      ],
+      ficha: {
+        centroConsumo: "",
+        ventanaDesde: "",
+        ventanaHasta: "",
+        direccion: "",
+        anden: "",
+        contacto: "",
+        telefono: "",
+        aceptaSustituciones: "",
+        requiereLote: "",
+        registrarTemperatura: "",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
+    });
+
+    expect(mapped.lineas[0]?.cantidadInput).toBe("5");
+    expect(mapped.lineas[0]?.unidadMedida).toBe("LTR");
+    expect(mapped.lineas[0]?.precioUnitario).toBe(70);
+    expect(mapped.lineas[0]?.packHint).toMatch(/Envase/i);
+  });
+
   it("auto-asigna cuando la sugerencia es inequívoca", () => {
     const mapped = mapPedidoExtraidoToForm({
       pedido: {

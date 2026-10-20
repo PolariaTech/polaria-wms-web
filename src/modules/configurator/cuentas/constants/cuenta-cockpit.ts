@@ -10,6 +10,7 @@ import {
   ShoppingBag,
   ShoppingCart,
   Tags,
+  Timer,
   Truck,
   Users,
   Warehouse,
@@ -22,6 +23,7 @@ export type CuentaCockpitModuloId =
   | "usuarios"
   | "bodegas"
   | "impresoras"
+  | "sla"
   | "catalogo"
   | "lista-precio"
   | "proveedores"
@@ -55,6 +57,7 @@ export const CUENTA_COCKPIT_SECTIONS: readonly CuentaCockpitSection[] = [
       { id: "usuarios", title: "Usuarios", icon: Users },
       { id: "bodegas", title: "Bodegas", icon: Warehouse },
       { id: "impresoras", title: "Impresoras", icon: Printer },
+      { id: "sla", title: "SLA / Alertas", icon: Timer },
     ],
   },
   {
@@ -114,6 +117,15 @@ export const CUENTA_COCKPIT_MODULO_COPY = {
       "Configurar impresora",
       "Elegir camino de envío",
       "Probar impresión",
+    ],
+  },
+  sla: {
+    title: "SLA / Alertas",
+    description:
+      "Tiempos por etapa de órdenes de venta: SLA (atrasada) y alerta (en riesgo).",
+    futureActions: [
+      "Definir minutos de SLA",
+      "Definir minutos de alerta",
     ],
   },
   catalogo: {

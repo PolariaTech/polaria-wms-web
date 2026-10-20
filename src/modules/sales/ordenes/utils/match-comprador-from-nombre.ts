@@ -14,11 +14,12 @@ export interface CompradorMatchResult {
   candidates: CompradorScored[];
 }
 
-/** Umbral para listar varias sugerencias; si nadie lo pasa, igual se ofrece el más cercano. */
-const MIN_SUGGESTION_SCORE = 0.22;
+/**
+ * Umbral alto: solo sugerir si hay señal real.
+ * Por debajo → alerta de cliente faltante (sin “más cercano” inventado).
+ */
+const MIN_SUGGESTION_SCORE = 0.55;
 const MAX_CANDIDATES = 4;
-const AUTO_ASSIGN_SCORE = 0.82;
-const AMBIGUITY_GAP = 0.08;
 
 const STOP_TOKENS = new Set([
   "de",
@@ -216,14 +217,11 @@ export function rankCompradoresFromNombre(
     return a.comprador.comprador.localeCompare(b.comprador.comprador, "es");
   });
 
-  // Exacto → no hace falta sugerir (el caller auto-asigna).
-  // Sin exacto → candidatos sobre umbral; si nadie pasa, el más cercano igual.
+  // Exacto → no sugerir (el caller auto-asigna).
+  // Sin exacto → solo candidatos con score ≥ umbral (sin inventar el más cercano).
   let candidates: CompradorScored[] = [];
   if (!exact) {
     candidates = scored.filter((row) => row.score >= minScore).slice(0, limit);
-    if (candidates.length === 0 && scored[0]) {
-      candidates = [scored[0]];
-    }
   }
 
   return {
@@ -245,15 +243,12 @@ export function matchCompradorFromNombre(
 }
 
 /**
- * ¿Conviene auto-asignar el mejor fuzzy? Solo si el score es alto y no hay empate.
+ * Auto-asignar cliente solo con coincidencia total (nombre o código normalizados).
+ * Coincidencias parciales («Hilton» ⊂ «CESAR HILTON») quedan como sugerencia,
+ * igual que productos cuando no hay match claro.
  */
 export function shouldAutoAssignComprador(
   result: CompradorMatchResult,
 ): CompradorListRow | null {
-  if (result.exact) return result.exact;
-  const top = result.candidates[0];
-  if (!top || top.score < AUTO_ASSIGN_SCORE) return null;
-  const second = result.candidates[1];
-  if (second && top.score - second.score < AMBIGUITY_GAP) return null;
-  return top.comprador;
+  return result.exact;
 }

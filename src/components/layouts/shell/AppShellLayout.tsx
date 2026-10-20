@@ -23,6 +23,7 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
   const session = useAuthStore((s) => s.session);
   const [mateoLoading, setMateoLoading] = useState(false);
   const [mateoError, setMateoError] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const mateoOnlyRedirectRef = useRef(false);
   const showMateoIa = session ? sessionHasMateoAccess(session) : false;
   const mateoOnly = session ? sessionIsMateoOnly(session) : false;
@@ -58,6 +59,22 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
     void handleMateoIaClick();
   }, [handleMateoIaClick, mateoOnly]);
 
+  if (isLoggingOut) {
+    return (
+      <div className="relative flex min-h-screen flex-col bg-polaria-bg">
+        <div
+          aria-hidden
+          className="polaria-aurora pointer-events-none absolute inset-0"
+        />
+        <PolariaStatusLoading
+          title="Cerrando sesión"
+          message="Espera un momento, estamos cerrando tu sesión."
+          className="relative z-10 m-auto flex-1 py-10"
+        />
+      </div>
+    );
+  }
+
   return (
     <AuthGuard>
       <div className="relative flex min-h-screen flex-col bg-polaria-bg">
@@ -69,6 +86,7 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
           onMateoIaClick={handleMateoIaClick}
           isMateoLoading={mateoLoading}
           showMateoIa={showMateoIa && !mateoOnly}
+          onLogoutStart={() => setIsLoggingOut(true)}
         />
         {mateoError && (
           <div

@@ -75,3 +75,39 @@ export function resolveSkuVisible(input: {
 
   return best?.codigo || "";
 }
+
+/**
+ * Texto del producto tal cual vino en el origen (para caption «Escrito por el cliente»).
+ * Prioridad: match_producto.textoCliente → Producto del origen (por nombre/qty).
+ */
+export function resolveTextoProductoOrigen(input: {
+  linea: OrdenVentaLineaRow;
+  origenRenglones?: readonly OrigenCorreoRenglon[] | null;
+  hija?: OrdenTrabajoHija | null;
+}): string {
+  const fromMatch = input.linea.match_producto?.textoCliente?.trim() || "";
+  if (fromMatch) return fromMatch;
+
+  const titulo = resolveOrdenVentaLineaTitulo(input.linea);
+  const qty = input.linea.cantidad_pedida;
+  const pool =
+    input.hija?.renglones ??
+    input.origenRenglones ??
+    [];
+
+  let best: { producto: string; score: number } | null = null;
+  for (const row of pool) {
+    const prod = (row.Producto ?? "").trim();
+    if (!prod) continue;
+    if (!namesLooselyMatch(titulo, prod)) continue;
+    const rowQty = parseCantidad(row.Cantidad);
+    let score = 1;
+    if (rowQty > 0 && Math.abs(rowQty - qty) < 0.001) score = 3;
+    else if (rowQty > 0 && Math.abs(rowQty - qty) / rowQty < 0.05) score = 2;
+    if (!best || score > best.score) {
+      best = { producto: prod, score };
+    }
+  }
+
+  return best?.producto || "";
+}

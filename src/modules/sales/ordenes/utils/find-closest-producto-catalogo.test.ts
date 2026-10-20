@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  codigoCoincideEnQuery,
   coreProductNameForMatch,
   findClosestProductoCatalogo,
   findTypoRivalProductos,
+  matchesProductoCatalogSearch,
   productNamesLooselyMatch,
+  productoCompatibleConTextoCliente,
   rankProductosCatalogo,
+  scoreProductoMatch,
   shouldAutoAcceptProductoSuggestion,
 } from "./find-closest-producto-catalogo";
 import type { ProductoVentaOption } from "../../shared/types/sales.types";
@@ -67,7 +71,154 @@ const productos: ProductoVentaOption[] = [
   },
 ];
 
+describe("codigoCoincideEnQuery", () => {
+  it("no deja que SKU '5' gane por estar dentro de '25 cm'", () => {
+    expect(
+      codigoCoincideEnQuery("PLATANO MACHO DE 20 A 25 CM ACOE", "5"),
+    ).toBe(false);
+    expect(codigoCoincideEnQuery("pedido codigo 5 listo", "5")).toBe(true);
+  });
+
+  it("no deja que SKU '5' gane por 'galón de 5 litros'", () => {
+    expect(
+      codigoCoincideEnQuery("Jugo de Limón fresco galón de 5 litros", "5"),
+    ).toBe(false);
+  });
+
+  it("sigue reconociendo SKUs largos en el texto", () => {
+    expect(
+      codigoCoincideEnQuery("LECHUGA ROMANA 115001434", "115001434"),
+    ).toBe(true);
+  });
+});
+
+describe("limón fruta vs jugo de limón", () => {
+  const limonPersa: ProductoVentaOption = {
+    idProducto: "persa",
+    label: "LIMON PERSA (SIN SEMILLA) (115001400)",
+    idCliente: null,
+    idBodega: "b1",
+    codigo: "115001400",
+    nombre: "LIMON PERSA (SIN SEMILLA)",
+    kgDisponible: 100,
+    precioUnitario: 23,
+    unidadMedida: "KGM",
+  };
+  const jugoLimon: ProductoVentaOption = {
+    idProducto: "jugo",
+    label: "JUGO DE LIMON (105001548)",
+    idCliente: null,
+    idBodega: "b1",
+    codigo: "105001548",
+    nombre: "JUGO DE LIMON",
+    kgDisponible: 40,
+    precioUnitario: 70,
+    unidadMedida: "LTR",
+  };
+
+  it("LIMON PERSA SIN SEMILLA elige fruta, no jugo", () => {
+    const query = "LIMON PERSA - VERDE SIN SEMILLA";
+    const match = findClosestProductoCatalogo(query, [jugoLimon, limonPersa]);
+    expect(match?.idProducto).toBe("persa");
+    expect(
+      productoCompatibleConTextoCliente(query, jugoLimon),
+    ).toBe(false);
+  });
+
+  it("jugo de limón sigue eligiendo JUGO, no la fruta", () => {
+    const query = "Jugo de Limón fresco galón de 5 litros";
+    const match = findClosestProductoCatalogo(query, [limonPersa, jugoLimon]);
+    expect(match?.idProducto).toBe("jugo");
+  });
+});
+
+describe("ANTICIPO vs jugo de limón", () => {
+  it("elige JUGO DE LIMON y no ANTICIPO", () => {
+    const catalogo: ProductoVentaOption[] = [
+      {
+        idProducto: "anticipo",
+        label: "ANTICIPO DEL BIEN O SERVICIO (5)",
+        idCliente: null,
+        idBodega: "b1",
+        codigo: "5",
+        nombre: "ANTICIPO DEL BIEN O SERVICIO",
+        kgDisponible: 0,
+        precioUnitario: 0,
+        unidadMedida: "ACT",
+      },
+      {
+        idProducto: "jugo",
+        label: "JUGO DE LIMON (105001548)",
+        idCliente: null,
+        idBodega: "b1",
+        codigo: "105001548",
+        nombre: "JUGO DE LIMON",
+        kgDisponible: 40,
+        precioUnitario: 70,
+        unidadMedida: "LTR",
+      },
+    ];
+    const query = "Jugo de Limón fresco galón de 5 litros";
+    const match = findClosestProductoCatalogo(query, catalogo);
+    expect(match?.idProducto).toBe("jugo");
+    expect(
+      shouldAutoAcceptProductoSuggestion({
+        query,
+        sugerenciaNombre: "ANTICIPO DEL BIEN O SERVICIO",
+        sugerenciaCodigo: "5",
+        topScore: 0.95,
+        secondScore: 0.4,
+        ambiguous: false,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("findClosestProductoCatalogo", () => {
+  it("no elige ANTICIPO (SKU 5) por tallas como 25 cm", () => {
+    const conAnticipo: ProductoVentaOption[] = [
+      {
+        idProducto: "anticipo",
+        label: "ANTICIPO DEL BIEN O SERVICIO (5)",
+        idCliente: null,
+        idBodega: "b1",
+        codigo: "5",
+        nombre: "ANTICIPO DEL BIEN O SERVICIO",
+        kgDisponible: 0,
+        precioUnitario: 0,
+        unidadMedida: "ACT",
+      },
+      {
+        idProducto: "platano",
+        label: "PLATANO MACHO (105001523)",
+        idCliente: null,
+        idBodega: "b1",
+        codigo: "105001523",
+        nombre: "PLATANO MACHO",
+        kgDisponible: 50,
+        precioUnitario: 27,
+        unidadMedida: "KGM",
+      },
+    ];
+    const query = "PLATANO MACHO DE 20 A 25 CM ACOE";
+    expect(scoreProductoMatch(query, conAnticipo[0]!)).toBeLessThan(0.5);
+    expect(scoreProductoMatch(query, conAnticipo[1]!)).toBeGreaterThan(0.5);
+    const match = findClosestProductoCatalogo(query, conAnticipo);
+    expect(match?.idProducto).toBe("platano");
+    const ranked = rankProductosCatalogo(query, conAnticipo);
+    expect(ranked.best?.idProducto).toBe("platano");
+    expect(
+      shouldAutoAcceptProductoSuggestion({
+        query,
+        sugerenciaNombre: ranked.best!.nombre,
+        sugerenciaCodigo: ranked.best!.codigo,
+        topScore: ranked.candidates[0]!.score,
+        secondScore: ranked.candidates[1]?.score ?? null,
+        ambiguous: ranked.ambiguous,
+      }),
+    ).toBe(true);
+  });
+
   it("sugiere el producto más cercano por nombre", () => {
     const match = findClosestProductoCatalogo("aguacate hass premium", productos);
     expect(match?.idProducto).toBe("p1");
@@ -339,5 +490,152 @@ describe("rankProductosCatalogo", () => {
         ambiguous: true,
       }),
     ).toBe(true);
+  });
+});
+
+describe("match parcial de familia (genérico)", () => {
+  const lechugas: ProductoVentaOption[] = [
+    {
+      idProducto: "it",
+      label: "LECHUGA ITALIANA",
+      idCliente: null,
+      idBodega: "b1",
+      codigo: "115001445",
+      nombre: "LECHUGA ITALIANA",
+      kgDisponible: 10,
+      precioUnitario: 1,
+      unidadMedida: "kg",
+    },
+    {
+      idProducto: "or",
+      label: "LECHUGA OREJONA",
+      idCliente: null,
+      idBodega: "b1",
+      codigo: "115001433",
+      nombre: "LECHUGA OREJONA",
+      kgDisponible: 10,
+      precioUnitario: 1,
+      unidadMedida: "kg",
+    },
+    {
+      idProducto: "ro",
+      label: "LECHUGA ROMANA",
+      idCliente: null,
+      idBodega: "b1",
+      codigo: "115001434",
+      nombre: "LECHUGA ROMANA",
+      kgDisponible: 10,
+      precioUnitario: 1,
+      unidadMedida: "kg",
+    },
+    {
+      idProducto: "sa",
+      label: "LECHUGA SANGRIA",
+      idCliente: null,
+      idBodega: "b1",
+      codigo: "115001432",
+      nombre: "LECHUGA SANGRIA",
+      kgDisponible: 10,
+      precioUnitario: 1,
+      unidadMedida: "kg",
+    },
+  ];
+
+  const aguacates: ProductoVentaOption[] = [
+    {
+      idProducto: "ae",
+      label: "AGUACATE EXTRA",
+      idCliente: null,
+      idBodega: "b1",
+      codigo: "A1",
+      nombre: "AGUACATE EXTRA",
+      kgDisponible: 10,
+      precioUnitario: 1,
+      unidadMedida: "kg",
+    },
+    {
+      idProducto: "ap",
+      label: "AGUACATE PRIMERA",
+      idCliente: null,
+      idBodega: "b1",
+      codigo: "A2",
+      nombre: "AGUACATE PRIMERA",
+      kgDisponible: 10,
+      precioUnitario: 1,
+      unidadMedida: "kg",
+    },
+    {
+      idProducto: "as",
+      label: "AGUACATE SEGUNDA",
+      idCliente: null,
+      idBodega: "b1",
+      codigo: "A3",
+      nombre: "AGUACATE SEGUNDA",
+      kgDisponible: 10,
+      precioUnitario: 1,
+      unidadMedida: "kg",
+    },
+  ];
+
+  it("pedido con familia + palabra desconocida: lista toda la familia y no auto-asigna", () => {
+    const ranked = rankProductosCatalogo("LECHUGA LARGA", lechugas);
+    const ids = ranked.candidates.map((c) => c.producto.idProducto);
+    expect(ids).toEqual(expect.arrayContaining(["it", "or", "ro", "sa"]));
+    expect(ranked.ambiguous).toBe(true);
+    expect(
+      shouldAutoAcceptProductoSuggestion({
+        query: "LECHUGA LARGA",
+        sugerenciaNombre: ranked.best!.nombre,
+        sugerenciaCodigo: ranked.best!.codigo,
+        topScore: ranked.candidates[0]!.score,
+        secondScore: ranked.candidates[1]?.score ?? null,
+        ambiguous: ranked.ambiguous,
+      }),
+    ).toBe(false);
+  });
+
+  it("mismo patrón en otra familia (aguacate + apodo)", () => {
+    const ranked = rankProductosCatalogo("AGUACATE PARA ENSALADA", aguacates);
+    expect(ranked.candidates.map((c) => c.producto.idProducto)).toEqual(
+      expect.arrayContaining(["ae", "ap", "as"]),
+    );
+    expect(ranked.ambiguous).toBe(true);
+    expect(
+      shouldAutoAcceptProductoSuggestion({
+        query: "AGUACATE PARA ENSALADA",
+        sugerenciaNombre: ranked.best!.nombre,
+        sugerenciaCodigo: ranked.best!.codigo,
+        topScore: ranked.candidates[0]!.score,
+        secondScore: ranked.candidates[1]?.score ?? null,
+        ambiguous: ranked.ambiguous,
+      }),
+    ).toBe(false);
+  });
+
+  it("nombre exacto de variante no expande ni queda ambiguo", () => {
+    const ranked = rankProductosCatalogo("LECHUGA OREJONA", lechugas);
+    expect(ranked.best?.idProducto).toBe("or");
+    expect(ranked.ambiguous).toBe(false);
+  });
+
+  it("buscador por tokens: familia+apodo encuentra variantes del catálogo", () => {
+    expect(
+      matchesProductoCatalogSearch("lechuga larga", {
+        nombre: "LECHUGA OREJONA",
+        codigo: "115001433",
+      }),
+    ).toBe(true);
+    expect(
+      matchesProductoCatalogSearch("aguacate ensalada", {
+        nombre: "AGUACATE EXTRA",
+        codigo: "A1",
+      }),
+    ).toBe(true);
+    expect(
+      matchesProductoCatalogSearch("lechuga larga", {
+        nombre: "PLATANO MACHO",
+        codigo: "105001523",
+      }),
+    ).toBe(false);
   });
 });

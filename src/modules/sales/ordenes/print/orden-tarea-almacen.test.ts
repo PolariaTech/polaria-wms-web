@@ -28,6 +28,9 @@ const LIST_ROW: OrdenVentaOperadorRow = {
   destino: "Bodega central",
   idBodega: "bod-1",
   idBodegaDestino: null,
+  slaStatus: "en_tiempo",
+  alertaStatus: "ok",
+  minutosEnEstado: 0,
 };
 
 const DETALLE: OrdenVentaDetalleRow = {
@@ -98,7 +101,7 @@ describe("orden de tarea almacén", () => {
     expect(data.cliente).not.toContain("3Q12U");
     expect(data.lineas[0]?.producto).toBe("HPR FROZEN-PORK RACKS");
     expect(data.lineas[0]?.especificacion).toBe("");
-    expect(data.lineas[0]?.cantidadSolicitada).toContain("10");
+    expect(data.lineas[0]?.cantidadSolicitada).toBe("10 kg");
     expect(data.creada).toBe(
       formatOrdenTareaImpresaAt(new Date(DETALLE.created_at)),
     );
@@ -108,6 +111,25 @@ describe("orden de tarea almacén", () => {
     // dd/mm/aaaa HH:mm
     expect(data.creada).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
     expect(data.impresa).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
+  });
+
+  it("usa unidad_medida persistida en cantidad solicitada (no fuerza kg)", () => {
+    const data = mapOrdenVentaToAlmacenPrintData({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        lineas: [
+          {
+            ...DETALLE.lineas[0]!,
+            cantidad_pedida: 5,
+            unidad_medida: "LTR",
+          },
+        ],
+      },
+      printedAt: new Date("2026-08-26T17:44:00"),
+    });
+
+    expect(data.lineas[0]?.cantidadSolicitada).toBe("5 LTR");
   });
 
   it("Creada usa created_at de la OV y no la hora de impresión", () => {

@@ -1,4 +1,5 @@
 import { formatKgEs } from "@/lib/utils/decimal-es";
+import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../shared/types/sales.types";
 import type {
   OrdenVentaDetalleRow,
   OrdenVentaLineaRow,
@@ -174,10 +175,12 @@ function mapLineasPrint(
       otId: hija?.id,
       allowUnscoped: !hija,
     });
+    const unidad =
+      linea.unidad_medida?.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT;
     return {
       producto,
       especificacion: nota,
-      cantidadSolicitada: `${formatKgEs(linea.cantidad_pedida)} kg`,
+      cantidadSolicitada: `${formatKgEs(linea.cantidad_pedida)} ${unidad}`,
     };
   });
 }

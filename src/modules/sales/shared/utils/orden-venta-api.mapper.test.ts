@@ -16,7 +16,7 @@ describe("orden-venta-api.mapper", () => {
         fechaPedido: "2026-07-09",
         destino: "Bodega Sur",
       }),
-    ).toEqual({
+    ).toMatchObject({
       idOrdenVenta: "ov-1",
       venta: "OV-001",
       occ: "—",
@@ -32,6 +32,8 @@ describe("orden-venta-api.mapper", () => {
       destino: "Bodega Sur",
       idBodega: "",
       idBodegaDestino: null,
+      slaStatus: expect.stringMatching(/^(en_tiempo|atrasada|cerrada)$/),
+      alertaStatus: expect.stringMatching(/^(ok|en_riesgo|atrasada|cerrada)$/),
     });
   });
 });

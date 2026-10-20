@@ -1,16 +1,11 @@
 "use client";
 
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, Plus, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
-  PolariaTableActionGroup,
   PolariaTableBadge,
   PolariaTableCode,
-  PolariaTableDocumentButton,
-  PolariaTableEditButton,
-  PolariaTableImagesButton,
-  PolariaTablePrintButton,
 } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
@@ -24,10 +19,12 @@ import {
   ESTADO_ORDEN_VENTA_LABELS,
   ESTADOS_ORDEN_VENTA,
   formatEstadoOrdenVenta,
-  puedeAccionesAlmacenOrdenVenta,
-  puedeEditarOrdenVentaDesdeLista,
   variantEstadoOrdenVenta,
 } from "../../../shared/constants/sales-status";
+import {
+  labelOvAlertaStatus,
+  slaDotTone,
+} from "../../../shared/utils/ov-sla";
 import { useOrdenesVentaSubscription } from "../../../shared/hooks/useOrdenesVentaSubscription";
 import {
   ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS,
@@ -39,9 +36,12 @@ import {
 } from "../../print/download-orden-tarea-almacen-pdf";
 import { mapOrdenVentaToAlmacenPrintSheets } from "../../print/map-orden-tarea-almacen";
 import {
+  borrarOrdenVenta,
   getOrdenVentaDetalle,
   listOrdenesVentaOperador,
 } from "../../../shared/services/sales.service";
+import { postOrdenVentaLog } from "../../services/orden-venta-log.client";
+import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import type {
   EstadoOrdenVenta,
   OrdenVentaOperadorRow,
@@ -51,6 +51,7 @@ import { listOrdenIdsConSurtidoCaptura } from "../../surtido/list-orden-ids-con-
 import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
 import { useAuthStore } from "@/stores/auth.store";
 import { OrdenVentaCreateModal } from "../modals/OrdenVentaCreateModal";
+import { OrdenVentaCypherDrawer } from "../modals/OrdenVentaCypherDrawer";
 import { OrdenVentaDetalleModal } from "../modals/OrdenVentaDetalleModal";
 import {
   OrdenVentaFotosCapturaModal,
@@ -86,6 +87,7 @@ export function OperadorOrdenesVentaPageContent({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detalleId, setDetalleId] = useState<string | null>(null);
+  const [cypherId, setCypherId] = useState<string | null>(null);
   const printingLockRef = useRef(false);
   const fotosOrdenIdRef = useRef<string | null>(null);
   const [printFeedback, setPrintFeedback] = useState<{
@@ -95,7 +97,7 @@ export function OperadorOrdenesVentaPageContent({
   } | null>(null);
   const [busyAction, setBusyAction] = useState<{
     id: string;
-    kind: "print" | "preview" | "fotos";
+    kind: "print" | "preview" | "fotos" | "borrar";
   } | null>(null);
 
   const [pdfPreview, setPdfPreview] = useState<{
@@ -180,6 +182,7 @@ export function OperadorOrdenesVentaPageContent({
       confirmada: 0,
       alistamiento: 0,
       alistada: 0,
+      cancelada: 0,
     };
     for (const row of rows) {
       counts[row.estado] = (counts[row.estado] ?? 0) + 1;
@@ -462,9 +465,29 @@ export function OperadorOrdenesVentaPageContent({
         header: "OV",
         headerClassName: ordenVentaTableColumnClass("venta", "header"),
         cellClassName: ordenVentaTableColumnClass("venta"),
-        cell: (row: OrdenVentaOperadorRow) => (
-          <PolariaTableCode>{row.venta}</PolariaTableCode>
-        ),
+        cell: (row: OrdenVentaOperadorRow) => {
+          const tone = slaDotTone(row.alertaStatus);
+          const label = labelOvAlertaStatus(row.alertaStatus);
+          return (
+            <span className="inline-flex items-center gap-2">
+              <span
+                title={label}
+                aria-label={label}
+                className={cn(
+                  "h-2 w-2 shrink-0 rounded-full",
+                  tone === "atrasada"
+                    ? "bg-polaria-danger"
+                    : tone === "en_riesgo"
+                      ? "bg-polaria-warning"
+                      : tone === "cerrada"
+                        ? "bg-polaria-w-50"
+                        : "bg-polaria-teal",
+                )}
+              />
+              <PolariaTableCode>{row.venta}</PolariaTableCode>
+            </span>
+          );
+        },
       },
       {
         id: "occ",
@@ -495,7 +518,7 @@ export function OperadorOrdenesVentaPageContent({
       },
       {
         id: "comprador",
-        header: "Comprador",
+        header: "Cliente",
         headerClassName: ordenVentaTableColumnClass("comprador", "header"),
         cellClassName: ordenVentaTableColumnClass("comprador"),
         cell: (row: OrdenVentaOperadorRow) => (
@@ -534,98 +557,47 @@ export function OperadorOrdenesVentaPageContent({
               headerClassName: ordenVentaTableColumnClass("acciones", "header"),
               cellClassName: ordenVentaTableColumnClass("acciones"),
               cell: (row: OrdenVentaOperadorRow) => {
-                const hasFotos = idsConFotosCaptura.has(row.idOrdenVenta);
-                const busyId = busyAction?.id === row.idOrdenVenta;
-                const puedeEditar = puedeEditarOrdenVentaDesdeLista(
-                  row.estado,
-                );
-                const puedeAlmacen = puedeAccionesAlmacenOrdenVenta(
-                  row.estado,
-                );
-                const bloqueadoHastaConfirmar =
-                  "Disponible cuando la orden esté confirmada";
+                const open = cypherId === row.idOrdenVenta;
                 return (
                   <span
                     onClick={(event) => event.stopPropagation()}
                     onKeyDown={(event) => event.stopPropagation()}
                   >
-                    <PolariaTableActionGroup>
-                      <PolariaTableEditButton
-                        label={
-                          puedeEditar
-                            ? "Editar"
-                            : bloqueadoHastaConfirmar
-                        }
-                        disabled={!puedeEditar}
-                        onClick={() => {
-                          if (!puedeEditar) return;
-                          setEditingId(row.idOrdenVenta);
-                          setIsCreateOpen(true);
-                        }}
+                    <button
+                      type="button"
+                      title={open ? "Cerrar detalle" : "Ver detalle"}
+                      aria-label={
+                        open
+                          ? `Cerrar detalle de ${row.venta}`
+                          : `Ver detalle de ${row.venta}`
+                      }
+                      aria-pressed={open}
+                      onClick={() => {
+                        setCypherId((prev) =>
+                          prev === row.idOrdenVenta ? null : row.idOrdenVenta,
+                        );
+                      }}
+                      className={cn(
+                        "inline-flex h-8 w-8 items-center justify-center rounded-lg border transition",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                        open
+                          ? "border-polaria-teal bg-polaria-teal text-polaria-on-teal"
+                          : "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
+                      )}
+                    >
+                      <Plus
+                        className="h-4 w-4"
+                        strokeWidth={2.25}
+                        aria-hidden
                       />
-                      <PolariaTablePrintButton
-                        label={
-                          puedeAlmacen
-                            ? "Imprimir"
-                            : bloqueadoHastaConfirmar
-                        }
-                        onClick={() => {
-                          if (!puedeAlmacen) return;
-                          void runPrint(row);
-                        }}
-                        disabled={
-                          !puedeAlmacen ||
-                          (busyId && busyAction?.kind === "print")
-                        }
-                      />
-                      <PolariaTableDocumentButton
-                        label={
-                          puedeAlmacen
-                            ? "Descarga"
-                            : bloqueadoHastaConfirmar
-                        }
-                        onClick={() => {
-                          if (!puedeAlmacen) return;
-                          void openPdfPreview(row);
-                        }}
-                        disabled={
-                          !puedeAlmacen ||
-                          (busyId && busyAction?.kind === "preview")
-                        }
-                      />
-                      <PolariaTableImagesButton
-                        label={
-                          !puedeAlmacen
-                            ? bloqueadoHastaConfirmar
-                            : hasFotos
-                              ? "Fotos del QR"
-                              : "Aún no hay fotos del QR"
-                        }
-                        onClick={() => {
-                          if (!puedeAlmacen || !hasFotos) return;
-                          void openFotosCaptura(row);
-                        }}
-                        disabled={
-                          !puedeAlmacen ||
-                          !hasFotos ||
-                          (busyId && busyAction?.kind === "fotos")
-                        }
-                      />
-                    </PolariaTableActionGroup>
+                    </button>
                   </span>
                 );
               },
             },
           ]),
     ],
-    [
-      inspect,
-      runPrint,
-      openPdfPreview,
-      openFotosCaptura,
-      busyAction,
-      idsConFotosCaptura,
-    ],
+    [inspect, cypherId],
   );
 
   const body = (
@@ -692,7 +664,7 @@ export function OperadorOrdenesVentaPageContent({
 
       <PolariaDataTable
         title="Órdenes de venta"
-        subtitle="Venta, comprador y estado."
+        subtitle="Venta, cliente y estado."
         isLoading={isLoading}
         error={
           error ??
@@ -748,6 +720,92 @@ export function OperadorOrdenesVentaPageContent({
         onEmitted={inspect ? undefined : () => {
           void reload();
         }}
+      />
+
+      <OrdenVentaCypherDrawer
+        idOrdenVenta={inspect ? null : cypherId}
+        codigoCuenta={codigoCuenta}
+        row={
+          cypherId
+            ? (rows.find((r) => r.idOrdenVenta === cypherId) ?? null)
+            : null
+        }
+        inspect={inspect}
+        hasFotos={
+          cypherId ? idsConFotosCaptura.has(cypherId) : false
+        }
+        busyKind={
+          cypherId && busyAction?.id === cypherId
+            ? busyAction.kind
+            : null
+        }
+        onClose={() => setCypherId(null)}
+        onEdit={() => {
+          if (!cypherId) return;
+          setEditingId(cypherId);
+          setIsCreateOpen(true);
+        }}
+        onPrint={() => {
+          const target = cypherId
+            ? rows.find((r) => r.idOrdenVenta === cypherId)
+            : null;
+          if (!target) return;
+          void runPrint(target);
+        }}
+        onPreview={() => {
+          const target = cypherId
+            ? rows.find((r) => r.idOrdenVenta === cypherId)
+            : null;
+          if (!target) return;
+          void openPdfPreview(target);
+        }}
+        onFotos={() => {
+          const target = cypherId
+            ? rows.find((r) => r.idOrdenVenta === cypherId)
+            : null;
+          if (!target) return;
+          void openFotosCaptura(target);
+        }}
+        onBorrar={
+          inspect || !cypherId || !codigoCuenta
+            ? undefined
+            : async () => {
+                const target = rows.find((r) => r.idOrdenVenta === cypherId);
+                if (!target) {
+                  throw new DomainServiceError(
+                    "No se encontró la orden de venta.",
+                    "NOT_FOUND",
+                  );
+                }
+                setBusyAction({ id: cypherId, kind: "borrar" });
+                try {
+                  await runScoped(() =>
+                    borrarOrdenVenta({
+                      codigoCuenta,
+                      idOrdenVenta: cypherId,
+                    }),
+                  );
+                  const autor =
+                    useAuthStore.getState().session?.nombre?.trim() ||
+                    "usuario";
+                  void postOrdenVentaLog({
+                    idOrdenVenta: cypherId,
+                    codigoCuenta,
+                    accion: "actualizacion",
+                    mensaje: `Orden borrada (desactivada) por ${autor}.`,
+                    idUsuario:
+                      useAuthStore.getState().session?.idUsuario ?? null,
+                    autorNombre:
+                      useAuthStore.getState().session?.nombre ?? null,
+                    idBodega: target.idBodega ?? null,
+                  });
+                  setCypherId(null);
+                  void reload();
+                } finally {
+                  setBusyAction(null);
+                }
+              }
+        }
       />
 
       <OrdenVentaCreateModal

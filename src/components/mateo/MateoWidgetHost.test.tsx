@@ -49,6 +49,8 @@ vi.mock("@/config/env", () => ({
   },
 }));
 
+import { SESSION_MAX_AGE_MS } from "@/lib/auth/auth-session-timeout";
+import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import { MateoWidgetHost } from "./MateoWidgetHost";
 
 function mockSession(accessToken: string | null, isHydrated = true) {
@@ -61,6 +63,7 @@ function mockSession(accessToken: string | null, isHydrated = true) {
 describe("MateoWidgetHost", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useShellOverlayStore.getState().setCypherOpen(false);
     mockLoadMateoWidgetApi.mockResolvedValue({
       configureTokenFetcher: mockConfigureTokenFetcher,
       mount: mockMount,
@@ -70,7 +73,7 @@ describe("MateoWidgetHost", () => {
     });
     mockApiRequest.mockResolvedValue({
       token: "widget-jwt",
-      expiresIn: 1_987_200,
+      expiresIn: SESSION_MAX_AGE_MS / 1000,
     });
   });
 
@@ -108,7 +111,7 @@ describe("MateoWidgetHost", () => {
     expect(mountArgs.conversationTokenFetcher).toBeTypeOf("function");
     await expect(mountArgs.conversationTokenFetcher?.()).resolves.toEqual({
       token: "access-token",
-      expiresIn: 1_987_200,
+      expiresIn: SESSION_MAX_AGE_MS / 1000,
     });
   });
 
@@ -164,5 +167,18 @@ describe("MateoWidgetHost", () => {
     expect(mockResetAuth).toHaveBeenCalled();
     expect(mockUnmount).toHaveBeenCalled();
     expect(mockLoadMateoWidgetApi).toHaveBeenCalledTimes(1);
+  });
+
+  it("oculta el launcher cuando el Cypher está abierto", () => {
+    mockSession("access-token");
+    useShellOverlayStore.getState().setCypherOpen(true);
+
+    render(<MateoWidgetHost />);
+
+    const host = screen.getByTestId("mateo-widget-host");
+    expect(host).toHaveAttribute("data-cypher-open", "true");
+    expect(host).toHaveAttribute("aria-hidden", "true");
+    expect(host.className).toMatch(/opacity-0/);
+    expect(host.className).toMatch(/transition-opacity/);
   });
 });

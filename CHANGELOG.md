@@ -2,6 +2,17 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.11.29 — 2026-10-15
+
+### Ventas / OV
+- Cuerpo del mensaje colapsable (crear, editar y detalle) con chevron; oculto por defecto.
+- Adjuntos: subida a Supabase Storage (`ov-adjuntos/{cuenta}`), cards Ver/Descargar en el cuerpo; Cloudinary ya no se usa para PDF de OV (bloqueo ACL).
+- Cliente / Mateo: criterio más estricto — auto-asignación solo con nombre/código exactos; sugerencias solo con score alto (≥0.55); si no hay señal clara, alerta de cliente faltante (sin “más cercano” inventado). Bot e ingest alineados (sin fuzzy por token).
+- Productos / Mateo: si el pedido solo encaja en parte (familia + palabra que no está en catálogo), se listan todas las variantes de esa familia y no se auto-asigna; buscador del catálogo por tokens (cualquier producto).
+
+### Versión
+- Producto `2.11.29`.
+
 ## 2.11.28 — 2026-10-15
 
 ### Impresión

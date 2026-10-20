@@ -14,6 +14,7 @@ import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bod
 import type { WarehouseStateRow } from "@/modules/inventory/shared/types/inventory.types";
 import {
   normalizeEstadoOrdenVenta,
+  puedeBorrarOrdenVenta,
   puedeEditarOrdenVenta,
 } from "../constants/sales-status";
 import { listCompradoresAdmin } from "@/modules/admin-panel/compradores/services/compradores.service";
@@ -22,6 +23,10 @@ import {
   countOrdenesTrabajo,
 } from "../../ordenes/utils/orden-venta-tabla-meta";
 import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/materialize-ov-desde-origen";
+import {
+  serializeOrigenArchivos,
+  type OrigenAdjunto,
+} from "../../ordenes/utils/origen-adjuntos";
 import { parseOrigenCorreoJson } from "../../ordenes/utils/origen-correo-ordenes-trabajo";
 import { resolveNombreProductoVenta } from "../utils/producto-venta-nombre";
 import {
@@ -38,12 +43,17 @@ import {
   type ProductoVentaOption,
   type UpdateOrdenVentaInput,
 } from "../types/sales.types";
+import {
+  computeOvSla,
+  normalizeOvSlaConfig,
+  type OvSlaConfig,
+} from "../utils/ov-sla";
 
 /** PostgREST GET `.in()` explota la URL con ~1000 UUIDs; tandas cortas evitan 400. */
 const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
 
 const ORDEN_VENTA_COLUMNS =
-  "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at";
+  "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at,estado_desde";
 
 /** Listado operador: OCC + origen_correo para contar OT y buscar OCC. */
 const ORDEN_VENTA_OPERADOR_LIST_COLUMNS =
@@ -72,7 +82,7 @@ const ORDEN_VENTA_DETALLE_FLAT_COLUMNS =
 const ORDEN_VENTA_DETALLE_SELECT =
   `${ORDEN_VENTA_COLUMNS},${ORDEN_VENTA_DETALLE_FLAT_COLUMNS},` +
   "comprador:comprador(nombre,codigo)," +
-  "orden_venta_linea(id_linea_orden_venta,id_producto,cantidad_pedida,precio_unitario,cajas,presentacion,producto(sku,descripcion,metadatos_catalogo))";
+  "orden_venta_linea(id_linea_orden_venta,id_producto,cantidad_pedida,precio_unitario,cajas,presentacion,unidad_medida,match_producto,producto(sku,descripcion,metadatos_catalogo))";
 
 interface OrdenVentaLineaDetalleDbRow {
   id_linea_orden_venta: string;
@@ -81,6 +91,8 @@ interface OrdenVentaLineaDetalleDbRow {
   precio_unitario: string | number;
   cajas?: string | number | null;
   presentacion?: string | null;
+  unidad_medida?: string | null;
+  match_producto?: OrdenVentaLineaRow["match_producto"];
   producto:
     | OrdenVentaLineaRow["producto"]
     | NonNullable<OrdenVentaLineaRow["producto"]>[]
@@ -642,6 +654,7 @@ function mapOrdenVentaOperadorRow(
   compradorLabels: Map<string, string>,
   lineasResumen: Map<string, OrdenVentaLineasResumen>,
   bodegaDestinoLabels: Map<string, string>,
+  slaByCuenta: Map<string, OvSlaConfig>,
 ): OrdenVentaOperadorRow {
   const resumen = lineasResumen.get(row.id_orden_venta) ?? {
     count: 0,
@@ -655,6 +668,12 @@ function mapOrdenVentaOperadorRow(
     ordenCompraHotel: row.orden_compra_hotel,
     origenCorreo: row.origen_correo,
   });
+  const estado = normalizeEstadoOrdenVenta(row.estado);
+  const slaConfig =
+    slaByCuenta.get(row.codigo_cuenta) ?? normalizeOvSlaConfig(null, null);
+  const estadoDesde =
+    row.estado_desde || row.updated_at || row.created_at || row.fecha_pedido;
+  const sla = computeOvSla(estado, estadoDesde, slaConfig);
 
   return {
     idOrdenVenta: row.id_orden_venta,
@@ -668,12 +687,15 @@ function mapOrdenVentaOperadorRow(
     productos: formatProductosResumen(resumen.count),
     cantidadKg: resumen.cantidadKg,
     total: resumen.total,
-    estado: normalizeEstadoOrdenVenta(row.estado),
+    estado,
     fecha: row.created_at || row.fecha_pedido,
     ordenesTrabajo: countOrdenesTrabajo(row.origen_correo),
     destino,
     idBodega: row.id_bodega,
     idBodegaDestino: row.id_bodega_destino,
+    slaStatus: sla.slaStatus,
+    alertaStatus: sla.alertaStatus,
+    minutosEnEstado: sla.minutosEnEstado,
   };
 }
 
@@ -687,7 +709,10 @@ export async function listOrdenesVenta(
   const rows = await runDomainQuery((client) => {
     const query = applyRecentOrdersFilter(
       applyTenantFilters(
-        client.from("orden_venta").select(ORDEN_VENTA_COLUMNS),
+        client
+          .from("orden_venta")
+          .select(ORDEN_VENTA_COLUMNS)
+          .neq("estado", "cancelada"),
         params,
       ),
       "created_at",
@@ -744,7 +769,10 @@ export async function listOrdenesVentaOperador(
   const rows = await runDomainQuery<OrdenVentaOperadorListRow[]>((client) => {
     const query = applyRecentOrdersFilter(
       applyTenantFilters(
-        client.from("orden_venta").select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS),
+        client
+          .from("orden_venta")
+          .select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS)
+          .neq("estado", "cancelada"),
         params,
       ),
       "created_at",
@@ -783,7 +811,8 @@ export async function listOrdenesVentaOperadorParaJefe(params: {
         .from("orden_venta")
         .select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS)
         .eq("codigo_cuenta", codigoCuenta)
-        .or(`id_bodega.eq.${idBodega},id_bodega_destino.eq.${idBodega}`),
+        .or(`id_bodega.eq.${idBodega},id_bodega_destino.eq.${idBodega}`)
+        .neq("estado", "cancelada"),
       "created_at",
     )
       .order("created_at", { ascending: false })
@@ -799,6 +828,49 @@ export async function listOrdenesVentaOperadorParaJefe(params: {
   return enrichOrdenesVentaOperador(sortOrdenesVentaPorCreacionDesc(rows));
 }
 
+async function fetchCuentaOvSlaByCodigo(
+  codigos: string[],
+): Promise<Map<string, OvSlaConfig>> {
+  const unique = [...new Set(codigos.map((c) => c.trim()).filter(Boolean))];
+  if (unique.length === 0) return new Map();
+
+  try {
+    const rows = await runDomainQuery<
+      {
+        codigo_cuenta: string;
+        ov_sla_minutos: number | null;
+        ov_alerta_minutos: number | null;
+      }[]
+    >((client) => {
+      const query = client
+        .from("cuenta")
+        .select("codigo_cuenta,ov_sla_minutos,ov_alerta_minutos")
+        .in("codigo_cuenta", unique)
+        .limit(unique.length);
+
+      return query as unknown as Promise<{
+        data:
+          | {
+              codigo_cuenta: string;
+              ov_sla_minutos: number | null;
+              ov_alerta_minutos: number | null;
+            }[]
+          | null;
+        error: { message: string } | null;
+      }>;
+    });
+
+    return new Map(
+      rows.map((row) => [
+        row.codigo_cuenta,
+        normalizeOvSlaConfig(row.ov_sla_minutos, row.ov_alerta_minutos),
+      ]),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
 async function enrichOrdenesVentaOperador(
   rows: OrdenVentaOperadorListRow[],
 ): Promise<OrdenVentaOperadorRow[]> {
@@ -809,12 +881,15 @@ async function enrichOrdenesVentaOperador(
     .map((row) => row.id_bodega_destino)
     .filter((id): id is string => Boolean(id));
   const ordenIds = rows.map((row) => row.id_orden_venta);
+  const cuentaCodigos = rows.map((row) => row.codigo_cuenta);
 
-  const [compradorLabels, lineasResumen, bodegaDestinoLabels] = await Promise.all([
-    fetchCompradorLabels(compradorIds),
-    fetchLineasResumenByOrden(ordenIds),
-    fetchBodegaDestinoLabels(destinoIds),
-  ]);
+  const [compradorLabels, lineasResumen, bodegaDestinoLabels, slaByCuenta] =
+    await Promise.all([
+      fetchCompradorLabels(compradorIds),
+      fetchLineasResumenByOrden(ordenIds),
+      fetchBodegaDestinoLabels(destinoIds),
+      fetchCuentaOvSlaByCodigo(cuentaCodigos),
+    ]);
 
   return rows.map((row) =>
     mapOrdenVentaOperadorRow(
@@ -822,6 +897,7 @@ async function enrichOrdenesVentaOperador(
       compradorLabels,
       lineasResumen,
       bodegaDestinoLabels,
+      slaByCuenta,
     ),
   );
 }
@@ -945,13 +1021,32 @@ export async function listProductosVentaCatalogo(
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
+function normalizeOrigenAdjuntosInput(
+  raw: CreateOrdenVentaInput["origenArchivos"],
+): OrigenAdjunto[] {
+  if (!raw || raw.length === 0) return [];
+  return raw
+    .map((item) =>
+      typeof item === "string"
+        ? { nombre: item.trim() }
+        : {
+            nombre: item.nombre.trim(),
+            url: item.url ?? null,
+            path: item.path ?? null,
+            mime: item.mime ?? null,
+            bytes: item.bytes ?? null,
+            resourceType: item.resourceType ?? null,
+          },
+    )
+    .filter((item) => item.nombre);
+}
+
 function ordenVentaCaptureFields(
   input: CreateOrdenVentaInput,
 ): Record<string, string | null | unknown> {
-  const origenArchivos =
-    input.origenArchivos && input.origenArchivos.length > 0
-      ? input.origenArchivos.join(", ")
-      : null;
+  const origenArchivos = serializeOrigenArchivos(
+    normalizeOrigenAdjuntosInput(input.origenArchivos),
+  );
 
   return {
     fecha_entrega: input.fechaEntrega?.trim() || null,
@@ -1201,6 +1296,7 @@ export async function createOrdenVenta(
           precio_unitario: precioUnitario,
           cajas: linea.cajas ?? null,
           presentacion: linea.presentacion?.trim() || null,
+          unidad_medida: linea.unidadMedida?.trim() || null,
           match_producto: linea.matchProducto ?? null,
         };
       }),
@@ -1233,11 +1329,14 @@ export async function createOrdenVenta(
     ],
   ]);
 
+  const slaByCuenta = await fetchCuentaOvSlaByCodigo([orden.codigo_cuenta]);
+
   return mapOrdenVentaOperadorRow(
     orden,
     compradorLabels,
     lineasResumen,
     new Map(),
+    slaByCuenta,
   );
 }
 
@@ -1254,6 +1353,68 @@ export async function updateOrdenVenta(
   }
 
   return createOrdenVenta({ ...input, idOrdenVenta });
+}
+
+/**
+ * Soft-delete: marca la OV como `cancelada` (UI «Borrar»).
+ * Solo `por_confirmar`. No elimina filas en BD.
+ */
+export async function borrarOrdenVenta(params: {
+  codigoCuenta: string;
+  idOrdenVenta: string;
+}): Promise<void> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idOrdenVenta = params.idOrdenVenta.trim();
+  if (!idOrdenVenta) {
+    throw new DomainServiceError(
+      "La orden de venta no es válida.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const existing = await runDomainQuery<{ estado: string } | null>(
+    (client) => {
+      const query = client
+        .from("orden_venta")
+        .select("estado")
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_orden_venta", idOrdenVenta)
+        .maybeSingle();
+
+      return query as unknown as Promise<{
+        data: { estado: string } | null;
+        error: { message: string } | null;
+      }>;
+    },
+  );
+
+  if (!existing) {
+    throw new DomainServiceError(
+      "No se encontró la orden de venta.",
+      "NOT_FOUND",
+    );
+  }
+
+  if (!puedeBorrarOrdenVenta(existing.estado)) {
+    throw new DomainServiceError(
+      "Solo se pueden borrar órdenes por confirmar.",
+      "MUTATION_FAILED",
+    );
+  }
+
+  await runDomainMutation((client) => {
+    const query = client
+      .from("orden_venta")
+      .update({ estado: "cancelada" })
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_orden_venta", idOrdenVenta)
+      .eq("estado", "por_confirmar");
+
+    return query as unknown as Promise<{
+      data: unknown;
+      error: { message: string } | null;
+    }>;
+  });
 }
 
 function resolveCompradorRel(
@@ -1273,6 +1434,15 @@ function resolveOrdenVentaLineaProducto(
 function mapOrdenVentaLineaDetalleRow(
   row: OrdenVentaLineaDetalleDbRow,
 ): OrdenVentaLineaRow {
+  const matchRaw = row.match_producto;
+  const matchProducto =
+    matchRaw &&
+    typeof matchRaw === "object" &&
+    !Array.isArray(matchRaw) &&
+    typeof (matchRaw as { textoCliente?: unknown }).textoCliente === "string"
+      ? (matchRaw as NonNullable<OrdenVentaLineaRow["match_producto"]>)
+      : null;
+
   return {
     id_linea_orden_venta: row.id_linea_orden_venta,
     id_producto: row.id_producto,
@@ -1283,6 +1453,8 @@ function mapOrdenVentaLineaDetalleRow(
         ? null
         : parseCantidadKg(row.cajas) || null,
     presentacion: row.presentacion?.trim() || null,
+    unidad_medida: row.unidad_medida?.trim() || null,
+    match_producto: matchProducto,
     producto: resolveOrdenVentaLineaProducto(row.producto),
   };
 }
@@ -1446,6 +1618,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
           precio_unitario: linea.precioUnitario > 0 ? linea.precioUnitario : 0,
           cajas: null,
           presentacion: null,
+          unidad_medida: linea.unidadMedida?.trim() || null,
         })),
       );
 

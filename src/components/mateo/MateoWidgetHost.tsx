@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { usePolariaToast } from "@/components/shared/toast/PolariaToastProvider";
 import { env } from "@/config/env";
 import { SESSION_MAX_AGE_MS } from "@/lib/auth/auth-session-timeout";
+import { cn } from "@/lib/utils/cn";
 import { apiRequest } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
+import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import { loadMateoWidgetApi } from "./load-mateo-widget";
 import type {
   MateoWidgetApi,
@@ -19,6 +21,7 @@ import type {
 export function MateoWidgetHost() {
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const accessToken = useAuthStore((s) => s.accessToken);
+  const cypherOpen = useShellOverlayStore((s) => s.cypherOpen);
   const { showToast } = usePolariaToast();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<MateoWidgetApi | null>(null);
@@ -119,12 +122,20 @@ export function MateoWidgetHost() {
 
   // El launcher del widget ya se posiciona con `fixed` en el viewport.
   // No poner el host en `fixed` con tamaño 0: puede ocultar el botón.
+  // Con Cypher abierto se oculta (fade) para no tapar acciones (p. ej. Borrar).
   return (
     <div
       ref={hostRef}
       data-testid="mateo-widget-host"
       data-ready={ready ? "true" : "false"}
-      className="relative z-[100]"
+      data-cypher-open={cypherOpen ? "true" : "false"}
+      className={cn(
+        "relative z-[100] transition-opacity duration-300 ease-out",
+        cypherOpen
+          ? "pointer-events-none opacity-0"
+          : "opacity-100",
+      )}
+      aria-hidden={cypherOpen}
       aria-live="polite"
     />
   );

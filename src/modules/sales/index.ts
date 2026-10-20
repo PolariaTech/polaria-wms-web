@@ -15,11 +15,13 @@ export {
   ESTADOS_ORDEN_VENTA,
   formatEstadoOrdenVenta,
   normalizeEstadoOrdenVenta,
+  puedeBorrarOrdenVenta,
   puedeEditarOrdenVenta,
   variantEstadoOrdenVenta,
 } from "./shared/constants/sales-status";
 
 export {
+  borrarOrdenVenta,
   countOrdenesVentaPorConfirmar,
   createOrdenVenta,
   getOrdenVentaDetalle,

@@ -123,7 +123,12 @@ const SYNONYM_GROUPS: readonly (readonly string[])[] = [
   ["chile", "chiles", "pepper", "peppers", "morron"],
   ["guanabana", "soursop"],
   ["maracuya", "passionfruit", "passion"],
+  // Sinónimos reales de variante (cualquier producto), p. ej. MX orejona ≈ romana.
+  ["orejona", "orejonas", "romana", "romanas", "romaine"],
 ];
+
+/** Máx. candidatos al expandir familia cuando el match es parcial/empatado. */
+const MAX_FAMILY_CANDIDATES = 8;
 
 const SYNONYM_INDEX: Map<string, ReadonlySet<string>> = (() => {
   const map = new Map<string, ReadonlySet<string>>();
@@ -223,6 +228,78 @@ function expandQueryTokenForms(query: string): Set<string> {
   return forms;
 }
 
+/** ¿El token del pedido encaja en el producto (directo, stem o sinónimo)? */
+function productoMatchesQueryToken(
+  producto: ProductoVentaOption,
+  queryToken: string,
+): boolean {
+  const pTokens = tokenSet(productSearchText(producto));
+  const pForms = expandProductTokenForms(productSearchText(producto));
+  const forms = expandTokenForms(queryToken);
+  if ([...forms].some((f) => pTokens.has(f) || pForms.has(f))) return true;
+  for (const pToken of pTokens) {
+    if (tokensNearlyEqual(queryToken, pToken)) return true;
+    if (queryToken.length >= 4 && pToken.startsWith(queryToken)) return true;
+  }
+  return false;
+}
+
+/**
+ * Tokens del pedido (≥4 letras, no numéricos) que el producto no cubre.
+ * Señal de match parcial: hay que listar la familia y no auto-asignar.
+ */
+export function unmatchedDistinctiveQueryTokens(
+  query: string,
+  producto: ProductoVentaOption,
+): string[] {
+  return tokenList(query).filter(
+    (t) =>
+      t.length >= 4 &&
+      !/^\d+$/.test(t) &&
+      !productoMatchesQueryToken(producto, t),
+  );
+}
+
+/**
+ * Buscador del catálogo OV: frase completa o por tokens (suave).
+ * Sirve para cualquier producto: «familia + apodo» sigue listando la familia.
+ */
+export function matchesProductoCatalogSearch(
+  query: string,
+  producto: {
+    nombre?: string | null;
+    codigo?: string | null;
+    equivalencia?: string | null;
+  },
+): boolean {
+  const needle = normalizeForMatch(query);
+  if (!needle) return true;
+
+  const haystack = normalizeForMatch(
+    `${producto.nombre ?? ""} ${producto.codigo ?? ""} ${producto.equivalencia ?? ""}`,
+  );
+  if (!haystack) return false;
+  if (haystack.includes(needle)) return true;
+
+  const tokens = needle.split(" ").filter((t) => t.length >= 2);
+  if (tokens.length === 0) return true;
+
+  const tokenMatched = (token: string): boolean => {
+    if (haystack.includes(token)) return true;
+    for (const form of expandTokenForms(token)) {
+      if (form.length >= 3 && haystack.includes(form)) return true;
+    }
+    return false;
+  };
+
+  const matched = tokens.filter(tokenMatched);
+  if (matched.length === tokens.length) return true;
+  // Token distintivo (≥4): «lechuga» en «lechuga larga» → listar lechugas.
+  if (matched.some((t) => t.length >= 4)) return true;
+  if (tokens.length >= 2 && matched.length >= tokens.length - 1) return true;
+  return false;
+}
+
 function expandProductTokenForms(productoText: string): Set<string> {
   const tokens = tokenList(productoText);
   const forms = new Set<string>();
@@ -287,6 +364,141 @@ function formsOverlap(
   return false;
 }
 
+/** Unidades / medidas: un número al lado NO es un SKU (ej. "5 litros", "25 cm"). */
+const UNIDAD_MEDIDA_TOKENS = new Set([
+  "litro",
+  "litros",
+  "lt",
+  "lts",
+  "l",
+  "ml",
+  "mililitro",
+  "mililitros",
+  "kg",
+  "kgs",
+  "kilo",
+  "kilos",
+  "g",
+  "gr",
+  "gramos",
+  "cm",
+  "mm",
+  "m",
+  "oz",
+  "lb",
+  "lbs",
+]);
+
+/**
+ * ¿El SKU aparece de verdad en el texto del cliente?
+ * Evita que un código corto como "5" (ANTICIPO) gane por "25 cm" o "5 litros".
+ */
+export function codigoCoincideEnQuery(
+  query: string,
+  codigo: string | null | undefined,
+): boolean {
+  const q = normalizeForMatch(query);
+  const c = normalizeForMatch(codigo ?? "");
+  if (!q || !c) return false;
+  if (q === c) return true;
+
+  // Entre paréntesis tipo catálogo: "… (5)" o "… (115001434)".
+  if (new RegExp(`\\(${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`).test(q)) {
+    return true;
+  }
+
+  const tokens = tokenList(q);
+  const shortOrNumeric = c.length < 4 || /^\d{1,5}$/.test(c);
+
+  if (shortOrNumeric) {
+    // Solo si el query ES el código, o viene etiquetado como código/SKU.
+    if (/\b(codigo|cod|sku|clave)\b/.test(q) && tokens.includes(c)) {
+      const idx = tokens.indexOf(c);
+      const prev = idx > 0 ? tokens[idx - 1]! : "";
+      const next = idx < tokens.length - 1 ? tokens[idx + 1]! : "";
+      // "5 litros" / "25 cm" → no es SKU.
+      if (UNIDAD_MEDIDA_TOKENS.has(next) || UNIDAD_MEDIDA_TOKENS.has(prev)) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  if (tokens.includes(c)) return true;
+
+  // SKU largo: bloque con límites (no dígito/letra pegado).
+  const escaped = c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`, "i");
+  if (re.test(q)) return true;
+
+  // Query es prefijo/fragmento claro del SKU (mín. 4 chars).
+  if (q.length >= 4 && (c.includes(q) || c.startsWith(q))) return true;
+
+  return false;
+}
+
+/** Productos de servicio/fiscal que no deben “ganar” a fruta/verdura. */
+export function esProductoNoMercancia(producto: {
+  nombre?: string | null;
+  codigo?: string | null;
+  unidadMedida?: string | null;
+}): boolean {
+  const n = normalizeForMatch(producto.nombre ?? "");
+  const u = normalizeForMatch(producto.unidadMedida ?? "");
+  if (!n) return false;
+  if (
+    /\b(anticipo|servicio|cuota|imss|rcv|fiscal|actualizacion|adaptacion|mejora)\b/.test(
+      n,
+    )
+  ) {
+    return true;
+  }
+  if (u === "act" || u === "ser" || u === "pag") return true;
+  return false;
+}
+
+/**
+ * Jugo/puré/néctar en catálogo vs pedido de fruta entera (o al revés).
+ * Evita "LIMON PERSA SIN SEMILLA" → "JUGO DE LIMON".
+ */
+export function productoPreparacionIncompatibleConTexto(
+  textoCliente: string | null | undefined,
+  producto: ProductoVentaOption,
+): boolean {
+  const texto = normalizeForMatch(textoCliente ?? "");
+  const nombre = normalizeForMatch(producto.nombre ?? "");
+  if (!texto || !nombre) return false;
+
+  const prepRe =
+    /\b(jugo|jugos|juice|zumo|zumos|pure|pures|puree|nectar|nectares|extracto|extractos)\b/;
+  const textoPidePrep = prepRe.test(texto);
+  const productoEsPrep = prepRe.test(nombre);
+  if (productoEsPrep === textoPidePrep) return false;
+  return true;
+}
+
+/**
+ * El producto del catálogo debe parecerse al texto del cliente.
+ * Si Mateo devolvió "ANTICIPO…" pero el cliente escribió "jugo de limón", rechazar.
+ */
+export function productoCompatibleConTextoCliente(
+  textoCliente: string | null | undefined,
+  producto: ProductoVentaOption,
+): boolean {
+  const texto = (textoCliente ?? "").trim();
+  if (!texto) return true;
+  if (codigoCoincideEnQuery(texto, producto.codigo)) return true;
+  if (productoPreparacionIncompatibleConTexto(texto, producto)) return false;
+
+  const score = scoreProductoMatch(texto, producto);
+  if (esProductoNoMercancia(producto)) {
+    // Solo si el cliente realmente pidió ese concepto.
+    return score >= 0.55;
+  }
+  return score >= 0.28;
+}
+
 /**
  * Score 0–1: código exacto, overlap de tokens/sinónimos, substring.
  * Penaliza cuando el query trae tallas/números que el producto no tiene
@@ -307,7 +519,7 @@ export function scoreProductoMatch(
   if (q === nombre || q === codigo || q === label || (equivalencia && q === equivalencia)) {
     return 1;
   }
-  if (codigo && (q === codigo || q.includes(codigo) || codigo.includes(q))) {
+  if (codigoCoincideEnQuery(query, producto.codigo)) {
     return 0.95;
   }
 
@@ -516,7 +728,18 @@ export function shouldAutoAcceptProductoSuggestion(params: {
   if (!q) return false;
   // Nombre o código exacto (normalizado) → asignar; no pedir «Usar esta».
   if (q === n || q === c) return true;
-  if (c && (q.includes(c) || q.endsWith(c))) return true;
+  // Código en el texto solo si es coincidencia real (no "5" dentro de "25 cm" / "5 litros").
+  if (codigoCoincideEnQuery(params.query, params.sugerenciaCodigo)) return true;
+  // Nunca auto-asignar anticipos/servicios si el texto del cliente no los pide.
+  if (
+    esProductoNoMercancia({
+      nombre: params.sugerenciaNombre,
+      codigo: params.sugerenciaCodigo,
+    }) &&
+    !/\b(anticipo|servicio|cuota)\b/.test(q)
+  ) {
+    return false;
+  }
 
   // Mismo producto aunque cambien gramos/talla en el texto (260g vs 250g).
   const coreQ = coreProductNameForMatch(params.query);
@@ -572,7 +795,18 @@ export function rankProductosCatalogo(
 
   const scored: ProductoCatalogoScored[] = [];
   for (const producto of productos) {
-    const score = scoreProductoMatch(query, producto);
+    // Jugo vs fruta entera (y similares) no compiten entre sí.
+    if (productoPreparacionIncompatibleConTexto(query, producto)) {
+      continue;
+    }
+    let score = scoreProductoMatch(query, producto);
+    // Anticipos/servicios no deben “ganar” a un pedido de fruta/verdura.
+    if (esProductoNoMercancia(producto) && !productoCompatibleConTextoCliente(query, producto)) {
+      continue;
+    }
+    if (esProductoNoMercancia(producto)) {
+      score = Math.min(score, 0.4);
+    }
     if (score >= minScore) {
       scored.push({ producto, score });
     }
@@ -583,15 +817,52 @@ export function rankProductosCatalogo(
     return a.producto.nombre.localeCompare(b.producto.nombre, "es");
   });
 
-  const candidates = scored.slice(0, limit);
+  const top = scored[0];
+  if (!top) {
+    return { best: null, candidates: [], ambiguous: false };
+  }
+
+  const topScore = top.score;
+  const nearTop = scored.filter(
+    (row) => topScore - row.score < AMBIGUITY_GAP && row.score >= minScore,
+  );
+  const qTokens = tokenList(query);
+  const anchorTokens = qTokens.filter((t) =>
+    productoMatchesQueryToken(top.producto, t),
+  );
+  const unmatched = unmatchedDistinctiveQueryTokens(query, top.producto);
+
+  // Empate o pedido parcial (familia + palabra que no está en catálogo):
+  // expandir a todas las variantes que comparten los tokens ancla.
+  const needsFamilyExpand =
+    nearTop.length >= 2 ||
+    (unmatched.length > 0 && anchorTokens.length > 0);
+
+  let candidates: ProductoCatalogoScored[];
+  if (needsFamilyExpand && anchorTokens.length > 0) {
+    const family = scored.filter((row) =>
+      anchorTokens.some((a) => productoMatchesQueryToken(row.producto, a)),
+    );
+    candidates = family.slice(
+      0,
+      Math.max(limit, Math.min(family.length, MAX_FAMILY_CANDIDATES)),
+    );
+  } else {
+    candidates = scored.slice(0, limit);
+  }
+
   const best = candidates[0]?.producto ?? null;
   const second = candidates[1];
-  const ambiguous = Boolean(
+  const scoreAmbiguous = Boolean(
     candidates[0] &&
       second &&
       candidates[0].score - second.score < AMBIGUITY_GAP &&
       second.score >= minScore,
   );
+  // Ambiguo solo si hay 2+ variantes reales que competir; un token raro
+  // (ej. «ACOE») con un único producto claro no bloquea.
+  const ambiguous =
+    scoreAmbiguous || (needsFamilyExpand && candidates.length > 1);
 
   return { best, candidates, ambiguous };
 }

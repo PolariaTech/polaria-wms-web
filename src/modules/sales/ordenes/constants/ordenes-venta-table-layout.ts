@@ -1,5 +1,5 @@
 const COLUMN_MIN_WIDTH: Record<string, string> = {
-  venta: "min-w-[7.5rem]",
+  venta: "min-w-[8.5rem]",
   occ: "min-w-[8rem] max-w-[10rem]",
   comprador: "min-w-[7.5rem] max-w-[9.5rem]",
   productos: "min-w-[8rem]",
@@ -12,7 +12,7 @@ const COLUMN_MIN_WIDTH: Record<string, string> = {
   imprimir: "min-w-[6.5rem]",
   descargar: "min-w-[6.5rem]",
   pdfActualizado: "min-w-[7.5rem]",
-  acciones: "min-w-[12.5rem]",
+  acciones: "min-w-[3.25rem] w-[3.25rem]",
 };
 
 export const ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS = "w-full";
