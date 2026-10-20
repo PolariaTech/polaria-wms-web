@@ -1,4 +1,6 @@
 import type { PedidoExtraido, LineaExtraida } from "../ai/openai-pedido.client";
+import { extractEntregaDesdeTexto } from "./extract-entrega-desde-texto";
+import { parseFechaOrigen } from "./materialize-ov-desde-origen";
 import {
   parseOrigenCorreoJson,
   type OrigenCorreoRenglon,
@@ -47,13 +49,6 @@ function parsePrecio(value: number | string | undefined): number | null {
   return n != null && n > 0 ? n : null;
 }
 
-function parseFecha(value: string | null | undefined): string | null {
-  const raw = (value ?? "").trim();
-  if (!raw) return null;
-  const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-  return iso?.[1] ?? null;
-}
-
 /**
  * Arma un PedidoExtraido desde origen_correo (sin llamar a OpenAI).
  * Mateo en UI usa esto + matching de catálogo al abrir una OV externa.
@@ -63,6 +58,8 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
   /** Cuerpo / notas ya guardadas en la OV (si el tercero las mandó aparte). */
   origenTexto?: string | null;
   notasAlmacen?: string | null;
+  /** Ancla para fechas relativas / mes sin año. Default: hoy UTC. */
+  hoyISO?: string;
 }): PedidoExtraido {
   const rows = parseOrigenCorreoJson(params.origenCorreo);
   const lineas: LineaExtraida[] = rows.map((row) => ({
@@ -84,9 +81,20 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
 
   const notasFromRows = firstNonEmpty(rows, (r) => r["Notas generales"]);
   const destino = firstNonEmpty(rows, (r) => r.Destino);
+  const origenTexto = params.origenTexto?.trim() || null;
+  const hoyISO =
+    params.hoyISO?.trim() || new Date().toISOString().slice(0, 10);
+  const fromBody = extractEntregaDesdeTexto(
+    [origenTexto, notasFromRows].filter(Boolean).join("\n"),
+    hoyISO,
+  );
+
+  const fechaFromRows = parseFechaOrigen(firstNonEmpty(rows, (r) => r.Fecha));
+  const horarioDesdeRow = firstNonEmpty(rows, (r) => r["Ventana desde"]);
+  const horarioHastaRow = firstNonEmpty(rows, (r) => r["Ventana hasta"]);
 
   return {
-    fechaEntrega: parseFecha(firstNonEmpty(rows, (r) => r.Fecha)),
+    fechaEntrega: fechaFromRows || fromBody.fechaIso,
     centroConsumo: mostFrequent(rows.map((r) => (r.Almacen ?? "").toString())),
     observaciones: notasFromRows || params.notasAlmacen?.trim() || null,
     notasGeneralesAlmacen: notasFromRows || params.notasAlmacen?.trim() || null,
@@ -103,8 +111,8 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
       rows.map((r) => (r["Responsable externo"] ?? "").toString()),
     ),
     telefono: firstNonEmpty(rows, (r) => r["Telefono contacto"]),
-    horarioDesde: firstNonEmpty(rows, (r) => r["Ventana desde"]),
-    horarioHasta: firstNonEmpty(rows, (r) => r["Ventana hasta"]),
+    horarioDesde: horarioDesdeRow || fromBody.horarioDesde,
+    horarioHasta: horarioHastaRow || fromBody.horarioHasta,
     tolerancia: null,
     sustituciones: null,
     lote: null,
@@ -113,6 +121,6 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     origenCorreo: rows,
     advertencia: rows.length === 0 ? "Sin renglones en origen_correo." : null,
     archivosNoLegibles: [],
-    textoOrigen: params.origenTexto?.trim() || null,
+    textoOrigen: origenTexto,
   };
 }

@@ -6,6 +6,7 @@ import {
   fitNotasGeneralesPdf,
   flattenNotasForPdf,
   parseOrigenPedidoBlocks,
+  prepareCorreoBodyForCypherDisplay,
   sanitizeNotasGeneralesPedido,
   serializeCuerpoMensaje,
 } from "./texto-origen-pedido";
@@ -143,6 +144,35 @@ describe("cleanCorreoBodyForNotas", () => {
     const cleaned = cleanCorreoBodyForNotas(raw);
     expect(cleaned).toContain("  ");
     expect(cleaned.split("\n")[0]).toMatch(/Fecha\s{2,}Clave/);
+  });
+});
+
+describe("prepareCorreoBodyForCypherDisplay", () => {
+  it("deja un solo mensaje cuando el cuerpo trae reply + disclaimer repetidos", () => {
+    const raw = [
+      "Buenas noches,",
+      "Me ayuda con este pedido para el día de mañana.",
+      "Saludos...",
+      "",
+      "Alberto Oramas (Gerente) gteayb.kgpc@krystal-hotels.com",
+      "",
+      "Redescubre lo Inesperado en Hoteles Krystal. Políticas de confidencialidad.",
+      "This electronic communication is confidential.",
+      "",
+      "Buenas noches,",
+      "Me ayudan con este pedido mañana por favor.",
+      "Saludos...",
+      "",
+      "Alberto Oramas (Gerente) gteayb.kgpc@krystal-hotels.com",
+      "",
+      "Redescubre lo Inesperado en Hoteles Krystal. Políticas de confidencialidad.",
+    ].join("\n");
+
+    const prepared = prepareCorreoBodyForCypherDisplay(raw);
+    expect(prepared).toContain("Me ayuda con este pedido para el día de mañana");
+    expect(prepared).not.toContain("Me ayudan con este pedido mañana");
+    expect(prepared).not.toContain("Redescubre lo Inesperado");
+    expect(prepared.toLowerCase().split("buenas noches").length - 1).toBe(1);
   });
 });
 

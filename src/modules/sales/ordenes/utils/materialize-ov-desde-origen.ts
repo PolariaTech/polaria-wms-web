@@ -13,11 +13,14 @@ import {
   rankCompradoresFromNombre,
   shouldAutoAssignComprador,
 } from "./match-comprador-from-nombre";
+import { resolveCantidadPrecioDesdeEnvase } from "./resolve-cantidad-envase";
 
 export interface MaterializeLineaPlan {
   idProducto: string;
   cantidadPedida: number;
   precioUnitario: number;
+  /** Unidad del catálogo (o convertida) que debe persistir en la línea. */
+  unidadMedida: string;
   aliasCliente: string;
   codigoProductoCliente: string;
 }
@@ -153,12 +156,9 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
     nombreClienteOrigen,
     params.compradores,
   );
+  // Solo auto-asigna con match exacto; parciales se resuelven en UI como sugerencias.
   const idComprador =
-    shouldAutoAssignComprador(compradorRank)?.idComprador ??
-    (compradorRank.candidates[0] &&
-    compradorRank.candidates[0].score >= 0.45
-      ? compradorRank.candidates[0].comprador.idComprador
-      : null);
+    shouldAutoAssignComprador(compradorRank)?.idComprador ?? null;
 
   const ordenCompraHotel =
     mostFrequent(
@@ -190,10 +190,21 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
     }
 
     const precioDoc = parsePrecio(renglon.Precio);
+    const converted = resolveCantidadPrecioDesdeEnvase({
+      textoOriginal: alias,
+      unidadMedidaCatalogo: match.unidadMedida,
+      cantidadRaw: cantidad,
+      precioDoc,
+    });
     lineas.push({
       idProducto: match.idProducto,
-      cantidadPedida: cantidad,
-      precioUnitario: precioDoc ?? match.precioUnitario ?? 0,
+      cantidadPedida: converted?.cantidad ?? cantidad,
+      precioUnitario:
+        converted?.precioUnitario ??
+        precioDoc ??
+        match.precioUnitario ??
+        0,
+      unidadMedida: match.unidadMedida?.trim() || "",
       aliasCliente: alias,
       codigoProductoCliente: renglon["Codigo producto"]?.trim() || "",
     });

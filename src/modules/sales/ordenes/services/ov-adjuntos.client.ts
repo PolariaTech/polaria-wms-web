@@ -1,10 +1,10 @@
 import type { OrigenAdjunto } from "../utils/origen-adjuntos";
 
-/** Sube un File a Cloudinary vía Route Handler (carpeta por cuenta). */
+/** Sube un File vía Route Handler (carpeta por cuenta). Si es .eml, incluye PDF internos. */
 export async function uploadOvAdjuntoClient(
   file: File,
   codigoCuenta: string,
-): Promise<OrigenAdjunto> {
+): Promise<OrigenAdjunto[]> {
   const body = new FormData();
   body.append("file", file);
   body.append("codigoCuenta", codigoCuenta);
@@ -21,6 +21,14 @@ export async function uploadOvAdjuntoClient(
     mime?: string;
     bytes?: number;
     resourceType?: OrigenAdjunto["resourceType"];
+    items?: Array<{
+      nombre?: string;
+      url?: string;
+      path?: string;
+      mime?: string;
+      bytes?: number;
+      resourceType?: OrigenAdjunto["resourceType"];
+    }>;
   };
 
   if (!response.ok) {
@@ -30,6 +38,22 @@ export async function uploadOvAdjuntoClient(
     );
   }
 
+  if (Array.isArray(payload.items) && payload.items.length > 0) {
+    return payload.items.map((item) => {
+      const nombre = item.nombre?.trim() || file.name;
+      const path = item.path?.trim() || null;
+      const url = item.url?.trim() || null;
+      return {
+        nombre,
+        url,
+        path,
+        mime: item.mime ?? null,
+        bytes: item.bytes ?? null,
+        resourceType: item.resourceType ?? "storage",
+      };
+    });
+  }
+
   const nombre = payload.nombre?.trim() || file.name;
   const path = payload.path?.trim() || null;
   const url = payload.url?.trim() || null;
@@ -37,14 +61,16 @@ export async function uploadOvAdjuntoClient(
     throw new Error(`Storage no devolvió path/URL para «${file.name}».`);
   }
 
-  return {
-    nombre,
-    url,
-    path,
-    mime: payload.mime ?? file.type ?? null,
-    bytes: payload.bytes ?? file.size,
-    resourceType: payload.resourceType ?? "storage",
-  };
+  return [
+    {
+      nombre,
+      url,
+      path,
+      mime: payload.mime ?? file.type ?? null,
+      bytes: payload.bytes ?? file.size,
+      resourceType: payload.resourceType ?? "storage",
+    },
+  ];
 }
 
 export async function uploadOvAdjuntosClient(
@@ -53,7 +79,7 @@ export async function uploadOvAdjuntosClient(
 ): Promise<OrigenAdjunto[]> {
   const out: OrigenAdjunto[] = [];
   for (const file of files) {
-    out.push(await uploadOvAdjuntoClient(file, codigoCuenta));
+    out.push(...(await uploadOvAdjuntoClient(file, codigoCuenta)));
   }
   return out;
 }

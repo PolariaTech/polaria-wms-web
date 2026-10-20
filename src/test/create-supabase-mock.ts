@@ -15,6 +15,7 @@ export function createSupabaseMock({
     select: vi.fn(),
     insert: vi.fn(),
     eq: vi.fn(),
+    neq: vi.fn(),
     gte: vi.fn(),
     lt: vi.fn(),
     order: vi.fn(),
@@ -22,17 +23,20 @@ export function createSupabaseMock({
     is: vi.fn(),
     in: vi.fn(),
     not: vi.fn(),
+    or: vi.fn(),
   };
 
   chain.select.mockReturnValue(chain);
   chain.insert.mockResolvedValue({ data: data ?? null, error });
   chain.eq.mockReturnValue(chain);
+  chain.neq.mockReturnValue(chain);
   chain.gte.mockReturnValue(chain);
   chain.lt.mockReturnValue(chain);
   chain.order.mockReturnValue(chain);
   chain.is.mockReturnValue(chain);
   chain.in.mockReturnValue(chain);
   chain.not.mockReturnValue(chain);
+  chain.or.mockReturnValue(chain);
   chain.limit.mockResolvedValue({ data, error });
 
   const from = vi.fn(() => chain);

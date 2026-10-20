@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { uploadOvAdjunto } from "@/lib/supabase/upload-ov-adjunto";
+import { uploadOvAdjuntoWithEmlExpand } from "@/lib/supabase/upload-ov-adjunto";
 
 export const runtime = "nodejs";
 
 /**
  * Sube adjuntos de origen de OV a Supabase Storage (carpeta por cuenta).
+ * Si el archivo es .eml, también extrae y sube PDF/Excel internos.
  * FormData: file, codigoCuenta.
  */
 export async function POST(request: Request): Promise<NextResponse> {
@@ -34,7 +35,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const result = await uploadOvAdjunto(file, codigoCuenta);
+  const result = await uploadOvAdjuntoWithEmlExpand(file, codigoCuenta);
   if (!result.ok) {
     return NextResponse.json(
       { error: result.message },
@@ -42,12 +43,22 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  const primary = result.items[0]!;
   return NextResponse.json({
-    nombre: result.nombre,
-    url: result.url,
-    path: result.path,
-    mime: result.mime,
-    bytes: result.bytes,
-    resourceType: result.resourceType,
+    nombre: primary.nombre,
+    url: primary.url,
+    path: primary.path,
+    mime: primary.mime,
+    bytes: primary.bytes,
+    resourceType: primary.resourceType,
+    /** Adjuntos reales extraídos del .eml (si aplica), incluido el propio .eml. */
+    items: result.items.map((item) => ({
+      nombre: item.nombre,
+      url: item.url,
+      path: item.path,
+      mime: item.mime,
+      bytes: item.bytes,
+      resourceType: item.resourceType,
+    })),
   });
 }

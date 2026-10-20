@@ -23,6 +23,8 @@ export interface CompradorListRow {
   codigo: string;
   comprador: string;
   telefono: string | null;
+  /** RFC fiscal (puede ir vacío). */
+  rfc: string;
   /** Grupo perteneciente (marca), desde catálogo tmp / BD. */
   grupo: string;
   /** false = deshabilitado: visible en tablas, oculto en formularios. */
@@ -96,7 +98,7 @@ interface CompradorDbRow {
 }
 
 const COMPRADOR_LIST_COLUMNS =
-  "id_comprador,codigo,nombre,telefono,grupo,esta_activo";
+  "id_comprador,codigo,nombre,telefono,rfc,grupo,esta_activo";
 const COMPRADOR_DETALLE_COLUMNS = [
   COMPRADOR_LIST_COLUMNS,
   // Campos fiscales/comerciales.
@@ -158,6 +160,7 @@ function mapCompradorRow(row: CompradorDbRow): CompradorListRow {
     codigo: row.codigo,
     comprador: row.nombre,
     telefono: row.telefono,
+    rfc: valueOrEmpty(row.rfc),
     grupo: valueOrEmpty(row.grupo),
     estaActivo: row.esta_activo !== false,
   };

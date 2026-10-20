@@ -7,46 +7,46 @@ import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { cn } from "@/lib/utils/cn";
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
+import { matchesProductoCatalogSearch } from "../../utils/find-closest-producto-catalogo";
 
 interface OrdenVentaProductoPickerModalProps {
   open: boolean;
   onClose: () => void;
   productos: ProductoVentaOption[];
+  /** IDs a destacar arriba (sugerencias de Mateo), en orden de relevancia. */
+  priorityIds?: readonly string[];
   selectedId?: string | null;
   onSelect: (producto: ProductoVentaOption) => void;
   title?: string;
   description?: string;
 }
 
-function normalizeSearch(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "");
-}
-
 export function OrdenVentaProductoPickerModal({
   open,
   onClose,
   productos,
+  priorityIds = [],
   selectedId = null,
   onSelect,
   title = "Seleccionar producto",
   description = "Catálogo completo de productos de la cuenta.",
 }: OrdenVentaProductoPickerModalProps) {
   const [query, setQuery] = useState("");
+  const prioritySet = useMemo(() => new Set(priorityIds), [priorityIds]);
 
   const filtered = useMemo(() => {
-    const needle = normalizeSearch(query);
-    if (!needle) return productos;
-    return productos.filter((row) => {
-      const haystack = normalizeSearch(
-        `${row.nombre} ${row.codigo} ${row.equivalencia ?? ""}`,
-      );
-      return haystack.includes(needle);
+    const rows = !query.trim()
+      ? productos
+      : productos.filter((row) => matchesProductoCatalogSearch(query, row));
+    if (priorityIds.length === 0) return rows;
+    const rank = new Map(priorityIds.map((id, i) => [id, i]));
+    return [...rows].sort((a, b) => {
+      const ra = rank.has(a.idProducto) ? rank.get(a.idProducto)! : 10_000;
+      const rb = rank.has(b.idProducto) ? rank.get(b.idProducto)! : 10_000;
+      if (ra !== rb) return ra - rb;
+      return 0;
     });
-  }, [productos, query]);
+  }, [productos, query, priorityIds]);
 
   const handleClose = () => {
     setQuery("");
@@ -126,6 +126,7 @@ export function OrdenVentaProductoPickerModal({
             <tbody>
               {filtered.map((row) => {
                 const isSelected = row.idProducto === selectedId;
+                const isPriority = prioritySet.has(row.idProducto);
                 const equivalencia = row.equivalencia?.trim() || "—";
                 const nombre = stripLeadingProductoCodigo(
                   row.nombre,
@@ -154,11 +155,18 @@ export function OrdenVentaProductoPickerModal({
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-polaria-teal",
                       isSelected
                         ? "bg-polaria-t-08 text-polaria-w"
-                        : "text-polaria-w hover:bg-polaria-t-08",
+                        : isPriority
+                          ? "bg-polaria-t-08/50 text-polaria-w hover:bg-polaria-t-08"
+                          : "text-polaria-w hover:bg-polaria-t-08",
                     )}
                   >
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm">
                       <span className="line-clamp-2">{nombre}</span>
+                      {isPriority ? (
+                        <span className="mt-0.5 inline-block rounded bg-polaria-teal/15 px-1.5 py-0.5 polaria-text-caption font-semibold text-polaria-teal">
+                          Sugerido
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
                       <span className="line-clamp-2">{equivalencia}</span>

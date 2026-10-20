@@ -12,6 +12,7 @@ const rows: CompradorListRow[] = [
     codigo: "CYU0L",
     comprador: "Aureliano Buendía",
     telefono: null,
+    rfc: "",
     grupo: "",
     estaActivo: true,
   },
@@ -20,6 +21,7 @@ const rows: CompradorListRow[] = [
     codigo: "HTLAVA",
     comprador: "Hotel Ava Resorts Cancun",
     telefono: null,
+    rfc: "",
     grupo: "",
     estaActivo: true,
   },
@@ -28,6 +30,7 @@ const rows: CompradorListRow[] = [
     codigo: "LDCM",
     comprador: "LUIS DAVID CASTILLO MENDEZ",
     telefono: null,
+    rfc: "",
     grupo: "",
     estaActivo: true,
   },
@@ -61,7 +64,7 @@ describe("matchCompradorFromNombre", () => {
 });
 
 describe("rankCompradoresFromNombre", () => {
-  it("sugiere hotel aunque el texto traiga ruido", () => {
+  it("sugiere hotel aunque el texto traiga ruido (score alto)", () => {
     const ranked = rankCompradoresFromNombre(
       "Pedido para Hotel Ava Resorts Cancun",
       rows,
@@ -71,18 +74,18 @@ describe("rankCompradoresFromNombre", () => {
     expect(ranked.candidates[0]?.comprador.idComprador).toBe("c2");
   });
 
-  it("sugiere por nombre parcial / typo leve", () => {
+  it("sugiere por nombre parcial / typo leve con overlap fuerte", () => {
     const ranked = rankCompradoresFromNombre("Luis David Castillo", rows);
     expect(ranked.candidates.some((c) => c.comprador.idComprador === "c3")).toBe(
       true,
     );
   });
 
-  it("sin exacto siempre sugiere al más cercano (aunque el score sea bajo)", () => {
+  it("sin exacto y score bajo: no inventa el más cercano (alerta de cliente)", () => {
     const ranked = rankCompradoresFromNombre("Carnitas Michoacan", rows);
     expect(ranked.exact).toBeNull();
-    expect(ranked.candidates.length).toBeGreaterThan(0);
-    expect(ranked.best).not.toBeNull();
+    expect(ranked.candidates).toEqual([]);
+    expect(ranked.best).toBeNull();
   });
 
   it("con match exacto no lista sugerencias", () => {
@@ -91,19 +94,60 @@ describe("rankCompradoresFromNombre", () => {
     expect(ranked.candidates).toEqual([]);
   });
 
-  it("auto-asigna solo exactos o fuzzy muy claros", () => {
+  it("auto-asigna solo coincidencia total; parcial solo sugiere", () => {
     expect(
       shouldAutoAssignComprador(rankCompradoresFromNombre("Aureliano Buendía", rows))
         ?.idComprador,
     ).toBe("c1");
 
     const fuzzy = rankCompradoresFromNombre("Luis David", rows);
-    // Puede sugerir, pero no siempre auto-asignar si el score no es alto.
-    const auto = shouldAutoAssignComprador(fuzzy);
-    if (auto) {
-      expect(auto.idComprador).toBe("c3");
-    } else {
-      expect(fuzzy.candidates.length).toBeGreaterThan(0);
-    }
+    expect(shouldAutoAssignComprador(fuzzy)).toBeNull();
+    expect(fuzzy.candidates.length).toBeGreaterThan(0);
+
+    const hiltonRows: CompradorListRow[] = [
+      ...rows,
+      {
+        idComprador: "c-hilton",
+        codigo: "CESHIL",
+        comprador: "CESAR HILTON",
+        telefono: null,
+        rfc: "",
+        grupo: "",
+        estaActivo: true,
+      },
+    ];
+    const hilton = rankCompradoresFromNombre(
+      "Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT, MEXICO",
+      hiltonRows,
+    );
+    // Solo comparte «Hilton»: nunca auto-asignar CESAR HILTON.
+    expect(shouldAutoAssignComprador(hilton)).toBeNull();
+    expect(hilton.exact).toBeNull();
+    // Score bajo → sin sugerencia débil (más alertas de cliente).
+    expect(hilton.candidates).toEqual([]);
+    expect(hilton.best).toBeNull();
+  });
+
+  it("token genérico Cancun no auto-asigna ni fuerza sugerencia débil", () => {
+    const cancunRows: CompradorListRow[] = [
+      ...rows,
+      {
+        idComprador: "c-other",
+        codigo: "OTRCAN",
+        comprador: "Otro Resort Cancun",
+        telefono: null,
+        rfc: "",
+        grupo: "",
+        estaActivo: true,
+      },
+    ];
+    const ranked = rankCompradoresFromNombre(
+      "Pedido urgente Cancun zona hotelera",
+      cancunRows,
+    );
+    expect(shouldAutoAssignComprador(ranked)).toBeNull();
+    expect(ranked.exact).toBeNull();
+    // Contención/token débil no debe quedar como cliente elegido.
+    expect(ranked.candidates.every((c) => c.score >= 0.55)).toBe(true);
   });
 });

@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  getEmlAttachmentBuffer,
+  listEmlAttachmentParts,
+} from "@/modules/sales/ordenes/utils/eml-attachments";
 
 export const OV_ADJUNTOS_BUCKET = "ov-adjuntos";
 const MAX_BYTES = 15 * 1024 * 1024;
@@ -117,4 +121,111 @@ export async function uploadOvAdjunto(
     bytes: file.size,
     resourceType: "storage",
   };
+}
+
+async function uploadOvAdjuntoBuffer(
+  buffer: Buffer,
+  originalname: string,
+  mimetype: string,
+  codigoCuenta: string,
+): Promise<OvAdjuntoUploadOk | { ok: false; status: number; message: string }> {
+  if (buffer.length > MAX_BYTES) {
+    return { ok: false, status: 400, message: "El archivo supera 15 MB." };
+  }
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) {
+    return {
+      ok: false,
+      status: 503,
+      message:
+        "Falta SUPABASE_SERVICE_ROLE_KEY / NEXT_PUBLIC_SUPABASE_URL para adjuntos.",
+    };
+  }
+
+  const ready = await ensureOvAdjuntosBucket();
+  if (!ready) {
+    return {
+      ok: false,
+      status: 503,
+      message:
+        "No se pudo preparar el bucket ov-adjuntos en Supabase Storage.",
+    };
+  }
+
+  const mime = (mimetype || "application/octet-stream").toLowerCase();
+  const nombre = originalname.trim() || "adjunto";
+  const path = `${sanitizeCuentaFolder(codigoCuenta)}/${randomUUID()}-${sanitizeFileName(nombre)}`;
+
+  const { error } = await admin.storage
+    .from(OV_ADJUNTOS_BUCKET)
+    .upload(path, buffer, {
+      contentType: mime,
+      upsert: false,
+    });
+
+  if (error) {
+    return {
+      ok: false,
+      status: 500,
+      message: error.message || "Error al subir el adjunto a Supabase Storage.",
+    };
+  }
+
+  const url = `/api/ov-adjuntos/file?path=${encodeURIComponent(path)}&nombre=${encodeURIComponent(nombre)}`;
+  return {
+    ok: true,
+    nombre,
+    url,
+    path,
+    mime,
+    bytes: buffer.length,
+    resourceType: "storage",
+  };
+}
+
+/**
+ * Si el archivo es .eml, extrae PDF/Excel/… internos y los sube aparte.
+ */
+export async function uploadOvAdjuntoWithEmlExpand(
+  file: File,
+  codigoCuenta: string,
+): Promise<
+  | { ok: true; items: OvAdjuntoUploadOk[] }
+  | { ok: false; status: number; message: string }
+> {
+  const primary = await uploadOvAdjunto(file, codigoCuenta);
+  if (!primary.ok) return primary;
+
+  const items: OvAdjuntoUploadOk[] = [primary];
+  const name = file.name.toLowerCase();
+  const mime = (file.type || "").toLowerCase();
+  const isEml =
+    name.endsWith(".eml") ||
+    mime.includes("message/rfc822") ||
+    mime === "application/eml";
+
+  if (!isEml) {
+    return { ok: true, items };
+  }
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const parts = await listEmlAttachmentParts(buffer);
+    for (const part of parts) {
+      const extracted = await getEmlAttachmentBuffer(buffer, part.index);
+      if (!extracted) continue;
+      const uploaded = await uploadOvAdjuntoBuffer(
+        extracted.content,
+        extracted.nombre,
+        extracted.mime,
+        codigoCuenta,
+      );
+      if (uploaded.ok) items.push(uploaded);
+    }
+  } catch {
+    // El .eml ya quedó subido; los internos se pueden leer on-demand en el cypher.
+  }
+
+  return { ok: true, items };
 }

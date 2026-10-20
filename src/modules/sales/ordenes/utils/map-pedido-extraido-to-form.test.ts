@@ -156,6 +156,65 @@ describe("mapPedidoExtraidoToForm", () => {
     expect(mapped.warnFields.has("anden")).toBe(true);
   });
 
+  it("convierte galón de 5 L a cantidad LTR y precio por litro", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        lineas: [
+          {
+            textoOriginal: "Jugo de Limón fresco galón de 5 litros",
+            productoCatalogo: "JUGO DE LIMON (105001548)",
+            cantidad: 1,
+            unidad: "UN",
+            cajas: null,
+            presentacion: null,
+            especificacion: null,
+            numeroPedido: "MYG-0015033",
+            almacen: null,
+            numeroAlmacen: null,
+            referenciaPedido: null,
+            codigoProductoCliente: null,
+            responsableExterno: null,
+            precioUnitario: 350,
+          },
+        ],
+      },
+      productos: [
+        {
+          idProducto: "jugo-1",
+          label: "JUGO DE LIMON (105001548)",
+          idCliente: null,
+          idBodega: "b1",
+          codigo: "105001548",
+          nombre: "JUGO DE LIMON",
+          kgDisponible: 100,
+          precioUnitario: 0,
+          unidadMedida: "LTR",
+        },
+      ],
+      ficha: {
+        centroConsumo: "",
+        ventanaDesde: "",
+        ventanaHasta: "",
+        direccion: "",
+        anden: "",
+        contacto: "",
+        telefono: "",
+        aceptaSustituciones: "",
+        requiereLote: "",
+        registrarTemperatura: "",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
+    });
+
+    expect(mapped.lineas[0]?.cantidadInput).toBe("5");
+    expect(mapped.lineas[0]?.unidadMedida).toBe("LTR");
+    expect(mapped.lineas[0]?.precioUnitario).toBe(70);
+    expect(mapped.lineas[0]?.packHint).toMatch(/Envase/i);
+  });
+
   it("auto-asigna cuando la sugerencia es inequívoca", () => {
     const mapped = mapPedidoExtraidoToForm({
       pedido: {
@@ -957,5 +1016,76 @@ describe("mapPedidoExtraidoToForm", () => {
     expect(mapped.discrepancias.some((d) => d.campo === "Fecha de entrega")).toBe(
       true,
     );
+  });
+
+  it("si no hay fecha leída, usa mañana pero lo marca como default explícito", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        fechaEntrega: null,
+        textoOrigen: "Haga clic en Responder\nwww.accorlive.com",
+      },
+      productos: [],
+      ficha: {
+        centroConsumo: "",
+        ventanaDesde: "",
+        ventanaHasta: "",
+        direccion: "",
+        anden: "",
+        contacto: "",
+        telefono: "",
+        aceptaSustituciones: "",
+        requiereLote: "",
+        registrarTemperatura: "",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-10-17",
+      todayIso: "2026-10-16",
+    });
+
+    expect(mapped.fechaEntrega).toBe("2026-10-17");
+    expect(mapped.warnFields.has("fechaEntrega")).toBe(true);
+    expect(mapped.autoFields.has("fechaEntrega")).toBe(false);
+    expect(
+      mapped.discrepancias.some((d) =>
+        d.ia.includes("Fecha por defecto (no leída del correo)"),
+      ),
+    ).toBe(true);
+  });
+
+  it("prioriza fecha y hora del cuerpo sobre el default de mañana", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        fechaEntrega: null,
+        horarioDesde: null,
+        horarioHasta: null,
+        textoOrigen: [
+          "Envío adjunto pedido para entregar el 27 DE AGOSTO DE 2026:",
+          "Hora de entrega 6:00 am",
+        ].join("\n"),
+      },
+      productos: [],
+      ficha: {
+        centroConsumo: "",
+        ventanaDesde: "10:00",
+        ventanaHasta: "",
+        direccion: "",
+        anden: "",
+        contacto: "",
+        telefono: "",
+        aceptaSustituciones: "",
+        requiereLote: "",
+        registrarTemperatura: "",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-09-07",
+      todayIso: "2026-08-20",
+    });
+
+    expect(mapped.fechaEntrega).toBe("2026-08-27");
+    expect(mapped.ventanaDesde).toBe("06:00");
+    expect(mapped.warnFields.has("fechaEntrega")).toBe(false);
+    expect(mapped.autoFields.has("fechaEntrega")).toBe(true);
   });
 });

@@ -8,7 +8,6 @@ import {
   type ChangeEvent,
 } from "react";
 import { flushSync } from "react-dom";
-import { cn } from "@/lib/utils/cn";
 import { compressImageFile } from "@/lib/images/compress-image-file";
 import { ROUTES } from "@/config/routes";
 
@@ -17,6 +16,8 @@ interface CapturaOrdenUploadFormProps {
   idOrdenTrabajo?: string;
   onFilePicked?: () => void;
   onUploadOk?: () => void;
+  /** El padre muestra el loading Polaria mientras sube. */
+  onUploadingChange?: (uploading: boolean) => void;
 }
 
 const MAX_SELECT_BYTES = 10 * 1024 * 1024;
@@ -70,6 +71,7 @@ export function CapturaOrdenUploadForm({
   idOrdenTrabajo = "",
   onFilePicked,
   onUploadOk,
+  onUploadingChange,
 }: CapturaOrdenUploadFormProps) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<File | null>(null);
@@ -78,6 +80,8 @@ export function CapturaOrdenUploadForm({
   const uploadFnRef = useRef<(picked?: File) => void>(() => {});
   const onUploadOkRef = useRef(onUploadOk);
   onUploadOkRef.current = onUploadOk;
+  const onUploadingChangeRef = useRef(onUploadingChange);
+  onUploadingChangeRef.current = onUploadingChange;
 
   const [fileLabel, setFileLabel] = useState<string | null>(null);
   const [hasFile, setHasFile] = useState(false);
@@ -166,6 +170,7 @@ export function CapturaOrdenUploadForm({
 
     uploadingRef.current = true;
     setSubmitting(true);
+    onUploadingChangeRef.current?.(true);
     setError(null);
 
     void (async () => {
@@ -188,6 +193,7 @@ export function CapturaOrdenUploadForm({
       if (toSend.size > MAX_SELECT_BYTES) {
         uploadingRef.current = false;
         setSubmitting(false);
+        onUploadingChangeRef.current?.(false);
         setError("La foto supera 10 MB y no se pudo comprimir lo suficiente.");
         return;
       }
@@ -230,13 +236,14 @@ export function CapturaOrdenUploadForm({
       } finally {
         uploadingRef.current = false;
         setSubmitting(false);
+        onUploadingChangeRef.current?.(false);
       }
     })();
   };
 
   uploadFnRef.current = upload;
 
-  if (done) return null;
+  if (done || submitting) return null;
 
   const pickerClass =
     "absolute inset-0 z-20 m-0 h-full w-full cursor-pointer p-0";
@@ -244,7 +251,6 @@ export function CapturaOrdenUploadForm({
     opacity: 0.01,
     fontSize: 16,
     WebkitTapHighlightColor: "transparent",
-    pointerEvents: submitting ? "none" : "auto",
   } as const;
 
   const pillClass =
@@ -264,37 +270,31 @@ export function CapturaOrdenUploadForm({
         </p>
       ) : null}
 
-      {submitting ? (
-        <div className={cn(pillClass, "pointer-events-none opacity-70")}>
-          Subiendo…
-        </div>
-      ) : (
-        <div className={pillClass}>
-          <input
-            ref={cameraRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={onReactChange}
-            className={pickerClass}
-            style={pickerStyle}
-            aria-label="Tomar foto"
-          />
-          <svg
-            viewBox="0 0 24 24"
-            className="pointer-events-none relative z-0 h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M4.5 8.5h2.2l1.1-2h6.4l1.1 2H19.5A1.5 1.5 0 0 1 21 10v7.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V10A1.5 1.5 0 0 1 4.5 8.5Z" />
-            <circle cx="12" cy="13.5" r="3.1" />
-          </svg>
-        </div>
-      )}
+      <div className={pillClass}>
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={onReactChange}
+          className={pickerClass}
+          style={pickerStyle}
+          aria-label="Tomar foto"
+        />
+        <svg
+          viewBox="0 0 24 24"
+          className="pointer-events-none relative z-0 h-6 w-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M4.5 8.5h2.2l1.1-2h6.4l1.1 2H19.5A1.5 1.5 0 0 1 21 10v7.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V10A1.5 1.5 0 0 1 4.5 8.5Z" />
+          <circle cx="12" cy="13.5" r="3.1" />
+        </svg>
+      </div>
     </div>
   );
 }

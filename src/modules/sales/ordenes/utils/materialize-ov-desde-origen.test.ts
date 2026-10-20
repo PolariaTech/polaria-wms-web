@@ -37,6 +37,7 @@ const compradores: CompradorListRow[] = [
     codigo: "FAIR01",
     comprador: "Fairmont Mayakoba",
     telefono: null,
+    rfc: "",
     grupo: "",
     estaActivo: true,
   },
@@ -85,6 +86,7 @@ describe("materialize-ov-desde-origen", () => {
     expect(plan.lineas.length).toBe(2);
     expect(plan.lineas[0]?.idProducto).toBe("p-limon");
     expect(plan.lineas[0]?.cantidadPedida).toBe(5);
+    expect(plan.lineas[0]?.unidadMedida).toBe("kg");
     expect(plan.lineas[1]?.idProducto).toBe("p-brocoli");
   });
 });

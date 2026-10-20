@@ -9,15 +9,23 @@ import {
 } from "./empaque-lineas";
 import {
   findTypoRivalProductos,
+  productoCompatibleConTextoCliente,
   rankProductosCatalogo,
   scoreProductoMatch,
   shouldAutoAcceptProductoSuggestion,
 } from "./find-closest-producto-catalogo";
 import { groupKeyOrigenCorreo } from "./origen-correo-ordenes-trabajo";
+import { extractEntregaDesdeTexto } from "./extract-entrega-desde-texto";
+import { parseFechaOrigen } from "./materialize-ov-desde-origen";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
+  FECHA_ENTREGA_DEFAULT_WARNING,
   isFechaEntregaAtrasada,
 } from "./pedido-form-validation";
+import {
+  familiaUnidadCatalogo,
+  resolveCantidadPrecioDesdeEnvase,
+} from "./resolve-cantidad-envase";
 import { sanitizeNotasGeneralesPedido } from "./texto-origen-pedido";
 
 export interface SugerenciaProductoCatalogo {
@@ -136,6 +144,73 @@ function parsePrecioIa(value: number | null | undefined): number | null {
 }
 
 /**
+ * Cantidad/precio/empaque de una línea: si el texto trae "N envase de X unidad"
+ * y el catálogo vende en esa familia, convierte; si no, empaque cajas/kg.
+ */
+function resolveLineaCantidadPrecioEmpaque(params: {
+  textoOriginal: string;
+  unidadMedidaCatalogo: string;
+  cantidad: number | null | undefined;
+  cajas: number | null | undefined;
+  presentacion: string;
+  precioDoc: number | null;
+  precioCatalogo: number;
+}): {
+  cantidadInput: string;
+  cajasInput: string;
+  presentacion: string;
+  precioUnitario: number;
+  precioManual: boolean;
+  packHint: string;
+  autoPackFields: Array<"cajasInput" | "presentacion" | "cantidadInput">;
+} {
+  const converted = resolveCantidadPrecioDesdeEnvase({
+    textoOriginal: params.textoOriginal,
+    unidadMedidaCatalogo: params.unidadMedidaCatalogo,
+    cantidadRaw: params.cantidad,
+    precioDoc: params.precioDoc,
+  });
+
+  if (converted) {
+    return {
+      cantidadInput: String(converted.cantidad),
+      cajasInput: "",
+      presentacion: "",
+      precioUnitario:
+        converted.precioUnitario ??
+        params.precioDoc ??
+        params.precioCatalogo,
+      precioManual:
+        converted.precioUnitario != null || params.precioDoc != null,
+      packHint: `Envase → ${converted.cantidad} ${params.unidadMedidaCatalogo || "u"} (${converted.frase})`,
+      autoPackFields: ["cantidadInput"],
+    };
+  }
+
+  const baseLinea = {
+    cajasInput:
+      params.cajas != null && Number.isFinite(params.cajas)
+        ? String(params.cajas)
+        : "",
+    presentacion: params.presentacion,
+    cantidadInput:
+      params.cantidad != null && Number.isFinite(params.cantidad)
+        ? String(params.cantidad)
+        : "",
+  };
+  const empaque = aplicarEmpaqueInicialLinea(baseLinea);
+  return {
+    cantidadInput: empaque.cantidadInput,
+    cajasInput: empaque.cajasInput,
+    presentacion: empaque.presentacion,
+    precioUnitario: params.precioDoc ?? params.precioCatalogo,
+    precioManual: params.precioDoc != null,
+    packHint: empaque.packHint,
+    autoPackFields: empaque.autoPackFields,
+  };
+}
+
+/**
  * Resuelve la clave que Mateo devolvió contra el catálogo real.
  * Acepta: exacta, case-insensitive, por SKU único entre paréntesis,
  * o por código de producto del cliente si calza un SKU único.
@@ -151,37 +226,69 @@ function resolveProductoMatch(
   byCodigo: Map<string, ProductoVentaOption[]>,
   byKeyNorm: Map<string, ProductoVentaOption>,
 ): ProductoVentaOption | undefined {
+  const textoCliente = linea.textoOriginal?.trim() || "";
+  const accept = (p: ProductoVentaOption | undefined) =>
+    p && productoCompatibleConTextoCliente(textoCliente, p) ? p : undefined;
+
   const clave = linea.productoCatalogo?.trim();
   if (clave) {
-    const exact = byKey.get(clave);
+    const exact = accept(byKey.get(clave));
     if (exact) return exact;
 
-    const byNorm = byKeyNorm.get(normalizeCatalogKey(clave));
+    const byNorm = accept(byKeyNorm.get(normalizeCatalogKey(clave)));
     if (byNorm) return byNorm;
 
     const codigoClave = extractCodigoFromCatalogKey(clave);
     if (codigoClave) {
       const hits = byCodigo.get(norm(codigoClave)) ?? [];
-      if (hits.length === 1) return hits[0];
+      if (hits.length === 1) {
+        const ok = accept(hits[0]);
+        if (ok) return ok;
+      }
     }
   }
 
   const codigoCliente = linea.codigoProductoCliente?.trim();
   if (codigoCliente) {
     const hits = byCodigo.get(norm(codigoCliente)) ?? [];
-    if (hits.length === 1) return hits[0];
+    if (hits.length === 1) {
+      const ok = accept(hits[0]);
+      if (ok) return ok;
+    }
   }
 
   // Código en el texto del cliente (ej. «AGUACATE EXTRA … (115001005)»).
-  const codigoEnTexto = extractCodigoFromCatalogKey(
-    linea.textoOriginal?.trim() || "",
-  );
+  const codigoEnTexto = extractCodigoFromCatalogKey(textoCliente);
   if (codigoEnTexto) {
     const hits = byCodigo.get(norm(codigoEnTexto)) ?? [];
-    if (hits.length === 1) return hits[0];
+    if (hits.length === 1) {
+      const ok = accept(hits[0]);
+      if (ok) return ok;
+    }
   }
 
   return undefined;
+}
+
+/**
+ * Unidad de la línea: prioriza el catálogo si es coherente con el texto.
+ * Si el cliente dijo "litros" y el match/sugerencia trae KGM (o vacío), usa LTR.
+ */
+function inferUnidadDesdeTexto(
+  texto: string,
+  unidadCatalogo: string,
+): string {
+  const t = texto.toLowerCase();
+  const fromText = /\b(litros?|lts?|ml)\b/.test(t)
+    ? "LTR"
+    : /\b(kilos?|kgs?|\bkg\b)\b/.test(t)
+      ? "KGM"
+      : "";
+  const cat = unidadCatalogo.trim();
+  const famCat = familiaUnidadCatalogo(cat);
+  if (fromText === "LTR" && famCat !== "ltr") return "LTR";
+  if (fromText === "KGM" && (famCat === "unknown" || !cat)) return "KGM";
+  return cat || fromText;
 }
 
 function toSugerencia(
@@ -411,7 +518,32 @@ export function mapPedidoExtraidoToForm(params: {
     if (patch[key]) autoFields.add(key);
   }
 
-  const fecha = pedido.fechaEntrega?.trim() || tomorrowIso;
+  // Fecha/hora del cuerpo u origen_correo mandan sobre el default de mañana.
+  const fechaFromOrigen = (() => {
+    for (const row of pedido.origenCorreo ?? []) {
+      const raw =
+        row && typeof row === "object" && "Fecha" in row
+          ? String((row as { Fecha?: unknown }).Fecha ?? "")
+          : "";
+      const parsed = parseFechaOrigen(raw);
+      if (parsed) return parsed;
+    }
+    return null;
+  })();
+  const fromBody = extractEntregaDesdeTexto(
+    [
+      pedido.textoOrigen,
+      pedido.observaciones,
+      pedido.notasGeneralesAlmacen,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    todayIso,
+  );
+  const fechaLeida =
+    pedido.fechaEntrega?.trim() || fechaFromOrigen || fromBody.fechaIso || null;
+  const fechaPorDefecto = !fechaLeida;
+  const fecha = fechaLeida || tomorrowIso;
   patch.fechaEntrega = fecha;
   if (isFechaEntregaAtrasada(fecha, todayIso)) {
     warnFields.add("fechaEntrega");
@@ -422,9 +554,23 @@ export function mapPedidoExtraidoToForm(params: {
       db: "Hoy o posterior",
       ia: `${formatCapturaFecha(fecha)} · ${FECHA_ENTREGA_ATRASADA_WARNING}`,
     });
+  } else if (fechaPorDefecto) {
+    warnFields.add("fechaEntrega");
+    autoFields.delete("fechaEntrega");
+    discrepancias.push({
+      campo: "Fecha de entrega",
+      fieldKey: "fechaEntrega",
+      db: "Leída del correo",
+      ia: `${formatCapturaFecha(fecha)} · ${FECHA_ENTREGA_DEFAULT_WARNING}`,
+    });
   } else {
     autoFields.add("fechaEntrega");
   }
+
+  const horarioDesdeIa =
+    pedido.horarioDesde?.trim() || fromBody.horarioDesde || null;
+  const horarioHastaIa =
+    pedido.horarioHasta?.trim() || fromBody.horarioHasta || null;
 
   if (pedido.ordenCompraHotel?.trim()) {
     patch.ordenCompraHotel = pedido.ordenCompraHotel.trim();
@@ -486,7 +632,7 @@ export function mapPedidoExtraidoToForm(params: {
     fieldKey: "ventanaDesde",
     label: "Ventana desde",
     valorDb: ficha.ventanaDesde,
-    valorIa: pedido.horarioDesde,
+    valorIa: horarioDesdeIa,
     patch,
     autoFields,
     warnFields,
@@ -496,7 +642,7 @@ export function mapPedidoExtraidoToForm(params: {
     fieldKey: "ventanaHasta",
     label: "Ventana hasta",
     valorDb: ficha.ventanaHasta,
-    valorIa: pedido.horarioHasta,
+    valorIa: horarioHastaIa,
     patch,
     autoFields,
     warnFields,
@@ -579,18 +725,6 @@ export function mapPedidoExtraidoToForm(params: {
         ? linea.presentacion
         : "";
 
-    const baseLinea = {
-      cajasInput:
-        linea.cajas != null && Number.isFinite(linea.cajas)
-          ? String(linea.cajas)
-          : "",
-      presentacion,
-      cantidadInput:
-        linea.cantidad != null && Number.isFinite(linea.cantidad)
-          ? String(linea.cantidad)
-          : "",
-    };
-    const empaque = aplicarEmpaqueInicialLinea(baseLinea);
     const precioDoc = parsePrecioIa(linea.precioUnitario);
     // Misma clave que groupOrigenCorreoToOrdenesTrabajo (sin fallbacks de
     // cabecera): si no, el pager OT filtra y la página queda sin productos.
@@ -601,12 +735,19 @@ export function mapPedidoExtraidoToForm(params: {
     });
 
     if (match) {
+      const qty = resolveLineaCantidadPrecioEmpaque({
+        textoOriginal,
+        unidadMedidaCatalogo: match.unidadMedida,
+        cantidad: linea.cantidad,
+        cajas: linea.cajas,
+        presentacion,
+        precioDoc,
+        precioCatalogo: match.precioUnitario,
+      });
       // Aunque Mateo dio clave exacta, si el texto del cliente también
       // se parece a OTRO producto (typo jass/hass, variantes), pedir confirmación.
       const vecinos = findVecinosAmbiguos(textoOriginal || match.nombre, match, productos);
       if (vecinos.length > 0) {
-        const precioUnitario =
-          precioDoc ?? match.precioUnitario;
         const codigoCliente =
           linea.codigoProductoCliente?.trim() ||
           extractCodigoFromCatalogKey(textoOriginal) ||
@@ -616,21 +757,24 @@ export function mapPedidoExtraidoToForm(params: {
           nombre: textoOriginal || stripLeadingProductoCodigo(match.nombre, match.codigo),
           codigo: codigoCliente || "—",
           idBodega: match.idBodega,
-          cantidadInput: empaque.cantidadInput,
-          cajasInput: empaque.cajasInput,
-          presentacion: empaque.presentacion,
+          cantidadInput: qty.cantidadInput,
+          cajasInput: qty.cajasInput,
+          presentacion: qty.presentacion,
           especificacion: linea.especificacion?.trim() || "",
           descuentoPctInput: "0",
           ivaPct: "0",
           kgDisponible: match.kgDisponible,
-          unidadMedida: match.unidadMedida,
-          precioUnitario,
-          precioManual: precioDoc != null,
+          unidadMedida: inferUnidadDesdeTexto(
+            textoOriginal,
+            match.unidadMedida,
+          ),
+          precioUnitario: qty.precioUnitario,
+          precioManual: qty.precioManual,
           aliasCliente: textoOriginal,
           filledByIa: true,
           otId,
-          packHint: empaque.packHint,
-          autoPackFields: empaque.autoPackFields,
+          packHint: qty.packHint,
+          autoPackFields: qty.autoPackFields,
           catalogPending: true,
           catalogAmbiguo: true,
           sugerencia: toSugerencia(match),
@@ -639,27 +783,29 @@ export function mapPedidoExtraidoToForm(params: {
         continue;
       }
 
-      const precioUnitario = precioDoc ?? match.precioUnitario;
       lineas.push({
         idProducto: match.idProducto,
         nombre: stripLeadingProductoCodigo(match.nombre, match.codigo),
         codigo: match.codigo,
         idBodega: match.idBodega,
-        cantidadInput: empaque.cantidadInput,
-        cajasInput: empaque.cajasInput,
-        presentacion: empaque.presentacion,
+        cantidadInput: qty.cantidadInput,
+        cajasInput: qty.cajasInput,
+        presentacion: qty.presentacion,
         especificacion: linea.especificacion?.trim() || "",
         descuentoPctInput: "0",
         ivaPct: "0",
         kgDisponible: match.kgDisponible,
-        unidadMedida: match.unidadMedida,
-        precioUnitario,
-        precioManual: precioDoc != null,
+        unidadMedida: inferUnidadDesdeTexto(
+          textoOriginal,
+          match.unidadMedida,
+        ),
+        precioUnitario: qty.precioUnitario,
+        precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
         filledByIa: true,
         otId,
-        packHint: empaque.packHint,
-        autoPackFields: empaque.autoPackFields,
+        packHint: qty.packHint,
+        autoPackFields: qty.autoPackFields,
         catalogPending: false,
         catalogAmbiguo: false,
         sugerencia: null,
@@ -671,8 +817,16 @@ export function mapPedidoExtraidoToForm(params: {
     // Sin clave exacta de Mateo: sugerencias cercanas; auto-asignar si es claro.
     const picked = pickSugerencias(linea, productos);
     const { sugerencia, alternativas, ambiguo } = picked;
-    const precioUnitario =
-      precioDoc ?? sugerencia?.precioUnitario ?? 0;
+    const qty = resolveLineaCantidadPrecioEmpaque({
+      textoOriginal,
+      unidadMedidaCatalogo: sugerencia?.unidadMedida ?? "",
+      cantidad: linea.cantidad,
+      cajas: linea.cajas,
+      presentacion,
+      precioDoc,
+      precioCatalogo: sugerencia?.precioUnitario ?? 0,
+    });
+    const precioUnitario = qty.precioUnitario;
 
     const codigoClienteNorm = norm(linea.codigoProductoCliente);
     const codigoEnTextoNorm = norm(
@@ -707,21 +861,24 @@ export function mapPedidoExtraidoToForm(params: {
         ),
         codigo: sugerencia.codigo,
         idBodega: sugerencia.idBodega,
-        cantidadInput: empaque.cantidadInput,
-        cajasInput: empaque.cajasInput,
-        presentacion: empaque.presentacion,
+        cantidadInput: qty.cantidadInput,
+        cajasInput: qty.cajasInput,
+        presentacion: qty.presentacion,
         especificacion: linea.especificacion?.trim() || "",
         descuentoPctInput: "0",
         ivaPct: "0",
         kgDisponible: sugerencia.kgDisponible,
-        unidadMedida: sugerencia.unidadMedida,
+        unidadMedida: inferUnidadDesdeTexto(
+          textoOriginal,
+          sugerencia.unidadMedida,
+        ),
         precioUnitario,
-        precioManual: precioDoc != null,
+        precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
         filledByIa: true,
         otId,
-        packHint: empaque.packHint,
-        autoPackFields: empaque.autoPackFields,
+        packHint: qty.packHint,
+        autoPackFields: qty.autoPackFields,
         catalogPending: false,
         catalogAmbiguo: false,
         sugerencia: null,
@@ -739,21 +896,24 @@ export function mapPedidoExtraidoToForm(params: {
       nombre: textoOriginal || "Producto no identificado",
       codigo: codigoClientePending || "—",
       idBodega: sugerencia?.idBodega ?? "",
-      cantidadInput: empaque.cantidadInput,
-      cajasInput: empaque.cajasInput,
-      presentacion: empaque.presentacion,
+      cantidadInput: qty.cantidadInput,
+      cajasInput: qty.cajasInput,
+      presentacion: qty.presentacion,
       especificacion: linea.especificacion?.trim() || "",
       descuentoPctInput: "0",
       ivaPct: "0",
       kgDisponible: sugerencia?.kgDisponible ?? 0,
-      unidadMedida: sugerencia?.unidadMedida ?? "",
+      unidadMedida: inferUnidadDesdeTexto(
+        textoOriginal,
+        sugerencia?.unidadMedida ?? "",
+      ),
       precioUnitario,
-      precioManual: precioDoc != null,
+      precioManual: qty.precioManual,
       aliasCliente: textoOriginal,
       filledByIa: true,
       otId,
-      packHint: empaque.packHint,
-      autoPackFields: empaque.autoPackFields,
+      packHint: qty.packHint,
+      autoPackFields: qty.autoPackFields,
       catalogPending: true,
       catalogAmbiguo: ambiguo,
       sugerencia,

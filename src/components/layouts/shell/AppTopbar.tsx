@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -21,6 +21,8 @@ interface AppTopbarProps {
   onMateoIaClick?: () => void;
   isMateoLoading?: boolean;
   showMateoIa?: boolean;
+  /** El shell oculta toda la UI y muestra solo el loading de Polaria. */
+  onLogoutStart?: () => void;
 }
 
 const ICON = "h-4 w-4 shrink-0";
@@ -38,6 +40,7 @@ export function AppTopbar({
   onMateoIaClick,
   isMateoLoading = false,
   showMateoIa = true,
+  onLogoutStart,
 }: AppTopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -45,6 +48,7 @@ export function AppTopbar({
   const performLogout = useAuthStore((s) => s.performLogout);
   const { label: dateLabel, dateTime } = useLiveDate();
   const isPerfilActive = pathname === ROUTES.perfil;
+  const logoutStartedRef = useRef(false);
 
   const user = useMemo((): TopbarUserInfo => {
     if (!session) return buildFallbackUser();
@@ -56,9 +60,16 @@ export function AppTopbar({
   }, [session]);
 
   const handleLogout = useCallback(async () => {
-    await performLogout();
-    router.replace(ROUTES.login);
-  }, [performLogout, router]);
+    if (logoutStartedRef.current) return;
+    logoutStartedRef.current = true;
+    onLogoutStart?.();
+    try {
+      await performLogout();
+      router.replace(ROUTES.login);
+    } catch {
+      logoutStartedRef.current = false;
+    }
+  }, [onLogoutStart, performLogout, router]);
 
   const handleMateoIaClick = useCallback(() => {
     onMateoIaClick?.();
@@ -139,7 +150,7 @@ export function AppTopbar({
 
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={() => void handleLogout()}
               aria-label="Cerrar sesión"
               className={cn(
                 "polaria-topbar-btn polaria-topbar-btn--danger polaria-topbar-btn--label-sm",

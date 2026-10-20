@@ -4,6 +4,12 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useId, type ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 
+const CONFIRM_STACK_CLASS = {
+  base: "z-[100]",
+  elevated: "z-[110]",
+  nested: "z-[120]",
+} as const;
+
 export interface PolariaConfirmDialogProps {
   open: boolean;
   onClose: () => void;
@@ -18,6 +24,8 @@ export interface PolariaConfirmDialogProps {
   error?: string | null;
   /** Ancho del panel. Default `md`. */
   size?: "md" | "lg";
+  /** Capa sobre otro modal (p. ej. captura OV). Default `base`. */
+  stackLevel?: "base" | "elevated" | "nested";
 }
 
 export function PolariaConfirmDialog({
@@ -32,6 +40,7 @@ export function PolariaConfirmDialog({
   isSubmitting = false,
   error = null,
   size = "md",
+  stackLevel = "base",
 }: PolariaConfirmDialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -64,7 +73,10 @@ export function PolariaConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-3 sm:p-6"
+      className={cn(
+        "fixed inset-0 flex items-center justify-center overflow-hidden p-3 sm:p-6",
+        CONFIRM_STACK_CLASS[stackLevel],
+      )}
       role="presentation"
     >
       <button

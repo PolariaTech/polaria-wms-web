@@ -20,6 +20,10 @@ export function isFechaEntregaAtrasada(
 export const FECHA_ENTREGA_ATRASADA_WARNING =
   "La fecha de entrega es anterior a hoy.";
 
+/** Se usó mañana porque el correo/PDF no trajo fecha legible. */
+export const FECHA_ENTREGA_DEFAULT_WARNING =
+  "Fecha por defecto (no leída del correo)";
+
 export function validatePedidoCabecera(params: {
   fechaEntrega: string;
   todayIso: string;

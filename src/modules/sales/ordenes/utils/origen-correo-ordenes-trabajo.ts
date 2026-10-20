@@ -42,6 +42,11 @@ export interface OrigenCorreoRenglon {
   "Notas generales"?: string;
   /** Índice en el array original / vínculo con línea del formulario. */
   _lineaIndex?: number;
+  /**
+   * Id estable de orden de trabajo (manual o preservado tras editar).
+   * Si está presente, agrupa por este valor en vez de pedido+almacén.
+   */
+  _otId?: string;
 }
 
 export interface OrdenTrabajoHija {
@@ -74,6 +79,9 @@ function parseCantidad(value: number | string | undefined): number {
 }
 
 export function groupKeyOrigenCorreo(renglon: OrigenCorreoRenglon): string {
+  const otId = norm(renglon._otId);
+  if (otId) return otId;
+
   const pedido = norm(renglon["Numero pedido"]);
   const almacen = norm(renglon.Almacen);
   const referencia = norm(renglon["Referencia pedido"]);
@@ -141,6 +149,144 @@ export function groupOrigenCorreoToOrdenesTrabajo(
   }
 
   return hijas.sort((a, b) => a.label.localeCompare(b.label, "es"));
+}
+
+function newManualOtId(): string {
+  const uuid =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `ot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `manual:${uuid}`;
+}
+
+/** Crea una OT vacía (para que el operador agregue tareas que Mateo no detectó). */
+export function createEmptyOrdenTrabajoHija(input?: {
+  id?: string;
+  almacen?: string;
+  numeroPedido?: string;
+  fecha?: string;
+  referenciaPedido?: string;
+  responsableExterno?: string;
+}): OrdenTrabajoHija {
+  const id = norm(input?.id) || newManualOtId();
+  const almacen = norm(input?.almacen);
+  const numeroPedido = norm(input?.numeroPedido);
+  const fecha = norm(input?.fecha);
+  const referenciaPedido = norm(input?.referenciaPedido);
+  const responsableExterno = norm(input?.responsableExterno);
+  const renglon: OrigenCorreoRenglon = {
+    _otId: id,
+    Almacen: almacen,
+    "Numero pedido": numeroPedido,
+    Fecha: fecha,
+    "Referencia pedido": referenciaPedido,
+    "Responsable externo": responsableExterno,
+    Producto: "",
+    Cantidad: 0,
+  };
+  const label =
+    (numeroPedido && almacen
+      ? `${numeroPedido} — ${almacen}`
+      : almacen || numeroPedido) || "Nueva orden de trabajo";
+  return {
+    id,
+    label,
+    numeroPedido,
+    almacen,
+    referenciaPedido,
+    fecha,
+    responsableExterno,
+    renglones: [renglon],
+    totalCantidad: 0,
+  };
+}
+
+/** Aplana hijas → origen_correo, sellando `_otId` para no perder OTs manuales. */
+export function flattenOrdenesTrabajoToOrigenCorreo(
+  hijas: readonly OrdenTrabajoHija[],
+): OrigenCorreoRenglon[] {
+  const out: OrigenCorreoRenglon[] = [];
+  for (const hija of hijas) {
+    const rows =
+      hija.renglones.length > 0
+        ? hija.renglones
+        : [{ Producto: "", Cantidad: 0 }];
+    for (const row of rows) {
+      out.push({
+        ...row,
+        _otId: hija.id,
+        Almacen: hija.almacen || row.Almacen,
+        "Numero pedido": hija.numeroPedido || row["Numero pedido"],
+        Fecha: hija.fecha || row.Fecha,
+        "Referencia pedido":
+          hija.referenciaPedido || row["Referencia pedido"],
+        "Responsable externo":
+          hija.responsableExterno || row["Responsable externo"],
+      });
+    }
+  }
+  return out;
+}
+
+export type LineaOrigenOtSync = {
+  otId?: string;
+  nombre: string;
+  codigo: string;
+  cantidad: number;
+  unidadMedida: string;
+  precioUnitario: number;
+  aliasCliente?: string;
+};
+
+/**
+ * Arma origen_correo desde las OTs editadas + líneas del formulario.
+ * Prioriza productos del form por otId; si una OT no tiene líneas, conserva sus renglones.
+ */
+export function buildOrigenCorreoFromOrdenesYLineas(params: {
+  hijas: readonly OrdenTrabajoHija[];
+  lineas: readonly LineaOrigenOtSync[];
+}): OrigenCorreoRenglon[] {
+  const out: OrigenCorreoRenglon[] = [];
+  for (const hija of params.hijas) {
+    const lineasOt = params.lineas.filter((linea) => linea.otId === hija.id);
+    if (lineasOt.length > 0) {
+      for (const linea of lineasOt) {
+        out.push({
+          _otId: hija.id,
+          Almacen: hija.almacen,
+          "Numero pedido": hija.numeroPedido,
+          Fecha: hija.fecha,
+          "Referencia pedido": hija.referenciaPedido,
+          "Responsable externo": hija.responsableExterno,
+          Producto: linea.aliasCliente?.trim() || linea.nombre,
+          "Codigo producto": linea.codigo,
+          Cantidad: linea.cantidad,
+          Unidad: linea.unidadMedida,
+          Precio: linea.precioUnitario,
+        });
+      }
+      continue;
+    }
+
+    const rows =
+      hija.renglones.length > 0
+        ? hija.renglones
+        : [{ Producto: "", Cantidad: 0 }];
+    for (const row of rows) {
+      out.push({
+        ...row,
+        _otId: hija.id,
+        Almacen: hija.almacen || row.Almacen,
+        "Numero pedido": hija.numeroPedido || row["Numero pedido"],
+        Fecha: hija.fecha || row.Fecha,
+        "Referencia pedido":
+          hija.referenciaPedido || row["Referencia pedido"],
+        "Responsable externo":
+          hija.responsableExterno || row["Responsable externo"],
+      });
+    }
+  }
+  return out;
 }
 
 export function isOrigenCorreoArray(value: unknown): value is OrigenCorreoRenglon[] {

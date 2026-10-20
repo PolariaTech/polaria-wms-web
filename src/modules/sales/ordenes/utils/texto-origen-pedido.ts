@@ -4,6 +4,9 @@ const LEGAL_CUT_MARKERS = [
   /la presente comunicaci[oó]n electr[oó]nica/i,
   /this electronic communication is confidential/i,
   /el presente correo no constituye/i,
+  /Redescubre lo Inesperado/i,
+  /pol[ií]ticas?\s+de\s+(confidencialidad|privacidad)/i,
+  /this\s+(e-?mail|electronic)\s+(and\s+any\s+)?attachments?\s+(is|are)\s+confidential/i,
 ];
 
 const FORWARD_HEADER_END =
@@ -208,6 +211,108 @@ export function cleanCorreoBodyForNotas(raw: string): string {
   }
 
   return text;
+}
+
+function normalizeCorreoFingerprint(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Corta disclaimers legales y colapsa hilos/replies duplicados para mostrar
+ * un solo cuerpo en el cypher (sin firmar+legal repetidos 2–3 veces).
+ */
+function collapseDuplicatedCorreoSegments(raw: string): string {
+  let text = raw.replace(/\r\n/g, "\n").trim();
+  if (!text) return "";
+
+  for (const marker of LEGAL_CUT_MARKERS) {
+    const match = marker.exec(text);
+    if (match?.index != null && match.index > 20) {
+      text = text.slice(0, match.index).trim();
+      break;
+    }
+  }
+
+  // Segundo saludo suele abrir un reply casi idéntico en el mismo cuerpo.
+  const greetingRe =
+    /(?:^|\n)((?:Buenas?\s+(?:tardes?|d[ií]as?|noches?)|Hola)[,.]?[^\n]*)/gi;
+  const greetings = [...text.matchAll(greetingRe)];
+  if (greetings.length >= 2) {
+    const second = greetings[1];
+    if (second?.index != null && second.index > 40) {
+      const first = text.slice(0, second.index).trim();
+      if (first.length > 30) text = first;
+    }
+  }
+
+  // Bloques separados por --- / ==== con contenido casi igual.
+  const parts = text
+    .split(/\n\s*-{3,}\s*\n/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length > 1) {
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    for (const part of parts) {
+      const key = normalizeCorreoFingerprint(part).slice(0, 160);
+      if (!key || seen.has(key)) continue;
+      const similar = [...seen].some((prev) => {
+        const a = prev.slice(0, 80);
+        const b = key.slice(0, 80);
+        return a.length > 24 && b.length > 24 && (a.includes(b) || b.includes(a));
+      });
+      if (similar) continue;
+      seen.add(key);
+      unique.push(part);
+    }
+    text = unique.join("\n\n");
+  }
+
+  return text.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * Prepara el cuerpo del correo para el cypher: limpia cabeceras/legal y
+ * evita mostrar el mismo mensaje (o reply casi idéntico) dos o tres veces.
+ */
+export function prepareCorreoBodyForCypherDisplay(raw: string): string {
+  const source = raw.trim();
+  if (!source) return "";
+
+  if (isCuerpoMensajeFormato(source)) {
+    const blocks = parseOrigenPedidoBlocks(source);
+    const seen = new Set<string>();
+    const textParts: string[] = [];
+    for (const block of blocks) {
+      if (block.type !== "text") continue;
+      const cleaned = collapseDuplicatedCorreoSegments(
+        cleanCorreoBodyForNotas(block.text) || block.text,
+      );
+      if (!cleaned) continue;
+      const key = normalizeCorreoFingerprint(cleaned).slice(0, 160);
+      if (!key || seen.has(key)) continue;
+      const similar = [...seen].some((prev) => {
+        const a = prev.slice(0, 80);
+        const b = key.slice(0, 80);
+        return a.length > 24 && b.length > 24 && (a.includes(b) || b.includes(a));
+      });
+      if (similar) continue;
+      seen.add(key);
+      textParts.push(cleaned);
+    }
+    // Un solo bloque de prosa (el primero útil); las tablas se omiten aquí
+    // porque el cypher prioriza el mensaje legible del correo.
+    return textParts[0] ?? "";
+  }
+
+  return collapseDuplicatedCorreoSegments(
+    cleanCorreoBodyForNotas(source) || source,
+  );
 }
 
 /** Compacta saltos de línea para que el PDF llene las N líneas sin huecos vacíos. */

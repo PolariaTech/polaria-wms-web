@@ -154,12 +154,40 @@ function buildStorageProxyUrl(
     return `/api/ov-adjuntos/file?${qs.toString()}`;
   }
   const url = item.url?.trim() || "";
-  if (url.startsWith("/api/ov-adjuntos/file")) {
+  if (url.startsWith("/api/ov-adjuntos/")) {
     const u = new URL(url, "http://local");
     u.searchParams.set("disposition", disposition);
     return `${u.pathname}?${u.searchParams.toString()}`;
   }
   return url;
+}
+
+/** Convierte partes extraídas de un .eml en adjuntos descargables vía API. */
+export function origenAdjuntosFromEmlParts(
+  emlPath: string,
+  parts: readonly {
+    index: number;
+    nombre: string;
+    mime: string;
+    bytes: number;
+  }[],
+): OrigenAdjunto[] {
+  const path = emlPath.trim();
+  if (!path || parts.length === 0) return [];
+  return parts.map((part) => {
+    const qs = new URLSearchParams({
+      path,
+      index: String(part.index),
+      nombre: part.nombre,
+    });
+    return {
+      nombre: part.nombre,
+      mime: part.mime,
+      bytes: part.bytes,
+      url: `/api/ov-adjuntos/eml-parts/file?${qs.toString()}`,
+      resourceType: "storage" as const,
+    };
+  });
 }
 
 /** URL para abrir/ver (proxy Storage o URL directa). */

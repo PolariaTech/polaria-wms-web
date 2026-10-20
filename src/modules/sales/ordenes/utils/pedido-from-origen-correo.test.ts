@@ -42,4 +42,26 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
     expect(pedido.lineas[0]?.precioUnitario).toBe(67);
     expect(pedido.origenCorreo).toHaveLength(1);
   });
+
+  it("acepta Fecha dd/mm/aaaa y completa horas desde el cuerpo", () => {
+    const pedido = buildPedidoExtraidoFromOrigenCorreo({
+      origenCorreo: [
+        {
+          Fecha: "21/10/2026",
+          Cantidad: 1,
+          Producto: "Jugo de Limón",
+          "Numero pedido": "MYG-0015033",
+          "Ventana desde": "",
+          "Ventana hasta": "",
+        },
+      ],
+      origenTexto:
+        "Fecha de entrega: 21/10/2026\nVentana de recepción: 8:00 AM – 2:00 PM",
+      hoyISO: "2026-10-16",
+    });
+
+    expect(pedido.fechaEntrega).toBe("2026-10-21");
+    expect(pedido.horarioDesde).toBe("08:00");
+    expect(pedido.horarioHasta).toBe("14:00");
+  });
 });

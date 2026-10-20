@@ -2,6 +2,18 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.12.9 — 2026-10-20
+
+### Ventas / OV / Mateo
+- Cypher: Borrar (soft-delete), FAB de Mateo oculto mientras está abierto.
+- Cliente / Mateo: criterio más estricto — auto-asignación solo con nombre/código exactos; sugerencias solo con score alto (≥0.55); si no hay señal clara, alerta de cliente faltante.
+- Productos / Mateo: match parcial de familia lista variantes y no auto-asigna; buscador por tokens; ANTICIPO no gana por tallas; mismo SKU repetible entre OT.
+- Adjuntos EML/Storage, unidades/envase en líneas, OT hijas (agregar/quitar), SLA de cuenta.
+- Fecha/hora de entrega del correo sin default silencioso.
+
+### Versión
+- Producto `2.12.9` (`POLARIA_PRODUCT_VERSION`, `package.json`, `VERSION`).
+
 ## 2.11.29 — 2026-10-15
 
 ### Ventas / OV

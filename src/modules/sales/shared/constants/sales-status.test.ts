@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   formatEstadoOrdenVenta,
+  normalizeEstadoOrdenVenta,
   puedeAccionesAlmacenOrdenVenta,
+  puedeBorrarOrdenVenta,
   puedeEditarOrdenVenta,
   puedeEditarOrdenVentaDesdeLista,
 } from "./sales-status";
@@ -20,6 +22,20 @@ describe("puedeEditarOrdenVenta", () => {
     expect(puedeEditarOrdenVenta("despachada")).toBe(false);
     expect(puedeEditarOrdenVenta("cerrada")).toBe(false);
     expect(puedeEditarOrdenVenta("cancelada")).toBe(false);
+  });
+});
+
+describe("puedeBorrarOrdenVenta", () => {
+  it("solo permite por_confirmar", () => {
+    expect(puedeBorrarOrdenVenta("por_confirmar")).toBe(true);
+    expect(puedeBorrarOrdenVenta("confirmada")).toBe(false);
+    expect(puedeBorrarOrdenVenta("cancelada")).toBe(false);
+  });
+});
+
+describe("normalizeEstadoOrdenVenta cancelada", () => {
+  it("conserva cancelada (no la mezcla con por_confirmar)", () => {
+    expect(normalizeEstadoOrdenVenta("cancelada")).toBe("cancelada");
   });
 });
 
@@ -56,5 +72,9 @@ describe("formatEstadoOrdenVenta", () => {
     expect(formatEstadoOrdenVenta("borrador")).toBe("Por confirmar");
     expect(formatEstadoOrdenVenta("en_preparacion")).toBe("Alistamiento");
     expect(formatEstadoOrdenVenta("despachada")).toBe("Alistado");
+  });
+
+  it("etiqueta cancelada como Borrada", () => {
+    expect(formatEstadoOrdenVenta("cancelada")).toBe("Borrada");
   });
 });

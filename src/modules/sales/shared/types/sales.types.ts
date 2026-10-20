@@ -1,12 +1,16 @@
 import type { OrigenAdjunto } from "@/modules/sales/ordenes/utils/origen-adjuntos";
 import type { OrigenCorreoRenglon } from "@/modules/sales/ordenes/utils/origen-correo-ordenes-trabajo";
 
-/** Estados de negocio de OV (solo estos cuatro). */
+/**
+ * Estados de OV.
+ * Los cuatro de flujo operativo + `cancelada` (soft-delete / «Borrar» en UI).
+ */
 export type EstadoOrdenVenta =
   | "por_confirmar"
   | "confirmada"
   | "alistamiento"
-  | "alistada";
+  | "alistada"
+  | "cancelada";
 
 export interface OrdenVentaRow {
   id_orden_venta: string;
@@ -23,7 +27,12 @@ export interface OrdenVentaRow {
   observaciones: string | null;
   created_at: string;
   updated_at: string;
+  /** Instante de entrada al estado actual (SLA). */
+  estado_desde?: string | null;
 }
+
+export type OvSlaStatusUi = "en_tiempo" | "atrasada" | "cerrada";
+export type OvAlertaStatusUi = "ok" | "en_riesgo" | "atrasada" | "cerrada";
 
 export interface OrdenVentaOperadorRow {
   idOrdenVenta: string;
@@ -47,6 +56,12 @@ export interface OrdenVentaOperadorRow {
   destino: string;
   idBodega: string;
   idBodegaDestino: string | null;
+  /** SLA respecto al umbral de la cuenta. */
+  slaStatus: OvSlaStatusUi;
+  /** Alerta (riesgo) respecto al umbral de la cuenta. */
+  alertaStatus: OvAlertaStatusUi;
+  /** Minutos en el estado actual. */
+  minutosEnEstado: number;
 }
 
 export const UNIDAD_MEDIDA_VENTA_DEFAULT = "kg" as const;
@@ -86,6 +101,8 @@ export interface OrdenVentaLineaInput {
   precioUnitario?: number | null;
   cajas?: number | null;
   presentacion?: string | null;
+  /** Unidad de la línea al confirmar (LTR, PZA, KGM, kg, …). */
+  unidadMedida?: string | null;
   /** Auditoría: texto cliente, sugerencia Mateo y elección del usuario. */
   matchProducto?: MatchProductoLinea | null;
 }
@@ -97,6 +114,10 @@ export interface OrdenVentaLineaRow {
   precio_unitario: number;
   cajas?: number | null;
   presentacion?: string | null;
+  /** Unidad persistida al confirmar; null en líneas legacy. */
+  unidad_medida?: string | null;
+  /** Snapshot Mateo ↔ catálogo (texto original del cliente, etc.). */
+  match_producto?: MatchProductoLinea | null;
   producto: {
     sku: string | null;
     descripcion: string | null;

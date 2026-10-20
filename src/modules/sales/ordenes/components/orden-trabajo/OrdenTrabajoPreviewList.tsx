@@ -18,16 +18,20 @@ export function OrdenTrabajoPreviewList({
   clienteLabel,
   hijas,
   page,
+  onRemoveHija,
 }: {
   clienteLabel: string;
   hijas: OrdenTrabajoHija[];
   /** Página controlada desde el pie del modal. */
   page: number;
+  /** Eliminar la OT visible (opcional). */
+  onRemoveHija?: (hijaId: string) => void;
 }) {
   if (hijas.length === 0) {
     return (
       <p className="polaria-text-body-sm text-polaria-w-50">
-        No se detectaron órdenes de trabajo en el pedido.
+        No hay órdenes de trabajo. Agrega una si el pedido requiere tareas de
+        almacén.
       </p>
     );
   }
@@ -44,20 +48,33 @@ export function OrdenTrabajoPreviewList({
           {total} orden{total === 1 ? "" : "es"} de trabajo
         </span>{" "}
         dentro de esta venta. Revisa cada una y continúa para confirmar el
-        formulario.
+        formulario. Puedes agregar o eliminar tareas si Mateo se equivocó.
       </p>
 
       <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
         <div className="border-b border-polaria-w-08 px-4 py-3">
-          <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
-            Orden de trabajo {safePage + 1}/{total}
-          </p>
-          <h3 className="mt-1 polaria-text-card-title text-polaria-w">
-            {hija.label}
-          </h3>
-          <p className="mt-0.5 polaria-text-caption text-polaria-w-50">
-            {clienteLabel || "Cliente"}
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
+                Orden de trabajo {safePage + 1}/{total}
+              </p>
+              <h3 className="mt-1 polaria-text-card-title text-polaria-w">
+                {hija.label}
+              </h3>
+              <p className="mt-0.5 polaria-text-caption text-polaria-w-50">
+                {clienteLabel || "Cliente"}
+              </p>
+            </div>
+            {onRemoveHija ? (
+              <button
+                type="button"
+                onClick={() => onRemoveHija(hija.id)}
+                className="shrink-0 rounded-lg border border-polaria-t-20 px-2.5 py-1.5 polaria-text-caption text-polaria-w-50 transition hover:border-polaria-teal hover:text-polaria-teal"
+              >
+                Eliminar tarea
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="space-y-4 p-4">

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildOrigenCorreoFromOrdenesYLineas,
+  createEmptyOrdenTrabajoHija,
+  flattenOrdenesTrabajoToOrigenCorreo,
   groupOrigenCorreoToOrdenesTrabajo,
   type OrigenCorreoRenglon,
 } from "./origen-correo-ordenes-trabajo";
@@ -138,5 +141,46 @@ describe("groupOrigenCorreoToOrdenesTrabajo", () => {
     );
     expect(troglodita?.renglones).toHaveLength(3);
     expect(troglodita?.numeroPedido).toBe(oc);
+  });
+
+  it("createEmptyOrdenTrabajoHija + flatten conserva OT manual al reagrupar", () => {
+    const auto = groupOrigenCorreoToOrdenesTrabajo([
+      { Almacen: "FRIA", Producto: "LIMON", Cantidad: 2 },
+    ]);
+    const manual = createEmptyOrdenTrabajoHija({
+      id: "manual:test-1",
+      almacen: "BANQUETES",
+    });
+    const flat = flattenOrdenesTrabajoToOrigenCorreo([...auto, manual]);
+    const again = groupOrigenCorreoToOrdenesTrabajo(flat);
+    expect(again).toHaveLength(2);
+    expect(again.some((h) => h.id === "manual:test-1")).toBe(true);
+    expect(again.find((h) => h.id === "manual:test-1")?.almacen).toBe(
+      "BANQUETES",
+    );
+  });
+
+  it("buildOrigenCorreoFromOrdenesYLineas usa productos del form por otId", () => {
+    const hija = createEmptyOrdenTrabajoHija({
+      id: "manual:form-1",
+      almacen: "CANTINA",
+    });
+    const rows = buildOrigenCorreoFromOrdenesYLineas({
+      hijas: [hija],
+      lineas: [
+        {
+          otId: "manual:form-1",
+          nombre: "Pepino",
+          codigo: "105",
+          cantidad: 3,
+          unidadMedida: "KGM",
+          precioUnitario: 20,
+        },
+      ],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.Producto).toBe("Pepino");
+    expect(rows[0]?.Almacen).toBe("CANTINA");
+    expect(rows[0]?._otId).toBe("manual:form-1");
   });
 });

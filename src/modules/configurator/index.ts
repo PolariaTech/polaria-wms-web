@@ -125,19 +125,23 @@ export type {
   CuentaBodegaAsignada,
   CuentaGobiernoListRow,
   CuentaListRow,
+  CuentaOvAutoImprimirConfig,
   CreateCuentaInput,
   EmpresaAssignOption,
   UpdateCuentaBodegaDefaultInput,
   UpdateCuentaInput,
+  UpdateCuentaOvAutoImprimirInput,
 } from "./cuentas/services/cuentas.service";
 export {
   createCuentaConfigurator,
   getCuentaGobiernoConfigurator,
+  getCuentaOvAutoImprimirConfigurator,
   listCuentasConfigurator,
   listCuentasGobiernoConfigurator,
   listEmpresasAssignOptions,
   updateCuentaBodegaDefaultConfigurator,
   updateCuentaConfigurator,
+  updateCuentaOvAutoImprimirConfigurator,
 } from "./cuentas/services/cuentas.service";
 
 export type {

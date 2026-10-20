@@ -522,12 +522,15 @@ describe("vistas operativas dashboard", () => {
         productos: "2 productos",
         cantidadKg: 15,
         total: 2000,
-        estado: "por_confirmar",
+        estado: "confirmada",
         fecha: "2026-06-28T12:00:00.000Z",
         ordenesTrabajo: 2,
         destino: "—",
         idBodega: "bod-1",
         idBodegaDestino: null,
+        slaStatus: "en_tiempo",
+        alertaStatus: "ok",
+        minutosEnEstado: 5,
       },
     ]);
 
@@ -546,7 +549,7 @@ describe("vistas operativas dashboard", () => {
       expect(listOrdenesVentaOperador).toHaveBeenCalled();
       expect(screen.getByText("OV")).toBeInTheDocument();
       expect(screen.getByText("OCC")).toBeInTheDocument();
-      expect(screen.getByText("Comprador")).toBeInTheDocument();
+      expect(screen.getByText("Cliente")).toBeInTheDocument();
       expect(screen.getByText("OT")).toBeInTheDocument();
       expect(screen.getByText("Acciones")).toBeInTheDocument();
       expect(screen.getByText("OV-001")).toBeInTheDocument();

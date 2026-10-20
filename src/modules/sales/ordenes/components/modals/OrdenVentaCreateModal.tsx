@@ -67,6 +67,7 @@ import {
 import { fetchProductosVentaCatalogo } from "../../../shared/services/sales-catalog.api";
 import { emitirOrdenVentaApi } from "../../../shared/services/sales-api.service";
 import { postOrdenVentaLog } from "../../services/orden-venta-log.client";
+import { getCuentaOvAutoImprimirConfigurator } from "@/modules/configurator/cuentas/services/cuentas.service";
 import {
   createOrdenVenta,
   getCuentaIdBodegaDefault,
@@ -75,9 +76,13 @@ import {
 } from "../../../shared/services/sales.service";
 import {
   UNIDAD_MEDIDA_VENTA_DEFAULT,
+  type OrdenVentaDetalleRow,
   type OrdenVentaLineaInput,
+  type OrdenVentaOperadorRow,
   type ProductoVentaOption,
 } from "../../../shared/types/sales.types";
+import { mapOrdenVentaToAlmacenPrintSheets } from "../../print/map-orden-tarea-almacen";
+import { printOrdenTareaAlmacenLandscape } from "../../print/download-orden-tarea-almacen-pdf";
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
 import { NoIdentificadoBadge } from "../shared/NoIdentificadoBadge";
 import { OrdenVentaClientesSugerenciasPickerModal } from "../pickers/OrdenVentaClientesSugerenciasPickerModal";
@@ -96,6 +101,7 @@ import {
 import { uploadOvAdjuntosClient } from "../../services/ov-adjuntos.client";
 import {
   nombresOrigenAdjuntos,
+  origenAdjuntosFromEmlParts,
   parseOrigenArchivos,
   type OrigenAdjunto,
 } from "../../utils/origen-adjuntos";
@@ -113,8 +119,14 @@ import {
   assignOtIdsToFormLineas,
   filterLineasByOrdenTrabajoHija,
 } from "../../utils/filter-lineas-by-orden-trabajo";
-import { resolveSkuVisible } from "../../utils/resolve-sku-visible";
 import {
+  resolveSkuVisible,
+  resolveTextoProductoOrigen,
+} from "../../utils/resolve-sku-visible";
+import {
+  buildOrigenCorreoFromOrdenesYLineas,
+  createEmptyOrdenTrabajoHija,
+  flattenOrdenesTrabajoToOrigenCorreo,
   groupOrigenCorreoToOrdenesTrabajo,
   parseOrigenCorreoJson,
   type OrigenCorreoRenglon,
@@ -174,6 +186,54 @@ function formatProductoNombreConSku(nombre: string, codigo: string): string {
   if (!sku || sku === "—") return name;
   if (name.toLowerCase().includes(`(${sku.toLowerCase()})`)) return name;
   return `${name} (${sku})`;
+}
+
+/** Fila mínima para auto-impresión tras Validar y enviar (detalle es la fuente fiable). */
+function resolveListRowForAutoPrint(
+  detalle: OrdenVentaDetalleRow,
+  fallback: OrdenVentaOperadorRow | null,
+): OrdenVentaOperadorRow {
+  if (
+    fallback &&
+    typeof fallback.idOrdenVenta === "string" &&
+    fallback.idOrdenVenta === detalle.id_orden_venta &&
+    typeof fallback.venta === "string"
+  ) {
+    return {
+      ...fallback,
+      estado: normalizeEstadoOrdenVenta(detalle.estado),
+      venta: detalle.codigo || fallback.venta,
+      fecha: detalle.created_at || detalle.fecha_pedido || fallback.fecha,
+      destino:
+        detalle.bodega_destino_nombre?.trim() ||
+        (fallback.destino !== "—" ? fallback.destino : "—"),
+      comprador:
+        detalle.comprador_nombre?.trim() ||
+        (fallback.comprador !== "—" ? fallback.comprador : "—"),
+    };
+  }
+
+  const occ = detalle.orden_compra_hotel?.trim() || "";
+  return {
+    idOrdenVenta: detalle.id_orden_venta,
+    venta: detalle.codigo,
+    occ: occ || "—",
+    occTodas: occ ? [occ] : [],
+    cuenta: detalle.codigo_cuenta,
+    comprador: detalle.comprador_nombre?.trim() || "—",
+    productos: "—",
+    cantidadKg: 0,
+    total: 0,
+    estado: normalizeEstadoOrdenVenta(detalle.estado),
+    fecha: detalle.created_at || detalle.fecha_pedido,
+    ordenesTrabajo: 1,
+    destino: detalle.bodega_destino_nombre?.trim() || "—",
+    idBodega: detalle.id_bodega,
+    idBodegaDestino: detalle.id_bodega_destino,
+    slaStatus: "en_tiempo",
+    alertaStatus: "ok",
+    minutosEnEstado: 0,
+  };
 }
 
 const CATALOG_STATUS_TONE_CLASS = {
@@ -694,12 +754,16 @@ export function OrdenVentaCreateModal({
   const [isLoading, setIsLoading] = useState(false);
   const [formDataReady, setFormDataReady] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  /** Mensaje bajo Mateo (ej. Imprimiendo…) sin quitar la pantalla de carga. */
+  const [mateoBusyMessage, setMateoBusyMessage] = useState<string | undefined>();
   const [isReadingIa, setIsReadingIa] = useState(false);
   const [isDocsDropActive, setIsDocsDropActive] = useState(false);
   const [showFiscal, setShowFiscal] = useState(false);
   const [showCuerpo, setShowCuerpo] = useState(false);
   /** Adjuntos ya persistidos (URL Cloudinary) al editar o tras subir. */
   const [origenAdjuntos, setOrigenAdjuntos] = useState<OrigenAdjunto[]>([]);
+  /** PDFs/Excel reales dentro del .eml (misma lógica que el cypher). */
+  const [emlInnerAdjuntos, setEmlInnerAdjuntos] = useState<OrigenAdjunto[]>([]);
   const [isCompradorCreateOpen, setIsCompradorCreateOpen] = useState(false);
   const [fichaComprador, setFichaComprador] = useState<CompradorAltaFicha | null>(
     null,
@@ -722,11 +786,19 @@ export function OrdenVentaCreateModal({
   const [confirmDiscrepanciasOpen, setConfirmDiscrepanciasOpen] =
     useState(false);
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const [confirmRemoveOtId, setConfirmRemoveOtId] = useState<string | null>(
+    null,
+  );
+  const [addOtOpen, setAddOtOpen] = useState(false);
+  const [addOtAlmacen, setAddOtAlmacen] = useState("");
+  const [addOtNumeroPedido, setAddOtNumeroPedido] = useState("");
   const selectedCompradorIdRef = useRef("");
   const skipDiscrepanciaConfirmRef = useRef(false);
   const skipSaveConfirmRef = useRef(false);
   const docsFileInputRef = useRef<HTMLInputElement | null>(null);
   const bootstrapPromiseRef = useRef<Promise<void> | null>(null);
+  const seededOtIdsRef = useRef<Set<string>>(new Set());
   const [cantidadFocusId, setCantidadFocusId] = useState<string | null>(null);
 
   const hasProductos = productos.length > 0;
@@ -750,33 +822,33 @@ export function OrdenVentaCreateModal({
       : []),
   ];
 
-  const productosParaAgregar = useMemo(
-    () =>
-      productos.filter(
-        (producto) =>
-          !lineas.some(
-            (linea) =>
-              Boolean(linea.idProducto) &&
-              linea.idProducto === producto.idProducto,
-          ),
-      ),
-    [lineas, productos],
-  );
+  /** Catálogo completo: el mismo SKU puede repetirse en varias líneas/OT. */
+  const productosParaAgregar = productos;
 
   const productosParaPicker = useMemo(() => {
     if (replaceLineaIndex == null) return productosParaAgregar;
-    const currentId = lineas[replaceLineaIndex]?.idProducto ?? "";
-    return productos.filter(
-      (producto) =>
-        producto.idProducto === currentId ||
-        !lineas.some(
-          (linea, i) =>
-            i !== replaceLineaIndex &&
-            Boolean(linea.idProducto) &&
-            linea.idProducto === producto.idProducto,
-        ),
+    const lineaActiva = lineas[replaceLineaIndex];
+    // Al validar pendiente: catálogo completo, pero sugerencias primero.
+    if (!lineaActiva?.catalogPending) return productosParaAgregar;
+    const sugIds = collectSugerenciasLinea(lineaActiva).map(
+      (s) => s.idProducto,
     );
-  }, [lineas, productos, productosParaAgregar, replaceLineaIndex]);
+    if (sugIds.length === 0) return productosParaAgregar;
+    const rank = new Map(sugIds.map((id, i) => [id, i]));
+    return [...productosParaAgregar].sort((a, b) => {
+      const ra = rank.has(a.idProducto) ? rank.get(a.idProducto)! : 10_000;
+      const rb = rank.has(b.idProducto) ? rank.get(b.idProducto)! : 10_000;
+      if (ra !== rb) return ra - rb;
+      return a.nombre.localeCompare(b.nombre, "es");
+    });
+  }, [lineas, productosParaAgregar, replaceLineaIndex]);
+
+  const productoPickerPriorityIds = useMemo(() => {
+    if (replaceLineaIndex == null) return [] as string[];
+    const linea = lineas[replaceLineaIndex];
+    if (!linea?.catalogPending) return [];
+    return collectSugerenciasLinea(linea).map((s) => s.idProducto);
+  }, [lineas, replaceLineaIndex]);
 
   const puedeAgregarProducto = productosParaAgregar.length > 0;
   const hasCatalogPending = lineas.some(
@@ -821,6 +893,59 @@ export function OrdenVentaCreateModal({
     if (ordenesTrabajoPreview.length > 0) return ordenesTrabajoPreview;
     return groupOrigenCorreoToOrdenesTrabajo(origenCorreoDraft);
   }, [ordenesTrabajoPreview, origenCorreoDraft]);
+
+  const applyOrdenesTrabajo = useCallback((next: OrdenTrabajoHija[]) => {
+    setOrdenesTrabajoPreview(next);
+    setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(next));
+    setFormOtPage((page) =>
+      next.length === 0 ? 0 : Math.min(page, next.length - 1),
+    );
+  }, []);
+
+  const handleAddOrdenTrabajo = useCallback(() => {
+    const almacen = addOtAlmacen.trim();
+    if (!almacen) {
+      setError("Indica el centro de consumo / cocina de la nueva tarea.");
+      return;
+    }
+    const nueva = createEmptyOrdenTrabajoHija({
+      almacen,
+      numeroPedido: addOtNumeroPedido.trim() || ordenCompraHotel.trim(),
+      fecha: fechaEntrega.trim(),
+    });
+    const next = [...ordenesTrabajoForm, nueva];
+    applyOrdenesTrabajo(next);
+    setAddOtOpen(false);
+    setAddOtAlmacen("");
+    setAddOtNumeroPedido("");
+    setError(null);
+    const newIndex = next.findIndex((h) => h.id === nueva.id);
+    setFormOtPage(newIndex >= 0 ? newIndex : next.length - 1);
+    setStep("form");
+  }, [
+    addOtAlmacen,
+    addOtNumeroPedido,
+    applyOrdenesTrabajo,
+    fechaEntrega,
+    ordenCompraHotel,
+    ordenesTrabajoForm,
+  ]);
+
+  const handleConfirmRemoveOrdenTrabajo = useCallback(() => {
+    const otId = confirmRemoveOtId;
+    if (!otId) return;
+    const next = ordenesTrabajoForm.filter((hija) => hija.id !== otId);
+    applyOrdenesTrabajo(next);
+    setLineas((prev) => prev.filter((linea) => linea.otId !== otId));
+    seededOtIdsRef.current.delete(otId);
+    setConfirmRemoveOtId(null);
+    setError(null);
+    if (step === "pickOt") {
+      if (next.length === 0) setStep("preview");
+      else if (next.length === 1) setStep("form");
+      setFormOtPage(0);
+    }
+  }, [applyOrdenesTrabajo, confirmRemoveOtId, ordenesTrabajoForm, step]);
 
   const previewHijas = ordenesTrabajoForm;
 
@@ -946,6 +1071,15 @@ export function OrdenVentaCreateModal({
     );
     if (byOtId.length > 0) return byOtId;
 
+    // OT nueva/vacía o el resto ya tiene otId → no mezclar productos de otras tareas.
+    const hijaSinProductos = hijaFormActiva.renglones.every(
+      (row) =>
+        !(row.Producto ?? "").trim() && !(row["Codigo producto"] ?? "").trim(),
+    );
+    if (hijaSinProductos || lineas.some((linea) => Boolean(linea.otId))) {
+      return byOtId;
+    }
+
     // Fallback: emparejar por nombre/código/cantidad (igual que el detalle).
     const wrapped = indexed.map(({ linea, index }) => ({
       index,
@@ -965,7 +1099,6 @@ export function OrdenVentaCreateModal({
   }, [hijaFormActiva, lineas]);
 
   // Si el filtro OT dejó la página vacía, materializa líneas desde origen_correo.
-  const seededOtIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!open) {
       seededOtIdsRef.current = new Set();
@@ -1195,6 +1328,8 @@ export function OrdenVentaCreateModal({
     setShowFiscal(false);
     setShowCuerpo(false);
     setOrigenAdjuntos([]);
+    setEmlInnerAdjuntos([]);
+    setConfirmDiscardOpen(false);
     setFichaComprador(null);
     setExigeOc(false);
 
@@ -1302,6 +1437,15 @@ export function OrdenVentaCreateModal({
           setIdBodegaDestino(detalle.id_bodega_destino.trim());
         }
 
+        // Texto del cliente en el origen (caption bajo el campo), aunque ya esté matcheado.
+        const nombreEscritoOrigen =
+          origenCorreoRows
+            .map((row) => row["Nombre cliente"]?.trim())
+            .find((value): value is string => Boolean(value)) || null;
+        if (nombreEscritoOrigen) {
+          setCompradorNombreIa(nombreEscritoOrigen);
+        }
+
         const esExternoPorConfirmar =
           normalizeEstadoOrdenVenta(detalle.estado) === "por_confirmar" &&
           origenCorreoRows.length > 0;
@@ -1319,21 +1463,24 @@ export function OrdenVentaCreateModal({
             compradorRows,
           );
           const autoComprador = shouldAutoAssignComprador(compradorRank);
-          let idCompradorForMap = idCompradorDetalle;
+          // Si ya venía un comprador de materialización pero no es match exacto
+          // del texto del cliente, no lo dejamos elegido: solo sugerencias.
+          const detalleEsExacto =
+            Boolean(autoComprador) &&
+            autoComprador?.idComprador === idCompradorDetalle;
+          let idCompradorForMap = detalleEsExacto ? idCompradorDetalle : "";
           let telefonoForMap = "";
 
-          if (autoComprador && !idCompradorDetalle) {
-            handleSelectComprador(autoComprador);
+          if (autoComprador) {
+            handleSelectComprador(autoComprador, {
+              keepNombreIa: Boolean(nombreEscritoOrigen),
+            });
             idCompradorForMap = autoComprador.idComprador;
             telefonoForMap = autoComprador.telefono?.trim() || "";
-            setCompradorNombreIa(null);
-            setCompradorSugerencias([]);
-          } else if (!idCompradorDetalle && pedido.nombreCliente?.trim()) {
-            const nombreIa = pedido.nombreCliente.trim();
+          } else if (nombreEscritoOrigen) {
             selectedCompradorIdRef.current = "";
             setIdComprador("");
-            setCompradorLabel(nombreIa);
-            setCompradorNombreIa(nombreIa);
+            setCompradorLabel(nombreEscritoOrigen);
             setCompradorSugerencias(
               compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
             );
@@ -1448,6 +1595,11 @@ export function OrdenVentaCreateModal({
             const nombreRaw =
               catalogo?.nombre || resolveOrdenVentaLineaTitulo(linea);
             const nombre = stripLeadingProductoCodigo(nombreRaw, codigo);
+            const aliasCliente =
+              resolveTextoProductoOrigen({
+                linea,
+                origenRenglones: origenCorreoRows,
+              }) || undefined;
             return {
               idProducto: linea.id_producto,
               nombre,
@@ -1464,10 +1616,13 @@ export function OrdenVentaCreateModal({
               ivaPct: "0",
               kgDisponible: catalogo?.kgDisponible ?? 0,
               unidadMedida:
-                catalogo?.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+                linea.unidad_medida?.trim() ||
+                catalogo?.unidadMedida ||
+                UNIDAD_MEDIDA_VENTA_DEFAULT,
               precioUnitario: linea.precio_unitario,
               precioInput: formatPrecioInput(linea.precio_unitario),
               precioManual: true as const,
+              aliasCliente,
             };
           });
           const lineasConOt = assignOtIdsToFormLineas(
@@ -1719,13 +1874,17 @@ export function OrdenVentaCreateModal({
          * No pisa entrega, notas, precios ni productos ya leídos del pedido.
          */
         preservePedidoData?: boolean;
+        /** Conserva el nombre que Mateo leyó del pedido (caption bajo el campo). */
+        keepNombreIa?: boolean;
       },
     ) => {
       const preservePedido = Boolean(options?.preservePedidoData);
       selectedCompradorIdRef.current = row.idComprador;
       setIdComprador(row.idComprador);
       setCompradorLabel(formatCompradorLabel(row));
-      setCompradorNombreIa(null);
+      if (!options?.keepNombreIa) {
+        setCompradorNombreIa(null);
+      }
       setCompradorSugerencias([]);
       setError(null);
       setMissingFields((prev) => {
@@ -1818,10 +1977,8 @@ export function OrdenVentaCreateModal({
       }
 
       setCantidadFocusId(row.idProducto);
+      const otId = hijaFormActiva?.id;
       setLineas((prev) => {
-        if (prev.some((linea) => linea.idProducto === row.idProducto)) {
-          return prev;
-        }
         return [
           ...prev,
           {
@@ -1839,7 +1996,7 @@ export function OrdenVentaCreateModal({
             unidadMedida: row.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
             precioUnitario: row.precioUnitario,
             precioInput: formatPrecioInput(row.precioUnitario),
-            otId: hijaFormActiva?.id,
+            otId,
             catalogPending: false,
             catalogAmbiguo: false,
             sugerencia: null,
@@ -1847,10 +2004,54 @@ export function OrdenVentaCreateModal({
           },
         ];
       });
+      if (otId) {
+        setOrdenesTrabajoPreview((prev) => {
+          const base =
+            prev.length > 0
+              ? prev
+              : groupOrigenCorreoToOrdenesTrabajo(origenCorreoDraft);
+          const next = base.map((hija) => {
+            if (hija.id !== otId) return hija;
+            const sinPlaceholder = hija.renglones.filter(
+              (renglon) =>
+                (renglon.Producto ?? "").trim() ||
+                (renglon["Codigo producto"] ?? "").trim(),
+            );
+            const renglon: OrigenCorreoRenglon = {
+              _otId: hija.id,
+              Almacen: hija.almacen,
+              "Numero pedido": hija.numeroPedido,
+              Fecha: hija.fecha,
+              "Referencia pedido": hija.referenciaPedido,
+              "Responsable externo": hija.responsableExterno,
+              Producto: stripLeadingProductoCodigo(row.nombre, row.codigo),
+              "Codigo producto": row.codigo,
+              Cantidad: 0,
+              Unidad: row.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+              Precio: row.precioUnitario,
+            };
+            const renglones = [...sinPlaceholder, renglon];
+            return {
+              ...hija,
+              renglones,
+              totalCantidad: renglones.reduce((sum, item) => {
+                const qty =
+                  typeof item.Cantidad === "number"
+                    ? item.Cantidad
+                    : Number(String(item.Cantidad ?? "").replace(",", ".")) ||
+                      0;
+                return sum + qty;
+              }, 0),
+            };
+          });
+          setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(next));
+          return next;
+        });
+      }
       setError(null);
       setIdBodegaDestino((prev) => prev || row.idBodega);
     },
-    [hijaFormActiva?.id, replaceLineaIndex],
+    [hijaFormActiva?.id, origenCorreoDraft, replaceLineaIndex],
   );
 
   const handleOpenReplaceProducto = useCallback((index: number) => {
@@ -2029,11 +2230,60 @@ export function OrdenVentaCreateModal({
     [ensureFormDataReady, handleSelectComprador],
   );
 
+  useEffect(() => {
+    const eml = origenAdjuntos.find((item) => {
+      const name = item.nombre.toLowerCase();
+      const mime = (item.mime ?? "").toLowerCase();
+      return (
+        Boolean(item.path?.trim()) &&
+        (name.endsWith(".eml") || mime.includes("message"))
+      );
+    });
+    const emlPath = eml?.path?.trim() || "";
+    if (!emlPath) {
+      setEmlInnerAdjuntos([]);
+      return;
+    }
+
+    let cancelled = false;
+    void fetch(
+      `/api/ov-adjuntos/eml-parts?path=${encodeURIComponent(emlPath)}`,
+    )
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("No se pudieron leer adjuntos del correo.");
+        }
+        const data = (await response.json()) as {
+          parts?: Array<{
+            index: number;
+            nombre: string;
+            mime: string;
+            bytes: number;
+          }>;
+        };
+        if (cancelled) return;
+        setEmlInnerAdjuntos(
+          origenAdjuntosFromEmlParts(emlPath, data.parts ?? []),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setEmlInnerAdjuntos([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [origenAdjuntos]);
+
   const origenArchivosNombres = useMemo(() => {
     const fromFiles = origenArchivoFiles.map((file) => file.name);
     if (fromFiles.length > 0) return fromFiles;
-    return nombresOrigenAdjuntos(origenAdjuntos);
-  }, [origenArchivoFiles, origenAdjuntos]);
+    return nombresOrigenAdjuntos(
+      emlInnerAdjuntos.length > 0
+        ? [...emlInnerAdjuntos, ...origenAdjuntos]
+        : origenAdjuntos,
+    );
+  }, [origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos]);
 
   const adjuntosParaVista = useMemo((): OrigenAdjunto[] => {
     if (origenArchivoFiles.length > 0) {
@@ -2043,8 +2293,11 @@ export function OrdenVentaCreateModal({
         bytes: file.size,
       }));
     }
+    if (emlInnerAdjuntos.length > 0) {
+      return [...emlInnerAdjuntos, ...origenAdjuntos];
+    }
     return origenAdjuntos;
-  }, [origenArchivoFiles, origenAdjuntos]);
+  }, [origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos]);
 
   const openFormFromDocs = useCallback(async () => {
     if (!codigoCuenta) {
@@ -2075,14 +2328,21 @@ export function OrdenVentaCreateModal({
         compradores,
       );
       const autoComprador = shouldAutoAssignComprador(compradorRank);
+      const nombreEscritoIa = pedido.nombreCliente?.trim() || null;
+      // Siempre conserva lo que escribió/leyó del cliente (caption bajo el campo).
+      if (nombreEscritoIa) {
+        setCompradorNombreIa(nombreEscritoIa);
+      }
 
       let fichaForMap = fichaComprador;
       let idCompradorForMap = idComprador;
       let telefonoForMap = telefono;
 
-      // Solo auto-asigna si el usuario aún no eligió uno (exacto o fuzzy muy claro).
+      // Solo auto-asigna con match exacto si el usuario aún no eligió uno.
       if (autoComprador && !idComprador) {
-        handleSelectComprador(autoComprador);
+        handleSelectComprador(autoComprador, {
+          keepNombreIa: Boolean(nombreEscritoIa),
+        });
         idCompradorForMap = autoComprador.idComprador;
         telefonoForMap = autoComprador.telefono?.trim() || telefono;
         try {
@@ -2097,12 +2357,10 @@ export function OrdenVentaCreateModal({
         } catch {
           /* se mantiene el match; ficha puede quedar vacía */
         }
-      } else if (!idComprador && pedido.nombreCliente?.trim()) {
-        const nombreIa = pedido.nombreCliente.trim();
+      } else if (!idComprador && nombreEscritoIa) {
         selectedCompradorIdRef.current = "";
         setIdComprador("");
-        setCompradorLabel(nombreIa);
-        setCompradorNombreIa(nombreIa);
+        setCompradorLabel(nombreEscritoIa);
         setCompradorSugerencias(
           compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
         );
@@ -2381,6 +2639,8 @@ export function OrdenVentaCreateModal({
             return parsed != null && parsed > 0 ? parsed : null;
           })(),
           presentacion: linea.presentacion.trim() || null,
+          unidadMedida:
+            linea.unidadMedida.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
           matchProducto: buildMatchProductoLinea({
             textoCliente: linea.aliasCliente || linea.nombre,
             sugeridoMateo: linea.sugerencia
@@ -2406,6 +2666,7 @@ export function OrdenVentaCreateModal({
       skipSaveConfirmRef.current = false;
 
       setIsSaving(true);
+      setMateoBusyMessage(undefined);
 
       const persistOrigenTexto =
         isEditing || startMode === "docs"
@@ -2477,7 +2738,22 @@ export function OrdenVentaCreateModal({
         registrarTemperatura,
         origenTexto: persistOrigenTexto,
         origenArchivos: persistOrigenAdjuntos,
-        origenCorreo: origenCorreoDraft,
+        origenCorreo:
+          ordenesTrabajoForm.length > 0
+            ? buildOrigenCorreoFromOrdenesYLineas({
+                hijas: ordenesTrabajoForm,
+                lineas: lineas.map((linea) => ({
+                  otId: linea.otId,
+                  nombre: linea.nombre,
+                  codigo: linea.codigo,
+                  cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
+                  unidadMedida:
+                    linea.unidadMedida.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
+                  precioUnitario: parseDecimalEs(linea.precioInput) ?? 0,
+                  aliasCliente: linea.aliasCliente,
+                })),
+              })
+            : origenCorreoDraft,
         notasLineas: notasLineasText,
         notasAlmacen: sanitizeNotasGeneralesPedido(observaciones),
         observaciones: buildOrdenVentaCapturaObservaciones({
@@ -2511,6 +2787,7 @@ export function OrdenVentaCreateModal({
 
       let idOrdenVenta = isEditing ? editingId : pendingEmitId;
       const shouldEmit = !isEditing || editingEstado === "por_confirmar";
+      let listRowForPrint: OrdenVentaOperadorRow | null = null;
 
       try {
         const autorLog =
@@ -2526,7 +2803,10 @@ export function OrdenVentaCreateModal({
         const otCount = ordenesTrabajoForm.length;
 
         if (isEditing && editingId) {
-          await updateOrdenVenta({ ...payload, idOrdenVenta: editingId });
+          listRowForPrint = await updateOrdenVenta({
+            ...payload,
+            idOrdenVenta: editingId,
+          });
           idOrdenVenta = editingId;
           void postOrdenVentaLog({
             idOrdenVenta: editingId,
@@ -2539,8 +2819,8 @@ export function OrdenVentaCreateModal({
             idOrdenTrabajo: otActivaId,
           });
         } else if (!idOrdenVenta) {
-          const created = await createOrdenVenta(payload);
-          idOrdenVenta = created.idOrdenVenta;
+          listRowForPrint = await createOrdenVenta(payload);
+          idOrdenVenta = listRowForPrint.idOrdenVenta;
           setPendingEmitId(idOrdenVenta);
           void postOrdenVentaLog({
             idOrdenVenta,
@@ -2566,7 +2846,7 @@ export function OrdenVentaCreateModal({
           }
 
           try {
-            await emitirOrdenVentaApi(idOrdenVenta);
+            listRowForPrint = await emitirOrdenVentaApi(idOrdenVenta);
             void postOrdenVentaLog({
               idOrdenVenta,
               codigoCuenta,
@@ -2589,13 +2869,63 @@ export function OrdenVentaCreateModal({
               throw emitErr;
             }
 
-            const detalle = await getOrdenVentaDetalle({
+            const detalleEmit = await getOrdenVentaDetalle({
               codigoCuenta,
               idOrdenVenta,
             });
-            if (detalle.estado === "por_confirmar") {
+            if (detalleEmit.estado === "por_confirmar") {
               throw emitErr;
             }
+          }
+
+          // Autoimpresión solo si la cuenta la tiene encendida (panel Impresoras).
+          const autoPrintCfg = await getCuentaOvAutoImprimirConfigurator(
+            codigoCuenta,
+          );
+          if (autoPrintCfg?.autoImprimir) {
+            setMateoBusyMessage("Imprimiendo…");
+            const printJob = (async () => {
+              try {
+                const detallePrint = await getOrdenVentaDetalle({
+                  codigoCuenta,
+                  idOrdenVenta: idOrdenVenta!,
+                });
+                const listRow = resolveListRowForAutoPrint(
+                  detallePrint,
+                  listRowForPrint,
+                );
+                const sheets = mapOrdenVentaToAlmacenPrintSheets({
+                  listRow,
+                  detalle: detallePrint,
+                });
+                if (sheets.length === 0) return;
+                await printOrdenTareaAlmacenLandscape(sheets, { codigoCuenta });
+                void postOrdenVentaLog({
+                  idOrdenVenta: idOrdenVenta!,
+                  codigoCuenta,
+                  accion: "actualizacion",
+                  mensaje: `PDF de almacén enviado a impresora (auto tras validar) por ${autorLog}.`,
+                  idUsuario: idCreador || null,
+                  autorNombre: session?.nombre ?? null,
+                  idBodega: listRow.idBodega ?? null,
+                  payloadExtra: {
+                    tipo: "impresion_pdf_auto",
+                    hojas: sheets.length,
+                  },
+                });
+              } catch (printErr) {
+                console.error(
+                  "[ov] auto-print tras validar falló:",
+                  printErr instanceof Error ? printErr.message : printErr,
+                );
+              }
+            })();
+            await Promise.all([
+              printJob,
+              new Promise<void>((resolve) => {
+                window.setTimeout(resolve, 5_000);
+              }),
+            ]);
           }
         }
 
@@ -2614,6 +2944,7 @@ export function OrdenVentaCreateModal({
         setError(message);
       } finally {
         setIsSaving(false);
+        setMateoBusyMessage(undefined);
       }
     },
     [
@@ -2642,6 +2973,7 @@ export function OrdenVentaCreateModal({
       origenAdjuntos,
       origenArchivoFiles,
       origenCorreoDraft,
+      ordenesTrabajoForm,
       origenTexto,
       pendingEmitId,
       bodegasDestino,
@@ -2675,6 +3007,97 @@ export function OrdenVentaCreateModal({
   const docsReady =
     docsHasContent && productos.length > 0 && !isReadingIa;
 
+  const hasCaptureProgress = useMemo(() => {
+    if (step === "form" || step === "preview" || step === "pickOt") {
+      return true;
+    }
+    if (startMode === "docs") {
+      return Boolean(
+        origenTexto.trim() ||
+          origenArchivoFiles.length > 0 ||
+          origenAdjuntos.length > 0,
+      );
+    }
+    return false;
+  }, [
+    step,
+    startMode,
+    origenTexto,
+    origenArchivoFiles.length,
+    origenAdjuntos.length,
+  ]);
+
+  /**
+   * ESC / salir: primero retrocede un paso del wizard; si ya no hay paso
+   * anterior y hay progreso, pide confirmación antes de volver a Ventas.
+   */
+  const requestClose = useCallback(() => {
+    if (
+      picker != null ||
+      isCompradorCreateOpen ||
+      confirmDiscrepanciasOpen ||
+      confirmSaveOpen ||
+      confirmDiscardOpen
+    ) {
+      return;
+    }
+
+    // En edición (OV que ya vino por correo) no hay wizard docs/preview:
+    // ESC solo vuelve a pick OT si hay varias, o pide confirmación para salir.
+    if (isEditing) {
+      if (step === "form" && ordenesTrabajoForm.length > 1) {
+        setStep("pickOt");
+        setError(null);
+        return;
+      }
+      if (hasCaptureProgress) {
+        setConfirmDiscardOpen(true);
+        return;
+      }
+      onClose();
+      return;
+    }
+
+    // Alta nueva desde mensaje/archivos: retroceso por pasos del wizard.
+    if (step === "form") {
+      if (startMode === "docs" && previewHijas.length > 0) {
+        setStep("preview");
+        setError(null);
+        return;
+      }
+    } else if (step === "preview") {
+      setStep("start");
+      setStartMode("docs");
+      setError(null);
+      return;
+    } else if (step === "start" && startMode === "docs" && !docsHasContent) {
+      setStartMode(null);
+      setError(null);
+      return;
+    }
+
+    if (hasCaptureProgress) {
+      setConfirmDiscardOpen(true);
+      return;
+    }
+
+    onClose();
+  }, [
+    picker,
+    isCompradorCreateOpen,
+    confirmDiscrepanciasOpen,
+    confirmSaveOpen,
+    confirmDiscardOpen,
+    step,
+    startMode,
+    previewHijas.length,
+    isEditing,
+    ordenesTrabajoForm.length,
+    docsHasContent,
+    hasCaptureProgress,
+    onClose,
+  ]);
+
   const appendDocsFiles = useCallback((files: FileList | File[]) => {
     const next = Array.from(files).slice(0, 8);
     if (next.length === 0) return;
@@ -2700,11 +3123,13 @@ export function OrdenVentaCreateModal({
 
   return (
     <>
-      {showMateoLoading ? <MateoIaLoadingScreen /> : null}
+      {showMateoLoading ? (
+        <MateoIaLoadingScreen message={mateoBusyMessage} />
+      ) : null}
 
       <PolariaFormModal
         open={open && !showMateoLoading}
-        onClose={onClose}
+        onClose={requestClose}
         title={
           isEditing && step === "pickOt"
             ? "Órdenes de trabajo"
@@ -2825,7 +3250,10 @@ export function OrdenVentaCreateModal({
           picker === null &&
           !isCompradorCreateOpen &&
           !confirmDiscrepanciasOpen &&
-          !confirmSaveOpen
+          !confirmSaveOpen &&
+          !confirmDiscardOpen &&
+          !addOtOpen &&
+          !confirmRemoveOtId
         }
         closeOnBackdrop={false}
         submitOnEnter={false}
@@ -2891,16 +3319,18 @@ export function OrdenVentaCreateModal({
 
         {step === "start" && startMode === "docs" ? (
           <div className="flex flex-col gap-4">
-            <button
-              type="button"
-              onClick={() => {
-                setStartMode(null);
-                setError(null);
-              }}
-              className="self-start polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
-            >
-              ← Volver al inicio
-            </button>
+            {!isEditing ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setStartMode(null);
+                  setError(null);
+                }}
+                className="self-start polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
+              >
+                ← Volver al inicio
+              </button>
+            ) : null}
 
             <section className="overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08">
               <div className="flex items-center gap-2 border-b border-polaria-w-08 px-4 py-2.5">
@@ -3122,7 +3552,24 @@ export function OrdenVentaCreateModal({
               clienteLabel={compradorLabel}
               hijas={previewHijas}
               page={formOtSafePagePreview}
+              onRemoveHija={(hijaId) => setConfirmRemoveOtId(hijaId)}
             />
+            <button
+              type="button"
+              onClick={() => {
+                setAddOtAlmacen("");
+                setAddOtNumeroPedido(ordenCompraHotel.trim());
+                setAddOtOpen(true);
+                setError(null);
+              }}
+              className={cn(
+                "inline-flex items-center justify-center gap-2 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-2.5",
+                "polaria-text-body-sm font-semibold text-polaria-w transition hover:border-polaria-teal",
+              )}
+            >
+              <Plus className="h-4 w-4 text-polaria-teal" aria-hidden />
+              Agregar tarea de almacén
+            </button>
             <CollapsibleCuerpoMensaje
               text={origenTexto}
               adjuntos={adjuntosParaVista}
@@ -3139,55 +3586,114 @@ export function OrdenVentaCreateModal({
               <span className="font-semibold text-polaria-teal">
                 {ordenesTrabajoForm.length} órdenes de trabajo
               </span>
-              . Elige cuál quieres editar.
+              . Elige cuál quieres editar, o agrega/elimina si faltan o sobran.
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {ordenesTrabajoForm.map((hija, index) => (
-                <button
+                <div
                   key={hija.id}
-                  type="button"
-                  onClick={() => {
-                    setFormOtPage(index);
-                    setStep("form");
-                    setError(null);
-                  }}
-                  className={cn(
-                    "rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-4 text-left transition",
-                    "hover:border-polaria-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
-                  )}
+                  className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-4"
                 >
-                  <p className="polaria-text-body-sm font-semibold text-polaria-w">
-                    {hija.label}
-                  </p>
-                  <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                    {hija.renglones.length} producto
-                    {hija.renglones.length === 1 ? "" : "s"} ·{" "}
-                    {formatKgEs(hija.totalCantidad)} kg
-                  </p>
-                  {hija.almacen ? (
-                    <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                      {hija.almacen}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormOtPage(index);
+                      setStep("form");
+                      setError(null);
+                    }}
+                    className={cn(
+                      "w-full text-left transition",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                    )}
+                  >
+                    <p className="polaria-text-body-sm font-semibold text-polaria-w">
+                      {hija.label}
                     </p>
-                  ) : null}
-                </button>
+                    <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                      {
+                        hija.renglones.filter(
+                          (row) =>
+                            (row.Producto ?? "").trim() ||
+                            (row["Codigo producto"] ?? "").trim(),
+                        ).length
+                      }{" "}
+                      producto
+                      {hija.renglones.filter(
+                        (row) =>
+                          (row.Producto ?? "").trim() ||
+                          (row["Codigo producto"] ?? "").trim(),
+                      ).length === 1
+                        ? ""
+                        : "s"}{" "}
+                      · {formatKgEs(hija.totalCantidad)} kg
+                    </p>
+                    {hija.almacen ? (
+                      <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                        {hija.almacen}
+                      </p>
+                    ) : null}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRemoveOtId(hija.id)}
+                    className="mt-3 polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
+                  >
+                    Eliminar tarea
+                  </button>
+                </div>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setAddOtAlmacen("");
+                setAddOtNumeroPedido(ordenCompraHotel.trim());
+                setAddOtOpen(true);
+                setError(null);
+              }}
+              className={cn(
+                "inline-flex w-full items-center justify-center gap-2 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-2.5",
+                "polaria-text-body-sm font-semibold text-polaria-w transition hover:border-polaria-teal",
+              )}
+            >
+              <Plus className="h-4 w-4 text-polaria-teal" aria-hidden />
+              Agregar tarea de almacén
+            </button>
           </div>
         ) : null}
 
         {step === "form" && !isLoading ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              {isEditing && ordenesTrabajoForm.length > 1 ? (
+              {ordenesTrabajoForm.length > 1 ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep("pickOt");
+                      setError(null);
+                    }}
+                    className="polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
+                  >
+                    ← Ver todas las órdenes de trabajo
+                  </button>
+                  {hijaFormActiva ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmRemoveOtId(hijaFormActiva.id)}
+                      className="polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
+                    >
+                      Eliminar esta tarea
+                    </button>
+                  ) : null}
+                </div>
+              ) : ordenesTrabajoForm.length === 1 && hijaFormActiva ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setStep("pickOt");
-                    setError(null);
-                  }}
+                  onClick={() => setConfirmRemoveOtId(hijaFormActiva.id)}
                   className="polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
                 >
-                  ← Ver todas las órdenes de trabajo
+                  Eliminar tarea de almacén
                 </button>
               ) : !isEditing ? (
                 <button
@@ -3265,137 +3771,154 @@ export function OrdenVentaCreateModal({
                       required
                       className="sm:col-span-2"
                     >
-                      {idComprador && compradorSugerencias.length === 0 ? (
-                        <div className="relative flex items-stretch">
-                          <input
-                            id="orden-venta-cliente"
-                            type="text"
-                            value={compradorLabel}
-                            title={compradorLabel || undefined}
-                            readOnly
-                            aria-label="Cliente"
-                            className={cn(
-                              POLARIA_FORM_INPUT_CLASS_COMPACT,
-                              "w-full truncate pr-[6.75rem]",
-                              fieldControlClass({
-                                field: "cliente",
-                                missingFields,
-                                missing: !idComprador,
-                              }),
-                            )}
-                          />
-                          <span className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 items-center gap-1">
-                            <CatalogStatusHint
-                              label="Cliente coincide con el catálogo"
-                              tone="teal"
-                              size="md"
-                            >
-                              <CheckCircle2
-                                className="h-4 w-4"
-                                strokeWidth={2}
-                                aria-hidden
-                              />
-                            </CatalogStatusHint>
-                            <button
-                              type="button"
-                              onClick={() => setPicker("comprador")}
-                              title="Cambiar cliente"
-                              aria-label="Cambiar cliente"
-                              className="inline-flex items-center gap-1 rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2 py-1 polaria-text-caption font-medium text-polaria-teal transition hover:bg-polaria-t-20"
-                            >
-                              <Replace className="h-3 w-3" aria-hidden />
-                              Cambiar
-                            </button>
-                          </span>
-                        </div>
-                      ) : !idComprador &&
-                        (Boolean(compradorNombreIa) ||
-                          compradorSugerencias.length > 0) ? (
-                        <div className="relative flex items-stretch">
-                          <input
-                            id="orden-venta-cliente"
-                            type="text"
-                            value={compradorLabel || compradorNombreIa || ""}
-                            title={
-                              compradorLabel || compradorNombreIa || undefined
-                            }
-                            readOnly
-                            aria-label="Cliente"
-                            className={cn(
-                              POLARIA_FORM_INPUT_CLASS_COMPACT,
-                              "w-full truncate pr-[7.5rem]",
-                              "!border-polaria-warning-border !bg-polaria-warning-bg",
-                            )}
-                          />
-                          <span className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 items-center gap-1">
-                            <CatalogStatusHint
-                              label="Cliente sin coincidencia exacta en el catálogo"
-                              tone="warning"
-                              size="md"
-                            >
-                              <AlertTriangle
-                                className="h-4 w-4"
-                                strokeWidth={2}
-                                aria-hidden
-                              />
-                            </CatalogStatusHint>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPicker(
-                                  compradorSugerencias.length > 0
-                                    ? "sugerenciasComprador"
-                                    : "comprador",
-                                )
+                      <>
+                        {idComprador && compradorSugerencias.length === 0 ? (
+                          <div className="relative flex items-stretch">
+                            <input
+                              id="orden-venta-cliente"
+                              type="text"
+                              value={compradorLabel}
+                              title={compradorLabel || undefined}
+                              readOnly
+                              aria-label="Cliente"
+                              className={cn(
+                                POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                "w-full truncate pr-[6.75rem]",
+                                "border-polaria-teal bg-polaria-t-08 ring-1 ring-polaria-teal/50",
+                                "shadow-[0_0_22px_var(--teal-glow-strong)]",
+                                fieldControlClass({
+                                  field: "cliente",
+                                  missingFields,
+                                  missing: !idComprador,
+                                }),
+                              )}
+                            />
+                            <span className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 items-center gap-1">
+                              <CatalogStatusHint
+                                label="Cliente coincide con el catálogo"
+                                tone="teal"
+                                size="md"
+                              >
+                                <CheckCircle2
+                                  className="h-4 w-4"
+                                  strokeWidth={2}
+                                  aria-hidden
+                                />
+                              </CatalogStatusHint>
+                              <button
+                                type="button"
+                                onClick={() => setPicker("comprador")}
+                                title="Cambiar cliente"
+                                aria-label="Cambiar cliente"
+                                className="inline-flex items-center gap-1 rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2 py-1 polaria-text-caption font-medium text-polaria-teal transition hover:bg-polaria-t-20"
+                              >
+                                <Replace className="h-3 w-3" aria-hidden />
+                                Cambiar
+                              </button>
+                            </span>
+                          </div>
+                        ) : !idComprador &&
+                          (Boolean(compradorNombreIa) ||
+                            compradorSugerencias.length > 0) ? (
+                          <div className="relative flex items-stretch">
+                            <input
+                              id="orden-venta-cliente"
+                              type="text"
+                              value={compradorLabel || compradorNombreIa || ""}
+                              title={
+                                compradorLabel ||
+                                compradorNombreIa ||
+                                undefined
                               }
-                              title="Elegir cliente"
-                              aria-label="Elegir cliente"
-                              className="inline-flex items-center gap-1 rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-2 py-1 polaria-text-caption font-semibold text-polaria-warning transition hover:opacity-90"
-                            >
-                              Elegir
-                            </button>
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="relative flex items-stretch">
-                          <input
-                            id="orden-venta-cliente"
-                            type="text"
-                            value={compradorLabel}
-                            title={compradorLabel || undefined}
-                            readOnly
-                            placeholder="Selecciona un cliente"
-                            aria-label="Cliente"
-                            className={cn(
-                              POLARIA_FORM_INPUT_CLASS_COMPACT,
-                              "w-full truncate pr-[7.5rem]",
-                              "!border-polaria-danger-border !bg-polaria-danger-bg",
-                            )}
-                          />
-                          <span className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 items-center gap-1">
-                            <CatalogStatusHint
-                              label="Falta seleccionar un cliente"
-                              tone="danger"
-                              size="md"
-                            >
-                              <XCircle
-                                className="h-4 w-4"
-                                strokeWidth={2}
-                                aria-hidden
-                              />
-                            </CatalogStatusHint>
-                            <button
-                              type="button"
-                              onClick={() => setPicker("comprador")}
-                              title="Elegir cliente"
-                              aria-label="Elegir cliente"
-                              className="inline-flex items-center gap-1 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-2 py-1 polaria-text-caption font-semibold text-polaria-danger transition hover:opacity-90"
-                            >
-                              Elegir
-                            </button>
-                          </span>
-                        </div>
-                      )}
+                              readOnly
+                              aria-label="Cliente"
+                              className={cn(
+                                POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                "w-full truncate pr-[7.5rem]",
+                                "!border-polaria-warning-border !bg-polaria-warning-bg",
+                              )}
+                            />
+                            <span className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 items-center gap-1">
+                              <CatalogStatusHint
+                                label="Cliente sin coincidencia exacta en el catálogo"
+                                tone="warning"
+                                size="md"
+                              >
+                                <AlertTriangle
+                                  className="h-4 w-4"
+                                  strokeWidth={2}
+                                  aria-hidden
+                                />
+                              </CatalogStatusHint>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPicker(
+                                    compradorSugerencias.length > 0
+                                      ? "sugerenciasComprador"
+                                      : "comprador",
+                                  )
+                                }
+                                title="Elegir cliente"
+                                aria-label="Elegir cliente"
+                                className="inline-flex items-center gap-1 rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-2 py-1 polaria-text-caption font-semibold text-polaria-warning transition hover:opacity-90"
+                              >
+                                Elegir
+                              </button>
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="relative flex items-stretch">
+                            <input
+                              id="orden-venta-cliente"
+                              type="text"
+                              value={compradorLabel}
+                              title={compradorLabel || undefined}
+                              readOnly
+                              placeholder="Selecciona un cliente"
+                              aria-label="Cliente"
+                              className={cn(
+                                POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                "w-full truncate pr-[7.5rem]",
+                                "!border-polaria-danger-border !bg-polaria-danger-bg",
+                              )}
+                            />
+                            <span className="absolute right-1 top-1/2 inline-flex -translate-y-1/2 items-center gap-1">
+                              <CatalogStatusHint
+                                label="Falta seleccionar un cliente"
+                                tone="danger"
+                                size="md"
+                              >
+                                <XCircle
+                                  className="h-4 w-4"
+                                  strokeWidth={2}
+                                  aria-hidden
+                                />
+                              </CatalogStatusHint>
+                              <button
+                                type="button"
+                                onClick={() => setPicker("comprador")}
+                                title="Elegir cliente"
+                                aria-label="Elegir cliente"
+                                className="inline-flex items-center gap-1 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-2 py-1 polaria-text-caption font-semibold text-polaria-danger transition hover:opacity-90"
+                              >
+                                Elegir
+                              </button>
+                            </span>
+                          </div>
+                        )}
+                        {compradorNombreIa?.trim() ? (
+                          <p
+                            className="mt-1.5 truncate text-[11px] leading-snug text-polaria-teal/80"
+                            title={compradorNombreIa.trim()}
+                          >
+                            Escrito por el cliente:{" "}
+                            <span className="text-polaria-w-50">
+                              {compradorNombreIa.trim()}
+                            </span>
+                          </p>
+                        ) : null}
+                      </>
                 </PolariaFormField>
 
                     <PolariaFormInput
@@ -3766,253 +4289,287 @@ export function OrdenVentaCreateModal({
                               pending && tieneSugerenciasProducto;
                             const cantidadFocusKey =
                               linea.idProducto || `pending-${index}`;
+                            const textoEscritoProducto =
+                              linea.aliasCliente?.trim() || "";
                             return (
                               <tr
                                 key={`${linea.idProducto || "pending"}-${index}`}
-                          className={cn(
-                            "border-b border-polaria-w-08 last:border-b-0",
-                            productoError &&
-                              "border-l-2 border-l-polaria-danger bg-polaria-danger-bg/55",
-                            productoWarn &&
-                              "border-l-2 border-l-polaria-warning bg-polaria-warning-bg/55",
-                          )}
-                        >
-                                <td className="px-1 py-2 align-top">
-                                  <div className="flex min-w-0 items-center gap-1.5">
-                                    <p className="min-w-0 truncate polaria-text-body-sm font-medium text-polaria-w">
-                                      {formatProductoNombreConSku(
-                                        pending
-                                          ? linea.aliasCliente || linea.nombre
-                                          : linea.nombre,
-                                        linea.codigo,
-                                      )}
-                                    </p>
-                                    {!pending ? (
-                                      <CatalogStatusHint
-                                        label="Producto coincide con el catálogo"
-                                        tone="teal"
-                                      >
-                                        <CheckCircle2
-                                          className="h-3.5 w-3.5"
-                                          strokeWidth={2}
-                                          aria-hidden
-                                        />
-                                      </CatalogStatusHint>
-                                    ) : productoWarn ? (
-                                      <CatalogStatusHint
-                                        label="Producto sin coincidencia exacta en el catálogo"
-                                        tone="warning"
-                                      >
-                                        <AlertTriangle
-                                          className="h-3.5 w-3.5"
-                                          strokeWidth={2}
-                                          aria-hidden
-                                        />
-                                      </CatalogStatusHint>
-                                    ) : (
-                                      <CatalogStatusHint
-                                        label="Producto no identificado: elige uno del catálogo"
-                                        tone="danger"
-                                      >
-                                        <XCircle
-                                          className="h-3.5 w-3.5"
-                                          strokeWidth={2}
-                                          aria-hidden
-                                        />
-                                      </CatalogStatusHint>
+                                className="border-b border-polaria-w-08 last:border-b-0"
+                              >
+                                <td className="px-1 py-2 align-middle">
+                                  <div
+                                    className={cn(
+                                      "min-w-0 rounded-lg border px-2 py-1.5 ring-1",
+                                      !pending &&
+                                        "border-polaria-teal bg-polaria-t-08 ring-polaria-teal/50 shadow-[0_0_18px_var(--teal-glow-strong)]",
+                                      productoWarn &&
+                                        "border-polaria-warning bg-polaria-warning-bg ring-polaria-warning/50 shadow-[0_0_18px_var(--warning-border)]",
+                                      productoError &&
+                                        "border-polaria-danger bg-polaria-danger-bg ring-polaria-danger/50 shadow-[0_0_18px_var(--danger-border)]",
                                     )}
-                                  </div>
-                                  {pending ? (
+                                  >
+                                    <div className="flex min-w-0 items-center gap-1.5">
+                                      <p className="min-w-0 truncate polaria-text-body-sm font-medium text-polaria-w">
+                                        {formatProductoNombreConSku(
+                                          pending
+                                            ? linea.aliasCliente || linea.nombre
+                                            : linea.nombre,
+                                          linea.codigo,
+                                        )}
+                                      </p>
+                                      {!pending ? (
+                                        <CatalogStatusHint
+                                          label="Producto coincide con el catálogo"
+                                          tone="teal"
+                                        >
+                                          <CheckCircle2
+                                            className="h-3.5 w-3.5"
+                                            strokeWidth={2}
+                                            aria-hidden
+                                          />
+                                        </CatalogStatusHint>
+                                      ) : productoWarn ? (
+                                        <CatalogStatusHint
+                                          label="Producto sin coincidencia exacta en el catálogo"
+                                          tone="warning"
+                                        >
+                                          <AlertTriangle
+                                            className="h-3.5 w-3.5"
+                                            strokeWidth={2}
+                                            aria-hidden
+                                          />
+                                        </CatalogStatusHint>
+                                      ) : (
+                                        <CatalogStatusHint
+                                          label="Producto no identificado: elige uno del catálogo"
+                                          tone="danger"
+                                        >
+                                          <XCircle
+                                            className="h-3.5 w-3.5"
+                                            strokeWidth={2}
+                                            aria-hidden
+                                          />
+                                        </CatalogStatusHint>
+                                      )}
+                                    </div>
+                                    {textoEscritoProducto ? (
+                                      <p
+                                        className="mt-1 truncate text-[11px] leading-snug text-polaria-teal/80"
+                                        title={textoEscritoProducto}
+                                      >
+                                        Escrito por el cliente:{" "}
+                                        <span className="text-polaria-w-50">
+                                          {textoEscritoProducto}
+                                        </span>
+                                      </p>
+                                    ) : null}
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        if (tieneSugerenciasProducto) {
-                                          handleOpenSugerenciasProducto(index);
-                                        } else {
-                                          handleOpenReplaceProducto(index);
-                                        }
+                                        // Validar o cambiar: siempre catálogo completo
+                                        // (sugerencias van arriba si las hay).
+                                        handleOpenReplaceProducto(index);
                                       }}
-                                      className={cn(
-                                        "mt-1.5 rounded-lg border px-2 py-1 polaria-text-caption font-semibold transition",
-                                        productoError
-                                          ? "border-polaria-danger-border bg-polaria-danger-bg text-polaria-danger hover:opacity-90"
-                                          : "border-polaria-warning-border bg-polaria-warning-bg text-polaria-warning hover:opacity-90",
-                                      )}
-                                    >
-                                      Elegir producto
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleOpenReplaceProducto(index)
-                                      }
-                                      className="mt-1 inline-flex items-center gap-1 polaria-text-caption font-medium text-polaria-w-50 transition hover:text-polaria-teal"
                                       title={
                                         linea.aliasCliente
                                           ? `Cliente: ${linea.aliasCliente}`
                                           : "Cambiar producto"
                                       }
+                                      aria-label="Cambiar producto"
+                                      className={cn(
+                                        "mt-1.5 inline-flex items-center gap-1 rounded-lg border px-2 py-1 polaria-text-caption font-medium transition hover:opacity-90",
+                                        productoError
+                                          ? "border-polaria-danger bg-polaria-danger-bg text-polaria-danger"
+                                          : productoWarn
+                                            ? "border-polaria-warning bg-polaria-warning-bg text-polaria-warning"
+                                            : "border-polaria-t-20 bg-polaria-t-08 text-polaria-w hover:bg-polaria-t-20",
+                                      )}
                                     >
                                       <Replace
-                                        className="h-3 w-3"
+                                        className="h-3 w-3 shrink-0"
                                         aria-hidden
                                       />
                                       Cambiar
                                     </button>
-                                  )}
+                                  </div>
                                 </td>
-                                <td className="px-1 py-2 align-top">
-                                  <input
-                                    id={`orden-venta-cantidad-${cantidadFocusKey}`}
-                                    aria-label={`Cantidad de ${linea.nombre}`}
-                                    type="text"
-                                    inputMode="decimal"
-                                    autoComplete="off"
-                                    value={linea.cantidadInput}
-                                    placeholder="0"
-                                    onChange={(event) =>
-                                      handleCantidadChange(
-                                        index,
-                                        event.target.value,
-                                      )
-                                    }
-                                    onBlur={(event) =>
-                                      handleCantidadBlur(
-                                        index,
-                                        event.target.value,
-                                      )
-                                    }
-                                    className={cn(
-                                      POLARIA_FORM_INPUT_CLASS_COMPACT,
-                                      "px-2 tabular-nums",
-                                      fieldControlClass({
-                                        missing:
-                                          !linea.cantidadInput.trim() ||
-                                          (parseDecimalEs(linea.cantidadInput) ??
-                                            0) <= 0,
-                                      }) ??
-                                        (linea.filledByIa
-                                          ? "!border-polaria-teal/50 !bg-polaria-t-08"
-                                          : undefined),
-                                    )}
-                                  />
-                          </td>
-                                <td className="px-1 py-2 align-top">
-                                  <input
-                                    aria-label={`Unidad de ${linea.nombre}`}
-                                    value={
-                                      linea.unidadMedida ||
-                                      UNIDAD_MEDIDA_VENTA_DEFAULT
-                                    }
-                                    disabled
-                                    tabIndex={-1}
-                                    className={cn(
-                                      POLARIA_FORM_INPUT_CLASS_COMPACT,
-                                      "px-1.5 text-center",
-                                    )}
-                                  />
-                          </td>
-                                <td className="px-1 py-2 align-top">
-                                  <input
-                                    aria-label={`Especificación de ${linea.nombre}`}
-                                    type="text"
-                                    value={linea.especificacion}
-                                    onChange={(event) =>
-                                      handleLineaFieldChange(
-                                        index,
-                                        "especificacion",
-                                        event.target.value,
-                                      )
-                                    }
-                                    className={cn(
-                                      POLARIA_FORM_INPUT_CLASS_COMPACT,
-                                      "px-2",
-                                      linea.filledByIa &&
-                                        linea.especificacion &&
-                                        "!border-polaria-teal/50 !bg-polaria-t-08",
-                                    )}
-                                  />
+                                <td className="h-px px-1 py-2">
+                                  <div className="flex h-full min-h-full items-stretch">
+                                    <input
+                                      id={`orden-venta-cantidad-${cantidadFocusKey}`}
+                                      aria-label={`Cantidad de ${linea.nombre}`}
+                                      type="text"
+                                      inputMode="decimal"
+                                      autoComplete="off"
+                                      value={linea.cantidadInput}
+                                      placeholder="0"
+                                      onChange={(event) =>
+                                        handleCantidadChange(
+                                          index,
+                                          event.target.value,
+                                        )
+                                      }
+                                      onBlur={(event) =>
+                                        handleCantidadBlur(
+                                          index,
+                                          event.target.value,
+                                        )
+                                      }
+                                      className={cn(
+                                        POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                        "h-full min-h-full px-2 tabular-nums",
+                                        fieldControlClass({
+                                          missing:
+                                            !linea.cantidadInput.trim() ||
+                                            (parseDecimalEs(
+                                              linea.cantidadInput,
+                                            ) ?? 0) <= 0,
+                                        }) ??
+                                          (linea.filledByIa
+                                            ? "!border-polaria-teal/50 !bg-polaria-t-08"
+                                            : undefined),
+                                      )}
+                                    />
+                                  </div>
                                 </td>
-                                <td className="px-1 py-2 align-top">
-                                  <input
-                                    aria-label={`Descuento % de ${linea.nombre}`}
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={linea.descuentoPctInput || "0"}
-                                    disabled
-                                    tabIndex={-1}
-                                    className={POLARIA_FORM_INPUT_CLASS_COMPACT}
-                                  />
+                                <td className="h-px px-1 py-2">
+                                  <div className="flex h-full min-h-full items-stretch">
+                                    <input
+                                      aria-label={`Unidad de ${linea.nombre}`}
+                                      value={
+                                        linea.unidadMedida ||
+                                        UNIDAD_MEDIDA_VENTA_DEFAULT
+                                      }
+                                      disabled
+                                      tabIndex={-1}
+                                      className={cn(
+                                        POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                        "h-full min-h-full px-1.5 text-center",
+                                      )}
+                                    />
+                                  </div>
                                 </td>
-                                <td className="px-1 py-2 align-top">
-                                  <input
-                                    aria-label={`Precio de ${linea.nombre}`}
-                                    type="text"
-                                    inputMode="decimal"
-                                    autoComplete="off"
-                                    value={linea.precioInput}
-                                    placeholder=""
-                                    onChange={(event) =>
-                                      handlePrecioChange(
-                                        index,
-                                        event.target.value,
-                                      )
-                                    }
-                                    onBlur={(event) =>
-                                      handlePrecioBlur(
-                                        index,
-                                        event.target.value,
-                                      )
-                                    }
-                                    className={cn(
-                                      POLARIA_FORM_INPUT_CLASS_COMPACT,
-                                      "px-2 tabular-nums",
-                                      fieldControlClass({
-                                        missing:
-                                          !linea.precioInput.trim() ||
-                                          (parseDecimalEs(linea.precioInput) ??
-                                            0) <= 0,
-                                      }),
-                                    )}
-                                  />
+                                <td className="h-px px-1 py-2">
+                                  <div className="flex h-full min-h-full items-stretch">
+                                    <input
+                                      aria-label={`Especificación de ${linea.nombre}`}
+                                      type="text"
+                                      value={linea.especificacion}
+                                      onChange={(event) =>
+                                        handleLineaFieldChange(
+                                          index,
+                                          "especificacion",
+                                          event.target.value,
+                                        )
+                                      }
+                                      className={cn(
+                                        POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                        "h-full min-h-full px-2",
+                                        linea.filledByIa &&
+                                          linea.especificacion &&
+                                          "!border-polaria-teal/50 !bg-polaria-t-08",
+                                      )}
+                                    />
+                                  </div>
                                 </td>
-                                <td className="px-1 py-2 align-top">
-                                  <select
-                                    aria-label={`IVA de ${linea.nombre}`}
-                                    value={linea.ivaPct}
-                                    onChange={(event) =>
-                                      handleLineaFieldChange(
-                                        index,
-                                        "ivaPct",
-                                        event.target.value,
-                                      )
-                                    }
-                                    className={POLARIA_FORM_SELECT_CLASS_COMPACT}
-                                  >
-                                    {IVA_PCT_OPTIONS.map((option) => (
-                                      <option
-                                        key={option.value}
-                                        value={option.value}
-                                      >
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
+                                <td className="h-px px-1 py-2">
+                                  <div className="flex h-full min-h-full items-stretch">
+                                    <input
+                                      aria-label={`Descuento % de ${linea.nombre}`}
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={linea.descuentoPctInput || "0"}
+                                      disabled
+                                      tabIndex={-1}
+                                      className={cn(
+                                        POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                        "h-full min-h-full",
+                                      )}
+                                    />
+                                  </div>
                                 </td>
-                                <td className="px-1 py-2 align-top font-mono polaria-text-body-sm text-polaria-teal">
-                                  ${formatPrecioEs(importe)}
+                                <td className="h-px px-1 py-2">
+                                  <div className="flex h-full min-h-full items-stretch">
+                                    <input
+                                      aria-label={`Precio de ${linea.nombre}`}
+                                      type="text"
+                                      inputMode="decimal"
+                                      autoComplete="off"
+                                      value={linea.precioInput}
+                                      placeholder=""
+                                      onChange={(event) =>
+                                        handlePrecioChange(
+                                          index,
+                                          event.target.value,
+                                        )
+                                      }
+                                      onBlur={(event) =>
+                                        handlePrecioBlur(
+                                          index,
+                                          event.target.value,
+                                        )
+                                      }
+                                      className={cn(
+                                        POLARIA_FORM_INPUT_CLASS_COMPACT,
+                                        "h-full min-h-full px-2 tabular-nums",
+                                        fieldControlClass({
+                                          missing:
+                                            !linea.precioInput.trim() ||
+                                            (parseDecimalEs(linea.precioInput) ??
+                                              0) <= 0,
+                                        }),
+                                      )}
+                                    />
+                                  </div>
                                 </td>
-                                <td className="px-0 py-2 pr-1 align-top text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveLinea(index)}
-                                    className="rounded-lg p-1.5 text-polaria-w-50 transition hover:bg-polaria-w-08 hover:text-polaria-danger"
-                                    aria-label={`Quitar ${linea.aliasCliente || linea.nombre}`}
-                            >
-                              <Trash2 className="h-4 w-4" aria-hidden />
-                            </button>
-                          </td>
+                                <td className="h-px px-1 py-2">
+                                  <div className="flex h-full min-h-full items-stretch">
+                                    <select
+                                      aria-label={`IVA de ${linea.nombre}`}
+                                      value={linea.ivaPct}
+                                      onChange={(event) =>
+                                        handleLineaFieldChange(
+                                          index,
+                                          "ivaPct",
+                                          event.target.value,
+                                        )
+                                      }
+                                      className={cn(
+                                        POLARIA_FORM_SELECT_CLASS_COMPACT,
+                                        "h-full min-h-full",
+                                      )}
+                                    >
+                                      {IVA_PCT_OPTIONS.map((option) => (
+                                        <option
+                                          key={option.value}
+                                          value={option.value}
+                                        >
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </td>
+                                <td className="h-px px-1 py-2">
+                                  <div className="flex h-full min-h-full items-center font-mono polaria-text-body-sm text-polaria-teal">
+                                    ${formatPrecioEs(importe)}
+                                  </div>
+                                </td>
+                                <td className="h-px px-0 py-2 pr-1">
+                                  <div className="flex h-full min-h-full items-center justify-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveLinea(index)}
+                                      className="rounded-lg p-1.5 text-polaria-w-50 transition hover:bg-polaria-w-08 hover:text-polaria-danger"
+                                      aria-label={`Quitar ${linea.aliasCliente || linea.nombre}`}
+                                    >
+                                      <Trash2
+                                        className="h-4 w-4"
+                                        aria-hidden
+                                      />
+                                    </button>
+                                  </div>
+                                </td>
                         </tr>
                             );
                           })
@@ -4224,7 +4781,10 @@ export function OrdenVentaCreateModal({
         textoCliente={compradorNombreIa || compradorLabel}
         sugerencias={compradorSugerencias}
         onSelect={(row) => {
-          handleSelectComprador(row, { preservePedidoData: true });
+          handleSelectComprador(row, {
+            preservePedidoData: true,
+            keepNombreIa: true,
+          });
           setPicker(null);
         }}
         onOpenCatalogo={() => setPicker("comprador")}
@@ -4237,6 +4797,7 @@ export function OrdenVentaCreateModal({
           setReplaceLineaIndex(null);
         }}
         productos={productosParaPicker}
+        priorityIds={productoPickerPriorityIds}
         selectedId={
           replaceLineaIndex != null
             ? lineas[replaceLineaIndex]?.idProducto || null
@@ -4244,14 +4805,22 @@ export function OrdenVentaCreateModal({
         }
         onSelect={handleSelectProducto}
         title={
-          replaceLineaIndex != null
-            ? "Reemplazar producto"
-            : "Seleccionar producto"
+          replaceLineaIndex != null &&
+          lineas[replaceLineaIndex]?.catalogPending
+            ? "Elegir producto"
+            : replaceLineaIndex != null
+              ? "Reemplazar producto"
+              : "Seleccionar producto"
         }
         description={
-          replaceLineaIndex != null
-            ? "Elige el producto del catálogo para esta línea del pedido."
-            : "Catálogo completo de productos de la cuenta."
+          replaceLineaIndex != null &&
+          lineas[replaceLineaIndex]?.catalogPending
+            ? lineas[replaceLineaIndex]?.aliasCliente?.trim()
+              ? `Catálogo completo. Arriba van primero las opciones más parecidas a «${lineas[replaceLineaIndex]!.aliasCliente!.trim()}».`
+              : "Catálogo completo. Arriba van primero las opciones más parecidas a lo del pedido."
+            : replaceLineaIndex != null
+              ? "Elige el producto del catálogo para esta línea del pedido."
+              : "Catálogo completo de productos de la cuenta."
         }
       />
 
@@ -4329,10 +4898,13 @@ export function OrdenVentaCreateModal({
 
       <PolariaConfirmDialog
         open={confirmDiscrepanciasOpen}
+        stackLevel="elevated"
         onClose={() => setConfirmDiscrepanciasOpen(false)}
         onConfirm={() => {
           setConfirmDiscrepanciasOpen(false);
+          // Una sola confirmación: "Enviar igual" ya autoriza el envío.
           skipDiscrepanciaConfirmRef.current = true;
+          skipSaveConfirmRef.current = true;
           void handleSubmit({
             preventDefault() {},
           } as FormEvent<HTMLFormElement>);
@@ -4407,6 +4979,7 @@ export function OrdenVentaCreateModal({
 
       <PolariaConfirmDialog
         open={confirmSaveOpen}
+        stackLevel="elevated"
         onClose={() => setConfirmSaveOpen(false)}
         onConfirm={() => {
           setConfirmSaveOpen(false);
@@ -4434,6 +5007,68 @@ export function OrdenVentaCreateModal({
           </p>
         ) : null}
       </PolariaConfirmDialog>
+
+      <PolariaConfirmDialog
+        open={confirmDiscardOpen}
+        stackLevel="elevated"
+        onClose={() => setConfirmDiscardOpen(false)}
+        onConfirm={() => {
+          setConfirmDiscardOpen(false);
+          onClose();
+        }}
+        title="¿Salir del pedido?"
+        description={
+          ordenesTrabajoForm.length > 1
+            ? "Se perderá el progreso capturado, incluidas las órdenes de trabajo."
+            : "Se perderá el progreso capturado y volverás a Ventas."
+        }
+        confirmLabel="Salir"
+        cancelLabel="Seguir editando"
+      />
+
+      <PolariaConfirmDialog
+        open={addOtOpen}
+        stackLevel="elevated"
+        onClose={() => {
+          setAddOtOpen(false);
+          setError(null);
+        }}
+        onConfirm={handleAddOrdenTrabajo}
+        title="¿Agregar tarea de almacén?"
+        description="Se creará una orden de trabajo adicional. Indica el centro de consumo y confirma."
+        confirmLabel="Sí, agregar"
+        cancelLabel="Cancelar"
+      >
+        <div className="flex flex-col gap-3">
+          <PolariaFormInput
+            id="orden-venta-add-ot-almacen"
+            label="Centro de consumo / cocina"
+            required
+            value={addOtAlmacen}
+            onChange={(event) => setAddOtAlmacen(event.target.value)}
+            placeholder="Ej. BANQUETES, CANTINA…"
+            autoFocus
+          />
+          <PolariaFormInput
+            id="orden-venta-add-ot-numero-pedido"
+            label="Orden de compra del cliente"
+            value={addOtNumeroPedido}
+            onChange={(event) => setAddOtNumeroPedido(event.target.value)}
+            placeholder="Opcional"
+          />
+        </div>
+      </PolariaConfirmDialog>
+
+      <PolariaConfirmDialog
+        open={Boolean(confirmRemoveOtId)}
+        stackLevel="elevated"
+        onClose={() => setConfirmRemoveOtId(null)}
+        onConfirm={handleConfirmRemoveOrdenTrabajo}
+        title="¿Eliminar esta tarea de almacén?"
+        description="Se quitará la tarea y sus productos de esta venta. Esta acción no se puede deshacer aquí."
+        confirmLabel="Sí, eliminar"
+        cancelLabel="Conservar"
+      />
     </>
   );
 }
