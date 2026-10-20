@@ -5040,21 +5040,22 @@ export function OrdenVentaCreateModal({
         cancelLabel="Cancelar"
       >
         <div className="flex flex-col gap-3">
-          <PolariaFormField label="Centro de consumo / cocina" required>
-            <PolariaFormInput
-              value={addOtAlmacen}
-              onChange={(event) => setAddOtAlmacen(event.target.value)}
-              placeholder="Ej. BANQUETES, CANTINA…"
-              autoFocus
-            />
-          </PolariaFormField>
-          <PolariaFormField label="Orden de compra del cliente">
-            <PolariaFormInput
-              value={addOtNumeroPedido}
-              onChange={(event) => setAddOtNumeroPedido(event.target.value)}
-              placeholder="Opcional"
-            />
-          </PolariaFormField>
+          <PolariaFormInput
+            id="orden-venta-add-ot-almacen"
+            label="Centro de consumo / cocina"
+            required
+            value={addOtAlmacen}
+            onChange={(event) => setAddOtAlmacen(event.target.value)}
+            placeholder="Ej. BANQUETES, CANTINA…"
+            autoFocus
+          />
+          <PolariaFormInput
+            id="orden-venta-add-ot-numero-pedido"
+            label="Orden de compra del cliente"
+            value={addOtNumeroPedido}
+            onChange={(event) => setAddOtNumeroPedido(event.target.value)}
+            placeholder="Opcional"
+          />
         </div>
       </PolariaConfirmDialog>
 
