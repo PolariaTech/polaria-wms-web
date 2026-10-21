@@ -3260,7 +3260,7 @@ export function OrdenVentaCreateModal({
         compact
         size={step === "start" ? "lg" : "2xl"}
         layout={cypherOpen && isEditing ? "dock-left" : "center"}
-        closeOnBackdrop={!cypherOpen}
+        closeOnBackdrop={false}
         hideHeaderClose
         headerTrailing={
           cypherOpen && isEditing
@@ -3363,7 +3363,6 @@ export function OrdenVentaCreateModal({
           !addOtOpen &&
           !confirmRemoveOtId
         }
-        closeOnBackdrop={false}
         submitOnEnter={false}
       >
         {isLoading &&
