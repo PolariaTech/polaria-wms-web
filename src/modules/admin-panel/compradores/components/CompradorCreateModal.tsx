@@ -125,7 +125,7 @@ export function CompradorCreateModal({
       setError(
         err instanceof DomainServiceError
           ? err.message
-          : "No se pudo crear el comprador.",
+          : "No se pudo crear el cliente.",
       );
     } finally {
       setIsSubmitting(false);
@@ -136,9 +136,9 @@ export function CompradorCreateModal({
     <PolariaFormModal
       open={open}
       onClose={handleClose}
-      sectionLabel="Nuevo comprador"
-      title="Nuevo comprador"
-      description="Completa la ficha del comprador. Las equivalencias se agregan después desde Editar."
+      sectionLabel="Nuevo cliente"
+      title="Nuevo cliente"
+      description="Completa la ficha del cliente. Las equivalencias se agregan después desde Editar."
       onSubmit={(event) => {
         void handleSubmit(event);
       }}

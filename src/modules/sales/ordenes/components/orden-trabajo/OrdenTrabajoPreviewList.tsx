@@ -89,7 +89,7 @@ export function OrdenTrabajoPreviewList({
                 value={hija.numeroPedido}
               />
               <Meta
-                label="Centro de consumo / cocina"
+                label="Centro de consumo"
                 value={hija.almacen}
               />
               <Meta label="Fecha de entrega" value={hija.fecha} />

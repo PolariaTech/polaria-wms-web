@@ -32,7 +32,7 @@ export function OrdenVentaCompradorPickerModal({
     if (!needle) return compradores;
     return compradores.filter((row) => {
       const haystack =
-        `${row.codigo} ${row.comprador} ${row.rfc ?? ""} ${row.telefono ?? ""}`.toLowerCase();
+        `${row.codigo} ${row.comprador} ${row.apodo ?? ""} ${row.rfc ?? ""} ${row.telefono ?? ""}`.toLowerCase();
       return haystack.includes(needle);
     });
   }, [compradores, query]);
@@ -51,6 +51,13 @@ export function OrdenVentaCompradorPickerModal({
       onSubmit={(event) => event.preventDefault()}
       asForm={false}
       hideHeaderClose
+      footerLeading={
+        <p className="polaria-text-caption text-polaria-w-50">
+          Mostrando{" "}
+          {filtered.length === 0 ? "0–0" : `1–${filtered.length}`} de{" "}
+          {compradores.length}
+        </p>
+      }
       footerAction={<></>}
       cancelLabel="Cerrar"
       compact
@@ -66,7 +73,7 @@ export function OrdenVentaCompradorPickerModal({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por código, cliente o RFC"
+            placeholder="Buscar por código, cliente, D. Comercial o RFC"
             aria-label="Buscar cliente"
             className={cn(
               "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-2.5 pl-10 pr-4",
@@ -87,9 +94,10 @@ export function OrdenVentaCompradorPickerModal({
         <div className="max-h-[min(55dvh,24rem)] overflow-auto rounded-xl border border-polaria-w-08">
           <table className="w-full table-fixed border-collapse text-left">
             <colgroup>
-              <col className="w-[22%]" />
-              <col className="w-[48%]" />
-              <col className="w-[30%]" />
+              <col className="w-[18%]" />
+              <col className="w-[34%]" />
+              <col className="w-[24%]" />
+              <col className="w-[24%]" />
             </colgroup>
             <thead className="sticky top-0 z-10 bg-polaria-bg">
               <tr className="border-b border-polaria-t-20 bg-polaria-bg">
@@ -98,6 +106,9 @@ export function OrdenVentaCompradorPickerModal({
                 </th>
                 <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   Cliente
+                </th>
+                <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+                  D. Comercial
                 </th>
                 <th className="bg-polaria-bg px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                   RFC
@@ -138,6 +149,9 @@ export function OrdenVentaCompradorPickerModal({
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm">
                       {row.comprador}
+                    </td>
+                    <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
+                      {row.apodo?.trim() || "—"}
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
                       {row.rfc?.trim() || "—"}

@@ -7,11 +7,22 @@ import {
   mapLatestPrecioProductoById,
   type PrecioProductoRow,
 } from "../utils/sales-precio";
+import {
+  isCatalogoTipoProductoMercancia,
+  parseCatalogoMetadatos,
+} from "@/modules/admin-panel/catalogo/constants/catalogo-producto";
 import { resolveNombreProductoVenta } from "../utils/producto-venta-nombre";
 import {
   UNIDAD_MEDIDA_VENTA_DEFAULT,
   type ProductoVentaOption,
 } from "../types/sales.types";
+
+function isProductoMercanciaVenta(row: {
+  metadatos_catalogo?: unknown;
+}): boolean {
+  const meta = parseCatalogoMetadatos(row.metadatos_catalogo);
+  return isCatalogoTipoProductoMercancia(meta.tipo_producto);
+}
 
 const WAREHOUSE_STOCK_VENTA_SELECT =
   "id_producto,id_bodega,id_ubicacion,cantidad,cantidad_reservada," +
@@ -210,11 +221,13 @@ export async function listProductoCatalogoClavesServer(
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as ProductoCatalogoRow[]).map((row) => {
-    const codigo = row.sku?.trim() || row.id_producto?.slice(0, 8) || "";
-    const nombre = resolveNombreProductoVenta(row, codigo);
-    return `${nombre} (${codigo})`;
-  });
+  return ((data ?? []) as ProductoCatalogoRow[])
+    .filter(isProductoMercanciaVenta)
+    .map((row) => {
+      const codigo = row.sku?.trim() || row.id_producto?.slice(0, 8) || "";
+      const nombre = resolveNombreProductoVenta(row, codigo);
+      return `${nombre} (${codigo})`;
+    });
 }
 
 /** Catálogo completo de productos de la cuenta + kg disponibles (puede ser 0). */
@@ -259,7 +272,9 @@ export async function listProductosVentaCatalogoServer(
     throw new Error(productoError.message);
   }
 
-  const productos = (productoRows ?? []) as ProductoCatalogoRow[];
+  const productos = ((productoRows ?? []) as ProductoCatalogoRow[]).filter(
+    isProductoMercanciaVenta,
+  );
   if (productos.length === 0) return [];
 
   let stockRows: WarehouseStockVentaRow[] = [];

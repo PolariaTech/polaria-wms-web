@@ -14,7 +14,10 @@ import {
   CATALOGO_TIPO_PRIMARIO,
   CATALOGO_TIPO_SECUNDARIO,
   CATALOGO_UNIDAD_MEDIDA_DEFAULT,
+  isCatalogoTipoProductoMercancia,
   parseCatalogoMetadatos,
+  parseTipoProductoCodigo,
+  resolveTipoProductoLabel,
   type CatalogoProductoMetadatos,
 } from "../constants/catalogo-producto";
 import type { CatalogoExcelImportRow } from "../utils/catalogo-excel-import";
@@ -30,6 +33,10 @@ export interface CatalogoProductoListRow {
   proveedor: string;
   categoria: string;
   tipo: string;
+  /** Etiqueta legible de `metadatos_catalogo.tipo_producto` (Producto / Servicio). */
+  tipoProducto: string;
+  /** Código numérico crudo; null si no viene en metadatos. */
+  tipoProductoCodigo: number | null;
   etiquetas: string;
   publicado: string;
   estado: string;
@@ -181,6 +188,7 @@ function resolveTipo(row: ProductoDbRow, meta: CatalogoProductoMetadatos): strin
 function mapProductoRow(row: ProductoDbRow, index: number): CatalogoProductoListRow {
   const meta = parseCatalogoMetadatos(row.metadatos_catalogo);
   const titulo = meta.titulo?.trim() || row.descripcion.trim() || "—";
+  const tipoProductoCodigo = parseTipoProductoCodigo(meta.tipo_producto);
 
   return {
     idProducto: row.id_producto,
@@ -192,6 +200,8 @@ function mapProductoRow(row: ProductoDbRow, index: number): CatalogoProductoList
     proveedor: meta.proveedor?.trim() || "—",
     categoria: meta.categoria?.trim() || "—",
     tipo: resolveTipo(row, meta),
+    tipoProducto: resolveTipoProductoLabel(meta.tipo_producto),
+    tipoProductoCodigo,
     etiquetas: meta.etiquetas?.trim() || "—",
     publicado: meta.publicadoTienda ? "Sí" : "No",
     estado: meta.estado?.trim() || "—",
@@ -217,6 +227,11 @@ export interface ListCatalogoProductosParams {
   limit?: number;
   /** true (default) solo activos; false incluye deshabilitados (tabla admin). */
   soloActivos?: boolean;
+  /**
+   * true (default) solo mercancía vendible (`tipo_producto === 1`).
+   * Excluye servicios (`3`) y filas sin código.
+   */
+  soloMercancia?: boolean;
 }
 
 /** Lista productos del catálogo de la cuenta tenant. */
@@ -227,6 +242,7 @@ export async function listCatalogoProductosAdmin(
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
   const search = params.search?.trim().toLowerCase() ?? "";
   const soloActivos = params.soloActivos !== false;
+  const soloMercancia = params.soloMercancia !== false;
 
   const rows = await queryProductosCatalogo((selectColumns) =>
     runDomainQuery<ProductoDbRow[]>((client) => {
@@ -250,7 +266,13 @@ export async function listCatalogoProductosAdmin(
     }),
   );
 
-  const mapped = rows.map((row, index) => mapProductoRow(row, index));
+  let mapped = rows.map((row, index) => mapProductoRow(row, index));
+
+  if (soloMercancia) {
+    mapped = mapped.filter((row) =>
+      isCatalogoTipoProductoMercancia(row.tipoProductoCodigo),
+    );
+  }
 
   if (!search) return mapped;
 
@@ -262,6 +284,7 @@ export async function listCatalogoProductosAdmin(
       row.proveedor,
       row.categoria,
       row.slug,
+      row.tipoProducto,
     ]
       .join(" ")
       .toLowerCase();

@@ -62,6 +62,10 @@ export interface OrdenVentaOperadorRow {
   alertaStatus: OvAlertaStatusUi;
   /** Minutos en el estado actual. */
   minutosEnEstado: number;
+  /** Umbral SLA (minutos) de la cuenta — tooltip del punto. */
+  slaMinutos: number;
+  /** Umbral de alerta (minutos) de la cuenta — tooltip del punto. */
+  alertaMinutos: number;
 }
 
 export const UNIDAD_MEDIDA_VENTA_DEFAULT = "kg" as const;

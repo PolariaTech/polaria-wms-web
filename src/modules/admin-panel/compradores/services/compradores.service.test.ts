@@ -36,6 +36,7 @@ describe("compradores.service", () => {
         idComprador: "11111111-1111-1111-1111-111111111111",
         codigo: "LUIS1",
         comprador: "Luis Castillo",
+        apodo: "",
         telefono: null,
         rfc: "",
         grupo: "",

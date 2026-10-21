@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import { BodegaRequiredGuard } from "@/components/auth/guards/BodegaRequiredGuard";
 import { TenantScopeGuard } from "@/components/auth/guards/TenantScopeGuard";
+import { cn } from "@/lib/utils/cn";
+import { CYPHER_DOCK_RESERVE_CLASS } from "@/modules/sales/ordenes/constants/cypher-layout";
 import {
   ModuleRoleGate,
   type ModuleRoleGateProps,
@@ -18,6 +20,11 @@ export interface OperationalModuleShellProps {
   headerExtra?: ReactNode;
   children: ReactNode;
   accessDeniedMessage?: string;
+  /**
+   * Cypher abierto: la lista usa todo el ancho a la izquierda
+   * (padding-right = ancho Cypher), sin centrar en max-w-6xl.
+   */
+  dockForCypher?: boolean;
 }
 
 export function OperationalModuleShell({
@@ -27,6 +34,7 @@ export function OperationalModuleShell({
   headerExtra,
   children,
   accessDeniedMessage = ACCESS_DENIED_MESSAGE,
+  dockForCypher = false,
 }: OperationalModuleShellProps) {
   return (
     <TenantScopeGuard>
@@ -41,9 +49,18 @@ export function OperationalModuleShell({
             </div>
           }
         >
-          <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
-            <header className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+          <div
+            className={cn(
+              "flex min-w-0 w-full flex-1 flex-col gap-6 py-8",
+              "transition-[padding,max-width,margin] duration-[320ms] ease-out",
+              dockForCypher
+                ? // pl solo a la izquierda; pr = ancho Cypher (no usar px-* o pisa el dock).
+                  cn("max-w-none pl-4 sm:pl-6", CYPHER_DOCK_RESERVE_CLASS)
+                : "relative mx-auto max-w-6xl px-4 sm:px-6",
+            )}
+          >
+            <header className="flex min-w-0 flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
                 <h1 className="polaria-text-display">{title}</h1>
                 {description ? (
                   <p className="polaria-text-subtitle mt-2 text-polaria-w-50">
@@ -53,7 +70,7 @@ export function OperationalModuleShell({
               </div>
               {headerExtra}
             </header>
-            {children}
+            <div className="min-w-0 w-full flex-1">{children}</div>
           </div>
         </ModuleRoleGate>
       </BodegaRequiredGuard>

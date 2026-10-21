@@ -2,6 +2,382 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.12.54 — 2026-10-20
+
+### Ventas / OV
+- Formulario OV: label **Centro de consumo** (sin «/ cocina»); oculto Andén / punto de recepción.
+- Cypher 03 renombrado a **Correo vs Mateo IA vs usuario**.
+- Cypher Alistamiento: folio manuscrito + checks Alistó/Revisó por línea; sin checks duplicados en el panel derecho; tabla en una línea con scroll horizontal.
+- Cypher: oculto el botón **Fotos** del pie (sigue VER en la card de la hoja).
+
+### Versión
+- Producto `2.12.54`.
+
+## 2.12.53 — 2026-10-20
+
+### Administración
+- Asignación y creación: botón **Cliente** (antes Compradores) con icono de persona; listado y modales con etiquetas Cliente/Clientes.
+- Tabla y picker de clientes: columna **D. Comercial** (`apodo`) y búsqueda por ese campo; pie «Mostrando x–x de y» en el picker de OV.
+
+### Ventas / OV
+- Tabla OV: tooltips en el punto SLA (en tiempo / en riesgo / atrasada / completada).
+- Crear OV: sin `+`/X en el header (solo Cancelar); Cypher `+` solo en edición.
+- Cypher: nueva etapa **03 Cliente vs Mateo IA** (Datos generales + tablas por OT: Correo / Mateo / Usuario / Coincidencia); renumeración Alistamiento 04 → Bitácora 06.
+- Cliente vs Mateo: en por confirmar Usuario = Pendiente; Mateo muestra sugerencias de catálogo (no eco del correo); scroll-spy del nav corregido (secciones altas y final → Bitácora).
+
+### Versión
+- Producto `2.12.53`.
+
+## 2.12.52 — 2026-10-20
+
+### Ventas / OV
+- Cypher **Bitácora**: puntos de color por tipo de evento (creación, progreso, operación, aviso SLA, alerta) + badge de autor y callout de límite si viene en el mensaje.
+
+### Versión
+- Producto `2.12.52`.
+
+## 2.12.51 — 2026-10-20
+
+### Ventas / OV
+- Cypher **Alistado**: check «Todas las OTs fueron escaneadas», tabla OT / Destino / Firmó la hoja (Despachó) / Fecha, y resumen surtidas/parciales/no surtidas si hay cantidades preparadas.
+
+### Versión
+- Producto `2.12.51`.
+
+## 2.12.50 — 2026-10-20
+
+### Ventas / OV
+- Cypher **Alistamiento**: cards por OT con cocina, productos (pedida + especificación), firma **Despachó**, fecha de escaneo y estados Escaneada / Impresa sin escanear.
+
+### Versión
+- Producto `2.12.50`.
+
+## 2.12.49 — 2026-10-20
+
+### Ventas / OV
+- Picker central de OT eliminado (detalle y edición): la elección de OT vive solo en Cypher.
+- Por confirmar: primero pantalla Mateo; al terminar se abren formulario + Cypher.
+- Detalle: Cypher se abre siempre al ver la OV (también con 1 sola OT).
+- Fotos desde Cypher: solo de la OT seleccionada; botón deshabilitado si esa OT no tiene fotos; visualizador dock-left junto a Cypher.
+- Auth: `refreshAuthTokens` tolera `Failed to fetch` sin tumbar la UI.
+
+### Versión
+- Producto `2.12.49`.
+
+## 2.12.48 — 2026-10-20
+
+### Ventas / OV
+- Cypher solo: el shell recibe `dockForCypher` desde `cypherId` — lista a la izquierda a ancho completo hasta Cypher (sin `max-w-6xl` centrado ni overlay).
+
+### Versión
+- Producto `2.12.48`.
+
+## 2.12.47 — 2026-10-20
+
+### Ventas / OV
+- Cypher solo: la lista reserva el ancho con `padding-right` vía `html[data-cypher-open]` (ya no depende del store/`fixed`), así no queda tapada.
+
+### Versión
+- Producto `2.12.47`.
+
+## 2.12.46 — 2026-10-20
+
+### Ventas / OV
+- Cypher solo: split como detalle/edición — izquierda fija hasta el borde de Cypher; derecha solo Cypher (sin hueco ni overlay).
+
+### Versión
+- Producto `2.12.46`.
+
+## 2.12.45 — 2026-10-20
+
+### Ventas / OV
+- Con Cypher abierto solo: la **lista izquierda** usa todo el ancho restante (sale del `max-w-6xl` centrado).
+
+### Versión
+- Producto `2.12.45`.
+
+## 2.12.44 — 2026-10-20
+
+### Ventas / OV
+- Cypher vuelve a su **ancho fijo**; desde el **+** la lista se ajusta al espacio libre (sin blur), sin agrandar el panel.
+
+### Versión
+- Producto `2.12.44`.
+
+## 2.12.43 — 2026-10-20
+
+### Ventas / OV
+- Cypher desde el **+**: ocupa **todo el ancho libre** a la derecha; la lista queda en franja usable a la izquierda (sin blur).
+
+### Versión
+- Producto `2.12.43`.
+
+## 2.12.42 — 2026-10-20
+
+### Ventas / OV
+- Cypher desde el **+** de la tabla: sin desenfoque; la lista se ajusta al ancho libre y sigue seleccionable.
+
+### Versión
+- Producto `2.12.42`.
+
+## 2.12.41 — 2026-10-20
+
+### Ventas / OV
+- Se quita **Cuerpo del mensaje** del detalle/formulario cuando el correo ya está en Cypher.
+
+### Versión
+- Producto `2.12.41`.
+
+## 2.12.40 — 2026-10-20
+
+### Ventas / OV
+- Al abrir por confirmar / detalle con Cypher: transición suave (~320ms) — modal primero, luego Cypher desliza y el form se acopla.
+
+### Versión
+- Producto `2.12.40`.
+
+## 2.12.39 — 2026-10-20
+
+### Ventas / OV
+- OV **por confirmar**: al abrir, se salta el preview; entra al formulario de la 1ª OT con Cypher abierto.
+
+### Versión
+- Producto `2.12.39`.
+
+## 2.12.38 — 2026-10-20
+
+### Ventas / OV
+- Adjuntos: se eliminan duplicados (p. ej. HTML del .eml + el mismo archivo guardado).
+
+### Versión
+- Producto `2.12.38`.
+
+## 2.12.37 — 2026-10-20
+
+### Ventas / OV
+- Cypher **Confirmación**: también muestra la OT cuando solo hay **una** (antes se ocultaba).
+
+### Versión
+- Producto `2.12.37`.
+
+## 2.12.36 — 2026-10-20
+
+### Ventas / OV
+- Cypher correo: el cuerpo ya no abre modal; mismo alto con **scroll** para leerlo completo.
+
+### Versión
+- Producto `2.12.36`.
+
+## 2.12.35 — 2026-10-20
+
+### Ventas / OV
+- Detalle de venta: se quita el bloque **Log** (el historial queda solo en Cypher → Bitácora).
+
+### Versión
+- Producto `2.12.35`.
+
+## 2.12.34 — 2026-10-20
+
+### Ventas / OV
+- Cypher **05 Bitácora**: log de la OT seleccionada (creación, confirmación, cambios, alistamiento…); el panel Log del detalle apunta ahí con Cypher abierto.
+
+### Versión
+- Producto `2.12.34`.
+
+## 2.12.33 — 2026-10-20
+
+### Ventas / OV
+- Adjuntos en Cypher/detalle: grilla responsive (**2 / 3 por fila**), tarjetas cuadradas a todo el ancho.
+
+### Versión
+- Producto `2.12.33`.
+
+## 2.12.32 — 2026-10-20
+
+### Ventas / OV
+- Selector de OT en Cypher: tarjetas cuadradas en grilla de **3 por fila**.
+
+### Versión
+- Producto `2.12.32`.
+
+## 2.12.31 — 2026-10-20
+
+### Ventas / OV
+- Detalle con varias OT: Cypher abre con el listado en **Confirmación**; a la izquierda se muestra la primera OT (o la que elijas en Cypher). El grid de OT deja de ocupar el formulario.
+
+### Versión
+- Producto `2.12.31`.
+
+## 2.12.30 — 2026-10-20
+
+### Ventas / OV
+- Cypher en OV **por confirmar**: selector de órdenes de trabajo a la derecha; el badge usa el estado de la lista (no muestra «Confirmada» por error).
+
+### Versión
+- Producto `2.12.30`.
+
+## 2.12.29 — 2026-10-20
+
+### Ventas / OV
+- **Detalle de venta** con el mismo Cypher que el formulario: botón **+**, panel acoplado a la derecha, se oculta el **+** con Cypher abierto y se cierra al salir.
+
+### Versión
+- Producto `2.12.29`.
+
+## 2.12.28 — 2026-10-20
+
+### Ventas / OV
+- Al abrir o cancelar/salir del **detalle de venta**, se cierra Cypher (mismo criterio que el formulario de edición).
+
+### Versión
+- Producto `2.12.28`.
+
+## 2.12.27 — 2026-10-20
+
+### Ventas / OV
+- Al cancelar/salir del formulario de edición, se cierra también Cypher si estaba abierto para ese pedido.
+
+### Versión
+- Producto `2.12.27`.
+
+## 2.12.26 — 2026-10-20
+
+### Ventas / OV
+- Con Cypher abierto, se oculta el **+** del formulario; al cerrar Cypher vuelve a mostrarse para reabrirlo.
+
+### Versión
+- Producto `2.12.26`.
+
+## 2.12.25 — 2026-10-20
+
+### Ventas / OV
+- Transición suave al abrir/cerrar Cypher (desliza desde la derecha) y al acoplar el formulario.
+
+### Versión
+- Producto `2.12.25`.
+
+## 2.12.24 — 2026-10-20
+
+### Ventas / OV
+- Con Cypher abierto, el formulario izquierdo queda a tope (sin redondeo), alineado con Cypher; sin Cypher sigue redondeado.
+
+### Versión
+- Producto `2.12.24`.
+
+## 2.12.23 — 2026-10-20
+
+### Ventas / OV
+- Cypher arranca **debajo del topbar** (ya no tapa ni se ve cortado); la **X** queda visible.
+
+### Versión
+- Producto `2.12.23`.
+
+## 2.12.22 — 2026-10-20
+
+### Ventas / OV
+- Cypher: mismo ancho en todos los casos (máx. 38.5rem, cabe en viewport); cabecera con **X** visible; pie sin recortes; mejor ajuste responsive.
+
+### Versión
+- Producto `2.12.22`.
+
+## 2.12.21 — 2026-10-20
+
+### Ventas / OV
+- Cypher en modo edición: un poco menos de ancho (hasta ~38.5rem).
+
+### Versión
+- Producto `2.12.21`.
+
+## 2.12.20 — 2026-10-20
+
+### Ventas / OV
+- Cypher en modo edición: un poco más de ancho (hasta ~40rem).
+
+### Versión
+- Producto `2.12.20`.
+
+## 2.12.19 — 2026-10-20
+
+### Ventas / OV
+- Cypher en modo edición: ligeramente más ancho (hasta ~38rem).
+
+### Versión
+- Producto `2.12.19`.
+
+## 2.12.18 — 2026-10-20
+
+### Ventas / OV
+- Cypher en modo edición: más ancho (hasta ~36rem).
+
+### Versión
+- Producto `2.12.18`.
+
+## 2.12.17 — 2026-10-20
+
+### Ventas / OV
+- Cypher en modo edición: un poco más de ancho (hasta ~28rem).
+
+### Versión
+- Producto `2.12.17`.
+
+## 2.12.16 — 2026-10-20
+
+### Ventas / OV
+- Modo edición + Cypher: Cypher más estrecho, formulario sin cortarse; cierre de Cypher con **X** visible arriba.
+
+### Versión
+- Producto `2.12.16`.
+
+## 2.12.15 — 2026-10-20
+
+### Ventas / OV
+- En **Editar pedido**, el **+** abre Cypher a la derecha sin cerrar el formulario (queda a la izquierda). Otro clic cierra Cypher.
+
+### Versión
+- Producto `2.12.15`.
+
+## 2.12.14 — 2026-10-20
+
+### Ventas / OV
+- Modal Editar/Nuevo pedido: botón **+** arriba a la derecha (mismo control que Acciones / Cypher) para cerrar.
+
+### Versión
+- Producto `2.12.14`.
+
+## 2.12.13 — 2026-10-20
+
+### Ventas / OV
+- Fix: chips de adjuntos de origen con el mismo nombre ya no disparan warning de React por keys duplicadas.
+
+### Versión
+- Producto `2.12.13`.
+
+## 2.12.12 — 2026-10-20
+
+### Ventas / OV
+- Cypher: el botón **+** de Acciones también queda arriba en el panel de la orden (mismo control para cerrar).
+
+### Versión
+- Producto `2.12.12`.
+
+## 2.12.11 — 2026-10-20
+
+### Admin / Catálogo y Ventas
+- Pie de tabla: **Mostrando x–x de x** siempre visible (sin la palabra «productos»).
+- Picker OV «Seleccionar producto»: contador **Mostrando 1–x** debajo de la línea del pie.
+
+### Versión
+- Producto `2.12.11`.
+
+## 2.12.10 — 2026-10-20
+
+### Admin / Catálogo (REQ-040)
+- Columna **Tipo producto** (`Producto` / `Servicio`) desde `metadatos_catalogo.tipo_producto` (1 / 3).
+- Catálogo, picker de OV y Mateo solo usan mercancía activa (`tipo_producto = 1`); excluyen servicios (`3`).
+
+### Versión
+- Producto `2.12.10`.
+
 ## 2.12.9 — 2026-10-20
 
 ### Ventas / OV / Mateo

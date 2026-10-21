@@ -531,6 +531,8 @@ describe("vistas operativas dashboard", () => {
         slaStatus: "en_tiempo",
         alertaStatus: "ok",
         minutosEnEstado: 5,
+        slaMinutos: 60,
+        alertaMinutos: 45,
       },
     ]);
 

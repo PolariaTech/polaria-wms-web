@@ -72,4 +72,11 @@ describe("refreshAuthTokens", () => {
     await expect(refreshAuthTokens()).resolves.toBe(false);
     expect(useAuthStore.getState().accessToken).toBe("access-old");
   });
+
+  it("devuelve false ante Failed to fetch (red) sin lanzar", async () => {
+    mockRefreshSession.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await expect(refreshAuthTokens()).resolves.toBe(false);
+    expect(useAuthStore.getState().accessToken).toBe("access-old");
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -49,6 +49,29 @@ export function AppTopbar({
   const { label: dateLabel, dateTime } = useLiveDate();
   const isPerfilActive = pathname === ROUTES.perfil;
   const logoutStartedRef = useRef(false);
+  const topbarRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const el = topbarRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    const publishHeight = () => {
+      const height = Math.ceil(el.getBoundingClientRect().height);
+      if (height > 0) {
+        document.documentElement.style.setProperty(
+          "--polaria-shell-top",
+          `${height}px`,
+        );
+      }
+    };
+
+    publishHeight();
+    const observer = new ResizeObserver(publishHeight);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const user = useMemo((): TopbarUserInfo => {
     if (!session) return buildFallbackUser();
@@ -76,7 +99,7 @@ export function AppTopbar({
   }, [onMateoIaClick]);
 
   return (
-    <header className="polaria-topbar w-full shrink-0">
+    <header ref={topbarRef} className="polaria-topbar w-full shrink-0">
       <div className="polaria-topbar__inner mx-auto max-w-[90rem] px-2 py-2 sm:px-6 sm:py-3 lg:px-8">
         <div className="polaria-topbar__grid">
           <div className="polaria-topbar__start">

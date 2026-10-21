@@ -103,5 +103,7 @@ export function mapOrdenVentaOperadorApiRow(
           computed.minutosEnEstado,
       ),
     ),
+    slaMinutos: slaConfig.slaMinutos,
+    alertaMinutos: slaConfig.alertaMinutos,
   };
 }

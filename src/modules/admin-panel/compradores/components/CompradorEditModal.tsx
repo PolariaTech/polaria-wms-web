@@ -200,7 +200,7 @@ export function CompradorEditModal({
         setError(
           err instanceof DomainServiceError
             ? err.message
-            : "No se pudo cargar la ficha del comprador.",
+            : "No se pudo cargar la ficha del cliente.",
         );
       })
       .finally(() => {
@@ -366,7 +366,7 @@ export function CompradorEditModal({
       setError(
         err instanceof DomainServiceError
           ? err.message
-          : "No se pudo actualizar el comprador.",
+          : "No se pudo actualizar el cliente.",
       );
     } finally {
       setIsSubmitting(false);
@@ -380,8 +380,8 @@ export function CompradorEditModal({
       <PolariaFormModal
         open={open}
         onClose={handleClose}
-        sectionLabel="Editar comprador"
-        title="Editar comprador"
+        sectionLabel="Editar cliente"
+        title="Editar cliente"
         description="Actualiza la ficha o gestiona equivalencias de producto."
         onSubmit={(event) => {
           void handleSubmit(event);

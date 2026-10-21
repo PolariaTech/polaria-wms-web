@@ -16,7 +16,7 @@ export function OrigenPedidoSourceView({
 }) {
   const chips =
     archivos.length > 0
-      ? archivos
+      ? [...new Set(archivos.map((name) => name.trim()).filter(Boolean))]
       : tieneTexto
         ? ["Mensaje pegado"]
         : [];
@@ -24,8 +24,8 @@ export function OrigenPedidoSourceView({
 
   return (
     <div className="flex flex-wrap gap-2">
-      {chips.map((name) => (
-        <span key={name} className={CHIP_CLASS}>
+      {chips.map((name, index) => (
+        <span key={`${index}-${name}`} className={CHIP_CLASS}>
           {name}
         </span>
       ))}

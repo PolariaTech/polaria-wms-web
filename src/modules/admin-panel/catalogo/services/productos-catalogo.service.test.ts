@@ -37,6 +37,7 @@ describe("productos-catalogo.service", () => {
             categoria: "General",
             precio: "1000",
             cantidadInventario: "5",
+            tipo_producto: 1,
           },
         },
       ],
@@ -55,6 +56,99 @@ describe("productos-catalogo.service", () => {
     expect(rows[0]?.slug).toBe("producto-demo");
     expect(rows[0]?.unidad).toBe("kg");
     expect(rows[0]?.stock).toBe("5");
+    expect(rows[0]?.tipoProducto).toBe("Producto");
+    expect(rows[0]?.tipoProductoCodigo).toBe(1);
+  });
+
+  it("listCatalogoProductosAdmin excluye servicios (tipo_producto 3)", async () => {
+    const selectChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    selectChain.select.mockReturnValue(selectChain);
+    selectChain.eq.mockReturnValue(selectChain);
+    selectChain.order.mockReturnValue(selectChain);
+    selectChain.limit.mockResolvedValue({
+      data: [
+        {
+          id_producto: "prod-1",
+          sku: "SKU01",
+          descripcion: "Mercancía",
+          codigo_almacen: "PROD01",
+          es_primario: true,
+          es_secundario: false,
+          unidad_visualizacion: "cantidad",
+          unidad_medida: "kg",
+          id_producto_primario: null,
+          metadatos_catalogo: { titulo: "Mercancía", tipo_producto: 1 },
+        },
+        {
+          id_producto: "srv-1",
+          sku: "SRV01",
+          descripcion: "Servicio",
+          codigo_almacen: "SRV01",
+          es_primario: true,
+          es_secundario: false,
+          unidad_visualizacion: "cantidad",
+          unidad_medida: "und",
+          id_producto_primario: null,
+          metadatos_catalogo: { titulo: "Servicio", tipo_producto: 3 },
+        },
+      ],
+      error: null,
+    });
+
+    const from = vi.fn(() => selectChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const rows = await listCatalogoProductosAdmin({ codigoCuenta: "MIT00" });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.sku).toBe("SKU01");
+    expect(rows[0]?.tipoProducto).toBe("Producto");
+  });
+
+  it("listCatalogoProductosAdmin puede incluir servicios si soloMercancia es false", async () => {
+    const selectChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    selectChain.select.mockReturnValue(selectChain);
+    selectChain.eq.mockReturnValue(selectChain);
+    selectChain.order.mockReturnValue(selectChain);
+    selectChain.limit.mockResolvedValue({
+      data: [
+        {
+          id_producto: "srv-1",
+          sku: "SRV01",
+          descripcion: "Servicio",
+          codigo_almacen: "SRV01",
+          es_primario: true,
+          es_secundario: false,
+          unidad_visualizacion: "cantidad",
+          unidad_medida: "und",
+          id_producto_primario: null,
+          metadatos_catalogo: { titulo: "Servicio demo", tipo_producto: "3" },
+        },
+      ],
+      error: null,
+    });
+
+    const from = vi.fn(() => selectChain);
+    setSupabaseClientForTests({ from } as never);
+
+    const rows = await listCatalogoProductosAdmin({
+      codigoCuenta: "MIT00",
+      soloMercancia: false,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.tipoProducto).toBe("Servicio");
+    expect(rows[0]?.tipoProductoCodigo).toBe(3);
   });
 
   it("listCatalogoProductosAdmin omite metadatos_catalogo si la columna no existe", async () => {
@@ -93,7 +187,10 @@ describe("productos-catalogo.service", () => {
     const from = vi.fn(() => selectChain);
     setSupabaseClientForTests({ from } as never);
 
-    const rows = await listCatalogoProductosAdmin({ codigoCuenta: "MIT00" });
+    const rows = await listCatalogoProductosAdmin({
+      codigoCuenta: "MIT00",
+      soloMercancia: false,
+    });
 
     expect(selectChain.select).toHaveBeenNthCalledWith(
       1,

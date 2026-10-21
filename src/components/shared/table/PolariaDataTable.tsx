@@ -40,7 +40,7 @@ export interface PolariaDataTableProps<T> {
   primaryAction?: {
     label: string;
     onClick: () => void;
-    /** false = solo el texto (p. ej. “+ Comprador”). */
+    /** false = solo el texto (p. ej. “+ Cliente”). */
     showIcon?: boolean;
   };
   additionalActions?: readonly {

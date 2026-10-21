@@ -142,7 +142,7 @@ export function CompradorDetalleModal({
         setError(
           err instanceof DomainServiceError
             ? err.message
-            : "No se pudo cargar el detalle del comprador.",
+            : "No se pudo cargar el detalle del cliente.",
         );
       })
       .finally(() => {
@@ -172,7 +172,7 @@ export function CompradorDetalleModal({
     <PolariaFormModal
       open={open && Boolean(comprador)}
       onClose={onClose}
-      title={comprador?.comprador ?? "Comprador"}
+      title={comprador?.comprador ?? "Cliente"}
       description={
         comprador
           ? `${comprador.codigo} — ficha de alta del comprador.`
@@ -210,7 +210,7 @@ export function CompradorDetalleModal({
                 {detalle?.comprador ?? comprador?.comprador ?? "—"}
               </MetaField>
               <MetaField label="Teléfono">{telefono}</MetaField>
-              <MetaField label="Apodo interno">
+              <MetaField label="D. Comercial">
                 <TextValue value={ficha.apodo} />
               </MetaField>
               <MetaField label="Grupo perteneciente">

@@ -42,6 +42,13 @@ export interface PolariaFormModalProps {
   hideFooter?: boolean;
   /** Oculta el botón Cerrar de la cabecera (deja el del pie). */
   hideHeaderClose?: boolean;
+  /** Sustituye el cierre de cabecera (p. ej. botón «+» de Acciones OV). */
+  headerTrailing?: ReactNode;
+  /**
+   * `dock-left`: panel a la izquierda (p. ej. junto a Cypher a la derecha).
+   * Por defecto centrado.
+   */
+  layout?: "center" | "dock-left";
   /** false = panel sin <form> (p. ej. picker anidado dentro de otro modal). */
   asForm?: boolean;
   /** Capa de apilamiento cuando el modal se abre sobre otro modal. */
@@ -91,6 +98,8 @@ export function PolariaFormModal({
   footerLeading,
   hideFooter = false,
   hideHeaderClose = false,
+  headerTrailing,
+  layout = "center",
   asForm = true,
   stackLevel = "base",
   closeOnEscape = true,
@@ -239,10 +248,22 @@ export function PolariaFormModal({
     </>
   );
 
+  const dockLeft = layout === "dock-left";
+  /** Debe coincidir con `CYPHER_PANEL_WIDTH` / `CYPHER_DOCK_*` del drawer. */
+  const dockRightReserve = "pr-[min(100vw,38.5rem)]";
+  const dockBackdropRight = "right-[min(100vw,38.5rem)]";
+
   return (
     <div
       className={cn(
-        "fixed inset-0 flex items-center justify-center overflow-hidden px-4 py-6 sm:px-6 sm:py-10",
+        "fixed inset-0 flex overflow-hidden transition-[padding] duration-[320ms] ease-out",
+        dockLeft
+          ? cn(
+              /* Alineado con Cypher: a tope bajo el topbar, sin márgenes ni redondeo. */
+              "items-stretch justify-start pt-[var(--polaria-shell-top,4.75rem)]",
+              dockRightReserve,
+            )
+          : "items-center justify-center px-4 py-6 sm:px-6 sm:py-10",
         MODAL_STACK_CLASS[stackLevel],
       )}
     >
@@ -250,7 +271,14 @@ export function PolariaFormModal({
         <button
           type="button"
           aria-label="Cerrar modal"
-          className="absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm"
+          className={cn(
+            "absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm transition-[top,right] duration-[320ms] ease-out",
+            dockLeft &&
+              cn(
+                dockBackdropRight,
+                "top-[var(--polaria-shell-top,4.75rem)]",
+              ),
+          )}
           onClick={() => {
             if (!isSubmitting) onClose();
           }}
@@ -258,7 +286,14 @@ export function PolariaFormModal({
       ) : (
         <div
           aria-hidden
-          className="absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm"
+          className={cn(
+            "absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm transition-[top,right] duration-[320ms] ease-out",
+            dockLeft &&
+              cn(
+                dockBackdropRight,
+                "top-[var(--polaria-shell-top,4.75rem)]",
+              ),
+          )}
         />
       )}
 
@@ -268,9 +303,12 @@ export function PolariaFormModal({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         className={cn(
-          "polaria-card-glow relative z-10 flex w-full min-h-0 flex-col overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
-          "max-h-[min(85dvh,calc(100dvh-5rem))]",
-          widthClass,
+          "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
+          "transition-[border-radius,max-width,height,box-shadow] duration-[320ms] ease-out",
+          dockLeft
+            ? "h-full w-full max-h-none max-w-none flex-1 rounded-none border-0 border-t border-r border-polaria-t-20"
+            : "polaria-card-glow w-full max-h-[min(85dvh,calc(100dvh-5rem))] rounded-2xl border",
+          !dockLeft && widthClass,
           compact ? "p-4 sm:p-5" : "p-6 sm:p-8",
           className,
         )}
@@ -309,7 +347,9 @@ export function PolariaFormModal({
             ) : null}
           </div>
 
-          {hideHeaderClose ? null : (
+          {headerTrailing != null ? (
+            headerTrailing
+          ) : hideHeaderClose ? null : (
             <button
               type="button"
               onClick={onClose}

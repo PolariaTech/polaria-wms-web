@@ -4,6 +4,7 @@ import {
   formatOvElapsed,
   normalizeOvSlaConfig,
   ovAlertaCount,
+  tooltipOvAlertaDot,
 } from "./ov-sla";
 
 describe("ov-sla", () => {
@@ -59,5 +60,43 @@ describe("ov-sla", () => {
     expect(ovAlertaCount("en_riesgo")).toBe(1);
     expect(ovAlertaCount("atrasada")).toBe(2);
     expect(ovAlertaCount("cerrada")).toBe(0);
+  });
+
+  it("arma tooltips del punto SLA por tono", () => {
+    expect(
+      tooltipOvAlertaDot({
+        alertaStatus: "atrasada",
+        minutosEnEstado: 158,
+        slaMinutos: 120,
+        alertaMinutos: 90,
+      }),
+    ).toBe("Sin avanzar hace 2 h 38 min · límite 2 h");
+
+    expect(
+      tooltipOvAlertaDot({
+        alertaStatus: "en_riesgo",
+        minutosEnEstado: 50,
+        slaMinutos: 60,
+        alertaMinutos: 45,
+      }),
+    ).toBe("En riesgo · sin avanzar hace 50 min · alerta a 45 min");
+
+    expect(
+      tooltipOvAlertaDot({
+        alertaStatus: "ok",
+        minutosEnEstado: 20,
+        slaMinutos: 60,
+        alertaMinutos: 45,
+      }),
+    ).toBe("En tiempo · 20 min en esta etapa · límite 1 h");
+
+    expect(
+      tooltipOvAlertaDot({
+        alertaStatus: "cerrada",
+        minutosEnEstado: 200,
+        slaMinutos: 60,
+        alertaMinutos: 45,
+      }),
+    ).toBe("Completada · sin seguimiento de tiempo");
   });
 });

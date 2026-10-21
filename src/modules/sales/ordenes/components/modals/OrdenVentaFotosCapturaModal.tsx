@@ -44,6 +44,10 @@ interface OrdenVentaFotosCapturaModalProps {
   selectedOt: string | null;
   isLoadingOts?: boolean;
   isLoadingFotos?: boolean;
+  /** false = abierto desde Cypher para una OT (sin volver al listado). */
+  allowBackToOts?: boolean;
+  /** Con Cypher abierto: panel a la izquierda (mismo split que detalle/edición). */
+  dockWithCypher?: boolean;
   error?: string | null;
   onSelectOt: (idOrdenTrabajo: string) => void;
   onBackToOts: () => void;
@@ -72,6 +76,8 @@ export function OrdenVentaFotosCapturaModal({
   selectedOt,
   isLoadingOts = false,
   isLoadingFotos = false,
+  allowBackToOts = true,
+  dockWithCypher = false,
   error = null,
   onSelectOt,
   onBackToOts,
@@ -248,20 +254,29 @@ export function OrdenVentaFotosCapturaModal({
       description={description}
       asForm={false}
       hideFooter
+      compact={dockWithCypher}
       size="2xl"
-      scrollClassName="max-h-[min(80vh,52rem)] overflow-y-auto"
+      layout={dockWithCypher ? "dock-left" : "center"}
+      closeOnBackdrop={!dockWithCypher}
+      scrollClassName={
+        dockWithCypher
+          ? "min-h-0 flex-1 overflow-y-auto"
+          : "max-h-[min(80vh,52rem)] overflow-y-auto"
+      }
       onSubmit={(event) => event.preventDefault()}
       error={error}
     >
       {showingFotos ? (
         <div className="space-y-4">
-          <button
-            type="button"
-            onClick={onBackToOts}
-            className="rounded-lg border border-polaria-t-20 px-3 py-1.5 text-polaria-teal transition hover:bg-polaria-t-08 polaria-text-body-sm"
-          >
-            ← Órdenes de trabajo
-          </button>
+          {allowBackToOts ? (
+            <button
+              type="button"
+              onClick={onBackToOts}
+              className="rounded-lg border border-polaria-t-20 px-3 py-1.5 text-polaria-teal transition hover:bg-polaria-t-08 polaria-text-body-sm"
+            >
+              ← Órdenes de trabajo
+            </button>
+          ) : null}
 
           {isLoadingFotos ? (
             <div className="flex min-h-[16rem] items-center justify-center py-10 text-polaria-w-50">

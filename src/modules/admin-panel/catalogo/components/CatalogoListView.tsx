@@ -77,7 +77,8 @@ export function CatalogoListView({
     return runScoped(() =>
       listCatalogoProductosAdmin({
         codigoCuenta,
-        soloActivos: false,
+        soloActivos: true,
+        soloMercancia: true,
       }),
     );
   }, [codigoCuenta, runScoped]);
@@ -202,6 +203,11 @@ export function CatalogoListView({
           cell: (row: CatalogoProductoListRow) => row.categoria,
         },
         { id: "tipo", header: "Tipo", cell: (row: CatalogoProductoListRow) => row.tipo },
+        {
+          id: "tipo-producto",
+          header: "Tipo producto",
+          cell: (row: CatalogoProductoListRow) => row.tipoProducto,
+        },
         {
           id: "etiquetas",
           header: "Etiquetas",
@@ -441,8 +447,8 @@ export function CatalogoListView({
         description={
           pendingToggle
             ? pendingToggle.mode === "enable"
-              ? `¿Habilitar el producto "${pendingToggle.row.titulo}" (${pendingToggle.row.sku})? Volverá a aparecer en formularios.`
-              : `¿Deshabilitar el producto "${pendingToggle.row.titulo}" (${pendingToggle.row.sku})? Seguirá visible en esta tabla, pero no aparecerá en formularios.`
+              ? `¿Habilitar el producto "${pendingToggle.row.titulo}" (${pendingToggle.row.sku})? Volverá a aparecer en el catálogo y en formularios.`
+              : `¿Deshabilitar el producto "${pendingToggle.row.titulo}" (${pendingToggle.row.sku})? Dejará de aparecer en el catálogo y en formularios.`
             : ""
         }
         confirmLabel={

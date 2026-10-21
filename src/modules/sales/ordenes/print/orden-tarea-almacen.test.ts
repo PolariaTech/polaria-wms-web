@@ -31,6 +31,8 @@ const LIST_ROW: OrdenVentaOperadorRow = {
   slaStatus: "en_tiempo",
   alertaStatus: "ok",
   minutosEnEstado: 0,
+  slaMinutos: 60,
+  alertaMinutos: 45,
 };
 
 const DETALLE: OrdenVentaDetalleRow = {
