@@ -128,6 +128,33 @@ export function slaDotTone(
   return "ok";
 }
 
+/**
+ * Texto del tooltip del punto SLA en la tabla OV.
+ * Rojo: «Sin avanzar hace X · límite Y» (como en diseño).
+ */
+export function tooltipOvAlertaDot(input: {
+  alertaStatus: OvAlertaStatus;
+  minutosEnEstado: number;
+  slaMinutos?: number | null;
+  alertaMinutos?: number | null;
+}): string {
+  const config = normalizeOvSlaConfig(input.slaMinutos, input.alertaMinutos);
+  const elapsed = formatOvElapsed(input.minutosEnEstado);
+  const limiteSla = formatOvElapsed(config.slaMinutos);
+  const limiteAlerta = formatOvElapsed(config.alertaMinutos);
+
+  switch (input.alertaStatus) {
+    case "atrasada":
+      return `Sin avanzar hace ${elapsed} · límite ${limiteSla}`;
+    case "en_riesgo":
+      return `En riesgo · sin avanzar hace ${elapsed} · alerta a ${limiteAlerta}`;
+    case "cerrada":
+      return "Completada · sin seguimiento de tiempo";
+    default:
+      return `En tiempo · ${elapsed} en esta etapa · límite ${limiteSla}`;
+  }
+}
+
 /** Nº en el badge de alertas: 1 umbral cruzado → 1; SLA+alerta → 2. */
 export function ovAlertaCount(status: OvAlertaStatus): number {
   if (status === "atrasada") return 2;

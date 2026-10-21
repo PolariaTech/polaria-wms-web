@@ -36,6 +36,8 @@ export interface CatalogoProductoMetadatos {
   basePrimario?: string;
   gramosPorUnidad?: string;
   mermaPct?: string;
+  /** 1 = producto (mercancía), 3 = servicio. */
+  tipo_producto?: number | string;
 }
 
 export const CATALOGO_ESTADO_BUEN = "BUEN ESTADO" as const;
@@ -167,6 +169,39 @@ export const CATALOGO_TIPO_OPTIONS = [
   { value: CATALOGO_TIPO_SECUNDARIO, label: CATALOGO_TIPO_SECUNDARIO },
 ] as const;
 
+/** Códigos de `metadatos_catalogo.tipo_producto` (origen catálogo comercial). */
+export const CATALOGO_TIPO_PRODUCTO_MERCANCIA = 1 as const;
+export const CATALOGO_TIPO_PRODUCTO_SERVICIO = 3 as const;
+
+export const CATALOGO_TIPO_PRODUCTO_LABEL_MERCANCIA = "Producto" as const;
+export const CATALOGO_TIPO_PRODUCTO_LABEL_SERVICIO = "Servicio" as const;
+
+export function parseTipoProductoCodigo(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+export function resolveTipoProductoLabel(value: unknown): string {
+  const code = parseTipoProductoCodigo(value);
+  if (code === CATALOGO_TIPO_PRODUCTO_MERCANCIA) {
+    return CATALOGO_TIPO_PRODUCTO_LABEL_MERCANCIA;
+  }
+  if (code === CATALOGO_TIPO_PRODUCTO_SERVICIO) {
+    return CATALOGO_TIPO_PRODUCTO_LABEL_SERVICIO;
+  }
+  return "—";
+}
+
+export function isCatalogoTipoProductoMercancia(value: unknown): boolean {
+  return parseTipoProductoCodigo(value) === CATALOGO_TIPO_PRODUCTO_MERCANCIA;
+}
+
 export function createEmptyCatalogoMetadatos(): CatalogoProductoMetadatos {
   return {
     estado: CATALOGO_ESTADO_DEFAULT,
@@ -178,6 +213,7 @@ export function createEmptyCatalogoMetadatos(): CatalogoProductoMetadatos {
     tarjetaRegalo: false,
     cantidadInventario: "0",
     mermaPct: "0",
+    tipo_producto: CATALOGO_TIPO_PRODUCTO_MERCANCIA,
   };
 }
 

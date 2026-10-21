@@ -2,7 +2,6 @@
 
 import {
   FileText,
-  Images,
   Pencil,
   Printer,
   Trash2,
@@ -17,17 +16,21 @@ import {
   useState,
   type ReactNode,
 } from "react";
+
+import {
+  CYPHER_PANEL_WIDTH_CLASS,
+  CYPHER_TRANSITION_MS,
+} from "../../constants/cypher-layout";
 import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
-import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { cn } from "@/lib/utils/cn";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { withCuentaSchema } from "@/lib/supabase/cuenta-schema";
-import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import {
   formatEstadoOrdenVenta,
+  normalizeEstadoOrdenVenta,
   puedeAccionesAlmacenOrdenVenta,
   puedeBorrarOrdenVenta,
   puedeEditarOrdenVentaDesdeLista,
@@ -43,6 +46,13 @@ import { fetchOrdenVentaLog } from "../../services/orden-venta-log.client";
 import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
 import { filterLogEntriesVisible } from "../../utils/filter-log-entries-visible";
 import {
+  extractLogSlaCallout,
+  logEntryToneBadgeClass,
+  logEntryToneDotClass,
+  resolveLogEntryAutorBadge,
+  resolveLogEntryTone,
+} from "../../utils/log-entry-tone";
+import {
   formatCompradorOrdenVenta,
   formatOrdenVentaLineaTotal,
   formatOrdenVentaTotal,
@@ -50,6 +60,7 @@ import {
   sumOrdenVentaCantidadKg,
 } from "../../utils/orden-venta-display";
 import {
+  mergeOrigenAdjuntosWithEmlParts,
   nombresOrigenAdjuntos,
   origenAdjuntosFromEmlParts,
   parseOrigenArchivos,
@@ -59,12 +70,19 @@ import {
   looksLikeCorreoCuerpoEnNotas,
   prepareCorreoBodyForCypherDisplay,
 } from "../../utils/texto-origen-pedido";
+import {
+  groupOrigenCorreoToOrdenesTrabajo,
+  parseOrigenCorreoJson,
+} from "../../utils/origen-correo-ordenes-trabajo";
 import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
-import { OrigenPedidoBodyView } from "../shared/OrigenPedidoBodyView";
+import { CypherAlistadoSection } from "./CypherAlistadoSection";
+import { CypherAlistamientoSection } from "./CypherAlistamientoSection";
+import { CypherClienteVsMateoSection } from "./CypherClienteVsMateoSection";
 
 type CypherStageId =
   | "correo"
   | "confirmacion"
+  | "cliente-vs-mateo"
   | "alistamiento"
   | "alistado"
   | "bitacora";
@@ -83,15 +101,21 @@ const CYPHER_STAGES: ReadonlyArray<{
     title: "Confirmación del pedido",
   },
   {
-    id: "alistamiento",
+    id: "cliente-vs-mateo",
     num: "03",
+    label: "Correo vs Mateo IA vs usuario",
+    title: "Correo vs Mateo IA vs usuario",
+  },
+  {
+    id: "alistamiento",
+    num: "04",
     label: "Alistamiento",
     title: "Alistamiento",
   },
-  { id: "alistado", num: "04", label: "Alistado", title: "Alistado" },
+  { id: "alistado", num: "05", label: "Alistado", title: "Alistado" },
   {
     id: "bitacora",
-    num: "05",
+    num: "06",
     label: "Bitácora",
     title: "Bitácora de eventos",
   },
@@ -112,6 +136,7 @@ function stageReached(
   const current = ESTADO_STAGE_INDEX[estado] ?? 0;
   if (stage === "correo") return true;
   if (stage === "confirmacion") return current >= 1;
+  if (stage === "cliente-vs-mateo") return true;
   if (stage === "alistamiento") return current >= 2;
   if (stage === "alistado") return current >= 3;
   return true; // bitácora siempre
@@ -229,20 +254,43 @@ function PendingStage({ num, title }: { num: string; title: string }) {
   );
 }
 
+export type CypherCompanionOtHija = {
+  id: string;
+  label: string;
+  productosCount: number;
+  totalCantidad: number;
+  almacen: string;
+};
+
+export type CypherCompanionOtPicker = {
+  hijas: CypherCompanionOtHija[];
+  /** OT activa en el panel izquierdo (resaltada). */
+  selectedId?: string | null;
+  onSelect: (id: string) => void;
+};
+
 export interface OrdenVentaCypherDrawerProps {
   idOrdenVenta: string | null;
   codigoCuenta: string | null;
   row: OrdenVentaOperadorRow | null;
   inspect?: boolean;
-  hasFotos: boolean;
   busyKind: "print" | "preview" | "fotos" | "borrar" | null;
   onClose: () => void;
   onEdit: () => void;
   onPrint: () => void;
   onPreview: () => void;
-  onFotos: () => void;
+  /** Fotos de la OT seleccionada en Cypher (no de toda la OV). */
+  onFotos: (idOrdenTrabajo: string) => void;
   /** Soft-delete (UI «Borrar»); solo por confirmar. */
   onBorrar?: () => void | Promise<void>;
+  /**
+   * Abierto junto al modal de edición o detalle: Cypher a la derecha, sin tapar el panel.
+   */
+  companionWithEdit?: boolean;
+  /**
+   * OV por confirmar + Cypher compañero: selector de OT en el panel derecho.
+   */
+  companionOtPicker?: CypherCompanionOtPicker | null;
 }
 
 export function OrdenVentaCypherDrawer({
@@ -250,7 +298,6 @@ export function OrdenVentaCypherDrawer({
   codigoCuenta,
   row,
   inspect = false,
-  hasFotos,
   busyKind,
   onClose,
   onEdit,
@@ -258,6 +305,8 @@ export function OrdenVentaCypherDrawer({
   onPreview,
   onFotos,
   onBorrar,
+  companionWithEdit = false,
+  companionOtPicker = null,
 }: OrdenVentaCypherDrawerProps) {
   const titleId = useId();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -267,23 +316,37 @@ export function OrdenVentaCypherDrawer({
   const [activeStage, setActiveStage] = useState<CypherStageId>("correo");
   const [logEntries, setLogEntries] = useState<OrdenVentaLogEntry[]>([]);
   const [logLoading, setLogLoading] = useState(false);
-  const [correoModalOpen, setCorreoModalOpen] = useState(false);
-  const correoModalOpenRef = useRef(false);
-  correoModalOpenRef.current = correoModalOpen;
   const [emlInnerAdjuntos, setEmlInnerAdjuntos] = useState<OrigenAdjunto[]>(
     [],
   );
   const [emlInnerLoading, setEmlInnerLoading] = useState(false);
   const [confirmBorrarOpen, setConfirmBorrarOpen] = useState(false);
   const [borrarError, setBorrarError] = useState<string | null>(null);
-  const setCypherOpen = useShellOverlayStore((s) => s.setCypherOpen);
+  const [panelMounted, setPanelMounted] = useState(false);
+  const [panelEntered, setPanelEntered] = useState(false);
 
   const open = Boolean(idOrdenVenta && codigoCuenta);
 
   useEffect(() => {
-    setCypherOpen(open);
-    return () => setCypherOpen(false);
-  }, [open, setCypherOpen]);
+    if (open) {
+      setPanelEntered(false);
+      setPanelMounted(true);
+      let inner = 0;
+      const outer = window.requestAnimationFrame(() => {
+        inner = window.requestAnimationFrame(() => setPanelEntered(true));
+      });
+      return () => {
+        window.cancelAnimationFrame(outer);
+        window.cancelAnimationFrame(inner);
+      };
+    }
+
+    setPanelEntered(false);
+    const timeout = window.setTimeout(() => {
+      setPanelMounted(false);
+    }, CYPHER_TRANSITION_MS);
+    return () => window.clearTimeout(timeout);
+  }, [open]);
 
   const loadDetalle = useCallback(
     (id: string, cuenta: string) => {
@@ -297,11 +360,7 @@ export function OrdenVentaCypherDrawer({
 
   useEffect(() => {
     if (!idOrdenVenta || !codigoCuenta) {
-      setOrden(null);
-      setError(null);
-      setLogEntries([]);
-      setActiveStage("correo");
-      setCorreoModalOpen(false);
+      // Conservar contenido mientras cierra (animación); se limpia al abrir otra OV.
       return;
     }
 
@@ -310,7 +369,6 @@ export function OrdenVentaCypherDrawer({
     setError(null);
     setOrden(null);
     setActiveStage("correo");
-    setCorreoModalOpen(false);
 
     void loadDetalle(idOrdenVenta, codigoCuenta)
       .then((detalle) => {
@@ -334,6 +392,58 @@ export function OrdenVentaCypherDrawer({
     };
   }, [codigoCuenta, idOrdenVenta, loadDetalle]);
 
+  /** OTs del origen (fallback si Cypher está solo, sin companion picker). */
+  const hijasFromOrden = useMemo(() => {
+    if (!orden) return [];
+    return groupOrigenCorreoToOrdenesTrabajo(
+      parseOrigenCorreoJson(orden.origen_correo),
+    );
+  }, [orden]);
+
+  const [fallbackOtId, setFallbackOtId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (companionOtPicker) {
+      setFallbackOtId(null);
+      return;
+    }
+    if (hijasFromOrden.length === 0) {
+      setFallbackOtId(null);
+      return;
+    }
+    setFallbackOtId((prev) =>
+      prev && hijasFromOrden.some((h) => h.id === prev)
+        ? prev
+        : (hijasFromOrden[0]?.id ?? null),
+    );
+  }, [companionOtPicker, hijasFromOrden]);
+
+  /**
+   * OT(s) en Confirmación: companion (detalle/edición) o fallback desde origen_correo.
+   * Visible en cualquier estado para poder acotar Fotos / bitácora a la OT elegida.
+   */
+  const activeOtPicker = useMemo((): CypherCompanionOtPicker | null => {
+    if (companionOtPicker && companionOtPicker.hijas.length > 0) {
+      return companionOtPicker;
+    }
+    if (hijasFromOrden.length === 0) return null;
+    return {
+      hijas: hijasFromOrden.map((hija) => ({
+        id: hija.id,
+        label: hija.label,
+        productosCount: hija.renglones.length,
+        totalCantidad: hija.totalCantidad,
+        almacen: hija.almacen,
+      })),
+      selectedId: fallbackOtId ?? hijasFromOrden[0]?.id ?? null,
+      onSelect: (id: string) => setFallbackOtId(id),
+    };
+  }, [companionOtPicker, fallbackOtId, hijasFromOrden]);
+
+  /** OT activa: bitácora se acota a esa OT. */
+  const idOrdenTrabajoBitacora =
+    activeOtPicker?.selectedId?.trim() || null;
+
   useEffect(() => {
     if (!idOrdenVenta || !codigoCuenta) {
       setLogEntries([]);
@@ -345,6 +455,7 @@ export function OrdenVentaCypherDrawer({
     void fetchOrdenVentaLog({
       idOrdenVenta,
       codigoCuenta,
+      idOrdenTrabajo: idOrdenTrabajoBitacora,
       createdAt: orden?.created_at || orden?.fecha_pedido || row?.fecha,
       autor: orden?.vendedor ?? null,
     })
@@ -363,6 +474,7 @@ export function OrdenVentaCypherDrawer({
     };
   }, [
     codigoCuenta,
+    idOrdenTrabajoBitacora,
     idOrdenVenta,
     orden?.created_at,
     orden?.fecha_pedido,
@@ -374,8 +486,6 @@ export function OrdenVentaCypherDrawer({
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      // El modal del correo completo captura Escape primero.
-      if (correoModalOpenRef.current) return;
       onClose();
     };
     document.addEventListener("keydown", onKey);
@@ -398,42 +508,46 @@ export function OrdenVentaCypherDrawer({
     const root = scrollRef.current;
     if (!root) return;
 
-    const sections = CYPHER_STAGES.map((stage) =>
-      document.getElementById(`cypher-stage-${stage.id}`),
-    ).filter((el): el is HTMLElement => Boolean(el));
+    /**
+     * Scroll-spy por posición (sirve con secciones altas/vacías).
+     * Al llegar al fondo del panel → última etapa (Bitácora).
+     */
+    const updateActiveStage = () => {
+      const lastStage = CYPHER_STAGES[CYPHER_STAGES.length - 1]!.id;
+      const canScroll = root.scrollHeight > root.clientHeight + 4;
+      const atBottom =
+        canScroll &&
+        root.scrollTop + root.clientHeight >= root.scrollHeight - 12;
+      if (atBottom) {
+        setActiveStage((prev) => (prev === lastStage ? prev : lastStage));
+        return;
+      }
 
-    if (sections.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort(
-            (a, b) =>
-              (b.intersectionRatio ?? 0) - (a.intersectionRatio ?? 0),
-          );
-        const top = visible[0];
-        if (!top?.target?.id) return;
-        const stageId = top.target.id.replace(
-          "cypher-stage-",
-          "",
-        ) as CypherStageId;
-        if (CYPHER_STAGES.some((stage) => stage.id === stageId)) {
-          setActiveStage(stageId);
+      const marker = root.getBoundingClientRect().top + 28;
+      let current: CypherStageId = CYPHER_STAGES[0]!.id;
+      for (const stage of CYPHER_STAGES) {
+        const el = document.getElementById(`cypher-stage-${stage.id}`);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= marker) {
+          current = stage.id;
         }
-      },
-      {
-        root,
-        rootMargin: "-12% 0px -55% 0px",
-        threshold: [0.15, 0.35, 0.55],
-      },
-    );
+      }
+      setActiveStage((prev) => (prev === current ? prev : current));
+    };
 
-    for (const section of sections) observer.observe(section);
-    return () => observer.disconnect();
+    updateActiveStage();
+    root.addEventListener("scroll", updateActiveStage, { passive: true });
+    window.addEventListener("resize", updateActiveStage);
+    return () => {
+      root.removeEventListener("scroll", updateActiveStage);
+      window.removeEventListener("resize", updateActiveStage);
+    };
   }, [error, isLoading, open, orden]);
 
-  const estado = (orden?.estado ?? row?.estado ?? "por_confirmar") as EstadoOrdenVenta;
+  // Lista operativa primero: no mostrar «Confirmada» si la fila es por_confirmar.
+  const estado = normalizeEstadoOrdenVenta(
+    row?.estado ?? orden?.estado ?? "por_confirmar",
+  ) as EstadoOrdenVenta;
   const codigo = orden?.codigo ?? row?.venta ?? "OV";
   const comprador =
     (orden ? formatCompradorOrdenVenta(orden) : null) ||
@@ -455,10 +569,6 @@ export function OrdenVentaCypherDrawer({
   const correoChrome = useMemo(
     () => parseCorreoChrome(cuerpoCompleto || cuerpoMensaje),
     [cuerpoCompleto, cuerpoMensaje],
-  );
-  const correoChromeCompleto = useMemo(
-    () => parseCorreoChrome(cuerpoCompleto),
-    [cuerpoCompleto],
   );
   const origenAdjuntosStored = useMemo(() => {
     if (!orden) return [];
@@ -516,12 +626,14 @@ export function OrdenVentaCypherDrawer({
   }, [origenAdjuntosStored]);
 
   /** Preferir PDFs/Excel reales del .eml; si no hay, mostrar lo guardado (el .eml). */
-  const origenAdjuntos = useMemo(() => {
-    if (emlInnerAdjuntos.length > 0) {
-      return [...emlInnerAdjuntos, ...origenAdjuntosStored];
-    }
-    return origenAdjuntosStored;
-  }, [emlInnerAdjuntos, origenAdjuntosStored]);
+  const origenAdjuntos = useMemo(
+    () =>
+      mergeOrigenAdjuntosWithEmlParts(
+        origenAdjuntosStored,
+        emlInnerAdjuntos,
+      ),
+    [emlInnerAdjuntos, origenAdjuntosStored],
+  );
 
   const origenNombres = useMemo(
     () => nombresOrigenAdjuntos(origenAdjuntos),
@@ -541,34 +653,34 @@ export function OrdenVentaCypherDrawer({
   const bloqueadoHastaConfirmar =
     "Disponible cuando la orden esté confirmada";
 
-  if (!open) return null;
+  if (!panelMounted) return null;
 
+  // Sin backdrop: la lista/formulario a la izquierda sigue usable y se reacomoda.
   return (
-    <div className="fixed inset-0 z-[90]" role="presentation">
-      <button
-        type="button"
-        aria-label="Cerrar panel"
-        className="absolute inset-0 bg-polaria-bg/55 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
-
+    <div
+      className="pointer-events-none fixed inset-x-0 bottom-0 top-[var(--polaria-shell-top,4.75rem)] z-[110]"
+      role="presentation"
+    >
       <aside
         role="dialog"
-        aria-modal="true"
+        aria-modal={companionWithEdit}
         aria-labelledby={titleId}
         className={cn(
-          "absolute inset-y-0 right-0 flex w-full max-w-[min(50vw,52rem)] min-w-0 flex-col",
-          "border-l border-polaria-t-20 bg-polaria-bg shadow-[-30px_0_60px_rgba(0,0,0,0.45)]",
-          "sm:min-w-[min(720px,100vw)]",
+          "pointer-events-auto absolute inset-y-0 right-0 flex h-full max-h-full min-w-0 flex-col overflow-hidden",
+          "border-l border-t border-polaria-t-20 bg-polaria-bg shadow-[-20px_0_40px_rgba(0,0,0,0.35)]",
+          "box-border will-change-transform",
+          "transition-transform duration-[320ms] ease-out",
+          CYPHER_PANEL_WIDTH_CLASS,
+          panelEntered ? "translate-x-0" : "translate-x-full",
         )}
       >
-        <header className="shrink-0 border-b border-polaria-t-20 bg-polaria-t-08/60 px-5 pb-0 pt-4 sm:px-7">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-3">
+        <header className="relative z-20 flex shrink-0 flex-col border-b border-polaria-t-20 bg-polaria-bg">
+          <div className="flex items-start gap-2 px-3 pb-2 pt-3 sm:gap-3 sm:px-4 sm:pt-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <h2
                   id={titleId}
-                  className="polaria-text-card-title font-extrabold text-polaria-w"
+                  className="truncate polaria-text-body-sm font-extrabold text-polaria-w sm:polaria-text-card-title"
                 >
                   {codigo}
                 </h2>
@@ -576,7 +688,7 @@ export function OrdenVentaCypherDrawer({
                   {formatEstadoOrdenVenta(estado)}
                 </PolariaTableBadge>
               </div>
-              <p className="mt-1.5 polaria-text-body-sm text-polaria-w-50">
+              <p className="mt-1 truncate polaria-text-caption text-polaria-w-50">
                 <span className="font-semibold text-polaria-w-50">{comprador}</span>
                 {" · OCC "}
                 {occ}
@@ -586,21 +698,21 @@ export function OrdenVentaCypherDrawer({
             </div>
             <button
               type="button"
-              title="Cerrar"
-              aria-label="Cerrar"
+              title="Cerrar Cypher"
+              aria-label={`Cerrar detalle de ${codigo}`}
               onClick={onClose}
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition",
-                "hover:bg-polaria-t-08 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition",
+                "hover:bg-polaria-t-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
               )}
             >
-              <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
             </button>
           </div>
 
           <nav
             aria-label="Etapas de la orden"
-            className="mt-3 flex gap-1 overflow-x-auto"
+            className="flex gap-0.5 overflow-x-auto px-2 sm:gap-1 sm:px-3"
           >
             {CYPHER_STAGES.map((stage) => {
               const active = activeStage === stage.id;
@@ -611,7 +723,7 @@ export function OrdenVentaCypherDrawer({
                   aria-current={active ? "true" : undefined}
                   onClick={() => scrollToStage(stage.id)}
                   className={cn(
-                    "relative flex h-10 shrink-0 items-center gap-1.5 border-b-2 px-3 polaria-text-body-sm font-bold transition",
+                    "relative flex h-9 shrink-0 items-center gap-1 border-b-2 px-2 polaria-text-caption font-bold transition sm:h-10 sm:gap-1.5 sm:px-2.5 sm:polaria-text-body-sm",
                     active
                       ? "border-polaria-teal text-polaria-w"
                       : "border-transparent text-polaria-w-50 hover:text-polaria-w",
@@ -619,29 +731,22 @@ export function OrdenVentaCypherDrawer({
                 >
                   <span
                     className={cn(
-                      "polaria-text-caption tracking-[0.1em]",
+                      "tracking-[0.08em]",
                       active ? "text-polaria-teal" : "text-polaria-w-20",
                     )}
                   >
                     {stage.num}
                   </span>
-                  {stage.label}
+                  <span className="whitespace-nowrap">{stage.label}</span>
                 </button>
               );
             })}
           </nav>
-          <p className="pb-3 pt-2 polaria-text-caption text-polaria-w-50">
-            Sección actual:{" "}
-            <span className="font-semibold text-polaria-teal">
-              {CYPHER_STAGES.find((stage) => stage.id === activeStage)?.num}{" "}
-              {CYPHER_STAGES.find((stage) => stage.id === activeStage)?.label}
-            </span>
-          </p>
         </header>
 
         <div
           ref={scrollRef}
-          className="min-h-0 flex-1 overflow-y-auto px-5 pb-10 pt-1 sm:px-7"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 pb-8 pt-1 sm:px-4"
         >
           {isLoading ? (
             <PolariaStatusLoading embedded className="py-10" />
@@ -677,28 +782,27 @@ export function OrdenVentaCypherDrawer({
                     </span>
                   </MetaRow>
                 </div>
-                {cuerpoMensaje ? (
-                  <button
-                    type="button"
-                    onClick={() => setCorreoModalOpen(true)}
-                    title="Ver correo completo"
-                    aria-label="Ver correo completo"
+                {cuerpoCompleto || cuerpoMensaje ? (
+                  <div
                     className={cn(
-                      "mt-2.5 w-full rounded-xl border border-polaria-w-08 bg-polaria-bg/60 px-4 py-4 text-left transition",
-                      "hover:border-polaria-teal/60 hover:bg-polaria-t-08",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                      "mt-2.5 max-h-56 overflow-x-hidden overflow-y-auto rounded-xl border border-polaria-w-08 bg-polaria-bg/60 px-4 py-4",
+                      "overscroll-contain [scrollbar-gutter:stable]",
                     )}
+                    tabIndex={0}
+                    aria-label="Cuerpo del correo"
                   >
-                    <div className="max-h-56 overflow-hidden">
-                      <OrigenPedidoBodyView
-                        text={correoChrome.body || cuerpoMensaje}
-                        className="mt-0 font-mono text-[12.5px] leading-relaxed text-polaria-w-50"
-                      />
-                    </div>
-                    <p className="mt-3 polaria-text-caption font-semibold text-polaria-teal">
-                      Clic para ver el correo completo
-                    </p>
-                  </button>
+                    {/* Texto completo con scroll; sin modal / sin click. */}
+                    <pre
+                      className={cn(
+                        "m-0 max-w-full whitespace-pre-wrap break-words",
+                        "border-l-2 border-polaria-teal pl-3 font-mono text-[12.5px] leading-relaxed text-polaria-w-50",
+                      )}
+                    >
+                      {cuerpoCompleto ||
+                        correoChrome.body ||
+                        cuerpoMensaje}
+                    </pre>
+                  </div>
                 ) : (
                   <p className="mt-2.5 rounded-xl border border-dashed border-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
                     Sin cuerpo de mensaje registrado.
@@ -727,7 +831,69 @@ export function OrdenVentaCypherDrawer({
                 id="cypher-stage-confirmacion"
                 className="scroll-mt-4 pt-8"
               >
-                {stageReached(estado, "confirmacion") ? (
+                {activeOtPicker && activeOtPicker.hijas.length > 0 ? (
+                  <>
+                    <StageHeading num="02" title="Órdenes de trabajo" />
+                    <p className="mt-3 polaria-text-body-sm text-polaria-w-50">
+                      {activeOtPicker.hijas.length === 1 ? (
+                        <>
+                          Esta venta tiene{" "}
+                          <span className="font-semibold text-polaria-teal">
+                            1 orden de trabajo
+                          </span>
+                          .
+                        </>
+                      ) : (
+                        <>
+                          Esta venta tiene{" "}
+                          <span className="font-semibold text-polaria-teal">
+                            {activeOtPicker.hijas.length} órdenes de trabajo
+                          </span>
+                          . Elige cuál quieres revisar para continuar.
+                        </>
+                      )}
+                    </p>
+                    <div className="mt-4 grid grid-cols-3 gap-2.5">
+                      {activeOtPicker.hijas.map((hija) => {
+                        const selected =
+                          activeOtPicker.selectedId === hija.id;
+                        const showAlmacen =
+                          Boolean(hija.almacen?.trim()) &&
+                          hija.almacen.trim().toLowerCase() !==
+                            hija.label.trim().toLowerCase();
+                        return (
+                          <button
+                            key={hija.id}
+                            type="button"
+                            aria-pressed={selected}
+                            title={hija.label}
+                            onClick={() => activeOtPicker.onSelect(hija.id)}
+                            className={cn(
+                              "aspect-square flex min-h-0 flex-col items-center justify-center gap-1.5 rounded-xl border px-2.5 py-3 text-center transition",
+                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                              selected
+                                ? "border-polaria-teal bg-polaria-t-20 shadow-[0_0_0_1px_var(--teal)]"
+                                : "border-polaria-t-20 bg-polaria-t-08 hover:border-polaria-teal hover:bg-polaria-t-20",
+                            )}
+                          >
+                            <p className="line-clamp-3 w-full polaria-text-caption font-semibold leading-snug text-polaria-w sm:polaria-text-body-sm">
+                              {hija.label}
+                            </p>
+                            <p className="w-full polaria-text-caption tabular-nums text-polaria-teal">
+                              {hija.productosCount} prod. ·{" "}
+                              {formatKgEs(hija.totalCantidad)} kg
+                            </p>
+                            {showAlmacen ? (
+                              <p className="line-clamp-2 w-full polaria-text-caption text-polaria-w-50">
+                                {hija.almacen}
+                              </p>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : stageReached(estado, "confirmacion") ? (
                   <>
                     <StageHeading num="02" title="Confirmación del pedido" />
                     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -827,59 +993,76 @@ export function OrdenVentaCypherDrawer({
               </section>
 
               <section
+                id="cypher-stage-cliente-vs-mateo"
+                className="scroll-mt-4 pt-8"
+              >
+                <StageHeading num="03" title="Correo vs Mateo IA vs usuario" />
+                {orden ? (
+                  <CypherClienteVsMateoSection
+                    orden={orden}
+                    hijas={hijasFromOrden}
+                  />
+                ) : (
+                  <p className="mt-3 rounded-xl border border-dashed border-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
+                    Cargando comparación…
+                  </p>
+                )}
+              </section>
+
+              <section
                 id="cypher-stage-alistamiento"
                 className="scroll-mt-4 pt-8"
               >
-                {stageReached(estado, "alistamiento") ? (
+                {stageReached(estado, "alistamiento") && orden ? (
                   <>
-                    <StageHeading num="03" title="Alistamiento" />
-                    <div className="mt-3 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
-                      <p className="polaria-text-body-sm text-polaria-w">
-                        Orden en alistamiento
-                        {row?.ordenesTrabajo
-                          ? ` · ${row.ordenesTrabajo} OT`
-                          : ""}
-                        .
-                      </p>
-                      {hasFotos ? (
-                        <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                          Hay fotos de captura del QR disponibles en Acciones.
-                        </p>
-                      ) : (
-                        <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                          Aún no hay fotos de captura del QR.
-                        </p>
-                      )}
-                    </div>
+                    <StageHeading num="04" title="Alistamiento" />
+                    <CypherAlistamientoSection
+                      idOrdenVenta={orden.id_orden_venta}
+                      orden={orden}
+                      hijas={hijasFromOrden}
+                      onVerFotosOt={
+                        puedeAlmacen
+                          ? (idOt) => {
+                              onFotos(idOt);
+                            }
+                          : undefined
+                      }
+                    />
                   </>
                 ) : (
-                  <PendingStage num="03" title="Alistamiento" />
+                  <PendingStage num="04" title="Alistamiento" />
                 )}
               </section>
 
               <section id="cypher-stage-alistado" className="scroll-mt-4 pt-8">
-                {stageReached(estado, "alistado") ? (
+                {stageReached(estado, "alistado") && orden ? (
                   <>
-                    <StageHeading num="04" title="Alistado" />
-                    <div className="mt-3 flex items-center gap-3 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3.5">
-                      <span
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-polaria-w-50 text-polaria-w-50 polaria-text-caption font-extrabold"
-                        aria-hidden
-                      >
-                        ✓
-                      </span>
-                      <p className="polaria-text-body-sm font-bold text-polaria-w">
-                        Orden alistada
-                      </p>
-                    </div>
+                    <StageHeading num="05" title="Alistado" />
+                    <CypherAlistadoSection
+                      idOrdenVenta={orden.id_orden_venta}
+                      orden={orden}
+                      hijas={hijasFromOrden}
+                    />
                   </>
                 ) : (
-                  <PendingStage num="04" title="Alistado" />
+                  <PendingStage num="05" title="Alistado" />
                 )}
               </section>
 
               <section id="cypher-stage-bitacora" className="scroll-mt-4 pt-8">
-                <StageHeading num="05" title="Bitácora de eventos" />
+                <StageHeading num="06" title="Bitácora de eventos" />
+                {idOrdenTrabajoBitacora && activeOtPicker ? (
+                  <p className="mt-2 polaria-text-caption text-polaria-w-50">
+                    Eventos de{" "}
+                    <span className="font-semibold text-polaria-teal">
+                      {activeOtPicker.hijas.find(
+                        (h) => h.id === idOrdenTrabajoBitacora,
+                      )?.label ?? "esta orden de trabajo"}
+                    </span>
+                    {" "}
+                    (creación, confirmación, cambios, alistamiento, etc.).
+                  </p>
+                ) : null}
                 <div className="mt-4">
                   {logLoading ? (
                     <p className="polaria-text-body-sm text-polaria-w-50">
@@ -891,38 +1074,77 @@ export function OrdenVentaCypherDrawer({
                     </p>
                   ) : (
                     <ul className="space-y-0">
-                      {logEntries.map((entry) => (
-                        <li
-                          key={entry.id}
-                          className="grid grid-cols-[5.5rem_1.125rem_minmax(0,1fr)] gap-3"
-                        >
-                          <div className="pt-0.5 text-right">
-                            <p className="polaria-text-body-sm font-bold text-polaria-w whitespace-nowrap">
-                              {formatDateTime(entry.createdAt).split(",")[1]
-                                ?.trim() || formatDateTime(entry.createdAt)}
-                            </p>
-                            <p className="polaria-text-caption text-polaria-w-20">
-                              {formatDateTime(entry.createdAt).split(",")[0]}
-                            </p>
-                          </div>
-                          <div className="relative flex justify-center">
-                            <span className="absolute inset-y-0 w-px bg-polaria-t-20" />
-                            <span className="relative mt-1.5 h-2.5 w-2.5 rounded-full border-2 border-polaria-bg bg-polaria-teal" />
-                          </div>
-                          <div className="min-w-0 pb-4">
-                            <div className="flex flex-wrap items-center gap-2">
-                              {entry.autor ? (
-                                <span className="rounded-full border border-polaria-t-20 bg-polaria-t-08 px-2 py-0.5 polaria-text-caption font-bold text-polaria-teal">
-                                  {entry.autor}
-                                </span>
-                              ) : null}
-                              <p className="polaria-text-body-sm text-polaria-w-50">
-                                {entry.mensaje}
+                      {logEntries.map((entry) => {
+                        const stamped = formatDateTime(entry.createdAt);
+                        const [datePart, timePart] = stamped
+                          .split(",")
+                          .map((part) => part.trim());
+                        const tone = resolveLogEntryTone(entry);
+                        const autorBadge = resolveLogEntryAutorBadge(entry);
+                        const sla = extractLogSlaCallout(entry.mensaje);
+                        return (
+                          <li
+                            key={entry.id}
+                            className="grid grid-cols-[5.5rem_1.125rem_minmax(0,1fr)] gap-3"
+                          >
+                            <div className="pt-0.5 text-right">
+                              <p className="polaria-text-body-sm font-bold text-polaria-w whitespace-nowrap">
+                                {timePart || stamped}
+                              </p>
+                              <p className="polaria-text-caption text-polaria-w-20">
+                                {datePart}
                               </p>
                             </div>
-                          </div>
-                        </li>
-                      ))}
+                            <div className="relative flex justify-center">
+                              <span className="absolute inset-y-0 w-px bg-polaria-t-20" />
+                              <span
+                                className={cn(
+                                  "relative mt-1.5 h-2.5 w-2.5 rounded-full border-2 border-polaria-bg",
+                                  logEntryToneDotClass(tone),
+                                )}
+                                title={
+                                  tone === "crear"
+                                    ? "Creación / recepción"
+                                    : tone === "progreso"
+                                      ? "Avance / confirmación"
+                                      : tone === "alerta"
+                                        ? "Alerta / fallo"
+                                        : tone === "aviso"
+                                          ? "Aviso / SLA"
+                                          : "Operación"
+                                }
+                              />
+                            </div>
+                            <div className="min-w-0 pb-5">
+                              <div className="flex flex-wrap items-start gap-2">
+                                <span
+                                  className={cn(
+                                    "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 polaria-text-caption font-semibold",
+                                    logEntryToneBadgeClass(tone),
+                                  )}
+                                >
+                                  {autorBadge}
+                                </span>
+                                <p className="min-w-0 flex-1 whitespace-pre-wrap polaria-text-body-sm text-polaria-w">
+                                  {entry.mensaje}
+                                </p>
+                              </div>
+                              {sla ? (
+                                <p
+                                  className={cn(
+                                    "mt-2 rounded-lg border px-2.5 py-1.5 polaria-text-caption font-semibold",
+                                    sla.overLimit
+                                      ? "border-polaria-danger-border bg-polaria-danger-bg text-polaria-danger"
+                                      : "border-polaria-t-20 bg-polaria-t-08 text-polaria-teal",
+                                  )}
+                                >
+                                  {sla.text}
+                                </p>
+                              ) : null}
+                            </div>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </div>
@@ -932,7 +1154,7 @@ export function OrdenVentaCypherDrawer({
         </div>
 
         {!inspect && row ? (
-          <footer className="flex shrink-0 flex-wrap items-center gap-2.5 border-t border-polaria-t-20 bg-polaria-bg/95 px-5 py-3.5 sm:px-7">
+          <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t border-polaria-t-20 bg-polaria-bg/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:gap-2.5 sm:px-4">
             <button
               type="button"
               title={puedeEditar ? "Editar" : bloqueadoHastaConfirmar}
@@ -942,13 +1164,13 @@ export function OrdenVentaCypherDrawer({
                 onEdit();
               }}
               className={cn(
-                "inline-flex h-10 items-center gap-2 rounded-lg border border-polaria-t-20 px-4",
-                "polaria-text-body-sm font-bold text-polaria-teal transition hover:bg-polaria-t-08",
+                "inline-flex h-9 items-center gap-1.5 rounded-lg border border-polaria-t-20 px-2.5 sm:h-10 sm:gap-2 sm:px-3",
+                "polaria-text-caption font-bold text-polaria-teal transition hover:bg-polaria-t-08 sm:polaria-text-body-sm",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
               )}
             >
-              <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+              <Pencil className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} aria-hidden />
               Editar
             </button>
             <button
@@ -960,13 +1182,13 @@ export function OrdenVentaCypherDrawer({
                 onPrint();
               }}
               className={cn(
-                "inline-flex h-10 items-center gap-2 rounded-lg border border-polaria-t-20 px-4",
-                "polaria-text-body-sm font-bold text-polaria-teal transition hover:bg-polaria-t-08",
+                "inline-flex h-9 items-center gap-1.5 rounded-lg border border-polaria-t-20 px-2.5 sm:h-10 sm:gap-2 sm:px-3",
+                "polaria-text-caption font-bold text-polaria-teal transition hover:bg-polaria-t-08 sm:polaria-text-body-sm",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
               )}
             >
-              <Printer className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+              <Printer className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} aria-hidden />
               Imprimir
             </button>
             <button
@@ -978,40 +1200,14 @@ export function OrdenVentaCypherDrawer({
                 onPreview();
               }}
               className={cn(
-                "inline-flex h-10 items-center gap-2 rounded-lg border border-polaria-t-20 px-4",
-                "polaria-text-body-sm font-bold text-polaria-teal transition hover:bg-polaria-t-08",
+                "inline-flex h-9 items-center gap-1.5 rounded-lg border border-polaria-t-20 px-2.5 sm:h-10 sm:gap-2 sm:px-3",
+                "polaria-text-caption font-bold text-polaria-teal transition hover:bg-polaria-t-08 sm:polaria-text-body-sm",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
               )}
             >
-              <FileText className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+              <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} aria-hidden />
               Descarga
-            </button>
-            <button
-              type="button"
-              title={
-                !puedeAlmacen
-                  ? bloqueadoHastaConfirmar
-                  : hasFotos
-                    ? "Fotos del QR"
-                    : "Aún no hay fotos del QR"
-              }
-              disabled={
-                !puedeAlmacen || !hasFotos || busyKind === "fotos"
-              }
-              onClick={() => {
-                if (!puedeAlmacen || !hasFotos) return;
-                onFotos();
-              }}
-              className={cn(
-                "inline-flex h-10 items-center gap-2 rounded-lg border border-polaria-t-20 px-4",
-                "polaria-text-body-sm font-bold text-polaria-teal transition hover:bg-polaria-t-08",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
-              )}
-            >
-              <Images className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
-              Fotos
             </button>
             {onBorrar ? (
               <button
@@ -1028,13 +1224,13 @@ export function OrdenVentaCypherDrawer({
                   setConfirmBorrarOpen(true);
                 }}
                 className={cn(
-                  "ml-auto inline-flex h-10 items-center gap-2 rounded-lg border border-polaria-danger-border px-4",
-                  "polaria-text-body-sm font-bold text-polaria-danger transition hover:bg-polaria-danger-bg",
+                  "inline-flex h-9 items-center gap-1.5 rounded-lg border border-polaria-danger-border px-2.5 sm:ml-auto sm:h-10 sm:gap-2 sm:px-3",
+                  "polaria-text-caption font-bold text-polaria-danger transition hover:bg-polaria-danger-bg sm:polaria-text-body-sm",
                   "disabled:cursor-not-allowed disabled:opacity-50",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-danger",
                 )}
               >
-                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+                <Trash2 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} aria-hidden />
                 Borrar
               </button>
             ) : null}
@@ -1073,71 +1269,6 @@ export function OrdenVentaCypherDrawer({
         error={borrarError}
       />
 
-      <PolariaFormModal
-        open={correoModalOpen && Boolean(cuerpoCompleto)}
-        onClose={() => setCorreoModalOpen(false)}
-        title={codigo}
-        description={
-          correoChromeCompleto.subject ||
-          correoChrome.subject ||
-          "Correo completo del pedido"
-        }
-        sectionLabel="Correo completo"
-        onSubmit={(event) => event.preventDefault()}
-        asForm={false}
-        hideFooter
-        size="2xl"
-        stackLevel="elevated"
-        compact
-        scrollClassName="max-h-[min(70dvh,36rem)]"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-3.5 gap-y-2 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3.5">
-            <MetaRow label="REMITENTE">
-              {correoChromeCompleto.from || correoChrome.from || "—"}
-            </MetaRow>
-            <MetaRow label="DESTINATARIO">
-              {correoChromeCompleto.to || correoChrome.to || "—"}
-            </MetaRow>
-            <MetaRow label="LLEGADA">{recibida}</MetaRow>
-            <MetaRow label="ASUNTO">
-              <span className="font-semibold">
-                {correoChromeCompleto.subject ||
-                  correoChrome.subject ||
-                  "—"}
-              </span>
-            </MetaRow>
-          </div>
-          {/* Texto crudo: sin cleanCorreoBody / OrigenPedidoBodyView (recortan firmas y legales). */}
-          <div className="rounded-xl border border-polaria-w-08 bg-polaria-bg/60 px-4 py-4">
-            <pre
-              className={cn(
-                "m-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words",
-                "border-l-2 border-polaria-teal pl-3 font-mono text-[12.5px] leading-relaxed text-polaria-w-50",
-              )}
-            >
-              {cuerpoCompleto}
-            </pre>
-          </div>
-          {origenAdjuntosStored.length > 0 ||
-          emlInnerAdjuntos.length > 0 ||
-          emlInnerLoading ? (
-            <div>
-              <p className="polaria-text-caption font-bold tracking-[0.14em] text-polaria-w-20">
-                ADJUNTOS
-              </p>
-              <div className="mt-2">
-                {emlInnerLoading && emlInnerAdjuntos.length === 0 ? (
-                  <p className="polaria-text-caption text-polaria-w-50">
-                    Leyendo adjuntos del correo…
-                  </p>
-                ) : null}
-                <OrigenAdjuntosCards adjuntos={origenAdjuntos} />
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </PolariaFormModal>
     </div>
   );
 }

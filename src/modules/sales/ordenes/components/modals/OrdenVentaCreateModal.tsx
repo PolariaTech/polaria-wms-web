@@ -100,6 +100,8 @@ import {
 } from "../shared/OrigenPedidoBodyView";
 import { uploadOvAdjuntosClient } from "../../services/ov-adjuntos.client";
 import {
+  dedupeOrigenAdjuntos,
+  mergeOrigenAdjuntosWithEmlParts,
   nombresOrigenAdjuntos,
   origenAdjuntosFromEmlParts,
   parseOrigenArchivos,
@@ -160,12 +162,23 @@ import {
   formatCompradorOrdenVenta,
   resolveOrdenVentaLineaTitulo,
 } from "../../utils/orden-venta-display";
+import type { CypherCompanionOtPicker } from "./OrdenVentaCypherDrawer";
 
 interface OrdenVentaCreateModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
   idOrdenVenta?: string | null;
+  /** Cypher abierto en paralelo (mismo id): panel a la izquierda. */
+  cypherOpen?: boolean;
+  /** Abre/cierra Cypher de esta OV (botón +). */
+  onToggleCypher?: () => void;
+  /**
+   * Publica el selector de OT al Cypher compañero (por confirmar, varias OT).
+   */
+  onCompanionOtPickerChange?: (
+    picker: CypherCompanionOtPicker | null,
+  ) => void;
 }
 
 type CaptureStep = "start" | "preview" | "pickOt" | "form";
@@ -233,6 +246,8 @@ function resolveListRowForAutoPrint(
     slaStatus: "en_tiempo",
     alertaStatus: "ok",
     minutosEnEstado: 0,
+    slaMinutos: 60,
+    alertaMinutos: 45,
   };
 }
 
@@ -676,6 +691,9 @@ export function OrdenVentaCreateModal({
   onClose,
   onCreated,
   idOrdenVenta = null,
+  cypherOpen = false,
+  onToggleCypher,
+  onCompanionOtPickerChange,
 }: OrdenVentaCreateModalProps) {
   const { codigoCuenta } = useCompany();
   const session = useAuthStore((state) => state.session);
@@ -894,6 +912,77 @@ export function OrdenVentaCreateModal({
     return groupOrigenCorreoToOrdenesTrabajo(origenCorreoDraft);
   }, [ordenesTrabajoPreview, origenCorreoDraft]);
 
+  const countProductosOt = useCallback((hija: OrdenTrabajoHija) => {
+    return hija.renglones.filter(
+      (row) =>
+        (row.Producto ?? "").trim() ||
+        (row["Codigo producto"] ?? "").trim(),
+    ).length;
+  }, []);
+
+  // El grid de OT vive en Cypher: al editar nunca mostrar pickOt centrado.
+  useEffect(() => {
+    if (!open || !isEditing) return;
+    if (step !== "pickOt") return;
+    setFormOtPage(0);
+    setStep("form");
+    setError(null);
+  }, [isEditing, open, step]);
+
+  useEffect(() => {
+    if (!onCompanionOtPickerChange) return;
+
+    const shouldPublish =
+      open &&
+      cypherOpen &&
+      isEditing &&
+      normalizeEstadoOrdenVenta(editingEstado) === "por_confirmar" &&
+      ordenesTrabajoForm.length >= 1 &&
+      (step === "pickOt" || step === "form");
+
+    if (!shouldPublish) {
+      onCompanionOtPickerChange(null);
+      return;
+    }
+
+    const selectedIndex =
+      ordenesTrabajoForm.length > 0
+        ? Math.min(formOtPage, ordenesTrabajoForm.length - 1)
+        : 0;
+
+    onCompanionOtPickerChange({
+      hijas: ordenesTrabajoForm.map((hija) => ({
+        id: hija.id,
+        label: hija.label,
+        productosCount: countProductosOt(hija),
+        totalCantidad: hija.totalCantidad,
+        almacen: hija.almacen,
+      })),
+      selectedId: ordenesTrabajoForm[selectedIndex]?.id ?? null,
+      onSelect: (id: string) => {
+        const index = ordenesTrabajoForm.findIndex((hija) => hija.id === id);
+        if (index < 0) return;
+        setFormOtPage(index);
+        setStep("form");
+        setError(null);
+      },
+    });
+
+    return () => {
+      onCompanionOtPickerChange(null);
+    };
+  }, [
+    countProductosOt,
+    cypherOpen,
+    editingEstado,
+    formOtPage,
+    isEditing,
+    onCompanionOtPickerChange,
+    open,
+    ordenesTrabajoForm,
+    step,
+  ]);
+
   const applyOrdenesTrabajo = useCallback((next: OrdenTrabajoHija[]) => {
     setOrdenesTrabajoPreview(next);
     setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(next));
@@ -905,7 +994,7 @@ export function OrdenVentaCreateModal({
   const handleAddOrdenTrabajo = useCallback(() => {
     const almacen = addOtAlmacen.trim();
     if (!almacen) {
-      setError("Indica el centro de consumo / cocina de la nueva tarea.");
+      setError("Indica el centro de consumo de la nueva tarea.");
       return;
     }
     const nueva = createEmptyOrdenTrabajoHija({
@@ -1450,7 +1539,7 @@ export function OrdenVentaCreateModal({
           normalizeEstadoOrdenVenta(detalle.estado) === "por_confirmar" &&
           origenCorreoRows.length > 0;
 
-        // OV del tercero: Mateo interpreta origen_correo → preview OT → formulario.
+        // OV del tercero: Mateo interpreta origen_correo → formulario (1ª OT) + Cypher.
         if (esExternoPorConfirmar) {
           const pedido = buildPedidoExtraidoFromOrigenCorreo({
             origenCorreo: origenCorreoRows,
@@ -1573,7 +1662,8 @@ export function OrdenVentaCreateModal({
           );
           setStartMode("docs");
           setFormOtPage(0);
-          setStep("preview");
+          // Sin preview intermedio: formulario de la 1ª OT (Cypher se abre desde la lista).
+          setStep("form");
         } else {
           const detalleLineas = detalle.lineas ?? [];
           const notasLineas = detalle.notas_lineas?.trim() || "";
@@ -1648,7 +1738,8 @@ export function OrdenVentaCreateModal({
           if (hijasEdit.length > 0) {
             setStartMode("docs");
             setFormOtPage(0);
-            setStep(hijasEdit.length > 1 ? "pickOt" : "form");
+            // Selector de OT = Cypher; formulario siempre en la 1ª OT.
+            setStep("form");
           }
         }
 
@@ -2277,26 +2368,26 @@ export function OrdenVentaCreateModal({
 
   const origenArchivosNombres = useMemo(() => {
     const fromFiles = origenArchivoFiles.map((file) => file.name);
-    if (fromFiles.length > 0) return fromFiles;
-    return nombresOrigenAdjuntos(
-      emlInnerAdjuntos.length > 0
-        ? [...emlInnerAdjuntos, ...origenAdjuntos]
-        : origenAdjuntos,
-    );
+    const raw =
+      fromFiles.length > 0
+        ? fromFiles
+        : nombresOrigenAdjuntos(
+            mergeOrigenAdjuntosWithEmlParts(origenAdjuntos, emlInnerAdjuntos),
+          );
+    return [...new Set(raw.map((name) => name.trim()).filter(Boolean))];
   }, [origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos]);
 
   const adjuntosParaVista = useMemo((): OrigenAdjunto[] => {
     if (origenArchivoFiles.length > 0) {
-      return origenArchivoFiles.map((file) => ({
-        nombre: file.name,
-        mime: file.type || null,
-        bytes: file.size,
-      }));
+      return dedupeOrigenAdjuntos(
+        origenArchivoFiles.map((file) => ({
+          nombre: file.name,
+          mime: file.type || null,
+          bytes: file.size,
+        })),
+      );
     }
-    if (emlInnerAdjuntos.length > 0) {
-      return [...emlInnerAdjuntos, ...origenAdjuntos];
-    }
-    return origenAdjuntos;
+    return mergeOrigenAdjuntosWithEmlParts(origenAdjuntos, emlInnerAdjuntos);
   }, [origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos]);
 
   const openFormFromDocs = useCallback(async () => {
@@ -3042,14 +3133,8 @@ export function OrdenVentaCreateModal({
       return;
     }
 
-    // En edición (OV que ya vino por correo) no hay wizard docs/preview:
-    // ESC solo vuelve a pick OT si hay varias, o pide confirmación para salir.
+    // En edición: el picker de OT está en Cypher; ESC pide salir (no vuelve a pickOt).
     if (isEditing) {
-      if (step === "form" && ordenesTrabajoForm.length > 1) {
-        setStep("pickOt");
-        setError(null);
-        return;
-      }
       if (hasCaptureProgress) {
         setConfirmDiscardOpen(true);
         return;
@@ -3174,7 +3259,30 @@ export function OrdenVentaCreateModal({
         }
         compact
         size={step === "start" ? "lg" : "2xl"}
+        layout={cypherOpen && isEditing ? "dock-left" : "center"}
+        closeOnBackdrop={false}
         hideHeaderClose
+        headerTrailing={
+          cypherOpen && isEditing
+            ? undefined
+            : isEditing && onToggleCypher
+              ? (
+                  <button
+                    type="button"
+                    title="Ver detalle Cypher"
+                    aria-label="Abrir detalle Cypher"
+                    onClick={() => onToggleCypher()}
+                    className={cn(
+                      "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
+                      "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                    )}
+                  >
+                    <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+                  </button>
+                )
+              : undefined
+        }
         asForm={step === "form"}
         footerLeading={
           step === "pickOt" ? (
@@ -3255,7 +3363,6 @@ export function OrdenVentaCreateModal({
           !addOtOpen &&
           !confirmRemoveOtId
         }
-        closeOnBackdrop={false}
         submitOnEnter={false}
       >
         {isLoading &&
@@ -3580,86 +3687,101 @@ export function OrdenVentaCreateModal({
         ) : null}
 
         {step === "pickOt" && !isLoading ? (
-          <div className="space-y-4">
-            <p className="polaria-text-body-sm text-polaria-w-50">
-              Esta venta tiene{" "}
-              <span className="font-semibold text-polaria-teal">
-                {ordenesTrabajoForm.length} órdenes de trabajo
-              </span>
-              . Elige cuál quieres editar, o agrega/elimina si faltan o sobran.
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {ordenesTrabajoForm.map((hija, index) => (
-                <div
-                  key={hija.id}
-                  className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-4"
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormOtPage(index);
-                      setStep("form");
-                      setError(null);
-                    }}
-                    className={cn(
-                      "w-full text-left transition",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
-                    )}
-                  >
-                    <p className="polaria-text-body-sm font-semibold text-polaria-w">
-                      {hija.label}
-                    </p>
-                    <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                      {
-                        hija.renglones.filter(
-                          (row) =>
-                            (row.Producto ?? "").trim() ||
-                            (row["Codigo producto"] ?? "").trim(),
-                        ).length
-                      }{" "}
-                      producto
-                      {hija.renglones.filter(
-                        (row) =>
-                          (row.Producto ?? "").trim() ||
-                          (row["Codigo producto"] ?? "").trim(),
-                      ).length === 1
-                        ? ""
-                        : "s"}{" "}
-                      · {formatKgEs(hija.totalCantidad)} kg
-                    </p>
-                    {hija.almacen ? (
-                      <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                        {hija.almacen}
-                      </p>
-                    ) : null}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmRemoveOtId(hija.id)}
-                    className="mt-3 polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
-                  >
-                    Eliminar tarea
-                  </button>
-                </div>
-              ))}
+          cypherOpen ? (
+            <div className="space-y-4">
+              <p className="polaria-text-body-sm text-polaria-w-50">
+                Esta venta tiene{" "}
+                <span className="font-semibold text-polaria-teal">
+                  {ordenesTrabajoForm.length} órdenes de trabajo
+                </span>
+                . Elige cuál quieres revisar en el panel Cypher a la derecha.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddOtAlmacen("");
+                  setAddOtNumeroPedido(ordenCompraHotel.trim());
+                  setAddOtOpen(true);
+                  setError(null);
+                }}
+                className={cn(
+                  "inline-flex w-full items-center justify-center gap-2 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-2.5",
+                  "polaria-text-body-sm font-semibold text-polaria-w transition hover:border-polaria-teal",
+                )}
+              >
+                <Plus className="h-4 w-4 text-polaria-teal" aria-hidden />
+                Agregar tarea de almacén
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setAddOtAlmacen("");
-                setAddOtNumeroPedido(ordenCompraHotel.trim());
-                setAddOtOpen(true);
-                setError(null);
-              }}
-              className={cn(
-                "inline-flex w-full items-center justify-center gap-2 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-2.5",
-                "polaria-text-body-sm font-semibold text-polaria-w transition hover:border-polaria-teal",
-              )}
-            >
-              <Plus className="h-4 w-4 text-polaria-teal" aria-hidden />
-              Agregar tarea de almacén
-            </button>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="polaria-text-body-sm text-polaria-w-50">
+                Esta venta tiene{" "}
+                <span className="font-semibold text-polaria-teal">
+                  {ordenesTrabajoForm.length} órdenes de trabajo
+                </span>
+                . Elige cuál quieres editar, o agrega/elimina si faltan o sobran.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {ordenesTrabajoForm.map((hija, index) => (
+                  <div
+                    key={hija.id}
+                    className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-4"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormOtPage(index);
+                        setStep("form");
+                        setError(null);
+                      }}
+                      className={cn(
+                        "w-full text-left transition",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                      )}
+                    >
+                      <p className="polaria-text-body-sm font-semibold text-polaria-w">
+                        {hija.label}
+                      </p>
+                      <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                        {countProductosOt(hija)} producto
+                        {countProductosOt(hija) === 1 ? "" : "s"} ·{" "}
+                        {formatKgEs(hija.totalCantidad)} kg
+                      </p>
+                      {hija.almacen ? (
+                        <p className="mt-1 polaria-text-caption text-polaria-w-50">
+                          {hija.almacen}
+                        </p>
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmRemoveOtId(hija.id)}
+                      className="mt-3 polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
+                    >
+                      Eliminar tarea
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddOtAlmacen("");
+                  setAddOtNumeroPedido(ordenCompraHotel.trim());
+                  setAddOtOpen(true);
+                  setError(null);
+                }}
+                className={cn(
+                  "inline-flex w-full items-center justify-center gap-2 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-2.5",
+                  "polaria-text-body-sm font-semibold text-polaria-w transition hover:border-polaria-teal",
+                )}
+              >
+                <Plus className="h-4 w-4 text-polaria-teal" aria-hidden />
+                Agregar tarea de almacén
+              </button>
+            </div>
+          )
         ) : null}
 
         {step === "form" && !isLoading ? (
@@ -3667,16 +3789,11 @@ export function OrdenVentaCreateModal({
             <div className="flex flex-wrap items-end justify-between gap-3">
               {ordenesTrabajoForm.length > 1 ? (
                 <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep("pickOt");
-                      setError(null);
-                    }}
-                    className="polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
-                  >
-                    ← Ver todas las órdenes de trabajo
-                  </button>
+                  {cypherOpen ? (
+                    <p className="polaria-text-caption text-polaria-w-50">
+                      Cambia de OT en Cypher (derecha)
+                    </p>
+                  ) : null}
                   {hijaFormActiva ? (
                     <button
                       type="button"
@@ -3947,7 +4064,7 @@ export function OrdenVentaCreateModal({
 
                     <PolariaFormInput
                       id="orden-venta-centro"
-                      label="Centro de consumo / cocina"
+                      label="Centro de consumo"
                       value={centroConsumo}
                       onChange={(event) => {
                         setCentroConsumo(event.target.value);
@@ -4121,22 +4238,6 @@ export function OrdenVentaCreateModal({
                       })}
                       compact
                       fieldClassName="sm:col-span-2"
-                    />
-                    <PolariaFormInput
-                      id="orden-venta-anden"
-                      label="Andén / punto de recepción"
-                      value={anden}
-                      onChange={(event) => {
-                        setAnden(event.target.value);
-                        clearFieldMarks("anden");
-                      }}
-                      controlClassName={fieldControlClass({
-                        field: "anden",
-                        autoFields,
-                        warnFields,
-                        missingFields,
-                      })}
-                      compact
                     />
                     <PolariaFormInput
                       id="orden-venta-contacto"
@@ -4667,12 +4768,14 @@ export function OrdenVentaCreateModal({
                   />
                 </div>
 
-                <CollapsibleCuerpoMensaje
-                  text={origenTexto}
-                  adjuntos={adjuntosParaVista}
-                  open={showCuerpo}
-                  onToggle={() => setShowCuerpo((prev) => !prev)}
-                />
+                {!cypherOpen ? (
+                  <CollapsibleCuerpoMensaje
+                    text={origenTexto}
+                    adjuntos={adjuntosParaVista}
+                    open={showCuerpo}
+                    onToggle={() => setShowCuerpo((prev) => !prev)}
+                  />
+                ) : null}
 
                 <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
                   <button
@@ -5042,7 +5145,7 @@ export function OrdenVentaCreateModal({
         <div className="flex flex-col gap-3">
           <PolariaFormInput
             id="orden-venta-add-ot-almacen"
-            label="Centro de consumo / cocina"
+            label="Centro de consumo"
             required
             value={addOtAlmacen}
             onChange={(event) => setAddOtAlmacen(event.target.value)}

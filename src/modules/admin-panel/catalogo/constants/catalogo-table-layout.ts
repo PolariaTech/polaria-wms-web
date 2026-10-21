@@ -7,6 +7,7 @@ export const CATALOGO_TABLE_COLUMN_MIN_WIDTH: Record<string, string> = {
   proveedor: "min-w-[10rem]",
   categoria: "min-w-[10rem]",
   tipo: "min-w-[8rem]",
+  "tipo-producto": "min-w-[9rem]",
   etiquetas: "min-w-[10rem]",
   publicado: "min-w-[8rem]",
   estado: "min-w-[8rem]",
@@ -21,7 +22,7 @@ export const CATALOGO_TABLE_COLUMN_MIN_WIDTH: Record<string, string> = {
   acciones: "min-w-[14rem]",
 };
 
-export const CATALOGO_TABLE_MIN_WIDTH_CLASS = "min-w-[116rem]";
+export const CATALOGO_TABLE_MIN_WIDTH_CLASS = "min-w-[125rem]";
 
 export function catalogoTableColumnClass(columnId: string): string {
   const width = CATALOGO_TABLE_COLUMN_MIN_WIDTH[columnId] ?? "min-w-[9rem]";

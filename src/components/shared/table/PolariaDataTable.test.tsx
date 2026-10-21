@@ -163,6 +163,26 @@ describe("PolariaDataTable", () => {
     );
 
     expect(screen.getByText("No hay cuentas")).toBeInTheDocument();
+    expect(screen.getByText("Mostrando 0–0 de 0")).toBeInTheDocument();
+  });
+
+  it("muestra Mostrando x–x de x aunque quepa en una página", () => {
+    render(
+      <PolariaDataTable<Row>
+        title="Cuentas"
+        isLoading={false}
+        error={null}
+        rows={[{ id: "1", code: "C1", name: "Item 1" }]}
+        columns={columns}
+        getRowKey={(row) => row.id}
+        emptyMessage="Sin registros"
+      />,
+    );
+
+    expect(screen.getByText("Mostrando 1–1 de 1")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Página siguiente" }),
+    ).not.toBeInTheDocument();
   });
 
   it("pagina filas con máximo 5 por página", async () => {

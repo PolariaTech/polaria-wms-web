@@ -22,6 +22,8 @@ export interface CompradorListRow {
   idComprador: string;
   codigo: string;
   comprador: string;
+  /** Nombre comercial corto (columna BD `apodo`). */
+  apodo: string;
   telefono: string | null;
   /** RFC fiscal (puede ir vacío). */
   rfc: string;
@@ -98,7 +100,7 @@ interface CompradorDbRow {
 }
 
 const COMPRADOR_LIST_COLUMNS =
-  "id_comprador,codigo,nombre,telefono,rfc,grupo,esta_activo";
+  "id_comprador,codigo,nombre,apodo,telefono,rfc,grupo,esta_activo";
 const COMPRADOR_DETALLE_COLUMNS = [
   COMPRADOR_LIST_COLUMNS,
   // Campos fiscales/comerciales.
@@ -159,6 +161,7 @@ function mapCompradorRow(row: CompradorDbRow): CompradorListRow {
     idComprador: row.id_comprador,
     codigo: row.codigo,
     comprador: row.nombre,
+    apodo: valueOrEmpty(row.apodo),
     telefono: row.telefono,
     rfc: valueOrEmpty(row.rfc),
     grupo: valueOrEmpty(row.grupo),

@@ -62,6 +62,11 @@ export function OrdenVentaProductoPickerModal({
       onSubmit={(event) => event.preventDefault()}
       asForm={false}
       hideHeaderClose
+      footerLeading={
+        <p className="polaria-text-caption text-polaria-w-50">
+          Mostrando {filtered.length === 0 ? "0–0" : `1–${filtered.length}`}
+        </p>
+      }
       footerAction={<></>}
       cancelLabel="Cerrar"
       compact

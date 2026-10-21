@@ -113,7 +113,7 @@ function matchesProducto(
   return false;
 }
 
-function scoreMatch(linea: LineaFiltrable, row: OrigenCorreoRenglon): number {
+export function scoreMatch(linea: LineaFiltrable, row: OrigenCorreoRenglon): number {
   if (!matchesProducto(linea, row)) return -1;
   const qty = parseCantidadRenglon(row.Cantidad);
   const lineaQty = lineaCantidad(linea);

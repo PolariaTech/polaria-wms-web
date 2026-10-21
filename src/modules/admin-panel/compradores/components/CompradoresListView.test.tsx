@@ -94,7 +94,9 @@ describe("CompradoresListView", () => {
         idComprador: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
         codigo: "WAL01",
         comprador: "Walmart",
+        apodo: "Wally",
         telefono: null,
+        rfc: "",
         grupo: "Grupo A",
         estaActivo: true,
       },
@@ -131,7 +133,7 @@ describe("CompradoresListView", () => {
     render(<CompradoresListView />);
 
     expect(
-      await screen.findByRole("button", { name: "+ Comprador" }),
+      await screen.findByRole("button", { name: "+ Cliente" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Gestión de precios" }),
@@ -153,7 +155,7 @@ describe("CompradoresListView", () => {
     downloadCompradorPreciosExcelTemplate.mockResolvedValue(undefined);
     render(<CompradoresListView />);
 
-    await screen.findByRole("button", { name: "+ Comprador" });
+    await screen.findByRole("button", { name: "+ Cliente" });
     await user.click(screen.getByRole("button", { name: "Gestión de precios" }));
     await user.click(screen.getByRole("button", { name: "Imprimir" }));
     await user.click(screen.getByRole("button", { name: "Seleccionar todos" }));
@@ -188,7 +190,7 @@ describe("CompradoresListView", () => {
     const user = userEvent.setup();
     render(<CompradoresListView />);
 
-    await screen.findByRole("button", { name: "+ Comprador" });
+    await screen.findByRole("button", { name: "+ Cliente" });
     await user.click(screen.getByRole("button", { name: "Gestión de precios" }));
     await user.click(screen.getByRole("button", { name: "Exportar" }));
 
@@ -259,7 +261,7 @@ describe("CompradoresListView", () => {
     });
 
     render(<CompradoresListView />);
-    await screen.findByRole("button", { name: "+ Comprador" });
+    await screen.findByRole("button", { name: "+ Cliente" });
     await user.click(screen.getByRole("button", { name: "Gestión de precios" }));
 
     const input = document.querySelector('input[type="file"]');
@@ -290,7 +292,7 @@ describe("CompradoresListView", () => {
     });
 
     expect(
-      screen.queryByRole("button", { name: "+ Comprador" }),
+      screen.queryByRole("button", { name: "+ Cliente" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Gestión de precios" }),

@@ -26,7 +26,7 @@ describe("AdminAssignmentCreationPanel", () => {
       screen.getByRole("button", { name: /Grupos/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Compradores/i }),
+      screen.getByRole("button", { name: /Cliente/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Camiones/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Plantas/i })).toBeInTheDocument();

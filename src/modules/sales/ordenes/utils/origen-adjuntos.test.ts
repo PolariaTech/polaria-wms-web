@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   canPreviewOrigenAdjunto,
+  dedupeOrigenAdjuntos,
   labelTipoOrigenAdjunto,
+  mergeOrigenAdjuntosWithEmlParts,
   origenAdjuntoDownloadUrl,
   origenAdjuntoViewUrl,
   parseOrigenArchivos,
@@ -54,6 +56,32 @@ describe("origen-adjuntos", () => {
     expect(labelTipoOrigenAdjunto({ nombre: "a.png", mime: "image/png" })).toBe(
       "IMG",
     );
+  });
+
+  it("dedupe por nombre y merge con partes del .eml", () => {
+    expect(
+      dedupeOrigenAdjuntos([
+        { nombre: "PO.html", bytes: 11 },
+        { nombre: "PO.html", bytes: 11, url: "/api/x" },
+        { nombre: "correo.eml" },
+      ]),
+    ).toEqual([
+      { nombre: "PO.html", bytes: 11, url: "/api/x" },
+      { nombre: "correo.eml" },
+    ]);
+
+    expect(
+      mergeOrigenAdjuntosWithEmlParts(
+        [
+          { nombre: "PO.html", bytes: 11 },
+          { nombre: "correo.eml", path: "a/correo.eml" },
+        ],
+        [{ nombre: "PO.html", bytes: 11, url: "/api/eml-parts/file?i=0" }],
+      ),
+    ).toEqual([
+      { nombre: "PO.html", bytes: 11, url: "/api/eml-parts/file?i=0" },
+      { nombre: "correo.eml", path: "a/correo.eml" },
+    ]);
   });
 
   it("usa proxy Storage y bloquea PDF Cloudinary roto", () => {

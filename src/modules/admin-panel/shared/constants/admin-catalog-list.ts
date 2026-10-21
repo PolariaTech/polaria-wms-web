@@ -26,18 +26,18 @@ export const CLIENTES_TABLE_SUBTITLE =
 export const CLIENTES_EMPTY_MESSAGE =
   "No hay grupos registrados." as const;
 
-export const COMPRADORES_PAGE_TITLE = "Creación de compradores" as const;
+export const COMPRADORES_PAGE_TITLE = "Creación de clientes" as const;
 
 export const COMPRADORES_PAGE_HINT =
   "Usá la navegación superior para volver al panel administrativo." as const;
 
-export const COMPRADORES_TABLE_TITLE = "Compradores" as const;
+export const COMPRADORES_TABLE_TITLE = "Clientes" as const;
 
 export const COMPRADORES_TABLE_SUBTITLE =
-  "Código y comprador." as const;
+  "Código, cliente y D. Comercial." as const;
 
 export const COMPRADORES_EMPTY_MESSAGE =
-  "No hay compradores registrados." as const;
+  "No hay clientes registrados." as const;
 
 export const CAMIONES_PAGE_TITLE = "Creación de camiones" as const;
 

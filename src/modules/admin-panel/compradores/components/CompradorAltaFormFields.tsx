@@ -378,7 +378,7 @@ export function CompradorAltaFormFields({
           />
           <PolariaFormInput
             id={`${idPrefix}-apodo`}
-            label="Apodo interno"
+            label="D. Comercial"
             value={ficha.apodo}
             placeholder="El Güero"
             onChange={(event) =>

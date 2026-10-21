@@ -418,7 +418,7 @@ describe("sales.service", () => {
         sku: "FIL-01",
         descripcion: "Filete",
         id_cliente: "cli-1",
-        metadatos_catalogo: null,
+        metadatos_catalogo: { tipo_producto: 1 },
         esta_activo: true,
       },
     ]);
@@ -434,7 +434,7 @@ describe("sales.service", () => {
           sku: "FIL-01",
           descripcion: "Filete",
           id_cliente: "cli-1",
-          metadatos_catalogo: null,
+          metadatos_catalogo: { tipo_producto: 1 },
         },
       },
     ]);
@@ -484,6 +484,47 @@ describe("sales.service", () => {
     expect(rows[0]?.unidadMedida).toBe("kg");
   });
 
+  it("listProductosVentaCatalogo excluye servicios (tipo_producto 3)", async () => {
+    const bodegaChain = createBodegaChain(["bod-1"]);
+    const productoChain = createProductoCatalogoChain([
+      {
+        id_producto: "prod-1",
+        sku: "FIL-01",
+        descripcion: "Filete",
+        id_cliente: "cli-1",
+        metadatos_catalogo: { tipo_producto: 1 },
+        esta_activo: true,
+      },
+      {
+        id_producto: "srv-1",
+        sku: "5",
+        descripcion: "ANTICIPO DEL BIEN O SERVICIO",
+        id_cliente: null,
+        metadatos_catalogo: { tipo_producto: 3 },
+        esta_activo: true,
+      },
+    ]);
+    const warehouseChain = createWarehouseChain([]);
+    const ubicacionChain = createUbicacionChain([]);
+    const precioChain = createPrecioProductoChain([]);
+
+    const from = vi.fn((table: string) => {
+      if (table === "bodega") return bodegaChain;
+      if (table === "producto") return productoChain;
+      if (table === "warehouse_state") return warehouseChain;
+      if (table === "ubicacion") return ubicacionChain;
+      if (table === "precio_producto") return precioChain;
+      throw new Error(`unexpected table ${table}`);
+    });
+
+    setSupabaseClientForTests({ from } as never);
+
+    const rows = await listProductosVentaCatalogo({ codigoCuenta: "CUENTA-01" });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.codigo).toBe("FIL-01");
+  });
+
   it("listProductosVentaCatalogo incluye productos sin stock usable (kg 0)", async () => {
     const bodegaChain = createBodegaChain(["bod-1"]);
     const productoChain = createProductoCatalogoChain([
@@ -492,7 +533,7 @@ describe("sales.service", () => {
         sku: "IOZ7Z",
         descripcion: "HPR FROZEN-PORK RACKS",
         id_cliente: "cli-1",
-        metadatos_catalogo: null,
+        metadatos_catalogo: { tipo_producto: 1 },
         esta_activo: true,
       },
     ]);
@@ -508,7 +549,7 @@ describe("sales.service", () => {
           sku: "IOZ7Z",
           descripcion: "HPR FROZEN-PORK RACKS",
           id_cliente: "cli-1",
-          metadatos_catalogo: null,
+          metadatos_catalogo: { tipo_producto: 1 },
         },
       },
     ]);

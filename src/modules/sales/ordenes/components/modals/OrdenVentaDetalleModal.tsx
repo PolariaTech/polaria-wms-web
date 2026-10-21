@@ -1,7 +1,13 @@
 "use client";
 
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ChevronDown, ChevronUp, Plus } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
@@ -41,11 +47,7 @@ import {
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
 } from "../../utils/origen-correo-ordenes-trabajo";
-import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
-import {
-  OrigenPedidoBodyView,
-  OrigenPedidoSourceView,
-} from "../shared/OrigenPedidoBodyView";
+import { OrigenPedidoSourceView } from "../shared/OrigenPedidoBodyView";
 import {
   nombresOrigenAdjuntos,
   parseOrigenArchivos,
@@ -57,7 +59,7 @@ import {
   resolveOrdenVentaLineaTitulo,
   sumOrdenVentaCantidadKg,
 } from "../../utils/orden-venta-display";
-import { OrdenTrabajoLogPanel } from "../orden-trabajo/OrdenTrabajoLogPanel";
+import type { CypherCompanionOtPicker } from "./OrdenVentaCypherDrawer";
 
 interface OrdenVentaDetalleModalProps {
   idOrdenVenta: string | null;
@@ -65,6 +67,16 @@ interface OrdenVentaDetalleModalProps {
   onClose: () => void;
   onEmitted?: () => void;
   inspect?: boolean;
+  /** Cypher abierto en paralelo (mismo id): panel a la izquierda. */
+  cypherOpen?: boolean;
+  /** Abre/cierra Cypher de esta OV (botón +). */
+  onToggleCypher?: () => void;
+  /**
+   * Publica el selector de OT al Cypher (varias OT): la izquierda muestra la elegida.
+   */
+  onCompanionOtPickerChange?: (
+    picker: CypherCompanionOtPicker | null,
+  ) => void;
 }
 
 function CaptureSection({
@@ -226,11 +238,6 @@ function DetalleContent({
       return fromObs.origenArchivos;
     })(),
   };
-  const origenAdjuntos = (() => {
-    const fromCol = parseOrigenArchivos(orden.origen_archivos);
-    if (fromCol.length > 0) return fromCol;
-    return fromObs.origenArchivos.map((nombre) => ({ nombre }));
-  })();
   const prioridad = captura.prioridad.trim();
   // Cuerpo: origen_texto / bloque "Pedido original" / observaciones crudas del correo.
   const cuerpoMensaje = (() => {
@@ -264,27 +271,18 @@ function DetalleContent({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
-          <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
-            Orden de trabajo
+      <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
+        <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
+          Orden de trabajo
+        </p>
+        <p className="mt-1 polaria-text-body-sm font-semibold text-polaria-w">
+          {hija?.label ?? orden.codigo}
+        </p>
+        {hija?.referenciaPedido ? (
+          <p className="mt-1 polaria-text-caption text-polaria-w-50">
+            {hija.referenciaPedido}
           </p>
-          <p className="mt-1 polaria-text-body-sm font-semibold text-polaria-w">
-            {hija?.label ?? orden.codigo}
-          </p>
-          {hija?.referenciaPedido ? (
-            <p className="mt-1 polaria-text-caption text-polaria-w-50">
-              {hija.referenciaPedido}
-            </p>
-          ) : null}
-        </div>
-        <OrdenTrabajoLogPanel
-          idOrdenVenta={orden.id_orden_venta}
-          codigoCuenta={orden.codigo_cuenta}
-          idOrdenTrabajo={hija?.id ?? null}
-          createdAt={orden.created_at || orden.fecha_pedido}
-          autorNombre={orden.vendedor}
-        />
+        ) : null}
       </div>
 
       {cuerpoMensaje || captura.origenArchivos.length > 0 ? (
@@ -304,7 +302,7 @@ function DetalleContent({
           <MetaField label="Orden de compra del cliente">
             <TextValue value={captura.ordenCompraHotel} />
           </MetaField>
-          <MetaField label="Centro de consumo / cocina">
+          <MetaField label="Centro de consumo">
             <TextValue value={captura.centroConsumo} />
           </MetaField>
           <MetaField label="Fecha de creación">
@@ -518,16 +516,7 @@ function DetalleContent({
         )}
       </CaptureSection>
 
-      {cuerpoMensaje || origenAdjuntos.length > 0 ? (
-        <CaptureSection title="Cuerpo del mensaje" collapsible defaultOpen={false}>
-          <div className="space-y-4">
-            {cuerpoMensaje ? (
-              <OrigenPedidoBodyView text={cuerpoMensaje} className="mt-0" />
-            ) : null}
-            <OrigenAdjuntosCards adjuntos={origenAdjuntos} />
-          </div>
-        </CaptureSection>
-      ) : null}
+      {/* Cuerpo del correo: solo en Cypher → 01 Correo (no duplicar aquí). */}
     </>
   );
 }
@@ -538,6 +527,9 @@ export function OrdenVentaDetalleModal({
   onClose,
   onEmitted,
   inspect = false,
+  cypherOpen = false,
+  onToggleCypher,
+  onCompanionOtPickerChange,
 }: OrdenVentaDetalleModalProps) {
   const [orden, setOrden] = useState<OrdenVentaDetalleRow | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -552,12 +544,61 @@ export function OrdenVentaDetalleModal({
   );
 
   const hijaActiva = useMemo(() => {
-    if (ordenesTrabajo.length <= 1) return ordenesTrabajo[0] ?? null;
-    if (!hijaId) return null;
-    return ordenesTrabajo.find((h) => h.id === hijaId) ?? null;
+    if (ordenesTrabajo.length === 0) return null;
+    if (ordenesTrabajo.length === 1) return ordenesTrabajo[0] ?? null;
+    if (hijaId) {
+      return ordenesTrabajo.find((h) => h.id === hijaId) ?? ordenesTrabajo[0] ?? null;
+    }
+    return ordenesTrabajo[0] ?? null;
   }, [hijaId, ordenesTrabajo]);
 
-  const mostrarPickerHijas = ordenesTrabajo.length > 1 && !hijaActiva;
+  // El grid de OT vive solo en Cypher; aquí siempre hay OT activa (1ª por defecto).
+  useEffect(() => {
+    if (ordenesTrabajo.length === 0) return;
+    if (hijaId && ordenesTrabajo.some((h) => h.id === hijaId)) return;
+    setHijaId(ordenesTrabajo[0]?.id ?? null);
+  }, [hijaId, ordenesTrabajo]);
+
+  // Publicar selector de OT al Cypher compañero.
+  useEffect(() => {
+    if (!onCompanionOtPickerChange) return;
+
+    const shouldPublish =
+      Boolean(idOrdenVenta) &&
+      cypherOpen &&
+      !inspect &&
+      ordenesTrabajo.length >= 1;
+
+    if (!shouldPublish) {
+      onCompanionOtPickerChange(null);
+      return;
+    }
+
+    onCompanionOtPickerChange({
+      hijas: ordenesTrabajo.map((hija) => ({
+        id: hija.id,
+        label: hija.label,
+        productosCount: hija.renglones.length,
+        totalCantidad: hija.totalCantidad,
+        almacen: hija.almacen,
+      })),
+      selectedId: hijaId ?? ordenesTrabajo[0]?.id ?? null,
+      onSelect: (id: string) => {
+        setHijaId(id);
+      },
+    });
+
+    return () => {
+      onCompanionOtPickerChange(null);
+    };
+  }, [
+    cypherOpen,
+    hijaId,
+    idOrdenVenta,
+    inspect,
+    onCompanionOtPickerChange,
+    ordenesTrabajo,
+  ]);
 
   const loadDetalle = useCallback(
     (id: string, cuenta: string) => {
@@ -712,9 +753,38 @@ export function OrdenVentaDetalleModal({
       onSubmit={(event) => {
         event.preventDefault();
       }}
+      layout={cypherOpen ? "dock-left" : "center"}
+      closeOnBackdrop={!cypherOpen}
       hideHeaderClose
+      headerTrailing={
+        cypherOpen ? undefined : (
+          <button
+            type="button"
+            title={onToggleCypher ? "Ver detalle Cypher" : "Cerrar"}
+            aria-label={
+              onToggleCypher ? "Abrir detalle Cypher" : "Cerrar detalle"
+            }
+            onClick={() => {
+              if (onToggleCypher) {
+                onToggleCypher();
+                return;
+              }
+              onClose();
+            }}
+            className={cn(
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+              onToggleCypher
+                ? "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08"
+                : "border-polaria-teal bg-polaria-teal text-polaria-on-teal hover:opacity-90",
+            )}
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+          </button>
+        )
+      }
       footerAction={
-        puedeEmitir && !mostrarPickerHijas ? (
+        puedeEmitir ? (
           <button
             type="button"
             onClick={handleEmitir}
@@ -756,55 +826,14 @@ export function OrdenVentaDetalleModal({
         </p>
       ) : null}
 
-      {!isLoading && !error && orden && mostrarPickerHijas ? (
-        <div className="space-y-4">
-          <p className="polaria-text-body-sm text-polaria-w-50">
-            Esta venta tiene{" "}
-            <span className="font-semibold text-polaria-teal">
-              {ordenesTrabajo.length} órdenes de trabajo
-            </span>
-            . Elige cuál quieres ver.
-          </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {ordenesTrabajo.map((hija) => (
-              <button
-                key={hija.id}
-                type="button"
-                onClick={() => setHijaId(hija.id)}
-                className={cn(
-                  "rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-4 text-left transition",
-                  "hover:border-polaria-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
-                )}
-              >
-                <p className="polaria-text-body-sm font-semibold text-polaria-w">
-                  {hija.label}
-                </p>
-                <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                  {hija.renglones.length} producto
-                  {hija.renglones.length === 1 ? "" : "s"} ·{" "}
-                  {formatKgEs(hija.totalCantidad)} kg
-                </p>
-                {hija.almacen ? (
-                  <p className="mt-1 polaria-text-caption text-polaria-w-50">
-                    {hija.almacen}
-                  </p>
-                ) : null}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {!isLoading && !error && orden && !mostrarPickerHijas ? (
+      {!isLoading && !error && orden ? (
         <div className="space-y-3">
           {ordenesTrabajo.length > 1 ? (
-            <button
-              type="button"
-              onClick={() => setHijaId(null)}
-              className="polaria-text-caption text-polaria-w-50 transition hover:text-polaria-teal"
-            >
-              ← Ver todas las órdenes de trabajo
-            </button>
+            <p className="polaria-text-caption text-polaria-w-50">
+              {cypherOpen
+                ? "Cambia de orden de trabajo en Cypher (Confirmación)."
+                : `${ordenesTrabajo.length} órdenes de trabajo · ábrelas con + en Cypher.`}
+            </p>
           ) : null}
           <DetalleContent orden={orden} hija={hijaActiva} />
         </div>

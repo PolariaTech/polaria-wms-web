@@ -143,8 +143,8 @@ export function CompradoresListView({
     } catch {
       setToggleError(
         pendingToggle.mode === "disable"
-          ? "No se pudo deshabilitar el comprador."
-          : "No se pudo habilitar el comprador.",
+          ? "No se pudo deshabilitar el cliente."
+          : "No se pudo habilitar el cliente.",
       );
     } finally {
       setIsToggling(false);
@@ -350,8 +350,13 @@ export function CompradoresListView({
         },
         {
           id: "comprador",
-          header: "Comprador",
+          header: "Cliente",
           cell: (row: CompradorListRow) => row.comprador,
+        },
+        {
+          id: "apodo",
+          header: "D. Comercial",
+          cell: (row: CompradorListRow) => row.apodo?.trim() || "—",
         },
         {
           id: "telefono",
@@ -437,7 +442,7 @@ export function CompradoresListView({
           inspect
             ? undefined
             : {
-                label: "+ Comprador",
+                label: "+ Cliente",
                 showIcon: false,
                 onClick: () => setIsCreateOpen(true),
               }
@@ -509,8 +514,8 @@ export function CompradoresListView({
         open={Boolean(pendingToggle)}
         title={
           pendingToggle?.mode === "enable"
-            ? "Habilitar comprador"
-            : "Deshabilitar comprador"
+            ? "Habilitar cliente"
+            : "Deshabilitar cliente"
         }
         description={
           pendingToggle

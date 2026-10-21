@@ -37,6 +37,8 @@ html[data-theme="dark"] {
   );
   --topbar-bg-start: rgba(0, 0, 0, 0.55);
   --topbar-bg-end: rgba(2, 6, 9, 0.25);
+  /* Altura real la actualiza AppTopbar (ResizeObserver). Overlays (Cypher) empiezan debajo. */
+  --polaria-shell-top: 4.75rem;
   --modal-scrim: rgba(2, 6, 9, 0.8);
 
   /* Alias semánticos (compatibilidad) */

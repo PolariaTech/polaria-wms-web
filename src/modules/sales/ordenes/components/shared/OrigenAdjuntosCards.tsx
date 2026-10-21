@@ -4,6 +4,7 @@ import { Download, Eye, FileText } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import {
   canPreviewOrigenAdjunto,
+  dedupeOrigenAdjuntos,
   isBrokenCloudinaryPdfUrl,
   labelTipoOrigenAdjunto,
   origenAdjuntoDownloadUrl,
@@ -25,17 +26,18 @@ export function OrigenAdjuntosCards({
   adjuntos: readonly OrigenAdjunto[];
   className?: string;
 }) {
-  if (adjuntos.length === 0) return null;
+  const unique = dedupeOrigenAdjuntos(adjuntos);
+  if (unique.length === 0) return null;
 
   return (
     <div className={cn("space-y-2", className)}>
       <p className="polaria-text-caption text-polaria-w-50">
-        {adjuntos.length === 1
+        {unique.length === 1
           ? "1 archivo adjunto"
-          : `${adjuntos.length} archivos adjuntos`}
+          : `${unique.length} archivos adjuntos`}
       </p>
-      <ul className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        {adjuntos.map((item, index) => {
+      <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        {unique.map((item, index) => {
           const url = item.url?.trim() || "";
           const path = item.path?.trim() || "";
           const viewUrl = origenAdjuntoViewUrl(item);
@@ -48,9 +50,9 @@ export function OrigenAdjuntosCards({
           return (
             <li
               key={`${item.nombre}-${index}`}
-              className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-bg/40 sm:w-[14rem]"
+              className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-bg/40"
             >
-              <div className="flex h-28 items-center justify-center bg-polaria-t-08">
+              <div className="flex aspect-square items-center justify-center bg-polaria-t-08">
                 {previewable && url && tipo === "IMG" ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -67,7 +69,7 @@ export function OrigenAdjuntosCards({
                   </div>
                 )}
               </div>
-              <div className="flex items-start gap-2 border-t border-polaria-w-08 bg-polaria-w-08 px-2.5 py-2">
+              <div className="flex items-start gap-1.5 border-t border-polaria-w-08 bg-polaria-w-08 px-2 py-2">
                 <span className="mt-0.5 shrink-0 rounded bg-polaria-teal/20 px-1 py-0.5 polaria-text-caption font-bold text-polaria-teal">
                   {tipo}
                 </span>
@@ -84,7 +86,7 @@ export function OrigenAdjuntosCards({
                     </p>
                   ) : null}
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="flex shrink-0 items-center gap-0.5">
                   {hasFile && (viewUrl || downloadUrl) ? (
                     <>
                       {previewable && viewUrl ? (
@@ -92,7 +94,7 @@ export function OrigenAdjuntosCards({
                           href={viewUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded-lg p-1.5 text-polaria-teal transition hover:bg-polaria-t-08"
+                          className="rounded-lg p-1 text-polaria-teal transition hover:bg-polaria-t-08"
                           title="Ver"
                           aria-label={`Ver ${item.nombre}`}
                         >
@@ -105,7 +107,7 @@ export function OrigenAdjuntosCards({
                           download={item.nombre}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded-lg p-1.5 text-polaria-teal transition hover:bg-polaria-t-08"
+                          className="rounded-lg p-1 text-polaria-teal transition hover:bg-polaria-t-08"
                           title="Descargar"
                           aria-label={`Descargar ${item.nombre}`}
                         >
@@ -115,7 +117,7 @@ export function OrigenAdjuntosCards({
                     </>
                   ) : (
                     <span
-                      className="max-w-[6.5rem] text-right polaria-text-caption text-polaria-w-50"
+                      className="max-w-[4.5rem] text-right polaria-text-caption text-polaria-w-50"
                       title={
                         url && isBrokenCloudinaryPdfUrl(url)
                           ? "Cloudinary bloquea PDF en esta cuenta. Volvé a subir el archivo (ahora va a Supabase Storage)."

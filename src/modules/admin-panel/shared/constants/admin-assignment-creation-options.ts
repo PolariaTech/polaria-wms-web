@@ -3,8 +3,8 @@ import {
   ExternalLink,
   Factory,
   LayoutGrid,
-  ShoppingCart,
   Truck,
+  UserRound,
   Users,
   Warehouse,
 } from "lucide-react";
@@ -40,8 +40,8 @@ export const ADMIN_CREATION_OPTIONS: readonly AdminMenuOption[] = [
   },
   {
     id: "compradores",
-    title: "Compradores",
-    icon: ShoppingCart,
+    title: "Cliente",
+    icon: UserRound,
     href: ROUTES.dashboardAdminCreationBuyers,
   },
   {
@@ -99,10 +99,10 @@ export const ADMIN_ASSIGNMENT_CREATION_PLACEHOLDERS = {
     ],
   },
   compradores: {
-    title: "Compradores",
-    description: "Gestiona compradores y sus permisos operativos.",
+    title: "Cliente",
+    description: "Gestiona clientes y sus permisos operativos.",
     futureActions: [
-      "Registrar comprador",
+      "Registrar cliente",
       "Asignar áreas de compra",
       "Consultar historial",
     ],

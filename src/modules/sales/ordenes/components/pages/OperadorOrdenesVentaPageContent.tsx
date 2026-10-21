@@ -2,12 +2,14 @@
 
 import { CheckCircle2, Plus, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
 import {
   PolariaTableBadge,
   PolariaTableCode,
 } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
+import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { cn } from "@/lib/utils/cn";
 import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
@@ -21,10 +23,6 @@ import {
   formatEstadoOrdenVenta,
   variantEstadoOrdenVenta,
 } from "../../../shared/constants/sales-status";
-import {
-  labelOvAlertaStatus,
-  slaDotTone,
-} from "../../../shared/utils/ov-sla";
 import { useOrdenesVentaSubscription } from "../../../shared/hooks/useOrdenesVentaSubscription";
 import {
   ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS,
@@ -46,12 +44,17 @@ import type {
   EstadoOrdenVenta,
   OrdenVentaOperadorRow,
 } from "../../../shared/types/sales.types";
+import { OvAlertaDot } from "../shared/OvAlertaDot";
 import { applySurtidoCapturasToPrintSheets } from "../../surtido/apply-surtido-to-print";
 import { listOrdenIdsConSurtidoCaptura } from "../../surtido/list-orden-ids-con-surtido-captura";
 import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
 import { useAuthStore } from "@/stores/auth.store";
+import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import { OrdenVentaCreateModal } from "../modals/OrdenVentaCreateModal";
-import { OrdenVentaCypherDrawer } from "../modals/OrdenVentaCypherDrawer";
+import {
+  OrdenVentaCypherDrawer,
+  type CypherCompanionOtPicker,
+} from "../modals/OrdenVentaCypherDrawer";
 import { OrdenVentaDetalleModal } from "../modals/OrdenVentaDetalleModal";
 import {
   OrdenVentaFotosCapturaModal,
@@ -88,6 +91,15 @@ export function OperadorOrdenesVentaPageContent({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [cypherId, setCypherId] = useState<string | null>(null);
+  const setCypherOpen = useShellOverlayStore((s) => s.setCypherOpen);
+  const [companionOtPicker, setCompanionOtPicker] =
+    useState<CypherCompanionOtPicker | null>(null);
+
+  // Mateo oculta el launcher flotante mientras Cypher está abierto.
+  useEffect(() => {
+    setCypherOpen(Boolean(cypherId));
+    return () => setCypherOpen(false);
+  }, [cypherId, setCypherOpen]);
   const printingLockRef = useRef(false);
   const fotosOrdenIdRef = useRef<string | null>(null);
   const [printFeedback, setPrintFeedback] = useState<{
@@ -114,6 +126,8 @@ export function OperadorOrdenesVentaPageContent({
     fotos: OrdenVentaFotoCapturaItem[];
     loadingOts: boolean;
     loadingFotos: boolean;
+    /** true = abierto desde Cypher para una OT; no volver al listado de OTs. */
+    lockToOt: boolean;
     error: string | null;
   } | null>(null);
 
@@ -327,11 +341,94 @@ export function OperadorOrdenesVentaPageContent({
   );
 
   const openFotosCaptura = useCallback(
-    async (row: OrdenVentaOperadorRow) => {
+    async (
+      row: OrdenVentaOperadorRow,
+      idOrdenTrabajo?: string | null,
+    ) => {
       if (printingLockRef.current) return;
       printingLockRef.current = true;
       fotosOrdenIdRef.current = row.idOrdenVenta;
       setBusyAction({ id: row.idOrdenVenta, kind: "fotos" });
+
+      const ot = idOrdenTrabajo?.trim() || "";
+
+      // Desde Cypher: solo fotos de la OT seleccionada (sin listar las demás).
+      if (ot) {
+        setFotosPreview({
+          idOrdenVenta: row.idOrdenVenta,
+          title: `Fotos · ${row.venta}`,
+          ordenesTrabajo: [],
+          selectedOt: ot,
+          fotos: [],
+          loadingOts: false,
+          loadingFotos: true,
+          lockToOt: true,
+          error: null,
+        });
+
+        try {
+          const params = new URLSearchParams({
+            historial: "1",
+            ot,
+          });
+          const response = await fetch(
+            `/captura-orden/${encodeURIComponent(row.idOrdenVenta)}/api?${params.toString()}`,
+          );
+          const body = (await response.json()) as {
+            error?: string;
+            fotos?: Array<{
+              idFoto?: string;
+              idOrdenTrabajo?: string;
+              urlFoto?: string | null;
+              createdAt?: string | null;
+            }>;
+          };
+          if (!response.ok) {
+            throw new Error(body.error || "No se pudieron cargar las fotos.");
+          }
+
+          const fotos = (body.fotos ?? [])
+            .map((item) => ({
+              idFoto: item.idFoto,
+              idOrdenTrabajo: item.idOrdenTrabajo,
+              urlFoto: item.urlFoto?.trim() ?? "",
+              createdAt: item.createdAt ?? null,
+            }))
+            .filter((item) => Boolean(item.urlFoto));
+
+          setFotosPreview({
+            idOrdenVenta: row.idOrdenVenta,
+            title: `Fotos · ${row.venta}`,
+            ordenesTrabajo: [],
+            selectedOt: ot,
+            fotos,
+            loadingOts: false,
+            loadingFotos: false,
+            lockToOt: true,
+            error: null,
+          });
+        } catch (error: unknown) {
+          setFotosPreview({
+            idOrdenVenta: row.idOrdenVenta,
+            title: `Fotos · ${row.venta}`,
+            ordenesTrabajo: [],
+            selectedOt: ot,
+            fotos: [],
+            loadingOts: false,
+            loadingFotos: false,
+            lockToOt: true,
+            error:
+              error instanceof Error
+                ? error.message
+                : "No se pudieron cargar las fotos.",
+          });
+        } finally {
+          printingLockRef.current = false;
+          setBusyAction(null);
+        }
+        return;
+      }
+
       setFotosPreview({
         idOrdenVenta: row.idOrdenVenta,
         title: `Fotos · ${row.venta}`,
@@ -340,6 +437,7 @@ export function OperadorOrdenesVentaPageContent({
         fotos: [],
         loadingOts: true,
         loadingFotos: false,
+        lockToOt: false,
         error: null,
       });
 
@@ -363,6 +461,7 @@ export function OperadorOrdenesVentaPageContent({
           fotos: [],
           loadingOts: false,
           loadingFotos: false,
+          lockToOt: false,
           error: null,
         });
       } catch (error: unknown) {
@@ -374,6 +473,7 @@ export function OperadorOrdenesVentaPageContent({
           fotos: [],
           loadingOts: false,
           loadingFotos: false,
+          lockToOt: false,
           error:
             error instanceof Error
               ? error.message
@@ -465,29 +565,17 @@ export function OperadorOrdenesVentaPageContent({
         header: "OV",
         headerClassName: ordenVentaTableColumnClass("venta", "header"),
         cellClassName: ordenVentaTableColumnClass("venta"),
-        cell: (row: OrdenVentaOperadorRow) => {
-          const tone = slaDotTone(row.alertaStatus);
-          const label = labelOvAlertaStatus(row.alertaStatus);
-          return (
-            <span className="inline-flex items-center gap-2">
-              <span
-                title={label}
-                aria-label={label}
-                className={cn(
-                  "h-2 w-2 shrink-0 rounded-full",
-                  tone === "atrasada"
-                    ? "bg-polaria-danger"
-                    : tone === "en_riesgo"
-                      ? "bg-polaria-warning"
-                      : tone === "cerrada"
-                        ? "bg-polaria-w-50"
-                        : "bg-polaria-teal",
-                )}
-              />
-              <PolariaTableCode>{row.venta}</PolariaTableCode>
-            </span>
-          );
-        },
+        cell: (row: OrdenVentaOperadorRow) => (
+          <span className="inline-flex items-center gap-2">
+            <OvAlertaDot
+              alertaStatus={row.alertaStatus}
+              minutosEnEstado={row.minutosEnEstado}
+              slaMinutos={row.slaMinutos}
+              alertaMinutos={row.alertaMinutos}
+            />
+            <PolariaTableCode>{row.venta}</PolariaTableCode>
+          </span>
+        ),
       },
       {
         id: "occ",
@@ -600,6 +688,13 @@ export function OperadorOrdenesVentaPageContent({
     [inspect, cypherId],
   );
 
+  const companionWithCypher = Boolean(
+    !inspect &&
+      cypherId &&
+      ((isCreateOpen && editingId === cypherId) ||
+        Boolean(detalleId && detalleId === cypherId)),
+  );
+
   const body = (
     <>
       <div
@@ -695,13 +790,16 @@ export function OperadorOrdenesVentaPageContent({
               }
         }
         onRowClick={(row) => {
-          // OV por_confirmar (correo/tercero): flujo Mateo → preview OT → formulario.
+          // OV por_confirmar: Mateo + formulario. Cypher solo con +.
           if (!inspect && row.estado === "por_confirmar") {
+            const id = row.idOrdenVenta;
             setDetalleId(null);
-            setEditingId(row.idOrdenVenta);
+            setCypherId(null);
+            setEditingId(id);
             setIsCreateOpen(true);
             return;
           }
+          setCypherId(null);
           setDetalleId(row.idOrdenVenta);
         }}
         getRowAriaLabel={(row) =>
@@ -716,7 +814,28 @@ export function OperadorOrdenesVentaPageContent({
         idOrdenVenta={detalleId}
         codigoCuenta={codigoCuenta}
         inspect={inspect}
-        onClose={() => setDetalleId(null)}
+        cypherOpen={Boolean(
+          !inspect && detalleId && cypherId && detalleId === cypherId,
+        )}
+        onToggleCypher={
+          !inspect && detalleId
+            ? () => {
+                setCypherId((prev) =>
+                  prev === detalleId ? null : detalleId,
+                );
+              }
+            : undefined
+        }
+        onCompanionOtPickerChange={setCompanionOtPicker}
+        onClose={() => {
+          // Al cancelar/salir del detalle, cerrar también Cypher de ese pedido.
+          const closingId = detalleId;
+          setDetalleId(null);
+          setCompanionOtPicker(null);
+          setCypherId((prev) =>
+            prev && closingId && prev === closingId ? null : prev,
+          );
+        }}
         onEmitted={inspect ? undefined : () => {
           void reload();
         }}
@@ -731,17 +850,20 @@ export function OperadorOrdenesVentaPageContent({
             : null
         }
         inspect={inspect}
-        hasFotos={
-          cypherId ? idsConFotosCaptura.has(cypherId) : false
-        }
+        companionWithEdit={companionWithCypher}
+        companionOtPicker={companionOtPicker}
         busyKind={
           cypherId && busyAction?.id === cypherId
             ? busyAction.kind
             : null
         }
-        onClose={() => setCypherId(null)}
+        onClose={() => {
+          setCypherId(null);
+          setCompanionOtPicker(null);
+        }}
         onEdit={() => {
           if (!cypherId) return;
+          setDetalleId(null);
           setEditingId(cypherId);
           setIsCreateOpen(true);
         }}
@@ -759,12 +881,12 @@ export function OperadorOrdenesVentaPageContent({
           if (!target) return;
           void openPdfPreview(target);
         }}
-        onFotos={() => {
+        onFotos={(idOrdenTrabajo) => {
           const target = cypherId
             ? rows.find((r) => r.idOrdenVenta === cypherId)
             : null;
           if (!target) return;
-          void openFotosCaptura(target);
+          void openFotosCaptura(target, idOrdenTrabajo);
         }}
         onBorrar={
           inspect || !cypherId || !codigoCuenta
@@ -811,9 +933,28 @@ export function OperadorOrdenesVentaPageContent({
       <OrdenVentaCreateModal
         open={!inspect && isCreateOpen}
         idOrdenVenta={editingId}
+        cypherOpen={Boolean(
+          editingId && cypherId && editingId === cypherId,
+        )}
+        onToggleCypher={
+          editingId
+            ? () => {
+                setCypherId((prev) =>
+                  prev === editingId ? null : editingId,
+                );
+              }
+            : undefined
+        }
+        onCompanionOtPickerChange={setCompanionOtPicker}
         onClose={() => {
+          // Cypher abierto desde el formulario del pedido se cierra al salir.
+          const closingId = editingId;
           setIsCreateOpen(false);
           setEditingId(null);
+          setCompanionOtPicker(null);
+          setCypherId((prev) =>
+            prev && closingId && prev === closingId ? null : prev,
+          );
         }}
         onCreated={() => {
           void reload();
@@ -897,6 +1038,8 @@ export function OperadorOrdenesVentaPageContent({
         selectedOt={fotosPreview?.selectedOt ?? null}
         isLoadingOts={Boolean(fotosPreview?.loadingOts)}
         isLoadingFotos={Boolean(fotosPreview?.loadingFotos)}
+        allowBackToOts={!fotosPreview?.lockToOt}
+        dockWithCypher={Boolean(fotosPreview?.lockToOt && cypherId)}
         error={fotosPreview?.error ?? null}
         onSelectOt={(idOrdenTrabajo) => {
           void selectFotosOt(idOrdenTrabajo);
@@ -930,5 +1073,14 @@ export function OperadorOrdenesVentaPageContent({
     );
   }
 
-  return body;
+  return (
+    <OperationalModuleShell
+      title="Órdenes venta"
+      description="Órdenes de venta manuales de la cuenta."
+      gate={{ roles: ROLES_NIVEL_CUENTA }}
+      dockForCypher={Boolean(cypherId)}
+    >
+      {body}
+    </OperationalModuleShell>
+  );
 }

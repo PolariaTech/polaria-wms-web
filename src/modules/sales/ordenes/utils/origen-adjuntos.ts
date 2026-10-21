@@ -65,19 +65,23 @@ export function parseOrigenArchivos(
     try {
       const parsed = JSON.parse(text) as unknown;
       if (!Array.isArray(parsed)) return [];
-      return parsed
-        .map(coerceAdjunto)
-        .filter((row): row is OrigenAdjunto => row != null);
+      return dedupeOrigenAdjuntos(
+        parsed
+          .map(coerceAdjunto)
+          .filter((row): row is OrigenAdjunto => row != null),
+      );
     } catch {
       // cae a legado
     }
   }
 
-  return text
-    .split(",")
-    .map((name) => name.trim())
-    .filter(Boolean)
-    .map((nombre) => ({ nombre }));
+  return dedupeOrigenAdjuntos(
+    text
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .map((nombre) => ({ nombre })),
+  );
 }
 
 /** Serializa adjuntos para la columna text `origen_archivos`. */
@@ -113,7 +117,49 @@ export function serializeOrigenArchivos(
 export function nombresOrigenAdjuntos(
   items: readonly OrigenAdjunto[],
 ): string[] {
-  return items.map((item) => item.nombre).filter(Boolean);
+  return dedupeOrigenAdjuntos(items).map((item) => item.nombre).filter(Boolean);
+}
+
+function adjuntoDedupeKey(item: OrigenAdjunto): string {
+  return item.nombre.trim().toLowerCase();
+}
+
+function adjuntoRichnessScore(item: OrigenAdjunto): number {
+  return (
+    (item.path?.trim() ? 4 : 0) +
+    (item.url?.trim() ? 2 : 0) +
+    (typeof item.bytes === "number" && Number.isFinite(item.bytes) ? 1 : 0)
+  );
+}
+
+/**
+ * Quita adjuntos repetidos por nombre (case-insensitive).
+ * Si hay empate, conserva el que tenga path/url/bytes más completo.
+ */
+export function dedupeOrigenAdjuntos(
+  items: readonly OrigenAdjunto[],
+): OrigenAdjunto[] {
+  const byKey = new Map<string, OrigenAdjunto>();
+  for (const item of items) {
+    const key = adjuntoDedupeKey(item);
+    if (!key) continue;
+    const prev = byKey.get(key);
+    if (!prev || adjuntoRichnessScore(item) > adjuntoRichnessScore(prev)) {
+      byKey.set(key, item);
+    }
+  }
+  return [...byKey.values()];
+}
+
+/**
+ * Partes reales del .eml primero; luego lo guardado, sin duplicar por nombre.
+ */
+export function mergeOrigenAdjuntosWithEmlParts(
+  stored: readonly OrigenAdjunto[],
+  emlParts: readonly OrigenAdjunto[],
+): OrigenAdjunto[] {
+  if (emlParts.length === 0) return dedupeOrigenAdjuntos(stored);
+  return dedupeOrigenAdjuntos([...emlParts, ...stored]);
 }
 
 function hasAdjuntoFile(item: OrigenAdjunto): boolean {

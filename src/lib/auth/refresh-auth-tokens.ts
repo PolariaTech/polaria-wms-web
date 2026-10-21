@@ -8,9 +8,22 @@ import { useAuthStore } from "@/stores/auth.store";
 
 let refreshInFlight: Promise<boolean> | null = null;
 
+function isLikelyNetworkFailure(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    error.name === "TypeError" ||
+    message.includes("failed to fetch") ||
+    message.includes("networkerror") ||
+    message.includes("load failed") ||
+    message.includes("network request failed")
+  );
+}
+
 /**
  * Renueva el access token vía Supabase y lo escribe en el auth store
  * sin reiniciar el reloj de sesión WMS (tope 7 días).
+ * Fallos de red / refresh inválido → false (no lanza).
  */
 export async function refreshAuthTokens(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
@@ -18,6 +31,9 @@ export async function refreshAuthTokens(): Promise<boolean> {
   refreshInFlight = (async () => {
     try {
       if (!env.supabaseUrl || !env.supabaseAnonKey) return false;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        return false;
+      }
 
       const state = useAuthStore.getState();
       if (!state.accessToken || !state.refreshToken) return false;
@@ -54,10 +70,12 @@ export async function refreshAuthTokens(): Promise<boolean> {
       });
 
       return true;
-    } catch {
+    } catch (error) {
+      // Offline / CORS / Supabase inaccesible: no tumbar la UI.
+      if (isLikelyNetworkFailure(error)) return false;
       return false;
     }
-  })();
+  })().catch(() => false);
 
   try {
     return await refreshInFlight;
