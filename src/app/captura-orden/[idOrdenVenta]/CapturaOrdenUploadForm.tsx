@@ -16,6 +16,8 @@ interface CapturaOrdenUploadFormProps {
   idOrdenTrabajo?: string;
   onFilePicked?: () => void;
   onUploadOk?: () => void;
+  /** Error levantado al padre: el form se desmonta durante el loading. */
+  onUploadError?: (message: string) => void;
   /** El padre muestra el loading Polaria mientras sube. */
   onUploadingChange?: (uploading: boolean) => void;
 }
@@ -71,6 +73,7 @@ export function CapturaOrdenUploadForm({
   idOrdenTrabajo = "",
   onFilePicked,
   onUploadOk,
+  onUploadError,
   onUploadingChange,
 }: CapturaOrdenUploadFormProps) {
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -80,6 +83,8 @@ export function CapturaOrdenUploadForm({
   const uploadFnRef = useRef<(picked?: File) => void>(() => {});
   const onUploadOkRef = useRef(onUploadOk);
   onUploadOkRef.current = onUploadOk;
+  const onUploadErrorRef = useRef(onUploadError);
+  onUploadErrorRef.current = onUploadError;
   const onUploadingChangeRef = useRef(onUploadingChange);
   onUploadingChangeRef.current = onUploadingChange;
 
@@ -192,10 +197,13 @@ export function CapturaOrdenUploadForm({
       }
 
       if (toSend.size > MAX_SELECT_BYTES) {
+        const msg =
+          "La foto supera 10 MB y no se pudo comprimir lo suficiente.";
         uploadingRef.current = false;
         setSubmitting(false);
         onUploadingChangeRef.current?.(false);
-        setError("La foto supera 10 MB y no se pudo comprimir lo suficiente.");
+        setError(msg);
+        onUploadErrorRef.current?.(msg);
         return;
       }
 
@@ -205,6 +213,11 @@ export function CapturaOrdenUploadForm({
       if (idOrdenTrabajo.trim()) {
         body.append("ot", idOrdenTrabajo.trim());
       }
+
+      const fail = (msg: string) => {
+        setError(msg);
+        onUploadErrorRef.current?.(msg);
+      };
 
       try {
         const response = await fetch(actionUrl, {
@@ -228,12 +241,12 @@ export function CapturaOrdenUploadForm({
           return;
         }
 
-        setError(
+        fail(
           data.error ||
-            `No se pudo procesar la foto (${response.status || "red"}).`,
+            `No se pudo procesar la foto (${response.status || "red"}). Intenta de nuevo.`,
         );
       } catch {
-        setError("Error de red al subir. Revisa la conexión e inténtalo de nuevo.");
+        fail("Error de red al subir. Revisa la conexión e inténtalo de nuevo.");
       } finally {
         uploadingRef.current = false;
         setSubmitting(false);

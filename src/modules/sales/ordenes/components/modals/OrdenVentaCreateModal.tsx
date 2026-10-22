@@ -1858,25 +1858,41 @@ export function OrdenVentaCreateModal({
   }, [formDataReady]);
 
   const applyCompradorPrefill = useCallback(
-    (row: CompradorListRow, ficha: CompradorAltaFicha) => {
+    (
+      row: CompradorListRow,
+      ficha: CompradorAltaFicha,
+      options?: {
+        /**
+         * REQ-069: al cambiar cliente (manual o con docs) no pisar centro,
+         * ventana, entrega, etc. si el pedido/OT ya los tiene.
+         */
+        onlyEmpty?: boolean;
+      },
+    ) => {
       const prefill = buildOrdenVentaPrefillFromComprador({
         ficha,
         telefonoComprador: row.telefono,
       });
+      const onlyEmpty = Boolean(options?.onlyEmpty);
+      const take = (prev: string, next: string) =>
+        onlyEmpty && prev.trim() ? prev : next;
+
       setFichaComprador(ficha);
       setExigeOc(prefill.exigeOc);
-      setMoneda(prefill.moneda);
-      setCentroConsumo(prefill.centroConsumo);
-      setVentanaDesde(prefill.ventanaDesde);
-      setVentanaHasta(prefill.ventanaHasta);
-      setDireccion(prefill.direccion);
-      setAnden(prefill.anden);
-      setContacto(prefill.contacto);
-      setTelefono(prefill.telefono);
-      setAceptaSustituciones(prefill.aceptaSustituciones);
-      setRequiereLote(prefill.requiereLote);
-      setRegistrarTemperatura(prefill.registrarTemperatura);
-      setObservaciones(prefill.observaciones);
+      setMoneda((prev) => take(prev, prefill.moneda));
+      setCentroConsumo((prev) => take(prev, prefill.centroConsumo));
+      setVentanaDesde((prev) => take(prev, prefill.ventanaDesde));
+      setVentanaHasta((prev) => take(prev, prefill.ventanaHasta));
+      setDireccion((prev) => take(prev, prefill.direccion));
+      setAnden((prev) => take(prev, prefill.anden));
+      setContacto((prev) => take(prev, prefill.contacto));
+      setTelefono((prev) => take(prev, prefill.telefono));
+      setAceptaSustituciones((prev) => take(prev, prefill.aceptaSustituciones));
+      setRequiereLote((prev) => take(prev, prefill.requiereLote));
+      setRegistrarTemperatura((prev) =>
+        take(prev, prefill.registrarTemperatura),
+      );
+      setObservaciones((prev) => take(prev, prefill.observaciones));
     },
     [],
   );
@@ -1929,7 +1945,7 @@ export function OrdenVentaCreateModal({
   );
 
   /**
-   * «Reemplazar / Usar ficha» solo si Mateo no trajo el dato y la ficha sí lo tiene.
+   * «Usar del catálogo» solo si Mateo no trajo el dato y el catálogo sí lo tiene.
    * Si Mateo ya llenó el pedido, no hace falta el botón (solo aviso informativo).
    * Excepción: fecha atrasada → «Usar hoy».
    */
@@ -1980,7 +1996,7 @@ export function OrdenVentaCreateModal({
         return next;
       });
       // No cerrar el diálogo: el usuario ve el ítem desaparecer y decide
-      // «Enviar igual» o «Revisar». Cerrar al instante hacía parecer que no aplicaba.
+      // «Usar valores del pedido» o «Volver a editar». Cerrar al instante hacía parecer que no aplicaba.
     },
     [applyDiscrepanciaFieldValue, canReemplazarDiscrepancia],
   );
@@ -1990,7 +2006,7 @@ export function OrdenVentaCreateModal({
       row: CompradorListRow,
       options?: {
         /**
-         * Solo enlaza el cliente: no pisa entrega ni datos ya leídos del pedido.
+         * Compat: el prefill siempre es onlyEmpty (REQ-069 manual + docs).
          */
         preservePedidoData?: boolean;
         /** Conserva el nombre que Mateo leyó del pedido (caption bajo el campo). */
@@ -2008,12 +2024,6 @@ export function OrdenVentaCreateModal({
         origenCorreoDraft.length > 0 ||
         Boolean(origenTexto.trim()) ||
         Boolean(direccion.trim());
-      const preservePedido =
-        Boolean(options?.preservePedidoData) ||
-        (fromDocumento &&
-          Boolean(previousId) &&
-          previousId !== row.idComprador) ||
-        (fromDocumento && Boolean(direccion.trim()));
 
       selectedCompradorIdRef.current = row.idComprador;
       setIdComprador(row.idComprador);
@@ -2044,13 +2054,8 @@ export function OrdenVentaCreateModal({
         });
       }
 
-      if (!preservePedido) {
-        setTelefono(row.telefono?.trim() || "");
-        setFichaComprador(null);
-        setExigeOc(false);
-        setPrecioOverrideByProducto({});
-        setEquivalenciaByProducto({});
-      }
+      // No vaciar entrega al cambiar cliente; onlyEmpty completa huecos.
+      setTelefono((prev) => prev.trim() || row.telefono?.trim() || "");
 
       if (!codigoCuenta) return;
 
@@ -2060,17 +2065,8 @@ export function OrdenVentaCreateModal({
       })
         .then((detalle) => {
           if (selectedCompradorIdRef.current !== row.idComprador) return;
-          if (preservePedido) {
-            // Solo ficha / exige OC; la dirección del pedido se queda.
-            const prefill = buildOrdenVentaPrefillFromComprador({
-              ficha: detalle.ficha,
-              telefonoComprador: row.telefono,
-            });
-            setFichaComprador(detalle.ficha);
-            setExigeOc(prefill.exigeOc);
-            return;
-          }
-          applyCompradorPrefill(row, detalle.ficha);
+          // REQ-069: manual y docs — no pisar centro/ventana/entrega ya puestos.
+          applyCompradorPrefill(row, detalle.ficha, { onlyEmpty: true });
         })
         .catch(() => {
           if (selectedCompradorIdRef.current !== row.idComprador) return;
@@ -2078,8 +2074,6 @@ export function OrdenVentaCreateModal({
             "Se seleccionó el cliente, pero no se pudieron cargar sus datos de alta.",
           );
         });
-
-      if (preservePedido) return;
 
       void listCompradorProductoAliasAdmin({
         codigoCuenta,
@@ -2807,9 +2801,13 @@ export function OrdenVentaCreateModal({
           setError(`Ingresa una cantidad válida para ${linea.nombre}.`);
           return;
         }
-        if (precio === null || precio <= 0) {
+        if (precio === null) {
           if (isDraft) continue;
-          setError(`Ingresa un precio mayor a cero para ${linea.nombre}.`);
+          setError(`Ingresa un precio (0 o mayor) para ${linea.nombre}.`);
+          return;
+        }
+        if (precio < 0) {
+          setError(`El precio no puede ser negativo en ${linea.nombre}.`);
           return;
         }
         lineasParsed.push({
@@ -5087,11 +5085,7 @@ export function OrdenVentaCreateModal({
           handleSelectComprador(row, {
             verificarDireccionEntrega: true,
             keepNombreIa: Boolean(compradorNombreIa),
-            preservePedidoData:
-              startMode === "docs" ||
-              origenCorreoDraft.length > 0 ||
-              Boolean(origenTexto.trim()) ||
-              Boolean(direccion.trim()),
+            preservePedidoData: true,
           });
         }}
         dockWithCypher={cypherOpen && isEditing}
@@ -5231,17 +5225,17 @@ export function OrdenVentaCreateModal({
         onClose={() => setConfirmDiscrepanciasOpen(false)}
         onConfirm={() => {
           setConfirmDiscrepanciasOpen(false);
-          // Una sola confirmación: "Enviar igual" ya autoriza el envío.
+          // Una sola confirmación: "Usar valores del pedido" ya autoriza el envío.
           skipDiscrepanciaConfirmRef.current = true;
           skipSaveConfirmRef.current = true;
           void handleSubmit({
             preventDefault() {},
           } as FormEvent<HTMLFormElement>);
         }}
-        title="Hay diferencias con la ficha del cliente"
-        description="Se enviará con los valores del pedido. Revisa qué cambió respecto a lo registrado:"
-        confirmLabel="Enviar igual"
-        cancelLabel="Revisar"
+        title="Hay diferencias respecto a los datos del cliente en catálogo"
+        description="Si continúas, quedan los de la columna «Se usará en este pedido». Revisa qué cambió:"
+        confirmLabel="Usar valores del pedido"
+        cancelLabel="Volver a editar"
         size="lg"
       >
         {avisosValidacion.length > 0 ? (
@@ -5252,7 +5246,12 @@ export function OrdenVentaCreateModal({
                 item.fieldKey === "fechaEntrega" &&
                 item.db === "Hoy o posterior"
                   ? "Usar hoy"
-                  : "Usar ficha";
+                  : "Usar del catálogo";
+              const leftLabel =
+                item.db === "Leída del correo" ||
+                item.db === "Hoy o posterior"
+                  ? "Referencia"
+                  : "En el catálogo";
               return (
               <li key={item.fieldKey || item.campo} className="px-3 py-2.5 sm:px-3.5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -5280,7 +5279,7 @@ export function OrdenVentaCreateModal({
                 <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2 sm:gap-2">
                   <div>
                     <p className="polaria-text-caption text-polaria-w-20">
-                      En ficha
+                      {leftLabel}
                     </p>
                     <p className="mt-0.5 line-clamp-3 break-words polaria-text-body-sm text-polaria-w-50">
                       {item.db || "—"}
@@ -5288,7 +5287,7 @@ export function OrdenVentaCreateModal({
                   </div>
                   <div>
                     <p className="polaria-text-caption text-polaria-teal">
-                      En el pedido
+                      Se usará en este pedido
                     </p>
                     <p className="mt-0.5 line-clamp-3 break-words polaria-text-body-sm text-polaria-w">
                       {item.ia || "—"}
@@ -5301,7 +5300,7 @@ export function OrdenVentaCreateModal({
           </ul>
         ) : (
           <p className="polaria-text-body-sm text-polaria-w-50">
-            Confirma para enviar con los valores del pedido.
+            Si continúas, se usarán los valores de este pedido.
           </p>
         )}
       </PolariaConfirmDialog>

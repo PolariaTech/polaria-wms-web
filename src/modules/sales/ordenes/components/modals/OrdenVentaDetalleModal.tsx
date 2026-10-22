@@ -704,6 +704,17 @@ export function OrdenVentaDetalleModal({
       return;
     }
 
+    const lineaPrecioInvalido = (orden.lineas ?? []).find(
+      (linea) =>
+        !Number.isFinite(linea.precio_unitario) || linea.precio_unitario < 0,
+    );
+    if (lineaPrecioInvalido) {
+      setActionError(
+        "Hay productos con precio inválido. Ábrelo en Editar, captura 0 o mayor y vuelve a confirmar.",
+      );
+      return;
+    }
+
     setActionError(null);
     setIsEmitting(true);
 

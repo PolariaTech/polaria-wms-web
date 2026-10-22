@@ -20,8 +20,30 @@ import { normalizeIdOrdenTrabajo } from "@/modules/sales/ordenes/utils/origen-co
 /**
  * Fuera de `/api/*` para no pasar por el rewrite hacia Nest.
  * Ruta pública sin login (QR). Acepta FormData (fetch/XHR o form nativo).
+ *
+ * OpenAI vision + DB suele pasar de 10s; el default de Vercel (~15s) corta
+ * a mitad y el celular ve un 500 / “reinicio” de la captura (REQ-087).
  */
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 type RouteContext = { params: Promise<{ idOrdenVenta: string }> };
+
+async function extraerSurtidoConReintento(input: {
+  original: NonNullable<Awaited<ReturnType<typeof buildPrintDataAdmin>>>;
+  mime: string;
+  base64: string;
+}): Promise<Awaited<ReturnType<typeof extraerSurtidoDesdeFoto>>> {
+  try {
+    return await extraerSurtidoDesdeFoto(input);
+  } catch (firstError) {
+    console.warn(
+      "[captura-orden] OpenAI surtido falló, reintento 1×:",
+      firstError instanceof Error ? firstError.message : firstError,
+    );
+    return extraerSurtidoDesdeFoto(input);
+  }
+}
 
 function wantsDocumentResponse(request: Request): boolean {
   const mode = request.headers.get("sec-fetch-mode");
@@ -237,9 +259,10 @@ export async function POST(
     );
   }
 
+  let idOrdenTrabajo = "";
   try {
     const form = await request.formData();
-    const idOrdenTrabajo = readOtFromRequest(request, form);
+    idOrdenTrabajo = readOtFromRequest(request, form);
 
     const meta = await getOrdenMetaPublica(idOrdenVenta, idOrdenTrabajo || null);
     if (!meta) {
@@ -315,8 +338,9 @@ export async function POST(
 
     const resolvedOt =
       normalizeIdOrdenTrabajo(original.idOrdenTrabajo) || idOrdenTrabajo;
+    idOrdenTrabajo = resolvedOt;
 
-    const { payload: rawPayload, modelo } = await extraerSurtidoDesdeFoto({
+    const { payload: rawPayload, modelo } = await extraerSurtidoConReintento({
       original,
       mime: imagen.mime,
       base64: imagen.base64,
@@ -408,6 +432,17 @@ export async function POST(
       error instanceof Error
         ? error.message
         : "No se pudo procesar la foto de la orden.";
-    return jsonOrRedirect(request, idOrdenVenta, "", { error: message }, 500);
+    console.error("[captura-orden] POST falló:", message, error);
+    return jsonOrRedirect(
+      request,
+      idOrdenVenta,
+      idOrdenTrabajo,
+      {
+        error:
+          "No se pudo procesar la foto. Espera un momento e inténtalo de nuevo.",
+        detail: message,
+      },
+      500,
+    );
   }
 }

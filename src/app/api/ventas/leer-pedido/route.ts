@@ -5,6 +5,7 @@ import {
   type PedidoExtraido,
 } from "@/modules/sales/ordenes/ai/openai-pedido.client";
 import { listProductoCatalogoClavesServer } from "@/modules/sales/shared/services/sales-catalog.server";
+import { mergeCorreoChromeIntoTexto } from "@/modules/sales/ordenes/utils/correo-chrome";
 import { buildTextoOrigenPedido } from "@/modules/sales/ordenes/utils/texto-origen-pedido";
 import OpenAI from "openai";
 
@@ -117,7 +118,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       presentaciones: [...PRESENTACIONES],
     });
 
-    const textoOrigen = pedido.textoOrigen?.trim() || textoOrigenCrudo;
+    // Cabeceras De/Asunto del .eml + cuerpo (IA o crudo). No perder remitente/asunto.
+    const textoOrigen = mergeCorreoChromeIntoTexto(
+      textoOrigenCrudo,
+      pedido.textoOrigen?.trim() || textoOrigenCrudo,
+    );
 
     console.log(
       JSON.stringify({

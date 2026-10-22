@@ -67,6 +67,8 @@ describe("extractFiles — correos .eml", () => {
     if (resultado[0].tipo === "texto") {
       expect(resultado[0].nombre).toBe("pedido.eml — cuerpo");
       expect(resultado[0].contenido).toContain("aguacate extra hass");
+      expect(resultado[0].contenido).toContain("De: proveedor@ejemplo.com");
+      expect(resultado[0].contenido).toContain("Asunto: Pedido de prueba");
     }
   });
 

@@ -67,6 +67,10 @@ import {
   type OrigenAdjunto,
 } from "../../utils/origen-adjuntos";
 import {
+  parseCorreoChromeFromText,
+  type CorreoChrome,
+} from "../../utils/correo-chrome";
+import {
   looksLikeCorreoCuerpoEnNotas,
   prepareCorreoBodyForCypherDisplay,
 } from "../../utils/texto-origen-pedido";
@@ -140,44 +144,6 @@ function stageReached(
   if (stage === "alistamiento") return current >= 2;
   if (stage === "alistado") return current >= 3;
   return true; // bitácora siempre
-}
-
-function parseCorreoChrome(raw: string): {
-  from?: string;
-  to?: string;
-  subject?: string;
-  body: string;
-} {
-  const text = raw.replace(/\r\n/g, "\n").trim();
-  if (!text) return { body: "" };
-
-  const from =
-    text.match(/^(?:\*+)?(?:De|From)(?:\*+)?\s*:\s*(.+)$/im)?.[1]?.trim() ||
-    undefined;
-  const to =
-    text.match(/^(?:\*+)?(?:Para|To)(?:\*+)?\s*:\s*(.+)$/im)?.[1]?.trim() ||
-    undefined;
-  const subject =
-    text.match(
-      /^(?:\*+)?(?:Asunto|Subject)(?:\*+)?\s*:\s*(.+)$/im,
-    )?.[1]?.trim() || undefined;
-
-  let body = text;
-  if (from || to || subject) {
-    body = text
-      .split("\n")
-      .filter((line) => {
-        const t = line.trim();
-        if (!t) return true;
-        return !/^(?:\*+)?(?:De|From|Para|To|Asunto|Subject|Date|Fecha|Cc|Cco|Bcc|Enviado el|Sent)(?:\*+)?\s*:/i.test(
-          t,
-        );
-      })
-      .join("\n")
-      .trim();
-  }
-
-  return { from, to, subject, body: body || text };
 }
 
 /** Texto crudo del correo (completo) para el modal. */
@@ -319,6 +285,7 @@ export function OrdenVentaCypherDrawer({
   const [emlInnerAdjuntos, setEmlInnerAdjuntos] = useState<OrigenAdjunto[]>(
     [],
   );
+  const [emlChrome, setEmlChrome] = useState<CorreoChrome>({});
   const [emlInnerLoading, setEmlInnerLoading] = useState(false);
   const [confirmBorrarOpen, setConfirmBorrarOpen] = useState(false);
   const [borrarError, setBorrarError] = useState<string | null>(null);
@@ -566,10 +533,15 @@ export function OrdenVentaCypherDrawer({
     () => (orden ? resolveCuerpoMensajePreview(orden) : ""),
     [orden],
   );
-  const correoChrome = useMemo(
-    () => parseCorreoChrome(cuerpoCompleto || cuerpoMensaje),
-    [cuerpoCompleto, cuerpoMensaje],
-  );
+  const correoChrome = useMemo(() => {
+    const fromText = parseCorreoChromeFromText(cuerpoCompleto || cuerpoMensaje);
+    return {
+      from: fromText.from || emlChrome.from,
+      to: fromText.to || emlChrome.to,
+      subject: fromText.subject || emlChrome.subject,
+      body: fromText.body,
+    };
+  }, [cuerpoCompleto, cuerpoMensaje, emlChrome.from, emlChrome.to, emlChrome.subject]);
   const origenAdjuntosStored = useMemo(() => {
     if (!orden) return [];
     return parseOrigenArchivos(orden.origen_archivos);
@@ -587,6 +559,7 @@ export function OrdenVentaCypherDrawer({
     const emlPath = eml?.path?.trim() || "";
     if (!emlPath) {
       setEmlInnerAdjuntos([]);
+      setEmlChrome({});
       setEmlInnerLoading(false);
       return;
     }
@@ -607,14 +580,25 @@ export function OrdenVentaCypherDrawer({
             mime: string;
             bytes: number;
           }>;
+          from?: string | null;
+          to?: string | null;
+          subject?: string | null;
         };
         if (cancelled) return;
         setEmlInnerAdjuntos(
           origenAdjuntosFromEmlParts(emlPath, data.parts ?? []),
         );
+        setEmlChrome({
+          from: data.from?.trim() || undefined,
+          to: data.to?.trim() || undefined,
+          subject: data.subject?.trim() || undefined,
+        });
       })
       .catch(() => {
-        if (!cancelled) setEmlInnerAdjuntos([]);
+        if (!cancelled) {
+          setEmlInnerAdjuntos([]);
+          setEmlChrome({});
+        }
       })
       .finally(() => {
         if (!cancelled) setEmlInnerLoading(false);

@@ -5,8 +5,13 @@ import {
 } from "./domain-query";
 
 describe("getOrdersVisibleSinceDate", () => {
-  it("usa 3 días por defecto (hoy inclusive)", () => {
-    expect(ORDERS_VISIBLE_DAYS).toBe(3);
+  it("usa 7 días por defecto (hoy inclusive)", () => {
+    expect(ORDERS_VISIBLE_DAYS).toBe(7);
+  });
+
+  it("con 7 días: hoy y 6 previos", () => {
+    const now = new Date(2026, 9, 13, 15, 30, 0); // 13-oct-2026 local
+    expect(getOrdersVisibleSinceDate(7, now)).toBe("2026-10-07");
   });
 
   it("con 3 días: hoy, ayer y anteayer", () => {

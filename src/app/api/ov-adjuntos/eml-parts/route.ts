@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { OV_ADJUNTOS_BUCKET } from "@/lib/supabase/upload-ov-adjunto";
-import { listEmlAttachmentParts } from "@/modules/sales/ordenes/utils/eml-attachments";
+import { parseEmlMeta } from "@/modules/sales/ordenes/utils/eml-attachments";
 
 export const runtime = "nodejs";
 
@@ -46,8 +46,13 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   try {
     const buffer = Buffer.from(await data.arrayBuffer());
-    const parts = await listEmlAttachmentParts(buffer);
-    return NextResponse.json({ parts });
+    const meta = await parseEmlMeta(buffer);
+    return NextResponse.json({
+      parts: meta.parts,
+      from: meta.from ?? null,
+      to: meta.to ?? null,
+      subject: meta.subject ?? null,
+    });
   } catch (err: unknown) {
     return NextResponse.json(
       {

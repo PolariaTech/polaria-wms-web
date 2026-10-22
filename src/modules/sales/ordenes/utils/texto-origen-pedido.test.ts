@@ -330,6 +330,9 @@ describe("buildTextoOrigenPedido", () => {
     expect(result).toContain("Buen Dia Homero");
     expect(result).toContain("Quedo atenta");
     expect(result).toContain("Saludos");
+    // Cabeceras del correo se conservan para Cypher (remitente / asunto).
+    expect(result).toContain("De: Sandy <sandy@seadust.com>");
+    expect(result).toContain("Asunto: RE: ORDEN");
     expect(result).not.toContain("Forwarded message");
     expect(result).not.toContain("PO4029");
     expect(result).not.toContain("comunicación electrónica");

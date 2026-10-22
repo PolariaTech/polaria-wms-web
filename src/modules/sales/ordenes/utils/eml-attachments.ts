@@ -1,10 +1,18 @@
 import { simpleParser } from "mailparser";
+import {
+  formatMailAddress,
+  type CorreoChrome,
+} from "@/modules/sales/ordenes/utils/correo-chrome";
 
 export type EmlAttachmentPart = {
   index: number;
   nombre: string;
   mime: string;
   bytes: number;
+};
+
+export type EmlParsedMeta = CorreoChrome & {
+  parts: EmlAttachmentPart[];
 };
 
 const DOC_EXT =
@@ -32,11 +40,17 @@ function isLikelyRealAttachment(input: {
 }
 
 /**
- * Lista adjuntos reales dentro de un .eml (ignora logos inline de firma).
+ * Lista adjuntos reales dentro de un .eml (ignora logos inline de firma)
+ * y cabeceras From/To/Subject para Cypher.
  */
 export async function listEmlAttachmentParts(
   buffer: Buffer,
 ): Promise<EmlAttachmentPart[]> {
+  const { parts } = await parseEmlMeta(buffer);
+  return parts;
+}
+
+export async function parseEmlMeta(buffer: Buffer): Promise<EmlParsedMeta> {
   const parsed = await simpleParser(buffer);
   const parts: EmlAttachmentPart[] = [];
 
@@ -69,7 +83,12 @@ export async function listEmlAttachmentParts(
     });
   });
 
-  return parts;
+  return {
+    from: formatMailAddress(parsed.from),
+    to: formatMailAddress(parsed.to),
+    subject: formatMailAddress(parsed.subject),
+    parts,
+  };
 }
 
 /**
