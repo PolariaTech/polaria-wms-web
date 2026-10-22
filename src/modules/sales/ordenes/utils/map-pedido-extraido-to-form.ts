@@ -15,7 +15,10 @@ import {
   shouldAutoAcceptProductoSuggestion,
 } from "./find-closest-producto-catalogo";
 import { groupKeyOrigenCorreo } from "./origen-correo-ordenes-trabajo";
-import { extractEntregaDesdeTexto } from "./extract-entrega-desde-texto";
+import {
+  extractDireccionShipToDesdeTexto,
+  extractEntregaDesdeTexto,
+} from "./extract-entrega-desde-texto";
 import { parseFechaOrigen } from "./materialize-ov-desde-origen";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
@@ -587,12 +590,21 @@ export function mapPedidoExtraidoToForm(params: {
     discrepancias,
     preferFicha: true,
   });
-  // Entrega: documento primero; ficha solo si Mateo no encontró el dato.
+  // Entrega: Ship To del texto manda; luego Mateo; ficha solo si no hay dato.
+  const direccionShipTo = extractDireccionShipToDesdeTexto(
+    [
+      pedido.textoOrigen,
+      pedido.observaciones,
+      pedido.notasGeneralesAlmacen,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  );
   compareOverride({
     fieldKey: "direccion",
     label: "Dirección de entrega",
     valorDb: ficha.direccion,
-    valorIa: pedido.direccion,
+    valorIa: direccionShipTo || pedido.direccion,
     patch,
     autoFields,
     warnFields,

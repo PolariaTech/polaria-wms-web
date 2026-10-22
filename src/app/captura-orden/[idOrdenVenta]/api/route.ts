@@ -352,6 +352,7 @@ export async function POST(
     try {
       const alistamiento = await syncOrdenVentaEstadoAlistamiento({
         idOrdenVenta,
+        idOrdenTrabajo: resolvedOt,
       });
       estadoAlistamiento = alistamiento.estado;
     } catch (estadoError) {

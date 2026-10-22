@@ -23,6 +23,7 @@ import {
 import { filterLineasByOrdenTrabajoHija } from "../utils/filter-lineas-by-orden-trabajo";
 import { extractNotasClaveCorreo } from "../utils/texto-origen-pedido";
 import {
+  capturaTieneAlistoCompleto,
   computeEstadoAlistamientoFromCapturas,
   puedeAplicarEstadoAlistamiento,
 } from "./compute-estado-alistamiento";
@@ -579,7 +580,7 @@ async function appendOrdenSurtidoCapturaFoto(input: {
       idOrdenVenta: input.idOrdenVenta,
       codigoCuenta: input.codigoCuenta,
       accion: "actualizacion",
-      mensaje: `Foto de surtido subida (orden de trabajo).`,
+      mensaje: `Foto de alistamiento / surtido capturada en la orden de trabajo.`,
       idOrdenTrabajo: input.idOrdenTrabajo || null,
       payloadExtra: {
         tipo: "foto_surtido",
@@ -854,10 +855,12 @@ export async function applySurtidoCapturaToOrdenVenta(input: {
 
 /**
  * Tras subir una foto QR, actualiza el estado de la OV:
- * confirmada → alistamiento (parcial) → alistada (todas las OT con foto).
+ * confirmada → alistamiento (foto / parcial) → alistada (foto + Alistó en todas las líneas).
  */
 export async function syncOrdenVentaEstadoAlistamiento(input: {
   idOrdenVenta: string;
+  /** OT que disparó el avance (para bitácora). */
+  idOrdenTrabajo?: string | null;
 }): Promise<{ estado: string | null; updated: boolean }> {
   const admin = getSupabaseAdminClient();
   if (!admin) throw new Error("Supabase admin no configurado.");
@@ -890,11 +893,71 @@ export async function syncOrdenVentaEstadoAlistamiento(input: {
     parseOrigenCorreoJson(orden.origen_correo),
   );
   const capturas = await listOrdenSurtidoCapturas(input.idOrdenVenta);
-  const conFoto = new Set(
-    capturas
-      .map((row) => normalizeIdOrdenTrabajo(row.idOrdenTrabajo))
-      .filter(Boolean),
+  const capturaByOt = new Map(
+    capturas.map((row) => [normalizeIdOrdenTrabajo(row.idOrdenTrabajo), row]),
   );
+  const conFoto = new Set(
+    [...capturaByOt.keys()].filter((key) => {
+      const row = capturaByOt.get(key);
+      return Boolean(row?.urlFoto?.trim() || row);
+    }),
+  );
+
+  const { data: lineaRows } = await adminFrom(
+    admin,
+    ctx.schemaName,
+    "orden_venta_linea",
+  )
+    .select(
+      "id_linea_orden_venta,id_orden_venta,id_producto,cantidad_pedida,cantidad_despachada,notas",
+    )
+    .eq("id_orden_venta", input.idOrdenVenta)
+    .order("id_linea_orden_venta", { ascending: true })
+    .limit(500);
+
+  const lineasOrden = (lineaRows ?? []).map((row) => ({
+    id_linea_orden_venta: String(
+      (row as { id_linea_orden_venta?: string }).id_linea_orden_venta ?? "",
+    ),
+    id_orden_venta: input.idOrdenVenta,
+    id_producto: String((row as { id_producto?: string }).id_producto ?? ""),
+    cantidad_pedida: Number(
+      (row as { cantidad_pedida?: number | string }).cantidad_pedida ?? 0,
+    ),
+    cantidad_despachada: Number(
+      (row as { cantidad_despachada?: number | string }).cantidad_despachada ??
+        0,
+    ),
+    notas: String((row as { notas?: string | null }).notas ?? "") || null,
+    producto_nombre: null as string | null,
+    producto_sku: null as string | null,
+    precio_unitario: null as number | null,
+  }));
+
+  const countAlistoCompletoForOt = (hija: OrdenTrabajoHija | null): boolean => {
+    const otKey = normalizeIdOrdenTrabajo(hija?.id);
+    const captura =
+      (otKey ? capturaByOt.get(otKey) : undefined) ??
+      capturaByOt.get("") ??
+      capturaByOt.get("default") ??
+      capturas[0];
+    if (!captura) return false;
+    const lineasOt = filterLineasByOrdenTrabajoHija(
+      lineasOrden as never,
+      hija && hija.renglones.length > 0 ? hija : null,
+      {
+        emptyFallback:
+          !hija || hija.renglones.length === 0 || hijas.length <= 1
+            ? "all"
+            : "none",
+      },
+    );
+    const esperadas =
+      lineasOt.length > 0
+        ? lineasOt.length
+        : (captura.payload.lineas?.length ?? 0);
+    return capturaTieneAlistoCompleto(captura.payload, esperadas);
+  };
 
   const totalOrdenesTrabajo = hijas.length;
   const ordenesTrabajoConFoto =
@@ -904,9 +967,17 @@ export async function syncOrdenVentaEstadoAlistamiento(input: {
         : 0
       : hijas.filter((hija) => conFoto.has(hija.id)).length;
 
+  const ordenesTrabajoConAlistoCompleto =
+    totalOrdenesTrabajo === 0
+      ? countAlistoCompletoForOt(null)
+        ? 1
+        : 0
+      : hijas.filter((hija) => countAlistoCompletoForOt(hija)).length;
+
   const siguiente = computeEstadoAlistamientoFromCapturas({
     totalOrdenesTrabajo,
     ordenesTrabajoConFoto,
+    ordenesTrabajoConAlistoCompleto,
   });
 
   if (!siguiente || siguiente === estadoActual) {
@@ -925,6 +996,36 @@ export async function syncOrdenVentaEstadoAlistamiento(input: {
     .eq("id_orden_venta", input.idOrdenVenta);
 
   if (updateError) throw new Error(updateError.message);
+
+  try {
+    const { recordOrdenVentaLogServer } = await import(
+      "../services/orden-venta-log.server"
+    );
+    const ot = normalizeIdOrdenTrabajo(input.idOrdenTrabajo);
+    const labelEstado =
+      siguiente === "alistada"
+        ? "alistada"
+        : siguiente === "alistamiento"
+          ? "en alistamiento"
+          : siguiente;
+    await recordOrdenVentaLogServer({
+      idOrdenVenta: input.idOrdenVenta,
+      codigoCuenta: ctx.codigoCuenta,
+      accion: "cambio_estado",
+      mensaje: `Estado de la orden actualizado a ${labelEstado}.`,
+      idOrdenTrabajo: ot || null,
+      payloadExtra: {
+        tipo: "estado_alistamiento",
+        estadoAnterior: estadoActual,
+        estadoNuevo: siguiente,
+      },
+    });
+  } catch (logError) {
+    console.warn(
+      "[surtido] log estado alistamiento falló:",
+      logError instanceof Error ? logError.message : logError,
+    );
+  }
 
   return { estado: siguiente, updated: true };
 }

@@ -32,13 +32,20 @@ import {
   buildOrdenTareaAlmacenLandscapePdfBlob,
   printOrdenTareaAlmacenLandscape,
 } from "../../print/download-orden-tarea-almacen-pdf";
+import {
+  autoPrintResultToFeedback,
+  type AutoPrintOvResult,
+} from "../../print/auto-print-ov-tras-emitir";
 import { mapOrdenVentaToAlmacenPrintSheets } from "../../print/map-orden-tarea-almacen";
 import {
   borrarOrdenVenta,
   getOrdenVentaDetalle,
   listOrdenesVentaOperador,
 } from "../../../shared/services/sales.service";
-import { postOrdenVentaLog } from "../../services/orden-venta-log.client";
+import {
+  postOrdenVentaLog,
+  postOrdenVentaLogForOts,
+} from "../../services/orden-venta-log.client";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import type {
   EstadoOrdenVenta,
@@ -107,6 +114,10 @@ export function OperadorOrdenesVentaPageContent({
     title: string;
     detail: string;
   } | null>(null);
+  const handleAutoPrintResult = useCallback((result: AutoPrintOvResult) => {
+    const feedback = autoPrintResultToFeedback(result);
+    if (feedback) setPrintFeedback(feedback);
+  }, []);
   const [busyAction, setBusyAction] = useState<{
     id: string;
     kind: "print" | "preview" | "fotos" | "borrar";
@@ -264,11 +275,8 @@ export function OperadorOrdenesVentaPageContent({
           title: "Órdenes de trabajo enviadas",
           detail: `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
         });
-        const { postOrdenVentaLog } = await import(
-          "../../services/orden-venta-log.client"
-        );
         const session = useAuthStore.getState().session;
-        void postOrdenVentaLog({
+        void postOrdenVentaLogForOts({
           idOrdenVenta: row.idOrdenVenta,
           codigoCuenta,
           accion: "actualizacion",
@@ -276,6 +284,7 @@ export function OperadorOrdenesVentaPageContent({
           idUsuario: session?.idUsuario ?? null,
           autorNombre: session?.nombre ?? null,
           idBodega: row.idBodega ?? null,
+          idOrdenesTrabajo: sheets.map((sheet) => sheet.idOrdenTrabajo),
           payloadExtra: { tipo: "impresion_pdf", hojas: sheets.length },
         });
       } catch (error: unknown) {
@@ -839,6 +848,7 @@ export function OperadorOrdenesVentaPageContent({
         onEmitted={inspect ? undefined : () => {
           void reload();
         }}
+        onAutoPrintResult={inspect ? undefined : handleAutoPrintResult}
       />
 
       <OrdenVentaCypherDrawer
@@ -959,11 +969,12 @@ export function OperadorOrdenesVentaPageContent({
         onCreated={() => {
           void reload();
         }}
+        onAutoPrintResult={handleAutoPrintResult}
       />
 
       {printFeedback ? (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-3 sm:p-6"
+          className="fixed inset-0 z-[130] flex items-center justify-center overflow-hidden p-3 sm:p-6"
           role="presentation"
         >
           <button
@@ -1028,6 +1039,7 @@ export function OperadorOrdenesVentaPageContent({
         isLoading={Boolean(pdfPreview) && !pdfPreview?.blob && !pdfPreview?.error}
         error={pdfPreview?.error ?? null}
         onClose={() => setPdfPreview(null)}
+        dockWithCypher={Boolean(cypherId)}
       />
 
       <OrdenVentaFotosCapturaModal

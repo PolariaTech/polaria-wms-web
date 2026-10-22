@@ -75,3 +75,44 @@ export async function postOrdenVentaLog(params: {
     /* ignore */
   }
 }
+
+/**
+ * Registra el mismo evento por cada OT (bitácora filtrable por OT).
+ * Sin OTs → un solo evento a nivel OV.
+ */
+export async function postOrdenVentaLogForOts(params: {
+  idOrdenVenta: string;
+  codigoCuenta: string;
+  accion: TipoAuditoria;
+  mensaje: string;
+  idBodega?: string | null;
+  idUsuario?: string | null;
+  autorNombre?: string | null;
+  idOrdenesTrabajo?: readonly (string | null | undefined)[] | null;
+  payloadExtra?: Record<string, unknown>;
+}): Promise<void> {
+  const ots = [
+    ...new Set(
+      (params.idOrdenesTrabajo ?? [])
+        .map((id) => (typeof id === "string" ? id.trim() : ""))
+        .filter(Boolean),
+    ),
+  ];
+
+  if (ots.length === 0) {
+    await postOrdenVentaLog({
+      ...params,
+      idOrdenTrabajo: null,
+    });
+    return;
+  }
+
+  await Promise.all(
+    ots.map((idOrdenTrabajo) =>
+      postOrdenVentaLog({
+        ...params,
+        idOrdenTrabajo,
+      }),
+    ),
+  );
+}

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sanitizeOvAdjuntoStorageFileName } from "@/lib/supabase/sanitize-ov-adjunto-storage-name";
 import {
   getEmlAttachmentBuffer,
   listEmlAttachmentParts,
@@ -11,11 +12,6 @@ const MAX_BYTES = 15 * 1024 * 1024;
 function sanitizeCuentaFolder(codigoCuenta: string): string {
   const raw = codigoCuenta.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
   return raw.slice(0, 64) || "sin-cuenta";
-}
-
-function sanitizeFileName(name: string): string {
-  const base = name.trim().replace(/[/\\?%*:|"<>]/g, "_") || "adjunto";
-  return base.slice(0, 120);
 }
 
 let bucketReady: Promise<boolean> | null = null;
@@ -93,7 +89,7 @@ export async function uploadOvAdjunto(
 
   const mime = (file.type || "application/octet-stream").toLowerCase();
   const nombre = file.name.trim() || "adjunto";
-  const path = `${sanitizeCuentaFolder(codigoCuenta)}/${randomUUID()}-${sanitizeFileName(nombre)}`;
+  const path = `${sanitizeCuentaFolder(codigoCuenta)}/${randomUUID()}-${sanitizeOvAdjuntoStorageFileName(nombre)}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const { error } = await admin.storage.from(OV_ADJUNTOS_BUCKET).upload(path, buffer, {
@@ -102,10 +98,13 @@ export async function uploadOvAdjunto(
   });
 
   if (error) {
+    const raw = error.message || "";
     return {
       ok: false,
       status: 500,
-      message: error.message || "Error al subir el adjunto a Supabase Storage.",
+      message: /invalid key/i.test(raw)
+        ? `No se pudo guardar «${nombre}»: el nombre del archivo no es válido para almacenamiento. Renómbralo sin acentos ni caracteres especiales e inténtalo de nuevo.`
+        : raw || "Error al subir el adjunto a Supabase Storage.",
     };
   }
 
@@ -155,7 +154,7 @@ async function uploadOvAdjuntoBuffer(
 
   const mime = (mimetype || "application/octet-stream").toLowerCase();
   const nombre = originalname.trim() || "adjunto";
-  const path = `${sanitizeCuentaFolder(codigoCuenta)}/${randomUUID()}-${sanitizeFileName(nombre)}`;
+  const path = `${sanitizeCuentaFolder(codigoCuenta)}/${randomUUID()}-${sanitizeOvAdjuntoStorageFileName(nombre)}`;
 
   const { error } = await admin.storage
     .from(OV_ADJUNTOS_BUCKET)
@@ -165,10 +164,13 @@ async function uploadOvAdjuntoBuffer(
     });
 
   if (error) {
+    const raw = error.message || "";
     return {
       ok: false,
       status: 500,
-      message: error.message || "Error al subir el adjunto a Supabase Storage.",
+      message: /invalid key/i.test(raw)
+        ? `No se pudo guardar «${nombre}»: el nombre del archivo no es válido para almacenamiento. Renómbralo sin acentos ni caracteres especiales e inténtalo de nuevo.`
+        : raw || "Error al subir el adjunto a Supabase Storage.",
     };
   }
 

@@ -150,6 +150,25 @@ export function CypherAlistamientoSection({
     capturaByOt.has(normalizeIdOrdenTrabajo(ot.id)),
   ).length;
 
+  let lineasAlistoTotal = 0;
+  let lineasProductoTotal = 0;
+  for (const hija of ots) {
+    const otKey = normalizeIdOrdenTrabajo(hija.id);
+    const captura = capturaByOt.get(otKey) ?? capturaByOt.get("");
+    const lineasOt = filterLineasByOrdenTrabajoHija(
+      orden.lineas ?? [],
+      hija.renglones.length > 0 ? hija : null,
+      { emptyFallback: hija.renglones.length === 0 ? "all" : "none" },
+    );
+    lineasProductoTotal += lineasOt.length;
+    for (let i = 0; i < lineasOt.length; i += 1) {
+      const row = captura?.payload?.lineas?.find(
+        (linea) => linea.indice === i + 1,
+      );
+      if (row?.alisto === true) lineasAlistoTotal += 1;
+    }
+  }
+
   const impresaAt =
     orden.estado_desde?.trim() ||
     orden.updated_at?.trim() ||
@@ -171,6 +190,15 @@ export function CypherAlistamientoSection({
           {escaneadas} de {ots.length}
         </span>{" "}
         OT{ots.length === 1 ? "" : "s"} escaneada{ots.length === 1 ? "" : "s"}
+        {lineasProductoTotal > 0 ? (
+          <>
+            {" · "}
+            <span className="font-semibold text-polaria-teal">
+              {lineasAlistoTotal} de {lineasProductoTotal}
+            </span>{" "}
+            líneas con Alistó
+          </>
+        ) : null}
       </p>
 
       {ots.map((hija, index) => {

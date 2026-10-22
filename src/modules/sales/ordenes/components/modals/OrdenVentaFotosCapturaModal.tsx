@@ -254,6 +254,7 @@ export function OrdenVentaFotosCapturaModal({
       description={description}
       asForm={false}
       hideFooter
+      stackLevel={dockWithCypher ? "base" : "nested"}
       compact={dockWithCypher}
       size="2xl"
       layout={dockWithCypher ? "dock-left" : "center"}

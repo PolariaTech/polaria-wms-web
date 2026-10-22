@@ -1149,10 +1149,15 @@ export async function createOrdenVenta(
   input: CreateOrdenVentaInput & { idOrdenVenta?: string },
 ): Promise<OrdenVentaOperadorRow> {
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
-  const idComprador = input.idComprador.trim();
+  let idComprador = input.idComprador?.trim() || "";
   const idBodegaDestino = input.idBodegaDestino?.trim() || null;
   const observaciones = input.observaciones?.trim() || null;
   const idCreador = input.idCreador?.trim() || null;
+  const guardarAvance = Boolean(input.guardarAvance);
+  const idOrdenVentaExistente =
+    "idOrdenVenta" in input && typeof input.idOrdenVenta === "string"
+      ? input.idOrdenVenta.trim()
+      : "";
 
   const lineas =
     input.lineas && input.lineas.length > 0
@@ -1168,10 +1173,30 @@ export async function createOrdenVenta(
         : [];
 
   if (!idComprador) {
-    throw new DomainServiceError(
-      "Selecciona un comprador.",
-      "INVALID_ARGUMENT",
-    );
+    if (guardarAvance && idOrdenVentaExistente) {
+      const existingComprador = await runDomainQuery<{
+        id_comprador: string | null;
+      } | null>((client) => {
+        const query = client
+          .from("orden_venta")
+          .select("id_comprador")
+          .eq("codigo_cuenta", codigoCuenta)
+          .eq("id_orden_venta", idOrdenVentaExistente)
+          .maybeSingle();
+
+        return query as unknown as Promise<{
+          data: { id_comprador: string | null } | null;
+          error: { message: string } | null;
+        }>;
+      });
+      idComprador = existingComprador?.id_comprador?.trim() || "";
+    }
+    if (!idComprador && !(guardarAvance && idOrdenVentaExistente)) {
+      throw new DomainServiceError(
+        "Selecciona un comprador.",
+        "INVALID_ARGUMENT",
+      );
+    }
   }
 
   if (lineas.length === 0) {
@@ -1210,7 +1235,9 @@ export async function createOrdenVenta(
     }
   }
 
-  await assertCompradorDeCuenta(codigoCuenta, idComprador);
+  if (idComprador) {
+    await assertCompradorDeCuenta(codigoCuenta, idComprador);
+  }
 
   const primeraLinea = lineas[0]!;
   const productoIds = lineas.map((linea) => linea.idProducto.trim());
@@ -1233,10 +1260,6 @@ export async function createOrdenVenta(
   }
 
   const capture = ordenVentaCaptureFields(input);
-  const idOrdenVentaExistente =
-    "idOrdenVenta" in input && typeof input.idOrdenVenta === "string"
-      ? input.idOrdenVenta.trim()
-      : "";
 
   if (idOrdenVentaExistente) {
     if (!input.origenTexto?.trim()) {
@@ -1289,7 +1312,7 @@ export async function createOrdenVenta(
         .update({
           id_bodega: idBodega,
           id_cliente: idCliente,
-          id_comprador: idComprador,
+          ...(idComprador ? { id_comprador: idComprador } : {}),
           id_bodega_destino: idBodegaDestino,
           ...capture,
           observaciones,

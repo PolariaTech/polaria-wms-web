@@ -58,6 +58,30 @@ describe("buildOrdenVentaPrefillFromComprador", () => {
     });
   });
 
+  it("no usa la razón social como centro de consumo", () => {
+    const ficha = emptyCompradorAltaFicha();
+    ficha.razonSocial = "PROMOCIONES MARINA MORELOS / DREAMS JADE RESORT & SPA";
+    ficha.centros = [
+      {
+        nombre: "DREAMS JADE RESORT & SPA",
+        dias: "",
+        direccion: "",
+        cp: "",
+        anden: "",
+        desde: "",
+        hasta: "",
+        contacto: "",
+        telefono: "",
+        carreteraFederal: "",
+        notas: "",
+      },
+    ];
+
+    expect(
+      buildOrdenVentaPrefillFromComprador({ ficha }).centroConsumo,
+    ).toBe("");
+  });
+
   it("usa el contacto y teléfono del comprador si el centro no los trae", () => {
     const ficha = emptyCompradorAltaFicha();
     ficha.contactos = [

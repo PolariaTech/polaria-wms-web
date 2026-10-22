@@ -10,6 +10,7 @@ import {
   Paperclip,
   Plus,
   Replace,
+  Save,
   Trash2,
   Upload,
   UserRound,
@@ -66,8 +67,7 @@ import {
 } from "../../../shared/constants/sales-status";
 import { fetchProductosVentaCatalogo } from "../../../shared/services/sales-catalog.api";
 import { emitirOrdenVentaApi } from "../../../shared/services/sales-api.service";
-import { postOrdenVentaLog } from "../../services/orden-venta-log.client";
-import { getCuentaOvAutoImprimirConfigurator } from "@/modules/configurator/cuentas/services/cuentas.service";
+import { postOrdenVentaLogForOts } from "../../services/orden-venta-log.client";
 import {
   createOrdenVenta,
   getCuentaIdBodegaDefault,
@@ -81,8 +81,11 @@ import {
   type OrdenVentaOperadorRow,
   type ProductoVentaOption,
 } from "../../../shared/types/sales.types";
-import { mapOrdenVentaToAlmacenPrintSheets } from "../../print/map-orden-tarea-almacen";
-import { printOrdenTareaAlmacenLandscape } from "../../print/download-orden-tarea-almacen-pdf";
+import {
+  autoPrintOrdenVentaTrasEmitir,
+  fetchAutoImprimirFlag,
+  type AutoPrintOvResult,
+} from "../../print/auto-print-ov-tras-emitir";
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
 import { NoIdentificadoBadge } from "../shared/NoIdentificadoBadge";
 import { OrdenVentaClientesSugerenciasPickerModal } from "../pickers/OrdenVentaClientesSugerenciasPickerModal";
@@ -93,14 +96,9 @@ import { OrdenVentaTablePickerModal } from "../pickers/OrdenVentaTablePickerModa
 import { leerPedidoConIaApi } from "../../services/sales-ai.api";
 import { OrdenTrabajoPreviewList } from "../orden-trabajo/OrdenTrabajoPreviewList";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
-import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
-import {
-  OrigenPedidoBodyView,
-  OrigenPedidoSourceView,
-} from "../shared/OrigenPedidoBodyView";
+import { OrigenPedidoSourceView } from "../shared/OrigenPedidoBodyView";
 import { uploadOvAdjuntosClient } from "../../services/ov-adjuntos.client";
 import {
-  dedupeOrigenAdjuntos,
   mergeOrigenAdjuntosWithEmlParts,
   nombresOrigenAdjuntos,
   origenAdjuntosFromEmlParts,
@@ -168,6 +166,8 @@ interface OrdenVentaCreateModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  /** Feedback de autoimpresión tras Validar y enviar (éxito o error). */
+  onAutoPrintResult?: (result: AutoPrintOvResult) => void;
   idOrdenVenta?: string | null;
   /** Cypher abierto en paralelo (mismo id): panel a la izquierda. */
   cypherOpen?: boolean;
@@ -199,56 +199,6 @@ function formatProductoNombreConSku(nombre: string, codigo: string): string {
   if (!sku || sku === "—") return name;
   if (name.toLowerCase().includes(`(${sku.toLowerCase()})`)) return name;
   return `${name} (${sku})`;
-}
-
-/** Fila mínima para auto-impresión tras Validar y enviar (detalle es la fuente fiable). */
-function resolveListRowForAutoPrint(
-  detalle: OrdenVentaDetalleRow,
-  fallback: OrdenVentaOperadorRow | null,
-): OrdenVentaOperadorRow {
-  if (
-    fallback &&
-    typeof fallback.idOrdenVenta === "string" &&
-    fallback.idOrdenVenta === detalle.id_orden_venta &&
-    typeof fallback.venta === "string"
-  ) {
-    return {
-      ...fallback,
-      estado: normalizeEstadoOrdenVenta(detalle.estado),
-      venta: detalle.codigo || fallback.venta,
-      fecha: detalle.created_at || detalle.fecha_pedido || fallback.fecha,
-      destino:
-        detalle.bodega_destino_nombre?.trim() ||
-        (fallback.destino !== "—" ? fallback.destino : "—"),
-      comprador:
-        detalle.comprador_nombre?.trim() ||
-        (fallback.comprador !== "—" ? fallback.comprador : "—"),
-    };
-  }
-
-  const occ = detalle.orden_compra_hotel?.trim() || "";
-  return {
-    idOrdenVenta: detalle.id_orden_venta,
-    venta: detalle.codigo,
-    occ: occ || "—",
-    occTodas: occ ? [occ] : [],
-    cuenta: detalle.codigo_cuenta,
-    comprador: detalle.comprador_nombre?.trim() || "—",
-    productos: "—",
-    cantidadKg: 0,
-    total: 0,
-    estado: normalizeEstadoOrdenVenta(detalle.estado),
-    fecha: detalle.created_at || detalle.fecha_pedido,
-    ordenesTrabajo: 1,
-    destino: detalle.bodega_destino_nombre?.trim() || "—",
-    idBodega: detalle.id_bodega,
-    idBodegaDestino: detalle.id_bodega_destino,
-    slaStatus: "en_tiempo",
-    alertaStatus: "ok",
-    minutosEnEstado: 0,
-    slaMinutos: 60,
-    alertaMinutos: 45,
-  };
 }
 
 const CATALOG_STATUS_TONE_CLASS = {
@@ -639,47 +589,6 @@ function CaptureSection({
   );
 }
 
-function CollapsibleCuerpoMensaje({
-  text,
-  adjuntos = [],
-  open,
-  onToggle,
-}: {
-  text: string;
-  adjuntos?: readonly OrigenAdjunto[];
-  open: boolean;
-  onToggle: () => void;
-}) {
-  const trimmed = text.trim();
-  if (!trimmed && adjuntos.length === 0) return null;
-
-  return (
-    <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left polaria-text-label uppercase tracking-wide text-polaria-teal"
-        aria-expanded={open}
-      >
-        <span>Cuerpo del mensaje</span>
-        {open ? (
-          <ChevronUp className="h-4 w-4 shrink-0" aria-hidden />
-        ) : (
-          <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
-        )}
-      </button>
-      {open ? (
-        <div className="space-y-4 border-t border-polaria-w-08 p-4">
-          {trimmed ? (
-            <OrigenPedidoBodyView text={trimmed} className="mt-0" />
-          ) : null}
-          <OrigenAdjuntosCards adjuntos={adjuntos} />
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 function toDateInputValue(value: string | null | undefined): string {
   const raw = value?.trim() ?? "";
   if (!raw) return "";
@@ -690,6 +599,7 @@ export function OrdenVentaCreateModal({
   open,
   onClose,
   onCreated,
+  onAutoPrintResult,
   idOrdenVenta = null,
   cypherOpen = false,
   onToggleCypher,
@@ -769,6 +679,7 @@ export function OrdenVentaCreateModal({
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [formDataReady, setFormDataReady] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -777,7 +688,6 @@ export function OrdenVentaCreateModal({
   const [isReadingIa, setIsReadingIa] = useState(false);
   const [isDocsDropActive, setIsDocsDropActive] = useState(false);
   const [showFiscal, setShowFiscal] = useState(false);
-  const [showCuerpo, setShowCuerpo] = useState(false);
   /** Adjuntos ya persistidos (URL Cloudinary) al editar o tras subir. */
   const [origenAdjuntos, setOrigenAdjuntos] = useState<OrigenAdjunto[]>([]);
   /** PDFs/Excel reales dentro del .eml (misma lógica que el cypher). */
@@ -797,6 +707,8 @@ export function OrdenVentaCreateModal({
   >([]);
   const [autoFields, setAutoFields] = useState<Set<string>>(() => new Set());
   const [warnFields, setWarnFields] = useState<Set<string>>(() => new Set());
+  /** Tras cambiar cliente: recordar revisar dirección del correo/PDF. */
+  const [avisoVerificarDireccion, setAvisoVerificarDireccion] = useState(false);
   const [missingFields, setMissingFields] = useState<Set<string>>(
     () => new Set(),
   );
@@ -814,6 +726,8 @@ export function OrdenVentaCreateModal({
   const selectedCompradorIdRef = useRef("");
   const skipDiscrepanciaConfirmRef = useRef(false);
   const skipSaveConfirmRef = useRef(false);
+  /** `draft` = icono guardar (sigue Por confirmar); `emit` = Guardar cambios → Confirmada. */
+  const submitIntentRef = useRef<"emit" | "draft">("emit");
   const docsFileInputRef = useRef<HTMLInputElement | null>(null);
   const bootstrapPromiseRef = useRef<Promise<void> | null>(null);
   const seededOtIdsRef = useRef<Set<string>>(new Set());
@@ -929,60 +843,6 @@ export function OrdenVentaCreateModal({
     setError(null);
   }, [isEditing, open, step]);
 
-  useEffect(() => {
-    if (!onCompanionOtPickerChange) return;
-
-    const shouldPublish =
-      open &&
-      cypherOpen &&
-      isEditing &&
-      normalizeEstadoOrdenVenta(editingEstado) === "por_confirmar" &&
-      ordenesTrabajoForm.length >= 1 &&
-      (step === "pickOt" || step === "form");
-
-    if (!shouldPublish) {
-      onCompanionOtPickerChange(null);
-      return;
-    }
-
-    const selectedIndex =
-      ordenesTrabajoForm.length > 0
-        ? Math.min(formOtPage, ordenesTrabajoForm.length - 1)
-        : 0;
-
-    onCompanionOtPickerChange({
-      hijas: ordenesTrabajoForm.map((hija) => ({
-        id: hija.id,
-        label: hija.label,
-        productosCount: countProductosOt(hija),
-        totalCantidad: hija.totalCantidad,
-        almacen: hija.almacen,
-      })),
-      selectedId: ordenesTrabajoForm[selectedIndex]?.id ?? null,
-      onSelect: (id: string) => {
-        const index = ordenesTrabajoForm.findIndex((hija) => hija.id === id);
-        if (index < 0) return;
-        setFormOtPage(index);
-        setStep("form");
-        setError(null);
-      },
-    });
-
-    return () => {
-      onCompanionOtPickerChange(null);
-    };
-  }, [
-    countProductosOt,
-    cypherOpen,
-    editingEstado,
-    formOtPage,
-    isEditing,
-    onCompanionOtPickerChange,
-    open,
-    ordenesTrabajoForm,
-    step,
-  ]);
-
   const applyOrdenesTrabajo = useCallback((next: OrdenTrabajoHija[]) => {
     setOrdenesTrabajoPreview(next);
     setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(next));
@@ -1055,6 +915,146 @@ export function OrdenVentaCreateModal({
   const hijaFormActiva = paginarPorOt
     ? (ordenesTrabajoForm[formOtSafePage] ?? null)
     : null;
+
+  /** Escribe los campos del formulario en la OT activa (antes de guardar o cambiar de página). */
+  const syncActiveOtFromForm = useCallback((): OrdenTrabajoHija[] => {
+    if (!paginarPorOt || !hijaFormActiva) return ordenesTrabajoForm;
+
+    const almacen = centroConsumo.trim();
+    const numeroPedido = ordenCompraHotel.trim();
+    const fecha = fechaEntrega.trim();
+    const responsableExterno = contacto.trim();
+    const telefonoOt = telefono.trim();
+    const direccionOt = direccion.trim();
+    const andenOt = anden.trim();
+    const ventanaDesdeOt = ventanaDesde.trim();
+    const ventanaHastaOt = ventanaHasta.trim();
+    const notasOt = observaciones.trim();
+    const prioridadOt = prioridad.trim();
+
+    return ordenesTrabajoForm.map((hija) => {
+      if (hija.id !== hijaFormActiva.id) return hija;
+      const renglones = (
+        hija.renglones.length > 0
+          ? hija.renglones
+          : [{ Producto: "", Cantidad: 0 }]
+      ).map((row) => ({
+        ...row,
+        Almacen: almacen || row.Almacen,
+        "Numero pedido": numeroPedido || row["Numero pedido"],
+        Fecha: fecha || row.Fecha,
+        "Responsable externo":
+          responsableExterno || row["Responsable externo"],
+        "Telefono contacto": telefonoOt || row["Telefono contacto"],
+        "Direccion entrega": direccionOt || row["Direccion entrega"],
+        Destino: direccionOt || row.Destino,
+        Anden: andenOt || row.Anden,
+        "Ventana desde": ventanaDesdeOt || row["Ventana desde"],
+        "Ventana hasta": ventanaHastaOt || row["Ventana hasta"],
+        "Notas generales": notasOt || row["Notas generales"],
+        Prioridad: prioridadOt || row.Prioridad,
+      }));
+      const label =
+        (numeroPedido && almacen
+          ? `${numeroPedido} — ${almacen}`
+          : almacen || numeroPedido) || hija.label;
+      return {
+        ...hija,
+        almacen,
+        numeroPedido,
+        fecha,
+        responsableExterno,
+        label,
+        renglones,
+      };
+    });
+  }, [
+    anden,
+    centroConsumo,
+    contacto,
+    direccion,
+    fechaEntrega,
+    hijaFormActiva,
+    observaciones,
+    ordenCompraHotel,
+    ordenesTrabajoForm,
+    paginarPorOt,
+    prioridad,
+    telefono,
+    ventanaDesde,
+    ventanaHasta,
+  ]);
+
+  const goToOtPage = useCallback(
+    (nextPage: number) => {
+      if (paginarPorOt && hijaFormActiva) {
+        applyOrdenesTrabajo(syncActiveOtFromForm());
+      }
+      setFormOtPage(nextPage);
+      setError(null);
+      setSuccessMessage(null);
+    },
+    [
+      applyOrdenesTrabajo,
+      hijaFormActiva,
+      paginarPorOt,
+      syncActiveOtFromForm,
+    ],
+  );
+
+  useEffect(() => {
+    if (!onCompanionOtPickerChange) return;
+
+    const shouldPublish =
+      open &&
+      cypherOpen &&
+      isEditing &&
+      normalizeEstadoOrdenVenta(editingEstado) === "por_confirmar" &&
+      ordenesTrabajoForm.length >= 1 &&
+      (step === "pickOt" || step === "form");
+
+    if (!shouldPublish) {
+      onCompanionOtPickerChange(null);
+      return;
+    }
+
+    const selectedIndex =
+      ordenesTrabajoForm.length > 0
+        ? Math.min(formOtPage, ordenesTrabajoForm.length - 1)
+        : 0;
+
+    onCompanionOtPickerChange({
+      hijas: ordenesTrabajoForm.map((hija) => ({
+        id: hija.id,
+        label: hija.label,
+        productosCount: countProductosOt(hija),
+        totalCantidad: hija.totalCantidad,
+        almacen: hija.almacen,
+      })),
+      selectedId: ordenesTrabajoForm[selectedIndex]?.id ?? null,
+      onSelect: (id: string) => {
+        const index = ordenesTrabajoForm.findIndex((hija) => hija.id === id);
+        if (index < 0) return;
+        setStep("form");
+        goToOtPage(index);
+      },
+    });
+
+    return () => {
+      onCompanionOtPickerChange(null);
+    };
+  }, [
+    countProductosOt,
+    cypherOpen,
+    editingEstado,
+    formOtPage,
+    goToOtPage,
+    isEditing,
+    onCompanionOtPickerChange,
+    open,
+    ordenesTrabajoForm,
+    step,
+  ]);
 
   useEffect(() => {
     if (step !== "form" || startMode !== "docs") return;
@@ -1404,6 +1404,7 @@ export function OrdenVentaCreateModal({
     setReplaceLineaIndex(null);
     setAutoFields(new Set());
     setWarnFields(new Set());
+    setAvisoVerificarDireccion(false);
     setMissingFields(new Set());
     setDiscrepancias([]);
     setConfirmDiscrepanciasOpen(false);
@@ -1413,9 +1414,10 @@ export function OrdenVentaCreateModal({
     skipSaveConfirmRef.current = false;
     setCantidadFocusId(null);
     setError(null);
+    setSuccessMessage(null);
     setIsSaving(false);
+    submitIntentRef.current = "emit";
     setShowFiscal(false);
-    setShowCuerpo(false);
     setOrigenAdjuntos([]);
     setEmlInnerAdjuntos([]);
     setConfirmDiscardOpen(false);
@@ -1479,11 +1481,16 @@ export function OrdenVentaCreateModal({
         const compradorRow = compradorRows.find(
           (row) => row.idComprador === idCompradorDetalle,
         );
-        setCompradorLabel(
-          compradorRow
-            ? formatCompradorLabel(compradorRow)
-            : formatCompradorOrdenVenta(detalle),
-        );
+        {
+          const labelSinId = formatCompradorOrdenVenta(detalle);
+          setCompradorLabel(
+            compradorRow
+              ? formatCompradorLabel(compradorRow)
+              : labelSinId === "—"
+                ? ""
+                : labelSinId,
+          );
+        }
         setFechaEntrega(toDateInputValue(detalle.fecha_entrega));
         setVentanaDesde(detalle.ventana_desde?.trim() || "");
         setVentanaHasta(detalle.ventana_hasta?.trim() || "");
@@ -1534,6 +1541,10 @@ export function OrdenVentaCreateModal({
         if (nombreEscritoOrigen) {
           setCompradorNombreIa(nombreEscritoOrigen);
         }
+        // Sin cliente de catálogo: mostrar el nombre del correo (no "—") + sugerencias.
+        if (!idCompradorDetalle && nombreEscritoOrigen) {
+          setCompradorLabel(nombreEscritoOrigen);
+        }
 
         const esExternoPorConfirmar =
           normalizeEstadoOrdenVenta(detalle.estado) === "por_confirmar" &&
@@ -1563,6 +1574,8 @@ export function OrdenVentaCreateModal({
           if (autoComprador) {
             handleSelectComprador(autoComprador, {
               keepNombreIa: Boolean(nombreEscritoOrigen),
+              // No pisar Ship To del origen con la ficha del comprador.
+              preservePedidoData: true,
             });
             idCompradorForMap = autoComprador.idComprador;
             telefonoForMap = autoComprador.telefono?.trim() || "";
@@ -1740,6 +1753,22 @@ export function OrdenVentaCreateModal({
             setFormOtPage(0);
             // Selector de OT = Cypher; formulario siempre en la 1ª OT.
             setStep("form");
+          }
+
+          // Confirmada (u otro estado) sin comprador: mismo criterio visual que por_confirmar.
+          if (!idCompradorDetalle && nombreEscritoOrigen) {
+            const compradorRank = rankCompradoresFromNombre(
+              nombreEscritoOrigen,
+              compradorRows,
+            );
+            setCompradorSugerencias(
+              compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
+            );
+            setMissingFields((prev) => {
+              const next = new Set(prev);
+              next.add("cliente");
+              return next;
+            });
           }
         }
 
@@ -1961,15 +1990,31 @@ export function OrdenVentaCreateModal({
       row: CompradorListRow,
       options?: {
         /**
-         * Al aceptar sugerencia de Mateo: solo enlaza el cliente.
-         * No pisa entrega, notas, precios ni productos ya leídos del pedido.
+         * Solo enlaza el cliente: no pisa entrega ni datos ya leídos del pedido.
          */
         preservePedidoData?: boolean;
         /** Conserva el nombre que Mateo leyó del pedido (caption bajo el campo). */
         keepNombreIa?: boolean;
+        /**
+         * Cambio hecho por el usuario (catálogo/sugerencias): avisar que revise
+         * la dirección de entrega del correo/PDF.
+         */
+        verificarDireccionEntrega?: boolean;
       },
     ) => {
-      const preservePedido = Boolean(options?.preservePedidoData);
+      const previousId = selectedCompradorIdRef.current;
+      const fromDocumento =
+        startMode === "docs" ||
+        origenCorreoDraft.length > 0 ||
+        Boolean(origenTexto.trim()) ||
+        Boolean(direccion.trim());
+      const preservePedido =
+        Boolean(options?.preservePedidoData) ||
+        (fromDocumento &&
+          Boolean(previousId) &&
+          previousId !== row.idComprador) ||
+        (fromDocumento && Boolean(direccion.trim()));
+
       selectedCompradorIdRef.current = row.idComprador;
       setIdComprador(row.idComprador);
       setCompradorLabel(formatCompradorLabel(row));
@@ -1984,6 +2029,20 @@ export function OrdenVentaCreateModal({
         next.delete("cliente");
         return next;
       });
+
+      const clienteCambio =
+        Boolean(previousId) && previousId !== row.idComprador;
+      if (
+        options?.verificarDireccionEntrega &&
+        (clienteCambio || (fromDocumento && Boolean(direccion.trim())))
+      ) {
+        setAvisoVerificarDireccion(true);
+        setWarnFields((prev) => {
+          const next = new Set(prev);
+          next.add("direccion");
+          return next;
+        });
+      }
 
       if (!preservePedido) {
         setTelefono(row.telefono?.trim() || "");
@@ -2002,7 +2061,7 @@ export function OrdenVentaCreateModal({
         .then((detalle) => {
           if (selectedCompradorIdRef.current !== row.idComprador) return;
           if (preservePedido) {
-            // Solo ficha / exige OC; el pedido de Mateo se queda como está.
+            // Solo ficha / exige OC; la dirección del pedido se queda.
             const prefill = buildOrdenVentaPrefillFromComprador({
               ficha: detalle.ficha,
               telefonoComprador: row.telefono,
@@ -2048,7 +2107,14 @@ export function OrdenVentaCreateModal({
           setEquivalenciaByProducto({});
         });
     },
-    [applyCompradorPrefill, codigoCuenta],
+    [
+      applyCompradorPrefill,
+      codigoCuenta,
+      direccion,
+      origenCorreoDraft.length,
+      origenTexto,
+      startMode,
+    ],
   );
 
   const handleSelectProducto = useCallback(
@@ -2377,19 +2443,6 @@ export function OrdenVentaCreateModal({
     return [...new Set(raw.map((name) => name.trim()).filter(Boolean))];
   }, [origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos]);
 
-  const adjuntosParaVista = useMemo((): OrigenAdjunto[] => {
-    if (origenArchivoFiles.length > 0) {
-      return dedupeOrigenAdjuntos(
-        origenArchivoFiles.map((file) => ({
-          nombre: file.name,
-          mime: file.type || null,
-          bytes: file.size,
-        })),
-      );
-    }
-    return mergeOrigenAdjuntosWithEmlParts(origenAdjuntos, emlInnerAdjuntos);
-  }, [origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos]);
-
   const openFormFromDocs = useCallback(async () => {
     if (!codigoCuenta) {
       setError("No hay cuenta activa.");
@@ -2433,6 +2486,8 @@ export function OrdenVentaCreateModal({
       if (autoComprador && !idComprador) {
         handleSelectComprador(autoComprador, {
           keepNombreIa: Boolean(nombreEscritoIa),
+          // Ficha solo rellena huecos vía map; no pisa Ship To del documento.
+          preservePedidoData: true,
         });
         idCompradorForMap = autoComprador.idComprador;
         telefonoForMap = autoComprador.telefono?.trim() || telefono;
@@ -2442,8 +2497,13 @@ export function OrdenVentaCreateModal({
             idComprador: autoComprador.idComprador,
           });
           if (selectedCompradorIdRef.current === autoComprador.idComprador) {
-            applyCompradorPrefill(autoComprador, detalle.ficha);
             fichaForMap = detalle.ficha;
+            setFichaComprador(detalle.ficha);
+            const prefill = buildOrdenVentaPrefillFromComprador({
+              ficha: detalle.ficha,
+              telefonoComprador: autoComprador.telefono,
+            });
+            setExigeOc(prefill.exigeOc);
           }
         } catch {
           /* se mantiene el match; ficha puede quedar vacía */
@@ -2647,18 +2707,26 @@ export function OrdenVentaCreateModal({
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      const intent = submitIntentRef.current;
+      submitIntentRef.current = "emit";
+      const isDraft = intent === "draft";
       setError(null);
+      setSuccessMessage(null);
 
       if (!codigoCuenta || !hasProductos || step !== "form") {
         return;
       }
 
-      if (!idComprador) {
+      const puedeGuardarSinCliente =
+        isDraft && (isEditing || Boolean(pendingEmitId));
+
+      if (!idComprador && !puedeGuardarSinCliente) {
         setError("Selecciona un cliente.");
         return;
       }
 
       if (
+        !isDraft &&
         startMode === "docs" &&
         discrepancias.length > 0 &&
         !skipDiscrepanciaConfirmRef.current
@@ -2668,39 +2736,61 @@ export function OrdenVentaCreateModal({
       }
       skipDiscrepanciaConfirmRef.current = false;
 
-      if (exigeOc && !ordenCompraHotel.trim()) {
+      if (!isDraft && exigeOc && !ordenCompraHotel.trim()) {
         setError(
           "Este cliente exige orden de compra para facturar. Captúrala en el pedido.",
         );
         return;
       }
 
-      if (lineas.some((linea) => linea.catalogPending || !linea.idProducto)) {
+      // Persistir cambios de la OT actual aunque no hayas recorrido las demás.
+      const hijasSynced = syncActiveOtFromForm();
+      if (paginarPorOt && hijaFormActiva) {
+        applyOrdenesTrabajo(hijasSynced);
+      }
+
+      const lineasParaPersistir = isDraft
+        ? lineas.filter((linea) => !linea.catalogPending && linea.idProducto)
+        : lineas;
+
+      if (
+        !isDraft &&
+        lineas.some((linea) => linea.catalogPending || !linea.idProducto)
+      ) {
         setError(
           "Hay productos no identificados. Elige uno del catálogo o quita la línea.",
         );
         return;
       }
 
-      if (lineas.length === 0) {
-        setError("Agrega al menos un producto a la venta.");
+      if (lineasParaPersistir.length === 0) {
+        setError(
+          isDraft
+            ? "Identifica al menos un producto del catálogo para guardar el avance."
+            : "Agrega al menos un producto a la venta.",
+        );
         return;
       }
 
-      const cabeceraError = validatePedidoCabecera({
-        fechaEntrega,
-        todayIso: todayIsoDate(),
-        ventanaDesde,
-        ventanaHasta,
-      });
-      if (cabeceraError) {
-        setMissingFields((prev) => {
-          const next = new Set(prev);
-          for (const field of cabeceraError.fields) next.add(field);
-          return next;
+      let fechaEntregaPersist = fechaEntrega;
+      if (!isDraft) {
+        const cabeceraError = validatePedidoCabecera({
+          fechaEntrega,
+          todayIso: todayIsoDate(),
+          ventanaDesde,
+          ventanaHasta,
         });
-        setError(cabeceraError.message);
-        return;
+        if (cabeceraError) {
+          setMissingFields((prev) => {
+            const next = new Set(prev);
+            for (const field of cabeceraError.fields) next.add(field);
+            return next;
+          });
+          setError(cabeceraError.message);
+          return;
+        }
+      } else if (!fechaEntregaPersist.trim()) {
+        fechaEntregaPersist = tomorrowIsoDate();
       }
 
       const bodegaDestinoLabel =
@@ -2709,14 +2799,16 @@ export function OrdenVentaCreateModal({
 
       const lineasParsed: OrdenVentaLineaInput[] = [];
 
-      for (const linea of lineas) {
+      for (const linea of lineasParaPersistir) {
         const cantidadKg = parseDecimalEs(linea.cantidadInput);
+        const precio = parseDecimalEs(linea.precioInput);
         if (cantidadKg === null || cantidadKg <= 0) {
+          if (isDraft) continue;
           setError(`Ingresa una cantidad válida para ${linea.nombre}.`);
           return;
         }
-        const precio = parseDecimalEs(linea.precioInput);
         if (precio === null || precio <= 0) {
+          if (isDraft) continue;
           setError(`Ingresa un precio mayor a cero para ${linea.nombre}.`);
           return;
         }
@@ -2750,7 +2842,16 @@ export function OrdenVentaCreateModal({
         });
       }
 
-      if (!skipSaveConfirmRef.current) {
+      if (lineasParsed.length === 0) {
+        setError(
+          isDraft
+            ? "Identifica al menos un producto con cantidad y precio para guardar el avance."
+            : "Agrega al menos un producto a la venta.",
+        );
+        return;
+      }
+
+      if (!isDraft && !skipSaveConfirmRef.current) {
         setConfirmSaveOpen(true);
         return;
       }
@@ -2807,7 +2908,7 @@ export function OrdenVentaCreateModal({
         idBodegaDestino,
         idComprador,
         lineas: lineasParsed,
-        fechaEntrega,
+        fechaEntrega: fechaEntregaPersist,
         ventanaDesde,
         ventanaHasta,
         prioridad,
@@ -2830,9 +2931,9 @@ export function OrdenVentaCreateModal({
         origenTexto: persistOrigenTexto,
         origenArchivos: persistOrigenAdjuntos,
         origenCorreo:
-          ordenesTrabajoForm.length > 0
+          hijasSynced.length > 0
             ? buildOrigenCorreoFromOrdenesYLineas({
-                hijas: ordenesTrabajoForm,
+                hijas: hijasSynced,
                 lineas: lineas.map((linea) => ({
                   otId: linea.otId,
                   nombre: linea.nombre,
@@ -2848,7 +2949,7 @@ export function OrdenVentaCreateModal({
         notasLineas: notasLineasText,
         notasAlmacen: sanitizeNotasGeneralesPedido(observaciones),
         observaciones: buildOrdenVentaCapturaObservaciones({
-          fechaEntrega,
+          fechaEntrega: fechaEntregaPersist,
           ventanaDesde,
           ventanaHasta,
           prioridad,
@@ -2874,10 +2975,13 @@ export function OrdenVentaCreateModal({
           notasLineas: notasLineasText,
         }),
         idCreador: idCreador || null,
+        guardarAvance: isDraft,
       };
 
       let idOrdenVenta = isEditing ? editingId : pendingEmitId;
-      const shouldEmit = !isEditing || editingEstado === "por_confirmar";
+      // Solo el botón principal (no el icono de avance) puede pasar a Confirmada.
+      const shouldEmit =
+        !isDraft && (!isEditing || editingEstado === "por_confirmar");
       let listRowForPrint: OrdenVentaOperadorRow | null = null;
 
       try {
@@ -2885,13 +2989,8 @@ export function OrdenVentaCreateModal({
           session?.nombre?.trim() ||
           payload.vendedor?.trim() ||
           "usuario";
-        const otActivaId =
-          hijaFormActiva?.id ??
-          (ordenesTrabajoForm.length === 1
-            ? ordenesTrabajoForm[0]?.id
-            : null) ??
-          null;
-        const otCount = ordenesTrabajoForm.length;
+        const otIds = ordenesTrabajoForm.map((ot) => ot.id);
+        const otCount = otIds.length;
 
         if (isEditing && editingId) {
           listRowForPrint = await updateOrdenVenta({
@@ -2899,36 +2998,63 @@ export function OrdenVentaCreateModal({
             idOrdenVenta: editingId,
           });
           idOrdenVenta = editingId;
-          void postOrdenVentaLog({
+          if (editingEstado === "por_confirmar") {
+            setPendingEmitId(editingId);
+          }
+          void postOrdenVentaLogForOts({
             idOrdenVenta: editingId,
             codigoCuenta,
             accion: "actualizacion",
-            mensaje: `Orden de trabajo editada por ${autorLog}.`,
+            mensaje: isDraft
+              ? `Avance del pedido guardado por ${autorLog}.`
+              : `Orden de trabajo editada por ${autorLog}.`,
             idUsuario: idCreador || null,
             autorNombre: session?.nombre ?? null,
             idBodega: payload.idBodega ?? null,
-            idOrdenTrabajo: otActivaId,
+            idOrdenesTrabajo: otIds,
+          });
+        } else if (pendingEmitId) {
+          listRowForPrint = await updateOrdenVenta({
+            ...payload,
+            idOrdenVenta: pendingEmitId,
+          });
+          idOrdenVenta = pendingEmitId;
+          setEditingEstado("por_confirmar");
+          void postOrdenVentaLogForOts({
+            idOrdenVenta: pendingEmitId,
+            codigoCuenta,
+            accion: "actualizacion",
+            mensaje: isDraft
+              ? `Avance del pedido guardado por ${autorLog}.`
+              : `Orden de trabajo editada por ${autorLog}.`,
+            idUsuario: idCreador || null,
+            autorNombre: session?.nombre ?? null,
+            idBodega: payload.idBodega ?? null,
+            idOrdenesTrabajo: otIds,
           });
         } else if (!idOrdenVenta) {
           listRowForPrint = await createOrdenVenta(payload);
           idOrdenVenta = listRowForPrint.idOrdenVenta;
           setPendingEmitId(idOrdenVenta);
-          void postOrdenVentaLog({
+          setEditingEstado("por_confirmar");
+          void postOrdenVentaLogForOts({
             idOrdenVenta,
             codigoCuenta,
             accion: "creacion",
-            mensaje:
-              otCount > 1
+            mensaje: isDraft
+              ? `Avance del pedido guardado por ${autorLog}.`
+              : otCount > 1
                 ? `Esta orden de trabajo fue creada por ${autorLog} (${otCount} órdenes de trabajo).`
                 : `Esta orden de trabajo fue creada por ${autorLog}.`,
             idUsuario: idCreador || null,
             autorNombre: session?.nombre || payload.vendedor || null,
             idBodega: payload.idBodega ?? null,
+            idOrdenesTrabajo: otIds,
             payloadExtra: otCount > 0 ? { ordenesTrabajo: otCount } : undefined,
           });
         }
 
-        if (shouldEmit) {
+        if (shouldEmit && !isDraft) {
           if (!idOrdenVenta) {
             throw new DomainServiceError(
               "La orden de venta no es válida.",
@@ -2938,15 +3064,7 @@ export function OrdenVentaCreateModal({
 
           try {
             listRowForPrint = await emitirOrdenVentaApi(idOrdenVenta);
-            void postOrdenVentaLog({
-              idOrdenVenta,
-              codigoCuenta,
-              accion: "cambio_estado",
-              mensaje: `Pedido enviado a bodega (emitido) por ${autorLog}.`,
-              idUsuario: idCreador || null,
-              autorNombre: session?.nombre ?? null,
-              payloadExtra: { estadoNuevo: "confirmada" },
-            });
+            // Bitácora de emisión: la escribe el API (por OT) al confirmar.
           } catch (emitErr: unknown) {
             // Si el pedido ya salió a bodega en un intento previo, no bloquear.
             const emitMessage =
@@ -2969,69 +3087,65 @@ export function OrdenVentaCreateModal({
             }
           }
 
-          // Autoimpresión solo si la cuenta la tiene encendida (panel Impresoras).
-          const autoPrintCfg = await getCuentaOvAutoImprimirConfigurator(
-            codigoCuenta,
-          );
-          if (autoPrintCfg?.autoImprimir) {
-            setMateoBusyMessage("Imprimiendo…");
-            const printJob = (async () => {
-              try {
-                const detallePrint = await getOrdenVentaDetalle({
-                  codigoCuenta,
-                  idOrdenVenta: idOrdenVenta!,
-                });
-                const listRow = resolveListRowForAutoPrint(
-                  detallePrint,
-                  listRowForPrint,
-                );
-                const sheets = mapOrdenVentaToAlmacenPrintSheets({
-                  listRow,
-                  detalle: detallePrint,
-                });
-                if (sheets.length === 0) return;
-                await printOrdenTareaAlmacenLandscape(sheets, { codigoCuenta });
-                void postOrdenVentaLog({
-                  idOrdenVenta: idOrdenVenta!,
-                  codigoCuenta,
-                  accion: "actualizacion",
-                  mensaje: `PDF de almacén enviado a impresora (auto tras validar) por ${autorLog}.`,
-                  idUsuario: idCreador || null,
-                  autorNombre: session?.nombre ?? null,
-                  idBodega: listRow.idBodega ?? null,
-                  payloadExtra: {
-                    tipo: "impresion_pdf_auto",
-                    hojas: sheets.length,
-                  },
-                });
-              } catch (printErr) {
-                console.error(
-                  "[ov] auto-print tras validar falló:",
-                  printErr instanceof Error ? printErr.message : printErr,
-                );
+          // Autoimpresión: flag por API (service role); feedback visible al fallar.
+          if (codigoCuenta) {
+            let shouldAutoPrint = false;
+            try {
+              shouldAutoPrint = await fetchAutoImprimirFlag(codigoCuenta);
+            } catch (flagErr) {
+              console.error(
+                "[ov] no se pudo leer autoimprimir:",
+                flagErr instanceof Error ? flagErr.message : flagErr,
+              );
+              onAutoPrintResult?.({
+                status: "error",
+                message:
+                  flagErr instanceof Error
+                    ? flagErr.message
+                    : "No se pudo leer la configuración de autoimpresión.",
+              });
+            }
+            if (shouldAutoPrint) {
+              setMateoBusyMessage("Imprimiendo…");
+              const autoPrintResult = await autoPrintOrdenVentaTrasEmitir({
+                codigoCuenta,
+                idOrdenVenta: idOrdenVenta!,
+                listRowFallback: listRowForPrint,
+                autorNombre: session?.nombre ?? autorLog,
+                idUsuario: idCreador || null,
+                autoImprimirKnown: true,
+              });
+              if (autoPrintResult.status !== "skipped") {
+                onAutoPrintResult?.(autoPrintResult);
               }
-            })();
-            await Promise.all([
-              printJob,
-              new Promise<void>((resolve) => {
-                window.setTimeout(resolve, 5_000);
-              }),
-            ]);
+            }
           }
         }
 
-        setPendingEmitId(null);
-        onCreated();
-        onClose();
+        if (isDraft) {
+          if (!fechaEntrega.trim() && fechaEntregaPersist) {
+            setFechaEntrega(fechaEntregaPersist);
+          }
+          onCreated();
+          setSuccessMessage(
+            "Avance guardado (sigue Por confirmar). Se guardaron las órdenes de trabajo que editaste; no hace falta recorrer todas.",
+          );
+        } else {
+          setPendingEmitId(null);
+          onCreated();
+          onClose();
+        }
       } catch (err: unknown) {
         const message =
           err instanceof DomainServiceError
             ? err.message
-            : isEditing && editingEstado !== "por_confirmar"
-              ? "No se pudieron guardar los cambios."
-              : idOrdenVenta
-                ? "No se pudo enviar el pedido a la bodega destino."
-                : "No se pudo crear la orden de venta.";
+            : isDraft
+              ? "No se pudo guardar el avance."
+              : isEditing && editingEstado !== "por_confirmar"
+                ? "No se pudieron guardar los cambios."
+                : idOrdenVenta
+                  ? "No se pudo enviar el pedido a la bodega destino."
+                  : "No se pudo crear la orden de venta.";
         setError(message);
       } finally {
         setIsSaving(false);
@@ -3040,16 +3154,20 @@ export function OrdenVentaCreateModal({
     },
     [
       anden,
+      applyOrdenesTrabajo,
+      bodegasDestino,
       centroConsumo,
       chofer,
       codigoCuenta,
       contacto,
       direccion,
+      discrepancias,
       editingEstado,
       editingId,
       exigeOc,
       fechaEntrega,
       hasProductos,
+      hijaFormActiva,
       horaSalida,
       idBodegaDestino,
       idComprador,
@@ -3058,6 +3176,7 @@ export function OrdenVentaCreateModal({
       lineas,
       moneda,
       observaciones,
+      onAutoPrintResult,
       onClose,
       onCreated,
       ordenCompraHotel,
@@ -3066,13 +3185,13 @@ export function OrdenVentaCreateModal({
       origenCorreoDraft,
       ordenesTrabajoForm,
       origenTexto,
+      paginarPorOt,
       pendingEmitId,
-      bodegasDestino,
       prioridad,
       session,
       startMode,
-      discrepancias,
       step,
+      syncActiveOtFromForm,
       telefono,
       turno,
       unidad,
@@ -3240,22 +3359,26 @@ export function OrdenVentaCreateModal({
                     : "¿Cómo quieres empezar?"
         }
         onSubmit={(event) => {
+          submitIntentRef.current = "emit";
           void handleSubmit(event);
         }}
         error={error}
-        isSubmitting={false}
+        isSubmitting={isSaving}
         submitDisabled={
           step === "preview" ||
           step === "pickOt" ||
           isLoading ||
+          isSaving ||
           !hasProductos ||
           lineas.length === 0 ||
           hasCatalogPending
         }
         submitLabel={
-          isEditing && editingEstado !== "por_confirmar"
-            ? "Guardar cambios"
-            : "Validar y enviar"
+          isEditing &&
+          editingEstado !== "por_confirmar" &&
+          !pendingEmitId
+            ? "Actualizar"
+            : "Guardar cambios"
         }
         compact
         size={step === "start" ? "lg" : "2xl"}
@@ -3263,25 +3386,71 @@ export function OrdenVentaCreateModal({
         closeOnBackdrop={false}
         hideHeaderClose
         headerTrailing={
-          cypherOpen && isEditing
-            ? undefined
-            : isEditing && onToggleCypher
-              ? (
-                  <button
-                    type="button"
-                    title="Ver detalle Cypher"
-                    aria-label="Abrir detalle Cypher"
-                    onClick={() => onToggleCypher()}
-                    className={cn(
-                      "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
-                      "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                    )}
-                  >
-                    <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-                  </button>
-                )
-              : undefined
+          step === "form" ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                title="Guardar avance (sigue Por confirmar; no confirma el pedido)"
+                aria-label="Guardar avance"
+                disabled={
+                  isSaving ||
+                  isLoading ||
+                  (!(isEditing || pendingEmitId) && !idComprador) ||
+                  !lineas.some(
+                    (linea) =>
+                      !linea.catalogPending && Boolean(linea.idProducto),
+                  )
+                }
+                onClick={() => {
+                  submitIntentRef.current = "draft";
+                  void handleSubmit({
+                    preventDefault() {},
+                  } as FormEvent<HTMLFormElement>);
+                }}
+                className={cn(
+                  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
+                  "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
+                  "disabled:cursor-not-allowed disabled:opacity-40",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                )}
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Save className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+                )}
+              </button>
+              {!cypherOpen && isEditing && onToggleCypher ? (
+                <button
+                  type="button"
+                  title="Ver detalle Cypher"
+                  aria-label="Abrir detalle Cypher"
+                  onClick={() => onToggleCypher()}
+                  className={cn(
+                    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
+                    "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                  )}
+                >
+                  <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+                </button>
+              ) : null}
+            </div>
+          ) : !cypherOpen && isEditing && onToggleCypher ? (
+            <button
+              type="button"
+              title="Ver detalle Cypher"
+              aria-label="Abrir detalle Cypher"
+              onClick={() => onToggleCypher()}
+              className={cn(
+                "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
+                "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+              )}
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+            </button>
+          ) : undefined
         }
         asForm={step === "form"}
         footerLeading={
@@ -3305,10 +3474,10 @@ export function OrdenVentaCreateModal({
               label="Pedido OT"
               nextDisabled={otPagerNextBlocked}
               nextDisabledHint="Completa los campos obligatorios (*) para continuar"
-              onPrev={() => setFormOtPage((p) => Math.max(0, p - 1))}
+              onPrev={() => goToOtPage(Math.max(0, formOtSafePage - 1))}
               onNext={() =>
-                setFormOtPage((p) =>
-                  Math.min(ordenesTrabajoForm.length - 1, p + 1),
+                goToOtPage(
+                  Math.min(ordenesTrabajoForm.length - 1, formOtSafePage + 1),
                 )
               }
             />
@@ -3352,6 +3521,33 @@ export function OrdenVentaCreateModal({
             </button>
           ) : step === "start" ? (
             <></>
+          ) : step === "form" ? (
+            <button
+              type="submit"
+              disabled={
+                isLoading ||
+                isSaving ||
+                !hasProductos ||
+                lineas.length === 0 ||
+                hasCatalogPending ||
+                !idComprador
+              }
+              className={cn(
+                "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
+                "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
+                "disabled:cursor-not-allowed disabled:opacity-60",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+              )}
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : null}
+              {isEditing &&
+              editingEstado !== "por_confirmar" &&
+              !pendingEmitId
+                ? "Actualizar"
+                : "Guardar cambios"}
+            </button>
           ) : undefined
         }
         closeOnEscape={
@@ -3677,12 +3873,6 @@ export function OrdenVentaCreateModal({
               <Plus className="h-4 w-4 text-polaria-teal" aria-hidden />
               Agregar tarea de almacén
             </button>
-            <CollapsibleCuerpoMensaje
-              text={origenTexto}
-              adjuntos={adjuntosParaVista}
-              open={showCuerpo}
-              onToggle={() => setShowCuerpo((prev) => !prev)}
-            />
           </div>
         ) : null}
 
@@ -3834,6 +4024,15 @@ export function OrdenVentaCreateModal({
               </p>
             </div>
 
+            {successMessage ? (
+              <p
+                role="status"
+                className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3 polaria-text-body-sm text-polaria-teal"
+              >
+                {successMessage}
+              </p>
+            ) : null}
+
             {paginarPorOt && hijaFormActiva ? (
               <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
                 <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
@@ -3941,9 +4140,17 @@ export function OrdenVentaCreateModal({
                             <input
                               id="orden-venta-cliente"
                               type="text"
-                              value={compradorLabel || compradorNombreIa || ""}
+                              value={
+                                (compradorLabel && compradorLabel !== "—"
+                                  ? compradorLabel
+                                  : "") ||
+                                compradorNombreIa ||
+                                ""
+                              }
                               title={
-                                compradorLabel ||
+                                (compradorLabel && compradorLabel !== "—"
+                                  ? compradorLabel
+                                  : "") ||
                                 compradorNombreIa ||
                                 undefined
                               }
@@ -4222,23 +4429,33 @@ export function OrdenVentaCreateModal({
 
                 <CaptureSection title="Entrega">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <PolariaFormInput
-                      id="orden-venta-direccion"
-                      label="Dirección de entrega"
-                      value={direccion}
-                      onChange={(event) => {
-                        setDireccion(event.target.value);
-                        clearFieldMarks("direccion");
-                      }}
-                      controlClassName={fieldControlClass({
-                        field: "direccion",
-                        autoFields,
-                        warnFields,
-                        missingFields,
-                      })}
-                      compact
-                      fieldClassName="sm:col-span-2"
-                    />
+                    <div className="sm:col-span-2">
+                      <PolariaFormInput
+                        id="orden-venta-direccion"
+                        label="Dirección de entrega"
+                        value={direccion}
+                        onChange={(event) => {
+                          setDireccion(event.target.value);
+                          setAvisoVerificarDireccion(false);
+                          clearFieldMarks("direccion");
+                        }}
+                        controlClassName={fieldControlClass({
+                          field: "direccion",
+                          autoFields,
+                          warnFields,
+                          missingFields,
+                        })}
+                        compact
+                      />
+                      {avisoVerificarDireccion ? (
+                        <p className="mt-1.5 rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-3 py-2 polaria-text-caption text-polaria-warning">
+                          Cambiaste el cliente. Revisa que la dirección de
+                          entrega (la del correo o PDF) sea la correcta para este
+                          pedido. Si no, corrígela aquí; se enviará la que
+                          dejes en este campo.
+                        </p>
+                      ) : null}
+                    </div>
                     <PolariaFormInput
                       id="orden-venta-contacto"
                       label="Contacto del cliente"
@@ -4768,15 +4985,6 @@ export function OrdenVentaCreateModal({
                   />
                 </div>
 
-                {!cypherOpen ? (
-                  <CollapsibleCuerpoMensaje
-                    text={origenTexto}
-                    adjuntos={adjuntosParaVista}
-                    open={showCuerpo}
-                    onToggle={() => setShowCuerpo((prev) => !prev)}
-                  />
-                ) : null}
-
                 <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
                   <button
                     type="button"
@@ -4875,7 +5083,18 @@ export function OrdenVentaCreateModal({
         onClose={() => setPicker(null)}
         compradores={compradores}
         selectedId={idComprador}
-        onSelect={handleSelectComprador}
+        onSelect={(row) => {
+          handleSelectComprador(row, {
+            verificarDireccionEntrega: true,
+            keepNombreIa: Boolean(compradorNombreIa),
+            preservePedidoData:
+              startMode === "docs" ||
+              origenCorreoDraft.length > 0 ||
+              Boolean(origenTexto.trim()) ||
+              Boolean(direccion.trim()),
+          });
+        }}
+        dockWithCypher={cypherOpen && isEditing}
       />
 
       <OrdenVentaClientesSugerenciasPickerModal
@@ -4887,10 +5106,12 @@ export function OrdenVentaCreateModal({
           handleSelectComprador(row, {
             preservePedidoData: true,
             keepNombreIa: true,
+            verificarDireccionEntrega: true,
           });
           setPicker(null);
         }}
         onOpenCatalogo={() => setPicker("comprador")}
+        dockWithCypher={cypherOpen && isEditing}
       />
 
       <OrdenVentaProductoPickerModal
@@ -4925,6 +5146,7 @@ export function OrdenVentaCreateModal({
               ? "Elige el producto del catálogo para esta línea del pedido."
               : "Catálogo completo de productos de la cuenta."
         }
+        dockWithCypher={cypherOpen && isEditing}
       />
 
       <OrdenVentaSugerenciasPickerModal
@@ -4953,6 +5175,7 @@ export function OrdenVentaCreateModal({
           if (idx == null) return;
           handleOpenReplaceProducto(idx);
         }}
+        dockWithCypher={cypherOpen && isEditing}
       />
 
       <OrdenVentaTablePickerModal
@@ -4969,6 +5192,7 @@ export function OrdenVentaCreateModal({
         searchPlaceholder="Buscar moneda"
         emptyLabel="No hay monedas disponibles."
         onSelect={(row) => setMoneda(row.id)}
+        dockWithCypher={cypherOpen && isEditing}
       />
 
       <OrdenVentaTablePickerModal
@@ -4985,11 +5209,13 @@ export function OrdenVentaCreateModal({
         searchPlaceholder="Buscar bodega"
         emptyLabel="No hay bodegas registradas."
         onSelect={(row) => setIdBodegaDestino(row.id)}
+        dockWithCypher={cypherOpen && isEditing}
       />
 
       <CompradorCreateModal
         open={isCompradorCreateOpen}
-        stackLevel="elevated"
+        stackLevel="nested"
+        dockWithCypher={cypherOpen && isEditing}
         onClose={() => {
           setIsCompradorCreateOpen(false);
           if (startMode === "first_time" && step === "start") {
@@ -5001,7 +5227,7 @@ export function OrdenVentaCreateModal({
 
       <PolariaConfirmDialog
         open={confirmDiscrepanciasOpen}
-        stackLevel="elevated"
+        stackLevel="nested"
         onClose={() => setConfirmDiscrepanciasOpen(false)}
         onConfirm={() => {
           setConfirmDiscrepanciasOpen(false);
@@ -5082,7 +5308,7 @@ export function OrdenVentaCreateModal({
 
       <PolariaConfirmDialog
         open={confirmSaveOpen}
-        stackLevel="elevated"
+        stackLevel="nested"
         onClose={() => setConfirmSaveOpen(false)}
         onConfirm={() => {
           setConfirmSaveOpen(false);
@@ -5093,13 +5319,13 @@ export function OrdenVentaCreateModal({
         }}
         title={
           isEditing && editingEstado !== "por_confirmar"
-            ? "¿Guardar los cambios?"
-            : "¿Enviar este pedido?"
+            ? "¿Actualizar el pedido?"
+            : "¿Guardar cambios y confirmar?"
         }
         description={
           isEditing && editingEstado !== "por_confirmar"
             ? "Se actualizarán los datos del pedido."
-            : "Se enviará el pedido a bodega."
+            : "El pedido pasará a Confirmada y se enviará a bodega. Si solo quieres guardar avance sin confirmar, usa el icono de disco."
         }
         confirmLabel="Confirmar"
         cancelLabel="Revisar"
@@ -5113,7 +5339,7 @@ export function OrdenVentaCreateModal({
 
       <PolariaConfirmDialog
         open={confirmDiscardOpen}
-        stackLevel="elevated"
+        stackLevel="nested"
         onClose={() => setConfirmDiscardOpen(false)}
         onConfirm={() => {
           setConfirmDiscardOpen(false);
@@ -5131,7 +5357,7 @@ export function OrdenVentaCreateModal({
 
       <PolariaConfirmDialog
         open={addOtOpen}
-        stackLevel="elevated"
+        stackLevel="nested"
         onClose={() => {
           setAddOtOpen(false);
           setError(null);
@@ -5164,7 +5390,7 @@ export function OrdenVentaCreateModal({
 
       <PolariaConfirmDialog
         open={Boolean(confirmRemoveOtId)}
-        stackLevel="elevated"
+        stackLevel="nested"
         onClose={() => setConfirmRemoveOtId(null)}
         onConfirm={handleConfirmRemoveOrdenTrabajo}
         title="¿Eliminar esta tarea de almacén?"

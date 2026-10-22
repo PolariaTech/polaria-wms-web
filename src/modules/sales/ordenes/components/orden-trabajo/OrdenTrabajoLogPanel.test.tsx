@@ -52,14 +52,11 @@ describe("OrdenTrabajoLogPanel", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/Orden de trabajo editada/),
+        screen.getByText(/Pedido enviado a bodega/),
       ).toBeInTheDocument();
     });
     expect(
-      screen.queryByText(/Pedido enviado a bodega/),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/Esta orden de trabajo fue creada/),
+      screen.queryByText(/Orden de trabajo editada/),
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /ver log completo/i }));
@@ -67,8 +64,8 @@ describe("OrdenTrabajoLogPanel", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog).toBeInTheDocument();
     expect(
-      within(dialog).queryByText(/Pedido enviado a bodega/),
-    ).not.toBeInTheDocument();
+      within(dialog).getByText(/Pedido enviado a bodega/),
+    ).toBeInTheDocument();
     expect(
       within(dialog).getByText(/Orden de trabajo editada/),
     ).toBeInTheDocument();

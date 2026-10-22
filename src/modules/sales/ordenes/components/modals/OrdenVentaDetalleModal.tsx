@@ -22,7 +22,11 @@ import {
 } from "../../../shared/constants/sales-status";
 import { emitirOrdenVentaApi } from "../../../shared/services/sales-api.service";
 import { getOrdenVentaDetalle } from "../../../shared/services/sales.service";
-import { postOrdenVentaLog } from "../../services/orden-venta-log.client";
+import {
+  autoPrintOrdenVentaTrasEmitir,
+  fetchAutoImprimirFlag,
+  type AutoPrintOvResult,
+} from "../../print/auto-print-ov-tras-emitir";
 import { useAuthStore } from "@/stores/auth.store";
 import type {
   OrdenVentaDetalleRow,
@@ -66,6 +70,7 @@ interface OrdenVentaDetalleModalProps {
   codigoCuenta: string | null;
   onClose: () => void;
   onEmitted?: () => void;
+  onAutoPrintResult?: (result: AutoPrintOvResult) => void;
   inspect?: boolean;
   /** Cypher abierto en paralelo (mismo id): panel a la izquierda. */
   cypherOpen?: boolean;
@@ -526,6 +531,7 @@ export function OrdenVentaDetalleModal({
   codigoCuenta,
   onClose,
   onEmitted,
+  onAutoPrintResult,
   inspect = false,
   cypherOpen = false,
   onToggleCypher,
@@ -691,11 +697,18 @@ export function OrdenVentaDetalleModal({
       return;
     }
 
+    if (!orden?.id_comprador?.trim()) {
+      setActionError(
+        "Selecciona un cliente del catálogo antes de confirmar el pedido. Ábrelo en Editar y elige el cliente correcto.",
+      );
+      return;
+    }
+
     setActionError(null);
     setIsEmitting(true);
 
     void emitirOrdenVentaApi(idOrdenVenta)
-      .then((row) => {
+      .then(async (row) => {
         setOrden((prev) =>
           prev
             ? {
@@ -706,16 +719,31 @@ export function OrdenVentaDetalleModal({
         );
         const session = useAuthStore.getState().session;
         if (codigoCuenta) {
-          void postOrdenVentaLog({
-            idOrdenVenta,
-            codigoCuenta,
-            accion: "cambio_estado",
-            mensaje: `Pedido emitido por ${session?.nombre?.trim() || "usuario"}.`,
-            idUsuario: session?.idUsuario ?? null,
-            autorNombre: session?.nombre ?? null,
-            idOrdenTrabajo: hijaId,
-            payloadExtra: { estadoNuevo: row.estado },
-          });
+          // Bitácora de emisión: la escribe el API al confirmar.
+          try {
+            const shouldAutoPrint = await fetchAutoImprimirFlag(codigoCuenta);
+            if (shouldAutoPrint) {
+              const autoPrintResult = await autoPrintOrdenVentaTrasEmitir({
+                codigoCuenta,
+                idOrdenVenta,
+                listRowFallback: null,
+                autorNombre: session?.nombre ?? null,
+                idUsuario: session?.idUsuario ?? null,
+                autoImprimirKnown: true,
+              });
+              if (autoPrintResult.status !== "skipped") {
+                onAutoPrintResult?.(autoPrintResult);
+              }
+            }
+          } catch (flagErr) {
+            onAutoPrintResult?.({
+              status: "error",
+              message:
+                flagErr instanceof Error
+                  ? flagErr.message
+                  : "No se pudo leer la configuración de autoimpresión.",
+            });
+          }
         }
         onEmitted?.();
         reloadDetalle({ silent: true });

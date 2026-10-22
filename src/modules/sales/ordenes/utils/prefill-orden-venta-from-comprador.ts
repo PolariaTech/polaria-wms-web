@@ -1,4 +1,5 @@
 import type { CompradorAltaFicha } from "@/modules/admin-panel/compradores/utils/comprador-alta";
+import { resolveCentroConsumoSinConfundirConCliente } from "./centro-consumo-vs-cliente";
 
 export interface OrdenVentaCompradorPrefill {
   moneda: string;
@@ -93,9 +94,16 @@ export function buildOrdenVentaPrefillFromComprador(params: {
     text(telefonoComprador) ||
     text(ficha.whatsapp);
 
+  // No copiar razón social / apodo / grupo al campo de centro de consumo.
+  const nombreCuenta =
+    text(ficha.razonSocial) || text(ficha.apodo) || text(ficha.grupo) || "";
+  const centroConsumo =
+    resolveCentroConsumoSinConfundirConCliente(text(centro?.nombre), nombreCuenta) ||
+    "";
+
   return {
     moneda,
-    centroConsumo: text(centro?.nombre),
+    centroConsumo,
     ventanaDesde: text(centro?.desde),
     ventanaHasta: text(centro?.hasta),
     direccion,
