@@ -70,7 +70,26 @@ const DETALLE: OrdenVentaDetalleRow = {
 };
 
 describe("orden de tarea almacén", () => {
-  it("pone notas clave del correo en notas generales (sin tablas ni saludos)", () => {
+  it("si hay notas de almacén editadas, el PDF usa esas (no el correo)", () => {
+    const data = mapOrdenVentaToAlmacenPrintData({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        origen_texto: [
+          "Estimado proveedor,",
+          "Adjunto le remito la orden de compra. En caso de haber faltantes, favor de mencionar.",
+          "Le recuerdo que es necesario que su chofer traiga la OC impresa.",
+        ].join("\n"),
+        notas_almacen:
+          "que su chofer traiga la OC impresa al momento de la entrega junto con su factura fiscal. Por favor traer únicamente dos facturas junto con la orden de compra",
+      },
+    });
+    expect(data.notasGenerales).toMatch(/dos facturas/i);
+    expect(data.notasGenerales).not.toMatch(/Adjunto le remito/i);
+    expect(data.notasGenerales).not.toMatch(/faltantes/i);
+  });
+
+  it("sin notas de almacén, usa notas clave del correo (sin tablas ni saludos)", () => {
     const data = mapOrdenVentaToAlmacenPrintData({
       listRow: LIST_ROW,
       detalle: {
@@ -82,13 +101,12 @@ describe("orden de tarea almacén", () => {
           "X200011700  AGUACATE       KG",
           "Gracias",
         ].join("\n"),
-        notas_almacen: "nota interna almacén",
+        notas_almacen: "",
       },
     });
     expect(data.notasGenerales).toContain("Pedido de FYV");
     expect(data.notasGenerales).toContain("Llevar 3 juegos");
     expect(data.notasGenerales).not.toContain("Clave Sap");
-    expect(data.notasGenerales).not.toContain("nota interna");
   });
 
   it("mapea folio, cliente y productos de la venta", () => {

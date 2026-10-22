@@ -10,6 +10,8 @@ interface OrdenVentaPdfPreviewModalProps {
   isLoading?: boolean;
   error?: string | null;
   onClose: () => void;
+  /** Con Cypher abierto: panel a la izquierda (no tapa Cypher). */
+  dockWithCypher?: boolean;
 }
 
 export function OrdenVentaPdfPreviewModal({
@@ -19,6 +21,7 @@ export function OrdenVentaPdfPreviewModal({
   isLoading = false,
   error = null,
   onClose,
+  dockWithCypher = false,
 }: OrdenVentaPdfPreviewModalProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
 
@@ -42,6 +45,9 @@ export function OrdenVentaPdfPreviewModal({
       description="Vista previa de la orden de trabajo."
       asForm={false}
       hideFooter
+      layout={dockWithCypher ? "dock-left" : "center"}
+      stackLevel={dockWithCypher ? "base" : "nested"}
+      closeOnBackdrop={!dockWithCypher}
       size="2xl"
       scrollClassName="max-h-[min(80vh,52rem)] overflow-hidden p-0"
       onSubmit={(event) => event.preventDefault()}

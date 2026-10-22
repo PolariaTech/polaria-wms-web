@@ -23,6 +23,8 @@ interface CompradorCreateModalProps {
   grupoOptions?: readonly string[];
   /** Capa al abrir sobre otro modal (p. ej. Nuevo pedido). */
   stackLevel?: "base" | "elevated" | "nested";
+  /** Con Cypher abierto: panel a la izquierda (no tapa Cypher). */
+  dockWithCypher?: boolean;
 }
 
 export function CompradorCreateModal({
@@ -31,6 +33,7 @@ export function CompradorCreateModal({
   onCreated,
   grupoOptions = [],
   stackLevel = "base",
+  dockWithCypher = false,
 }: CompradorCreateModalProps) {
   const { codigoCuenta } = useCompany();
   const vendedorNombre = useAuthStore(
@@ -148,7 +151,9 @@ export function CompradorCreateModal({
       compact
       size="2xl"
       hideHeaderClose
-      stackLevel={stackLevel}
+      layout={dockWithCypher ? "dock-left" : "center"}
+      stackLevel={dockWithCypher ? "base" : stackLevel}
+      closeOnBackdrop={!dockWithCypher}
     >
       <CompradorAltaFormFields
         form={form}

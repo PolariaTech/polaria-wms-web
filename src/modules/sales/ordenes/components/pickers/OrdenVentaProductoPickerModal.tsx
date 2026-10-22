@@ -19,6 +19,8 @@ interface OrdenVentaProductoPickerModalProps {
   onSelect: (producto: ProductoVentaOption) => void;
   title?: string;
   description?: string;
+  /** Con Cypher abierto: panel a la izquierda (no tapa Cypher). */
+  dockWithCypher?: boolean;
 }
 
 export function OrdenVentaProductoPickerModal({
@@ -30,6 +32,7 @@ export function OrdenVentaProductoPickerModal({
   onSelect,
   title = "Seleccionar producto",
   description = "Catálogo completo de productos de la cuenta.",
+  dockWithCypher = false,
 }: OrdenVentaProductoPickerModalProps) {
   const [query, setQuery] = useState("");
   const prioritySet = useMemo(() => new Set(priorityIds), [priorityIds]);
@@ -62,6 +65,9 @@ export function OrdenVentaProductoPickerModal({
       onSubmit={(event) => event.preventDefault()}
       asForm={false}
       hideHeaderClose
+      layout={dockWithCypher ? "dock-left" : "center"}
+      stackLevel="base"
+      closeOnBackdrop={!dockWithCypher}
       footerLeading={
         <p className="polaria-text-caption text-polaria-w-50">
           Mostrando {filtered.length === 0 ? "0–0" : `1–${filtered.length}`}

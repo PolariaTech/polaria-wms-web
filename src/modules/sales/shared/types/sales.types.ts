@@ -204,6 +204,10 @@ export interface CreateOrdenVentaInput {
   origenCorreo?: readonly OrigenCorreoRenglon[];
   notasLineas?: string;
   notasAlmacen?: string;
+  /**
+   * Guardar avance: validación relajada (p. ej. sin cliente aún en OV existente).
+   */
+  guardarAvance?: boolean;
 }
 
 export interface UpdateOrdenVentaInput extends CreateOrdenVentaInput {

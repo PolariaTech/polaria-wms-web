@@ -21,6 +21,8 @@ interface OrdenVentaTablePickerModalProps {
   searchPlaceholder?: string;
   emptyLabel?: string;
   onSelect: (row: OrdenVentaTablePickerRow) => void;
+  /** Con Cypher abierto: panel a la izquierda (no tapa Cypher). */
+  dockWithCypher?: boolean;
 }
 
 function normalizeSearch(value: string): string {
@@ -38,6 +40,7 @@ export function OrdenVentaTablePickerModal({
   searchPlaceholder = "Buscar",
   emptyLabel = "No hay opciones disponibles.",
   onSelect,
+  dockWithCypher = false,
 }: OrdenVentaTablePickerModalProps) {
   const [query, setQuery] = useState("");
 
@@ -63,6 +66,9 @@ export function OrdenVentaTablePickerModal({
       onSubmit={(event) => event.preventDefault()}
       asForm={false}
       hideHeaderClose
+      layout={dockWithCypher ? "dock-left" : "center"}
+      stackLevel="base"
+      closeOnBackdrop={!dockWithCypher}
       footerAction={<></>}
       cancelLabel="Cerrar"
       compact

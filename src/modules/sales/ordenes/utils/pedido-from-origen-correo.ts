@@ -1,5 +1,8 @@
 import type { PedidoExtraido, LineaExtraida } from "../ai/openai-pedido.client";
-import { extractEntregaDesdeTexto } from "./extract-entrega-desde-texto";
+import {
+  extractDireccionShipToDesdeTexto,
+  extractEntregaDesdeTexto,
+} from "./extract-entrega-desde-texto";
 import { parseFechaOrigen } from "./materialize-ov-desde-origen";
 import {
   parseOrigenCorreoJson,
@@ -105,7 +108,10 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     rfc: null,
     regimen: null,
     direccion:
-      firstNonEmpty(rows, (r) => r["Direccion entrega"]) || destino || null,
+      extractDireccionShipToDesdeTexto(origenTexto) ||
+      firstNonEmpty(rows, (r) => r["Direccion entrega"]) ||
+      destino ||
+      null,
     anden: firstNonEmpty(rows, (r) => r.Anden),
     contacto: mostFrequent(
       rows.map((r) => (r["Responsable externo"] ?? "").toString()),

@@ -139,14 +139,19 @@ function resolveNotasGenerales(input: {
   origenTexto: string;
   notasAlmacen: string;
 }): string {
-  // PDF: preferir especificaciones del correo; si no hay, notas de captura.
+  // PDF: lo que el usuario dejó en notas de almacén manda (p. ej. al confirmar).
+  // Solo si está vacío, se usa un resumen del correo de origen.
+  const deUsuario = sanitizeNotasGeneralesPedido(
+    stripSurtidoFotoQrFromNotas(input.notasAlmacen),
+  );
+  if (deUsuario && !looksLikeEmailHeaderJunk(deUsuario)) {
+    return fitNotasGeneralesPdf(deUsuario);
+  }
   const deCorreo = fitNotasGeneralesPdf(
     extractNotasClaveCorreo(input.origenTexto),
   );
   if (deCorreo && !looksLikeEmailHeaderJunk(deCorreo)) return deCorreo;
-  return sanitizeNotasGeneralesPedido(
-    stripSurtidoFotoQrFromNotas(input.notasAlmacen),
-  );
+  return "";
 }
 function formatHoraEntrega(input: {
   ventanaDesde?: string | null;

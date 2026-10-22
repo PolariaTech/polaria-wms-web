@@ -36,7 +36,7 @@ describe("isLogEventoEnvioBodega", () => {
 });
 
 describe("filterLogEntriesVisible", () => {
-  it("oculta solo envíos a bodega", () => {
+  it("deja visibles todos los eventos, incluido envío a bodega", () => {
     const rows = [
       {
         id: "1",
@@ -55,6 +55,9 @@ describe("filterLogEntriesVisible", () => {
         idOrdenTrabajo: null,
       },
     ];
-    expect(filterLogEntriesVisible(rows).map((r) => r.id)).toEqual(["2"]);
+    expect(filterLogEntriesVisible(rows).map((r) => r.id)).toEqual([
+      "1",
+      "2",
+    ]);
   });
 });

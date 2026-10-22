@@ -130,7 +130,8 @@ const SURTIDO_SCHEMA = {
     lineas: {
       type: "array",
       description:
-        "Solo filas de producto con algo manuscrito o checkbox marcado. indice = # de la tabla (1-based).",
+        "UNA entrada por CADA fila de producto del snapshot (parciales incluidos). " +
+        "indice = # de la tabla (1-based). Si la fila no tiene manuscrito ni marca → alisto=false, reviso=false y resto null.",
       items: {
         type: "object",
         additionalProperties: false,
@@ -168,12 +169,18 @@ const SURTIDO_SCHEMA = {
           alisto: {
             ...NULLABLE_BOOL,
             description:
-              "Checkbox Alistó de ESA fila (columna derecha). true si hay X/✓/marca en el cuadrito de la fila; false si vacío.",
+              "Checkbox ALISTÓ de ESA fila: penúltima columna de la tabla, " +
+              "a la IZQUIERDA del par Alistó|Revisó (justo a la derecha de Cant.). " +
+              "true SOLO si hay X/✓/marca DENTRO de ese cuadrito; false si está vacío. " +
+              "NUNCA copies el valor de reviso ni marques alisto porque veas marca en Revisó.",
           },
           reviso: {
             ...NULLABLE_BOOL,
             description:
-              "Checkbox Revisó de ESA fila (columna derecha). true si hay X/✓/marca en el cuadrito de la fila; false si vacío.",
+              "Checkbox REVISÓ de ESA fila: ÚLTIMA columna de la tabla, " +
+              "a la DERECHA del par Alistó|Revisó (borde derecho de la fila). " +
+              "true SOLO si hay X/✓/marca DENTRO de ese cuadrito; false si está vacío. " +
+              "NUNCA copies el valor de alisto: si solo Alistó tiene marca → reviso=false.",
           },
         },
       },
@@ -722,13 +729,20 @@ export async function extraerSurtidoDesdeFoto(input: {
           "7b) cabecera.incidencias: SOLO el texto del bloque inferior «Incidencias:». " +
           "NUNCA copies ahí la columna Especificación.\n" +
           "8) Filas de producto — ALINEACIÓN ESTRICTA:\n" +
+          "   - Devuelve UNA linea por CADA producto del snapshot (también parciales / filas sin marca).\n" +
           "   - Usa el # y el nombre de producto del snapshot.\n" +
           "   - productoImpreso = nombre impreso de la fila donde VES el manuscrito/checkbox.\n" +
           "   - especificacion = texto manuscrito en la columna Especificación de ESA misma fila " +
           "(misma banda horizontal). Si «grandes» está a la altura de BLUE BERRY → indice de BLUE BERRY, " +
           "NO de la fila de abajo.\n" +
-          "   - alisto/reviso = checkboxes de la DERECHA de ESA misma fila. Revisa fila por fila " +
-          "(incluida la #1); cualquier X/✓/marca dentro del cuadrito → true.\n" +
+          "   - Orden de columnas en cada fila: # | Producto | Especificación | Cant. | Alistó | Revisó.\n" +
+          "   - alisto = SOLO el cuadrito ALISTÓ (penúltima columna, izquierda del par). " +
+          "reviso = SOLO el cuadrito REVISÓ (última columna, derecha del par).\n" +
+          "   - Las fotos suelen ser a mano/ángulo: busca chulos finos en bolígrafo azul/negro " +
+          "dentro del cuadrito junto a «Cant.» (columna Alistó). Un ✓/X pequeño CUENTA → alisto=true.\n" +
+          "   - Lee cada cuadrito por separado. Si solo Alistó tiene X/✓ → alisto=true y reviso=false. " +
+          "NUNCA pongas reviso=true porque Alistó esté marcado. Cuadrito vacío → false.\n" +
+          "   - Si la fila tiene producto impreso y ves marca en Alistó, NO dejes alisto=false.\n" +
           "9) En camposExtra mete cualquier otro texto manuscrito con su etiqueta visible.\n" +
           "10) Conserva unidades y formato (ej. «5 kg», «09:30»). No inventes valores.\n" +
           "11) Incidencias ≠ Especificación ≠ Folio factura asociada ≠ cajas de firma.",
@@ -743,10 +757,12 @@ export async function extraerSurtidoDesdeFoto(input: {
               snapshot +
               "\n\nAnaliza la foto adjunta de la misma hoja ya surtida/llenada. " +
               "Llena cabecera, checks y lineas con TODO lo manuscrito y marcado. " +
+              "Incluye UNA linea por cada producto del snapshot (parciales: filas sin marca → alisto=false, reviso=false). " +
               "Para cada linea incluye productoImpreso del snapshot de esa fila. " +
               "Alinea especificacion y checkboxes a la fila correcta por posición vertical. " +
+              "Alistó y Revisó son dos cuadritos distintos: no copies uno al otro. " +
               "Prioridad máxima: cada manuscrito debe ir al campo de SU caja/etiqueta; " +
-              "si dudas entre dos campos, deja null en el dudoso (mejor vacío que mal colocado).",
+              "si dudas entre dos campos, deja null/false en el dudoso (mejor vacío que mal colocado).",
           },
           {
             type: "image_url",

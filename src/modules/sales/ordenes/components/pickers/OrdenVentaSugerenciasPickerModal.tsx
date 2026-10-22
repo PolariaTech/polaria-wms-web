@@ -23,6 +23,8 @@ interface OrdenVentaSugerenciasPickerModalProps {
   onSelect: (sugerencia: OrdenVentaSugerenciaItem) => void;
   /** Abre el catálogo completo desde este modal. */
   onOpenCatalogo?: () => void;
+  /** Con Cypher abierto: panel a la izquierda (no tapa Cypher). */
+  dockWithCypher?: boolean;
 }
 
 export function OrdenVentaSugerenciasPickerModal({
@@ -32,6 +34,7 @@ export function OrdenVentaSugerenciasPickerModal({
   textoCliente,
   onSelect,
   onOpenCatalogo,
+  dockWithCypher = false,
 }: OrdenVentaSugerenciasPickerModalProps) {
   const subtitle = textoCliente?.trim()
     ? `Sugerencias para «${textoCliente.trim()}»`
@@ -65,7 +68,9 @@ export function OrdenVentaSugerenciasPickerModal({
       cancelLabel="Cerrar"
       compact
       size="md"
-      stackLevel="nested"
+      layout={dockWithCypher ? "dock-left" : "center"}
+      stackLevel="base"
+      closeOnBackdrop={!dockWithCypher}
     >
       {sugerencias.length === 0 ? (
         <p className="rounded-xl border border-polaria-w-08 bg-polaria-w-08 px-3 py-3 polaria-text-body-sm text-polaria-w-50">

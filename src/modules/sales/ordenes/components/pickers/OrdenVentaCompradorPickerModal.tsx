@@ -12,6 +12,8 @@ interface OrdenVentaCompradorPickerModalProps {
   compradores: CompradorListRow[];
   selectedId?: string | null;
   onSelect: (comprador: CompradorListRow) => void;
+  /** Con Cypher abierto: panel a la izquierda (no tapa Cypher). */
+  dockWithCypher?: boolean;
 }
 
 function normalizeSearch(value: string): string {
@@ -24,6 +26,7 @@ export function OrdenVentaCompradorPickerModal({
   compradores,
   selectedId = null,
   onSelect,
+  dockWithCypher = false,
 }: OrdenVentaCompradorPickerModalProps) {
   const [query, setQuery] = useState("");
 
@@ -51,6 +54,9 @@ export function OrdenVentaCompradorPickerModal({
       onSubmit={(event) => event.preventDefault()}
       asForm={false}
       hideHeaderClose
+      layout={dockWithCypher ? "dock-left" : "center"}
+      stackLevel="base"
+      closeOnBackdrop={!dockWithCypher}
       footerLeading={
         <p className="polaria-text-caption text-polaria-w-50">
           Mostrando{" "}

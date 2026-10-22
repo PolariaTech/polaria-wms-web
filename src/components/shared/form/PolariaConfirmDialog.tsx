@@ -26,6 +26,10 @@ export interface PolariaConfirmDialogProps {
   size?: "md" | "lg";
   /** Capa sobre otro modal (p. ej. captura OV). Default `base`. */
   stackLevel?: "base" | "elevated" | "nested";
+  /**
+   * Con Cypher abierto: panel a la izquierda (no tapar ni taparse con Cypher).
+   */
+  layout?: "center" | "dock-left";
 }
 
 export function PolariaConfirmDialog({
@@ -41,9 +45,13 @@ export function PolariaConfirmDialog({
   error = null,
   size = "md",
   stackLevel = "base",
+  layout = "center",
 }: PolariaConfirmDialogProps) {
   const titleId = useId();
   const descriptionId = useId();
+  const dockLeft = layout === "dock-left";
+  const dockRightReserve = "pr-[min(100vw,38.5rem)]";
+  const dockBackdropRight = "right-[min(100vw,38.5rem)]";
 
   useEffect(() => {
     if (!open) return;
@@ -74,7 +82,13 @@ export function PolariaConfirmDialog({
   return (
     <div
       className={cn(
-        "fixed inset-0 flex items-center justify-center overflow-hidden p-3 sm:p-6",
+        "fixed inset-0 flex overflow-hidden",
+        dockLeft
+          ? cn(
+              "items-stretch justify-start pt-[var(--polaria-shell-top,4.75rem)]",
+              dockRightReserve,
+            )
+          : "items-center justify-center p-3 sm:p-6",
         CONFIRM_STACK_CLASS[stackLevel],
       )}
       role="presentation"
@@ -84,7 +98,11 @@ export function PolariaConfirmDialog({
         aria-label="Cerrar"
         disabled={isSubmitting}
         onClick={onClose}
-        className="absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm disabled:cursor-not-allowed"
+        className={cn(
+          "absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm disabled:cursor-not-allowed",
+          dockLeft &&
+            cn(dockBackdropRight, "top-[var(--polaria-shell-top,4.75rem)]"),
+        )}
       />
 
       <div
@@ -93,8 +111,13 @@ export function PolariaConfirmDialog({
         aria-labelledby={titleId}
         aria-describedby={description || children ? descriptionId : undefined}
         className={cn(
-          "polaria-card-glow relative z-10 flex w-full max-h-[min(88dvh,40rem)] flex-col overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
-          size === "lg" ? "max-w-2xl" : "max-w-md",
+          "relative z-10 flex min-h-0 w-full flex-col overflow-hidden border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
+          dockLeft
+            ? "h-full max-h-none max-w-none flex-1 rounded-none border-0 border-t border-r"
+            : cn(
+                "polaria-card-glow max-h-[min(88dvh,40rem)] rounded-2xl border",
+                size === "lg" ? "max-w-2xl" : "max-w-md",
+              ),
         )}
       >
         <div className="shrink-0 border-b border-polaria-w-08 px-5 pb-3 pt-5 sm:px-6 sm:pt-6">

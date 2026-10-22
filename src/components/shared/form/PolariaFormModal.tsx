@@ -61,6 +61,10 @@ export interface PolariaFormModalProps {
   submitOnEnter?: boolean;
 }
 
+/**
+ * Apilamiento. Con Cypher abierto los pickers deben usar `layout="dock-left"`
+ * (no subir z-index encima del panel).
+ */
 const MODAL_STACK_CLASS = {
   base: "z-[100]",
   elevated: "z-[110]",

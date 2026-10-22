@@ -656,6 +656,7 @@ export function OrdenVentaCypherDrawer({
   if (!panelMounted) return null;
 
   // Sin backdrop: la lista/formulario a la izquierda sigue usable y se reacomoda.
+  // z-110: sobre el form dock (100); pickers/confirms dock-left usan base (100).
   return (
     <div
       className="pointer-events-none fixed inset-x-0 bottom-0 top-[var(--polaria-shell-top,4.75rem)] z-[110]"
@@ -1240,7 +1241,7 @@ export function OrdenVentaCypherDrawer({
 
       <PolariaConfirmDialog
         open={confirmBorrarOpen}
-        stackLevel="elevated"
+        stackLevel="nested"
         onClose={() => {
           if (busyKind === "borrar") return;
           setConfirmBorrarOpen(false);

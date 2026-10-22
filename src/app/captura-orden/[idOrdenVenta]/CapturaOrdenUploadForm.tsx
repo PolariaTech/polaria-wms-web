@@ -177,10 +177,11 @@ export function CapturaOrdenUploadForm({
       let toSend = original;
       try {
         toSend = await Promise.race([
+          // Más resolución/calidad: los chulos Alistó/Revisó son cuadritos chicos.
           compressImageFile(original, {
             maxBytes: MAX_UPLOAD_BYTES,
-            maxEdge: 1800,
-            quality: 0.72,
+            maxEdge: 2400,
+            quality: 0.88,
           }),
           new Promise<File>((resolve) => {
             window.setTimeout(() => resolve(original), 10_000);
