@@ -63,12 +63,12 @@ export interface TenantListParams {
 
 export const DEFAULT_LIST_LIMIT = 1000;
 export const AUDIT_LIST_LIMIT = 25;
-/** Ventana visible en listados OV/OC: hoy + 2 días previos (= 3 días calendario). */
-export const ORDERS_VISIBLE_DAYS = 3;
+/** Ventana visible en listados OV/OC: hoy + 6 días previos (= 7 días calendario). */
+export const ORDERS_VISIBLE_DAYS = 7;
 
 /**
  * Fecha local YYYY-MM-DD desde la cual se listan órdenes.
- * `days` incluye el día actual: p. ej. 3 → hoy, ayer y anteayer.
+ * `days` incluye el día actual: p. ej. 7 → hoy y los 6 días previos.
  */
 export function getOrdersVisibleSinceDate(
   days: number = ORDERS_VISIBLE_DAYS,

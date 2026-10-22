@@ -85,17 +85,27 @@ export function CapturaOrdenCard({
   const [hideFlash, setHideFlash] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
   const [uploading, setUploading] = useState(false);
+  /** Vive en el card: al subir se desmonta el form y si no, se pierde el error. */
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const onFilePicked = useCallback(() => {
     setHideFlash(true);
+    setUploadError(null);
   }, []);
 
   const onUploadOk = useCallback(() => {
     setUploadDone(true);
+    setUploadError(null);
+  }, []);
+
+  const onUploadError = useCallback((message: string) => {
+    setUploadError(message);
   }, []);
 
   const showOk = uploadDone || (flashOk && !hideFlash);
-  const showErr = Boolean(flashError) && !hideFlash && !showOk;
+  const alertError =
+    uploadError ||
+    (Boolean(flashError) && !hideFlash && !showOk ? flashError : null);
 
   if (showOk) {
     return <CapturaListoMark />;
@@ -121,12 +131,15 @@ export function CapturaOrdenCard({
         </p>
       </section>
 
-      {showErr ? (
+      {alertError ? (
         <p
           role="alert"
-          className="text-center polaria-text-body-sm text-polaria-w-50"
+          className="rounded-2xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3 text-center polaria-text-body-sm text-polaria-w"
         >
-          {flashError}
+          {alertError}
+          <span className="mt-1 block text-polaria-w-50">
+            Vuelve a tomar la foto; no se guardó esta captura.
+          </span>
         </p>
       ) : null}
 
@@ -135,6 +148,7 @@ export function CapturaOrdenCard({
         idOrdenTrabajo={idOrdenTrabajo}
         onFilePicked={onFilePicked}
         onUploadOk={onUploadOk}
+        onUploadError={onUploadError}
         onUploadingChange={setUploading}
       />
     </div>

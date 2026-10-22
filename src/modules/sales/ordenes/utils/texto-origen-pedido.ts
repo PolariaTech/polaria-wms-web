@@ -1,4 +1,5 @@
 import type { ArchivoExtraido, ArchivoTexto } from "../ai/file-extractors";
+import { withCorreoChromePreserved } from "./correo-chrome";
 
 const LEGAL_CUT_MARKERS = [
   /la presente comunicaci[oó]n electr[oó]nica/i,
@@ -682,13 +683,18 @@ export function buildTextoOrigenPedido(
   textoPegado: string,
   archivosExtraidos: readonly ArchivoExtraido[],
 ): string {
-  const pegado = cleanCorreoBodyForNotas(textoPegado);
+  const pegado = withCorreoChromePreserved(
+    textoPegado,
+    cleanCorreoBodyForNotas,
+  );
   if (pegado) return pegado;
 
   const cuerpos = archivosExtraidos
     .filter(isArchivoTexto)
     .filter((file) => /—\s*cuerpo$/i.test(file.nombre))
-    .map((file) => cleanCorreoBodyForNotas(file.contenido))
+    .map((file) =>
+      withCorreoChromePreserved(file.contenido, cleanCorreoBodyForNotas),
+    )
     .filter(Boolean);
 
   if (cuerpos.length > 0) {
@@ -698,7 +704,9 @@ export function buildTextoOrigenPedido(
   const sueltos = archivosExtraidos
     .filter(isArchivoTexto)
     .filter((file) => !file.nombre.includes(" → "))
-    .map((file) => cleanCorreoBodyForNotas(file.contenido))
+    .map((file) =>
+      withCorreoChromePreserved(file.contenido, cleanCorreoBodyForNotas),
+    )
     .filter(Boolean);
 
   return sueltos.join("\n\n---\n\n");

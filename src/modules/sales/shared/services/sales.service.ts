@@ -328,62 +328,6 @@ function mapStockRowToProductoOption(
   };
 }
 
-const OV_CODIGO_DIGITS = 8;
-const OV_CODIGO_MAX = 10 ** OV_CODIGO_DIGITS - 1;
-/** Formato canónico: OV-00000001. También acepta el numérico puro legado. */
-const OV_CODIGO_PATTERN = /^(?:OV-)?(\d{8})$/i;
-
-/** Consecutivo por cuenta: OV-00000001, OV-00000002, … */
-export function formatOrdenVentaCodigo(secuencia: number): string {
-  if (!Number.isFinite(secuencia) || secuencia < 1) {
-    throw new DomainServiceError(
-      "No se pudo generar el código de la orden de venta.",
-      "INVALID_ARGUMENT",
-    );
-  }
-  if (secuencia > OV_CODIGO_MAX) {
-    throw new DomainServiceError(
-      "Se agotó el consecutivo de órdenes de venta (8 dígitos).",
-      "INVALID_ARGUMENT",
-    );
-  }
-  return `OV-${String(Math.trunc(secuencia)).padStart(OV_CODIGO_DIGITS, "0")}`;
-}
-
-function parseOrdenVentaSecuencia(codigo: string): number | null {
-  const match = OV_CODIGO_PATTERN.exec(codigo.trim());
-  if (!match) return null;
-  const n = Number(match[1]);
-  return Number.isFinite(n) ? n : null;
-}
-
-/**
- * Siguiente código OV-######## para la cuenta.
- * Solo considera el formato secuencial; los legados `OV-YYYYMMDD-HHMMSS` no cuentan.
- */
-async function allocateOrdenVentaCodigo(codigoCuenta: string): Promise<string> {
-  const rows = await runDomainQuery<{ codigo: string }[]>((client) => {
-    const query = client
-      .from("orden_venta")
-      .select("codigo")
-      .eq("codigo_cuenta", codigoCuenta)
-      .limit(DEFAULT_LIST_LIMIT);
-
-    return query as unknown as Promise<{
-      data: { codigo: string }[] | null;
-      error: { message: string } | null;
-    }>;
-  });
-
-  let max = 0;
-  for (const row of rows) {
-    const n = parseOrdenVentaSecuencia(row.codigo ?? "");
-    if (n != null && n > max) max = n;
-  }
-
-  return formatOrdenVentaCodigo(max + 1);
-}
-
 async function resolveBodegaVenta(
   codigoCuenta: string,
   idBodega?: string | null,
@@ -1340,7 +1284,9 @@ export async function createOrdenVenta(
       }>;
     });
   } else {
-    const codigo = await allocateOrdenVentaCodigo(codigoCuenta);
+    // codigo vacío: el trigger trg_orden_venta_codigo_estandar asigna
+    // OV-######## con MAX real del tenant (mismo camino que ingestar-pedido).
+    // No calcular en app: un limit truncaba el máximo y chocaba unique key.
     orden = await runDomainMutation<OrdenVentaRow>((client) => {
       const query = client
         .from("orden_venta")
@@ -1352,7 +1298,7 @@ export async function createOrdenVenta(
           id_creador: idCreador,
           id_bodega_destino: idBodegaDestino,
           ...capture,
-          codigo,
+          codigo: "",
           estado: "por_confirmar",
           observaciones,
         })

@@ -746,7 +746,8 @@ describe("sales.service", () => {
       expect.objectContaining({
         id_bodega_destino: "bod-dest",
         estado: "por_confirmar",
-        codigo: "OV-00000004",
+        // Trigger de BD genera OV-########; app manda vacío (como el bot).
+        codigo: "",
       }),
     );
 
@@ -1200,7 +1201,7 @@ describe("sales.service", () => {
     });
 
     expect(ordenChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ codigo: "OV-00000001" }),
+      expect.objectContaining({ codigo: "" }),
     );
     expect(row.venta).toBe("OV-00000001");
     expect(lineaInsertChain.insert).toHaveBeenCalledWith([

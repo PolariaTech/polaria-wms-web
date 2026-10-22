@@ -107,4 +107,33 @@ describe("CapturaOrdenUploadForm", () => {
     expect(init.headers).toMatchObject({ Accept: "application/json" });
     await vi.waitFor(() => expect(onUploadOk).toHaveBeenCalled());
   });
+
+  it("avisa al padre si el servidor responde error", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: "No se pudo procesar la foto." }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onUploadError = vi.fn();
+
+    render(
+      <CapturaOrdenUploadForm
+        idOrdenVenta="ov-1"
+        onUploadError={onUploadError}
+      />,
+    );
+
+    const file = new File([new Uint8Array([1, 2, 3, 4])], "hoja.jpg", {
+      type: "image/jpeg",
+    });
+    await user.upload(cameraInput(), file);
+
+    await vi.waitFor(() =>
+      expect(onUploadError).toHaveBeenCalledWith(
+        expect.stringMatching(/no se pudo procesar/i),
+      ),
+    );
+  });
 });

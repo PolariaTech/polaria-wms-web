@@ -17,6 +17,10 @@ import {
 } from "../utils/extract-entrega-desde-texto";
 import { resolveCentroConsumoSinConfundirConCliente } from "../utils/centro-consumo-vs-cliente";
 import {
+  enrichAlmacenConCodigoDesdeTexto,
+  enrichLineasAlmacenConCodigoDesdeTexto,
+} from "../utils/enrich-almacen-codigo";
+import {
   serializeCuerpoMensaje,
   type CuerpoMensajeBloque,
 } from "../utils/texto-origen-pedido";
@@ -243,7 +247,7 @@ const RESPONSE_SCHEMA = {
       centroConsumo: {
         type: ["string", "null"],
         description:
-          "Área INTERNA de consumo del hotel (cocina, bar, banquete, almacén de fila, centro de costo operativo). Ej. 'Cocina de banquetes', 'BAWH Bar Whisky', 'COPM Coc Plaza Mx'. NUNCA pongas aquí el hotel, la propiedad, la denominación comercial, la razón social, el Bill To ni el nombre de cuenta — eso va SOLO en nombreCliente (y el RFC en rfc). Si el documento solo nombra el resort/hotel sin cocina/área, deja null. Si hay incertidumbre ('probablemente sea X') → null. null también si no se menciona un área interna.",
+          "Área INTERNA de consumo del hotel (cocina, bar, banquete, almacén de fila, centro de costo). Copia CÓDIGO + NOMBRE completos tal cual (ej. 'ABAN Banquetes Alim', 'BAWH Bar Whisky', 'COPM Coc Plaza Mx', 'ACOE Comedor Empleados'). NUNCA acortes ni quites el prefijo de 3–6 letras. NUNCA pongas hotel/denominación/Bill To (eso es nombreCliente). Si solo hay resort sin cocina/área → null. Incertidumbre → null.",
       },
       observaciones: {
         type: ["string", "null"],
@@ -419,7 +423,7 @@ const RESPONSE_SCHEMA = {
             almacen: {
               type: ["string", "null"],
               description:
-                "Almacén / cocina / centro de consumo de ESTE renglón, tomado de la columna Almacén / Centro de consumo de la tabla (ej. 'BAWH Bar Whisky', 'COPM Coc Plaza Mx', 'COCINA PRINCIPAL'). NO uses el almacén genérico del encabezado (Almacén General, Facturar A) si la fila trae el suyo. null solo si la fila no indica destino.",
+                "Almacén / cocina / centro de consumo de ESTE renglón (columna Almacén / Centro de consumo / Centro de costo). Copia el texto COMPLETO: código + nombre (ej. 'ABAN Banquetes Ali', 'ACOE ComedorEmplea', 'BAWH Bar Whisky', 'COPM Coc Plaza Mx'). NUNCA omitas ni acortes el código de 3–6 letras aunque la celda del PDF se vea cortada. NO uses el almacén genérico del encabezado si la fila trae el suyo. null solo si la fila no indica destino.",
             },
             numeroAlmacen: {
               type: ["string", "null"],
@@ -739,7 +743,8 @@ export async function extraerPedido({
     `- "nombreCliente" vs "centroConsumo" (crítico — no mezclar): nombreCliente = denominación comercial / razón social / hotel / propiedad / Bill To. centroConsumo = SOLO área interna (cocina, bar, banquete, almacén de fila, centro de costo). NUNCA copies el nombre del resort/hotel en centroConsumo. Si solo aparece el hotel sin cocina/área → centroConsumo null. El RFC va en "rfc", nunca en centro ni como nombre.`,
     `- "nombreCliente": denominación / hotel / comprador si aparece (Customer, Bill To, Hotel, Property, Cliente, etc.). No uses el PO ni el RFC como nombre. null solo si no hay ningún nombre.`,
     `- Una línea por cada fila de producto del documento. Si hay VARIOS Numero pedido / PO, o el MISMO PO con DISTINTOS Almacén / centro de consumo (ej. BAWH Bar Whisky vs COPM Coc Plaza Mx), emite una línea por cada producto×destino con numeroPedido y almacen de ESA fila. NO mezcles destinos ni pedidos en una sola línea. NO omitas filas de páginas intermedias.`,
-    `- "numeroPedido" + "almacen" separan órdenes de trabajo: mismo PO + distinto almacén = otra hija; distinto PO = otra hija aunque el almacén coincida. Copia el texto completo del almacén de la columna (código + nombre).`,
+    `- "numeroPedido" + "almacen" separan órdenes de trabajo: mismo PO + distinto almacén = otra hija; distinto PO = otra hija aunque el almacén coincida.`,
+    `- "almacen" / "centroConsumo" (crítico — no acortar): copia SIEMPRE código + nombre completos de la columna (ej. 'ABAN Banquetes Ali', no solo 'Banquetes Ali'; 'ACOE ComedorEmplea', no solo 'Comedor…'). El código de 3–6 letras identifica la cocina del cliente; perderlo rompe el surtido. Aunque el PDF trunque visualmente la celda, conserva todo el texto legible del código y del nombre.`,
     `- "precioUnitario": si el documento trae columna Precio / P.U. / Importe unitario por fila, cópialo en cada línea (número). No uses el total/importe de la fila; solo el precio unitario.`,
     `- Matching de "productoCatalogo" (crítico):`,
     `  1) Copia la clave EXACTA de la lista (mismo texto entre comillas, con paréntesis y SKU). Nunca inventes, acortes ni reformatees.`,
@@ -832,37 +837,41 @@ export async function extraerPedido({
 
   const parsed = JSON.parse(raw) as PedidoExtraidoRaw;
 
-  const lineas: LineaExtraida[] = parsed.lineas.map((l) => ({
-    textoOriginal: l.textoOriginal,
-    productoCatalogo: coerceProductoCatalogo(l.productoCatalogo, catalogoClaves),
-    // El cálculo determinista manda siempre que sea posible (cajas + presentación con
-    // peso parseable); el número que haya dado la IA solo se usa cuando no hay nada
-    // que calcular — así el resultado no depende de si el modelo decidió o no hacer
-    // la multiplicación por su cuenta.
-    cantidad: calcularCantidadDesdeCajas(l.cajas, l.presentacion) ?? l.cantidad,
-    unidad: l.unidad,
-    cajas: l.cajas,
-    presentacion: l.presentacion,
-    especificacion: l.especificacion,
-    numeroPedido: l.numeroPedido?.trim() || null,
-    almacen: l.almacen?.trim() || null,
-    numeroAlmacen: l.numeroAlmacen?.trim() || null,
-    referenciaPedido: l.referenciaPedido?.trim() || null,
-    codigoProductoCliente: l.codigoProductoCliente?.trim() || null,
-    responsableExterno: l.responsableExterno?.trim() || null,
-    precioUnitario:
-      l.precioUnitario != null &&
-      Number.isFinite(l.precioUnitario) &&
-      l.precioUnitario > 0
-        ? l.precioUnitario
-        : null,
-  }));
-
-  // Fallback determinista: si Mateo dejó fecha/hora null, leerlas del cuerpo/PDF.
+  // Fallback determinista + enriquecimiento de códigos de almacén desde el PDF/correo.
   const sourceForEntrega = [
     texto,
     ...archivosTexto.map((f) => `--- ${f.nombre} ---\n${f.contenido}`),
   ].join("\n");
+
+  const lineas: LineaExtraida[] = enrichLineasAlmacenConCodigoDesdeTexto(
+    parsed.lineas.map((l) => ({
+      textoOriginal: l.textoOriginal,
+      productoCatalogo: coerceProductoCatalogo(l.productoCatalogo, catalogoClaves),
+      // El cálculo determinista manda siempre que sea posible (cajas + presentación con
+      // peso parseable); el número que haya dado la IA solo se usa cuando no hay nada
+      // que calcular — así el resultado no depende de si el modelo decidió o no hacer
+      // la multiplicación por su cuenta.
+      cantidad: calcularCantidadDesdeCajas(l.cajas, l.presentacion) ?? l.cantidad,
+      unidad: l.unidad,
+      cajas: l.cajas,
+      presentacion: l.presentacion,
+      especificacion: l.especificacion,
+      numeroPedido: l.numeroPedido?.trim() || null,
+      almacen: l.almacen?.trim() || null,
+      numeroAlmacen: l.numeroAlmacen?.trim() || null,
+      referenciaPedido: l.referenciaPedido?.trim() || null,
+      codigoProductoCliente: l.codigoProductoCliente?.trim() || null,
+      responsableExterno: l.responsableExterno?.trim() || null,
+      precioUnitario:
+        l.precioUnitario != null &&
+        Number.isFinite(l.precioUnitario) &&
+        l.precioUnitario > 0
+          ? l.precioUnitario
+          : null,
+    })),
+    sourceForEntrega,
+  );
+
   const entregaBody = extractEntregaDesdeTexto(sourceForEntrega, hoyISO);
   const fechaDesdeIa = resolverFechaEntrega(parsed.fechaEntregaTexto, hoyISO);
   const fechaEntrega =
@@ -962,10 +971,15 @@ export async function extraerPedido({
     : null;
 
   const nombreCliente = parsed.nombreCliente?.trim() || null;
+  const centroDesdeLineas =
+    lineas.find((l) => l.almacen?.trim())?.almacen?.trim() || null;
   const pedido: PedidoExtraido = {
     fechaEntrega,
     centroConsumo: resolveCentroConsumoSinConfundirConCliente(
-      parsed.centroConsumo,
+      enrichAlmacenConCodigoDesdeTexto(
+        parsed.centroConsumo || centroDesdeLineas,
+        sourceForEntrega,
+      ),
       nombreCliente,
     ),
     observaciones: parsed.observaciones,
