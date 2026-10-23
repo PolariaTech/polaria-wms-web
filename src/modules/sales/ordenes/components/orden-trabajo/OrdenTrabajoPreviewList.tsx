@@ -1,6 +1,6 @@
 "use client";
 
-import { formatKgEs } from "@/lib/utils/decimal-es";
+import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import type { OrdenTrabajoHija } from "../../utils/origen-correo-ordenes-trabajo";
 
 function Meta({ label, value }: { label: string; value: string }) {
@@ -157,7 +157,7 @@ export function OrdenTrabajoPreviewList({
                         </td>
                         <td className="px-3 py-2.5 text-right polaria-text-body-sm text-polaria-w">
                           {Number.isFinite(precio) && precio > 0
-                            ? `$${formatKgEs(precio)}`
+                            ? `$${formatPrecioEs(precio)}`
                             : "—"}
                         </td>
                       </tr>

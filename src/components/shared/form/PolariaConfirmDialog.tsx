@@ -3,6 +3,7 @@
 import { Loader2 } from "lucide-react";
 import { useEffect, useId, type ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
+import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
 
 const CONFIRM_STACK_CLASS = {
   base: "z-[100]",
@@ -66,16 +67,7 @@ export function PolariaConfirmDialog({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isSubmitting, onClose, open]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open]);
+  useBodyScrollLock(open);
 
   if (!open) return null;
 

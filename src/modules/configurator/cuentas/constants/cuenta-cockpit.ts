@@ -14,6 +14,7 @@ import {
   Truck,
   Users,
   Warehouse,
+  Globe2,
 } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 import type { LucideIcon } from "lucide-react";
@@ -24,6 +25,7 @@ export type CuentaCockpitModuloId =
   | "bodegas"
   | "impresoras"
   | "sla"
+  | "zona-horaria"
   | "catalogo"
   | "lista-precio"
   | "proveedores"
@@ -58,6 +60,7 @@ export const CUENTA_COCKPIT_SECTIONS: readonly CuentaCockpitSection[] = [
       { id: "bodegas", title: "Bodegas", icon: Warehouse },
       { id: "impresoras", title: "Impresoras", icon: Printer },
       { id: "sla", title: "SLA / Alertas", icon: Timer },
+      { id: "zona-horaria", title: "Zona horaria", icon: Globe2 },
     ],
   },
   {
@@ -126,6 +129,15 @@ export const CUENTA_COCKPIT_MODULO_COPY = {
     futureActions: [
       "Definir minutos de SLA",
       "Definir minutos de alerta",
+    ],
+  },
+  "zona-horaria": {
+    title: "Zona horaria",
+    description:
+      "Zona en la que se muestran e imprimen las horas de esta cuenta (UTC en base).",
+    futureActions: [
+      "Elegir zona IANA",
+      "Aplicar a lista, log e impresión",
     ],
   },
   catalogo: {

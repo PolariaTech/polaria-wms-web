@@ -43,6 +43,27 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
     expect(pedido.origenCorreo).toHaveLength(1);
   });
 
+  it("toma el correo del remitente De/From del origen_texto", () => {
+    const pedido = buildPedidoExtraidoFromOrigenCorreo({
+      origenCorreo: [
+        {
+          Cantidad: 1,
+          Producto: "Limón",
+          "Responsable externo": "Arduizur C. Vargas",
+        },
+      ],
+      origenTexto: [
+        'De: "Arduizur Casquera Vargas" <asistadmin.kcc@krystal-hotels.com>',
+        "Para: Ventas@aguacatesdepuebla.com",
+        "",
+        "Buen día,",
+      ].join("\n"),
+    });
+
+    expect(pedido.correo).toBe("asistadmin.kcc@krystal-hotels.com");
+    expect(pedido.contacto).toBe("Arduizur C. Vargas");
+  });
+
   it("acepta Fecha dd/mm/aaaa y completa horas desde el cuerpo", () => {
     const pedido = buildPedidoExtraidoFromOrigenCorreo({
       origenCorreo: [

@@ -49,6 +49,7 @@ describe("buildOrdenVentaPrefillFromComprador", () => {
       anden: "Andén 4",
       contacto: "Recepcionista almacén",
       telefono: "+5219981111111",
+      correo: "compras@hotel.com",
       aceptaSustituciones: "Sí, con aviso",
       requiereLote: "Sí",
       registrarTemperatura: "No",
@@ -101,6 +102,7 @@ describe("buildOrdenVentaPrefillFromComprador", () => {
 
     expect(prefill.contacto).toBe("Chef ejecutivo");
     expect(prefill.telefono).toBe("+5219983333333");
+    expect(prefill.correo).toBe("");
     expect(prefill.moneda).toBe("MXN");
     expect(prefill.exigeOc).toBe(false);
   });
@@ -119,6 +121,7 @@ describe("buildOrdenVentaPrefillFromComprador", () => {
       anden: "",
       contacto: "",
       telefono: "",
+      correo: "",
       aceptaSustituciones: "",
       requiereLote: "",
       registrarTemperatura: "",

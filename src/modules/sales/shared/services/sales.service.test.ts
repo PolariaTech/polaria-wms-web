@@ -1370,15 +1370,15 @@ describe("sales.service", () => {
     const updateChain = {
       update: vi.fn(),
       eq: vi.fn(),
+      select: vi.fn(),
+      maybeSingle: vi.fn(),
     };
     updateChain.update.mockReturnValue(updateChain);
-    let eqCalls = 0;
-    updateChain.eq.mockImplementation(function (this: typeof updateChain) {
-      eqCalls += 1;
-      if (eqCalls >= 3) {
-        return Promise.resolve({ data: null, error: null });
-      }
-      return updateChain;
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    updateChain.maybeSingle.mockResolvedValue({
+      data: { id_orden_venta: "ov-dup" },
+      error: null,
     });
 
     let ordenCalls = 0;
@@ -1395,6 +1395,50 @@ describe("sales.service", () => {
     });
 
     expect(updateChain.update).toHaveBeenCalledWith({ estado: "cancelada" });
+    expect(updateChain.select).toHaveBeenCalledWith("id_orden_venta");
+  });
+
+  it("borrarOrdenVenta falla si el update no aplica filas", async () => {
+    const selectChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    selectChain.select.mockReturnValue(selectChain);
+    selectChain.eq.mockReturnValue(selectChain);
+    selectChain.maybeSingle.mockResolvedValue({
+      data: { estado: "por_confirmar" },
+      error: null,
+    });
+
+    const updateChain = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    updateChain.update.mockReturnValue(updateChain);
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    updateChain.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+
+    let ordenCalls = 0;
+    const from = vi.fn((table: string) => {
+      if (table !== "orden_venta") throw new Error(`unexpected ${table}`);
+      ordenCalls += 1;
+      return ordenCalls === 1 ? selectChain : updateChain;
+    });
+    setSupabaseClientForTests({ from } as never);
+
+    await expect(
+      borrarOrdenVenta({
+        codigoCuenta: "CUENTA-01",
+        idOrdenVenta: "ov-dup",
+      }),
+    ).rejects.toBeInstanceOf(DomainServiceError);
   });
 
   it("borrarOrdenVenta rechaza confirmada", async () => {

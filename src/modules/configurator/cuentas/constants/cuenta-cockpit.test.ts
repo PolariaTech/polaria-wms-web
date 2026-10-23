@@ -22,6 +22,7 @@ describe("cuenta-cockpit", () => {
     expect(isCuentaCockpitModuloId("acceso")).toBe(true);
     expect(isCuentaCockpitModuloId("impresoras")).toBe(true);
     expect(isCuentaCockpitModuloId("sla")).toBe(true);
+    expect(isCuentaCockpitModuloId("zona-horaria")).toBe(true);
     expect(isCuentaCockpitModuloId("catalogo")).toBe(true);
     expect(isCuentaCockpitModuloId("otro")).toBe(false);
     expect(isCuentaCockpitModalModulo("acceso")).toBe(true);

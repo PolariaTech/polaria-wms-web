@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractCorreoContactoDesdeTexto,
   formatCorreoChromeBlock,
   mergeCorreoChromeIntoTexto,
   parseCorreoChromeFromText,
@@ -55,5 +56,25 @@ describe("correo-chrome", () => {
         "Cuerpo",
       ),
     ).toBe("De: a@b.com\nAsunto: Hola\n\nCuerpo");
+  });
+
+  it("extractCorreoContactoDesdeTexto prioriza el remitente De/From", () => {
+    const text = [
+      'De: "Arduizur Casquera Vargas" <asistadmin.kcc@krystal-hotels.com>',
+      "Para: Ventas@aguacatesdepuebla.com",
+      "Asunto: Pedido Limon y Aguacate",
+      "",
+      "Buen día,",
+      "asistadmin.kcc@krystal-hotels.com<mailto:asistadmin.kcc@krystal-hotels.com>",
+    ].join("\n");
+    expect(extractCorreoContactoDesdeTexto(text)).toBe(
+      "asistadmin.kcc@krystal-hotels.com",
+    );
+  });
+
+  it("extractCorreoContactoDesdeTexto usa mailto si no hay De", () => {
+    const text =
+      "Saludos\nchef@hotel.com<mailto:chef@hotel.com>\nPara: Ventas@proveedor.com";
+    expect(extractCorreoContactoDesdeTexto(text)).toBe("chef@hotel.com");
   });
 });

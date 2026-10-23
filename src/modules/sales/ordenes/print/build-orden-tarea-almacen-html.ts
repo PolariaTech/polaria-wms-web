@@ -190,7 +190,7 @@ export function buildOrdenTareaAlmacenHtml(
 </head>
 <body>
 <div class="sheet">
-  <div class="page-meta mono">Creada ${fieldValue(data.creada)}  ·  Impresa ${fieldValue(data.impresa)}</div>
+  <div class="page-meta mono">Creada ${fieldValue(data.creada)}  ·  Impresa ${fieldValue(data.impresa)}${data.zonaImpresionLabel?.trim() ? ` (${fieldValue(data.zonaImpresionLabel)})` : ""}</div>
   <table class="hdr"><tr>
     <td class="fields">
       <table class="hdr-grid">

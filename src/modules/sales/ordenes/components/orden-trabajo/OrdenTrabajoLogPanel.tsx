@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import { formatDateTime } from "@/components/shared/utils/formatters";
+import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
+import { useCuentaZonaHoraria } from "@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria";
+import type { CuentaZonaHorariaId } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 import { fetchOrdenVentaLog } from "../../services/orden-venta-log.client";
 import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
 import { filterLogEntriesVisible } from "../../utils/filter-log-entries-visible";
@@ -18,10 +21,12 @@ interface OrdenTrabajoLogPanelProps {
 function LogLine({
   entry,
   full = false,
+  timeZone,
 }: {
   entry: OrdenVentaLogEntry;
   /** En el modal se muestra el mensaje completo (sin clamp). */
   full?: boolean;
+  timeZone: CuentaZonaHorariaId;
 }) {
   return (
     <li className="min-w-0 border-b border-polaria-w-08 py-1.5 last:border-b-0">
@@ -35,7 +40,7 @@ function LogLine({
         {entry.mensaje}
       </p>
       <p className="mt-0.5 polaria-text-caption text-polaria-w-20">
-        {formatDateTime(entry.createdAt)}
+        {formatDateTime(entry.createdAt, timeZone)}
         {entry.autor ? ` · ${entry.autor}` : ""}
       </p>
     </li>
@@ -47,13 +52,17 @@ function OrdenTrabajoLogModal({
   onClose,
   entries,
   loading,
+  timeZone,
 }: {
   open: boolean;
   onClose: () => void;
   entries: OrdenVentaLogEntry[];
   loading: boolean;
+  timeZone: CuentaZonaHorariaId;
 }) {
   const titleId = useId();
+
+  useBodyScrollLock(open);
 
   useEffect(() => {
     if (!open) return;
@@ -61,11 +70,8 @@ function OrdenTrabajoLogModal({
       if (event.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousOverflow;
     };
   }, [onClose, open]);
 
@@ -110,7 +116,12 @@ function OrdenTrabajoLogModal({
           ) : (
             <ul className="space-y-0">
               {entries.map((entry) => (
-                <LogLine key={entry.id} entry={entry} full />
+                <LogLine
+                  key={entry.id}
+                  entry={entry}
+                  full
+                  timeZone={timeZone}
+                />
               ))}
             </ul>
           )}
@@ -130,6 +141,7 @@ export function OrdenTrabajoLogPanel({
   createdAt,
   autorNombre,
 }: OrdenTrabajoLogPanelProps) {
+  const zonaHoraria = useCuentaZonaHoraria(codigoCuenta);
   const [entries, setEntries] = useState<OrdenVentaLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -179,7 +191,7 @@ export function OrdenTrabajoLogPanel({
           </p>
         ) : (
           <ul className="mt-1">
-            <LogLine entry={latest} />
+            <LogLine entry={latest} timeZone={zonaHoraria} />
           </ul>
         )}
         {latest ? (
@@ -194,6 +206,7 @@ export function OrdenTrabajoLogPanel({
         onClose={() => setModalOpen(false)}
         entries={entries}
         loading={loading}
+        timeZone={zonaHoraria}
       />
     </>
   );

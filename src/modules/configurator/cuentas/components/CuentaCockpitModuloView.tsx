@@ -18,6 +18,7 @@ import {
 } from "@/modules/configurator/cuentas/constants/cuenta-cockpit";
 import { getCuentaGobiernoConfigurator } from "@/modules/configurator/cuentas/services/cuentas.service";
 import { CuentaSlaView } from "@/modules/configurator/cuentas/components/CuentaSlaView";
+import { CuentaZonaHorariaView } from "@/modules/configurator/cuentas/components/CuentaZonaHorariaView";
 import { ImpresorasListView } from "@/modules/configurator/impresoras/components/ImpresorasListView";
 import { UsuariosListView } from "@/modules/configurator/usuarios/components/UsuariosListView";
 import { ComprasPageContent } from "@/modules/purchases";
@@ -43,6 +44,10 @@ export function CuentaCockpitModuloView({
 
   if (modulo === "sla") {
     return <CuentaSlaView codigoCuenta={codigoCuenta} />;
+  }
+
+  if (modulo === "zona-horaria") {
+    return <CuentaZonaHorariaView codigoCuenta={codigoCuenta} />;
   }
 
   if (modulo === "catalogo") {

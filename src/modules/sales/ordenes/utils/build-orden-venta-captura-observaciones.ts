@@ -1,3 +1,4 @@
+import { sanitizeTelefonoContacto } from "./sanitize-telefono-contacto";
 import { isCuerpoMensajeFormato } from "./texto-origen-pedido";
 
 export interface OrdenVentaCapturaExtra {
@@ -15,6 +16,7 @@ export interface OrdenVentaCapturaExtra {
   anden: string;
   contacto: string;
   telefono: string;
+  correo: string;
   turno: string;
   horaSalida: string;
   chofer: string;
@@ -40,6 +42,7 @@ export interface OrdenVentaCapturaParsed {
   anden: string;
   contacto: string;
   telefono: string;
+  correo: string;
   turno: string;
   horaSalida: string;
   chofer: string;
@@ -67,6 +70,7 @@ const LABELED_FIELDS = [
   ["Andén", "anden"],
   ["Contacto", "contacto"],
   ["Teléfono", "telefono"],
+  ["Correo", "correo"],
   ["Turno que prepara", "turno"],
   ["Hora sugerida de salida", "horaSalida"],
   ["Chofer", "chofer"],
@@ -128,7 +132,8 @@ export function buildOrdenVentaCapturaObservaciones(
   pushLabeled(datos, "Dirección de entrega", extra.direccion);
   pushLabeled(datos, "Andén", extra.anden);
   pushLabeled(datos, "Contacto", extra.contacto);
-  pushLabeled(datos, "Teléfono", extra.telefono);
+  pushLabeled(datos, "Teléfono", sanitizeTelefonoContacto(extra.telefono));
+  pushLabeled(datos, "Correo", extra.correo);
   pushLabeled(datos, "Sustituciones", extra.aceptaSustituciones);
   pushLabeled(datos, "Requiere lote", extra.requiereLote);
   pushLabeled(datos, "Registrar temperatura", extra.registrarTemperatura);
@@ -165,6 +170,7 @@ export function emptyOrdenVentaCapturaParsed(): OrdenVentaCapturaParsed {
     anden: "",
     contacto: "",
     telefono: "",
+    correo: "",
     turno: "",
     horaSalida: "",
     chofer: "",
@@ -308,6 +314,7 @@ export function parseOrdenVentaCapturaObservaciones(
 
   parsed.notasLineas = noteBlocks.join("\n");
   parsed.observaciones = obsBlocks.join("\n\n");
+  parsed.telefono = sanitizeTelefonoContacto(parsed.telefono);
   return parsed;
 }
 

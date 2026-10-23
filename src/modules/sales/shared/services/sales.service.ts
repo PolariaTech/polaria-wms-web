@@ -28,6 +28,7 @@ import {
   type OrigenAdjunto,
 } from "../../ordenes/utils/origen-adjuntos";
 import { parseOrigenCorreoJson } from "../../ordenes/utils/origen-correo-ordenes-trabajo";
+import { sanitizeTelefonoContacto } from "../../ordenes/utils/sanitize-telefono-contacto";
 import {
   isCatalogoTipoProductoMercancia,
   parseCatalogoMetadatos,
@@ -81,7 +82,7 @@ function sortOrdenesVentaPorCreacionDesc(rows: OrdenVentaRow[]): OrdenVentaRow[]
 const COMPRADOR_COLUMNS = "id_comprador,nombre";
 
 const ORDEN_VENTA_DETALLE_FLAT_COLUMNS =
-  "prioridad,orden_compra_hotel,centro_consumo,vendedor,moneda,bodega_destino_label,direccion_entrega,anden,contacto_entrega,telefono_contacto,turno,hora_salida,chofer,unidad,notas_lineas,notas_almacen,fecha_entrega,ventana_desde,ventana_hasta,acepta_sustituciones,requiere_lote,registrar_temperatura,origen_texto,origen_archivos,origen_correo";
+  "prioridad,orden_compra_hotel,centro_consumo,vendedor,moneda,bodega_destino_label,direccion_entrega,anden,contacto_entrega,telefono_contacto,correo_contacto,turno,hora_salida,chofer,unidad,notas_lineas,notas_almacen,fecha_entrega,ventana_desde,ventana_hasta,acepta_sustituciones,requiere_lote,registrar_temperatura,origen_texto,origen_archivos,origen_correo";
 
 const ORDEN_VENTA_DETALLE_SELECT =
   `${ORDEN_VENTA_COLUMNS},${ORDEN_VENTA_DETALLE_FLAT_COLUMNS},` +
@@ -1069,7 +1070,8 @@ function ordenVentaCaptureFields(
     direccion_entrega: input.direccionEntrega?.trim() || null,
     anden: input.anden?.trim() || null,
     contacto_entrega: input.contacto?.trim() || null,
-    telefono_contacto: input.telefono?.trim() || null,
+    telefono_contacto: sanitizeTelefonoContacto(input.telefono) || null,
+    correo_contacto: input.correo?.trim() || null,
     turno: input.turno?.trim() || null,
     hora_salida: input.horaSalida?.trim() || null,
     chofer: input.chofer?.trim() || null,
@@ -1435,19 +1437,30 @@ export async function borrarOrdenVenta(params: {
     );
   }
 
-  await runDomainMutation((client) => {
-    const query = client
-      .from("orden_venta")
-      .update({ estado: "cancelada" })
-      .eq("codigo_cuenta", codigoCuenta)
-      .eq("id_orden_venta", idOrdenVenta)
-      .eq("estado", "por_confirmar");
+  const updated = await runDomainMutation<{ id_orden_venta: string } | null>(
+    (client) => {
+      const query = client
+        .from("orden_venta")
+        .update({ estado: "cancelada" })
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_orden_venta", idOrdenVenta)
+        .eq("estado", "por_confirmar")
+        .select("id_orden_venta")
+        .maybeSingle();
 
-    return query as unknown as Promise<{
-      data: unknown;
-      error: { message: string } | null;
-    }>;
-  });
+      return query as unknown as Promise<{
+        data: { id_orden_venta: string } | null;
+        error: { message: string } | null;
+      }>;
+    },
+  );
+
+  if (!updated?.id_orden_venta) {
+    throw new DomainServiceError(
+      "No se pudo borrar la orden. Recarga e inténtalo de nuevo.",
+      "MUTATION_FAILED",
+    );
+  }
 }
 
 function resolveCompradorRel(
@@ -1535,13 +1548,14 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
     orden_compra_hotel: string | null;
     centro_consumo: string | null;
     contacto_entrega: string | null;
+    correo_contacto: string | null;
     fecha_entrega: string | null;
     origen_correo: unknown;
   } | null>((client) => {
     const query = client
       .from("orden_venta")
       .select(
-        "estado,id_comprador,orden_compra_hotel,centro_consumo,contacto_entrega,fecha_entrega,origen_correo",
+        "estado,id_comprador,orden_compra_hotel,centro_consumo,contacto_entrega,correo_contacto,fecha_entrega,origen_correo",
       )
       .eq("codigo_cuenta", codigoCuenta)
       .eq("id_orden_venta", idOrdenVenta)
@@ -1554,6 +1568,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
         orden_compra_hotel: string | null;
         centro_consumo: string | null;
         contacto_entrega: string | null;
+        correo_contacto: string | null;
         fecha_entrega: string | null;
         origen_correo: unknown;
       } | null;
@@ -1623,6 +1638,19 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
   }
   if (!header.fecha_entrega?.trim() && plan.fechaEntrega) {
     patch.fecha_entrega = plan.fechaEntrega;
+  }
+  const correoFromOrigen =
+    origen
+      .map((r) =>
+        typeof r === "object" && r && "Correo contacto" in r
+          ? String(
+              (r as { "Correo contacto"?: unknown })["Correo contacto"] ?? "",
+            ).trim()
+          : "",
+      )
+      .find(Boolean) || "";
+  if (!header.correo_contacto?.trim() && correoFromOrigen) {
+    patch.correo_contacto = correoFromOrigen;
   }
 
   if (Object.keys(patch).length > 0) {

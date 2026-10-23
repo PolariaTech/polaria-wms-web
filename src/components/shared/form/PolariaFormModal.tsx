@@ -7,8 +7,10 @@ import {
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type Ref,
 } from "react";
 import { cn } from "@/lib/utils/cn";
+import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
 
 export interface PolariaFormModalProps {
   open: boolean;
@@ -38,6 +40,8 @@ export interface PolariaFormModalProps {
   footerAction?: ReactNode;
   /** Contenido a la izquierda del pie (p. ej. paginación), siempre visible fuera del scroll. */
   footerLeading?: ReactNode;
+  /** Zona central del pie (p. ej. alerta de revisión), entre leading y Cancelar/Guardar. */
+  footerCenter?: ReactNode;
   /** Oculta por completo la barra de acciones del pie (p. ej. modales de solo lectura). */
   hideFooter?: boolean;
   /** Oculta el botón Cerrar de la cabecera (deja el del pie). */
@@ -59,6 +63,8 @@ export interface PolariaFormModalProps {
   closeOnBackdrop?: boolean;
   /** false = Enter en un campo no envía; solo el botón de submit. */
   submitOnEnter?: boolean;
+  /** Ref al contenedor con overflow-y (p. ej. conservar scroll al re-render). */
+  scrollRegionRef?: Ref<HTMLDivElement | null>;
 }
 
 /**
@@ -100,6 +106,7 @@ export function PolariaFormModal({
   scrollClassName: scrollClassNameProp,
   footerAction,
   footerLeading,
+  footerCenter,
   hideFooter = false,
   hideHeaderClose = false,
   headerTrailing,
@@ -109,6 +116,7 @@ export function PolariaFormModal({
   closeOnEscape = true,
   closeOnBackdrop = true,
   submitOnEnter = true,
+  scrollRegionRef,
 }: PolariaFormModalProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -133,16 +141,7 @@ export function PolariaFormModal({
     };
   }, [closeOnEscape, isSubmitting, onClose, open, stackLevel]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open]);
+  useBodyScrollLock(open);
 
   const handleFormKeyDown = (event: ReactKeyboardEvent<HTMLFormElement>) => {
     if (submitOnEnter || event.key !== "Enter" || event.nativeEvent.isComposing) {
@@ -176,13 +175,13 @@ export function PolariaFormModal({
   );
   const footerClassName = cn(
     "flex shrink-0 flex-wrap items-center gap-3 border-t border-polaria-w-08",
-    footerLeading ? "justify-between" : "justify-end",
+    footerLeading || footerCenter ? "justify-between" : "justify-end",
     compact ? "mt-3 pt-3" : "mt-4 pt-4",
   );
 
   const bodyContent = (
     <>
-      <div className={scrollClassName}>
+      <div ref={scrollRegionRef} className={scrollClassName}>
         {children}
 
         {error ? (
@@ -200,6 +199,12 @@ export function PolariaFormModal({
           {footerLeading ? (
             <div className="flex min-w-0 flex-wrap items-center gap-3">
               {footerLeading}
+            </div>
+          ) : null}
+
+          {footerCenter ? (
+            <div className="flex min-w-0 flex-1 items-center justify-center px-1">
+              {footerCenter}
             </div>
           ) : null}
 

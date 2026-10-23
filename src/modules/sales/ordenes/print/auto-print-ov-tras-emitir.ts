@@ -187,7 +187,7 @@ export function autoPrintResultToFeedback(result: AutoPrintOvResult): {
         : `${result.hojas} órdenes de trabajo enviadas`;
     return {
       ok: true,
-      title: "Impresión automática enviada",
+      title: "Impresión enviada",
       detail: `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
     };
   }
@@ -195,8 +195,8 @@ export function autoPrintResultToFeedback(result: AutoPrintOvResult): {
   return {
     ok: false,
     title: sinImpresora
-      ? "Pedido confirmado · sin impresora"
-      : "Pedido confirmado · no se imprimió",
+      ? "Sin impresora configurada"
+      : "No se pudo imprimir",
     detail: sinImpresora
       ? "Contacta a TI de Polaria para configurar la impresora de esta cuenta."
       : result.message,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getDomainSupabaseClient } from "@/lib/supabase/domain-query";
 
 /** Suscripción Realtime a cambios de órdenes de venta de la cuenta. */
@@ -8,6 +8,12 @@ export function useOrdenesVentaSubscription(
   codigoCuenta: string | null,
   onChange: () => void,
 ): void {
+  const onChangeRef = useRef(onChange);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   useEffect(() => {
     if (!codigoCuenta) return;
 
@@ -17,6 +23,10 @@ export function useOrdenesVentaSubscription(
     } catch {
       return;
     }
+
+    const notify = () => {
+      onChangeRef.current();
+    };
 
     const channel = client
       .channel(`orden_venta:${codigoCuenta}`)
@@ -28,9 +38,7 @@ export function useOrdenesVentaSubscription(
           table: "orden_venta",
           filter: `codigo_cuenta=eq.${codigoCuenta}`,
         },
-        () => {
-          onChange();
-        },
+        notify,
       )
       .on(
         "postgres_changes",
@@ -39,14 +47,12 @@ export function useOrdenesVentaSubscription(
           schema: "public",
           table: "orden_venta_linea",
         },
-        () => {
-          onChange();
-        },
+        notify,
       )
       .subscribe();
 
     return () => {
       void client.removeChannel(channel);
     };
-  }, [codigoCuenta, onChange]);
+  }, [codigoCuenta]);
 }

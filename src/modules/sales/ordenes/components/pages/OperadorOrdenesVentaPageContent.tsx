@@ -11,6 +11,7 @@ import {
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
+import { useVisibleInterval } from "@/hooks/shared/useVisibleInterval";
 import { cn } from "@/lib/utils/cn";
 import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
 import {
@@ -36,6 +37,7 @@ import {
   autoPrintResultToFeedback,
   type AutoPrintOvResult,
 } from "../../print/auto-print-ov-tras-emitir";
+import { useCuentaZonaHoraria } from "@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria";
 import { mapOrdenVentaToAlmacenPrintSheets } from "../../print/map-orden-tarea-almacen";
 import {
   borrarOrdenVenta,
@@ -101,6 +103,10 @@ export function OperadorOrdenesVentaPageContent({
   const setCypherOpen = useShellOverlayStore((s) => s.setCypherOpen);
   const [companionOtPicker, setCompanionOtPicker] =
     useState<CypherCompanionOtPicker | null>(null);
+  /** Soft-delete: ocultar de la tabla al instante (fila sigue en BD como cancelada). */
+  const [idsOcultosBorrados, setIdsOcultosBorrados] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   // Mateo oculta el launcher flotante mientras Cypher está abierto.
   useEffect(() => {
@@ -109,14 +115,54 @@ export function OperadorOrdenesVentaPageContent({
   }, [cypherId, setCypherOpen]);
   const printingLockRef = useRef(false);
   const fotosOrdenIdRef = useRef<string | null>(null);
-  const [printFeedback, setPrintFeedback] = useState<{
+  /** Un solo modal: orden confirmada + impresión (REQ-039). */
+  const [feedback, setFeedback] = useState<{
     ok: boolean;
     title: string;
-    detail: string;
+    lines: string[];
   } | null>(null);
+  const showFeedback = useCallback(
+    (item: { ok: boolean; title: string; detail: string }) => {
+      setFeedback({
+        ok: item.ok,
+        title: item.title,
+        lines: item.detail.trim() ? [item.detail.trim()] : [],
+      });
+    },
+    [],
+  );
+  const handleEmitSuccess = useCallback(
+    (info: { idOrdenVenta: string; codigo: string }) => {
+      const codigo = info.codigo.trim() || "OV";
+      setFeedback({
+        ok: true,
+        title: `${codigo} confirmada`,
+        lines: ["El pedido ya está confirmado y listo para bodega."],
+      });
+    },
+    [],
+  );
   const handleAutoPrintResult = useCallback((result: AutoPrintOvResult) => {
-    const feedback = autoPrintResultToFeedback(result);
-    if (feedback) setPrintFeedback(feedback);
+    const print = autoPrintResultToFeedback(result);
+    if (!print) return;
+    const printLine = print.ok
+      ? `Impresión enviada. ${print.detail}`
+      : `${print.title}. ${print.detail}`;
+    setFeedback((prev) => {
+      if (prev?.title.toLowerCase().includes("confirmada")) {
+        // La OV ya salió bien: el chulo se queda; la línea de impresión aclara el resto.
+        return {
+          ok: true,
+          title: prev.title,
+          lines: [...prev.lines, printLine],
+        };
+      }
+      return {
+        ok: print.ok,
+        title: print.title,
+        lines: [print.detail],
+      };
+    });
   }, []);
   const [busyAction, setBusyAction] = useState<{
     id: string;
@@ -169,6 +215,8 @@ export function OperadorOrdenesVentaPageContent({
     Boolean(codigoCuenta),
   );
 
+  const zonaHoraria = useCuentaZonaHoraria(codigoCuenta);
+
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const reloadRealtime = useCallback(() => {
@@ -182,6 +230,15 @@ export function OperadorOrdenesVentaPageContent({
 
   useOrdenesVentaSubscription(codigoCuenta, reloadRealtime);
 
+  /** Red de seguridad: si un cambio no llega al instante, se alinea en ~90 s. */
+  useVisibleInterval(
+    () => {
+      void reload();
+    },
+    90_000,
+    Boolean(codigoCuenta),
+  );
+
   useEffect(() => {
     return () => {
       if (reloadTimerRef.current) {
@@ -190,7 +247,13 @@ export function OperadorOrdenesVentaPageContent({
     };
   }, []);
 
-  const rows = data?.rows ?? [];
+  const rows = useMemo(() => {
+    const base = data?.rows ?? [];
+    return base.filter(
+      (row) =>
+        row.estado !== "cancelada" && !idsOcultosBorrados.has(row.idOrdenVenta),
+    );
+  }, [data?.rows, idsOcultosBorrados]);
   const idsConFotosCaptura = useMemo(
     () => data?.idsConFotosCaptura ?? new Set<string>(),
     [data],
@@ -234,6 +297,7 @@ export function OperadorOrdenesVentaPageContent({
       const sheets = mapOrdenVentaToAlmacenPrintSheets({
         listRow: row,
         detalle,
+        timeZone: zonaHoraria,
       });
 
       if (!codigoCuenta) return sheets;
@@ -250,7 +314,7 @@ export function OperadorOrdenesVentaPageContent({
         return sheets;
       }
     },
-    [codigoCuenta, runScoped],
+    [codigoCuenta, runScoped, zonaHoraria],
   );
 
   const runPrint = useCallback(
@@ -270,9 +334,9 @@ export function OperadorOrdenesVentaPageContent({
           sheets.length === 1
             ? "1 orden de trabajo enviada"
             : `${sheets.length} órdenes de trabajo enviadas`;
-        setPrintFeedback({
+        showFeedback({
           ok: true,
-          title: "Órdenes de trabajo enviadas",
+          title: "Impresión enviada",
           detail: `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
         });
         const session = useAuthStore.getState().session;
@@ -293,7 +357,7 @@ export function OperadorOrdenesVentaPageContent({
             ? error.message
             : "No se pudo enviar a la impresora.";
         const sinImpresora = message.includes("impresora configurada");
-        setPrintFeedback({
+        showFeedback({
           ok: false,
           title: sinImpresora
             ? "No hay impresora configurada"
@@ -307,7 +371,7 @@ export function OperadorOrdenesVentaPageContent({
         setBusyAction(null);
       }
     },
-    [codigoCuenta, loadPrintSheets],
+    [codigoCuenta, loadPrintSheets, showFeedback],
   );
 
   const openPdfPreview = useCallback(
@@ -636,7 +700,8 @@ export function OperadorOrdenesVentaPageContent({
         header: "Fecha de creación",
         headerClassName: ordenVentaTableColumnClass("fecha", "header"),
         cellClassName: ordenVentaTableColumnClass("fecha"),
-        cell: (row: OrdenVentaOperadorRow) => formatDateTime(row.fecha),
+        cell: (row: OrdenVentaOperadorRow) =>
+          formatDateTime(row.fecha, zonaHoraria),
       },
       {
         id: "ot",
@@ -694,7 +759,7 @@ export function OperadorOrdenesVentaPageContent({
             },
           ]),
     ],
-    [inspect, cypherId],
+    [inspect, cypherId, zonaHoraria],
   );
 
   const companionWithCypher = Boolean(
@@ -848,6 +913,7 @@ export function OperadorOrdenesVentaPageContent({
         onEmitted={inspect ? undefined : () => {
           void reload();
         }}
+        onEmitSuccess={inspect ? undefined : handleEmitSuccess}
         onAutoPrintResult={inspect ? undefined : handleAutoPrintResult}
       />
 
@@ -931,6 +997,11 @@ export function OperadorOrdenesVentaPageContent({
                       useAuthStore.getState().session?.nombre ?? null,
                     idBodega: target.idBodega ?? null,
                   });
+                  setIdsOcultosBorrados((prev) => {
+                    const next = new Set(prev);
+                    next.add(cypherId);
+                    return next;
+                  });
                   setCypherId(null);
                   void reload();
                 } finally {
@@ -969,10 +1040,11 @@ export function OperadorOrdenesVentaPageContent({
         onCreated={() => {
           void reload();
         }}
+        onEmitSuccess={handleEmitSuccess}
         onAutoPrintResult={handleAutoPrintResult}
       />
 
-      {printFeedback ? (
+      {feedback ? (
         <div
           className="fixed inset-0 z-[130] flex items-center justify-center overflow-hidden p-3 sm:p-6"
           role="presentation"
@@ -980,19 +1052,19 @@ export function OperadorOrdenesVentaPageContent({
           <button
             type="button"
             aria-label="Cerrar"
-            onClick={() => setPrintFeedback(null)}
+            onClick={() => setFeedback(null)}
             className="absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm"
           />
           <div
             role="alertdialog"
             aria-modal="true"
-            aria-labelledby="print-feedback-title"
-            aria-describedby="print-feedback-detail"
+            aria-labelledby="ov-feedback-title"
+            aria-describedby="ov-feedback-detail"
             className="polaria-card-glow relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl"
           >
             <div className="px-5 pb-3 pt-6 sm:px-6">
               <div className="flex flex-col items-center text-center">
-                {printFeedback.ok ? (
+                {feedback.ok ? (
                   <CheckCircle2
                     className="h-12 w-12 text-polaria-teal"
                     strokeWidth={1.75}
@@ -1006,23 +1078,25 @@ export function OperadorOrdenesVentaPageContent({
                   />
                 )}
                 <h2
-                  id="print-feedback-title"
+                  id="ov-feedback-title"
                   className="mt-4 polaria-text-title font-semibold text-polaria-w"
                 >
-                  {printFeedback.title}
+                  {feedback.title}
                 </h2>
-                <p
-                  id="print-feedback-detail"
-                  className="mt-2 polaria-text-body-sm text-polaria-w-50"
+                <div
+                  id="ov-feedback-detail"
+                  className="mt-2 space-y-2 polaria-text-body-sm text-polaria-w-50"
                 >
-                  {printFeedback.detail}
-                </p>
+                  {feedback.lines.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="border-t border-polaria-w-08 px-5 py-4 sm:px-6">
               <button
                 type="button"
-                onClick={() => setPrintFeedback(null)}
+                onClick={() => setFeedback(null)}
                 className="w-full rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
               >
                 Entendido

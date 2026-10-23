@@ -28,6 +28,7 @@ const EMPTY: OrdenVentaCapturaExtra = {
   anden: "",
   contacto: "",
   telefono: "",
+  correo: "",
   turno: "",
   horaSalida: "",
   chofer: "",
@@ -114,6 +115,7 @@ describe("parseOrdenVentaCapturaObservaciones", () => {
       anden: "Andén 3",
       contacto: "Chef Uc",
       telefono: "998 000 0000",
+      correo: "chef@hotel.com",
       turno: "PM",
       horaSalida: "04:30",
       chofer: "Luis",
@@ -143,6 +145,7 @@ describe("parseOrdenVentaCapturaObservaciones", () => {
     expect(parsed.anden).toBe("Andén 3");
     expect(parsed.contacto).toBe("Chef Uc");
     expect(parsed.telefono).toBe("998 000 0000");
+    expect(parsed.correo).toBe("chef@hotel.com");
     expect(parsed.aceptaSustituciones).toBe("Sí, con aviso");
     expect(parsed.requiereLote).toBe("Sí");
     expect(parsed.registrarTemperatura).toBe("No");

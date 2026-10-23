@@ -1,4 +1,5 @@
 import type { PedidoExtraido } from "../ai/openai-pedido.client";
+import { sanitizeTelefonoContacto } from "./sanitize-telefono-contacto";
 import type { ProductoVentaOption } from "../../shared/types/sales.types";
 import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-nombre";
 import { formatCapturaFecha } from "./build-orden-venta-captura-observaciones";
@@ -92,6 +93,7 @@ export interface PedidoIaFormPatch {
   anden: string;
   contacto: string;
   telefono: string;
+  correo: string;
   ventanaDesde: string;
   ventanaHasta: string;
   aceptaSustituciones: string;
@@ -462,8 +464,8 @@ function compareOverride(params: {
 
 /**
  * Traduce PedidoExtraido al estado del modal.
- * Entrega (dirección, andén, contacto, teléfono, ventana): lo que Mateo
- * leyó del correo, mensaje o PDF manda; la ficha del comprador solo
+ * Entrega (dirección, andén, contacto, teléfono, correo, ventana): lo que
+ * Mateo leyó del correo, mensaje o PDF manda; la ficha del comprador solo
  * rellena lo que el documento no trajo.
  */
 export function mapPedidoExtraidoToForm(params: {
@@ -477,6 +479,7 @@ export function mapPedidoExtraidoToForm(params: {
     anden: string;
     contacto: string;
     telefono: string;
+    correo: string;
     aceptaSustituciones: string;
     requiereLote: string;
     registrarTemperatura: string;
@@ -498,6 +501,7 @@ export function mapPedidoExtraidoToForm(params: {
     anden: ficha.anden,
     contacto: ficha.contacto,
     telefono: ficha.telefono,
+    correo: ficha.correo,
     ventanaDesde: ficha.ventanaDesde,
     ventanaHasta: ficha.ventanaHasta,
     aceptaSustituciones: ficha.aceptaSustituciones,
@@ -511,6 +515,7 @@ export function mapPedidoExtraidoToForm(params: {
     "anden",
     "contacto",
     "telefono",
+    "correo",
     "ventanaDesde",
     "ventanaHasta",
     "aceptaSustituciones",
@@ -633,8 +638,18 @@ export function mapPedidoExtraidoToForm(params: {
   compareOverride({
     fieldKey: "telefono",
     label: "Teléfono",
-    valorDb: ficha.telefono,
-    valorIa: pedido.telefono,
+    valorDb: sanitizeTelefonoContacto(ficha.telefono),
+    valorIa: sanitizeTelefonoContacto(pedido.telefono) || null,
+    patch,
+    autoFields,
+    warnFields,
+    discrepancias,
+  });
+  compareOverride({
+    fieldKey: "correo",
+    label: "Correo",
+    valorDb: ficha.correo,
+    valorIa: pedido.correo,
     patch,
     autoFields,
     warnFields,
@@ -939,7 +954,8 @@ export function mapPedidoExtraidoToForm(params: {
     direccion: patch.direccion,
     anden: patch.anden,
     contacto: patch.contacto,
-    telefono: patch.telefono,
+    telefono: sanitizeTelefonoContacto(patch.telefono),
+    correo: patch.correo,
     ventanaDesde: patch.ventanaDesde,
     ventanaHasta: patch.ventanaHasta,
   } satisfies Record<CampoOperativoDocs, string>;
@@ -954,7 +970,8 @@ export function mapPedidoExtraidoToForm(params: {
     direccion: patch.direccion,
     anden: patch.anden,
     contacto: patch.contacto,
-    telefono: patch.telefono,
+    telefono: sanitizeTelefonoContacto(patch.telefono),
+    correo: patch.correo,
     ventanaDesde: patch.ventanaDesde,
     ventanaHasta: patch.ventanaHasta,
     aceptaSustituciones: patch.aceptaSustituciones,

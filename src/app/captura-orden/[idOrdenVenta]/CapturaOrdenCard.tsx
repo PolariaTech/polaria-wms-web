@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
+import { useCallback, useEffect, useState } from "react";
+import { MateoIaLoadingMark } from "@/components/mateo/MateoIaLoadingMark";
 import { CapturaOrdenUploadForm } from "./CapturaOrdenUploadForm";
 import type { CapturaOrdenMetaView } from "./captura-orden.types";
+import {
+  CAPTURA_BUSY_PHRASES,
+  CAPTURA_BUSY_PHRASE_MS,
+  CAPTURA_DONE_PHRASE,
+  CAPTURA_DONE_PHRASE_MS,
+} from "./captura-busy-phrases";
 
 interface CapturaOrdenCardProps {
   idOrdenVenta: string;
@@ -70,6 +76,24 @@ function CapturaListoMark() {
   );
 }
 
+function CapturaMateoBusy({ message }: { message: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className="flex flex-col items-center justify-center py-6 text-center"
+    >
+      <div className="flex flex-col items-center rounded-3xl border border-polaria-t-20 bg-polaria-t-08 px-8 py-10">
+        <MateoIaLoadingMark size="xl" tone="teal" showLabel />
+        <p className="polaria-text-body mt-6 max-w-xs text-polaria-w-50">
+          {message}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Parte interactiva de la captura (cliente): puede ocultar el flash
  * viejo de la URL al elegir una foto nueva (caso típico en iPhone).
@@ -85,22 +109,46 @@ export function CapturaOrdenCard({
   const [hideFlash, setHideFlash] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
   const [uploading, setUploading] = useState(false);
+  /** Frase «Listo» un momento antes del check. */
+  const [finishing, setFinishing] = useState(false);
+  const [phraseIndex, setPhraseIndex] = useState(0);
   /** Vive en el card: al subir se desmonta el form y si no, se pierde el error. */
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const onFilePicked = useCallback(() => {
     setHideFlash(true);
     setUploadError(null);
+    setFinishing(false);
+    setPhraseIndex(0);
   }, []);
 
   const onUploadOk = useCallback(() => {
-    setUploadDone(true);
     setUploadError(null);
+    setFinishing(true);
   }, []);
 
   const onUploadError = useCallback((message: string) => {
+    setFinishing(false);
     setUploadError(message);
   }, []);
+
+  useEffect(() => {
+    if (!uploading || finishing) return;
+    setPhraseIndex(0);
+    const id = window.setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % CAPTURA_BUSY_PHRASES.length);
+    }, CAPTURA_BUSY_PHRASE_MS);
+    return () => window.clearInterval(id);
+  }, [uploading, finishing]);
+
+  useEffect(() => {
+    if (!finishing) return;
+    const id = window.setTimeout(() => {
+      setUploadDone(true);
+      setFinishing(false);
+    }, CAPTURA_DONE_PHRASE_MS);
+    return () => window.clearTimeout(id);
+  }, [finishing]);
 
   const showOk = uploadDone || (flashOk && !hideFlash);
   const alertError =
@@ -111,13 +159,13 @@ export function CapturaOrdenCard({
     return <CapturaListoMark />;
   }
 
+  if (finishing) {
+    return <CapturaMateoBusy message={CAPTURA_DONE_PHRASE} />;
+  }
+
   if (uploading) {
     return (
-      <PolariaStatusLoading
-        title="Subiendo imagen"
-        message="Espera un momento, estamos procesando la foto."
-        className="py-6"
-      />
+      <CapturaMateoBusy message={CAPTURA_BUSY_PHRASES[phraseIndex] ?? CAPTURA_BUSY_PHRASES[0]} />
     );
   }
 

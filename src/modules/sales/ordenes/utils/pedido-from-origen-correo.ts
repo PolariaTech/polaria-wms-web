@@ -1,8 +1,10 @@
 import type { PedidoExtraido, LineaExtraida } from "../ai/openai-pedido.client";
+import { extractCorreoContactoDesdeTexto } from "./correo-chrome";
 import {
   extractDireccionShipToDesdeTexto,
   extractEntregaDesdeTexto,
 } from "./extract-entrega-desde-texto";
+import { sanitizeTelefonoContactoOrNull } from "./sanitize-telefono-contacto";
 import { parseFechaOrigen } from "./materialize-ov-desde-origen";
 import {
   parseOrigenCorreoJson,
@@ -116,7 +118,13 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     contacto: mostFrequent(
       rows.map((r) => (r["Responsable externo"] ?? "").toString()),
     ),
-    telefono: firstNonEmpty(rows, (r) => r["Telefono contacto"]),
+    telefono: sanitizeTelefonoContactoOrNull(
+      firstNonEmpty(rows, (r) => r["Telefono contacto"]),
+    ),
+    correo:
+      firstNonEmpty(rows, (r) => r["Correo contacto"]) ||
+      extractCorreoContactoDesdeTexto(origenTexto) ||
+      null,
     horarioDesde: horarioDesdeRow || fromBody.horarioDesde,
     horarioHasta: horarioHastaRow || fromBody.horarioHasta,
     tolerancia: null,

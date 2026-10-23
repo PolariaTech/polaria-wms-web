@@ -27,7 +27,9 @@ import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { cn } from "@/lib/utils/cn";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
+import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
 import { withCuentaSchema } from "@/lib/supabase/cuenta-schema";
+import { useCuentaZonaHoraria } from "@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria";
 import {
   formatEstadoOrdenVenta,
   normalizeEstadoOrdenVenta,
@@ -82,8 +84,10 @@ import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
 import { CypherAlistadoSection } from "./CypherAlistadoSection";
 import { CypherAlistamientoSection } from "./CypherAlistamientoSection";
 import { CypherClienteVsMateoSection } from "./CypherClienteVsMateoSection";
+import { CypherDatosFiscalesSection } from "./CypherDatosFiscalesSection";
 
 type CypherStageId =
+  | "fiscales"
   | "correo"
   | "confirmacion"
   | "cliente-vs-mateo"
@@ -97,6 +101,12 @@ const CYPHER_STAGES: ReadonlyArray<{
   label: string;
   title: string;
 }> = [
+  {
+    id: "fiscales",
+    num: "00",
+    label: "Fiscales",
+    title: "Datos fiscales — referencia",
+  },
   { id: "correo", num: "01", label: "Correo", title: "Recepción del correo" },
   {
     id: "confirmacion",
@@ -138,6 +148,7 @@ function stageReached(
   stage: CypherStageId,
 ): boolean {
   const current = ESTADO_STAGE_INDEX[estado] ?? 0;
+  if (stage === "fiscales") return true;
   if (stage === "correo") return true;
   if (stage === "confirmacion") return current >= 1;
   if (stage === "cliente-vs-mateo") return true;
@@ -293,6 +304,7 @@ export function OrdenVentaCypherDrawer({
   const [panelEntered, setPanelEntered] = useState(false);
 
   const open = Boolean(idOrdenVenta && codigoCuenta);
+  const zonaHoraria = useCuentaZonaHoraria(codigoCuenta);
 
   useEffect(() => {
     if (open) {
@@ -449,6 +461,8 @@ export function OrdenVentaCypherDrawer({
     row?.fecha,
   ]);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -456,11 +470,8 @@ export function OrdenVentaCypherDrawer({
       onClose();
     };
     document.addEventListener("keydown", onKey);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousOverflow;
     };
   }, [onClose, open]);
 
@@ -523,6 +534,7 @@ export function OrdenVentaCypherDrawer({
   const occ = row?.occ || orden?.orden_compra_hotel?.trim() || "—";
   const recibida = formatDateTime(
     orden?.created_at || orden?.fecha_pedido || row?.fecha || "",
+    zonaHoraria,
   );
 
   const cuerpoCompleto = useMemo(
@@ -748,7 +760,15 @@ export function OrdenVentaCypherDrawer({
 
           {!isLoading && !error && orden ? (
             <>
-              <section id="cypher-stage-correo" className="scroll-mt-4 pt-6">
+              <section id="cypher-stage-fiscales" className="scroll-mt-4 pt-6">
+                <StageHeading num="00" title="Datos fiscales — referencia" />
+                <CypherDatosFiscalesSection
+                  codigoCuenta={codigoCuenta}
+                  idComprador={orden.id_comprador}
+                />
+              </section>
+
+              <section id="cypher-stage-correo" className="scroll-mt-4 pt-8">
                 <StageHeading num="01" title="Recepción del correo" />
                 <div className="mt-3 grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3.5 gap-y-2 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3.5">
                   <MetaRow label="REMITENTE">
@@ -904,7 +924,7 @@ export function OrdenVentaCypherDrawer({
                         </p>
                         <p className="mt-1 polaria-text-body-sm font-medium text-polaria-w">
                           {orden.fecha_entrega?.trim()
-                            ? formatDateTime(orden.fecha_entrega)
+                            ? formatDateTime(orden.fecha_entrega, zonaHoraria)
                             : "—"}
                         </p>
                       </div>
@@ -1060,7 +1080,10 @@ export function OrdenVentaCypherDrawer({
                   ) : (
                     <ul className="space-y-0">
                       {logEntries.map((entry) => {
-                        const stamped = formatDateTime(entry.createdAt);
+                        const stamped = formatDateTime(
+                          entry.createdAt,
+                          zonaHoraria,
+                        );
                         const [datePart, timePart] = stamped
                           .split(",")
                           .map((part) => part.trim());
@@ -1199,12 +1222,13 @@ export function OrdenVentaCypherDrawer({
                 type="button"
                 title={
                   puedeBorrar
-                    ? "Borrar orden (deja de verse en ventas)"
-                    : "Solo se pueden borrar órdenes por confirmar"
+                    ? "Borrar orden (desaparece de la tabla; permanece en BD)"
+                    : "Solo disponible en órdenes por confirmar"
                 }
                 disabled={!puedeBorrar || busyKind === "borrar"}
+                aria-disabled={!puedeBorrar || busyKind === "borrar"}
                 onClick={() => {
-                  if (!puedeBorrar) return;
+                  if (!puedeBorrar || busyKind === "borrar") return;
                   setBorrarError(null);
                   setConfirmBorrarOpen(true);
                 }}

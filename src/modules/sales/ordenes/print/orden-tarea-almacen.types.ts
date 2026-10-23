@@ -29,6 +29,8 @@ export interface OrdenTareaAlmacenPrintData {
   creada: string;
   /** Fecha/hora en que se generó/imprimió esta hoja. */
   impresa: string;
+  /** Ej. "hora de Cancún" (pie de página). */
+  zonaImpresionLabel?: string;
   cliente: string;
   centroConsumo: string;
   numeroOrdenCliente: string;

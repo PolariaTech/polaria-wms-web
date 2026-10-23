@@ -36,6 +36,8 @@ export interface OrigenCorreoRenglon {
   Anden?: string;
   /** Teléfono del contacto de entrega. */
   "Telefono contacto"?: string;
+  /** Correo del contacto de entrega. */
+  "Correo contacto"?: string;
   /** Prioridad del pedido (Normal / Urgente). */
   Prioridad?: string;
   /** Notas generales / instrucciones de entrega. */

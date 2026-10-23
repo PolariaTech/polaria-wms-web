@@ -146,6 +146,7 @@ export interface OrdenVentaDetalleRow extends OrdenVentaRow {
   anden?: string | null;
   contacto_entrega?: string | null;
   telefono_contacto?: string | null;
+  correo_contacto?: string | null;
   turno?: string | null;
   hora_salida?: string | null;
   chofer?: string | null;
@@ -190,6 +191,7 @@ export interface CreateOrdenVentaInput {
   anden?: string;
   contacto?: string;
   telefono?: string;
+  correo?: string;
   turno?: string;
   horaSalida?: string;
   chofer?: string;

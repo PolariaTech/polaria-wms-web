@@ -10,6 +10,7 @@ export interface OrdenVentaCompradorPrefill {
   anden: string;
   contacto: string;
   telefono: string;
+  correo: string;
   aceptaSustituciones: string;
   requiereLote: string;
   registrarTemperatura: string;
@@ -93,6 +94,7 @@ export function buildOrdenVentaPrefillFromComprador(params: {
     text(contactoFicha?.telefono) ||
     text(telefonoComprador) ||
     text(ficha.whatsapp);
+  const correo = text(contactoFicha?.correo);
 
   // No copiar razón social / apodo / grupo al campo de centro de consumo.
   const nombreCuenta =
@@ -110,6 +112,7 @@ export function buildOrdenVentaPrefillFromComprador(params: {
     anden: text(centro?.anden),
     contacto,
     telefono,
+    correo,
     aceptaSustituciones: matchOption(ficha.sustituciones, SUSTITUCIONES),
     requiereLote: matchOption(ficha.requiereLote, SI_NO),
     registrarTemperatura: matchOption(ficha.requiereTemp, SI_NO),
