@@ -253,6 +253,7 @@ export const CAMPOS_OPERATIVOS_DOCS = [
   "anden",
   "contacto",
   "telefono",
+  "correo",
   "ventanaDesde",
   "ventanaHasta",
 ] as const;

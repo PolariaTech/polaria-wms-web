@@ -3,8 +3,11 @@ import {
   coerceLeadingDecimalInput,
   formatDecimalInputEs,
   formatKgEs,
+  formatPrecioEs,
+  formatPrecioInputMx,
   parseDecimalEs,
   sanitizeDecimalInputEs,
+  sanitizePrecioInputMx,
 } from "@/lib/utils/decimal-es";
 
 describe("decimal-es", () => {
@@ -44,5 +47,19 @@ describe("decimal-es", () => {
     expect(formatKgEs(60)).toBe("60");
     expect(formatKgEs(60.5)).toContain("60");
     expect(formatKgEs(1500)).toContain("1");
+  });
+
+  it("formatPrecioEs usa formato pesos mexicanos con centavos", () => {
+    expect(formatPrecioEs(208)).toBe("208.00");
+    expect(formatPrecioEs(243.48)).toBe("243.48");
+    expect(formatPrecioEs(4741)).toBe("4,741.00");
+    expect(formatPrecioEs(2 * 121.74)).toBe("243.48");
+  });
+
+  it("sanitizePrecioInputMx y formatPrecioInputMx usan punto decimal", () => {
+    expect(sanitizePrecioInputMx("121,74")).toBe("121.74");
+    expect(sanitizePrecioInputMx("121.74")).toBe("121.74");
+    expect(formatPrecioInputMx(121.74)).toBe("121.74");
+    expect(formatPrecioInputMx(26)).toBe("26");
   });
 });

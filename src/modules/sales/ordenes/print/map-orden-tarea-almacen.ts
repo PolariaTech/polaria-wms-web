@@ -28,17 +28,33 @@ import {
   sanitizeNotasGeneralesPedido,
 } from "../utils/texto-origen-pedido";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
+import {
+  getCuentaZonaHorariaOption,
+  resolveCuentaZonaHorariaId,
+} from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 
 export const PRODUCTOS_POR_HOJA_TAREA = 49;
 
-/** Formato meta del PDF: dd/mm/aaaa HH:mm (hora local). */
-export function formatOrdenTareaImpresaAt(date: Date): string {
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = String(date.getFullYear());
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${day}/${month}/${year} ${hours}:${minutes}`;
+/**
+ * Formato meta del PDF: dd/mm/aaaa HH:mm en zona de la cuenta (default Cancún).
+ * No usa la zona del PC.
+ */
+export function formatOrdenTareaImpresaAt(
+  date: Date,
+  timeZone: string = "America/Cancun",
+): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}`;
 }
 
 /**
@@ -61,21 +77,34 @@ export function resolveOrdenTareaCreadaAt(input: {
 export function stampOrdenTareaImpresaNow(
   sheets: readonly OrdenTareaAlmacenPrintData[],
   at: Date = new Date(),
+  timeZone: string = "America/Cancun",
 ): OrdenTareaAlmacenPrintData[] {
-  const impresa = formatOrdenTareaImpresaAt(at);
-  return sheets.map((sheet) => ({ ...sheet, impresa }));
+  const zonaId = resolveCuentaZonaHorariaId(timeZone);
+  const impresa = formatOrdenTareaImpresaAt(at, zonaId);
+  const zonaImpresionLabel = getCuentaZonaHorariaOption(zonaId).shortLabel;
+  return sheets.map((sheet) => ({
+    ...sheet,
+    impresa,
+    zonaImpresionLabel: sheet.zonaImpresionLabel || zonaImpresionLabel,
+  }));
 }
 
 /** Texto meta del PDF: creación + impresión. */
 export function formatOrdenTareaPageMeta(input: {
   creada: string;
   impresa: string;
+  /** Ej. "hora de Cancún" */
+  zonaLabel?: string;
 }): string {
   const creada = input.creada.trim();
   const impresa = input.impresa.trim();
-  if (creada && impresa) return `Creada ${creada}  ·  Impresa ${impresa}`;
-  if (creada) return `Creada ${creada}`;
-  if (impresa) return `Impresa ${impresa}`;
+  const zona = input.zonaLabel?.trim() || "";
+  const zonaSuffix = zona ? ` (${zona})` : "";
+  if (creada && impresa) {
+    return `Creada ${creada}  ·  Impresa ${impresa}${zonaSuffix}`;
+  }
+  if (creada) return `Creada ${creada}${zonaSuffix}`;
+  if (impresa) return `Impresa ${impresa}${zonaSuffix}`;
   return "";
 }
 
@@ -198,9 +227,20 @@ function buildBaseSheet(input: {
   lineas: OrdenVentaLineaRow[];
   tareaIndex: number;
   tareaTotal: number;
+  timeZone?: string;
 }): OrdenTareaAlmacenPrintData {
-  const { listRow, detalle, printedAt, hija, lineas, tareaIndex, tareaTotal } =
-    input;
+  const {
+    listRow,
+    detalle,
+    printedAt,
+    hija,
+    lineas,
+    tareaIndex,
+    tareaTotal,
+    timeZone = "America/Cancun",
+  } = input;
+  const zonaId = resolveCuentaZonaHorariaId(timeZone);
+  const zonaImpresionLabel = getCuentaZonaHorariaOption(zonaId).shortLabel;
 
   if (!detalle) {
     return {
@@ -213,9 +253,10 @@ function buildBaseSheet(input: {
         const created = resolveOrdenTareaCreadaAt({
           createdAt: listRow.fecha,
         });
-        return created ? formatOrdenTareaImpresaAt(created) : "";
+        return created ? formatOrdenTareaImpresaAt(created, zonaId) : "";
       })(),
-      impresa: formatOrdenTareaImpresaAt(printedAt),
+      impresa: formatOrdenTareaImpresaAt(printedAt, zonaId),
+      zonaImpresionLabel,
       cliente: listRow.comprador,
       centroConsumo: hija?.almacen ?? "",
       numeroOrdenCliente: hija?.numeroPedido || listRow.venta,
@@ -246,9 +287,10 @@ function buildBaseSheet(input: {
         createdAt: detalle.created_at,
         fechaPedido: detalle.fecha_pedido,
       });
-      return created ? formatOrdenTareaImpresaAt(created) : "";
+      return created ? formatOrdenTareaImpresaAt(created, timeZone) : "";
     })(),
-    impresa: formatOrdenTareaImpresaAt(printedAt),
+    impresa: formatOrdenTareaImpresaAt(printedAt, zonaId),
+    zonaImpresionLabel,
     cliente: formatCompradorNombreOrdenVenta(detalle),
     centroConsumo:
       hija?.almacen ||
@@ -296,6 +338,7 @@ export function mapOrdenVentaToAlmacenPrintData(input: {
   listRow: OrdenVentaOperadorRow;
   detalle: OrdenVentaDetalleRow | null;
   printedAt?: Date;
+  timeZone?: string;
 }): OrdenTareaAlmacenPrintData {
   const sheets = mapOrdenVentaToAlmacenPrintSheets(input);
   return sheets[0]!;
@@ -309,8 +352,11 @@ export function mapOrdenVentaToAlmacenPrintSheets(input: {
   listRow: OrdenVentaOperadorRow;
   detalle: OrdenVentaDetalleRow | null;
   printedAt?: Date;
+  /** IANA; default America/Cancun. */
+  timeZone?: string;
 }): OrdenTareaAlmacenPrintData[] {
   const printedAt = input.printedAt ?? new Date();
+  const timeZone = input.timeZone?.trim() || "America/Cancun";
   const detalle = input.detalle;
   const listRow = input.listRow;
   const allLineas = detalle?.lineas ?? [];
@@ -329,6 +375,7 @@ export function mapOrdenVentaToAlmacenPrintSheets(input: {
         lineas: allLineas,
         tareaIndex: 1,
         tareaTotal: 1,
+        timeZone,
       }),
     );
   }
@@ -344,6 +391,7 @@ export function mapOrdenVentaToAlmacenPrintSheets(input: {
         lineas: filterLineasByOrdenTrabajoHija(allLineas, hija),
         tareaIndex: index + 1,
         tareaTotal: total,
+        timeZone,
       }),
     ),
   );

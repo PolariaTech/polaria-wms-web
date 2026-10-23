@@ -10,8 +10,12 @@ interface OrdenVentaCompradorPickerModalProps {
   open: boolean;
   onClose: () => void;
   compradores: CompradorListRow[];
+  /** IDs a destacar arriba (sugerencias de Mateo), en orden de relevancia. */
+  priorityIds?: readonly string[];
   selectedId?: string | null;
   onSelect: (comprador: CompradorListRow) => void;
+  title?: string;
+  description?: string;
   /** Con Cypher abierto: panel a la izquierda (no tapa Cypher). */
   dockWithCypher?: boolean;
 }
@@ -24,21 +28,34 @@ export function OrdenVentaCompradorPickerModal({
   open,
   onClose,
   compradores,
+  priorityIds = [],
   selectedId = null,
   onSelect,
+  title = "Seleccionar cliente",
+  description = "Catálogo completo de clientes de la cuenta.",
   dockWithCypher = false,
 }: OrdenVentaCompradorPickerModalProps) {
   const [query, setQuery] = useState("");
+  const prioritySet = useMemo(() => new Set(priorityIds), [priorityIds]);
 
   const filtered = useMemo(() => {
     const needle = normalizeSearch(query);
-    if (!needle) return compradores;
-    return compradores.filter((row) => {
-      const haystack =
-        `${row.codigo} ${row.comprador} ${row.apodo ?? ""} ${row.rfc ?? ""} ${row.telefono ?? ""}`.toLowerCase();
-      return haystack.includes(needle);
+    const rows = !needle
+      ? compradores
+      : compradores.filter((row) => {
+          const haystack =
+            `${row.codigo} ${row.comprador} ${row.apodo ?? ""} ${row.rfc ?? ""} ${row.telefono ?? ""}`.toLowerCase();
+          return haystack.includes(needle);
+        });
+    if (priorityIds.length === 0) return rows;
+    const rank = new Map(priorityIds.map((id, i) => [id, i]));
+    return [...rows].sort((a, b) => {
+      const ra = rank.has(a.idComprador) ? rank.get(a.idComprador)! : 10_000;
+      const rb = rank.has(b.idComprador) ? rank.get(b.idComprador)! : 10_000;
+      if (ra !== rb) return ra - rb;
+      return a.comprador.localeCompare(b.comprador, "es");
     });
-  }, [compradores, query]);
+  }, [compradores, query, priorityIds]);
 
   const handleClose = () => {
     setQuery("");
@@ -49,8 +66,8 @@ export function OrdenVentaCompradorPickerModal({
     <PolariaFormModal
       open={open}
       onClose={handleClose}
-      title="Seleccionar cliente"
-      description="Clientes activos de la cuenta."
+      title={title}
+      description={description}
       onSubmit={(event) => event.preventDefault()}
       asForm={false}
       hideHeaderClose
@@ -124,6 +141,7 @@ export function OrdenVentaCompradorPickerModal({
             <tbody>
               {filtered.map((row) => {
                 const isSelected = row.idComprador === selectedId;
+                const isPriority = prioritySet.has(row.idComprador);
                 return (
                   <tr
                     key={row.idComprador}
@@ -147,14 +165,21 @@ export function OrdenVentaCompradorPickerModal({
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-polaria-teal",
                       isSelected
                         ? "bg-polaria-t-08 text-polaria-w"
-                        : "text-polaria-w hover:bg-polaria-t-08",
+                        : isPriority
+                          ? "bg-polaria-t-08/50 text-polaria-w hover:bg-polaria-t-08"
+                          : "text-polaria-w hover:bg-polaria-t-08",
                     )}
                   >
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm font-medium text-polaria-teal">
                       {row.codigo}
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm">
-                      {row.comprador}
+                      <span className="line-clamp-2">{row.comprador}</span>
+                      {isPriority ? (
+                        <span className="mt-0.5 inline-block rounded bg-polaria-teal/15 px-1.5 py-0.5 polaria-text-caption font-semibold text-polaria-teal">
+                          Sugerido
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
                       {row.apodo?.trim() || "—"}

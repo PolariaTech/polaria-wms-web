@@ -8,6 +8,7 @@ import {
 import { findCuentaAcrossSchemas } from "@/lib/supabase/tenant-fanout";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { normalizeCodigoCuentaInput } from "@/lib/utils/generate-codigo-cuenta";
+import { resolveCuentaZonaHorariaId } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 
 export type CuentaBodegaTipo = "interna" | "externa" | string;
 
@@ -696,6 +697,116 @@ function normalizeOvMinutos(
 ): number {
   const n = Math.trunc(Number(value));
   return Number.isFinite(n) && n >= 1 ? n : fallback;
+}
+
+export interface CuentaZonaHorariaConfig {
+  codigoCuenta: string;
+  codigoEmpresa: string;
+  zonaHoraria: string;
+}
+
+export interface UpdateCuentaZonaHorariaInput {
+  codigoCuenta: string;
+  codigoEmpresa: string;
+  zonaHoraria: string;
+}
+
+/** Lee zona horaria IANA de la cuenta (default America/Cancun). */
+export async function getCuentaZonaHorariaConfigurator(
+  codigoCuenta: string,
+): Promise<CuentaZonaHorariaConfig | null> {
+  const codigo = normalizeCodigoCuentaInput(codigoCuenta);
+  if (!codigo) return null;
+
+  const cuenta = await findCuentaAcrossSchemas(codigo);
+  if (!cuenta?.codigo_cuenta || !cuenta.codigo_empresa) return null;
+
+  const row = await withEmpresaSchema(cuenta.codigo_empresa, () =>
+    runDomainQuery<{
+      codigo_cuenta: string;
+      codigo_empresa: string;
+      zona_horaria: string | null;
+    } | null>((client) => {
+      const query = client
+        .from("cuenta")
+        .select("codigo_cuenta,codigo_empresa,zona_horaria")
+        .eq("codigo_cuenta", codigo)
+        .maybeSingle();
+
+      return query as unknown as Promise<{
+        data: {
+          codigo_cuenta: string;
+          codigo_empresa: string;
+          zona_horaria: string | null;
+        } | null;
+        error: { message: string } | null;
+      }>;
+    }),
+  );
+
+  if (!row) return null;
+
+  return {
+    codigoCuenta: row.codigo_cuenta,
+    codigoEmpresa: row.codigo_empresa,
+    zonaHoraria: resolveCuentaZonaHorariaId(row.zona_horaria),
+  };
+}
+
+/** Guarda zona horaria IANA por cuenta. */
+export async function updateCuentaZonaHorariaConfigurator(
+  input: UpdateCuentaZonaHorariaInput,
+): Promise<CuentaZonaHorariaConfig> {
+  const codigoCuenta = normalizeCodigoCuentaInput(input.codigoCuenta);
+  const codigoEmpresa = input.codigoEmpresa.trim().toUpperCase();
+  const zonaHoraria = resolveCuentaZonaHorariaId(input.zonaHoraria);
+
+  if (!codigoCuenta) {
+    throw new DomainServiceError(
+      "El código de la cuenta es obligatorio.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  if (!codigoEmpresa) {
+    throw new DomainServiceError(
+      "La empresa de la cuenta es obligatoria.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const updated = await withEmpresaSchema(codigoEmpresa, () =>
+    runDomainMutation<{
+      codigo_cuenta: string;
+      codigo_empresa: string;
+      zona_horaria: string;
+    } | null>((client) => {
+      const query = client
+        .from("cuenta")
+        .update({ zona_horaria: zonaHoraria })
+        .eq("codigo_cuenta", codigoCuenta)
+        .select("codigo_cuenta,codigo_empresa,zona_horaria")
+        .single();
+
+      return query as unknown as Promise<{
+        data: {
+          codigo_cuenta: string;
+          codigo_empresa: string;
+          zona_horaria: string;
+        } | null;
+        error: { message: string } | null;
+      }>;
+    }),
+  );
+
+  if (!updated) {
+    throw new DomainServiceError("Cuenta no encontrada.", "INVALID_ARGUMENT");
+  }
+
+  return {
+    codigoCuenta: updated.codigo_cuenta,
+    codigoEmpresa: updated.codigo_empresa,
+    zonaHoraria: resolveCuentaZonaHorariaId(updated.zona_horaria),
+  };
 }
 
 /** Lee umbrales SLA/alerta OV de la cuenta (schema empresa o public). */

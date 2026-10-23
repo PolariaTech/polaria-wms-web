@@ -38,6 +38,7 @@ import {
   parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
 } from "../../utils/build-orden-venta-captura-observaciones";
+import { sanitizeTelefonoContacto } from "../../utils/sanitize-telefono-contacto";
 import { resolveSkuVisible } from "../../utils/resolve-sku-visible";
 import {
   cleanCorreoBodyForNotas,
@@ -70,6 +71,8 @@ interface OrdenVentaDetalleModalProps {
   codigoCuenta: string | null;
   onClose: () => void;
   onEmitted?: () => void;
+  /** Tras confirmar OK: folio para el modal de éxito (REQ-039). */
+  onEmitSuccess?: (info: { idOrdenVenta: string; codigo: string }) => void;
   onAutoPrintResult?: (result: AutoPrintOvResult) => void;
   inspect?: boolean;
   /** Cypher abierto en paralelo (mismo id): panel a la izquierda. */
@@ -220,7 +223,10 @@ function DetalleContent({
       hija?.responsableExterno ||
       orden.contacto_entrega?.trim() ||
       fromObs.contacto,
-    telefono: orden.telefono_contacto?.trim() || fromObs.telefono,
+    telefono:
+      sanitizeTelefonoContacto(orden.telefono_contacto) ||
+      sanitizeTelefonoContacto(fromObs.telefono),
+    correo: orden.correo_contacto?.trim() || fromObs.correo,
     turno: orden.turno?.trim() || fromObs.turno,
     horaSalida: orden.hora_salida?.trim() || fromObs.horaSalida,
     chofer: orden.chofer?.trim() || fromObs.chofer,
@@ -361,6 +367,9 @@ function DetalleContent({
           </MetaField>
           <MetaField label="Teléfono del contacto">
             <TextValue value={captura.telefono} />
+          </MetaField>
+          <MetaField label="Correo del contacto">
+            <TextValue value={captura.correo} />
           </MetaField>
         </div>
       </CaptureSection>
@@ -531,6 +540,7 @@ export function OrdenVentaDetalleModal({
   codigoCuenta,
   onClose,
   onEmitted,
+  onEmitSuccess,
   onAutoPrintResult,
   inspect = false,
   cypherOpen = false,
@@ -725,9 +735,17 @@ export function OrdenVentaDetalleModal({
             ? {
                 ...prev,
                 estado: row.estado,
+                codigo: row.venta?.trim() || prev.codigo,
               }
             : prev,
         );
+        onEmitSuccess?.({
+          idOrdenVenta,
+          codigo:
+            row.venta?.trim() ||
+            orden?.codigo?.trim() ||
+            "OV",
+        });
         const session = useAuthStore.getState().session;
         if (codigoCuenta) {
           // Bitácora de emisión: la escribe el API al confirmar.
@@ -737,7 +755,7 @@ export function OrdenVentaDetalleModal({
               const autoPrintResult = await autoPrintOrdenVentaTrasEmitir({
                 codigoCuenta,
                 idOrdenVenta,
-                listRowFallback: null,
+                listRowFallback: row,
                 autorNombre: session?.nombre ?? null,
                 idUsuario: session?.idUsuario ?? null,
                 autoImprimirKnown: true,

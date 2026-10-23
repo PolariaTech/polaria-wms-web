@@ -49,11 +49,45 @@ export function sanitizeDecimalInputEs(raw: string): string {
   return out;
 }
 
+/**
+ * Entrada de precio MXN: dígitos y un punto decimal.
+ * Acepta coma al escribir y la normaliza a punto.
+ */
+export function sanitizePrecioInputMx(raw: string): string {
+  let source = String(raw).trim().replace(/\s/g, "");
+  if (source === "," || source === ".") return "0.";
+  if (source.startsWith(",")) source = `0.${source.slice(1)}`;
+  if (source.startsWith(".")) source = `0${source}`;
+
+  let out = "";
+  let hasSeparator = false;
+
+  for (const ch of source) {
+    if (ch >= "0" && ch <= "9") {
+      out += ch;
+      continue;
+    }
+    if ((ch === "," || ch === ".") && !hasSeparator) {
+      hasSeparator = true;
+      out += ".";
+    }
+  }
+
+  return out;
+}
+
 /** Muestra el decimal con coma (p. ej. 0.6 → "0,6"). */
 export function formatDecimalInputEs(value: number): string {
   if (!Number.isFinite(value)) return "";
   if (Number.isInteger(value)) return String(value);
   return String(value).replace(".", ",");
+}
+
+/** Valor de input de precio en formato MXN (punto decimal). */
+export function formatPrecioInputMx(value: number): string {
+  if (!Number.isFinite(value)) return "";
+  if (Number.isInteger(value)) return String(value);
+  return String(value);
 }
 
 export function formatKgEs(value: number): string {
@@ -69,13 +103,15 @@ export function formatKgEs(value: number): string {
   });
 }
 
-/** Formato de precio en pesos chilenos (sin decimales). */
+/** Formato de monto en pesos mexicanos (siempre 2 decimales / centavos). */
 export function formatPrecioEs(value: number): string {
   if (!Number.isFinite(value)) return "—";
 
-  return Math.round(value).toLocaleString("es-CL", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+  const rounded = Math.round(value * 100) / 100;
+
+  return rounded.toLocaleString("es-MX", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
     useGrouping: true,
   });
 }

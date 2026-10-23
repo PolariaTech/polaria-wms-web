@@ -80,12 +80,14 @@ describe("empaque-lineas", () => {
       anden: "",
       contacto: "Ana",
       telefono: "",
+      correo: "",
       ventanaDesde: "06:00",
       ventanaHasta: "",
     });
     expect(missing.has("centroConsumo")).toBe(true);
     expect(missing.has("anden")).toBe(true);
     expect(missing.has("telefono")).toBe(true);
+    expect(missing.has("correo")).toBe(true);
     expect(missing.has("ventanaHasta")).toBe(true);
     expect(missing.has("fechaEntrega")).toBe(false);
     expect(missing.has("direccion")).toBe(false);

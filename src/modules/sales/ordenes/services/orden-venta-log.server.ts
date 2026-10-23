@@ -76,7 +76,10 @@ function defaultMensaje(accion: AuditoriaOperacionRow["accion"]): string {
   }
 }
 
-export function formatFechaLog(iso: string): string {
+export function formatFechaLog(
+  iso: string,
+  timeZone = "America/Cancun",
+): string {
   const ms = Date.parse(iso);
   if (!Number.isFinite(ms)) return iso;
   try {
@@ -86,6 +89,7 @@ export function formatFechaLog(iso: string): string {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone,
     }).format(new Date(ms));
   } catch {
     return iso;

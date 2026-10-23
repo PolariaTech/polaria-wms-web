@@ -2,8 +2,20 @@
 
 import QRCode from "qrcode";
 import { normalizeIdOrdenTrabajo } from "../utils/origen-correo-ordenes-trabajo";
+import { readCuentaZonaHoraria } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 import { stampOrdenTareaImpresaNow } from "./map-orden-tarea-almacen";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
+
+function stampWithCuentaZone(
+  sheets: readonly OrdenTareaAlmacenPrintData[],
+  codigoCuenta?: string | null,
+): OrdenTareaAlmacenPrintData[] {
+  return stampOrdenTareaImpresaNow(
+    sheets,
+    new Date(),
+    readCuentaZonaHoraria(codigoCuenta),
+  );
+}
 
 function sanitizePdfFilename(folio: string): string {
   const cleaned = folio.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-|-$/g, "");
@@ -72,17 +84,16 @@ export async function printOrdenTareaAlmacen(
   const { buildOrdenTareaAlmacenPdf } = await import(
     "./render-orden-tarea-almacen-pdf"
   );
-  const stamped = stampOrdenTareaImpresaNow([data])[0]!;
-  const withQr = await withQrDataUrl(stamped);
-  const pdf = buildOrdenTareaAlmacenPdf(withQr);
-  const pdfBase64 = pdf.output("datauristring").split(",")[1] ?? "";
-
   const codigoCuenta = options?.codigoCuenta?.trim();
   if (!codigoCuenta) {
     throw new Error(
       "No se pudo imprimir: falta la cuenta activa. Recarga e inténtalo de nuevo.",
     );
   }
+  const stamped = stampWithCuentaZone([data], codigoCuenta)[0]!;
+  const withQr = await withQrDataUrl(stamped);
+  const pdf = buildOrdenTareaAlmacenPdf(withQr);
+  const pdfBase64 = pdf.output("datauristring").split(",")[1] ?? "";
   if (!pdfBase64) {
     throw new Error("No se pudo generar el PDF para imprimir.");
   }
@@ -107,7 +118,7 @@ export async function downloadOrdenTareaAlmacenPdf(
     ? `-${options.filenameSuffix.trim()}`
     : "";
   const filename = `orden-venta-${folio}${suffix}.pdf`;
-  const stamped = stampOrdenTareaImpresaNow([data])[0]!;
+  const stamped = stampWithCuentaZone([data])[0]!;
   const withQr = await withQrDataUrl(stamped);
   const pdf = buildOrdenTareaAlmacenPdf(withQr);
   pdf.save(filename);
@@ -146,7 +157,7 @@ export async function downloadOrdenTareaAlmacenLandscapePdfs(
 /** Blob + nombre para vista previa en la app (sin forzar descarga). */
 export async function buildOrdenTareaAlmacenLandscapePdfBlob(
   sheets: readonly OrdenTareaAlmacenPrintData[],
-  options?: { filenameSuffix?: string },
+  options?: { filenameSuffix?: string; codigoCuenta?: string },
 ): Promise<{ blob: Blob; filename: string }> {
   if (sheets.length === 0) {
     throw new Error("No hay órdenes de trabajo para previsualizar.");
@@ -154,7 +165,7 @@ export async function buildOrdenTareaAlmacenLandscapePdfBlob(
   const { buildOrdenTareaAlmacenLandscapePdfMulti } = await import(
     "./render-orden-tarea-almacen-landscape-pdf"
   );
-  const stamped = stampOrdenTareaImpresaNow(sheets);
+  const stamped = stampWithCuentaZone(sheets, options?.codigoCuenta);
   const withQr = await Promise.all(stamped.map((sheet) => withQrDataUrl(sheet)));
   const pdf = buildOrdenTareaAlmacenLandscapePdfMulti(withQr);
   return {
@@ -184,7 +195,7 @@ export async function printOrdenTareaAlmacenLandscape(
   const { buildOrdenTareaAlmacenLandscapePdfMulti } = await import(
     "./render-orden-tarea-almacen-landscape-pdf"
   );
-  const stamped = stampOrdenTareaImpresaNow(sheets);
+  const stamped = stampWithCuentaZone(sheets, codigoCuenta);
   const withQr = await Promise.all(stamped.map((sheet) => withQrDataUrl(sheet)));
   const pdf = buildOrdenTareaAlmacenLandscapePdfMulti(withQr);
   const pdfBase64 = pdf.output("datauristring").split(",")[1] ?? "";

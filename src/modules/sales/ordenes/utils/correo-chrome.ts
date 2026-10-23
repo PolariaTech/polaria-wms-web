@@ -94,6 +94,55 @@ export function prependCorreoChromeToBody(
   return `${block}\n\n${cuerpo}`;
 }
 
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+/** Saca la dirección de un valor De/From (`Nombre <mail@x.com>` o mail suelto). */
+export function extractEmailAddressFromHeaderValue(
+  value: string | null | undefined,
+): string | null {
+  const text = value?.trim() ?? "";
+  if (!text) return null;
+  const angle = text.match(/<([^<>\s]+@[^<>\s]+)>/);
+  if (angle?.[1]) return angle[1].trim();
+  const bare = text.match(EMAIL_RE);
+  return bare?.[0]?.trim() || null;
+}
+
+/**
+ * Correo del contacto a partir del mensaje: prioriza De/From (remitente),
+ * luego mailto: de la firma, luego el primer mail del cuerpo que no sea Para/To.
+ */
+export function extractCorreoContactoDesdeTexto(
+  raw: string | null | undefined,
+): string | null {
+  const text = (raw ?? "").replace(/\r\n/g, "\n").trim();
+  if (!text) return null;
+
+  const chrome = parseCorreoChromeFromText(text);
+  const fromEmail = extractEmailAddressFromHeaderValue(chrome.from);
+  if (fromEmail) return fromEmail;
+
+  const mailto = text.match(/mailto:([^\s"'<>]+)/i);
+  if (mailto?.[1]) {
+    try {
+      const decoded = decodeURIComponent(mailto[1]).replace(/[<>]/g, "").trim();
+      const fromMailto = extractEmailAddressFromHeaderValue(decoded) || decoded;
+      if (fromMailto.includes("@")) return fromMailto;
+    } catch {
+      /* ignore bad URI */
+    }
+  }
+
+  const toEmails = new Set(
+    (chrome.to?.match(EMAIL_RE) ?? []).map((e) => e.toLowerCase()),
+  );
+  const all = text.match(EMAIL_RE) ?? [];
+  for (const email of all) {
+    if (!toEmails.has(email.toLowerCase())) return email;
+  }
+  return all[0] ?? null;
+}
+
 /**
  * Toma De/Para/Asunto de `chromeSource` y el cuerpo de `target`
  * (p. ej. cuerpo IA + cabeceras del .eml).

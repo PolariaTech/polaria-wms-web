@@ -5,6 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, ClipboardList, X } from "lucide-react";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { cn } from "@/lib/utils/cn";
+import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
 import type { EstadoBodegaSectionId } from "../constants/estado-bodega-layout";
 import type { EstadoBodegaZonePanelKind } from "../constants/estado-bodega-zone-panel";
 import {
@@ -83,6 +84,8 @@ export function EstadoBodegaZonePanelModal({
       ? ESTADO_BODEGA_ZONE_ALERTAS_DESCRIPTION[sectionId]
       : ESTADO_BODEGA_ZONE_TAREAS_DESCRIPTION[sectionId];
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return;
 
@@ -91,12 +94,8 @@ export function EstadoBodegaZonePanelModal({
     };
 
     document.addEventListener("keydown", handleKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [onClose, open]);
 

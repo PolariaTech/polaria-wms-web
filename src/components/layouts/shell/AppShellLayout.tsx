@@ -1,9 +1,11 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthGuard } from "@/components/auth/guards/AuthGuard";
 import { sessionHasMateoAccess, sessionIsMateoOnly } from "@/lib/auth/cuenta-producto-access";
 import { redirectToMateoSso } from "@/lib/auth/redirect-to-mateo-sso";
+import { forceResetBodyScrollLock } from "@/lib/utils/body-scroll-lock";
 import { ApiError } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { POLARIA_PRODUCT_VERSION } from "@/constants/brand/brand";
@@ -20,6 +22,7 @@ interface AppShellLayoutProps {
  * Incluye topbar compartido para todos los roles y vistas.
  */
 export function AppShellLayout({ children }: AppShellLayoutProps) {
+  const pathname = usePathname();
   const session = useAuthStore((s) => s.session);
   const [mateoLoading, setMateoLoading] = useState(false);
   const [mateoError, setMateoError] = useState<string | null>(null);
@@ -27,6 +30,12 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
   const mateoOnlyRedirectRef = useRef(false);
   const showMateoIa = session ? sessionHasMateoAccess(session) : false;
   const mateoOnly = session ? sessionIsMateoOnly(session) : false;
+
+  // Scroll general de página: si un modal dejó overflow:hidden huérfano, al
+  // navegar (p. ej. a /perfil) se recupera sin F5.
+  useEffect(() => {
+    forceResetBodyScrollLock();
+  }, [pathname]);
 
   const handleMateoIaClick = useCallback(async () => {
     if (mateoLoading) return;

@@ -11,10 +11,12 @@ import {
   calcularCantidadDesdeCajas,
   pesoPorCajaKg,
 } from "../utils/empaque-lineas";
+import { extractCorreoContactoDesdeTexto } from "../utils/correo-chrome";
 import {
   extractDireccionShipToDesdeTexto,
   extractEntregaDesdeTexto,
 } from "../utils/extract-entrega-desde-texto";
+import { sanitizeTelefonoContacto } from "../utils/sanitize-telefono-contacto";
 import { resolveCentroConsumoSinConfundirConCliente } from "../utils/centro-consumo-vs-cliente";
 import {
   enrichAlmacenConCodigoDesdeTexto,
@@ -64,15 +66,16 @@ export interface PedidoExtraido {
    */
   nombreCliente: string | null;
   rfc: string | null;
-  // Entrega (dirección, andén, contacto, teléfono, ventana): Mateo la extrae del
-  // correo, mensaje o PDF. La ficha del comprador solo rellena lo que no vino.
-  // Régimen, tolerancia, sustituciones, lote y temperatura siguen siendo de ficha
-  // salvo que el documento los declare.
+  // Entrega (dirección, andén, contacto, teléfono, correo, ventana): Mateo la
+  // extrae del correo, mensaje o PDF. La ficha del comprador solo rellena lo
+  // que no vino. Régimen, tolerancia, sustituciones, lote y temperatura siguen
+  // siendo de ficha salvo que el documento los declare.
   regimen: (typeof REGIMENES)[number] | null;
   direccion: string | null;
   anden: string | null;
   contacto: string | null;
   telefono: string | null;
+  correo: string | null;
   horarioDesde: string | null;
   horarioHasta: string | null;
   tolerancia: (typeof TOLERANCIAS)[number] | null;
@@ -222,6 +225,7 @@ interface PedidoExtraidoRaw {
   anden: string | null;
   contacto: string | null;
   telefono: string | null;
+  correo: string | null;
   horarioDesde: string | null;
   horarioHasta: string | null;
   tolerancia: (typeof TOLERANCIAS)[number] | null;
@@ -302,6 +306,11 @@ const RESPONSE_SCHEMA = {
         type: ["string", "null"],
         description:
           "Teléfono de la entrega o del contacto si aparece en el correo, mensaje o PDF (Tel, Teléfono, Phone, Cel, WhatsApp). Copia el número tal cual. null solo si no aparece.",
+      },
+      correo: {
+        type: ["string", "null"],
+        description:
+          "Correo del contacto. PRIORIDAD: dirección del REMITENTE (De/From del mensaje, ej. 'Nombre <mail@hotel.com>' → mail@hotel.com). También Email/E-mail/Correo en el PDF, o mailto: de la firma. No uses el Para/To del proveedor. null solo si no hay ningún correo del cliente.",
       },
       horarioDesde: {
         type: ["string", "null"],
@@ -484,6 +493,7 @@ const RESPONSE_SCHEMA = {
       "anden",
       "contacto",
       "telefono",
+      "correo",
       "horarioDesde",
       "horarioHasta",
       "tolerancia",
@@ -760,7 +770,8 @@ export async function extraerPedido({
     `- IMPORTANTE — notas del cliente: si el PDF/correo tiene un bloque «Observaciones del cliente», «Observaciones», «Notas del cliente», «Comentarios del cliente», «Indicaciones», «Instrucciones» o viñetas bajo esos títulos (ej. «la piña que no esté muy madura», «aguacate NO muy maduro / enrriados»), DEBES volcarlas en notasGeneralesAlmacen (y/o observaciones). Esas notas son prioritarias frente a textos genéricos de vigencia, madurez del catálogo o horario de recepción.`,
     `- "ordenCompraHotel": interpreta cuál es el identificador de la orden de compra del hotel/cliente. El nombre del campo en el documento VARÍA (PO NUMBER, PO #, Purchase Order, Orden de compra, OC, Nº OC, Order No., Customer PO, etc.). Devuelve solo el código/número (ej. CUNMC0046026), no confundas con Customer Account #, fechas ni el título "PURCHASE ORDER". null solo si no hay ningún identificador de OC/PO.`,
     `- "rfc" solo si el mensaje/documento lo declara explícitamente; nunca lo infieras del nombre del cliente.`,
-    `- "direccion", "anden", "contacto", "telefono", "horarioDesde" y "horarioHasta" salen del correo, mensaje o PDF (Ship To, Deliver To, Enviar a, Andén, Dock, Contacto, Tel, hora de entrega, ventana de recepción, delivery window). Llénalos siempre que el dato aparezca; null solo si no está. No inventes ni uses un valor habitual que el documento no diga.`,
+    `- "direccion", "anden", "contacto", "telefono", "correo", "horarioDesde" y "horarioHasta" salen del correo, mensaje o PDF (Ship To, Deliver To, Enviar a, Andén, Dock, Contacto, Tel, Email, hora de entrega, ventana de recepción, delivery window). Llénalos siempre que el dato aparezca; null solo si no está. No inventes ni uses un valor habitual que el documento no diga.`,
+    `- "correo": si el mensaje trae De/From del cliente (ej. "Arduizur <asistadmin.kcc@krystal-hotels.com>"), usa ese mail. También vale el mailto: de la firma. No pongas el Para/To del proveedor.`,
     `- "horarioDesde"/"horarioHasta" (crítico): si el cuerpo dice "Hora de entrega 6:00 am", "8:00 AM – 2:00 PM", "de 8 a 14", "ventana de recepción…", DEBES llenarlos en 24h HH:MM. No los dejes null si aparecen. Una sola hora → solo horarioDesde.`,
     `- "regimen", "tolerancia", "sustituciones", "lote" y "temperatura": llénalos solo si el documento los declara. Si no aparecen, null.`,
     `- "unidad" siempre debe ser exactamente KGM, CJ o UN (o null) — nunca un texto libre como "kilos" o "kg".`,
@@ -899,7 +910,11 @@ export async function extraerPedido({
     "";
   const andenCabecera = parsed.anden?.trim() || "";
   const contactoCabecera = parsed.contacto?.trim() || "";
-  const telefonoCabecera = parsed.telefono?.trim() || "";
+  const telefonoCabecera = sanitizeTelefonoContacto(parsed.telefono);
+  const correoCabecera =
+    parsed.correo?.trim() ||
+    extractCorreoContactoDesdeTexto(sourceForEntrega) ||
+    "";
   const ventanaDesdeCabecera = horarioDesde || "";
   const ventanaHastaCabecera = horarioHasta || "";
   const notasCabecera =
@@ -934,6 +949,7 @@ export async function extraerPedido({
     "Direccion entrega": direccionCabecera,
     Anden: andenCabecera,
     "Telefono contacto": telefonoCabecera,
+    "Correo contacto": correoCabecera,
     Prioridad: "",
     "Notas generales": notasCabecera,
     _lineaIndex: index,
@@ -991,7 +1007,8 @@ export async function extraerPedido({
     direccion: direccionCabecera || null,
     anden: parsed.anden,
     contacto: parsed.contacto,
-    telefono: parsed.telefono,
+    telefono: telefonoCabecera || null,
+    correo: correoCabecera || null,
     horarioDesde,
     horarioHasta,
     tolerancia: parsed.tolerancia,

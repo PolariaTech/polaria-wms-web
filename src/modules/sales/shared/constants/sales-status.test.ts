@@ -26,9 +26,11 @@ describe("puedeEditarOrdenVenta", () => {
 });
 
 describe("puedeBorrarOrdenVenta", () => {
-  it("solo permite por_confirmar", () => {
+  it("solo permite por_confirmar (demás estados deshabilitados)", () => {
     expect(puedeBorrarOrdenVenta("por_confirmar")).toBe(true);
     expect(puedeBorrarOrdenVenta("confirmada")).toBe(false);
+    expect(puedeBorrarOrdenVenta("alistamiento")).toBe(false);
+    expect(puedeBorrarOrdenVenta("alistada")).toBe(false);
     expect(puedeBorrarOrdenVenta("cancelada")).toBe(false);
   });
 });

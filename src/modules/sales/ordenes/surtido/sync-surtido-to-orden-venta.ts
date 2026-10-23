@@ -223,6 +223,7 @@ function parsedToExtra(
     anden: parsed.anden,
     contacto: parsed.contacto,
     telefono: parsed.telefono,
+    correo: parsed.correo,
     turno: parsed.turno,
     horaSalida: parsed.horaSalida,
     chofer: parsed.chofer,
