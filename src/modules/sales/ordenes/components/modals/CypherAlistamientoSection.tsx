@@ -308,15 +308,14 @@ export function CypherAlistamientoSection({
                           const capturaLinea = payload?.lineas?.find(
                             (row) => row.indice === lineaIndex + 1,
                           );
-                          const fromCaptura =
-                            capturaLinea?.especificacion?.trim() || "";
-                          const fromNotas = notaCapturaForLinea(notasLineas, {
-                            nombre,
-                            cantidad: linea.cantidad_pedida,
-                            otId: hija.id || null,
-                            allowUnscoped: ots.length <= 1,
-                          });
-                          const comentario = fromCaptura || fromNotas || "—";
+                          // REQ-124: Especificación del pedido (notas_lineas), no del manuscrito.
+                          const comentario =
+                            notaCapturaForLinea(notasLineas, {
+                              nombre,
+                              cantidad: linea.cantidad_pedida,
+                              otId: hija.id || null,
+                              allowUnscoped: ots.length <= 1,
+                            }) || "—";
                           return (
                             <tr
                               key={linea.id_linea_orden_venta}

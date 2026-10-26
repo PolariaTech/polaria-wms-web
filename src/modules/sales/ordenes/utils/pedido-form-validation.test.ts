@@ -1,9 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   isFechaEntregaAtrasada,
+  isFechaEntregaIsoValida,
   isVentanaDesdeMayorQueHasta,
   validatePedidoCabecera,
 } from "./pedido-form-validation";
+
+describe("isFechaEntregaIsoValida (REQ-110)", () => {
+  it("acepta solo YYYY-MM-DD calendario", () => {
+    expect(isFechaEntregaIsoValida("2026-10-26")).toBe(true);
+    expect(isFechaEntregaIsoValida("")).toBe(false);
+    expect(isFechaEntregaIsoValida("10/26/2026")).toBe(false);
+    expect(isFechaEntregaIsoValida("2026-24-10")).toBe(false);
+    expect(isFechaEntregaIsoValida("2026-02-30")).toBe(false);
+  });
+});
 
 describe("isVentanaDesdeMayorQueHasta", () => {
   it("es falsa si falta desde o hasta", () => {
@@ -34,6 +45,31 @@ describe("validatePedidoCabecera", () => {
       validatePedidoCabecera({
         fechaEntrega: "",
         todayIso: "2026-09-14",
+        ventanaDesde: "",
+        ventanaHasta: "",
+      }),
+    ).toEqual({
+      message: "Ingresa la fecha de entrega.",
+      fields: ["fechaEntrega"],
+    });
+  });
+
+  it("rechaza fecha que no es ISO calendario", () => {
+    expect(
+      validatePedidoCabecera({
+        fechaEntrega: "10/26/2026",
+        todayIso: "2026-10-22",
+        ventanaDesde: "",
+        ventanaHasta: "",
+      }),
+    ).toEqual({
+      message: "Ingresa la fecha de entrega.",
+      fields: ["fechaEntrega"],
+    });
+    expect(
+      validatePedidoCabecera({
+        fechaEntrega: "2026-24-10",
+        todayIso: "2026-10-22",
         ventanaDesde: "",
         ventanaHasta: "",
       }),

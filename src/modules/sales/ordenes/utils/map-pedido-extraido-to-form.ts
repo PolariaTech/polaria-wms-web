@@ -28,6 +28,7 @@ import {
 } from "./pedido-form-validation";
 import {
   familiaUnidadCatalogo,
+  formatEspecificacionEnvase,
   resolveCantidadPrecioDesdeEnvase,
 } from "./resolve-cantidad-envase";
 import { sanitizeNotasGeneralesPedido } from "./texto-origen-pedido";
@@ -168,6 +169,8 @@ function resolveLineaCantidadPrecioEmpaque(params: {
   precioManual: boolean;
   packHint: string;
   autoPackFields: Array<"cajasInput" | "presentacion" | "cantidadInput">;
+  /** REQ-124: frase de envase para Especificación, o "". */
+  especificacionEnvase: string;
 } {
   const converted = resolveCantidadPrecioDesdeEnvase({
     textoOriginal: params.textoOriginal,
@@ -189,6 +192,7 @@ function resolveLineaCantidadPrecioEmpaque(params: {
         converted.precioUnitario != null || params.precioDoc != null,
       packHint: `Envase → ${converted.cantidad} ${params.unidadMedidaCatalogo || "u"} (${converted.frase})`,
       autoPackFields: ["cantidadInput"],
+      especificacionEnvase: formatEspecificacionEnvase(converted),
     };
   }
 
@@ -212,6 +216,7 @@ function resolveLineaCantidadPrecioEmpaque(params: {
     precioManual: params.precioDoc != null,
     packHint: empaque.packHint,
     autoPackFields: empaque.autoPackFields,
+    especificacionEnvase: "",
   };
 }
 
@@ -787,7 +792,8 @@ export function mapPedidoExtraidoToForm(params: {
           cantidadInput: qty.cantidadInput,
           cajasInput: qty.cajasInput,
           presentacion: qty.presentacion,
-          especificacion: linea.especificacion?.trim() || "",
+          especificacion:
+            qty.especificacionEnvase || linea.especificacion?.trim() || "",
           descuentoPctInput: "0",
           ivaPct: "0",
           kgDisponible: match.kgDisponible,
@@ -818,7 +824,8 @@ export function mapPedidoExtraidoToForm(params: {
         cantidadInput: qty.cantidadInput,
         cajasInput: qty.cajasInput,
         presentacion: qty.presentacion,
-        especificacion: linea.especificacion?.trim() || "",
+        especificacion:
+          qty.especificacionEnvase || linea.especificacion?.trim() || "",
         descuentoPctInput: "0",
         ivaPct: "0",
         kgDisponible: match.kgDisponible,
@@ -891,7 +898,8 @@ export function mapPedidoExtraidoToForm(params: {
         cantidadInput: qty.cantidadInput,
         cajasInput: qty.cajasInput,
         presentacion: qty.presentacion,
-        especificacion: linea.especificacion?.trim() || "",
+        especificacion:
+          qty.especificacionEnvase || linea.especificacion?.trim() || "",
         descuentoPctInput: "0",
         ivaPct: "0",
         kgDisponible: sugerencia.kgDisponible,
@@ -926,7 +934,8 @@ export function mapPedidoExtraidoToForm(params: {
       cantidadInput: qty.cantidadInput,
       cajasInput: qty.cajasInput,
       presentacion: qty.presentacion,
-      especificacion: linea.especificacion?.trim() || "",
+      especificacion:
+        qty.especificacionEnvase || linea.especificacion?.trim() || "",
       descuentoPctInput: "0",
       ivaPct: "0",
       kgDisponible: sugerencia?.kgDisponible ?? 0,

@@ -24,13 +24,30 @@ export const FECHA_ENTREGA_ATRASADA_WARNING =
 export const FECHA_ENTREGA_DEFAULT_WARNING =
   "Fecha por defecto (no leída del correo)";
 
+/** Fecha de entrega usable para confirmar: ISO calendario YYYY-MM-DD. */
+export function isFechaEntregaIsoValida(fechaEntrega: string): boolean {
+  const raw = fechaEntrega.trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const dt = new Date(year, month - 1, day);
+  return (
+    dt.getFullYear() === year &&
+    dt.getMonth() === month - 1 &&
+    dt.getDate() === day
+  );
+}
+
 export function validatePedidoCabecera(params: {
   fechaEntrega: string;
   todayIso: string;
   ventanaDesde: string;
   ventanaHasta: string;
 }): { message: string; fields: readonly string[] } | null {
-  if (!params.fechaEntrega.trim()) {
+  if (!isFechaEntregaIsoValida(params.fechaEntrega)) {
     return {
       message: "Ingresa la fecha de entrega.",
       fields: ["fechaEntrega"],

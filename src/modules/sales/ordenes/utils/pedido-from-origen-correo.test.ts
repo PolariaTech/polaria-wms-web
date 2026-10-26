@@ -85,4 +85,24 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
     expect(pedido.horarioDesde).toBe("08:00");
     expect(pedido.horarioHasta).toBe("14:00");
   });
+
+  it("acepta Fecha MM/DD BirchStreet en origen_correo", () => {
+    const pedido = buildPedidoExtraidoFromOrigenCorreo({
+      origenCorreo: [
+        {
+          Fecha: "10/24/2026",
+          Cantidad: 1,
+          Producto: "Aguacate Hass",
+          "Numero pedido": "CUNHI0101274",
+          "Ventana desde": "07:00",
+          "Ventana hasta": "13:00",
+        },
+      ],
+      origenTexto:
+        "From: bss_system@birchstreet.net\nDelivery date: 10/24/2026",
+      hoyISO: "2026-10-22",
+    });
+
+    expect(pedido.fechaEntrega).toBe("2026-10-24");
+  });
 });

@@ -269,3 +269,60 @@ export function resolveCantidadPrecioDesdeEnvase(params: {
     frase: parsed.frase,
   };
 }
+
+function nombreEnvaseDesdeFrase(frase: string): string {
+  const f = quitarAcentos(frase);
+  if (/\bgalon(?:es)?\b|\bgal\.?\b/.test(f)) return "galón";
+  if (/\bcubeta(?:s)?\b/.test(f)) return "cubeta";
+  if (/\bbidon(?:es)?\b/.test(f)) return "bidón";
+  if (/\bgarrafa(?:s)?\b/.test(f)) return "garrafa";
+  if (/\bbotella(?:s)?\b/.test(f)) return "botella";
+  if (/\bcaja(?:s)?\b|\bcja\.?\b/.test(f)) return "caja";
+  if (/\bsaco(?:s)?\b/.test(f)) return "saco";
+  if (/\bbolsa(?:s)?\b/.test(f)) return "bolsa";
+  if (/\benvase(?:s)?\b/.test(f)) return "envase";
+  return "envase";
+}
+
+function formatContenido(n: number): string {
+  const rounded = roundQty(n);
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
+/**
+ * REQ-124: frase legible para Especificación, ej. "2x galón de 5 litros".
+ */
+export function formatEspecificacionEnvase(
+  resolved: Pick<
+    CantidadEnvaseResuelta,
+    "envases" | "contenidoPorEnvase" | "familia" | "frase"
+  >,
+): string {
+  const nombre = nombreEnvaseDesdeFrase(resolved.frase);
+  const contenido = formatContenido(resolved.contenidoPorEnvase);
+  const unidad =
+    resolved.familia === "ltr"
+      ? Number(contenido) === 1
+        ? "litro"
+        : "litros"
+      : resolved.familia === "kg"
+        ? "kg"
+        : Number(contenido) === 1
+          ? "pieza"
+          : "piezas";
+  return `${resolved.envases}x ${nombre} de ${contenido} ${unidad}`;
+}
+
+/**
+ * Especificación de línea: envase convertido (REQ-124) gana;
+ * si no, lo que Mateo extrajo del pedido.
+ */
+export function resolveEspecificacionPedidoLinea(params: {
+  especificacionIa: string | null | undefined;
+  envase: CantidadEnvaseResuelta | null | undefined;
+}): string {
+  if (params.envase) {
+    return formatEspecificacionEnvase(params.envase);
+  }
+  return params.especificacionIa?.trim() || "";
+}

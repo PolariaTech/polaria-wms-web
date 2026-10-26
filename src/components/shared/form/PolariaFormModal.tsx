@@ -11,6 +11,10 @@ import {
 } from "react";
 import { cn } from "@/lib/utils/cn";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
+import {
+  CYPHER_DOCK_RESERVE_CLASS,
+  CYPHER_DOCK_RIGHT_CLASS,
+} from "@/modules/sales/ordenes/constants/cypher-layout";
 
 export interface PolariaFormModalProps {
   open: boolean;
@@ -258,9 +262,9 @@ export function PolariaFormModal({
   );
 
   const dockLeft = layout === "dock-left";
-  /** Debe coincidir con `CYPHER_PANEL_WIDTH` / `CYPHER_DOCK_*` del drawer. */
-  const dockRightReserve = "pr-[min(100vw,38.5rem)]";
-  const dockBackdropRight = "right-[min(100vw,38.5rem)]";
+  /** Debe coincidir con Cypher (REQ-121: tramos tablet / laptop / amplio). */
+  const dockRightReserve = CYPHER_DOCK_RESERVE_CLASS;
+  const dockBackdropRight = CYPHER_DOCK_RIGHT_CLASS;
 
   return (
     <div

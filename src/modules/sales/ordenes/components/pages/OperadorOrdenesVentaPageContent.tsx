@@ -864,13 +864,13 @@ export function OperadorOrdenesVentaPageContent({
               }
         }
         onRowClick={(row) => {
-          // OV por_confirmar: Mateo + formulario. Cypher solo con +.
+          // OV por_confirmar: formulario + Cypher juntos.
           if (!inspect && row.estado === "por_confirmar") {
             const id = row.idOrdenVenta;
             setDetalleId(null);
-            setCypherId(null);
             setEditingId(id);
             setIsCreateOpen(true);
+            setCypherId(id);
             return;
           }
           setCypherId(null);
@@ -878,7 +878,7 @@ export function OperadorOrdenesVentaPageContent({
         }}
         getRowAriaLabel={(row) =>
           row.estado === "por_confirmar"
-            ? `Revisar pedido ${row.venta}`
+            ? `Revisar pedido ${row.venta} con Cypher`
             : `Ver detalle de venta ${row.venta}`
         }
         tableClassName={ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS}
@@ -1002,7 +1002,17 @@ export function OperadorOrdenesVentaPageContent({
                     next.add(cypherId);
                     return next;
                   });
+                  // Cerrar Cypher + formulario/detalle de esa OV (no dejar Editar pedido huérfano).
+                  const borradaId = cypherId;
                   setCypherId(null);
+                  setCompanionOtPicker(null);
+                  if (editingId === borradaId) {
+                    setEditingId(null);
+                    setIsCreateOpen(false);
+                  }
+                  if (detalleId === borradaId) {
+                    setDetalleId(null);
+                  }
                   void reload();
                 } finally {
                   setBusyAction(null);

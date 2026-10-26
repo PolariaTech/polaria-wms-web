@@ -320,6 +320,9 @@ export function OrdenVentaCypherDrawer({
       };
     }
 
+    // REQ-108: al cerrar Cypher no dejar el confirm de borrar pegado.
+    setConfirmBorrarOpen(false);
+    setBorrarError(null);
     setPanelEntered(false);
     const timeout = window.setTimeout(() => {
       setPanelMounted(false);
@@ -342,6 +345,10 @@ export function OrdenVentaCypherDrawer({
       // Conservar contenido mientras cierra (animación); se limpia al abrir otra OV.
       return;
     }
+
+    // REQ-108: al cambiar de OV, el pop-up de borrar de la anterior no debe reaparecer.
+    setConfirmBorrarOpen(false);
+    setBorrarError(null);
 
     let cancelled = false;
     setIsLoading(true);
@@ -666,6 +673,8 @@ export function OrdenVentaCypherDrawer({
           "pointer-events-auto absolute inset-y-0 right-0 flex h-full max-h-full min-w-0 flex-col overflow-hidden",
           "border-l border-t border-polaria-t-20 bg-polaria-bg shadow-[-20px_0_40px_rgba(0,0,0,0.35)]",
           "box-border will-change-transform",
+          /* Container queries: el contenido responde al ancho del panel, no al viewport. */
+          "@container/cypher",
           "transition-transform duration-[320ms] ease-out",
           CYPHER_PANEL_WIDTH_CLASS,
           panelEntered ? "translate-x-0" : "translate-x-full",
@@ -709,7 +718,7 @@ export function OrdenVentaCypherDrawer({
 
           <nav
             aria-label="Etapas de la orden"
-            className="flex gap-0.5 overflow-x-auto px-2 sm:gap-1 sm:px-3"
+            className="flex flex-wrap gap-x-0.5 gap-y-0 px-2 @md/cypher:gap-x-1 @md/cypher:px-3"
           >
             {CYPHER_STAGES.map((stage) => {
               const active = activeStage === stage.id;
@@ -718,9 +727,11 @@ export function OrdenVentaCypherDrawer({
                   key={stage.id}
                   type="button"
                   aria-current={active ? "true" : undefined}
+                  title={`${stage.num} ${stage.label}`}
                   onClick={() => scrollToStage(stage.id)}
                   className={cn(
-                    "relative flex h-9 shrink-0 items-center gap-1 border-b-2 px-2 polaria-text-caption font-bold transition sm:h-10 sm:gap-1.5 sm:px-2.5 sm:polaria-text-body-sm",
+                    "relative flex h-9 max-w-full items-center gap-1 border-b-2 px-1.5 polaria-text-caption font-bold transition",
+                    "@md/cypher:h-10 @md/cypher:gap-1.5 @md/cypher:px-2.5 @md/cypher:polaria-text-body-sm",
                     active
                       ? "border-polaria-teal text-polaria-w"
                       : "border-transparent text-polaria-w-50 hover:text-polaria-w",
@@ -728,13 +739,13 @@ export function OrdenVentaCypherDrawer({
                 >
                   <span
                     className={cn(
-                      "tracking-[0.08em]",
+                      "shrink-0 tracking-[0.08em]",
                       active ? "text-polaria-teal" : "text-polaria-w-20",
                     )}
                   >
                     {stage.num}
                   </span>
-                  <span className="whitespace-nowrap">{stage.label}</span>
+                  <span className="truncate">{stage.label}</span>
                 </button>
               );
             })}
@@ -770,7 +781,7 @@ export function OrdenVentaCypherDrawer({
 
               <section id="cypher-stage-correo" className="scroll-mt-4 pt-8">
                 <StageHeading num="01" title="Recepción del correo" />
-                <div className="mt-3 grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3.5 gap-y-2 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3.5">
+                <div className="mt-3 grid grid-cols-1 gap-y-2.5 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-3 py-3 @sm/cypher:grid-cols-[6rem_minmax(0,1fr)] @sm/cypher:gap-x-3.5 @sm/cypher:gap-y-2 @sm/cypher:px-4 @sm/cypher:py-3.5">
                   <MetaRow label="REMITENTE">
                     {correoChrome.from || "—"}
                   </MetaRow>
@@ -858,7 +869,7 @@ export function OrdenVentaCypherDrawer({
                         </>
                       )}
                     </p>
-                    <div className="mt-4 grid grid-cols-3 gap-2.5">
+                    <div className="mt-4 grid grid-cols-1 gap-2.5 @sm/cypher:grid-cols-2 @lg/cypher:grid-cols-3">
                       {activeOtPicker.hijas.map((hija) => {
                         const selected =
                           activeOtPicker.selectedId === hija.id;
@@ -874,7 +885,8 @@ export function OrdenVentaCypherDrawer({
                             title={hija.label}
                             onClick={() => activeOtPicker.onSelect(hija.id)}
                             className={cn(
-                              "aspect-square flex min-h-0 flex-col items-center justify-center gap-1.5 rounded-xl border px-2.5 py-3 text-center transition",
+                              "flex min-h-[4.75rem] flex-col items-center justify-center gap-1.5 rounded-xl border px-2.5 py-3 text-center transition",
+                              "@sm/cypher:aspect-square @sm/cypher:min-h-0",
                               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
                               selected
                                 ? "border-polaria-teal bg-polaria-t-20 shadow-[0_0_0_1px_var(--teal)]"
@@ -901,7 +913,7 @@ export function OrdenVentaCypherDrawer({
                 ) : stageReached(estado, "confirmacion") ? (
                   <>
                     <StageHeading num="02" title="Confirmación del pedido" />
-                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="mt-3 grid grid-cols-1 gap-3 @md/cypher:grid-cols-3">
                       <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
                         <p className="polaria-text-caption text-polaria-w-20">
                           Cliente
@@ -1093,9 +1105,9 @@ export function OrdenVentaCypherDrawer({
                         return (
                           <li
                             key={entry.id}
-                            className="grid grid-cols-[5.5rem_1.125rem_minmax(0,1fr)] gap-3"
+                            className="grid grid-cols-[1.125rem_minmax(0,1fr)] gap-2.5 @md/cypher:grid-cols-[5.5rem_1.125rem_minmax(0,1fr)] @md/cypher:gap-3"
                           >
-                            <div className="pt-0.5 text-right">
+                            <div className="hidden pt-0.5 text-right @md/cypher:block">
                               <p className="polaria-text-body-sm font-bold text-polaria-w whitespace-nowrap">
                                 {timePart || stamped}
                               </p>
@@ -1124,7 +1136,13 @@ export function OrdenVentaCypherDrawer({
                               />
                             </div>
                             <div className="min-w-0 pb-5">
-                              <div className="flex flex-wrap items-start gap-2">
+                              <p className="mb-1 polaria-text-caption text-polaria-w-50 @md/cypher:hidden">
+                                <span className="font-bold text-polaria-w">
+                                  {timePart || stamped}
+                                </span>
+                                {datePart ? ` · ${datePart}` : null}
+                              </p>
+                              <div className="flex flex-col items-start gap-1.5">
                                 <span
                                   className={cn(
                                     "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 polaria-text-caption font-semibold",
@@ -1133,7 +1151,7 @@ export function OrdenVentaCypherDrawer({
                                 >
                                   {autorBadge}
                                 </span>
-                                <p className="min-w-0 flex-1 whitespace-pre-wrap polaria-text-body-sm text-polaria-w">
+                                <p className="min-w-0 w-full whitespace-pre-wrap break-words polaria-text-body-sm text-polaria-w">
                                   {entry.mensaje}
                                 </p>
                               </div>
@@ -1162,7 +1180,7 @@ export function OrdenVentaCypherDrawer({
         </div>
 
         {!inspect && row ? (
-          <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t border-polaria-t-20 bg-polaria-bg/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:gap-2.5 sm:px-4">
+          <footer className="grid shrink-0 grid-cols-2 gap-2 border-t border-polaria-t-20 bg-polaria-bg/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] @md/cypher:gap-2.5 @md/cypher:px-4">
             <button
               type="button"
               title={puedeEditar ? "Editar" : bloqueadoHastaConfirmar}
@@ -1172,8 +1190,8 @@ export function OrdenVentaCypherDrawer({
                 onEdit();
               }}
               className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-lg border border-polaria-t-20 px-2.5 sm:h-10 sm:gap-2 sm:px-3",
-                "polaria-text-caption font-bold text-polaria-teal transition hover:bg-polaria-t-08 sm:polaria-text-body-sm",
+                "inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-polaria-t-20 px-2.5 @md/cypher:h-10 @md/cypher:gap-2 @md/cypher:px-3",
+                "polaria-text-caption font-bold text-polaria-teal transition hover:bg-polaria-t-08 @md/cypher:polaria-text-body-sm",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
               )}
@@ -1190,8 +1208,8 @@ export function OrdenVentaCypherDrawer({
                 onPrint();
               }}
               className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-lg border border-polaria-t-20 px-2.5 sm:h-10 sm:gap-2 sm:px-3",
-                "polaria-text-caption font-bold text-polaria-teal transition hover:bg-polaria-t-08 sm:polaria-text-body-sm",
+                "inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-polaria-t-20 px-2.5 @md/cypher:h-10 @md/cypher:gap-2 @md/cypher:px-3",
+                "polaria-text-caption font-bold text-polaria-teal transition hover:bg-polaria-t-08 @md/cypher:polaria-text-body-sm",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
               )}
@@ -1208,8 +1226,8 @@ export function OrdenVentaCypherDrawer({
                 onPreview();
               }}
               className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-lg border border-polaria-t-20 px-2.5 sm:h-10 sm:gap-2 sm:px-3",
-                "polaria-text-caption font-bold text-polaria-teal transition hover:bg-polaria-t-08 sm:polaria-text-body-sm",
+                "inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-polaria-t-20 px-2.5 @md/cypher:h-10 @md/cypher:gap-2 @md/cypher:px-3",
+                "polaria-text-caption font-bold text-polaria-teal transition hover:bg-polaria-t-08 @md/cypher:polaria-text-body-sm",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
               )}
@@ -1233,8 +1251,8 @@ export function OrdenVentaCypherDrawer({
                   setConfirmBorrarOpen(true);
                 }}
                 className={cn(
-                  "inline-flex h-9 items-center gap-1.5 rounded-lg border border-polaria-danger-border px-2.5 sm:ml-auto sm:h-10 sm:gap-2 sm:px-3",
-                  "polaria-text-caption font-bold text-polaria-danger transition hover:bg-polaria-danger-bg sm:polaria-text-body-sm",
+                  "inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-polaria-danger-border px-2.5 @md/cypher:h-10 @md/cypher:gap-2 @md/cypher:px-3",
+                  "polaria-text-caption font-bold text-polaria-danger transition hover:bg-polaria-danger-bg @md/cypher:polaria-text-body-sm",
                   "disabled:cursor-not-allowed disabled:opacity-50",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-danger",
                 )}

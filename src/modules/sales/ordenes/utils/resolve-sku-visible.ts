@@ -77,7 +77,7 @@ export function resolveSkuVisible(input: {
 }
 
 /**
- * Texto del producto tal cual vino en el origen (para caption «Escrito por el cliente»).
+ * Texto del producto tal cual vino en el origen (para caption «Solicitado»).
  * Prioridad: match_producto.textoCliente → Producto del origen (por nombre/qty).
  */
 export function resolveTextoProductoOrigen(input: {

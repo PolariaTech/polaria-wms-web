@@ -219,6 +219,7 @@ describe("mapPedidoExtraidoToForm", () => {
     expect(mapped.lineas[0]?.unidadMedida).toBe("LTR");
     expect(mapped.lineas[0]?.precioUnitario).toBe(70);
     expect(mapped.lineas[0]?.packHint).toMatch(/Envase/i);
+    expect(mapped.lineas[0]?.especificacion).toBe("1x galón de 5 litros");
   });
 
   it("auto-asigna cuando la sugerencia es inequívoca", () => {
