@@ -24,29 +24,17 @@ function textsLooselyEqual(a: string, b: string): boolean {
 }
 
 /**
- * Incidencias (bloque inferior) ≠ Especificación (columna por producto).
- * Si la IA metió el mismo texto en ambos, no contaminar la columna.
+ * Especificación viene del pedido (Mateo / OV), no del manuscrito de la hoja.
+ * REQ-124: al escanear, ignorar lo escrito a mano en esa columna.
  */
 export function resolveEspecificacionLinea(input: {
   impresa: string;
   manuscrita?: string | null;
   incidencias: string;
 }): string {
-  const printed = input.impresa.trim();
-  const handwritten = input.manuscrita?.trim() ?? "";
-  if (!handwritten) return printed;
-
-  const incidencias = input.incidencias.trim();
-  if (incidencias && textsLooselyEqual(handwritten, incidencias)) {
-    return printed;
-  }
-  if (
-    incidencias.length >= 12 &&
-    normalizeLooseText(handwritten).includes(normalizeLooseText(incidencias))
-  ) {
-    return printed;
-  }
-  return handwritten;
+  void input.manuscrita;
+  void input.incidencias;
+  return input.impresa.trim();
 }
 
 /**

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   familiaUnidadCatalogo,
+  formatEspecificacionEnvase,
   parseEnvaseContenidoDesdeTexto,
   resolveCantidadPrecioDesdeEnvase,
+  resolveEspecificacionPedidoLinea,
 } from "./resolve-cantidad-envase";
 
 describe("familiaUnidadCatalogo", () => {
@@ -113,5 +115,42 @@ describe("resolveCantidadPrecioDesdeEnvase", () => {
       cantidad: 60,
       precioUnitario: 30,
     });
+  });
+});
+
+describe("formatEspecificacionEnvase / resolveEspecificacionPedidoLinea", () => {
+  it("formatea 2x galón de 5 litros", () => {
+    const converted = resolveCantidadPrecioDesdeEnvase({
+      textoOriginal: "Jugo de Limón fresco galón de 5 litros",
+      unidadMedidaCatalogo: "LTR",
+      cantidadRaw: 2,
+      precioDoc: 700,
+    });
+    expect(converted).not.toBeNull();
+    expect(formatEspecificacionEnvase(converted!)).toBe("2x galón de 5 litros");
+  });
+
+  it("prioriza envase sobre especificación IA", () => {
+    const converted = resolveCantidadPrecioDesdeEnvase({
+      textoOriginal: "cubeta de 10 litros",
+      unidadMedidaCatalogo: "LTR",
+      cantidadRaw: 1,
+      precioDoc: 720,
+    });
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "1x cubeta d",
+        envase: converted,
+      }),
+    ).toBe("1x cubeta de 10 litros");
+  });
+
+  it("usa IA si no hay envase", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "sin penacho",
+        envase: null,
+      }),
+    ).toBe("sin penacho");
   });
 });

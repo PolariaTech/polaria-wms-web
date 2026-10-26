@@ -97,7 +97,7 @@ export function CypherDatosFiscalesSection({
   }
 
   return (
-    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="mt-3 grid grid-cols-1 gap-2 @md/cypher:grid-cols-2">
       <FiscalField label="Razón social" value={ficha.razonSocial} />
       <FiscalField label="RFC" value={ficha.rfc} />
       <FiscalField label="Régimen" value={ficha.regimen} />

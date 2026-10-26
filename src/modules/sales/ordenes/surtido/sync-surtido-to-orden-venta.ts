@@ -167,32 +167,14 @@ function buildSurtidoNotasAlmacen(
 }
 
 function buildNotasLineasFromSurtido(
-  payload: OrdenSurtidoCapturaPayload,
-  productosByIndex: Map<number, string>,
+  _payload: OrdenSurtidoCapturaPayload,
+  _productosByIndex: Map<number, string>,
 ): string {
-  const lines: string[] = [];
-  for (const linea of payload.lineas ?? []) {
-    // Solo especificación de producto → columna Especificación del PDF.
-    // prep / código de incidencia / nota de fila no van aquí (no son especificación).
-    const espec = linea.especificacion?.trim();
-    if (!espec) continue;
-    const incidencias = (
-      payload.campos?.incidencias ||
-      payload.campos?.Incidencias ||
-      ""
-    ).trim();
-    if (
-      incidencias &&
-      espec.toLowerCase().replace(/\s+/g, " ") ===
-        incidencias.toLowerCase().replace(/\s+/g, " ")
-    ) {
-      continue;
-    }
-    const producto =
-      productosByIndex.get(linea.indice)?.trim() || `Línea ${linea.indice}`;
-    lines.push(`${producto}: ${espec}`);
-  }
-  return lines.join("\n");
+  // REQ-124: la especificación no se lee del manuscrito de la hoja;
+  // se conserva la del pedido (Mateo / OV). No escribir notas_lineas desde captura.
+  void _payload;
+  void _productosByIndex;
+  return "";
 }
 
 function parsedToExtra(

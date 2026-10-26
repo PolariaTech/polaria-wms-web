@@ -204,7 +204,7 @@ export function CypherAlistadoSection({
 
   return (
     <div className="mt-3 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3.5">
+      <div className="flex flex-col gap-2 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-3 py-3 @md/cypher:flex-row @md/cypher:flex-wrap @md/cypher:items-center @md/cypher:justify-between @md/cypher:px-4 @md/cypher:py-3.5">
         <div className="flex min-w-0 items-center gap-3">
           <span
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-polaria-teal bg-polaria-t-20 text-polaria-teal"
@@ -217,77 +217,68 @@ export function CypherAlistadoSection({
           </p>
         </div>
         {cerradoAt ? (
-          <p className="polaria-text-caption text-polaria-w-50">
+          <p className="pl-10 polaria-text-caption text-polaria-w-50 @md/cypher:pl-0">
             {formatDateTime(cerradoAt)}
           </p>
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[20rem] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-polaria-w-08">
-                <th className="px-3 py-2.5 polaria-text-caption font-bold tracking-wide text-polaria-w-20 sm:px-4">
-                  OT
-                </th>
-                <th className="px-3 py-2.5 polaria-text-caption font-bold tracking-wide text-polaria-w-20">
-                  DESTINO
-                </th>
-                <th className="px-3 py-2.5 polaria-text-caption font-bold tracking-wide text-polaria-w-20">
-                  FIRMÓ LA HOJA
-                </th>
-                <th className="px-3 py-2.5 polaria-text-caption font-bold tracking-wide text-polaria-w-20 sm:px-4">
-                  FECHA
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filas.map((fila) => (
-                <tr
-                  key={fila.key}
-                  className="border-b border-polaria-w-08 last:border-b-0"
-                >
-                  <td className="px-3 py-3 polaria-text-body-sm font-semibold text-polaria-teal sm:px-4">
-                    {fila.otLabel}
-                  </td>
-                  <td className="px-3 py-3 polaria-text-body-sm text-polaria-w">
-                    {fila.destino}
-                  </td>
-                  <td
-                    className={cn(
-                      "px-3 py-3 text-polaria-w",
-                      fila.despacho !== "—"
-                        ? "font-serif text-base italic"
-                        : "polaria-text-caption text-polaria-w-50",
-                    )}
-                  >
-                    {fila.despacho}
-                  </td>
-                  <td className="px-3 py-3 polaria-text-caption text-polaria-w sm:px-4">
-                    {fila.fecha ? formatDateTime(fila.fecha) : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Tarjetas apiladas: en panel angosto la tabla de 4 cols se aplastaba. */}
+      <ul className="space-y-2.5">
+        {filas.map((fila) => (
+          <li
+            key={fila.key}
+            className="rounded-2xl border border-polaria-t-20 bg-polaria-t-08 px-3 py-3"
+          >
+            <p className="polaria-text-caption font-bold tracking-wide text-polaria-teal">
+              {fila.otLabel}
+            </p>
+            <dl className="mt-2.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2">
+              <dt className="polaria-text-caption font-bold tracking-wide text-polaria-w-20">
+                DESTINO
+              </dt>
+              <dd className="min-w-0 break-words polaria-text-body-sm text-polaria-w">
+                {fila.destino}
+              </dd>
+              <dt className="polaria-text-caption font-bold tracking-wide text-polaria-w-20">
+                FIRMÓ
+              </dt>
+              <dd
+                className={cn(
+                  "min-w-0 break-words text-polaria-w",
+                  fila.despacho !== "—"
+                    ? "font-serif text-base italic"
+                    : "polaria-text-caption text-polaria-w-50",
+                )}
+              >
+                {fila.despacho}
+              </dd>
+              <dt className="polaria-text-caption font-bold tracking-wide text-polaria-w-20">
+                FECHA
+              </dt>
+              <dd className="min-w-0 break-words polaria-text-caption text-polaria-w">
+                {fila.fecha ? formatDateTime(fila.fecha) : "—"}
+              </dd>
+            </dl>
+          </li>
+        ))}
+      </ul>
 
       {resumenLineas ? (
         <div
           className={cn(
             "grid gap-2.5",
+            /* Container del panel Cypher (~20–38rem), no el viewport. */
             resumenLineas.parciales > 0
-              ? "grid-cols-1 sm:grid-cols-3"
-              : "grid-cols-1 sm:grid-cols-2",
+              ? "grid-cols-1 @xl/cypher:grid-cols-3"
+              : "grid-cols-1 @md/cypher:grid-cols-2",
           )}
         >
           <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-3 py-3">
             <p className="polaria-text-caption font-bold tracking-[0.12em] text-polaria-w-20">
               SURTIDAS COMPLETAS
             </p>
-            <p className="mt-2 flex items-baseline gap-1.5">
+            <p className="mt-2 flex flex-wrap items-baseline gap-1.5">
               <span className="text-2xl font-bold tabular-nums text-polaria-w">
                 {resumenLineas.completas}
               </span>

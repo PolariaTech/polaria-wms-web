@@ -48,6 +48,29 @@ describe("extractEntregaDesdeTexto", () => {
     expect(got.fechaFrase).toMatch(/21\/10\/2026/);
   });
 
+  it("lee Delivery date MM/DD BirchStreet", () => {
+    const got = extractEntregaDesdeTexto(
+      "From: bss_system@birchstreet.net\nDelivery date: 10/24/2026\nPO NUMBER: CUNHI0101274",
+      "2026-10-22",
+    );
+    expect(got.fechaIso).toBe("2026-10-24");
+  });
+
+  it("REQ-119: Entrega: gana sobre Enviado/fecha del correo", () => {
+    const got = extractEntregaDesdeTexto(
+      [
+        "Enviado: jueves, 22 de octubre de 2026 19:46",
+        "Cliente: Restaurante Marbella",
+        "Recibe: Luis Garrido",
+        "Entrega: viernes, 23 de octubre de 2026",
+        "Dirección: Puerto Juárez",
+      ].join("\n"),
+      "2026-10-22",
+    );
+    expect(got.fechaIso).toBe("2026-10-23");
+    expect(got.fechaFrase).toMatch(/23 de octubre/i);
+  });
+
   it("lee '27 DE AGOSTO DE 2026' y hora 6:00 am", () => {
     const got = extractEntregaDesdeTexto(
       [

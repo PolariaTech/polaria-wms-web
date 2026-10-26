@@ -113,7 +113,8 @@ describe("applySurtidoToPrintData", () => {
       ],
     });
 
-    expect(updated.lineas[0]?.especificacion).toBe("sin hielo");
+    // REQ-124: manuscrito de Especificación no pisa lo impreso (aquí vacío).
+    expect(updated.lineas[0]?.especificacion).toBe("");
     expect(updated.lineas[0]?.cantidadPreparada).toBe("4.8 kg");
     expect(updated.lineas[0]?.codigoIncidencia).toBe("A");
     expect(updated.lineas[0]?.alisto).toBe(true);
@@ -121,7 +122,7 @@ describe("applySurtidoToPrintData", () => {
     expect(updated.surtido?.checks.turnoPm).toBe(true);
   });
 
-  it("no mete el texto de Incidencias en la columna Especificación", () => {
+  it("conserva Especificación impresa e ignora manuscrito de la hoja", () => {
     const updated = applySurtidoToPrintData(
       {
         ...BASE,
@@ -139,7 +140,7 @@ describe("applySurtidoToPrintData", () => {
         lineas: [
           {
             indice: 1,
-            especificacion: "Faltó media caja en andén 2",
+            especificacion: "escrito a mano en hoja",
           },
         ],
       },
@@ -151,7 +152,7 @@ describe("applySurtidoToPrintData", () => {
     );
   });
 
-  it("no pone en Incidencias lo que es especificación de producto", () => {
+  it("no pone en Incidencias lo que es especificación de producto impresa", () => {
     const updated = applySurtidoToPrintData(
       {
         ...BASE,
@@ -166,7 +167,7 @@ describe("applySurtidoToPrintData", () => {
       {
         campos: { incidencias: "sin hielo" },
         checks: {},
-        lineas: [{ indice: 1, especificacion: "sin hielo" }],
+        lineas: [{ indice: 1, especificacion: null }],
       },
     );
 

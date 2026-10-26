@@ -4,6 +4,10 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useId, type ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
+import {
+  CYPHER_DOCK_RESERVE_CLASS,
+  CYPHER_DOCK_RIGHT_CLASS,
+} from "@/modules/sales/ordenes/constants/cypher-layout";
 
 const CONFIRM_STACK_CLASS = {
   base: "z-[100]",
@@ -51,8 +55,8 @@ export function PolariaConfirmDialog({
   const titleId = useId();
   const descriptionId = useId();
   const dockLeft = layout === "dock-left";
-  const dockRightReserve = "pr-[min(100vw,38.5rem)]";
-  const dockBackdropRight = "right-[min(100vw,38.5rem)]";
+  const dockRightReserve = CYPHER_DOCK_RESERVE_CLASS;
+  const dockBackdropRight = CYPHER_DOCK_RIGHT_CLASS;
 
   useEffect(() => {
     if (!open) return;
@@ -74,7 +78,8 @@ export function PolariaConfirmDialog({
   return (
     <div
       className={cn(
-        "fixed inset-0 flex overflow-hidden",
+        // auto: si el padre (p. ej. Cypher) tiene pointer-events-none, sin esto Conservar/Borrar no clicable.
+        "pointer-events-auto fixed inset-0 flex overflow-hidden",
         dockLeft
           ? cn(
               "items-stretch justify-start pt-[var(--polaria-shell-top,4.75rem)]",

@@ -158,7 +158,7 @@ const SURTIDO_SCHEMA = {
           especificacion: {
             ...NULLABLE_STRING,
             description:
-              "Texto manuscrito SOLO en la columna Especificación de esa misma fila (misma banda horizontal del producto). null si vacío. NUNCA uses el bloque Incidencias ni muevas el texto a otra fila.",
+              "Siempre null. La columna Especificación NO se lee del manuscrito; se conserva la impresa del pedido. No copies texto a mano de esa columna.",
           },
           cantidadPreparada: NULLABLE_STRING,
           codigoIncidencia: {
@@ -558,7 +558,8 @@ export function remapLineasPorProducto(
     };
     merged.set(indice, {
       indice,
-      especificacion: row.especificacion ?? prev?.especificacion ?? null,
+      // REQ-124: no persistir especificación manuscrita.
+      especificacion: null,
       cantidadPreparada:
         row.cantidadPreparada ?? prev?.cantidadPreparada ?? null,
       codigoIncidencia: row.codigoIncidencia ?? prev?.codigoIncidencia ?? null,
@@ -642,7 +643,7 @@ function normalizePayload(
       return {
         indice: Math.floor(indice),
         productoImpreso: asNullableString(row.productoImpreso),
-        especificacion: asNullableString(row.especificacion),
+        especificacion: null,
         cantidadPreparada: asNullableString(row.cantidadPreparada),
         codigoIncidencia: asNullableString(row.codigoIncidencia),
         nota: asNullableString(row.nota),
@@ -732,9 +733,7 @@ export async function extraerSurtidoDesdeFoto(input: {
           "   - Devuelve UNA linea por CADA producto del snapshot (también parciales / filas sin marca).\n" +
           "   - Usa el # y el nombre de producto del snapshot.\n" +
           "   - productoImpreso = nombre impreso de la fila donde VES el manuscrito/checkbox.\n" +
-          "   - especificacion = texto manuscrito en la columna Especificación de ESA misma fila " +
-          "(misma banda horizontal). Si «grandes» está a la altura de BLUE BERRY → indice de BLUE BERRY, " +
-          "NO de la fila de abajo.\n" +
+          "   - especificacion = SIEMPRE null (no leer manuscrito de esa columna; se conserva lo impreso).\n" +
           "   - Orden de columnas en cada fila: # | Producto | Especificación | Cant. | Alistó | Revisó.\n" +
           "   - alisto = SOLO el cuadrito ALISTÓ (penúltima columna, izquierda del par). " +
           "reviso = SOLO el cuadrito REVISÓ (última columna, derecha del par).\n" +
@@ -759,7 +758,7 @@ export async function extraerSurtidoDesdeFoto(input: {
               "Llena cabecera, checks y lineas con TODO lo manuscrito y marcado. " +
               "Incluye UNA linea por cada producto del snapshot (parciales: filas sin marca → alisto=false, reviso=false). " +
               "Para cada linea incluye productoImpreso del snapshot de esa fila. " +
-              "Alinea especificacion y checkboxes a la fila correcta por posición vertical. " +
+              "especificacion siempre null. Alinea checkboxes a la fila correcta por posición vertical. " +
               "Alistó y Revisó son dos cuadritos distintos: no copies uno al otro. " +
               "Prioridad máxima: cada manuscrito debe ir al campo de SU caja/etiqueta; " +
               "si dudas entre dos campos, deja null/false en el dudoso (mejor vacío que mal colocado).",

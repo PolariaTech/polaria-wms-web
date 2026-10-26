@@ -97,7 +97,12 @@ export function PolariaDateInputDdMm({
           placeholder="DD/MM/AAAA"
           disabled={disabled}
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setText(next);
+            // REQ-110: vaciar el estado del form al borrar (no esperar blur).
+            if (!next.trim()) onChange("");
+          }}
           onBlur={() => commitText(text)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {

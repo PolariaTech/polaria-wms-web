@@ -22,6 +22,7 @@ import {
   collectOrdenesCompraCliente,
   countOrdenesTrabajo,
 } from "../../ordenes/utils/orden-venta-tabla-meta";
+import { buildNotasLineasText } from "../../ordenes/utils/build-orden-venta-captura-observaciones";
 import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/materialize-ov-desde-origen";
 import {
   serializeOrigenArchivos,
@@ -1550,12 +1551,13 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
     contacto_entrega: string | null;
     correo_contacto: string | null;
     fecha_entrega: string | null;
+    notas_lineas: string | null;
     origen_correo: unknown;
   } | null>((client) => {
     const query = client
       .from("orden_venta")
       .select(
-        "estado,id_comprador,orden_compra_hotel,centro_consumo,contacto_entrega,correo_contacto,fecha_entrega,origen_correo",
+        "estado,id_comprador,orden_compra_hotel,centro_consumo,contacto_entrega,correo_contacto,fecha_entrega,notas_lineas,origen_correo",
       )
       .eq("codigo_cuenta", codigoCuenta)
       .eq("id_orden_venta", idOrdenVenta)
@@ -1570,6 +1572,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
         contacto_entrega: string | null;
         correo_contacto: string | null;
         fecha_entrega: string | null;
+        notas_lineas: string | null;
         origen_correo: unknown;
       } | null;
       error: { message: string } | null;
@@ -1689,6 +1692,31 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
       }>;
     });
     inserted = plan.lineas.length;
+
+    // REQ-124: persistir frase de envase en notas_lineas (PDF / form).
+    if (!header.notas_lineas?.trim()) {
+      const notasLineas = buildNotasLineasText(
+        plan.lineas.map((linea) => ({
+          nombre: linea.nombreProducto || linea.aliasCliente,
+          cantidad: linea.cantidadPedida,
+          especificacion: linea.especificacion,
+        })),
+      );
+      if (notasLineas) {
+        await runDomainMutation((client) => {
+          const query = client
+            .from("orden_venta")
+            .update({ notas_lineas: notasLineas })
+            .eq("codigo_cuenta", codigoCuenta)
+            .eq("id_orden_venta", idOrdenVenta);
+
+          return query as unknown as Promise<{
+            data: unknown;
+            error: { message: string } | null;
+          }>;
+        });
+      }
+    }
   }
 
   return {

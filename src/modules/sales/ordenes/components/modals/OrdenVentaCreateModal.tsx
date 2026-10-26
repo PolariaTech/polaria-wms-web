@@ -107,6 +107,7 @@ import {
 } from "../../utils/origen-adjuntos";
 import {
   buildOrdenVentaCapturaObservaciones,
+  formatCapturaFecha,
   isAfterWarehouseCutoff,
   buildNotasLineasText,
   notaCapturaForLinea,
@@ -134,10 +135,17 @@ import {
 } from "../../utils/origen-correo-ordenes-trabajo";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
+  FECHA_ENTREGA_DEFAULT_WARNING,
   isFechaEntregaAtrasada,
+  isFechaEntregaIsoValida,
   isVentanaDesdeMayorQueHasta,
   validatePedidoCabecera,
 } from "../../utils/pedido-form-validation";
+import {
+  parseFechaOrigen,
+  resolveFechaEntregaDesdeOrigen,
+} from "../../utils/materialize-ov-desde-origen";
+import { formatIsoToDdMmYyyy } from "@/lib/utils/fecha-dd-mm-yyyy";
 import { hasOtPagerRequiredBlocking } from "../../utils/ot-pager-required";
 import {
   findPrimeraRevisionPendiente,
@@ -600,7 +608,9 @@ function CaptureSection({
 function toDateInputValue(value: string | null | undefined): string {
   const raw = value?.trim() ?? "";
   if (!raw) return "";
-  return raw.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  // BirchStreet / origen: "10/26/2026" → ISO (REQ-098 / REQ-110).
+  return parseFechaOrigen(raw) ?? "";
 }
 
 export function OrdenVentaCreateModal({
@@ -766,20 +776,43 @@ export function OrdenVentaCreateModal({
     fechaEntrega,
     todayIsoDate(),
   );
-  const avisosValidacion: CampoDiscrepancia[] = [
-    ...discrepancias,
-    ...(fechaEntregaAtrasada &&
-    !discrepancias.some((item) => item.fieldKey === "fechaEntrega")
-      ? [
-          {
-            campo: "Fecha de entrega",
-            fieldKey: "fechaEntrega",
-            db: "Hoy o posterior",
-            ia: FECHA_ENTREGA_ATRASADA_WARNING,
-          },
-        ]
-      : []),
-  ];
+  /**
+   * REQ-118: la fecha (y avisos) se calculan con el valor actual del form.
+   * No reutilizar el snapshot de Mateo si el usuario ya cambió el campo.
+   */
+  const avisosValidacion = useMemo((): CampoDiscrepancia[] => {
+    const sinFecha = discrepancias.filter(
+      (item) => item.fieldKey !== "fechaEntrega",
+    );
+    const avisos: CampoDiscrepancia[] = [...sinFecha];
+    if (fechaEntregaAtrasada && isFechaEntregaIsoValida(fechaEntrega)) {
+      avisos.push({
+        campo: "Fecha de entrega",
+        fieldKey: "fechaEntrega",
+        db: "Hoy o posterior",
+        ia: `${formatCapturaFecha(fechaEntrega)} · ${FECHA_ENTREGA_ATRASADA_WARNING}`,
+      });
+      return avisos;
+    }
+    const fechaDefault = discrepancias.find(
+      (item) =>
+        item.fieldKey === "fechaEntrega" && item.db === "Leída del correo",
+    );
+    if (fechaDefault && warnFields.has("fechaEntrega")) {
+      avisos.push({
+        ...fechaDefault,
+        ia: isFechaEntregaIsoValida(fechaEntrega)
+          ? `${formatCapturaFecha(fechaEntrega)} · ${FECHA_ENTREGA_DEFAULT_WARNING}`
+          : fechaDefault.ia,
+      });
+    }
+    return avisos;
+  }, [
+    discrepancias,
+    fechaEntrega,
+    fechaEntregaAtrasada,
+    warnFields,
+  ]);
 
   /** Catálogo completo: el mismo SKU puede repetirse en varias líneas/OT. */
   const productosParaAgregar = productos;
@@ -817,6 +850,19 @@ export function OrdenVentaCreateModal({
         : ([] as string[]),
     [compradorSugerencias, idComprador],
   );
+
+  /** REQ-097: identidad comercial del cliente elegido (solo lectura). */
+  const compradorCatalogo = useMemo(
+    () =>
+      idComprador
+        ? (compradores.find((row) => row.idComprador === idComprador) ?? null)
+        : null,
+    [compradores, idComprador],
+  );
+  const codigoClienteCatalogo = compradorCatalogo?.codigo?.trim() || "";
+  /** En catálogo: «D. Comercial» = apodo (no el nombre del picker Cliente). */
+  const denominacionComercialCatalogo =
+    compradorCatalogo?.apodo?.trim() || "";
 
   const puedeAgregarProducto = productosParaAgregar.length > 0;
   const hasCatalogPending = lineas.some(
@@ -1116,7 +1162,7 @@ export function OrdenVentaCreateModal({
       setOrdenCompraHotel(hija.numeroPedido.trim());
     }
     const fechaHija = toDateInputValue(hija.fecha);
-    const fechaIso = /^\d{4}-\d{2}-\d{2}$/.test(fechaHija) ? fechaHija : "";
+    const fechaIso = isFechaEntregaIsoValida(fechaHija) ? fechaHija : "";
     if (fechaIso) {
       setFechaEntrega(fechaIso);
     }
@@ -1745,7 +1791,20 @@ export function OrdenVentaCreateModal({
             todayIso: todayIsoDate(),
           });
 
-          setFechaEntrega(mapped.fechaEntrega);
+          // Preferir ISO de BD; luego origen/adjuntos; luego mapped (puede ser mañana default).
+          const fechaDb = toDateInputValue(detalle.fecha_entrega);
+          const fechaMapped = isFechaEntregaIsoValida(mapped.fechaEntrega)
+            ? mapped.fechaEntrega.trim()
+            : "";
+          const fechaOrigen = resolveFechaEntregaDesdeOrigen({
+            origenCorreo: origenCorreoRows,
+            hijas: hijasEdit,
+          });
+          setFechaEntrega(
+            isFechaEntregaIsoValida(fechaDb)
+              ? fechaDb
+              : fechaOrigen || fechaMapped || "",
+          );
           setCentroConsumo(mapped.centroConsumo);
           setObservaciones(mapped.observaciones);
           if (mapped.ordenCompraHotel.trim()) {
@@ -2421,6 +2480,11 @@ export function OrdenVentaCreateModal({
       next.delete(field);
       return next;
     });
+    // REQ-118: al editar el campo, quitar la discrepancia vieja (evita falsa alerta).
+    setDiscrepancias((prev) => {
+      if (!prev.some((row) => row.fieldKey === field)) return prev;
+      return prev.filter((row) => row.fieldKey !== field);
+    });
   }, []);
 
   const handleCantidadChange = useCallback((index: number, value: string) => {
@@ -2886,7 +2950,7 @@ export function OrdenVentaCreateModal({
       if (
         !isDraft &&
         startMode === "docs" &&
-        discrepancias.length > 0 &&
+        avisosValidacion.length > 0 &&
         !skipDiscrepanciaConfirmRef.current
       ) {
         setConfirmDiscrepanciasOpen(true);
@@ -2930,10 +2994,36 @@ export function OrdenVentaCreateModal({
         return;
       }
 
-      let fechaEntregaPersist = fechaEntrega;
+      let fechaEntregaPersist = isFechaEntregaIsoValida(fechaEntrega)
+        ? fechaEntrega.trim()
+        : parseFechaOrigen(fechaEntrega) ?? "";
+
+      // REQ-110: si el campo se ve vacío pero el adjunto trae fecha, mostrarla (no confirmar a ciegas).
+      if (!fechaEntregaPersist) {
+        const desdeOrigen = resolveFechaEntregaDesdeOrigen({
+          origenCorreo: origenCorreoDraft,
+          hijas: ordenesTrabajoForm,
+        });
+        if (desdeOrigen) {
+          fechaEntregaPersist = desdeOrigen;
+          setFechaEntrega(desdeOrigen);
+          setMissingFields((prev) => {
+            const next = new Set(prev);
+            next.delete("fechaEntrega");
+            return next;
+          });
+          if (!isDraft) {
+            setError(
+              "Se tomó la fecha de entrega del pedido/adjuntos. Revísala y vuelve a confirmar.",
+            );
+            return;
+          }
+        }
+      }
+
       if (!isDraft) {
         const cabeceraError = validatePedidoCabecera({
-          fechaEntrega,
+          fechaEntrega: fechaEntregaPersist,
           todayIso: todayIsoDate(),
           ventanaDesde,
           ventanaHasta,
@@ -2945,6 +3035,12 @@ export function OrdenVentaCreateModal({
             return next;
           });
           setError(cabeceraError.message);
+          if (cabeceraError.fields.includes("fechaEntrega")) {
+            const el = formScrollRef.current?.querySelector<HTMLElement>(
+              '[data-ov-revision="fechaEntrega"]',
+            );
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
           return;
         }
       } else if (!fechaEntregaPersist.trim()) {
@@ -3338,7 +3434,7 @@ export function OrdenVentaCreateModal({
       contacto,
       correo,
       direccion,
-      discrepancias,
+      avisosValidacion,
       editingEstado,
       editingId,
       exigeOc,
@@ -4259,9 +4355,14 @@ export function OrdenVentaCreateModal({
               </p>
             ) : null}
 
+            {/* REQ-097: oculto (no eliminado) — Datos del pedido / Cliente quedan arriba. */}
             {startMode === "docs" &&
             (origenTexto.trim() || origenArchivosNombres.length > 0) ? (
-              <div className="rounded-xl border border-polaria-t-20 bg-polaria-w-08 px-4 py-3">
+              <div
+                className="hidden"
+                aria-hidden
+                data-ov-origen-pedido="hidden"
+              >
                 <p className="polaria-text-label text-polaria-w">
                   De dónde salió este pedido
                 </p>
@@ -4433,7 +4534,7 @@ export function OrdenVentaCreateModal({
                             className="mt-1.5 truncate text-[11px] leading-snug text-polaria-teal/80"
                             title={compradorNombreIa.trim()}
                           >
-                            Escrito por el cliente:{" "}
+                            Solicitado:{" "}
                             <span className="text-polaria-w-50">
                               {compradorNombreIa.trim()}
                             </span>
@@ -4442,6 +4543,25 @@ export function OrdenVentaCreateModal({
                       </>
                 </PolariaFormField>
                     </div>
+
+                    <PolariaFormInput
+                      id="orden-venta-codigo-cliente"
+                      label="Código de cliente"
+                      value={codigoClienteCatalogo}
+                      readOnly
+                      placeholder="—"
+                      compact
+                    />
+
+                    <PolariaFormInput
+                      id="orden-venta-denominacion-comercial"
+                      label="Denominación comercial"
+                      value={denominacionComercialCatalogo}
+                      readOnly
+                      placeholder="—"
+                      fieldClassName="sm:col-span-2"
+                      compact
+                    />
 
                     <PolariaFormInput
                       id="orden-venta-oc-hotel"
@@ -4495,14 +4615,18 @@ export function OrdenVentaCreateModal({
                       id="orden-venta-fecha-entrega"
                       label="Fecha de entrega"
                       value={fechaEntrega}
+                      required={esPorConfirmar}
                       onChange={(iso) => {
                         setFechaEntrega(iso);
                         clearFieldMarks("fechaEntrega");
+                        if (iso.trim()) setError(null);
                       }}
                       hint={
                         isFechaEntregaAtrasada(fechaEntrega, todayIsoDate())
                           ? FECHA_ENTREGA_ATRASADA_WARNING
-                          : "Formato DD/MM/AAAA"
+                          : missingFields.has("fechaEntrega")
+                            ? "Obligatoria para confirmar"
+                            : "Formato DD/MM/AAAA"
                       }
                       controlClassName={fieldControlClass({
                         field: "fechaEntrega",
@@ -4514,7 +4638,7 @@ export function OrdenVentaCreateModal({
                           ? new Set([...warnFields, "fechaEntrega"])
                           : warnFields,
                         missingFields,
-                        missing: !fechaEntrega,
+                        missing: !isFechaEntregaIsoValida(fechaEntrega),
                       })}
                       compact
                     />
@@ -4924,7 +5048,7 @@ export function OrdenVentaCreateModal({
                                     </div>
                                     {textoEscritoProducto ? (
                                       <p className="mt-1 break-words text-[11px] leading-snug text-polaria-teal/80">
-                                        Escrito por el cliente:{" "}
+                                        Solicitado:{" "}
                                         <span className="text-polaria-w-50">
                                           {textoEscritoProducto}
                                         </span>
@@ -5448,6 +5572,15 @@ export function OrdenVentaCreateModal({
         stackLevel="nested"
         onClose={() => setConfirmSaveOpen(false)}
         onConfirm={() => {
+          if (
+            esPorConfirmar &&
+            !isFechaEntregaIsoValida(fechaEntrega)
+          ) {
+            setConfirmSaveOpen(false);
+            setMissingFields((prev) => new Set(prev).add("fechaEntrega"));
+            setError("Ingresa la fecha de entrega.");
+            return;
+          }
           setConfirmSaveOpen(false);
           skipSaveConfirmRef.current = true;
           void handleSubmit({
@@ -5467,6 +5600,14 @@ export function OrdenVentaCreateModal({
         confirmLabel="Confirmar"
         cancelLabel="Revisar"
       >
+        {isFechaEntregaIsoValida(fechaEntrega) ? (
+          <p className="polaria-text-body-sm text-polaria-w-50">
+            Fecha de entrega:{" "}
+            <span className="font-semibold text-polaria-w">
+              {formatIsoToDdMmYyyy(fechaEntrega)}
+            </span>
+          </p>
+        ) : null}
         {fechaEntregaAtrasada ? (
           <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-4 py-3 polaria-text-body-sm text-polaria-warning">
             {FECHA_ENTREGA_ATRASADA_WARNING}

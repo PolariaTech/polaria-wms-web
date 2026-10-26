@@ -67,7 +67,7 @@ describe("buildOrdenVentaPatchFromSurtido", () => {
     ]);
   });
 
-  it("guarda especificación de línea sin mezclar incidencias ni prep", () => {
+  it("no guarda especificación manuscrita en notas_lineas (REQ-124)", () => {
     const { flat } = buildOrdenVentaPatchFromSurtido({
       payload: {
         campos: { incidencias: "Retraso en andén" },
@@ -86,9 +86,7 @@ describe("buildOrdenVentaPatchFromSurtido", () => {
       productosByIndex: new Map([[1, "HAMBURGUESA"]]),
     });
 
-    expect(flat.notas_lineas).toBe("HAMBURGUESA: Firme");
-    expect(flat.notas_lineas).not.toContain("prep");
-    expect(flat.notas_lineas).not.toContain("inc");
+    expect(flat.notas_lineas).toBeUndefined();
     expect(flat.notas_almacen).toContain("Incidencias: Retraso en andén");
   });
 

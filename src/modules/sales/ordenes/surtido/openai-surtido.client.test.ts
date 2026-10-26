@@ -132,7 +132,7 @@ describe("remapLineasPorProducto", () => {
     expect(lineas).toEqual([
       {
         indice: 1,
-        especificacion: "grandes",
+        especificacion: null,
         cantidadPreparada: null,
         codigoIncidencia: null,
         nota: null,
