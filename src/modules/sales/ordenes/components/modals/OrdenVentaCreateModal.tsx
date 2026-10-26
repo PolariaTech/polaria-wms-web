@@ -72,6 +72,7 @@ import { emitirOrdenVentaApi } from "../../../shared/services/sales-api.service"
 import { postOrdenVentaLogForOts } from "../../services/orden-venta-log.client";
 import {
   createOrdenVenta,
+  fetchUltimosPreciosPorComprador,
   getCuentaIdBodegaDefault,
   getOrdenVentaDetalle,
   updateOrdenVenta,
@@ -105,7 +106,7 @@ import {
   origenAdjuntosFromEmlParts,
   parseOrigenArchivos,
   type OrigenAdjunto,
-} from "../../utils/origen-adjuntos";
+} from "../../utils/origen/origen-adjuntos";
 import {
   buildOrdenVentaCapturaObservaciones,
   formatCapturaFecha,
@@ -116,15 +117,15 @@ import {
   stripSurtidoFotoQrFromNotas,
   todayIsoDate,
   tomorrowIsoDate,
-} from "../../utils/build-orden-venta-captura-observaciones";
+} from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import {
   assignOtIdsToFormLineas,
   filterLineasByOrdenTrabajoHija,
-} from "../../utils/filter-lineas-by-orden-trabajo";
+} from "../../utils/ot/filter-lineas-by-orden-trabajo";
 import {
   resolveSkuVisible,
   resolveTextoProductoOrigen,
-} from "../../utils/resolve-sku-visible";
+} from "../../utils/display/resolve-sku-visible";
 import {
   buildOrigenCorreoFromOrdenesYLineas,
   createEmptyOrdenTrabajoHija,
@@ -133,13 +134,13 @@ import {
   parseOrigenCorreoJson,
   type OrigenCorreoRenglon,
   type OrdenTrabajoHija,
-} from "../../utils/origen-correo-ordenes-trabajo";
-import { withNotasGeneralesOnHijas } from "../../utils/notas-generales-ot";
+} from "../../utils/origen/origen-correo-ordenes-trabajo";
+import { withNotasGeneralesOnHijas } from "../../utils/ot/notas-generales-ot";
 import {
   isGarbageOcValue,
   resolveOrdenCompraLimpia,
   sanitizeOrigenCorreoNumeroPedido,
-} from "../../utils/normalize-numero-pedido";
+} from "../../utils/pedido/normalize-numero-pedido";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
   FECHA_ENTREGA_DEFAULT_WARNING,
@@ -147,42 +148,43 @@ import {
   isFechaEntregaIsoValida,
   isVentanaDesdeMayorQueHasta,
   validatePedidoCabecera,
-} from "../../utils/pedido-form-validation";
+} from "../../utils/pedido/pedido-form-validation";
 import {
   parseFechaOrigen,
   resolveFechaEntregaDesdeOrigen,
-} from "../../utils/materialize-ov-desde-origen";
+} from "../../utils/origen/materialize-ov-desde-origen";
 import { formatIsoToDdMmYyyy } from "@/lib/utils/fecha-dd-mm-yyyy";
-import { hasOtPagerRequiredBlocking } from "../../utils/ot-pager-required";
+import { hasOtPagerRequiredBlocking } from "../../utils/ot/ot-pager-required";
 import {
   findPrimeraRevisionPendiente,
   revisionFocusSelector,
   type RevisionPendiente,
-} from "../../utils/por-confirmar-revision-alert";
-import { extractCorreoContactoDesdeTexto } from "../../utils/correo-chrome";
-import { sanitizeTelefonoContacto } from "../../utils/sanitize-telefono-contacto";
+} from "../../utils/ot/por-confirmar-revision-alert";
+import { extractCorreoContactoDesdeTexto } from "../../utils/origen/correo-chrome";
+import { findDuplicadosAgainstDraft } from "../../utils/match/find-potencial-duplicado-ov";
+import { sanitizeTelefonoContacto } from "../../utils/pedido/sanitize-telefono-contacto";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
   sanitizeNotasGeneralesPedido,
-} from "../../utils/texto-origen-pedido";
+} from "../../utils/origen/texto-origen-pedido";
 import {
   mapPedidoExtraidoToForm,
   type CampoDiscrepancia,
-} from "../../utils/map-pedido-extraido-to-form";
-import { rankProductosCatalogo } from "../../utils/find-closest-producto-catalogo";
-import { buildMatchProductoLinea } from "../../utils/build-match-producto";
-import { resolveCantidadPrecioParaPersistir } from "../../utils/persist-linea-avance";
+} from "../../utils/pedido/map-pedido-extraido-to-form";
+import { rankProductosCatalogo } from "../../utils/match/find-closest-producto-catalogo";
+import { buildMatchProductoLinea } from "../../utils/match/build-match-producto";
+import { resolveCantidadPrecioParaPersistir } from "../../utils/pedido/persist-linea-avance";
 import {
   rankCompradoresFromNombre,
   shouldAutoAssignComprador,
-} from "../../utils/match-comprador-from-nombre";
-import { buildPedidoExtraidoFromOrigenCorreo } from "../../utils/pedido-from-origen-correo";
-import { buildOrdenVentaPrefillFromComprador } from "../../utils/prefill-orden-venta-from-comprador";
+} from "../../utils/match/match-comprador-from-nombre";
+import { buildPedidoExtraidoFromOrigenCorreo } from "../../utils/origen/pedido-from-origen-correo";
+import { buildOrdenVentaPrefillFromComprador } from "../../utils/pedido/prefill-orden-venta-from-comprador";
 import {
   formatCompradorOrdenVenta,
   resolveOrdenVentaLineaTitulo,
-} from "../../utils/orden-venta-display";
+} from "../../utils/display/orden-venta-display";
 import type { CypherCompanionOtPicker } from "./OrdenVentaCypherDrawer";
 
 interface OrdenVentaCreateModalProps {
@@ -206,6 +208,10 @@ interface OrdenVentaCreateModalProps {
   onCompanionOtPickerChange?: (
     picker: CypherCompanionOtPicker | null,
   ) => void;
+  /** Listado operador para avisar posible duplicado (REQ-151). */
+  operadorRowsForDuplicado?: readonly OrdenVentaOperadorRow[];
+  /** REQ-126: avisa al Cypher compañero el cliente vivo del formulario. */
+  onCompanionIdCompradorChange?: (idComprador: string | null) => void;
 }
 
 type CaptureStep = "start" | "preview" | "pickOt" | "form";
@@ -635,6 +641,8 @@ export function OrdenVentaCreateModal({
   cypherOpen = false,
   onToggleCypher,
   onCompanionOtPickerChange,
+  operadorRowsForDuplicado = [],
+  onCompanionIdCompradorChange,
 }: OrdenVentaCreateModalProps) {
   const { codigoCuenta } = useCompany();
   const { showToast } = usePolariaToast();
@@ -761,7 +769,7 @@ export function OrdenVentaCreateModal({
   const selectedCompradorIdRef = useRef("");
   const skipDiscrepanciaConfirmRef = useRef(false);
   const skipSaveConfirmRef = useRef(false);
-  /** `draft` = icono guardar (sigue Por confirmar); `emit` = Guardar cambios → Confirmada. */
+  /** `draft` = icono disco (sigue Por confirmar); `emit` = Confirmar → Confirmada (REQ-133). */
   const submitIntentRef = useRef<"emit" | "draft">("emit");
   const docsFileInputRef = useRef<HTMLInputElement | null>(null);
   const bootstrapPromiseRef = useRef<Promise<void> | null>(null);
@@ -796,40 +804,6 @@ export function OrdenVentaCreateModal({
    * REQ-118: la fecha (y avisos) se calculan con el valor actual del form.
    * No reutilizar el snapshot de Mateo si el usuario ya cambió el campo.
    */
-  const avisosValidacion = useMemo((): CampoDiscrepancia[] => {
-    const sinFecha = discrepancias.filter(
-      (item) => item.fieldKey !== "fechaEntrega",
-    );
-    const avisos: CampoDiscrepancia[] = [...sinFecha];
-    if (fechaEntregaAtrasada && isFechaEntregaIsoValida(fechaEntrega)) {
-      avisos.push({
-        campo: "Fecha de entrega",
-        fieldKey: "fechaEntrega",
-        db: "Hoy o posterior",
-        ia: `${formatCapturaFecha(fechaEntrega)} · ${FECHA_ENTREGA_ATRASADA_WARNING}`,
-      });
-      return avisos;
-    }
-    const fechaDefault = discrepancias.find(
-      (item) =>
-        item.fieldKey === "fechaEntrega" && item.db === "Leída del correo",
-    );
-    if (fechaDefault && warnFields.has("fechaEntrega")) {
-      avisos.push({
-        ...fechaDefault,
-        ia: isFechaEntregaIsoValida(fechaEntrega)
-          ? `${formatCapturaFecha(fechaEntrega)} · ${FECHA_ENTREGA_DEFAULT_WARNING}`
-          : fechaDefault.ia,
-      });
-    }
-    return avisos;
-  }, [
-    discrepancias,
-    fechaEntrega,
-    fechaEntregaAtrasada,
-    warnFields,
-  ]);
-
   /** Catálogo completo: el mismo SKU puede repetirse en varias líneas/OT. */
   const productosParaAgregar = productos;
 
@@ -923,6 +897,98 @@ export function OrdenVentaCreateModal({
     if (ordenesTrabajoPreview.length > 0) return ordenesTrabajoPreview;
     return groupOrigenCorreoToOrdenesTrabajo(origenCorreoDraft);
   }, [ordenesTrabajoPreview, origenCorreoDraft]);
+
+  const avisosValidacion = useMemo((): CampoDiscrepancia[] => {
+    const sinFecha = discrepancias.filter(
+      (item) => item.fieldKey !== "fechaEntrega",
+    );
+    const avisos: CampoDiscrepancia[] = [...sinFecha];
+    if (fechaEntregaAtrasada && isFechaEntregaIsoValida(fechaEntrega)) {
+      avisos.push({
+        campo: "Fecha de entrega",
+        fieldKey: "fechaEntrega",
+        db: "Hoy o posterior",
+        ia: `${formatCapturaFecha(fechaEntrega)} · ${FECHA_ENTREGA_ATRASADA_WARNING}`,
+      });
+    } else {
+      const fechaDefault = discrepancias.find(
+        (item) =>
+          item.fieldKey === "fechaEntrega" && item.db === "Leída del correo",
+      );
+      if (fechaDefault && warnFields.has("fechaEntrega")) {
+        avisos.push({
+          ...fechaDefault,
+          ia: isFechaEntregaIsoValida(fechaEntrega)
+            ? `${formatCapturaFecha(fechaEntrega)} · ${FECHA_ENTREGA_DEFAULT_WARNING}`
+            : fechaDefault.ia,
+        });
+      }
+    }
+
+    // REQ-151: aviso de posible duplicado (OCC / cliente+día de creación).
+    const occTokens = [
+      ordenCompraHotel,
+      ...ordenesTrabajoForm.map((h) => h.numeroPedido ?? ""),
+    ].filter(Boolean);
+    if (occTokens.length > 0 || compradorLabel.trim()) {
+      const hits = findDuplicadosAgainstDraft({
+        draft: {
+          occTokens,
+          comprador: compradorLabel,
+          // Mismo criterio que el listado (`created_at`), no fecha de entrega.
+          fecha: new Date().toISOString(),
+          idOrdenVentaExcluir: editingId || null,
+        },
+        existentes: operadorRowsForDuplicado.map((row) => ({
+          idOrdenVenta: row.idOrdenVenta,
+          codigo: row.venta,
+          occTodas: row.occTodas,
+          comprador: row.comprador,
+          fecha: row.fecha,
+          estado: row.estado,
+        })),
+      });
+      if (hits.length > 0) {
+        avisos.push({
+          campo: "Posible duplicado",
+          fieldKey: "potencialDuplicado",
+          db: "Revisar antes de confirmar",
+          ia: `Puede ser la misma OV que ${hits
+            .map((h) => h.codigo)
+            .slice(0, 4)
+            .join(", ")} (Mateo aún aprende).`,
+        });
+      }
+    }
+
+    return avisos;
+  }, [
+    compradorLabel,
+    discrepancias,
+    editingId,
+    fechaEntrega,
+    fechaEntregaAtrasada,
+    operadorRowsForDuplicado,
+    ordenCompraHotel,
+    ordenesTrabajoForm,
+    warnFields,
+  ]);
+
+  const avisoPotencialDuplicado = useMemo(
+    () =>
+      avisosValidacion.find((item) => item.fieldKey === "potencialDuplicado") ??
+      null,
+    [avisosValidacion],
+  );
+
+  /** Avisos de catálogo/fecha (sin Dup?): el diálogo de discrepancias Mateo. */
+  const avisosCatalogoValidacion = useMemo(
+    () =>
+      avisosValidacion.filter(
+        (item) => item.fieldKey !== "potencialDuplicado",
+      ),
+    [avisosValidacion],
+  );
 
   const countProductosOt = useCallback((hija: OrdenTrabajoHija) => {
     return hija.renglones.filter(
@@ -1182,6 +1248,19 @@ export function OrdenVentaCreateModal({
     ordenesTrabajoForm,
     step,
   ]);
+
+  // REQ-126: Cypher fiscal usa el cliente del formulario (no solo el guardado).
+  useEffect(() => {
+    if (!onCompanionIdCompradorChange) return;
+    if (!open || !cypherOpen) {
+      onCompanionIdCompradorChange(null);
+      return;
+    }
+    onCompanionIdCompradorChange(idComprador.trim() || null);
+    return () => {
+      onCompanionIdCompradorChange(null);
+    };
+  }, [cypherOpen, idComprador, onCompanionIdCompradorChange, open]);
 
   useEffect(() => {
     if (step !== "form" || startMode !== "docs") return;
@@ -1557,6 +1636,19 @@ export function OrdenVentaCreateModal({
     [descuentosVenta, ivaVenta, subtotalVenta],
   );
 
+  /** REQ-148: suma $$$$ de todas las OT (el pie de productos suele ser solo la OT activa). */
+  const mostrarTotalOv =
+    ordenesTrabajoForm.length > 1 &&
+    lineas.some((linea) => Boolean(linea.otId));
+
+  const totalOvCompleta = useMemo(() => {
+    if (!mostrarTotalOv) return 0;
+    return lineas.reduce((sum, linea) => {
+      const a = lineAmounts(linea);
+      return sum + Math.max(0, a.bruto - a.descuento + a.iva);
+    }, 0);
+  }, [lineas, mostrarTotalOv]);
+
   // REQ-109: si la lista ya trae folio y el detalle aún no, mostrarlo.
   useEffect(() => {
     const fromLista = codigoVenta?.trim() || "";
@@ -1789,7 +1881,10 @@ export function OrdenVentaCreateModal({
             pedido.nombreCliente,
             compradorRows,
           );
-          const autoComprador = shouldAutoAssignComprador(compradorRank);
+          const autoComprador = shouldAutoAssignComprador(
+            compradorRank,
+            pedido.nombreCliente,
+          );
           // Si ya venía un comprador de materialización pero no es match exacto
           // del texto del cliente, no lo dejamos elegido: solo sugerencias.
           const detalleEsExacto =
@@ -2051,15 +2146,21 @@ export function OrdenVentaCreateModal({
               setExigeOc(false);
             });
 
-          void listCompradorProductoAliasAdmin({
-            codigoCuenta,
-            idComprador: idCompradorDetalle,
-          })
-            .then((aliases) => {
+          void Promise.all([
+            listCompradorProductoAliasAdmin({
+              codigoCuenta,
+              idComprador: idCompradorDetalle,
+            }),
+            fetchUltimosPreciosPorComprador({
+              codigoCuenta,
+              idComprador: idCompradorDetalle,
+            }).catch(() => ({}) as Record<string, number>),
+          ])
+            .then(([aliases, ultimos]) => {
               if (selectedCompradorIdRef.current !== idCompradorDetalle) {
                 return;
               }
-              const overrides: Record<string, number> = {};
+              const overrides: Record<string, number> = { ...ultimos };
               const equivalencias: Record<string, string> = {};
               for (const alias of aliases) {
                 if (alias.precioOverride != null) {
@@ -2209,6 +2310,7 @@ export function OrdenVentaCreateModal({
    * Excepción: fecha atrasada → «Usar hoy».
    */
   const canReemplazarDiscrepancia = useCallback((item: CampoDiscrepancia) => {
+    if (item.fieldKey === "potencialDuplicado") return false;
     if (item.fieldKey === "fechaEntrega" && item.db === "Hoy o posterior") {
       return true;
     }
@@ -2287,6 +2389,8 @@ export function OrdenVentaCreateModal({
       selectedCompradorIdRef.current = row.idComprador;
       setIdComprador(row.idComprador);
       setCompradorLabel(formatCompradorLabel(row));
+      // REQ-117: no dejar OCC obligatorio del cliente anterior mientras carga la ficha.
+      setExigeOc(false);
       if (!options?.keepNombreIa) {
         setCompradorNombreIa(null);
       }
@@ -2334,13 +2438,20 @@ export function OrdenVentaCreateModal({
           );
         });
 
-      void listCompradorProductoAliasAdmin({
-        codigoCuenta,
-        idComprador: row.idComprador,
-      })
-        .then((aliases) => {
+      void Promise.all([
+        listCompradorProductoAliasAdmin({
+          codigoCuenta,
+          idComprador: row.idComprador,
+        }),
+        fetchUltimosPreciosPorComprador({
+          codigoCuenta,
+          idComprador: row.idComprador,
+        }).catch(() => ({}) as Record<string, number>),
+      ])
+        .then(([aliases, ultimos]) => {
           if (selectedCompradorIdRef.current !== row.idComprador) return;
-          const overrides: Record<string, number> = {};
+          // REQ-135: alias override gana; si no, último precio de ese cliente.
+          const overrides: Record<string, number> = { ...ultimos };
           const equivalencias: Record<string, string> = {};
           for (const alias of aliases) {
             if (alias.precioOverride != null) {
@@ -2894,7 +3005,10 @@ export function OrdenVentaCreateModal({
         pedido.nombreCliente,
         compradores,
       );
-      const autoComprador = shouldAutoAssignComprador(compradorRank);
+      const autoComprador = shouldAutoAssignComprador(
+        compradorRank,
+        pedido.nombreCliente,
+      );
       const nombreEscritoIa = pedido.nombreCliente?.trim() || null;
       // Siempre conserva lo que escribió/leyó del cliente (caption bajo el campo).
       if (nombreEscritoIa) {
@@ -3166,7 +3280,7 @@ export function OrdenVentaCreateModal({
       if (
         !isDraft &&
         startMode === "docs" &&
-        avisosValidacion.length > 0 &&
+        avisosCatalogoValidacion.length > 0 &&
         !skipDiscrepanciaConfirmRef.current
       ) {
         setConfirmDiscrepanciasOpen(true);
@@ -3655,7 +3769,7 @@ export function OrdenVentaCreateModal({
       contacto,
       correo,
       direccion,
-      avisosValidacion,
+      avisosCatalogoValidacion,
       editingEstado,
       editingId,
       exigeOc,
@@ -3881,7 +3995,7 @@ export function OrdenVentaCreateModal({
           editingEstado !== "por_confirmar" &&
           !pendingEmitId
             ? "Actualizar"
-            : "Guardar cambios"
+            : "Confirmar"
         }
         compact
         size={step === "start" ? "lg" : "2xl"}
@@ -3898,11 +4012,12 @@ export function OrdenVentaCreateModal({
                 <span className="mx-1.5 text-polaria-w-20">·</span>
                 {hijaFormActiva.almacen?.trim() || hijaFormActiva.label}
               </p>
-              {hijaFormActiva.numeroPedido?.trim() ? (
-                <p className="truncate polaria-text-caption text-polaria-w-50">
-                  OC {hijaFormActiva.numeroPedido.trim()}
-                </p>
-              ) : null}
+              <p className="truncate polaria-text-caption text-polaria-w-50">
+                {hijaFormActiva.numeroPedido?.trim()
+                  ? `OC ${hijaFormActiva.numeroPedido.trim()} · `
+                  : null}
+                Total OV ${formatPrecioEs(totalOvCompleta)}
+              </p>
             </div>
           ) : undefined
         }
@@ -4100,7 +4215,7 @@ export function OrdenVentaCreateModal({
               editingEstado !== "por_confirmar" &&
               !pendingEmitId
                 ? "Actualizar"
-                : "Guardar cambios"}
+                : "Confirmar"}
             </button>
           ) : undefined
         }
@@ -5096,12 +5211,22 @@ export function OrdenVentaCreateModal({
                           </tr>
                           <tr>
                             <td className="pt-2 pr-8 polaria-text-body-sm font-semibold text-polaria-w">
-                              Total
+                              {mostrarTotalOv ? "Total OT" : "Total"}
                             </td>
                             <td className="pt-2 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
                               ${formatPrecioEs(totalVenta)}
                             </td>
                           </tr>
+                          {mostrarTotalOv ? (
+                            <tr>
+                              <td className="pt-1 pr-8 polaria-text-body-sm font-semibold text-polaria-w">
+                                Total OV ({ordenesTrabajoForm.length} OT)
+                              </td>
+                              <td className="pt-1 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
+                                ${formatPrecioEs(totalOvCompleta)}
+                              </td>
+                            </tr>
+                          ) : null}
                         </tbody>
                       </table>
                     </div>
@@ -5407,10 +5532,12 @@ export function OrdenVentaCreateModal({
                                         POLARIA_FORM_INPUT_CLASS_COMPACT,
                                         "h-full min-h-full px-2 tabular-nums",
                                         fieldControlClass({
+                                          // REQ-135: vacío/0 permitido; solo marcar basura no numérica.
                                           missing:
-                                            !linea.precioInput.trim() ||
-                                            (parseDecimalEs(linea.precioInput) ??
-                                              0) <= 0,
+                                            Boolean(linea.precioInput.trim()) &&
+                                            ((parseDecimalEs(
+                                              linea.precioInput,
+                                            ) ?? -1) < 0),
                                         }),
                                       )}
                                     />
@@ -5723,9 +5850,9 @@ export function OrdenVentaCreateModal({
             preventDefault() {},
           } as FormEvent<HTMLFormElement>);
         }}
-        title="Hay diferencias respecto a los datos del cliente en catálogo"
-        description="Si continúas, quedan los de la columna «Se usará en este pedido». Revisa qué cambió:"
-        confirmLabel="Usar valores del pedido"
+        title="Revisa diferencias antes de confirmar"
+        description="Si continúas, queda lo de la columna «Definitivo». Revisa qué cambió:"
+        confirmLabel="Aceptar"
         cancelLabel="Volver a editar"
         size="lg"
       >
@@ -5733,16 +5860,20 @@ export function OrdenVentaCreateModal({
           <ul className="divide-y divide-polaria-w-08 rounded-xl border border-polaria-w-08">
             {avisosValidacion.map((item) => {
               const showReemplazar = canReemplazarDiscrepancia(item);
+              const isFecha = item.fieldKey === "fechaEntrega";
               const reemplazarLabel =
-                item.fieldKey === "fechaEntrega" &&
-                item.db === "Hoy o posterior"
+                isFecha && item.db === "Hoy o posterior"
                   ? "Usar hoy"
                   : "Usar del catálogo";
-              const leftLabel =
-                item.db === "Leída del correo" ||
-                item.db === "Hoy o posterior"
-                  ? "Referencia"
-                  : "En el catálogo";
+              // REQ-105: columnas Inicial / Definitivo (todas las filas).
+              const leftLabel = "Inicial";
+              const rightLabel = "Definitivo";
+              const leftValue =
+                isFecha && item.db === "Leída del correo"
+                  ? "Vacía / no leída del correo"
+                  : isFecha && item.db === "Hoy o posterior"
+                    ? "Fecha atrasada (catálogo pide hoy o posterior)"
+                    : item.db || "—";
               return (
               <li key={item.fieldKey || item.campo} className="px-3 py-2.5 sm:px-3.5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -5773,12 +5904,12 @@ export function OrdenVentaCreateModal({
                       {leftLabel}
                     </p>
                     <p className="mt-0.5 line-clamp-3 break-words polaria-text-body-sm text-polaria-w-50">
-                      {item.db || "—"}
+                      {leftValue}
                     </p>
                   </div>
                   <div>
                     <p className="polaria-text-caption text-polaria-teal">
-                      Se usará en este pedido
+                      {rightLabel}
                     </p>
                     <p className="mt-0.5 line-clamp-3 break-words polaria-text-body-sm text-polaria-w">
                       {item.ia || "—"}
@@ -5819,7 +5950,7 @@ export function OrdenVentaCreateModal({
         title={
           isEditing && editingEstado !== "por_confirmar"
             ? "¿Actualizar el pedido?"
-            : "¿Guardar cambios y confirmar?"
+            : "¿Confirmar el pedido?"
         }
         description={
           isEditing && editingEstado !== "por_confirmar"
@@ -5849,6 +5980,11 @@ export function OrdenVentaCreateModal({
         {fechaEntregaAtrasada ? (
           <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-4 py-3 polaria-text-body-sm text-polaria-warning">
             {FECHA_ENTREGA_ATRASADA_WARNING}
+          </p>
+        ) : null}
+        {avisoPotencialDuplicado ? (
+          <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-4 py-3 polaria-text-body-sm text-polaria-warning">
+            {avisoPotencialDuplicado.ia}
           </p>
         ) : null}
       </PolariaConfirmDialog>

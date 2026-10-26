@@ -581,6 +581,53 @@ export function refineSurtidoPayload(
   return { ...payload, campos };
 }
 
+/**
+ * REQ-153: garantiza una fila por producto del snapshot (1..n).
+ * Sin esto el reporte de Alistó incompleto pelea con filas omitidas por la IA.
+ */
+export function ensureLineasCompletas(
+  original: OrdenTareaAlmacenPrintData,
+  lineas: OrdenSurtidoCapturaPayload["lineas"],
+): OrdenSurtidoCapturaPayload["lineas"] {
+  const byIndex = new Map(
+    lineas.map((linea) => [linea.indice, linea] as const),
+  );
+  const out: OrdenSurtidoCapturaPayload["lineas"] = [];
+  const n = original.lineas.length;
+  for (let indice = 1; indice <= n; indice += 1) {
+    const prev = byIndex.get(indice);
+    out.push(
+      prev ?? {
+        indice,
+        especificacion: null,
+        cantidadPreparada: null,
+        codigoIncidencia: null,
+        nota: null,
+        alisto: false,
+        reviso: false,
+      },
+    );
+  }
+  return out;
+}
+
+/**
+ * REQ-153: si la visión marcó Revisó y no Alistó, promueve a Alistó.
+ * Casos: columna intercambiada o solo se chuleó el cuadrito derecho.
+ * El estado de OV usa `alisto`; sin esto el PDF parece “todo revisado”
+ * y el reporte sale incompleto.
+ */
+export function promoteRevisoSoloToAlisto(
+  lineas: OrdenSurtidoCapturaPayload["lineas"],
+): OrdenSurtidoCapturaPayload["lineas"] {
+  return lineas.map((linea) => {
+    if (linea.reviso === true && linea.alisto !== true) {
+      return { ...linea, alisto: true };
+    }
+    return linea;
+  });
+}
+
 function normalizePayload(
   raw: unknown,
   original: OrdenTareaAlmacenPrintData,
@@ -653,10 +700,15 @@ function normalizePayload(
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
 
+  const remapped = remapLineasPorProducto(lineasParsed, original);
+  const lineas = promoteRevisoSoloToAlisto(
+    ensureLineasCompletas(original, remapped),
+  );
+
   const base: OrdenSurtidoCapturaPayload = {
     campos,
     checks,
-    lineas: remapLineasPorProducto(lineasParsed, original),
+    lineas,
     observacionesIa: asNullableString(obj.observacionesIa),
     precisionEstimada: null,
   };

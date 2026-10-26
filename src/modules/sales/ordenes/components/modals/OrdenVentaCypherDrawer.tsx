@@ -2,7 +2,9 @@
 
 import {
   FileText,
+  Minus,
   Pencil,
+  Plus,
   Printer,
   Trash2,
   X,
@@ -18,9 +20,13 @@ import {
 } from "react";
 
 import {
-  CYPHER_PANEL_WIDTH_CLASS,
   CYPHER_TRANSITION_MS,
+  cypherPanelWidthClass,
 } from "../../constants/cypher-layout";
+import {
+  hydrateCypherWidthModeFromStorage,
+  useShellOverlayStore,
+} from "@/stores/shell-overlay.store";
 import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
@@ -46,42 +52,44 @@ import type {
 } from "../../../shared/types/sales.types";
 import { fetchOrdenVentaLog } from "../../services/orden-venta-log.client";
 import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
-import { filterLogEntriesVisible } from "../../utils/filter-log-entries-visible";
+import { filterLogEntriesVisible } from "../../utils/ot/filter-log-entries-visible";
 import {
   extractLogSlaCallout,
   logEntryToneBadgeClass,
   logEntryToneDotClass,
   resolveLogEntryAutorBadge,
   resolveLogEntryTone,
-} from "../../utils/log-entry-tone";
+} from "../../utils/ot/log-entry-tone";
 import {
   formatCompradorOrdenVenta,
   formatOrdenVentaLineaTotal,
   formatOrdenVentaTotal,
   resolveOrdenVentaLineaTitulo,
   sumOrdenVentaCantidadKg,
-} from "../../utils/orden-venta-display";
+} from "../../utils/display/orden-venta-display";
 import {
   mergeOrigenAdjuntosWithEmlParts,
   nombresOrigenAdjuntos,
   origenAdjuntosFromEmlParts,
   parseOrigenArchivos,
   type OrigenAdjunto,
-} from "../../utils/origen-adjuntos";
+} from "../../utils/origen/origen-adjuntos";
 import {
   parseCorreoChromeFromText,
   type CorreoChrome,
-} from "../../utils/correo-chrome";
+} from "../../utils/origen/correo-chrome";
 import {
+  isCuerpoMensajeFormato,
   looksLikeCorreoCuerpoEnNotas,
   prepareCorreoBodyForCypherDisplay,
-} from "../../utils/texto-origen-pedido";
+} from "../../utils/origen/texto-origen-pedido";
 import {
   groupOrigenCorreoToOrdenesTrabajo,
   parseOrigenCorreoJson,
-} from "../../utils/origen-correo-ordenes-trabajo";
-import { resolveOrdenCompraLimpia } from "../../utils/normalize-numero-pedido";
+} from "../../utils/origen/origen-correo-ordenes-trabajo";
+import { resolveOrdenCompraLimpia } from "../../utils/pedido/normalize-numero-pedido";
 import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
+import { OrigenPedidoBodyView } from "../shared/OrigenPedidoBodyView";
 import { CypherAlistadoSection } from "./CypherAlistadoSection";
 import { CypherAlistamientoSection } from "./CypherAlistamientoSection";
 import { CypherClienteVsMateoSection } from "./CypherClienteVsMateoSection";
@@ -269,6 +277,8 @@ export interface OrdenVentaCypherDrawerProps {
    * OV por confirmar + Cypher compañero: selector de OT en el panel derecho.
    */
   companionOtPicker?: CypherCompanionOtPicker | null;
+  /** REQ-126: cliente vivo del formulario de edición (prioridad sobre detalle). */
+  companionIdComprador?: string | null;
 }
 
 export function OrdenVentaCypherDrawer({
@@ -285,9 +295,15 @@ export function OrdenVentaCypherDrawer({
   onBorrar,
   companionWithEdit = false,
   companionOtPicker = null,
+  companionIdComprador = null,
 }: OrdenVentaCypherDrawerProps) {
   const titleId = useId();
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const cypherWidthMode = useShellOverlayStore((s) => s.cypherWidthMode);
+  const nudgeCypherWidth = useShellOverlayStore((s) => s.nudgeCypherWidth);
+  useEffect(() => {
+    hydrateCypherWidthModeFromStorage();
+  }, []);
   const [orden, setOrden] = useState<OrdenVentaDetalleRow | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -682,8 +698,8 @@ export function OrdenVentaCypherDrawer({
           "box-border will-change-transform",
           /* Container queries: el contenido responde al ancho del panel, no al viewport. */
           "@container/cypher",
-          "transition-transform duration-[320ms] ease-out",
-          CYPHER_PANEL_WIDTH_CLASS,
+          "transition-[transform,width,max-width] duration-[320ms] ease-out",
+          cypherPanelWidthClass(cypherWidthMode),
           panelEntered ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -709,18 +725,48 @@ export function OrdenVentaCypherDrawer({
                 {recibida}
               </p>
             </div>
-            <button
-              type="button"
-              title="Cerrar Cypher"
-              aria-label={`Cerrar detalle de ${codigo}`}
-              onClick={onClose}
-              className={cn(
-                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition",
-                "hover:bg-polaria-t-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-              )}
-            >
-              <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                title="Achicar panel"
+                aria-label="Achicar panel Cypher"
+                disabled={cypherWidthMode === "compact"}
+                onClick={() => nudgeCypherWidth(-1)}
+                className={cn(
+                  "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition",
+                  "hover:bg-polaria-t-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                  "disabled:cursor-not-allowed disabled:opacity-40",
+                )}
+              >
+                <Minus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+              </button>
+              <button
+                type="button"
+                title="Agrandar panel"
+                aria-label="Agrandar panel Cypher"
+                disabled={cypherWidthMode === "wide"}
+                onClick={() => nudgeCypherWidth(1)}
+                className={cn(
+                  "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition",
+                  "hover:bg-polaria-t-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+                  "disabled:cursor-not-allowed disabled:opacity-40",
+                )}
+              >
+                <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+              </button>
+              <button
+                type="button"
+                title="Cerrar Cypher"
+                aria-label={`Cerrar detalle de ${codigo}`}
+                onClick={onClose}
+                className={cn(
+                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition",
+                  "hover:bg-polaria-t-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                )}
+              >
+                <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+              </button>
+            </div>
           </div>
 
           <nav
@@ -782,7 +828,9 @@ export function OrdenVentaCypherDrawer({
                 <StageHeading num="00" title="Datos fiscales — referencia" />
                 <CypherDatosFiscalesSection
                   codigoCuenta={codigoCuenta}
-                  idComprador={orden.id_comprador}
+                  idComprador={
+                    companionIdComprador?.trim() || orden.id_comprador
+                  }
                 />
               </section>
 
@@ -814,17 +862,24 @@ export function OrdenVentaCypherDrawer({
                     tabIndex={0}
                     aria-label="Cuerpo del correo"
                   >
-                    {/* Texto completo con scroll; sin modal / sin click. */}
-                    <pre
-                      className={cn(
-                        "m-0 max-w-full whitespace-pre-wrap break-words",
-                        "border-l-2 border-polaria-teal pl-3 font-mono text-[12.5px] leading-relaxed text-polaria-w-50",
-                      )}
-                    >
-                      {cuerpoCompleto ||
-                        correoChrome.body ||
-                        cuerpoMensaje}
-                    </pre>
+                    {/* REQ-132: tablas HTML reales cuando el origen trae bloques [[tabla]]. */}
+                    {isCuerpoMensajeFormato(cuerpoCompleto) ? (
+                      <OrigenPedidoBodyView
+                        text={cuerpoCompleto}
+                        className="mt-0"
+                      />
+                    ) : (
+                      <pre
+                        className={cn(
+                          "m-0 max-w-full whitespace-pre-wrap break-words",
+                          "border-l-2 border-polaria-teal pl-3 font-mono text-[12.5px] leading-relaxed text-polaria-w-50",
+                        )}
+                      >
+                        {cuerpoMensaje ||
+                          correoChrome.body ||
+                          cuerpoCompleto}
+                      </pre>
+                    )}
                   </div>
                 ) : (
                   <p className="mt-2.5 rounded-xl border border-dashed border-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">

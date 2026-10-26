@@ -50,6 +50,7 @@ function mapAuditRow(row: AuditoriaOperacionRow): OrdenVentaLogEntry {
     defaultMensaje(row.accion);
   const autor = readPayloadString(payload, "autorNombre");
   const idOrdenTrabajo = readPayloadString(payload, "idOrdenTrabajo");
+  const payloadTipo = readPayloadString(payload, "tipo");
 
   return {
     id: row.id_auditoria,
@@ -58,6 +59,7 @@ function mapAuditRow(row: AuditoriaOperacionRow): OrdenVentaLogEntry {
     mensaje,
     autor,
     idOrdenTrabajo,
+    payloadTipo,
   };
 }
 

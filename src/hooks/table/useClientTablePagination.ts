@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_TABLE_PAGE_SIZE } from "@/constants/ui/table-pagination";
 
+/**
+ * Paginación cliente. Solo reinicia a página 1 cuando cambia `resetKey`
+ * (p. ej. búsqueda). Si baja el total de filas (confirmar OV, filtros),
+ * se ajusta a la última página válida sin saltar a la 1 (REQ-114).
+ */
 export function useClientTablePagination<T>(
   rows: readonly T[],
   pageSize: number = DEFAULT_TABLE_PAGE_SIZE,
@@ -15,7 +20,7 @@ export function useClientTablePagination<T>(
 
   useEffect(() => {
     setPage(1);
-  }, [resetKey, totalItems]);
+  }, [resetKey]);
 
   useEffect(() => {
     if (page > totalPages) {

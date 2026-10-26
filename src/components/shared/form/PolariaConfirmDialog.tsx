@@ -5,9 +5,10 @@ import { useEffect, useId, type ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
 import {
-  CYPHER_DOCK_RESERVE_CLASS,
-  CYPHER_DOCK_RIGHT_CLASS,
+  cypherDockReserveClass,
+  cypherDockRightClass,
 } from "@/modules/sales/ordenes/constants/cypher-layout";
+import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 
 const CONFIRM_STACK_CLASS = {
   base: "z-[100]",
@@ -55,9 +56,10 @@ export function PolariaConfirmDialog({
 }: PolariaConfirmDialogProps) {
   const titleId = useId();
   const descriptionId = useId();
+  const cypherWidthMode = useShellOverlayStore((s) => s.cypherWidthMode);
   const dockLeft = layout === "dock-left";
-  const dockRightReserve = CYPHER_DOCK_RESERVE_CLASS;
-  const dockBackdropRight = CYPHER_DOCK_RIGHT_CLASS;
+  const dockRightReserve = cypherDockReserveClass(cypherWidthMode);
+  const dockBackdropRight = cypherDockRightClass(cypherWidthMode);
 
   useEffect(() => {
     if (!open) return;

@@ -1,5 +1,5 @@
-import type { OrigenAdjunto } from "@/modules/sales/ordenes/utils/origen-adjuntos";
-import type { OrigenCorreoRenglon } from "@/modules/sales/ordenes/utils/origen-correo-ordenes-trabajo";
+import type { OrigenAdjunto } from "@/modules/sales/ordenes/utils/origen/origen-adjuntos";
+import type { OrigenCorreoRenglon } from "@/modules/sales/ordenes/utils/origen/origen-correo-ordenes-trabajo";
 
 /**
  * Estados de OV.
@@ -66,6 +66,10 @@ export interface OrdenVentaOperadorRow {
   slaMinutos: number;
   /** Umbral de alerta (minutos) de la cuenta — tooltip del punto. */
   alertaMinutos: number;
+  /** REQ-151: posible OV duplicada (misma OCC u otra heurística suave). */
+  potencialDuplicado?: boolean;
+  /** Códigos de otras OV candidatas a duplicado. */
+  potencialDuplicadoDe?: string[];
 }
 
 export const UNIDAD_MEDIDA_VENTA_DEFAULT = "kg" as const;

@@ -51,8 +51,11 @@ export function estimateSurtidoPrecision(
   }
 
   const expected = Math.max(1, lineasEsperadas);
-  const perLine = 12;
-  max += expected * perLine;
+  // REQ-153: el peso fuerte es Alistó (lo que mueve el estado); Revisó solo no cuenta como línea completa.
+  const perLineAlisto = 10;
+  const perLinePrep = 4;
+  const perLineOtro = 2;
+  max += expected * (perLineAlisto + perLinePrep);
 
   const byIndex = new Map(
     (payload.lineas ?? []).map((linea) => [linea.indice, linea] as const),
@@ -60,15 +63,15 @@ export function estimateSurtidoPrecision(
   for (let i = 1; i <= expected; i += 1) {
     const linea = byIndex.get(i);
     if (!linea) continue;
-    const hasPrep = Boolean(linea.cantidadPreparada?.trim());
-    const hasMark =
+    if (linea.alisto === true) score += perLineAlisto;
+    if (Boolean(linea.cantidadPreparada?.trim())) score += perLinePrep;
+    else if (
       Boolean(linea.especificacion?.trim()) ||
       Boolean(linea.codigoIncidencia?.trim()) ||
-      Boolean(linea.nota?.trim()) ||
-      linea.alisto === true ||
-      linea.reviso === true;
-    if (hasPrep) score += perLine;
-    else if (hasMark) score += Math.round(perLine * 0.5);
+      Boolean(linea.nota?.trim())
+    ) {
+      score += perLineOtro;
+    }
   }
 
   // Bonus si hay al menos una línea leída aunque el índice no calce

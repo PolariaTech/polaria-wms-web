@@ -7,7 +7,7 @@ import {
   formatCapturaFecha,
   notaCapturaForProducto,
   parseOrdenVentaCapturaObservaciones,
-} from "../utils/build-orden-venta-captura-observaciones";
+} from "../utils/pedido/build-orden-venta-captura-observaciones";
 import {
   formatOrdenTareaImpresaAt,
   resolveOrdenTareaCreadaAt,
@@ -19,9 +19,9 @@ import {
   parseIdOrdenTrabajoFields,
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
-} from "../utils/origen-correo-ordenes-trabajo";
-import { filterLineasByOrdenTrabajoHija } from "../utils/filter-lineas-by-orden-trabajo";
-import { extractNotasClaveCorreo } from "../utils/texto-origen-pedido";
+} from "../utils/origen/origen-correo-ordenes-trabajo";
+import { filterLineasByOrdenTrabajoHija } from "../utils/ot/filter-lineas-by-orden-trabajo";
+import { extractNotasClaveCorreo } from "../utils/origen/texto-origen-pedido";
 import {
   capturaTieneAlistoCompleto,
   computeEstadoAlistamientoFromCapturas,

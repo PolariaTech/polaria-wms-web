@@ -15,7 +15,7 @@ import {
   syncOrdenVentaEstadoAlistamiento,
   upsertOrdenSurtidoCaptura,
 } from "@/modules/sales/ordenes/surtido/orden-surtido.service";
-import { normalizeIdOrdenTrabajo } from "@/modules/sales/ordenes/utils/origen-correo-ordenes-trabajo";
+import { normalizeIdOrdenTrabajo } from "@/modules/sales/ordenes/utils/origen/origen-correo-ordenes-trabajo";
 
 /**
  * Fuera de `/api/*` para no pasar por el rewrite hacia Nest.

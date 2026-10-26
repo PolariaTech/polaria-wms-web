@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
-import { parseOrigenPedidoBlocks } from "../../utils/texto-origen-pedido";
+import { parseOrigenPedidoBlocks } from "../../utils/origen/texto-origen-pedido";
 
 const CHIP_CLASS =
   "rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-2 py-1 polaria-text-caption text-polaria-w-50";

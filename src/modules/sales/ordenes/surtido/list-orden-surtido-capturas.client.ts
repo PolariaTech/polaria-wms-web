@@ -2,7 +2,7 @@ import {
   requireCodigoCuenta,
   runDomainQuery,
 } from "@/lib/supabase/domain-query";
-import { normalizeIdOrdenTrabajo } from "../utils/origen-correo-ordenes-trabajo";
+import { normalizeIdOrdenTrabajo } from "../utils/origen/origen-correo-ordenes-trabajo";
 import type {
   OrdenSurtidoCapturaPayload,
   OrdenSurtidoCapturaRow,

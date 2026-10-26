@@ -6,13 +6,13 @@ import { formatDateTime } from "@/components/shared/utils/formatters";
 import { cn } from "@/lib/utils/cn";
 import { formatKgEs } from "@/lib/utils/decimal-es";
 import type { OrdenSurtidoCapturaPayload } from "../../surtido/orden-surtido.types";
-import { notaCapturaForLinea } from "../../utils/build-orden-venta-captura-observaciones";
-import { filterLineasByOrdenTrabajoHija } from "../../utils/filter-lineas-by-orden-trabajo";
+import { notaCapturaForLinea } from "../../utils/pedido/build-orden-venta-captura-observaciones";
+import { filterLineasByOrdenTrabajoHija } from "../../utils/ot/filter-lineas-by-orden-trabajo";
 import {
   normalizeIdOrdenTrabajo,
   type OrdenTrabajoHija,
-} from "../../utils/origen-correo-ordenes-trabajo";
-import { resolveOrdenVentaLineaTitulo } from "../../utils/orden-venta-display";
+} from "../../utils/origen/origen-correo-ordenes-trabajo";
+import { resolveOrdenVentaLineaTitulo } from "../../utils/display/orden-venta-display";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 
 function CheckMark({ ok }: { ok: boolean }) {
@@ -200,6 +200,17 @@ export function CypherAlistamientoSection({
           </>
         ) : null}
       </p>
+
+      {lineasProductoTotal > 0 &&
+      lineasAlistoTotal < lineasProductoTotal &&
+      [...capturaByOt.values()].some(
+        (c) => (c.payload?.precisionEstimada ?? 0) >= 60,
+      ) ? (
+        <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-3 py-2 polaria-text-caption text-polaria-warning">
+          La lectura parece confiable, pero faltan chulos Alistó en algunas
+          filas. Revisa la foto o vuelve a capturar esa OT.
+        </p>
+      ) : null}
 
       {ots.map((hija, index) => {
         const otKey = normalizeIdOrdenTrabajo(hija.id);

@@ -44,7 +44,9 @@ import {
   getOrdenVentaDetalle,
   listOrdenesVentaOperador,
 } from "../../../shared/services/sales.service";
+import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import {
+  fetchOrdenVentaLog,
   postOrdenVentaLog,
   postOrdenVentaLogForOts,
 } from "../../services/orden-venta-log.client";
@@ -102,6 +104,9 @@ export function OperadorOrdenesVentaPageContent({
   const [cypherId, setCypherId] = useState<string | null>(null);
   const setCypherOpen = useShellOverlayStore((s) => s.setCypherOpen);
   const setOvEditOpen = useShellOverlayStore((s) => s.setOvEditOpen);
+  const [companionIdComprador, setCompanionIdComprador] = useState<
+    string | null
+  >(null);
   const [companionOtPicker, setCompanionOtPicker] =
     useState<CypherCompanionOtPicker | null>(null);
   /** Soft-delete: ocultar de la tabla al instante (fila sigue en BD como cancelada). */
@@ -123,6 +128,9 @@ export function OperadorOrdenesVentaPageContent({
   }, [isCreateOpen, inspect, setOvEditOpen]);
   const printingLockRef = useRef(false);
   const fotosOrdenIdRef = useRef<string | null>(null);
+  /** REQ-137: confirmar reimpresión si ya hubo PDF a impresora. */
+  const [reprintConfirmRow, setReprintConfirmRow] =
+    useState<OrdenVentaOperadorRow | null>(null);
   /** Un solo modal: orden confirmada + impresión (REQ-039). */
   const [feedback, setFeedback] = useState<{
     ok: boolean;
@@ -325,7 +333,7 @@ export function OperadorOrdenesVentaPageContent({
     [codigoCuenta, runScoped, zonaHoraria],
   );
 
-  const runPrint = useCallback(
+  const executePrint = useCallback(
     async (row: OrdenVentaOperadorRow) => {
       if (!codigoCuenta || printingLockRef.current) return;
       printingLockRef.current = true;
@@ -385,6 +393,33 @@ export function OperadorOrdenesVentaPageContent({
       }
     },
     [codigoCuenta, loadPrintSheets, showFeedback],
+  );
+
+  const runPrint = useCallback(
+    async (row: OrdenVentaOperadorRow) => {
+      if (!codigoCuenta || printingLockRef.current) return;
+      // REQ-137: si ya se imprimió antes, pedir confirmación.
+      try {
+        const log = await runScoped(() =>
+          fetchOrdenVentaLog({
+            codigoCuenta,
+            idOrdenVenta: row.idOrdenVenta,
+          }),
+        );
+        const yaImpresa = log.some((entry) => {
+          const tipo = (entry.payloadTipo ?? "").trim();
+          return tipo === "impresion_pdf" || tipo === "impresion_pdf_auto";
+        });
+        if (yaImpresa) {
+          setReprintConfirmRow(row);
+          return;
+        }
+      } catch {
+        // Si el log falla, no bloqueamos la impresión.
+      }
+      await executePrint(row);
+    },
+    [codigoCuenta, executePrint, runScoped],
   );
 
   const openPdfPreview = useCallback(
@@ -660,6 +695,18 @@ export function OperadorOrdenesVentaPageContent({
               alertaMinutos={row.alertaMinutos}
             />
             <PolariaTableCode>{row.venta}</PolariaTableCode>
+            {row.potencialDuplicado ? (
+              <span
+                className="shrink-0 rounded-md border border-polaria-warning-border bg-polaria-warning-bg px-1.5 py-0.5 polaria-text-caption font-semibold text-polaria-warning"
+                title={
+                  row.potencialDuplicadoDe && row.potencialDuplicadoDe.length > 0
+                    ? `Posible duplicado de ${row.potencialDuplicadoDe.join(", ")}`
+                    : "Posible OV duplicada (Mateo aún aprende)"
+                }
+              >
+                Dup?
+              </span>
+            ) : null}
           </span>
         ),
       },
@@ -941,6 +988,7 @@ export function OperadorOrdenesVentaPageContent({
         inspect={inspect}
         companionWithEdit={companionWithCypher}
         companionOtPicker={companionOtPicker}
+        companionIdComprador={companionIdComprador}
         busyKind={
           cypherId && busyAction?.id === cypherId
             ? busyAction.kind
@@ -1055,12 +1103,15 @@ export function OperadorOrdenesVentaPageContent({
             : undefined
         }
         onCompanionOtPickerChange={setCompanionOtPicker}
+        onCompanionIdCompradorChange={setCompanionIdComprador}
+        operadorRowsForDuplicado={rows}
         onClose={() => {
           // Cypher abierto desde el formulario del pedido se cierra al salir.
           const closingId = editingId;
           setIsCreateOpen(false);
           setEditingId(null);
           setCompanionOtPicker(null);
+          setCompanionIdComprador(null);
           setCypherId((prev) =>
             prev && closingId && prev === closingId ? null : prev,
           );
@@ -1133,6 +1184,20 @@ export function OperadorOrdenesVentaPageContent({
           </div>
         </div>
       ) : null}
+
+      <PolariaConfirmDialog
+        open={Boolean(reprintConfirmRow)}
+        onClose={() => setReprintConfirmRow(null)}
+        onConfirm={() => {
+          const row = reprintConfirmRow;
+          setReprintConfirmRow(null);
+          if (row) void executePrint(row);
+        }}
+        title="¿Imprimir de nuevo?"
+        description="Esta OV ya ha sido impresa para alistamiento. Si vas a imprimirla nuevamente, asegúrate de que no se duplique el alistamiento en el almacén."
+        confirmLabel="Imprimir de nuevo"
+        cancelLabel="Cancelar"
+      />
 
       <OrdenVentaPdfPreviewModal
         open={Boolean(pdfPreview)}

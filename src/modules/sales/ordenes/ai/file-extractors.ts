@@ -7,7 +7,7 @@ import mammoth from "mammoth";
 import {
   formatMailAddress,
   prependCorreoChromeToBody,
-} from "../utils/correo-chrome";
+} from "../utils/origen/correo-chrome";
 
 const TEXT_EXTENSIONS = new Set([".csv", ".txt"]);
 const IMAGE_MIME_PREFIX = "image/";

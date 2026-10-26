@@ -1,7 +1,7 @@
 "use client";
 
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
-import type { OrdenTrabajoHija } from "../../utils/origen-correo-ordenes-trabajo";
+import type { OrdenTrabajoHija } from "../../utils/origen/origen-correo-ordenes-trabajo";
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (

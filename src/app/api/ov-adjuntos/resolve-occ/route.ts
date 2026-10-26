@@ -5,7 +5,7 @@ import { extractFiles } from "@/modules/sales/ordenes/ai/file-extractors";
 import {
   detectOrdenCompraFromSource,
   isGarbageOcValue,
-} from "@/modules/sales/ordenes/utils/normalize-numero-pedido";
+} from "@/modules/sales/ordenes/utils/pedido/normalize-numero-pedido";
 
 export const runtime = "nodejs";
 

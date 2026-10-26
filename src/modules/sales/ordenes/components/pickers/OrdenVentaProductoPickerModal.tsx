@@ -7,7 +7,7 @@ import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { cn } from "@/lib/utils/cn";
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
-import { matchesProductoCatalogSearch } from "../../utils/find-closest-producto-catalogo";
+import { matchesProductoCatalogSearch } from "../../utils/match/find-closest-producto-catalogo";
 
 interface OrdenVentaProductoPickerModalProps {
   open: boolean;
@@ -199,10 +199,14 @@ export function OrdenVentaProductoPickerModal({
                       {row.codigo}
                     </td>
                     <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w-50">
-                      ${formatPrecioEs(row.precioUnitario)}
+                      {row.precioUnitario > 0
+                        ? `$${formatPrecioEs(row.precioUnitario)}`
+                        : "—"}
                     </td>
                     <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w-50">
-                      {formatKgEs(row.kgDisponible)} kg
+                      {row.kgDisponible > 0
+                        ? `${formatKgEs(row.kgDisponible)} kg`
+                        : "—"}
                     </td>
                   </tr>
                 );

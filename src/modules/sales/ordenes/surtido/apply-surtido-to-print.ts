@@ -5,7 +5,7 @@ import type {
   OrdenSurtidoLineaCaptura,
 } from "../surtido/orden-surtido.types";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
-import { normalizeIdOrdenTrabajo } from "../utils/origen-correo-ordenes-trabajo";
+import { normalizeIdOrdenTrabajo } from "../utils/origen/origen-correo-ordenes-trabajo";
 import { sanitizeFacturaAsociada } from "./openai-surtido.client";
 
 function normalizeLooseText(value: string): string {

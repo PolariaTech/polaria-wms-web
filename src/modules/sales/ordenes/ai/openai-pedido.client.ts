@@ -10,23 +10,26 @@ import type {
 import {
   calcularCantidadDesdeCajas,
   pesoPorCajaKg,
-} from "../utils/empaque-lineas";
-import { extractCorreoContactoDesdeTexto } from "../utils/correo-chrome";
+} from "../utils/pedido/empaque-lineas";
+import {
+  extractCorreoContactoDesdeTexto,
+  isCorreoRemitenteGenerico,
+} from "../utils/origen/correo-chrome";
 import {
   extractDireccionShipToDesdeTexto,
   extractEntregaDesdeTexto,
-} from "../utils/extract-entrega-desde-texto";
-import { sanitizeTelefonoContacto } from "../utils/sanitize-telefono-contacto";
-import { resolveCentroConsumoSinConfundirConCliente } from "../utils/centro-consumo-vs-cliente";
+} from "../utils/pedido/extract-entrega-desde-texto";
+import { sanitizeTelefonoContacto } from "../utils/pedido/sanitize-telefono-contacto";
+import { resolveCentroConsumoSinConfundirConCliente } from "../utils/pedido/centro-consumo-vs-cliente";
 import {
   enrichAlmacenConCodigoDesdeTexto,
   enrichLineasAlmacenConCodigoDesdeTexto,
-} from "../utils/enrich-almacen-codigo";
-import { normalizeNumeroPedidoFields } from "../utils/normalize-numero-pedido";
+} from "../utils/pedido/enrich-almacen-codigo";
+import { normalizeNumeroPedidoFields } from "../utils/pedido/normalize-numero-pedido";
 import {
   serializeCuerpoMensaje,
   type CuerpoMensajeBloque,
-} from "../utils/texto-origen-pedido";
+} from "../utils/origen/texto-origen-pedido";
 
 export { calcularCantidadDesdeCajas, pesoPorCajaKg };
 
@@ -88,7 +91,7 @@ export interface PedidoExtraido {
    * Renglones crudos estilo origen_correo (para agrupar hijas / persistir jsonb).
    * Se arma en el servidor a partir de las líneas extraídas.
    */
-  origenCorreo: import("../utils/origen-correo-ordenes-trabajo").OrigenCorreoRenglon[];
+  origenCorreo: import("../utils/origen/origen-correo-ordenes-trabajo").OrigenCorreoRenglon[];
   advertencia: string | null;
   archivosNoLegibles: string[];
   /**
@@ -311,7 +314,7 @@ const RESPONSE_SCHEMA = {
       correo: {
         type: ["string", "null"],
         description:
-          "Correo del contacto. PRIORIDAD: dirección del REMITENTE (De/From del mensaje, ej. 'Nombre <mail@hotel.com>' → mail@hotel.com). También Email/E-mail/Correo en el PDF, o mailto: de la firma. No uses el Para/To del proveedor. null solo si no hay ningún correo del cliente.",
+          "Correo del CONTACTO del hotel/cliente (persona). Si De/From es genérico (bss_system@birchstreet.net, noreply, admonaguacatesdepuebla@gmail.com, cuenta del proveedor), IGNÓRALO y busca Email/E-mail/Correo/mailto en el cuerpo o PDF del hotel. Si De/From es una persona del hotel (ej. 'Nombre <mail@hotel.com>'), úsalo. No uses el Para/To del proveedor. null solo si no hay ningún correo humano del cliente.",
       },
       horarioDesde: {
         type: ["string", "null"],
@@ -423,7 +426,7 @@ const RESPONSE_SCHEMA = {
             especificacion: {
               type: ["string", "null"],
               description:
-                "Nota/calidad/uso o empaque de ESTE producto (ej. 'bien firme', 'sin penacho', '2x galón de 5 litros', '1x cubeta de 10 litros'). Si el cliente pide por galón/cubeta/caja con contenido, copia esa frase corta aquí. null si no hay.",
+                "Nota/calidad/madurez/uso o empaque de ESTE producto. PRIORIDAD madurez/color/firmeza por renglón (amarillo, rojo, firme, enrriado) en formatos admonaguacates — va AQUÍ, no solo en notas generales. También: 'sin penacho', '2x galón de 5 litros', '1x cubeta de 10 litros'. null si no hay.",
             },
             numeroPedido: {
               type: ["string", "null"],
@@ -773,7 +776,8 @@ export async function extraerPedido({
     `- "ordenCompraHotel": interpreta cuál es el identificador de la orden de compra del hotel/cliente. El nombre del campo en el documento VARÍA (PO NUMBER, PO #, Purchase Order, Orden de compra, OC, Nº OC, Order No., Customer PO, REQUISICION #, R.C., Req #, etc.). Devuelve solo el código/número (ej. CUNMC0046026 o 50184 si dice REQUISICION # 50184). En XPU HA usa el número de 'REQUISICION #' (ej. 50179), NUNCA el Artículo/SKU (00001678) ni el título "Requisición de Compra". NO confundas con Customer Account #, fechas, 'Autoriza'/'Autorizado'/'rAutorizado'/'Solicita'. null solo si no hay ningún identificador de OC/PO/requisición.`,
     `- "rfc" solo si el mensaje/documento lo declara explícitamente; nunca lo infieras del nombre del cliente.`,
     `- "direccion", "anden", "contacto", "telefono", "correo", "horarioDesde" y "horarioHasta" salen del correo, mensaje o PDF (Ship To, Deliver To, Enviar a, Andén, Dock, Contacto, Tel, Email, hora de entrega, ventana de recepción, delivery window). Llénalos siempre que el dato aparezca; null solo si no está. No inventes ni uses un valor habitual que el documento no diga.`,
-    `- "correo": si el mensaje trae De/From del cliente (ej. "Arduizur <asistadmin.kcc@krystal-hotels.com>"), usa ese mail. También vale el mailto: de la firma. No pongas el Para/To del proveedor.`,
+    `- "correo" (REQ-122): usa mail humano del hotel. Si De/From es bss_system@birchstreet.net, noreply o cuenta del proveedor (admonaguacatesdepuebla), busca Email/mailto en el cuerpo/PDF. Si De/From es persona del hotel, úsalo. No pongas el Para/To del proveedor.`,
+    `- "nombreCliente" (REQ-116): en POs BirchStreet (bss_system) copia Property/Hotel/Bill To (ej. FAIRMONT MAYAKOBA), no el remitente ni la cocina.`,
     `- "horarioDesde"/"horarioHasta" (crítico): si el cuerpo dice "Hora de entrega 6:00 am", "8:00 AM – 2:00 PM", "de 8 a 14", "ventana de recepción…", DEBES llenarlos en 24h HH:MM. No los dejes null si aparecen. Una sola hora → solo horarioDesde.`,
     `- "regimen", "tolerancia", "sustituciones", "lote" y "temperatura": llénalos solo si el documento los declara. Si no aparecen, null.`,
     `- "unidad" siempre debe ser exactamente KGM, CJ o UN (o null) — nunca un texto libre como "kilos" o "kg".`,
@@ -924,10 +928,14 @@ export async function extraerPedido({
   const andenCabecera = parsed.anden?.trim() || "";
   const contactoCabecera = parsed.contacto?.trim() || "";
   const telefonoCabecera = sanitizeTelefonoContacto(parsed.telefono);
+  const correoIa = parsed.correo?.trim() || "";
+  const correoDesdeTexto =
+    extractCorreoContactoDesdeTexto(sourceForEntrega) || "";
+  // REQ-122: no quedarse con From genérico si el cuerpo trae mail humano.
   const correoCabecera =
-    parsed.correo?.trim() ||
-    extractCorreoContactoDesdeTexto(sourceForEntrega) ||
-    "";
+    (correoIa && !isCorreoRemitenteGenerico(correoIa)
+      ? correoIa
+      : correoDesdeTexto || correoIa) || "";
   const ventanaDesdeCabecera = horarioDesde || "";
   const ventanaHastaCabecera = horarioHasta || "";
   const notasCabecera =

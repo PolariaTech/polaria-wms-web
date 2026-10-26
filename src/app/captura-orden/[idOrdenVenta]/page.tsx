@@ -2,7 +2,7 @@ import {
   getOrdenMetaPublica,
   getOrdenSurtidoCaptura,
 } from "@/modules/sales/ordenes/surtido/orden-surtido.service";
-import { normalizeIdOrdenTrabajo } from "@/modules/sales/ordenes/utils/origen-correo-ordenes-trabajo";
+import { normalizeIdOrdenTrabajo } from "@/modules/sales/ordenes/utils/origen/origen-correo-ordenes-trabajo";
 import {
   CapturaOrdenView,
   type CapturaOrdenMetaView,

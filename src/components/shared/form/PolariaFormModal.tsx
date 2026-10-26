@@ -12,9 +12,10 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
 import {
-  CYPHER_DOCK_RESERVE_CLASS,
-  CYPHER_DOCK_RIGHT_CLASS,
+  cypherDockReserveClass,
+  cypherDockRightClass,
 } from "@/modules/sales/ordenes/constants/cypher-layout";
+import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 
 export interface PolariaFormModalProps {
   open: boolean;
@@ -127,6 +128,7 @@ export function PolariaFormModal({
 }: PolariaFormModalProps) {
   const titleId = useId();
   const descriptionId = useId();
+  const cypherWidthMode = useShellOverlayStore((s) => s.cypherWidthMode);
 
   useEffect(() => {
     if (!open || !closeOnEscape) return;
@@ -265,9 +267,9 @@ export function PolariaFormModal({
   );
 
   const dockLeft = layout === "dock-left";
-  /** Debe coincidir con Cypher (REQ-121: tramos tablet / laptop / amplio). */
-  const dockRightReserve = CYPHER_DOCK_RESERVE_CLASS;
-  const dockBackdropRight = CYPHER_DOCK_RIGHT_CLASS;
+  /** Debe coincidir con Cypher (REQ-121/150: tramos + modo compact/normal/wide). */
+  const dockRightReserve = cypherDockReserveClass(cypherWidthMode);
+  const dockBackdropRight = cypherDockRightClass(cypherWidthMode);
 
   return (
     <div

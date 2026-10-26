@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
 import {
+  ensureLineasCompletas,
   expandNombresParcialesFirmas,
+  promoteRevisoSoloToAlisto,
   remapLineasPorProducto,
   sanitizeFacturaAsociada,
   sanitizeFacturaOkFolioFirma,
 } from "./openai-surtido.client";
+import { estimateSurtidoPrecision } from "./estimate-surtido-precision";
+import type { OrdenSurtidoCapturaPayload } from "./orden-surtido.types";
 
 const original = {
   folio: "OV-1",
@@ -149,5 +153,84 @@ describe("remapLineasPorProducto", () => {
         reviso: true,
       },
     ]);
+  });
+});
+
+describe("ensureLineasCompletas (REQ-153)", () => {
+  it("rellena índices faltantes con alisto/reviso false", () => {
+    const lineas = ensureLineasCompletas(original, [
+      {
+        indice: 2,
+        especificacion: null,
+        cantidadPreparada: "1 kg",
+        codigoIncidencia: null,
+        nota: null,
+        alisto: true,
+        reviso: false,
+      },
+    ]);
+    expect(lineas).toHaveLength(3);
+    expect(lineas[0]).toMatchObject({
+      indice: 1,
+      alisto: false,
+      reviso: false,
+    });
+    expect(lineas[1]).toMatchObject({ indice: 2, alisto: true });
+    expect(lineas[2]).toMatchObject({
+      indice: 3,
+      alisto: false,
+      reviso: false,
+    });
+  });
+});
+
+describe("promoteRevisoSoloToAlisto (REQ-153)", () => {
+  it("promueve Revisó solo a Alistó", () => {
+    const lineas = promoteRevisoSoloToAlisto([
+      {
+        indice: 1,
+        alisto: false,
+        reviso: true,
+      },
+      {
+        indice: 2,
+        alisto: true,
+        reviso: true,
+      },
+      {
+        indice: 3,
+        alisto: false,
+        reviso: false,
+      },
+    ]);
+    expect(lineas[0]?.alisto).toBe(true);
+    expect(lineas[1]?.alisto).toBe(true);
+    expect(lineas[2]?.alisto).toBe(false);
+  });
+});
+
+describe("estimateSurtidoPrecision (REQ-153)", () => {
+  it("no cuenta Revisó solo como cobertura de línea", () => {
+    const soloReviso: OrdenSurtidoCapturaPayload = {
+      campos: {},
+      checks: {},
+      lineas: [
+        { indice: 1, reviso: true, alisto: false },
+        { indice: 2, reviso: true, alisto: false },
+        { indice: 3, reviso: true, alisto: false },
+      ],
+    };
+    const conAlisto: OrdenSurtidoCapturaPayload = {
+      campos: {},
+      checks: {},
+      lineas: [
+        { indice: 1, reviso: false, alisto: true },
+        { indice: 2, reviso: false, alisto: true },
+        { indice: 3, reviso: false, alisto: true },
+      ],
+    };
+    expect(estimateSurtidoPrecision(soloReviso, 3)).toBeLessThan(
+      estimateSurtidoPrecision(conAlisto, 3),
+    );
   });
 });

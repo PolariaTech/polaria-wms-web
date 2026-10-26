@@ -1,4 +1,4 @@
-import type { OrigenAdjunto } from "../utils/origen-adjuntos";
+import type { OrigenAdjunto } from "../utils/origen/origen-adjuntos";
 
 /** Sube un File vía Route Handler (carpeta por cuenta). Si es .eml, incluye PDF internos. */
 export async function uploadOvAdjuntoClient(
