@@ -248,6 +248,19 @@ export function drawOrdenTareaAlmacenLandscapePage(
   }
   y += QR_SIZE + 2;
 
+  // REQ-143: día de entrega bien visible para bodega (HOY / MAÑANA visual).
+  if (data.diaEntrega?.trim()) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(0);
+    doc.text(data.diaEntrega.trim(), leftX + LEFT_W / 2, y + 2, {
+      align: "center",
+      baseline: "top",
+    });
+    y += 10;
+    doc.setFont("helvetica", "normal");
+  }
+
   const rowH = 10;
   // Fila 1: Orden de venta · Orden de trabajo (impresos = borde fino)
   splitField(

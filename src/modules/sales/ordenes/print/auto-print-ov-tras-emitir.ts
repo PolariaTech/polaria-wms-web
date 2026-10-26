@@ -13,7 +13,7 @@ import { mapOrdenVentaToAlmacenPrintSheets } from "./map-orden-tarea-almacen";
 
 export type AutoPrintOvResult =
   | { status: "skipped"; reason: "flag_off" | "no_sheets" }
-  | { status: "ok"; hojas: number; impresoraHint?: string }
+  | { status: "ok"; hojas: number; codigo?: string; impresoraHint?: string }
   | { status: "error"; message: string };
 
 /** Fila mínima para PDF de almacén tras emitir (detalle es la fuente fiable). */
@@ -163,7 +163,11 @@ export async function autoPrintOrdenVentaTrasEmitir(input: {
       },
     });
 
-    return { status: "ok", hojas: sheets.length };
+    return {
+      status: "ok",
+      hojas: sheets.length,
+      codigo: listRow.venta?.trim() || detallePrint.codigo?.trim() || undefined,
+    };
   } catch (err) {
     const message =
       err instanceof Error
@@ -185,10 +189,15 @@ export function autoPrintResultToFeedback(result: AutoPrintOvResult): {
       result.hojas === 1
         ? "1 orden de trabajo enviada"
         : `${result.hojas} órdenes de trabajo enviadas`;
+    const codigo = result.codigo?.trim() || "";
     return {
       ok: true,
-      title: "Impresión enviada",
-      detail: `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
+      title: codigo
+        ? `Impresión enviada — ${codigo}`
+        : "Impresión enviada",
+      detail: codigo
+        ? `${codigo}: ${hojaLabel}. Confirma en la impresora que hayan salido bien.`
+        : `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
     };
   }
   const sinImpresora = result.message.includes("impresora configurada");

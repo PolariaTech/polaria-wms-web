@@ -1,3 +1,4 @@
+import { parseFechaOrigen } from "./materialize-ov-desde-origen";
 import { sanitizeTelefonoContacto } from "./sanitize-telefono-contacto";
 import { isCuerpoMensajeFormato } from "./texto-origen-pedido";
 
@@ -324,15 +325,20 @@ function normalizeQtyKey(cantidad: number): string {
   return String(rounded);
 }
 
-/** Clave de nota de línea acotada a OT + producto + cantidad. */
+/** Clave de nota de línea: preferir idProducto (estable) + OT; nombre/qty como legado. */
 export function formatNotaLineaKey(input: {
   nombre: string;
   cantidad: number;
   otId?: string | null;
+  idProducto?: string | null;
 }): string {
   const nombre = input.nombre.trim();
   const qty = normalizeQtyKey(input.cantidad);
   const ot = input.otId?.trim() || "";
+  const id = input.idProducto?.trim() || "";
+  // REQ-138: clave por id de producto para que la especificación sobreviva al reabrir.
+  if (id && ot) return `ot:${ot}|pid:${id}`;
+  if (id) return `pid:${id}`;
   if (ot && qty) return `ot:${ot}|${nombre}|${qty}`;
   if (ot) return `ot:${ot}|${nombre}`;
   if (qty) return `${nombre}|${qty}`;
@@ -360,25 +366,30 @@ export function notaCapturaForLinea(
     nombre: string;
     cantidad?: number;
     otId?: string | null;
+    idProducto?: string | null;
     /** Solo para vistas sin OT (o compat). Con otId suele ir false. */
     allowUnscoped?: boolean;
   },
 ): string {
   const nombre = input.nombre.trim();
-  if (!nombre || !notasLineas.trim()) return "";
+  if (!notasLineas.trim()) return "";
+  if (!nombre && !input.idProducto?.trim()) return "";
 
   const qty =
     input.cantidad != null && Number.isFinite(input.cantidad)
       ? normalizeQtyKey(input.cantidad)
       : "";
   const ot = input.otId?.trim() || "";
+  const id = input.idProducto?.trim() || "";
   const allowUnscoped = input.allowUnscoped === true && !ot;
 
   const candidates: string[] = [];
-  if (ot && qty) candidates.push(`ot:${ot}|${nombre}|${qty}: `);
-  if (ot) candidates.push(`ot:${ot}|${nombre}: `);
-  if (qty) candidates.push(`${nombre}|${qty}: `);
-  if (allowUnscoped) candidates.push(`${nombre}: `);
+  if (id && ot) candidates.push(`ot:${ot}|pid:${id}: `);
+  if (id) candidates.push(`pid:${id}: `);
+  if (nombre && ot && qty) candidates.push(`ot:${ot}|${nombre}|${qty}: `);
+  if (nombre && ot) candidates.push(`ot:${ot}|${nombre}: `);
+  if (nombre && qty) candidates.push(`${nombre}|${qty}: `);
+  if (allowUnscoped && nombre) candidates.push(`${nombre}: `);
 
   for (const prefix of candidates) {
     for (const line of notasLineas.split("\n")) {
@@ -397,6 +408,7 @@ export function buildNotasLineasText(
     nombre: string;
     cantidad: number;
     otId?: string | null;
+    idProducto?: string | null;
     especificacion: string;
     descuentoPct?: number | null;
     ivaPct?: string | null;
@@ -419,6 +431,7 @@ export function buildNotasLineasText(
         nombre: linea.nombre,
         cantidad: linea.cantidad,
         otId: linea.otId,
+        idProducto: linea.idProducto,
       });
       return [`${key}: ${bits.join(" · ")}`];
     })
@@ -444,10 +457,16 @@ export function stripSurtidoFotoQrFromNotas(raw: string): string {
     .trim();
 }
 
+/** Visual México/Latam: siempre DD/MM/AAAA (acepta ISO o slash US/LatAm). */
 export function formatCapturaFecha(value: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-  if (!match) return value.trim();
-  return `${match[3]}/${match[2]}/${match[1]}`;
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const iso = parseFechaOrigen(trimmed);
+  if (iso) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+  }
+  return trimmed;
 }
 
 export function todayIsoDate(now = new Date()): string {

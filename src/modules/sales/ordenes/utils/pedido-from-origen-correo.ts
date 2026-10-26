@@ -10,6 +10,10 @@ import {
   parseOrigenCorreoJson,
   type OrigenCorreoRenglon,
 } from "./origen-correo-ordenes-trabajo";
+import {
+  normalizeNumeroPedidoFields,
+  sanitizeOrigenCorreoNumeroPedido,
+} from "./normalize-numero-pedido";
 
 function mostFrequent(values: string[]): string | null {
   const counts = new Map<string, number>();
@@ -66,8 +70,13 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
   /** Ancla para fechas relativas / mes sin año. Default: hoy UTC. */
   hoyISO?: string;
 }): PedidoExtraido {
-  const rows = parseOrigenCorreoJson(params.origenCorreo);
-  const lineas: LineaExtraida[] = rows.map((row) => ({
+  const origenTexto = params.origenTexto?.trim() || null;
+  const rowsRaw = parseOrigenCorreoJson(params.origenCorreo);
+  const rows = sanitizeOrigenCorreoNumeroPedido(
+    rowsRaw,
+    origenTexto ?? "",
+  );
+  const lineasRaw: LineaExtraida[] = rows.map((row) => ({
     textoOriginal: row.Producto?.trim() || row["Codigo producto"]?.trim() || "",
     productoCatalogo: null,
     cantidad: parseCantidad(row.Cantidad),
@@ -84,9 +93,18 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     precioUnitario: parsePrecio(row.Precio),
   }));
 
+  const hotelRaw = mostFrequent(
+    rows.map((r) => (r["Numero pedido"] ?? "").toString()),
+  );
+  const normalized = normalizeNumeroPedidoFields({
+    ordenCompraHotel: hotelRaw,
+    lineas: lineasRaw,
+    sourceText: origenTexto ?? "",
+  });
+  const lineas = normalized.lineas;
+
   const notasFromRows = firstNonEmpty(rows, (r) => r["Notas generales"]);
   const destino = firstNonEmpty(rows, (r) => r.Destino);
-  const origenTexto = params.origenTexto?.trim() || null;
   const hoyISO =
     params.hoyISO?.trim() || new Date().toISOString().slice(0, 10);
   const fromBody = extractEntregaDesdeTexto(
@@ -103,9 +121,7 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     centroConsumo: mostFrequent(rows.map((r) => (r.Almacen ?? "").toString())),
     observaciones: notasFromRows || params.notasAlmacen?.trim() || null,
     notasGeneralesAlmacen: notasFromRows || params.notasAlmacen?.trim() || null,
-    ordenCompraHotel: mostFrequent(
-      rows.map((r) => (r["Numero pedido"] ?? "").toString()),
-    ),
+    ordenCompraHotel: normalized.ordenCompraHotel,
     nombreCliente: firstNonEmpty(rows, (r) => r["Nombre cliente"]),
     rfc: null,
     regimen: null,

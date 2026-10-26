@@ -52,6 +52,8 @@ export interface PolariaFormModalProps {
   hideHeaderClose?: boolean;
   /** Sustituye el cierre de cabecera (p. ej. botón «+» de Acciones OV). */
   headerTrailing?: ReactNode;
+  /** Zona central de la cabecera (p. ej. OT activa), entre título y trailing. */
+  headerCenter?: ReactNode;
   /**
    * `dock-left`: panel a la izquierda (p. ej. junto a Cypher a la derecha).
    * Por defecto centrado.
@@ -114,6 +116,7 @@ export function PolariaFormModal({
   hideFooter = false,
   hideHeaderClose = false,
   headerTrailing,
+  headerCenter,
   layout = "center",
   asForm = true,
   stackLevel = "base",
@@ -332,7 +335,7 @@ export function PolariaFormModal({
             compact ? "mb-4" : "mb-6",
           )}
         >
-          <div className="min-w-0">
+          <div className={cn("min-w-0", headerCenter && "flex-1")}>
             {sectionLabel ? (
               <p className="polaria-text-label text-polaria-teal">
                 {sectionLabel}
@@ -360,9 +363,19 @@ export function PolariaFormModal({
             ) : null}
           </div>
 
+          {headerCenter ? (
+            <div className="flex min-w-0 flex-1 items-center justify-center self-center px-2">
+              {headerCenter}
+            </div>
+          ) : null}
+
           {headerTrailing != null ? (
-            headerTrailing
-          ) : hideHeaderClose ? null : (
+            <div className={cn("shrink-0", headerCenter && "flex-1 flex justify-end")}>
+              {headerTrailing}
+            </div>
+          ) : hideHeaderClose ? (
+            headerCenter ? <div className="flex-1" /> : null
+          ) : (
             <button
               type="button"
               onClick={onClose}

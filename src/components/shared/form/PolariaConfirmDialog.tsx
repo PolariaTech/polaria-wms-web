@@ -24,7 +24,8 @@ export interface PolariaConfirmDialogProps {
   description?: string;
   children?: ReactNode;
   confirmLabel?: string;
-  cancelLabel?: string;
+  /** Texto o nodo (p. ej. ícono + «Revisar», REQ-113). */
+  cancelLabel?: ReactNode;
   isSubmitting?: boolean;
   error?: string | null;
   /** Ancho del panel. Default `md`. */

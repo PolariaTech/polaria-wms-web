@@ -183,6 +183,15 @@ export function canPreviewOrigenAdjunto(item: OrigenAdjunto): boolean {
   if (url && isBrokenCloudinaryPdfUrl(url) && !item.path?.trim()) return false;
   if (mime.startsWith("image/") && !name.endsWith(".pdf")) return true;
   if (mime === "application/pdf" || name.endsWith(".pdf")) return true;
+  // REQ-103: HTML igual que PDF (ojo → nueva pestaña).
+  if (
+    mime === "text/html" ||
+    mime === "application/xhtml+xml" ||
+    name.endsWith(".html") ||
+    name.endsWith(".htm")
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -280,6 +289,14 @@ export function labelTipoOrigenAdjunto(item: OrigenAdjunto): string {
     return "XLS";
   }
   if (name.endsWith(".eml") || mime.includes("message")) return "EML";
+  if (
+    mime === "text/html" ||
+    mime === "application/xhtml+xml" ||
+    name.endsWith(".html") ||
+    name.endsWith(".htm")
+  ) {
+    return "HTML";
+  }
   const ext = name.includes(".") ? name.split(".").pop() : "";
   return (ext || "FILE").slice(0, 4).toUpperCase();
 }

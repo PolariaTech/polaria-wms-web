@@ -39,6 +39,8 @@ export interface OrdenTareaAlmacenPrintData {
   /** Número de renglón del primer producto de esta hoja (1-based). */
   lineaInicio?: number;
   fechaEntrega: string;
+  /** Día de la semana de entrega en mayúsculas (REQ-143), ej. VIERNES. */
+  diaEntrega?: string;
   /** Ventana / hora comprometida de entrega. */
   horaEntrega: string;
   direccionEntrega: string;
