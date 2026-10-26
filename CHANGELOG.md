@@ -2,6 +2,17 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## 2.12.86 — 2026-10-26
+
+### Ventas / OV
+- OCC: extracción `REQUISICIÓN #` (no SKU Artículo / rAutorizado); PO/OC / Oc Generada intactos.
+- Editar OV: folio visible en título (`Editar · OV-…`).
+- Confirmación antes de salir a Mateo IA con modal OV abierto.
+- Tickets Baja: adjuntos origen, impresión/PDF día, sync notas OT, prompts Mateo y UX de captura.
+
+### Versión
+- Producto `2.12.86`.
+
 ## 2.12.54 — 2026-10-20
 
 ### Ventas / OV
