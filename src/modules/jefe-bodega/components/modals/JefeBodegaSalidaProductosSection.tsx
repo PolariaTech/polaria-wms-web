@@ -9,7 +9,7 @@ import {
   resolveOrdenVentaLineaTitulo,
   sumOrdenVentaCantidadKg,
   sumOrdenVentaTotal,
-} from "@/modules/sales/ordenes/utils/orden-venta-display";
+} from "@/modules/sales/ordenes/utils/display/orden-venta-display";
 import { JefeBodegaModalSection } from "./jefe-bodega-modal-ui";
 
 interface JefeBodegaSalidaProductosSectionProps {

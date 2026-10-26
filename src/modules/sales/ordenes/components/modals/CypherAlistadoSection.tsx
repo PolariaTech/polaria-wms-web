@@ -6,11 +6,11 @@ import { formatDateTime } from "@/components/shared/utils/formatters";
 import { cn } from "@/lib/utils/cn";
 import type { OrdenSurtidoCapturaPayload } from "../../surtido/orden-surtido.types";
 import { parseCantidadPreparadaKg } from "../../surtido/sync-surtido-to-orden-venta";
-import { filterLineasByOrdenTrabajoHija } from "../../utils/filter-lineas-by-orden-trabajo";
+import { filterLineasByOrdenTrabajoHija } from "../../utils/ot/filter-lineas-by-orden-trabajo";
 import {
   normalizeIdOrdenTrabajo,
   type OrdenTrabajoHija,
-} from "../../utils/origen-correo-ordenes-trabajo";
+} from "../../utils/origen/origen-correo-ordenes-trabajo";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 
 type CapturaApiRow = {

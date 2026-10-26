@@ -4,7 +4,7 @@ import { sanitizeOvAdjuntoStorageFileName } from "@/lib/supabase/sanitize-ov-adj
 import {
   getEmlAttachmentBuffer,
   listEmlAttachmentParts,
-} from "@/modules/sales/ordenes/utils/eml-attachments";
+} from "@/modules/sales/ordenes/utils/origen/eml-attachments";
 
 export const OV_ADJUNTOS_BUCKET = "ov-adjuntos";
 const MAX_BYTES = 15 * 1024 * 1024;

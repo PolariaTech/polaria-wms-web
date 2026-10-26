@@ -5,8 +5,8 @@ import {
   type PedidoExtraido,
 } from "@/modules/sales/ordenes/ai/openai-pedido.client";
 import { listProductoCatalogoClavesServer } from "@/modules/sales/shared/services/sales-catalog.server";
-import { mergeCorreoChromeIntoTexto } from "@/modules/sales/ordenes/utils/correo-chrome";
-import { buildTextoOrigenPedido } from "@/modules/sales/ordenes/utils/texto-origen-pedido";
+import { mergeCorreoChromeIntoTexto } from "@/modules/sales/ordenes/utils/origen/correo-chrome";
+import { buildTextoOrigenPedido } from "@/modules/sales/ordenes/utils/origen/texto-origen-pedido";
 import OpenAI from "openai";
 
 const PRESENTACIONES = [

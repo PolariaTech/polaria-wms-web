@@ -37,26 +37,26 @@ import {
   notaCapturaForLinea,
   parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
-} from "../../utils/build-orden-venta-captura-observaciones";
-import { sanitizeTelefonoContacto } from "../../utils/sanitize-telefono-contacto";
-import { resolveSkuVisible } from "../../utils/resolve-sku-visible";
+} from "../../utils/pedido/build-orden-venta-captura-observaciones";
+import { sanitizeTelefonoContacto } from "../../utils/pedido/sanitize-telefono-contacto";
+import { resolveSkuVisible } from "../../utils/display/resolve-sku-visible";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
   looksLikeCorreoCuerpoEnNotas,
   sanitizeNotasGeneralesPedido,
-} from "../../utils/texto-origen-pedido";
-import { filterLineasByOrdenTrabajoHija } from "../../utils/filter-lineas-by-orden-trabajo";
+} from "../../utils/origen/texto-origen-pedido";
+import { filterLineasByOrdenTrabajoHija } from "../../utils/ot/filter-lineas-by-orden-trabajo";
 import {
   groupOrigenCorreoToOrdenesTrabajo,
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
-} from "../../utils/origen-correo-ordenes-trabajo";
+} from "../../utils/origen/origen-correo-ordenes-trabajo";
 import { OrigenPedidoSourceView } from "../shared/OrigenPedidoBodyView";
 import {
   nombresOrigenAdjuntos,
   parseOrigenArchivos,
-} from "../../utils/origen-adjuntos";
+} from "../../utils/origen/origen-adjuntos";
 import {
   formatCompradorOrdenVenta,
   formatOrdenVentaCantidadConUnidad,
@@ -66,7 +66,7 @@ import {
   resolveOrdenVentaLineaUnidad,
   resolveUnidadComunLineas,
   sumOrdenVentaCantidadKg,
-} from "../../utils/orden-venta-display";
+} from "../../utils/display/orden-venta-display";
 import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../../shared/types/sales.types";
 import type { CypherCompanionOtPicker } from "./OrdenVentaCypherDrawer";
 

@@ -7,7 +7,7 @@ import { useCuentaZonaHoraria } from "@/modules/configurator/cuentas/hooks/useCu
 import type { CuentaZonaHorariaId } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 import { fetchOrdenVentaLog } from "../../services/orden-venta-log.client";
 import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
-import { filterLogEntriesVisible } from "../../utils/filter-log-entries-visible";
+import { filterLogEntriesVisible } from "../../utils/ot/filter-log-entries-visible";
 
 interface OrdenTrabajoLogPanelProps {
   idOrdenVenta: string;

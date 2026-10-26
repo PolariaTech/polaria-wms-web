@@ -10,7 +10,7 @@ import {
   origenAdjuntoDownloadUrl,
   origenAdjuntoViewUrl,
   type OrigenAdjunto,
-} from "../../utils/origen-adjuntos";
+} from "../../utils/origen/origen-adjuntos";
 
 function formatBytes(bytes: number | null | undefined): string {
   if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return "";

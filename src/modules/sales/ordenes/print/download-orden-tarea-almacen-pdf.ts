@@ -1,7 +1,7 @@
 "use client";
 
 import QRCode from "qrcode";
-import { normalizeIdOrdenTrabajo } from "../utils/origen-correo-ordenes-trabajo";
+import { normalizeIdOrdenTrabajo } from "../utils/origen/origen-correo-ordenes-trabajo";
 import { readCuentaZonaHoraria } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 import { stampOrdenTareaImpresaNow } from "./map-orden-tarea-almacen";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";

@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { BodegaRequiredGuard } from "@/components/auth/guards/BodegaRequiredGuard";
 import { TenantScopeGuard } from "@/components/auth/guards/TenantScopeGuard";
 import { cn } from "@/lib/utils/cn";
-import { CYPHER_DOCK_RESERVE_CLASS } from "@/modules/sales/ordenes/constants/cypher-layout";
+import { cypherDockReserveClass } from "@/modules/sales/ordenes/constants/cypher-layout";
+import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import {
   ModuleRoleGate,
   type ModuleRoleGateProps,
@@ -36,6 +37,7 @@ export function OperationalModuleShell({
   accessDeniedMessage = ACCESS_DENIED_MESSAGE,
   dockForCypher = false,
 }: OperationalModuleShellProps) {
+  const cypherWidthMode = useShellOverlayStore((s) => s.cypherWidthMode);
   return (
     <TenantScopeGuard>
       <BodegaRequiredGuard>
@@ -55,7 +57,10 @@ export function OperationalModuleShell({
               "transition-[padding,max-width,margin] duration-[320ms] ease-out",
               dockForCypher
                 ? // pl solo a la izquierda; pr = ancho Cypher (no usar px-* o pisa el dock).
-                  cn("max-w-none pl-4 sm:pl-6", CYPHER_DOCK_RESERVE_CLASS)
+                  cn(
+                    "max-w-none pl-4 sm:pl-6",
+                    cypherDockReserveClass(cypherWidthMode),
+                  )
                 : "relative mx-auto max-w-6xl px-4 sm:px-6",
             )}
           >

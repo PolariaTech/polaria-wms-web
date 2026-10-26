@@ -21,15 +21,15 @@ import { listCompradoresAdmin } from "@/modules/admin-panel/compradores/services
 import {
   collectOrdenesCompraCliente,
   countOrdenesTrabajo,
-} from "../../ordenes/utils/orden-venta-tabla-meta";
-import { buildNotasLineasText } from "../../ordenes/utils/build-orden-venta-captura-observaciones";
-import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/materialize-ov-desde-origen";
+} from "../../ordenes/utils/display/orden-venta-tabla-meta";
+import { buildNotasLineasText } from "../../ordenes/utils/pedido/build-orden-venta-captura-observaciones";
+import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/origen/materialize-ov-desde-origen";
 import {
   serializeOrigenArchivos,
   type OrigenAdjunto,
-} from "../../ordenes/utils/origen-adjuntos";
-import { parseOrigenCorreoJson } from "../../ordenes/utils/origen-correo-ordenes-trabajo";
-import { sanitizeTelefonoContacto } from "../../ordenes/utils/sanitize-telefono-contacto";
+} from "../../ordenes/utils/origen/origen-adjuntos";
+import { parseOrigenCorreoJson } from "../../ordenes/utils/origen/origen-correo-ordenes-trabajo";
+import { sanitizeTelefonoContacto } from "../../ordenes/utils/pedido/sanitize-telefono-contacto";
 import {
   isCatalogoTipoProductoMercancia,
   parseCatalogoMetadatos,
@@ -54,6 +54,7 @@ import {
   normalizeOvSlaConfig,
   type OvSlaConfig,
 } from "../utils/ov-sla";
+import { annotatePotencialDuplicadoOv } from "../../ordenes/utils/match/find-potencial-duplicado-ov";
 
 /** PostgREST GET `.in()` explota la URL con ~1000 UUIDs; tandas cortas evitan 400. */
 const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
@@ -542,6 +543,80 @@ async function fetchLineasResumenByOrden(
   return resumen;
 }
 
+/**
+ * REQ-135: último precio unitario vendido a este cliente por producto
+ * (órdenes no canceladas, más reciente primero).
+ */
+export async function fetchUltimosPreciosPorComprador(input: {
+  codigoCuenta: string;
+  idComprador: string;
+}): Promise<Record<string, number>> {
+  const cuenta = requireCodigoCuenta(input.codigoCuenta);
+  const idComprador = input.idComprador.trim();
+  if (!idComprador) return {};
+
+  const ovRows = await runDomainQuery<{ id_orden_venta: string }[]>(
+    (client) => {
+      const query = client
+        .from("orden_venta")
+        .select("id_orden_venta")
+        .eq("codigo_cuenta", cuenta)
+        .eq("id_comprador", idComprador)
+        .neq("estado", "cancelada")
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+      return query as unknown as Promise<{
+        data: { id_orden_venta: string }[] | null;
+        error: { message: string } | null;
+      }>;
+    },
+  );
+
+  const ovIds = ovRows
+    .map((row) => row.id_orden_venta?.trim())
+    .filter(Boolean);
+  if (ovIds.length === 0) return {};
+
+  type LineaRow = {
+    id_producto: string;
+    precio_unitario: number | string | null;
+    id_orden_venta: string;
+  };
+
+  const lineas = await runDomainQuery<LineaRow[]>((client) => {
+    const query = client
+      .from("orden_venta_linea")
+      .select("id_producto,precio_unitario,id_orden_venta")
+      .in("id_orden_venta", ovIds)
+      .gt("precio_unitario", 0)
+      .limit(1200);
+
+    return query as unknown as Promise<{
+      data: LineaRow[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  // Recorrer OVs de más reciente a más antigua para quedarnos con el último precio.
+  const ovRank = new Map(ovIds.map((id, index) => [id, index]));
+  const ranked = [...lineas].sort((a, b) => {
+    const ra = ovRank.get(a.id_orden_venta) ?? 9999;
+    const rb = ovRank.get(b.id_orden_venta) ?? 9999;
+    return ra - rb;
+  });
+
+  const out: Record<string, number> = {};
+  for (const row of ranked) {
+    const id = row.id_producto?.trim();
+    if (!id || out[id] != null) continue;
+    const precio = Number(row.precio_unitario);
+    if (!Number.isFinite(precio) || precio <= 0) continue;
+    out[id] = precio;
+  }
+  return out;
+}
+
 async function fetchPreciosProductoMap(
   codigoCuenta: string,
   idProductos: string[],
@@ -648,6 +723,8 @@ function mapOrdenVentaOperadorRow(
     minutosEnEstado: sla.minutosEnEstado,
     slaMinutos: slaConfig.slaMinutos,
     alertaMinutos: slaConfig.alertaMinutos,
+    potencialDuplicado: false,
+    potencialDuplicadoDe: [],
   };
 }
 
@@ -895,7 +972,7 @@ async function enrichOrdenesVentaOperador(
       fetchCuentaOvSlaByCodigo(cuentaCodigos),
     ]);
 
-  return rows.map((row) =>
+  const mapped = rows.map((row) =>
     mapOrdenVentaOperadorRow(
       row,
       compradorLabels,
@@ -904,6 +981,27 @@ async function enrichOrdenesVentaOperador(
       slaByCuenta,
     ),
   );
+
+  // REQ-151: marca potencial duplicado dentro del listado cargado.
+  const dupMap = annotatePotencialDuplicadoOv(
+    mapped.map((row) => ({
+      idOrdenVenta: row.idOrdenVenta,
+      codigo: row.venta,
+      occTodas: row.occTodas,
+      comprador: row.comprador,
+      fecha: row.fecha,
+      estado: row.estado,
+    })),
+  );
+  return mapped.map((row) => {
+    const ann = dupMap.get(row.idOrdenVenta);
+    if (!ann) return row;
+    return {
+      ...row,
+      potencialDuplicado: ann.potencialDuplicado,
+      potencialDuplicadoDe: ann.potencialDuplicadoDe,
+    };
+  });
 }
 
 export interface ListProductosVentaCatalogoParams {

@@ -8,25 +8,25 @@ import type {
 import {
   formatCompradorNombreOrdenVenta,
   resolveOrdenVentaLineaTitulo,
-} from "../utils/orden-venta-display";
+} from "../utils/display/orden-venta-display";
 import {
   formatCapturaFecha,
   notaCapturaForLinea,
   parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
-} from "../utils/build-orden-venta-captura-observaciones";
-import { filterLineasByOrdenTrabajoHija } from "../utils/filter-lineas-by-orden-trabajo";
+} from "../utils/pedido/build-orden-venta-captura-observaciones";
+import { filterLineasByOrdenTrabajoHija } from "../utils/ot/filter-lineas-by-orden-trabajo";
 import {
   groupOrigenCorreoToOrdenesTrabajo,
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
-} from "../utils/origen-correo-ordenes-trabajo";
+} from "../utils/origen/origen-correo-ordenes-trabajo";
 import {
   extractNotasClaveCorreo,
   fitNotasGeneralesPdf,
   looksLikeEmailHeaderJunk,
   sanitizeNotasGeneralesPedido,
-} from "../utils/texto-origen-pedido";
+} from "../utils/origen/texto-origen-pedido";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 import {
   getCuentaZonaHorariaOption,

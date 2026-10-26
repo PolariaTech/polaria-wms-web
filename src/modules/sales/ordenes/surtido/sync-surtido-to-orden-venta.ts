@@ -3,7 +3,7 @@ import {
   parseOrdenVentaCapturaObservaciones,
   type OrdenVentaCapturaExtra,
   type OrdenVentaCapturaParsed,
-} from "../utils/build-orden-venta-captura-observaciones";
+} from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { campoSurtido } from "./apply-surtido-to-print";
 import type { OrdenSurtidoCapturaPayload } from "./orden-surtido.types";
 

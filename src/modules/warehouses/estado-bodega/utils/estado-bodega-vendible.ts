@@ -18,12 +18,17 @@ export function isUbicacionEstadoBodegaVendible(
   const tipo = resolveTipoUbicacion(ubicacion.tipo_ubicacion);
   const codigo = tipo?.codigo?.toUpperCase() ?? "";
 
-  if (Boolean(tipo?.es_recepcion) || codigo === "INGRESO") {
-    return false;
-  }
+  // REQ-135: mismos criterios que isUbicacionStockVentaAlmacenamiento.
+  const esAlmacenamiento =
+    tipo?.es_almacenamiento === true || codigo.includes("ALMAC");
 
-  if (Boolean(tipo?.es_picking) || codigo.includes("SALIDA")) {
-    return false;
+  if (!esAlmacenamiento) {
+    if (Boolean(tipo?.es_recepcion) || codigo === "INGRESO") {
+      return false;
+    }
+    if (Boolean(tipo?.es_picking) || codigo.includes("SALIDA")) {
+      return false;
+    }
   }
 
   if (

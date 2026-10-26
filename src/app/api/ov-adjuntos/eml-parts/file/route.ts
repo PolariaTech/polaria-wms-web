@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { OV_ADJUNTOS_BUCKET } from "@/lib/supabase/upload-ov-adjunto";
-import { getEmlAttachmentBuffer } from "@/modules/sales/ordenes/utils/eml-attachments";
+import { getEmlAttachmentBuffer } from "@/modules/sales/ordenes/utils/origen/eml-attachments";
 
 export const runtime = "nodejs";
 

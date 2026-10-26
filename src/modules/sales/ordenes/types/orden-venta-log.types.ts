@@ -9,6 +9,11 @@ export interface OrdenVentaLogEntry {
   autor: string | null;
   /** OT hija (pedido+almacén). Null/omitido = evento de toda la OV. */
   idOrdenTrabajo: string | null;
+  /**
+   * `tipo` del payload (p. ej. impresion_pdf / impresion_pdf_auto).
+   * REQ-137: detectar reimpresión sin depender solo del texto del mensaje.
+   */
+  payloadTipo?: string | null;
 }
 
 export interface RecordOrdenVentaLogInput {

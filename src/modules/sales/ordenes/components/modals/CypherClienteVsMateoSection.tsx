@@ -13,9 +13,9 @@ import type {
   OrdenVentaDetalleRow,
   ProductoVentaOption,
 } from "../../../shared/types/sales.types";
-import { rankProductosCatalogo } from "../../utils/find-closest-producto-catalogo";
-import { scoreMatch } from "../../utils/filter-lineas-by-orden-trabajo";
-import { rankCompradoresFromNombre } from "../../utils/match-comprador-from-nombre";
+import { rankProductosCatalogo } from "../../utils/match/find-closest-producto-catalogo";
+import { scoreMatch } from "../../utils/ot/filter-lineas-by-orden-trabajo";
+import { rankCompradoresFromNombre } from "../../utils/match/match-comprador-from-nombre";
 import {
   badgeVariantMateoCoincidencia,
   displayOrDash,
@@ -23,15 +23,15 @@ import {
   labelMateoCoincidencia,
   resolveMateoCoincidencia,
   type MateoCoincidenciaKind,
-} from "../../utils/mateo-coincidencia";
-import { formatCompradorOrdenVenta } from "../../utils/orden-venta-display";
+} from "../../utils/match/mateo-coincidencia";
+import { formatCompradorOrdenVenta } from "../../utils/display/orden-venta-display";
 import {
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
   type OrigenCorreoRenglon,
-} from "../../utils/origen-correo-ordenes-trabajo";
-import { resolveOrdenCompraLimpia } from "../../utils/normalize-numero-pedido";
-import { buildPedidoExtraidoFromOrigenCorreo } from "../../utils/pedido-from-origen-correo";
+} from "../../utils/origen/origen-correo-ordenes-trabajo";
+import { resolveOrdenCompraLimpia } from "../../utils/pedido/normalize-numero-pedido";
+import { buildPedidoExtraidoFromOrigenCorreo } from "../../utils/origen/pedido-from-origen-correo";
 
 /** Solo tras confirmar: en por_confirmar el usuario aún no eligió. */
 function usuarioSiConfirmado(confirmado: boolean, value: string): string {

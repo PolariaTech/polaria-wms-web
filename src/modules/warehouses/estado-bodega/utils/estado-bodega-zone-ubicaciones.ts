@@ -26,9 +26,20 @@ export function isUbicacionStockVentaAlmacenamiento(
   const tipo = resolveTipoUbicacion(ubicacion.tipo_ubicacion);
   const codigo = tipo?.codigo?.toUpperCase() ?? "";
 
-  if (tipo?.es_recepcion || codigo === "INGRESO") return false;
-  if (tipo?.es_picking || codigo.includes("SALIDA")) return false;
-  if (codigo.includes("PROCES")) return false;
+  // REQ-135: GEN suele marcar recepción+almacenamiento+picking a la vez.
+  // Si es almacenamiento, cuenta como vendible aunque también diga recepción.
+  const esAlmacenamiento =
+    tipo?.es_almacenamiento === true || codigo.includes("ALMAC");
+
+  if (!esAlmacenamiento) {
+    if (tipo?.es_recepcion || codigo === "INGRESO") return false;
+    if (tipo?.es_picking || codigo.includes("SALIDA")) return false;
+    if (codigo.includes("PROCES")) return false;
+  } else {
+    // Almacenamiento puro: no mezclar con cola de salida ni proceso.
+    if (codigo.includes("SALIDA") && !tipo?.es_almacenamiento) return false;
+    if (codigo.includes("PROCES")) return false;
+  }
 
   return true;
 }
