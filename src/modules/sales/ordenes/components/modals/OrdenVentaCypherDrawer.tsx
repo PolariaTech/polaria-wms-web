@@ -2,9 +2,7 @@
 
 import {
   FileText,
-  Minus,
   Pencil,
-  Plus,
   Printer,
   Trash2,
   X,
@@ -16,6 +14,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 
@@ -300,10 +299,64 @@ export function OrdenVentaCypherDrawer({
   const titleId = useId();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const cypherWidthMode = useShellOverlayStore((s) => s.cypherWidthMode);
-  const nudgeCypherWidth = useShellOverlayStore((s) => s.nudgeCypherWidth);
+  const setCypherWidthMode = useShellOverlayStore((s) => s.setCypherWidthMode);
+  const resizeDragRef = useRef<{
+    startX: number;
+    originMode: typeof cypherWidthMode;
+    lastStep: number;
+  } | null>(null);
+  const [isResizingWidth, setIsResizingWidth] = useState(false);
   useEffect(() => {
     hydrateCypherWidthModeFromStorage();
   }, []);
+
+  /** REQ-150: arrastrar el borde izquierdo (cursor ↔) achica/agranda el panel. */
+  const handleResizePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      resizeDragRef.current = {
+        startX: event.clientX,
+        originMode: cypherWidthMode,
+        lastStep: 0,
+      };
+      setIsResizingWidth(true);
+    },
+    [cypherWidthMode],
+  );
+
+  const handleResizePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const drag = resizeDragRef.current;
+      if (!drag) return;
+      // Cypher a la derecha: arrastrar el borde a la izquierda = más ancho.
+      const deltaPx = drag.startX - event.clientX;
+      const step = Math.max(-2, Math.min(2, Math.round(deltaPx / 56)));
+      if (step === drag.lastStep) return;
+      drag.lastStep = step;
+      const order = ["compact", "normal", "wide"] as const;
+      const originIdx = order.indexOf(drag.originMode);
+      const nextIdx = Math.max(0, Math.min(order.length - 1, originIdx + step));
+      setCypherWidthMode(order[nextIdx]!);
+    },
+    [setCypherWidthMode],
+  );
+
+  const handleResizePointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!resizeDragRef.current) return;
+      resizeDragRef.current = null;
+      setIsResizingWidth(false);
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [],
+  );
+
   const [orden, setOrden] = useState<OrdenVentaDetalleRow | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -698,11 +751,29 @@ export function OrdenVentaCypherDrawer({
           "box-border will-change-transform",
           /* Container queries: el contenido responde al ancho del panel, no al viewport. */
           "@container/cypher",
-          "transition-[transform,width,max-width] duration-[320ms] ease-out",
+          isResizingWidth
+            ? "transition-transform duration-[320ms] ease-out"
+            : "transition-[transform,width,max-width] duration-[320ms] ease-out",
           cypherPanelWidthClass(cypherWidthMode),
           panelEntered ? "translate-x-0" : "translate-x-full",
         )}
       >
+        {/* REQ-150: borde izquierdo tipo Cursor — cursor ↔ para achicar/agrandar. */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionar panel Cypher"
+          title="Arrastra para achicar o agrandar"
+          onPointerDown={handleResizePointerDown}
+          onPointerMove={handleResizePointerMove}
+          onPointerUp={handleResizePointerUp}
+          onPointerCancel={handleResizePointerUp}
+          className={cn(
+            "absolute inset-y-0 left-0 z-30 w-1.5 -translate-x-1/2 cursor-col-resize touch-none",
+            "hover:bg-polaria-teal/40",
+            isResizingWidth && "bg-polaria-teal/50",
+          )}
+        />
         <header className="relative z-20 flex shrink-0 flex-col border-b border-polaria-t-20 bg-polaria-bg">
           <div className="flex items-start gap-2 px-3 pb-2 pt-3 sm:gap-3 sm:px-4 sm:pt-4">
             <div className="min-w-0 flex-1">
@@ -725,48 +796,18 @@ export function OrdenVentaCypherDrawer({
                 {recibida}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                title="Achicar panel"
-                aria-label="Achicar panel Cypher"
-                disabled={cypherWidthMode === "compact"}
-                onClick={() => nudgeCypherWidth(-1)}
-                className={cn(
-                  "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition",
-                  "hover:bg-polaria-t-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
-                  "disabled:cursor-not-allowed disabled:opacity-40",
-                )}
-              >
-                <Minus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-              </button>
-              <button
-                type="button"
-                title="Agrandar panel"
-                aria-label="Agrandar panel Cypher"
-                disabled={cypherWidthMode === "wide"}
-                onClick={() => nudgeCypherWidth(1)}
-                className={cn(
-                  "inline-flex h-9 w-9 items-center justify-center rounded-lg border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition",
-                  "hover:bg-polaria-t-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
-                  "disabled:cursor-not-allowed disabled:opacity-40",
-                )}
-              >
-                <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-              </button>
-              <button
-                type="button"
-                title="Cerrar Cypher"
-                aria-label={`Cerrar detalle de ${codigo}`}
-                onClick={onClose}
-                className={cn(
-                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition",
-                  "hover:bg-polaria-t-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                )}
-              >
-                <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-              </button>
-            </div>
+            <button
+              type="button"
+              title="Cerrar Cypher"
+              aria-label={`Cerrar detalle de ${codigo}`}
+              onClick={onClose}
+              className={cn(
+                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 bg-polaria-t-08 text-polaria-teal transition",
+                "hover:bg-polaria-t-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+              )}
+            >
+              <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+            </button>
           </div>
 
           <nav
