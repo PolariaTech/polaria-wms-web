@@ -101,6 +101,7 @@ export function OperadorOrdenesVentaPageContent({
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [cypherId, setCypherId] = useState<string | null>(null);
   const setCypherOpen = useShellOverlayStore((s) => s.setCypherOpen);
+  const setOvEditOpen = useShellOverlayStore((s) => s.setOvEditOpen);
   const [companionOtPicker, setCompanionOtPicker] =
     useState<CypherCompanionOtPicker | null>(null);
   /** Soft-delete: ocultar de la tabla al instante (fila sigue en BD como cancelada). */
@@ -113,6 +114,13 @@ export function OperadorOrdenesVentaPageContent({
     setCypherOpen(Boolean(cypherId));
     return () => setCypherOpen(false);
   }, [cypherId, setCypherOpen]);
+
+  // REQ-149: bloquear Mateo IA SSO mientras el modal de OV está abierto.
+  useEffect(() => {
+    const blocking = Boolean(isCreateOpen && !inspect);
+    setOvEditOpen(blocking);
+    return () => setOvEditOpen(false);
+  }, [isCreateOpen, inspect, setOvEditOpen]);
   const printingLockRef = useRef(false);
   const fotosOrdenIdRef = useRef<string | null>(null);
   /** Un solo modal: orden confirmada + impresión (REQ-039). */
@@ -334,10 +342,15 @@ export function OperadorOrdenesVentaPageContent({
           sheets.length === 1
             ? "1 orden de trabajo enviada"
             : `${sheets.length} órdenes de trabajo enviadas`;
+        const codigoOv = row.venta?.trim() || "";
         showFeedback({
           ok: true,
-          title: "Impresión enviada",
-          detail: `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
+          title: codigoOv
+            ? `Impresión enviada — ${codigoOv}`
+            : "Impresión enviada",
+          detail: codigoOv
+            ? `${codigoOv}: ${hojaLabel}. Confirma en la impresora que hayan salido bien.`
+            : `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
         });
         const session = useAuthStore.getState().session;
         void postOrdenVentaLogForOts({
@@ -1024,6 +1037,11 @@ export function OperadorOrdenesVentaPageContent({
       <OrdenVentaCreateModal
         open={!inspect && isCreateOpen}
         idOrdenVenta={editingId}
+        codigoVenta={
+          editingId
+            ? (rows.find((r) => r.idOrdenVenta === editingId)?.venta ?? null)
+            : null
+        }
         cypherOpen={Boolean(
           editingId && cypherId && editingId === cypherId,
         )}

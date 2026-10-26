@@ -22,6 +22,7 @@ import {
   enrichAlmacenConCodigoDesdeTexto,
   enrichLineasAlmacenConCodigoDesdeTexto,
 } from "../utils/enrich-almacen-codigo";
+import { normalizeNumeroPedidoFields } from "../utils/normalize-numero-pedido";
 import {
   serializeCuerpoMensaje,
   type CuerpoMensajeBloque,
@@ -256,17 +257,17 @@ const RESPONSE_SCHEMA = {
       observaciones: {
         type: ["string", "null"],
         description:
-          "Observación general corta del pedido completo (no de una línea de producto). PRIORIDAD ALTA si el documento trae secciones rotuladas: «Observaciones del cliente», «Observaciones», «Notas del cliente», «Comentarios del cliente», «Indicaciones del cliente», «Instrucciones», «Notas», «Aviso al almacén». Copia ahí lo que diga el cliente (madurez, calidad, empaque, etc.). null solo si de verdad no hay ninguna.",
+          "Observación general corta del pedido completo (no de una línea de producto). PRIORIDAD ALTA si el documento trae secciones rotuladas: «Observaciones del cliente», «Observaciones», «Notas del cliente», «Comentarios del cliente», «Indicaciones del cliente», «Instrucciones», «Notas», «Aviso al almacén». Copia ahí lo que diga el cliente (madurez, calidad, empaque, etc.). NUNCA inventes conclusiones, inconsistencias entre correo y adjuntos, ni análisis del documento — eso no es una nota de alistamiento. null solo si de verdad no hay ninguna.",
       },
       notasGeneralesAlmacen: {
         type: ["string", "null"],
         description:
-          "SOLO palabras clave / especificaciones de almacén (máx. 160 caracteres, 3 renglones). PRIORIDAD: bloque «Observaciones del cliente» (o Notas/Comentarios/Indicaciones del cliente), madurez (no muy maduro, enrriados, amarillo, etc.), andén, sin sustitutos, juegos de OC. Incluye viñetas del cliente si existen. NO copies el cuerpo del correo, saludos, tablas de productos, firma, vigencia, horario genérico de recepción ni dirección. null solo si no hay ninguna especificación útil.",
+          "SOLO palabras clave / especificaciones de almacén (máx. 160 caracteres, 3 renglones). PRIORIDAD: bloque «Observaciones del cliente» (o Notas/Comentarios/Indicaciones del cliente), madurez (no muy maduro, enrriados, amarillo, etc.), andén, sin sustitutos, juegos de OC. Incluye viñetas del cliente si existen. NO copies el cuerpo del correo, saludos, tablas de productos, firma, vigencia, horario genérico de recepción ni dirección. NUNCA escribas conclusiones tipo «el correo dice X pero el PDF dice Y» — solo aclaraciones útiles para surtir/entregar. null solo si no hay ninguna especificación útil.",
       },
       ordenCompraHotel: {
         type: ["string", "null"],
         description:
-          "Identificador de la orden de compra del hotel/cliente para ESTE pedido. INTERPRETA el documento: no busques solo una etiqueta fija. El rótulo cambia según el emisor (ej. 'PO NUMBER', 'PO #', 'P.O.', 'Purchase Order', 'Orden de compra', 'OC', 'Nº OC', 'No. de orden', 'Order No.', 'Customer PO', 'Requisition', 'Req #'). Extrae el CÓDIGO/NÚMERO asociado a esa idea (ej. 'CUNMC0046026'), no el título del documento ni el Customer Account # ni fechas. Si hay varios candidatos, elige el que claramente identifica la orden de compra del cliente (suele estar cerca del encabezado PURCHASE ORDER / ORDEN DE COMPRA). null solo si de verdad no aparece ningún identificador de OC/PO.",
+          "Identificador de la orden de compra del hotel/cliente para ESTE pedido. INTERPRETA el documento: no busques solo una etiqueta fija. El rótulo cambia según el emisor (ej. 'PO NUMBER', 'PO #', 'P.O.', 'Purchase Order', 'Orden de compra', 'OC', 'Nº OC', 'No. de orden', 'Order No.', 'Customer PO', 'Requisition', 'Req #', 'REQUISICION #', 'R.C.'). Extrae el CÓDIGO/NÚMERO asociado a esa idea (ej. 'CUNMC0046026' o '50184' si dice REQUISICION # 50184). En PDFs XPU HA la OCC es el número junto a 'REQUISICION #' (ej. 50179), NUNCA el código de la columna 'Artículo' (ej. 00001678 con ceros a la izquierda) ni el título 'Requisición de Compra'. NUNCA uses 'Autoriza', 'Autorizado', 'rAutorizado' ni 'Solicita'. null solo si de verdad no aparece ningún identificador de OC/PO/requisición.",
       },
       nombreCliente: {
         type: ["string", "null"],
@@ -766,9 +767,10 @@ export async function extraerPedido({
     `- "cantidad" es el número TOTAL si viene explícito y directo (ej. '40 kilos'); si el mensaje solo da cajas + presentación sin decir el total, deja "cantidad" en null.`,
     `- Envases con contenido (ej. '1 galón de 5 litros', '2 cubetas de 10 L', '3 cajas de 20 kg'): en "cantidad" pon el NÚMERO DE ENVASES (1, 2, 3), en "unidad" UN (o CJ si dice cajas), y deja el contenido en textoOriginal. NO pongas los litros/kg totales en cantidad — eso lo convierte el backend según la unidad del catálogo. "precioUnitario" es el precio POR ENVASE del documento, no por litro/kg.`,
     `- "observaciones" es del pedido completo, no repitas ahí lo que ya va en una línea.`,
-    `- "notasGeneralesAlmacen": 1-2 frases o viñetas cortas con especificaciones de almacén (máx. 160 caracteres). Nunca el cuerpo completo del correo.`,
-    `- IMPORTANTE — notas del cliente: si el PDF/correo tiene un bloque «Observaciones del cliente», «Observaciones», «Notas del cliente», «Comentarios del cliente», «Indicaciones», «Instrucciones» o viñetas bajo esos títulos (ej. «la piña que no esté muy madura», «aguacate NO muy maduro / enrriados»), DEBES volcarlas en notasGeneralesAlmacen (y/o observaciones). Esas notas son prioritarias frente a textos genéricos de vigencia, madurez del catálogo o horario de recepción.`,
-    `- "ordenCompraHotel": interpreta cuál es el identificador de la orden de compra del hotel/cliente. El nombre del campo en el documento VARÍA (PO NUMBER, PO #, Purchase Order, Orden de compra, OC, Nº OC, Order No., Customer PO, etc.). Devuelve solo el código/número (ej. CUNMC0046026), no confundas con Customer Account #, fechas ni el título "PURCHASE ORDER". null solo si no hay ningún identificador de OC/PO.`,
+    `- "notasGeneralesAlmacen": 1-2 frases o viñetas cortas con especificaciones de almacén (máx. 160 caracteres). Nunca el cuerpo completo del correo. NUNCA conclusiones/inconsistencias inventadas.`,
+    `- IMPORTANTE — notas del cliente: si el PDF/correo tiene un bloque «Observaciones del cliente», «Observaciones», «Notas del cliente», «Comentarios del cliente», «Indicaciones», «Instrucciones» o viñetas bajo esos títulos (ej. «la piña que no esté muy madura», «aguacate NO muy maduro / enrriados»), DEBES volcarlas en notasGeneralesAlmacen (y/o observaciones). Esas notas son prioritarias frente a textos genéricos de vigencia, madurez del catálogo o horario de recepción. NUNCA uses notas para conclusiones tipo «el correo dice X pero el PDF dice Y».`,
+    `- AGUACATE (catálogo): si solo dice AGUACATE / AGUACATE HASS / HASS (sin EXTRA) → AGUACATE PRIMERA (170 a 200g) SKU 115001009. Si menciona EXTRA → AGUACATE EXTRA (200 a 260g) SKU 115001005.`,
+    `- "ordenCompraHotel": interpreta cuál es el identificador de la orden de compra del hotel/cliente. El nombre del campo en el documento VARÍA (PO NUMBER, PO #, Purchase Order, Orden de compra, OC, Nº OC, Order No., Customer PO, REQUISICION #, R.C., Req #, etc.). Devuelve solo el código/número (ej. CUNMC0046026 o 50184 si dice REQUISICION # 50184). En XPU HA usa el número de 'REQUISICION #' (ej. 50179), NUNCA el Artículo/SKU (00001678) ni el título "Requisición de Compra". NO confundas con Customer Account #, fechas, 'Autoriza'/'Autorizado'/'rAutorizado'/'Solicita'. null solo si no hay ningún identificador de OC/PO/requisición.`,
     `- "rfc" solo si el mensaje/documento lo declara explícitamente; nunca lo infieras del nombre del cliente.`,
     `- "direccion", "anden", "contacto", "telefono", "correo", "horarioDesde" y "horarioHasta" salen del correo, mensaje o PDF (Ship To, Deliver To, Enviar a, Andén, Dock, Contacto, Tel, Email, hora de entrega, ventana de recepción, delivery window). Llénalos siempre que el dato aparezca; null solo si no está. No inventes ni uses un valor habitual que el documento no diga.`,
     `- "correo": si el mensaje trae De/From del cliente (ej. "Arduizur <asistadmin.kcc@krystal-hotels.com>"), usa ese mail. También vale el mailto: de la firma. No pongas el Para/To del proveedor.`,
@@ -854,32 +856,42 @@ export async function extraerPedido({
     ...archivosTexto.map((f) => `--- ${f.nombre} ---\n${f.contenido}`),
   ].join("\n");
 
+  // Post-proceso: Oc Generada / REQUISICION # vs basura OCR (rAutorizado, Usuario…).
+  const lineasRaw = parsed.lineas.map((l) => ({
+    textoOriginal: l.textoOriginal,
+    productoCatalogo: coerceProductoCatalogo(l.productoCatalogo, catalogoClaves),
+    // El cálculo determinista manda siempre que sea posible (cajas + presentación con
+    // peso parseable); el número que haya dado la IA solo se usa cuando no hay nada
+    // que calcular — así el resultado no depende de si el modelo decidió o no hacer
+    // la multiplicación por su cuenta.
+    cantidad: calcularCantidadDesdeCajas(l.cajas, l.presentacion) ?? l.cantidad,
+    unidad: l.unidad,
+    cajas: l.cajas,
+    presentacion: l.presentacion,
+    especificacion: l.especificacion,
+    numeroPedido: l.numeroPedido?.trim() || null,
+    almacen: l.almacen?.trim() || null,
+    numeroAlmacen: l.numeroAlmacen?.trim() || null,
+    referenciaPedido: l.referenciaPedido?.trim() || null,
+    codigoProductoCliente: l.codigoProductoCliente?.trim() || null,
+    responsableExterno: l.responsableExterno?.trim() || null,
+    precioUnitario:
+      l.precioUnitario != null &&
+      Number.isFinite(l.precioUnitario) &&
+      l.precioUnitario > 0
+        ? l.precioUnitario
+        : null,
+  }));
+  const normalizedPedidos = normalizeNumeroPedidoFields({
+    ordenCompraHotel: parsed.ordenCompraHotel?.trim() || null,
+    lineas: lineasRaw,
+    sourceText: sourceForEntrega,
+    fileNames: archivosExtraidos.map((f) => f.nombre),
+  });
+  const ordenCompraHotelNormalizado = normalizedPedidos.ordenCompraHotel;
+
   const lineas: LineaExtraida[] = enrichLineasAlmacenConCodigoDesdeTexto(
-    parsed.lineas.map((l) => ({
-      textoOriginal: l.textoOriginal,
-      productoCatalogo: coerceProductoCatalogo(l.productoCatalogo, catalogoClaves),
-      // El cálculo determinista manda siempre que sea posible (cajas + presentación con
-      // peso parseable); el número que haya dado la IA solo se usa cuando no hay nada
-      // que calcular — así el resultado no depende de si el modelo decidió o no hacer
-      // la multiplicación por su cuenta.
-      cantidad: calcularCantidadDesdeCajas(l.cajas, l.presentacion) ?? l.cantidad,
-      unidad: l.unidad,
-      cajas: l.cajas,
-      presentacion: l.presentacion,
-      especificacion: l.especificacion,
-      numeroPedido: l.numeroPedido?.trim() || null,
-      almacen: l.almacen?.trim() || null,
-      numeroAlmacen: l.numeroAlmacen?.trim() || null,
-      referenciaPedido: l.referenciaPedido?.trim() || null,
-      codigoProductoCliente: l.codigoProductoCliente?.trim() || null,
-      responsableExterno: l.responsableExterno?.trim() || null,
-      precioUnitario:
-        l.precioUnitario != null &&
-        Number.isFinite(l.precioUnitario) &&
-        l.precioUnitario > 0
-          ? l.precioUnitario
-          : null,
-    })),
+    normalizedPedidos.lineas,
     sourceForEntrega,
   );
 
@@ -937,7 +949,7 @@ export async function extraerPedido({
         ? l.precioUnitario
         : "",
     "Numero correo": "",
-    "Numero pedido": l.numeroPedido || parsed.ordenCompraHotel || "",
+    "Numero pedido": l.numeroPedido || ordenCompraHotelNormalizado || "",
     "Nombre cliente": nombreClienteCabecera,
     "Numero almacen": l.numeroAlmacen || "",
     "Codigo producto": l.codigoProductoCliente || "",
@@ -1002,7 +1014,7 @@ export async function extraerPedido({
     ),
     observaciones: parsed.observaciones,
     notasGeneralesAlmacen: parsed.notasGeneralesAlmacen?.trim() || null,
-    ordenCompraHotel: parsed.ordenCompraHotel?.trim() || null,
+    ordenCompraHotel: ordenCompraHotelNormalizado,
     nombreCliente,
     rfc: parsed.rfc,
     regimen: parsed.regimen,

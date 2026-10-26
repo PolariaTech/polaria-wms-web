@@ -205,6 +205,11 @@ describe("parseOrdenVentaCapturaObservaciones", () => {
     ).toBe("Firme · 2 cajas");
   });
 
+  it("REQ-144: fecha slash US (MM/DD) se muestra como DD/MM/AAAA", () => {
+    expect(formatCapturaFecha("10/24/2026")).toBe("24/10/2026");
+    expect(formatCapturaFecha("24/10/2026")).toBe("24/10/2026");
+  });
+
   it("no aplica especificación legado a otra OT del mismo producto", () => {
     const raw = "BLUE BERRY: grandy";
     expect(
@@ -252,6 +257,26 @@ describe("parseOrdenVentaCapturaObservaciones", () => {
         otId: "ot-b",
       }),
     ).toBe("");
+  });
+
+  it("REQ-138: recupera especificación por idProducto aunque cambie el nombre", () => {
+    const text = buildNotasLineasText([
+      {
+        nombre: "Jugo (alias cliente)",
+        cantidad: 0,
+        otId: "ot-1",
+        idProducto: "prod-abc",
+        especificacion: "2x galón de 5 litros",
+      },
+    ]);
+    expect(
+      notaCapturaForLinea(text, {
+        nombre: "JUGO DE LIMON",
+        cantidad: 10,
+        otId: "ot-1",
+        idProducto: "prod-abc",
+      }),
+    ).toBe("2x galón de 5 litros");
   });
 });
 

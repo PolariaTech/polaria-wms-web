@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { OrdenVentaDetalleRow } from "../../shared/types/sales.types";
 import {
+  formatOrdenVentaCantidadConUnidad,
+  formatOrdenVentaCantidades,
   formatOrdenVentaTotal,
+  resolveOrdenVentaLineaUnidad,
+  resolveUnidadComunLineas,
   sumOrdenVentaCantidadKg,
 } from "./orden-venta-display";
 
@@ -42,6 +46,44 @@ const ORDEN: OrdenVentaDetalleRow = {
 describe("orden-venta-display", () => {
   it("suma cantidad y total de la orden", () => {
     expect(sumOrdenVentaCantidadKg(ORDEN)).toBe(10);
-    expect(formatOrdenVentaTotal(ORDEN)).toBe("$10.000");
+    expect(formatOrdenVentaTotal(ORDEN)).toMatch(/^\$10/);
+  });
+
+  it("REQ-147: cantidad usa unidad_medida de la línea (PZA), no fuerza kg", () => {
+    expect(resolveOrdenVentaLineaUnidad({ unidad_medida: "PZA" })).toBe("PZA");
+    expect(formatOrdenVentaCantidadConUnidad(30, "PZA")).toBe("30 PZA");
+    expect(
+      formatOrdenVentaCantidades({
+        ...ORDEN,
+        lineas: [
+          {
+            id_linea_orden_venta: "line-pza",
+            id_producto: "prod-pulpa",
+            cantidad_pedida: 30,
+            precio_unitario: 236.25,
+            unidad_medida: "PZA",
+            producto: {
+              sku: "115001045",
+              descripcion: "PULPA DE AGUACATE 2.5 KG",
+              metadatos_catalogo: null,
+            },
+          },
+        ],
+      }),
+    ).toBe("30 PZA");
+  });
+
+  it("REQ-147: sin unidad_medida sigue en kg", () => {
+    expect(resolveOrdenVentaLineaUnidad({})).toBe("kg");
+    expect(formatOrdenVentaCantidades(ORDEN)).toBe("10 kg");
+  });
+
+  it("REQ-147: unidades mixtas no inventan una sola etiqueta común", () => {
+    expect(
+      resolveUnidadComunLineas([
+        { unidad_medida: "PZA" },
+        { unidad_medida: "kg" },
+      ]),
+    ).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { cn } from "@/lib/utils/cn";
@@ -35,7 +35,18 @@ export function OrdenVentaProductoPickerModal({
   dockWithCypher = false,
 }: OrdenVentaProductoPickerModalProps) {
   const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const prioritySet = useMemo(() => new Set(priorityIds), [priorityIds]);
+
+  // REQ-129: al abrir el catálogo, foco directo en buscar.
+  useEffect(() => {
+    if (!open) return;
+    const id = window.setTimeout(() => {
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    }, 40);
+    return () => window.clearTimeout(id);
+  }, [open]);
 
   const filtered = useMemo(() => {
     const rows = !query.trim()
@@ -85,11 +96,13 @@ export function OrdenVentaProductoPickerModal({
             aria-hidden
           />
           <input
+            ref={searchRef}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Buscar por nombre, código o equivalencia"
             aria-label="Buscar producto"
+            autoFocus
             className={cn(
               "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-2.5 pl-10 pr-4",
               "polaria-text-body-sm text-polaria-w placeholder:text-polaria-w-20 outline-none",

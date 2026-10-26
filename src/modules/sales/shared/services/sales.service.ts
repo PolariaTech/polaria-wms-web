@@ -1146,7 +1146,11 @@ export async function createOrdenVenta(
     }
   }
 
-  if (lineas.length === 0) {
+  /** REQ-134: avance sin productos de catálogo → solo cabecera (no borra líneas). */
+  const headerOnlyDraft =
+    guardarAvance && Boolean(idOrdenVentaExistente) && lineas.length === 0;
+
+  if (lineas.length === 0 && !headerOnlyDraft) {
     throw new DomainServiceError(
       "Agrega al menos un producto a la venta.",
       "INVALID_ARGUMENT",
@@ -1164,7 +1168,14 @@ export async function createOrdenVenta(
       );
     }
 
-    if (!Number.isFinite(cantidadPedida) || cantidadPedida <= 0) {
+    // REQ-138: en avance permitir cantidad 0 / precio vacío; al confirmar sí exige > 0.
+    if (!Number.isFinite(cantidadPedida) || cantidadPedida < 0) {
+      throw new DomainServiceError(
+        "La cantidad de cada producto no puede ser negativa.",
+        "INVALID_ARGUMENT",
+      );
+    }
+    if (!guardarAvance && cantidadPedida <= 0) {
       throw new DomainServiceError(
         "La cantidad de cada producto debe ser mayor a cero.",
         "INVALID_ARGUMENT",
@@ -1186,26 +1197,6 @@ export async function createOrdenVenta(
     await assertCompradorDeCuenta(codigoCuenta, idComprador);
   }
 
-  const primeraLinea = lineas[0]!;
-  const productoIds = lineas.map((linea) => linea.idProducto.trim());
-  const [idBodega, idCliente, preciosUnitarios] = await Promise.all([
-    resolveBodegaVenta(
-      codigoCuenta,
-      input.idBodega ?? primeraLinea.idBodega,
-    ),
-    resolveClienteVenta(codigoCuenta, primeraLinea.idProducto.trim()),
-    fetchPreciosUnitariosProductos(codigoCuenta, productoIds),
-  ]);
-
-  for (const idProducto of productoIds) {
-    if (!preciosUnitarios.has(idProducto)) {
-      throw new DomainServiceError(
-        "Uno de los productos seleccionados no es válido.",
-        "INVALID_ARGUMENT",
-      );
-    }
-  }
-
   const capture = ordenVentaCaptureFields(input);
 
   if (idOrdenVentaExistente) {
@@ -1221,6 +1212,98 @@ export async function createOrdenVenta(
   }
 
   let orden: OrdenVentaRow;
+  let preciosUnitarios = new Map<string, number>();
+
+  if (headerOnlyDraft) {
+    const existing = await runDomainQuery<{
+      estado: string;
+      id_bodega: string | null;
+      id_cliente: string | null;
+    } | null>((client) => {
+      const query = client
+        .from("orden_venta")
+        .select("estado,id_bodega,id_cliente")
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_orden_venta", idOrdenVentaExistente)
+        .maybeSingle();
+
+      return query as unknown as Promise<{
+        data: {
+          estado: string;
+          id_bodega: string | null;
+          id_cliente: string | null;
+        } | null;
+        error: { message: string } | null;
+      }>;
+    });
+
+    if (!existing) {
+      throw new DomainServiceError(
+        "No se encontró la orden de venta.",
+        "NOT_FOUND",
+      );
+    }
+
+    if (!puedeEditarOrdenVenta(existing.estado)) {
+      throw new DomainServiceError(
+        "Esta orden ya no se puede editar.",
+        "MUTATION_FAILED",
+      );
+    }
+
+    orden = await runDomainMutation<OrdenVentaRow>((client) => {
+      const query = client
+        .from("orden_venta")
+        .update({
+          ...(idComprador ? { id_comprador: idComprador } : {}),
+          id_bodega_destino: idBodegaDestino,
+          ...capture,
+          observaciones,
+        })
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_orden_venta", idOrdenVentaExistente)
+        .select(ORDEN_VENTA_COLUMNS)
+        .single();
+
+      return query as unknown as Promise<{
+        data: OrdenVentaRow | null;
+        error: { message: string } | null;
+      }>;
+    });
+
+    const compradorLabels = await fetchCompradorLabels(
+      idComprador ? [idComprador] : [],
+    );
+    const slaByCuenta = await fetchCuentaOvSlaByCodigo([orden.codigo_cuenta]);
+    return mapOrdenVentaOperadorRow(
+      orden,
+      compradorLabels,
+      new Map(),
+      new Map(),
+      slaByCuenta,
+    );
+  }
+
+  const primeraLinea = lineas[0]!;
+  const productoIds = lineas.map((linea) => linea.idProducto.trim());
+  const [idBodega, idCliente, preciosFetched] = await Promise.all([
+    resolveBodegaVenta(
+      codigoCuenta,
+      input.idBodega ?? primeraLinea.idBodega,
+    ),
+    resolveClienteVenta(codigoCuenta, primeraLinea.idProducto.trim()),
+    fetchPreciosUnitariosProductos(codigoCuenta, productoIds),
+  ]);
+  preciosUnitarios = preciosFetched;
+
+  for (const idProducto of productoIds) {
+    if (!preciosUnitarios.has(idProducto)) {
+      throw new DomainServiceError(
+        "Uno de los productos seleccionados no es válido.",
+        "INVALID_ARGUMENT",
+      );
+    }
+  }
 
   if (idOrdenVentaExistente) {
     const existing = await runDomainQuery<{ estado: string } | null>(

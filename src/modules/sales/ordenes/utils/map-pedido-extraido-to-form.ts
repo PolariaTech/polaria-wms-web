@@ -32,6 +32,7 @@ import {
   resolveCantidadPrecioDesdeEnvase,
 } from "./resolve-cantidad-envase";
 import { sanitizeNotasGeneralesPedido } from "./texto-origen-pedido";
+import { resolveOrdenCompraLimpia } from "./normalize-numero-pedido";
 
 export interface SugerenciaProductoCatalogo {
   idProducto: string;
@@ -585,9 +586,15 @@ export function mapPedidoExtraidoToForm(params: {
   const horarioHastaIa =
     pedido.horarioHasta?.trim() || fromBody.horarioHasta || null;
 
-  if (pedido.ordenCompraHotel?.trim()) {
-    patch.ordenCompraHotel = pedido.ordenCompraHotel.trim();
-    autoFields.add("ordenCompraHotel");
+  {
+    const occ = resolveOrdenCompraLimpia(
+      pedido.ordenCompraHotel,
+      pedido.textoOrigen ?? "",
+    );
+    if (occ) {
+      patch.ordenCompraHotel = occ;
+      autoFields.add("ordenCompraHotel");
+    }
   }
   compareOverride({
     fieldKey: "centroConsumo",

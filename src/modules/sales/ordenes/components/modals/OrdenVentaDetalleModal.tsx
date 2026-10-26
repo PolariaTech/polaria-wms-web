@@ -13,7 +13,7 @@ import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLo
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { cn } from "@/lib/utils/cn";
-import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
+import { formatPrecioEs } from "@/lib/utils/decimal-es";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { withCuentaSchema } from "@/lib/supabase/cuenta-schema";
 import {
@@ -59,11 +59,15 @@ import {
 } from "../../utils/origen-adjuntos";
 import {
   formatCompradorOrdenVenta,
+  formatOrdenVentaCantidadConUnidad,
   formatOrdenVentaLineaTotal,
   formatOrdenVentaTotal,
   resolveOrdenVentaLineaTitulo,
+  resolveOrdenVentaLineaUnidad,
+  resolveUnidadComunLineas,
   sumOrdenVentaCantidadKg,
 } from "../../utils/orden-venta-display";
+import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../../shared/types/sales.types";
 import type { CypherCompanionOtPicker } from "./OrdenVentaCypherDrawer";
 
 interface OrdenVentaDetalleModalProps {
@@ -432,7 +436,10 @@ function DetalleContent({
                         </p>
                       </td>
                       <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
-                        {formatKgEs(qty)} kg
+                        {formatOrdenVentaCantidadConUnidad(
+                          qty,
+                          row.Unidad?.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
+                        )}
                       </td>
                       <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
                         {precio > 0 ? `$${formatPrecioEs(precio)}` : "—"}
@@ -492,12 +499,17 @@ function DetalleContent({
                           {titulo}
                         </p>
                         <p className="polaria-text-caption text-polaria-w-50">
-                          {skuVisible ? `SKU ${skuVisible}` : "kg"}
+                          {skuVisible
+                            ? `SKU ${skuVisible}`
+                            : resolveOrdenVentaLineaUnidad(linea)}
                           {nota ? ` · ${nota}` : null}
                         </p>
                       </td>
                       <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
-                        {formatKgEs(linea.cantidad_pedida)} kg
+                        {formatOrdenVentaCantidadConUnidad(
+                          linea.cantidad_pedida,
+                          resolveOrdenVentaLineaUnidad(linea),
+                        )}
                       </td>
                       <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
                         ${formatPrecioEs(linea.precio_unitario)}
@@ -515,7 +527,12 @@ function DetalleContent({
                 {lineItems.length === 1
                   ? "1 producto"
                   : `${lineItems.length} productos`}{" "}
-                · {formatKgEs(hija ? pesoHija : sumOrdenVentaCantidadKg(orden))} kg
+                ·{" "}
+                {formatOrdenVentaCantidadConUnidad(
+                  hija ? pesoHija : sumOrdenVentaCantidadKg(orden),
+                  resolveUnidadComunLineas(lineItems) ??
+                    UNIDAD_MEDIDA_VENTA_DEFAULT,
+                )}
               </p>
               <p className="polaria-text-body-sm text-polaria-w-50">
                 Total venta:{" "}

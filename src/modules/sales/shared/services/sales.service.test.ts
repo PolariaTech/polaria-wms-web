@@ -1336,6 +1336,53 @@ describe("sales.service", () => {
     expect(row.estado).toBe("confirmada");
   });
 
+  it("REQ-138: avance permite cantidad 0 y precio 0 (sin inventar $1)", async () => {
+    const deps = mockUpdateOrdenVentaDeps("por_confirmar");
+
+    await updateOrdenVenta({
+      codigoCuenta: "CUENTA-01",
+      idOrdenVenta: "ov-1",
+      idBodega: "bod-1",
+      idComprador: "comp-1",
+      guardarAvance: true,
+      lineas: [
+        {
+          idProducto: "prod-1",
+          cantidadPedida: 0,
+          precioUnitario: 0,
+        },
+      ],
+    });
+
+    expect(deps.lineaInsertChain.insert).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id_producto: "prod-1",
+        cantidad_pedida: 0,
+        precio_unitario: 0,
+      }),
+    ]);
+  });
+
+  it("sin guardarAvance rechaza cantidad 0", async () => {
+    mockUpdateOrdenVentaDeps("por_confirmar");
+
+    await expect(
+      updateOrdenVenta({
+        codigoCuenta: "CUENTA-01",
+        idOrdenVenta: "ov-1",
+        idBodega: "bod-1",
+        idComprador: "comp-1",
+        lineas: [
+          {
+            idProducto: "prod-1",
+            cantidadPedida: 0,
+            precioUnitario: 10,
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(DomainServiceError);
+  });
+
   it("updateOrdenVenta rechaza una orden despachada", async () => {
     const deps = mockUpdateOrdenVentaDeps("despachada");
 

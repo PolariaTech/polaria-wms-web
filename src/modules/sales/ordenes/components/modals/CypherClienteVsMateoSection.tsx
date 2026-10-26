@@ -30,6 +30,7 @@ import {
   type OrdenTrabajoHija,
   type OrigenCorreoRenglon,
 } from "../../utils/origen-correo-ordenes-trabajo";
+import { resolveOrdenCompraLimpia } from "../../utils/normalize-numero-pedido";
 import { buildPedidoExtraidoFromOrigenCorreo } from "../../utils/pedido-from-origen-correo";
 
 /** Solo tras confirmar: en por_confirmar el usuario aún no eligió. */
@@ -222,18 +223,29 @@ function buildGeneralesRows(
     formatCompradorOrdenVenta(orden),
   );
 
-  const correoOcc = firstNonEmpty([
+  const correoOccRaw = firstNonEmpty([
     ...origenRows.map((row) => row["Numero pedido"]),
     pedido.ordenCompraHotel,
   ]);
+  // No mostrar basura OCR (rAutorizado) como si fuera OCC del correo.
+  const correoOcc = resolveOrdenCompraLimpia(
+    correoOccRaw,
+    orden.origen_texto ?? pedido.textoOrigen ?? "",
+  );
   // OCC interpretada/normalizada por Mateo (solo si aporta algo distinto).
   const mateoOcc = mateoSoloSugerencia(
-    firstNonEmpty([pedido.ordenCompraHotel]),
+    resolveOrdenCompraLimpia(
+      pedido.ordenCompraHotel,
+      orden.origen_texto ?? pedido.textoOrigen ?? "",
+    ),
     correoOcc,
   );
   const usuarioOcc = usuarioSiConfirmado(
     usuarioConfirmado,
-    (orden.orden_compra_hotel ?? "").trim(),
+    resolveOrdenCompraLimpia(
+      orden.orden_compra_hotel,
+      orden.origen_texto ?? "",
+    ),
   );
 
   const correoFecha = firstNonEmpty([

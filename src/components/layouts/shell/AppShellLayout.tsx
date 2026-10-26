@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AuthGuard } from "@/components/auth/guards/AuthGuard";
 import { sessionHasMateoAccess, sessionIsMateoOnly } from "@/lib/auth/cuenta-producto-access";
 import { redirectToMateoSso } from "@/lib/auth/redirect-to-mateo-sso";
@@ -12,6 +13,8 @@ import { POLARIA_PRODUCT_VERSION } from "@/constants/brand/brand";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { AppTopbar } from "./AppTopbar";
 import { MateoWidgetHost } from "@/components/mateo/MateoWidgetHost";
+import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
+import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 
 interface AppShellLayoutProps {
   children: React.ReactNode;
@@ -27,9 +30,15 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
   const [mateoLoading, setMateoLoading] = useState(false);
   const [mateoError, setMateoError] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [mateoLeaveConfirmOpen, setMateoLeaveConfirmOpen] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
   const mateoOnlyRedirectRef = useRef(false);
   const showMateoIa = session ? sessionHasMateoAccess(session) : false;
   const mateoOnly = session ? sessionIsMateoOnly(session) : false;
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   // Scroll general de página: si un modal dejó overflow:hidden huérfano, al
   // navegar (p. ej. a /perfil) se recupera sin F5.
@@ -37,7 +46,7 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
     forceResetBodyScrollLock();
   }, [pathname]);
 
-  const handleMateoIaClick = useCallback(async () => {
+  const goToMateoIa = useCallback(async () => {
     if (mateoLoading) return;
 
     setMateoError(null);
@@ -62,11 +71,22 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
     }
   }, [mateoLoading]);
 
+  const handleMateoIaClick = useCallback(() => {
+    if (mateoLoading) return;
+    // REQ-149: leer store al clic (evita closure stale) — OV o Cypher abiertos.
+    const { ovEditOpen, cypherOpen } = useShellOverlayStore.getState();
+    if (ovEditOpen || cypherOpen) {
+      setMateoLeaveConfirmOpen(true);
+      return;
+    }
+    void goToMateoIa();
+  }, [goToMateoIa, mateoLoading]);
+
   useEffect(() => {
     if (!mateoOnly || mateoOnlyRedirectRef.current) return;
     mateoOnlyRedirectRef.current = true;
-    void handleMateoIaClick();
-  }, [handleMateoIaClick, mateoOnly]);
+    void goToMateoIa();
+  }, [goToMateoIa, mateoOnly]);
 
   if (isLoggingOut) {
     return (
@@ -119,6 +139,26 @@ export function AppShellLayout({ children }: AppShellLayoutProps) {
           )}
         </div>
         {showMateoIa && !mateoOnly ? <MateoWidgetHost /> : null}
+        {portalReady && mateoLeaveConfirmOpen
+          ? createPortal(
+              <div className="fixed inset-0 z-[200]">
+                <PolariaConfirmDialog
+                  open
+                  stackLevel="nested"
+                  onClose={() => setMateoLeaveConfirmOpen(false)}
+                  onConfirm={() => {
+                    setMateoLeaveConfirmOpen(false);
+                    void goToMateoIa();
+                  }}
+                  title="¿Seguro que quieres ir a Mateo IA?"
+                  description="Tienes un pedido abierto en edición. Si sales ahora sin guardar, puedes perder el progreso de la OV."
+                  confirmLabel="Sí, ir a Mateo IA"
+                  cancelLabel="No, seguir editando"
+                />
+              </div>,
+              document.body,
+            )
+          : null}
         <p
           aria-label={`Versión ${POLARIA_PRODUCT_VERSION}`}
           className={

@@ -80,6 +80,7 @@ import {
   groupOrigenCorreoToOrdenesTrabajo,
   parseOrigenCorreoJson,
 } from "../../utils/origen-correo-ordenes-trabajo";
+import { resolveOrdenCompraLimpia } from "../../utils/normalize-numero-pedido";
 import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
 import { CypherAlistadoSection } from "./CypherAlistadoSection";
 import { CypherAlistamientoSection } from "./CypherAlistamientoSection";
@@ -538,7 +539,9 @@ export function OrdenVentaCypherDrawer({
     (orden ? formatCompradorOrdenVenta(orden) : null) ||
     row?.comprador ||
     "—";
-  const occ = row?.occ || orden?.orden_compra_hotel?.trim() || "—";
+  const occRaw = row?.occ || orden?.orden_compra_hotel?.trim() || "";
+  const occ =
+    resolveOrdenCompraLimpia(occRaw, orden?.origen_texto ?? "") || "—";
   const recibida = formatDateTime(
     orden?.created_at || orden?.fecha_pedido || row?.fecha || "",
     zonaHoraria,
@@ -645,8 +648,12 @@ export function OrdenVentaCypherDrawer({
 
   const lineas = orden?.lineas ?? [];
 
+  // REQ-131: con el form abierto en paralelo (+ / companion), Editar debe estar activo
+  // aunque la OV siga en por_confirmar (la regla de lista solo aplica fuera de companion).
   const puedeEditar =
-    !inspect && row ? puedeEditarOrdenVentaDesdeLista(row.estado) : false;
+    !inspect && row
+      ? companionWithEdit || puedeEditarOrdenVentaDesdeLista(row.estado)
+      : false;
   const puedeAlmacen =
     !inspect && row ? puedeAccionesAlmacenOrdenVenta(row.estado) : false;
   const puedeBorrar =

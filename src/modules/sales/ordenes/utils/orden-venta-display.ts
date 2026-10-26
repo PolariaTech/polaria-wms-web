@@ -4,9 +4,14 @@ import type {
   OrdenVentaDetalleRow,
   OrdenVentaLineaRow,
 } from "../../shared/types/sales.types";
+import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../shared/types/sales.types";
 
 type LineaConProducto = {
   producto?: OrdenVentaLineaRow["producto"] | null;
+};
+
+type LineaConUnidad = {
+  unidad_medida?: string | null;
 };
 
 export function resolveOrdenVentaLineaTitulo(linea: LineaConProducto): string {
@@ -22,6 +27,31 @@ export function resolveOrdenVentaLineaTitulo(linea: LineaConProducto): string {
     producto.sku?.trim() ||
     "Sin título"
   );
+}
+
+/** REQ-147: unidad de la línea; fallback kg solo si no hay dato. */
+export function resolveOrdenVentaLineaUnidad(linea: LineaConUnidad): string {
+  return linea.unidad_medida?.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT;
+}
+
+export function formatOrdenVentaCantidadConUnidad(
+  cantidad: number,
+  unidad: string,
+): string {
+  const u = unidad.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT;
+  return `${formatKgEs(cantidad)} ${u}`;
+}
+
+/** Misma unidad en todas las líneas, o null si son mixtas / vacías. */
+export function resolveUnidadComunLineas(
+  lineas: readonly LineaConUnidad[],
+): string | null {
+  if (lineas.length === 0) return null;
+  const first = resolveOrdenVentaLineaUnidad(lineas[0]!);
+  for (let i = 1; i < lineas.length; i += 1) {
+    if (resolveOrdenVentaLineaUnidad(lineas[i]!) !== first) return null;
+  }
+  return first;
 }
 
 export function formatOrdenVentaLineaTotal(linea: OrdenVentaLineaRow): number {
@@ -43,12 +73,15 @@ export function sumOrdenVentaTotal(orden: OrdenVentaDetalleRow): number {
 }
 
 export function formatOrdenVentaCantidades(orden: OrdenVentaDetalleRow): string {
-  const totalKg = sumOrdenVentaCantidadKg(orden);
-  if (totalKg <= 0) {
+  const lineas = orden.lineas ?? [];
+  const total = sumOrdenVentaCantidadKg(orden);
+  if (total <= 0) {
     return "—";
   }
 
-  return `${formatKgEs(totalKg)} kg`;
+  const unidad =
+    resolveUnidadComunLineas(lineas) ?? UNIDAD_MEDIDA_VENTA_DEFAULT;
+  return formatOrdenVentaCantidadConUnidad(total, unidad);
 }
 
 export function formatOrdenVentaTotal(orden: OrdenVentaDetalleRow): string {

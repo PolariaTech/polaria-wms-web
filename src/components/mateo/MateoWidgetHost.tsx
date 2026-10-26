@@ -22,6 +22,8 @@ export function MateoWidgetHost() {
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const accessToken = useAuthStore((s) => s.accessToken);
   const cypherOpen = useShellOverlayStore((s) => s.cypherOpen);
+  const ovEditOpen = useShellOverlayStore((s) => s.ovEditOpen);
+  const hideLauncher = cypherOpen || ovEditOpen;
   const { showToast } = usePolariaToast();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<MateoWidgetApi | null>(null);
@@ -129,13 +131,14 @@ export function MateoWidgetHost() {
       data-testid="mateo-widget-host"
       data-ready={ready ? "true" : "false"}
       data-cypher-open={cypherOpen ? "true" : "false"}
+      data-ov-edit-open={ovEditOpen ? "true" : "false"}
       className={cn(
         "relative z-[100] transition-opacity duration-300 ease-out",
-        cypherOpen
+        hideLauncher
           ? "pointer-events-none opacity-0"
           : "opacity-100",
       )}
-      aria-hidden={cypherOpen}
+      aria-hidden={hideLauncher}
       aria-live="polite"
     />
   );
