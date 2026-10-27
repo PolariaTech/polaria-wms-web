@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChevronDown,
   FileText,
   Pencil,
   Printer,
@@ -184,34 +185,70 @@ function resolveCuerpoMensajePreview(orden: OrdenVentaDetalleRow): string {
   return prepareCorreoBodyForCypherDisplay(full);
 }
 
-function StageHeading({
+function StageAccordion({
+  stageId,
   num,
   title,
+  open,
   muted = false,
+  onToggle,
+  children,
 }: {
+  stageId: CypherStageId;
   num: string;
   title: string;
+  open: boolean;
   muted?: boolean;
+  onToggle: (stageId: CypherStageId) => void;
+  children: ReactNode;
 }) {
+  const panelId = `cypher-stage-${stageId}-panel`;
   return (
-    <div className="flex items-baseline gap-3">
-      <span
-        className={cn(
-          "polaria-text-caption font-extrabold tracking-[0.16em]",
-          muted ? "text-polaria-w-20" : "text-polaria-teal",
-        )}
-      >
-        {num}
-      </span>
-      <h3
-        className={cn(
-          "polaria-text-card-title font-extrabold",
-          muted ? "text-polaria-w-50" : "text-polaria-w",
-        )}
-      >
-        {title}
+    <section id={`cypher-stage-${stageId}`} className="scroll-mt-4 pt-3">
+      <h3>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => onToggle(stageId)}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+            open
+              ? "border-polaria-teal bg-polaria-t-08"
+              : "border-polaria-t-20 bg-polaria-t-08 hover:border-polaria-teal",
+          )}
+        >
+          <span
+            className={cn(
+              "shrink-0 polaria-text-caption font-extrabold tracking-[0.16em]",
+              muted && !open ? "text-polaria-w-20" : "text-polaria-teal",
+            )}
+          >
+            {num}
+          </span>
+          <span
+            className={cn(
+              "min-w-0 flex-1 polaria-text-card-title font-extrabold",
+              muted && !open ? "text-polaria-w-50" : "text-polaria-w",
+            )}
+          >
+            {title}
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-polaria-teal transition-transform duration-200",
+              open && "rotate-180",
+            )}
+            strokeWidth={2.25}
+            aria-hidden
+          />
+        </button>
       </h3>
-    </div>
+      <div id={panelId} hidden={!open} className={open ? "pt-3" : undefined}>
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -228,14 +265,11 @@ function MetaRow({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function PendingStage({ num, title }: { num: string; title: string }) {
+function PendingStageBody() {
   return (
-    <section className="pt-8">
-      <StageHeading num={num} title={title} muted />
-      <p className="mt-3 rounded-xl border border-dashed border-polaria-w-08 px-5 py-4 polaria-text-body-sm text-polaria-w-50">
-        Aún no ocurre
-      </p>
-    </section>
+    <p className="rounded-xl border border-dashed border-polaria-w-08 px-5 py-4 polaria-text-body-sm text-polaria-w-50">
+      Aún no ocurre
+    </p>
   );
 }
 
@@ -361,6 +395,9 @@ export function OrdenVentaCypherDrawer({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<CypherStageId>("correo");
+  const [openStages, setOpenStages] = useState<ReadonlySet<CypherStageId>>(
+    () => new Set<CypherStageId>(["correo"]),
+  );
   const [logEntries, setLogEntries] = useState<OrdenVentaLogEntry[]>([]);
   const [logLoading, setLogLoading] = useState(false);
   const [emlInnerAdjuntos, setEmlInnerAdjuntos] = useState<OrigenAdjunto[]>(
@@ -425,6 +462,7 @@ export function OrdenVentaCypherDrawer({
     setError(null);
     setOrden(null);
     setActiveStage("correo");
+    setOpenStages(new Set<CypherStageId>(["correo"]));
 
     void loadDetalle(idOrdenVenta, codigoCuenta)
       .then((detalle) => {
@@ -554,8 +592,30 @@ export function OrdenVentaCypherDrawer({
 
   const scrollToStage = useCallback((stageId: CypherStageId) => {
     setActiveStage(stageId);
-    const el = document.getElementById(`cypher-stage-${stageId}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setOpenStages((prev) => {
+      if (prev.has(stageId)) return prev;
+      const next = new Set(prev);
+      next.add(stageId);
+      return next;
+    });
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.getElementById(`cypher-stage-${stageId}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    });
+  }, []);
+
+  const toggleAccordionStage = useCallback((stageId: CypherStageId) => {
+    setOpenStages((prev) => {
+      const next = new Set(prev);
+      if (next.has(stageId)) next.delete(stageId);
+      else next.add(stageId);
+      return next;
+    });
+    setActiveStage(stageId);
   }, []);
 
   useEffect(() => {
@@ -865,19 +925,29 @@ export function OrdenVentaCypherDrawer({
 
           {!isLoading && !error && orden ? (
             <>
-              <section id="cypher-stage-fiscales" className="scroll-mt-4 pt-6">
-                <StageHeading num="00" title="Datos fiscales — referencia" />
+              <StageAccordion
+                stageId="fiscales"
+                num="00"
+                title="Datos fiscales — referencia"
+                open={openStages.has("fiscales")}
+                onToggle={toggleAccordionStage}
+              >
                 <CypherDatosFiscalesSection
                   codigoCuenta={codigoCuenta}
                   idComprador={
                     companionIdComprador?.trim() || orden.id_comprador
                   }
                 />
-              </section>
+              </StageAccordion>
 
-              <section id="cypher-stage-correo" className="scroll-mt-4 pt-8">
-                <StageHeading num="01" title="Recepción del correo" />
-                <div className="mt-3 grid grid-cols-1 gap-y-2.5 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-3 py-3 @sm/cypher:grid-cols-[6rem_minmax(0,1fr)] @sm/cypher:gap-x-3.5 @sm/cypher:gap-y-2 @sm/cypher:px-4 @sm/cypher:py-3.5">
+              <StageAccordion
+                stageId="correo"
+                num="01"
+                title="Recepción del correo"
+                open={openStages.has("correo")}
+                onToggle={toggleAccordionStage}
+              >
+                <div className="grid grid-cols-1 gap-y-2.5 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-3 py-3 @sm/cypher:grid-cols-[6rem_minmax(0,1fr)] @sm/cypher:gap-x-3.5 @sm/cypher:gap-y-2 @sm/cypher:px-4 @sm/cypher:py-3.5">
                   <MetaRow label="REMITENTE">
                     {correoChrome.from || "—"}
                   </MetaRow>
@@ -944,16 +1014,26 @@ export function OrdenVentaCypherDrawer({
                     </div>
                   </div>
                 ) : null}
-              </section>
+              </StageAccordion>
 
-              <section
-                id="cypher-stage-confirmacion"
-                className="scroll-mt-4 pt-8"
+              <StageAccordion
+                stageId="confirmacion"
+                num="02"
+                title={
+                  activeOtPicker && activeOtPicker.hijas.length > 0
+                    ? "Órdenes de trabajo"
+                    : "Confirmación del pedido"
+                }
+                open={openStages.has("confirmacion")}
+                muted={
+                  !(activeOtPicker && activeOtPicker.hijas.length > 0) &&
+                  !stageReached(estado, "confirmacion")
+                }
+                onToggle={toggleAccordionStage}
               >
                 {activeOtPicker && activeOtPicker.hijas.length > 0 ? (
                   <>
-                    <StageHeading num="02" title="Órdenes de trabajo" />
-                    <p className="mt-3 polaria-text-body-sm text-polaria-w-50">
+                    <p className="polaria-text-body-sm text-polaria-w-50">
                       {activeOtPicker.hijas.length === 1 ? (
                         <>
                           Esta venta tiene{" "}
@@ -1015,8 +1095,7 @@ export function OrdenVentaCypherDrawer({
                   </>
                 ) : stageReached(estado, "confirmacion") ? (
                   <>
-                    <StageHeading num="02" title="Confirmación del pedido" />
-                    <div className="mt-3 grid grid-cols-1 gap-3 @md/cypher:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 @md/cypher:grid-cols-3">
                       <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
                         <p className="polaria-text-caption text-polaria-w-20">
                           Cliente
@@ -1108,69 +1187,81 @@ export function OrdenVentaCypherDrawer({
                     </div>
                   </>
                 ) : (
-                  <PendingStage num="02" title="Confirmación del pedido" />
+                  <PendingStageBody />
                 )}
-              </section>
+              </StageAccordion>
 
-              <section
-                id="cypher-stage-cliente-vs-mateo"
-                className="scroll-mt-4 pt-8"
+              <StageAccordion
+                stageId="cliente-vs-mateo"
+                num="03"
+                title="Correo vs Mateo IA vs usuario"
+                open={openStages.has("cliente-vs-mateo")}
+                onToggle={toggleAccordionStage}
               >
-                <StageHeading num="03" title="Correo vs Mateo IA vs usuario" />
                 {orden ? (
                   <CypherClienteVsMateoSection
                     orden={orden}
                     hijas={hijasFromOrden}
                   />
                 ) : (
-                  <p className="mt-3 rounded-xl border border-dashed border-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
+                  <p className="rounded-xl border border-dashed border-polaria-w-08 px-4 py-3 polaria-text-body-sm text-polaria-w-50">
                     Cargando comparación…
                   </p>
                 )}
-              </section>
+              </StageAccordion>
 
-              <section
-                id="cypher-stage-alistamiento"
-                className="scroll-mt-4 pt-8"
+              <StageAccordion
+                stageId="alistamiento"
+                num="04"
+                title="Alistamiento"
+                open={openStages.has("alistamiento")}
+                muted={!stageReached(estado, "alistamiento")}
+                onToggle={toggleAccordionStage}
               >
                 {stageReached(estado, "alistamiento") && orden ? (
-                  <>
-                    <StageHeading num="04" title="Alistamiento" />
-                    <CypherAlistamientoSection
-                      idOrdenVenta={orden.id_orden_venta}
-                      orden={orden}
-                      hijas={hijasFromOrden}
-                      onVerFotosOt={
-                        puedeAlmacen
-                          ? (idOt) => {
-                              onFotos(idOt);
-                            }
-                          : undefined
-                      }
-                    />
-                  </>
+                  <CypherAlistamientoSection
+                    idOrdenVenta={orden.id_orden_venta}
+                    orden={orden}
+                    hijas={hijasFromOrden}
+                    onVerFotosOt={
+                      puedeAlmacen
+                        ? (idOt) => {
+                            onFotos(idOt);
+                          }
+                        : undefined
+                    }
+                  />
                 ) : (
-                  <PendingStage num="04" title="Alistamiento" />
+                  <PendingStageBody />
                 )}
-              </section>
+              </StageAccordion>
 
-              <section id="cypher-stage-alistado" className="scroll-mt-4 pt-8">
+              <StageAccordion
+                stageId="alistado"
+                num="05"
+                title="Alistado"
+                open={openStages.has("alistado")}
+                muted={!stageReached(estado, "alistado")}
+                onToggle={toggleAccordionStage}
+              >
                 {stageReached(estado, "alistado") && orden ? (
-                  <>
-                    <StageHeading num="05" title="Alistado" />
-                    <CypherAlistadoSection
-                      idOrdenVenta={orden.id_orden_venta}
-                      orden={orden}
-                      hijas={hijasFromOrden}
-                    />
-                  </>
+                  <CypherAlistadoSection
+                    idOrdenVenta={orden.id_orden_venta}
+                    orden={orden}
+                    hijas={hijasFromOrden}
+                  />
                 ) : (
-                  <PendingStage num="05" title="Alistado" />
+                  <PendingStageBody />
                 )}
-              </section>
+              </StageAccordion>
 
-              <section id="cypher-stage-bitacora" className="scroll-mt-4 pt-8">
-                <StageHeading num="06" title="Bitácora de eventos" />
+              <StageAccordion
+                stageId="bitacora"
+                num="06"
+                title="Bitácora de eventos"
+                open={openStages.has("bitacora")}
+                onToggle={toggleAccordionStage}
+              >
                 {idOrdenTrabajoBitacora && activeOtPicker ? (
                   <p className="mt-2 polaria-text-caption text-polaria-w-50">
                     Eventos de{" "}
@@ -1277,7 +1368,7 @@ export function OrdenVentaCypherDrawer({
                     </ul>
                   )}
                 </div>
-              </section>
+              </StageAccordion>
             </>
           ) : null}
         </div>
