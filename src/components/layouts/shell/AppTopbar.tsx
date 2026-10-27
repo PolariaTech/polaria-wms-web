@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { TenantBodegaSelector } from "@/providers/tenant/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
+import { useOvFechaFiltroStore } from "@/stores/ov-fecha-filtro.store";
 import type { TopbarUserInfo } from "@/types/layout/layout";
 
 interface AppTopbarProps {
@@ -48,6 +49,17 @@ export function AppTopbar({
   const performLogout = useAuthStore((s) => s.performLogout);
   const { label: dateLabel, dateTime } = useLiveDate();
   const isPerfilActive = pathname === ROUTES.perfil;
+  const onOrdenesVenta =
+    pathname === ROUTES.dashboardVentasOrdenes ||
+    pathname.startsWith(`${ROUTES.dashboardVentasOrdenes}/`);
+  const fechaFiltroDia = useOvFechaFiltroStore((s) => s.dia);
+  const toggleFechaFiltro = useOvFechaFiltroStore((s) => s.toggle);
+  const clearFechaFiltro = useOvFechaFiltroStore((s) => s.clear);
+  const fechaPresionada = onOrdenesVenta && Boolean(fechaFiltroDia);
+
+  useEffect(() => {
+    if (!onOrdenesVenta && fechaFiltroDia) clearFechaFiltro();
+  }, [clearFechaFiltro, fechaFiltroDia, onOrdenesVenta]);
   const logoutStartedRef = useRef(false);
   const topbarRef = useRef<HTMLElement | null>(null);
 
@@ -104,10 +116,40 @@ export function AppTopbar({
         <div className="polaria-topbar__grid">
           <div className="polaria-topbar__start">
             <div className="polaria-topbar__date">
-              <span className="polaria-text-label">Fecha</span>
-              <time dateTime={dateTime} className="polaria-text-body-sm mt-0.5">
-                {dateLabel}
-              </time>
+              {onOrdenesVenta ? (
+                <button
+                  type="button"
+                  aria-pressed={fechaPresionada}
+                  title={
+                    fechaPresionada
+                      ? "Ver todas las órdenes"
+                      : "Ver solo las órdenes de esta fecha"
+                  }
+                  aria-label={
+                    fechaPresionada
+                      ? `Quitar filtro del ${dateLabel}`
+                      : `Filtrar órdenes del ${dateLabel}`
+                  }
+                  onClick={() => toggleFechaFiltro(dateTime)}
+                  className="flex flex-col items-start rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal"
+                >
+                  <span className="polaria-text-label">Fecha</span>
+                  <time
+                    dateTime={dateTime}
+                    className="polaria-text-body-sm mt-0.5"
+                    style={fechaPresionada ? { color: "var(--teal)" } : undefined}
+                  >
+                    {dateLabel}
+                  </time>
+                </button>
+              ) : (
+                <>
+                  <span className="polaria-text-label">Fecha</span>
+                  <time dateTime={dateTime} className="polaria-text-body-sm mt-0.5">
+                    {dateLabel}
+                  </time>
+                </>
+              )}
             </div>
           </div>
 

@@ -8,7 +8,7 @@ import {
   PolariaTableBadge,
   PolariaTableCode,
 } from "@/components/shared/table/PolariaTableCells";
-import { formatDateTime } from "@/components/shared/utils/formatters";
+import { calendarDayKey, formatDateTime } from "@/components/shared/utils/formatters";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useVisibleInterval } from "@/hooks/shared/useVisibleInterval";
@@ -60,6 +60,7 @@ import { applySurtidoCapturasToPrintSheets } from "../../surtido/apply-surtido-t
 import { listOrdenIdsConSurtidoCaptura } from "../../surtido/list-orden-ids-con-surtido-captura";
 import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
 import { useAuthStore } from "@/stores/auth.store";
+import { useOvFechaFiltroStore } from "@/stores/ov-fecha-filtro.store";
 import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import { OrdenVentaCreateModal } from "../modals/OrdenVentaCreateModal";
 import {
@@ -263,6 +264,7 @@ export function OperadorOrdenesVentaPageContent({
     };
   }, []);
 
+  const fechaFiltroDia = useOvFechaFiltroStore((s) => s.dia);
   const rows = useMemo(() => {
     const base = data?.rows ?? [];
     return base.filter(
@@ -270,15 +272,21 @@ export function OperadorOrdenesVentaPageContent({
         row.estado !== "cancelada" && !idsOcultosBorrados.has(row.idOrdenVenta),
     );
   }, [data?.rows, idsOcultosBorrados]);
+  const rowsDelDia = useMemo(() => {
+    if (!fechaFiltroDia) return rows;
+    return rows.filter(
+      (row) => calendarDayKey(row.fecha, zonaHoraria) === fechaFiltroDia,
+    );
+  }, [fechaFiltroDia, rows, zonaHoraria]);
   const idsConFotosCaptura = useMemo(
     () => data?.idsConFotosCaptura ?? new Set<string>(),
     [data],
   );
 
   const filteredRows = useMemo(() => {
-    if (!estadoFiltro) return rows;
-    return rows.filter((row) => row.estado === estadoFiltro);
-  }, [rows, estadoFiltro]);
+    if (!estadoFiltro) return rowsDelDia;
+    return rowsDelDia.filter((row) => row.estado === estadoFiltro);
+  }, [rowsDelDia, estadoFiltro]);
 
   const countsByEstado = useMemo(() => {
     const counts: Record<EstadoOrdenVenta, number> = {
@@ -288,11 +296,11 @@ export function OperadorOrdenesVentaPageContent({
       alistada: 0,
       cancelada: 0,
     };
-    for (const row of rows) {
+    for (const row of rowsDelDia) {
       counts[row.estado] = (counts[row.estado] ?? 0) + 1;
     }
     return counts;
-  }, [rows]);
+  }, [rowsDelDia]);
 
   const loadPrintSheets = useCallback(
     async (row: OrdenVentaOperadorRow) => {
@@ -857,7 +865,7 @@ export function OperadorOrdenesVentaPageContent({
                 : "text-polaria-w-50",
             )}
           >
-            {rows.length}
+            {rowsDelDia.length}
           </span>
         </button>
         {ESTADOS_ORDEN_VENTA.map((estado) => {
@@ -905,7 +913,9 @@ export function OperadorOrdenesVentaPageContent({
         emptyMessage={
           estadoFiltro
             ? `Sin órdenes en estado «${ESTADO_ORDEN_VENTA_LABELS[estadoFiltro]}».`
-            : "Sin órdenes de venta registradas."
+            : fechaFiltroDia
+              ? "Sin órdenes de venta de esta fecha."
+              : "Sin órdenes de venta registradas."
         }
         onRefresh={() => {
           void reload();
