@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Plus, XCircle } from "lucide-react";
+import { CheckCircle2, Plus, Printer, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
@@ -34,9 +34,22 @@ import {
   printOrdenTareaAlmacenLandscape,
 } from "../../print/download-orden-tarea-almacen-pdf";
 import {
+  autoPrintOrdenVentaTrasEmitir,
   autoPrintResultToFeedback,
   type AutoPrintOvResult,
 } from "../../print/auto-print-ov-tras-emitir";
+import {
+  MENSAJE_CORREO_MAS_TARDE,
+  MENSAJE_CORREO_NO_ENVIADO,
+  TIPO_CORREO_NO_ENVIADO,
+  mergeCorreoNoEnviado,
+} from "../../print/print-correo-fallo";
+import { listOrdenIdsCorreoNoEnviado } from "../../print/list-orden-ids-correo-no-enviado";
+import {
+  printQueueLogMensaje,
+  printQueuePayload,
+  printQueueUserMessage,
+} from "../../print/print-queue-status";
 import { useCuentaZonaHoraria } from "@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria";
 import { mapOrdenVentaToAlmacenPrintSheets } from "../../print/map-orden-tarea-almacen";
 import {
@@ -78,7 +91,14 @@ import { OrdenVentaPdfPreviewModal } from "../modals/OrdenVentaPdfPreviewModal";
 interface OrdenesVentaPageData {
   rows: OrdenVentaOperadorRow[];
   idsConFotosCaptura: Set<string>;
+  idsCorreoNoEnviado: Set<string>;
 }
+
+type PrintRetryTarget = {
+  idOrdenVenta: string;
+  venta: string;
+  idBodega: string | null;
+};
 
 function renderEstadoBadge(estado: string) {
   return (
@@ -137,6 +157,7 @@ export function OperadorOrdenesVentaPageContent({
     ok: boolean;
     title: string;
     lines: string[];
+    retry: PrintRetryTarget | null;
   } | null>(null);
   const showFeedback = useCallback(
     (item: { ok: boolean; title: string; detail: string }) => {
@@ -144,17 +165,47 @@ export function OperadorOrdenesVentaPageContent({
         ok: item.ok,
         title: item.title,
         lines: item.detail.trim() ? [item.detail.trim()] : [],
+        retry: null,
       });
     },
     [],
   );
+  const lastEmitRef = useRef<PrintRetryTarget | null>(null);
+  const [marcasLocales, setMarcasLocales] = useState<{
+    marcados: Set<string>;
+    quitados: Set<string>;
+  }>({ marcados: new Set(), quitados: new Set() });
+  const marcarCorreoNoEnviado = useCallback((idOrdenVenta: string) => {
+    setMarcasLocales((prev) => {
+      const marcados = new Set(prev.marcados);
+      const quitados = new Set(prev.quitados);
+      marcados.add(idOrdenVenta);
+      quitados.delete(idOrdenVenta);
+      return { marcados, quitados };
+    });
+  }, []);
+  const quitarCorreoNoEnviado = useCallback((idOrdenVenta: string) => {
+    setMarcasLocales((prev) => {
+      const marcados = new Set(prev.marcados);
+      const quitados = new Set(prev.quitados);
+      marcados.delete(idOrdenVenta);
+      quitados.add(idOrdenVenta);
+      return { marcados, quitados };
+    });
+  }, []);
   const handleEmitSuccess = useCallback(
     (info: { idOrdenVenta: string; codigo: string }) => {
       const codigo = info.codigo.trim() || "OV";
+      lastEmitRef.current = {
+        idOrdenVenta: info.idOrdenVenta,
+        venta: codigo,
+        idBodega: null,
+      };
       setFeedback({
         ok: true,
         title: `${codigo} confirmada`,
         lines: ["El pedido ya está confirmado y listo para bodega."],
+        retry: null,
       });
     },
     [],
@@ -162,9 +213,20 @@ export function OperadorOrdenesVentaPageContent({
   const handleAutoPrintResult = useCallback((result: AutoPrintOvResult) => {
     const print = autoPrintResultToFeedback(result);
     if (!print) return;
-    const printLine = print.ok
-      ? `Impresión enviada. ${print.detail}`
-      : `${print.title}. ${print.detail}`;
+    if (!print.ok) {
+      const target = lastEmitRef.current;
+      setFeedback({
+        ok: false,
+        title: MENSAJE_CORREO_NO_ENVIADO,
+        lines: [],
+        retry: target,
+      });
+      return;
+    }
+    if (lastEmitRef.current) {
+      quitarCorreoNoEnviado(lastEmitRef.current.idOrdenVenta);
+    }
+    const printLine = print.line;
     setFeedback((prev) => {
       if (prev?.title.toLowerCase().includes("confirmada")) {
         // La OV ya salió bien: el chulo se queda; la línea de impresión aclara el resto.
@@ -172,15 +234,17 @@ export function OperadorOrdenesVentaPageContent({
           ok: true,
           title: prev.title,
           lines: [...prev.lines, printLine],
+          retry: null,
         };
       }
       return {
         ok: print.ok,
         title: print.title,
         lines: [print.detail],
+        retry: null,
       };
     });
-  }, []);
+  }, [quitarCorreoNoEnviado]);
   const [busyAction, setBusyAction] = useState<{
     id: string;
     kind: "print" | "preview" | "fotos" | "borrar";
@@ -207,7 +271,7 @@ export function OperadorOrdenesVentaPageContent({
 
   const fetchOrdenes = useCallback(async (): Promise<OrdenesVentaPageData> => {
     if (!codigoCuenta) {
-      return { rows: [], idsConFotosCaptura: new Set() };
+      return { rows: [], idsConFotosCaptura: new Set(), idsCorreoNoEnviado: new Set() };
     }
 
     const rows = await runScoped(() =>
@@ -224,7 +288,18 @@ export function OperadorOrdenesVentaPageContent({
     } catch {
       idsConFotosCaptura = new Set();
     }
-    return { rows, idsConFotosCaptura };
+    let idsCorreoNoEnviado = new Set<string>();
+    try {
+      idsCorreoNoEnviado = await runScoped(() =>
+        listOrdenIdsCorreoNoEnviado({
+          codigoCuenta,
+          idOrdenes: rows.map((row) => row.idOrdenVenta),
+        }),
+      );
+    } catch {
+      idsCorreoNoEnviado = new Set();
+    }
+    return { rows, idsConFotosCaptura, idsCorreoNoEnviado };
   }, [codigoCuenta, runScoped]);
 
   const { data, isLoading, isRefreshing, error, reload } = useAsyncQuery(
@@ -278,10 +353,21 @@ export function OperadorOrdenesVentaPageContent({
       (row) => calendarDayKey(row.fecha, zonaHoraria) === fechaFiltroDia,
     );
   }, [fechaFiltroDia, rows, zonaHoraria]);
-  const idsConFotosCaptura = useMemo(
-    () => data?.idsConFotosCaptura ?? new Set<string>(),
+  const idsCorreoServidor = useMemo(
+    () => data?.idsCorreoNoEnviado ?? new Set<string>(),
     [data],
   );
+  const idsCorreoNoEnviado = useMemo(
+    () =>
+      mergeCorreoNoEnviado({
+        servidor: idsCorreoServidor,
+        marcados: marcasLocales.marcados,
+        quitados: marcasLocales.quitados,
+      }),
+    [idsCorreoServidor, marcasLocales],
+  );
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
 
   const filteredRows = useMemo(() => {
     if (!estadoFiltro) return rowsDelDia;
@@ -342,7 +428,10 @@ export function OperadorOrdenesVentaPageContent({
   );
 
   const executePrint = useCallback(
-    async (row: OrdenVentaOperadorRow) => {
+    async (
+      row: OrdenVentaOperadorRow,
+      modo: "inicial" | "reintento" = "inicial",
+    ) => {
       if (!codigoCuenta || printingLockRef.current) return;
       printingLockRef.current = true;
       setBusyAction({ id: row.idOrdenVenta, kind: "print" });
@@ -353,54 +442,161 @@ export function OperadorOrdenesVentaPageContent({
           throw new Error("No hay datos para generar el PDF.");
         }
         // Mismo PDF horizontal multipágina que la previsualización (con surtido).
-        await printOrdenTareaAlmacenLandscape(sheets, { codigoCuenta });
-        const hojaLabel =
-          sheets.length === 1
-            ? "1 orden de trabajo enviada"
-            : `${sheets.length} órdenes de trabajo enviadas`;
+        const printed = await printOrdenTareaAlmacenLandscape(sheets, {
+          codigoCuenta,
+        });
         const codigoOv = row.venta?.trim() || "";
+        const message = printQueueUserMessage({
+          outcome: printed.queue,
+          impresora: printed.impresora,
+          codigo: codigoOv,
+          hojas: sheets.length,
+        });
         showFeedback({
           ok: true,
-          title: codigoOv
-            ? `Impresión enviada — ${codigoOv}`
-            : "Impresión enviada",
-          detail: codigoOv
-            ? `${codigoOv}: ${hojaLabel}. Confirma en la impresora que hayan salido bien.`
-            : `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
+          title: message.title,
+          detail: message.detail,
         });
+        quitarCorreoNoEnviado(row.idOrdenVenta);
         const session = useAuthStore.getState().session;
+        const autor = session?.nombre?.trim() || "usuario";
         void postOrdenVentaLogForOts({
           idOrdenVenta: row.idOrdenVenta,
           codigoCuenta,
           accion: "actualizacion",
-          mensaje: `PDF de almacén enviado a impresora por ${session?.nombre?.trim() || "usuario"}.`,
+          mensaje: printQueueLogMensaje({
+            outcome: printed.queue,
+            impresora: printed.impresora,
+            autor,
+            auto: false,
+          }),
           idUsuario: session?.idUsuario ?? null,
           autorNombre: session?.nombre ?? null,
           idBodega: row.idBodega ?? null,
           idOrdenesTrabajo: sheets.map((sheet) => sheet.idOrdenTrabajo),
-          payloadExtra: { tipo: "impresion_pdf", hojas: sheets.length },
+          payloadExtra: printQueuePayload({
+            tipo: "impresion_pdf",
+            hojas: sheets.length,
+            impresora: printed.impresora,
+            outcome: printed.queue,
+          }),
         });
       } catch (error: unknown) {
         const message =
           error instanceof Error
             ? error.message
             : "No se pudo enviar a la impresora.";
-        const sinImpresora = message.includes("impresora configurada");
-        showFeedback({
-          ok: false,
-          title: sinImpresora
-            ? "No hay impresora configurada"
-            : "No se pudo imprimir",
-          detail: sinImpresora
-            ? "Contacta al área de TI de Polaria para que configure la impresora de esta cuenta e inténtalo de nuevo."
-            : message,
-        });
+        console.error("[ov] no se envió el correo a la impresora:", message);
+        if (modo === "reintento") {
+          const session = useAuthStore.getState().session;
+          await postOrdenVentaLog({
+            idOrdenVenta: row.idOrdenVenta,
+            codigoCuenta,
+            accion: "actualizacion",
+            mensaje: MENSAJE_CORREO_MAS_TARDE,
+            idUsuario: session?.idUsuario ?? null,
+            autorNombre: session?.nombre ?? null,
+            idBodega: row.idBodega ?? null,
+            payloadExtra: {
+              tipo: TIPO_CORREO_NO_ENVIADO,
+              detalle: message,
+            },
+          });
+          marcarCorreoNoEnviado(row.idOrdenVenta);
+          setFeedback({
+            ok: false,
+            title: MENSAJE_CORREO_MAS_TARDE,
+            lines: [],
+            retry: null,
+          });
+        } else {
+          setFeedback({
+            ok: false,
+            title: MENSAJE_CORREO_NO_ENVIADO,
+            lines: [],
+            retry: {
+              idOrdenVenta: row.idOrdenVenta,
+              venta: row.venta,
+              idBodega: row.idBodega ?? null,
+            },
+          });
+        }
       } finally {
         printingLockRef.current = false;
         setBusyAction(null);
       }
     },
-    [codigoCuenta, loadPrintSheets, showFeedback],
+    [codigoCuenta, loadPrintSheets, marcarCorreoNoEnviado, quitarCorreoNoEnviado, showFeedback],
+  );
+
+  const reintentarEnvio = useCallback(
+    (target: PrintRetryTarget) => {
+      const row = rowsRef.current.find(
+        (item) => item.idOrdenVenta === target.idOrdenVenta,
+      );
+      if (row) {
+        void executePrint(row, "reintento");
+        return;
+      }
+      if (!codigoCuenta || printingLockRef.current) return;
+      printingLockRef.current = true;
+      setBusyAction({ id: target.idOrdenVenta, kind: "print" });
+      const session = useAuthStore.getState().session;
+      void autoPrintOrdenVentaTrasEmitir({
+        codigoCuenta,
+        idOrdenVenta: target.idOrdenVenta,
+        autorNombre: session?.nombre ?? null,
+        idUsuario: session?.idUsuario ?? null,
+        autoImprimirKnown: true,
+      })
+        .then(async (result) => {
+          if (result.status === "ok") {
+            quitarCorreoNoEnviado(target.idOrdenVenta);
+            const message = printQueueUserMessage({
+              outcome: result.queue,
+              impresora: result.impresora,
+              codigo: result.codigo || target.venta,
+              hojas: result.hojas,
+            });
+            showFeedback({
+              ok: true,
+              title: message.title,
+              detail: message.detail,
+            });
+            return;
+          }
+          const detalle =
+            result.status === "error"
+              ? result.message
+              : "No se pudo enviar a la impresora.";
+          console.error("[ov] reintento de correo a impresora:", detalle);
+          await postOrdenVentaLog({
+            idOrdenVenta: target.idOrdenVenta,
+            codigoCuenta,
+            accion: "actualizacion",
+            mensaje: MENSAJE_CORREO_MAS_TARDE,
+            idUsuario: session?.idUsuario ?? null,
+            autorNombre: session?.nombre ?? null,
+            idBodega: target.idBodega,
+            payloadExtra: {
+              tipo: TIPO_CORREO_NO_ENVIADO,
+              detalle,
+            },
+          });
+          marcarCorreoNoEnviado(target.idOrdenVenta);
+          setFeedback({
+            ok: false,
+            title: MENSAJE_CORREO_MAS_TARDE,
+            lines: [],
+            retry: null,
+          });
+        })
+        .finally(() => {
+          printingLockRef.current = false;
+          setBusyAction(null);
+        });
+    },
+    [codigoCuenta, executePrint, marcarCorreoNoEnviado, quitarCorreoNoEnviado, showFeedback],
   );
 
   const runPrint = useCallback(
@@ -790,6 +986,7 @@ export function OperadorOrdenesVentaPageContent({
                 const open = cypherId === row.idOrdenVenta;
                 return (
                   <span
+                    className="inline-flex items-center gap-1.5"
                     onClick={(event) => event.stopPropagation()}
                     onKeyDown={(event) => event.stopPropagation()}
                   >
@@ -821,13 +1018,26 @@ export function OperadorOrdenesVentaPageContent({
                         aria-hidden
                       />
                     </button>
+                    {idsCorreoNoEnviado.has(row.idOrdenVenta) ? (
+                      <span
+                        title="Esta orden no se imprimió"
+                        aria-label={`La orden ${row.venta} no se imprimió`}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-polaria-danger bg-transparent text-polaria-danger"
+                      >
+                        <Printer
+                          className="h-4 w-4"
+                          strokeWidth={2.25}
+                          aria-hidden
+                        />
+                      </span>
+                    ) : null}
                   </span>
                 );
               },
             },
           ]),
     ],
-    [inspect, cypherId, zonaHoraria],
+    [idsCorreoNoEnviado, inspect, cypherId, zonaHoraria],
   );
 
   const companionWithCypher = Boolean(
@@ -1183,13 +1393,28 @@ export function OperadorOrdenesVentaPageContent({
               </div>
             </div>
             <div className="border-t border-polaria-w-08 px-5 py-4 sm:px-6">
-              <button
-                type="button"
-                onClick={() => setFeedback(null)}
-                className="w-full rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
-              >
-                Entendido
-              </button>
+              {feedback.retry ? (
+                <button
+                  type="button"
+                  disabled={Boolean(busyAction)}
+                  onClick={() => {
+                    const target = feedback.retry;
+                    if (!target) return;
+                    reintentarEnvio(target);
+                  }}
+                  className="w-full rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {busyAction?.kind === "print" ? "Reintentando…" : "Reintentar"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setFeedback(null)}
+                  className="w-full rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
+                >
+                  Entendido
+                </button>
+              )}
             </div>
           </div>
         </div>

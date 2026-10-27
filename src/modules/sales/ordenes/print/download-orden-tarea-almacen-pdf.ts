@@ -99,7 +99,7 @@ export async function printOrdenTareaAlmacen(
   }
 
   const { printPdfSilentToCuenta } = await import("./print-silent-cuenta");
-  await printPdfSilentToCuenta({
+  return printPdfSilentToCuenta({
     codigoCuenta,
     pdfBase64,
     jobName: `OV ${data.folio || "Polaria"}`,
@@ -204,7 +204,7 @@ export async function printOrdenTareaAlmacenLandscape(
   }
 
   const { printPdfSilentToCuenta } = await import("./print-silent-cuenta");
-  await printPdfSilentToCuenta({
+  return printPdfSilentToCuenta({
     codigoCuenta,
     pdfBase64,
     jobName: `OV ${sheets[0]?.folio || "Polaria"}`,

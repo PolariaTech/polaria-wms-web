@@ -10,10 +10,23 @@ import type {
 import { postOrdenVentaLogForOts } from "../services/orden-venta-log.client";
 import { printOrdenTareaAlmacenLandscape } from "./download-orden-tarea-almacen-pdf";
 import { mapOrdenVentaToAlmacenPrintSheets } from "./map-orden-tarea-almacen";
+import {
+  printNotQueuedDetail,
+  printQueueLogMensaje,
+  printQueuePayload,
+  printQueueUserMessage,
+  type PrintQueueOutcome,
+} from "./print-queue-status";
 
 export type AutoPrintOvResult =
   | { status: "skipped"; reason: "flag_off" | "no_sheets" }
-  | { status: "ok"; hojas: number; codigo?: string; impresoraHint?: string }
+  | {
+      status: "ok";
+      hojas: number;
+      codigo?: string;
+      impresora: string;
+      queue: PrintQueueOutcome;
+    }
   | { status: "error"; message: string };
 
 /** Fila mínima para PDF de almacén tras emitir (detalle es la fuente fiable). */
@@ -144,7 +157,9 @@ export async function autoPrintOrdenVentaTrasEmitir(input: {
       return { status: "skipped", reason: "no_sheets" };
     }
 
-    await printOrdenTareaAlmacenLandscape(sheets, { codigoCuenta });
+    const printed = await printOrdenTareaAlmacenLandscape(sheets, {
+      codigoCuenta,
+    });
 
     const autor = input.autorNombre?.trim() || "usuario";
     const otIds = sheets.map((sheet) => sheet.idOrdenTrabajo);
@@ -152,21 +167,30 @@ export async function autoPrintOrdenVentaTrasEmitir(input: {
       idOrdenVenta,
       codigoCuenta,
       accion: "actualizacion",
-      mensaje: `PDF de almacén enviado a impresora (auto tras validar) por ${autor}.`,
+      mensaje: printQueueLogMensaje({
+        outcome: printed.queue,
+        impresora: printed.impresora,
+        autor,
+        auto: true,
+      }),
       idUsuario: input.idUsuario ?? null,
       autorNombre: input.autorNombre ?? null,
       idBodega: listRow.idBodega ?? null,
       idOrdenesTrabajo: otIds,
-      payloadExtra: {
+      payloadExtra: printQueuePayload({
         tipo: "impresion_pdf_auto",
         hojas: sheets.length,
-      },
+        impresora: printed.impresora,
+        outcome: printed.queue,
+      }),
     });
 
     return {
       status: "ok",
       hojas: sheets.length,
       codigo: listRow.venta?.trim() || detallePrint.codigo?.trim() || undefined,
+      impresora: printed.impresora,
+      queue: printed.queue,
     };
   } catch (err) {
     const message =
@@ -182,32 +206,34 @@ export function autoPrintResultToFeedback(result: AutoPrintOvResult): {
   ok: boolean;
   title: string;
   detail: string;
+  line: string;
 } | null {
   if (result.status === "skipped") return null;
   if (result.status === "ok") {
-    const hojaLabel =
-      result.hojas === 1
-        ? "1 orden de trabajo enviada"
-        : `${result.hojas} órdenes de trabajo enviadas`;
-    const codigo = result.codigo?.trim() || "";
-    return {
-      ok: true,
-      title: codigo
-        ? `Impresión enviada — ${codigo}`
-        : "Impresión enviada",
-      detail: codigo
-        ? `${codigo}: ${hojaLabel}. Confirma en la impresora que hayan salido bien.`
-        : `${hojaLabel}. Confirma en la impresora que hayan salido bien.`,
-    };
+    const message = printQueueUserMessage({
+      outcome: result.queue,
+      impresora: result.impresora,
+      codigo: result.codigo,
+      hojas: result.hojas,
+    });
+    return { ok: true, ...message };
   }
   const sinImpresora = result.message.includes("impresora configurada");
+  if (sinImpresora) {
+    const detail =
+      "Contacta a TI de Polaria para configurar la impresora de esta cuenta.";
+    return {
+      ok: false,
+      title: "Sin impresora configurada",
+      detail,
+      line: `Sin impresora configurada. ${detail}`,
+    };
+  }
+  const detail = printNotQueuedDetail(result.message);
   return {
     ok: false,
-    title: sinImpresora
-      ? "Sin impresora configurada"
-      : "No se pudo imprimir",
-    detail: sinImpresora
-      ? "Contacta a TI de Polaria para configurar la impresora de esta cuenta."
-      : result.message,
+    title: "No se pudo imprimir",
+    detail,
+    line: detail,
   };
 }
