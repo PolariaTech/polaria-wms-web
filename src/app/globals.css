@@ -374,6 +374,17 @@ button:disabled,
   }
 }
 
+/* El blanco al 50% se confunde con el aurora del topbar. Teal + velo marcan que está presionada. */
+.polaria-topbar__date button[aria-pressed="true"] {
+  border-radius: 0.375rem;
+  background: var(--t20);
+  padding: 0.125rem 0.375rem;
+}
+
+.polaria-topbar__date button[aria-pressed="true"] time {
+  color: var(--teal);
+}
+
 .polaria-topbar__center {
   display: flex;
   min-width: 0;
