@@ -303,11 +303,24 @@ export function validarPropuestaContraBase(
   if (totalBase !== totalFinal) throw new PropuestaInvalidaError("TOTALES_NO_COINCIDEN");
 }
 
+export interface MovimientoAplicado {
+  producto: string;
+  cantidad: number;
+  /** Etiqueta de la OT de origen. */
+  desde: string;
+  /** Etiqueta de la OT de destino. */
+  hacia: string;
+}
+
 export interface ResultadoReagrupacion<TLinea extends LineaReagrupable> {
   hijas: OrdenTrabajoHija[];
   lineas: TLinea[];
   /** Renglones movidos que no tenían línea del formulario emparejada. */
   renglonesSinLinea: number;
+  /** Movimientos ya resueltos con nombres legibles (para la bitácora). */
+  movimientos: MovimientoAplicado[];
+  /** OT creadas por la propuesta. */
+  otNuevas: Array<{ id: string; label: string }>;
 }
 
 function generarIdOtManual(): string {
@@ -344,6 +357,8 @@ export function aplicarReagrupacion<TLinea extends LineaReagrupable>(params: {
   const posicionRenglon = new Map(indice.orden.map((id, i) => [id, i]));
   const lineasNuevas = lineas.map((linea) => ({ ...linea }));
   let renglonesSinLinea = 0;
+  const movimientos: MovimientoAplicado[] = [];
+  const otNuevas: Array<{ id: string; label: string }> = [];
 
   const nuevasHijas: OrdenTrabajoHija[] = [];
   for (const ot of propuesta.ots) {
@@ -385,8 +400,17 @@ export function aplicarReagrupacion<TLinea extends LineaReagrupable>(params: {
       };
     }
     nuevasHijas.push(base);
+    if (ot.otId === null) otNuevas.push({ id: base.id, label: base.label });
 
     for (const item of indexados) {
+      if (item.otIdOrigen !== base.id) {
+        movimientos.push({
+          producto: texto(item.renglon.Producto),
+          cantidad: parseCantidadRenglon(item.renglon.Cantidad),
+          desde: hijaPorId.get(item.otIdOrigen)!.label,
+          hacia: base.label,
+        });
+      }
       if (item.lineaIndex === null) {
         if (item.otIdOrigen !== base.id) renglonesSinLinea += 1;
         continue;
@@ -395,7 +419,13 @@ export function aplicarReagrupacion<TLinea extends LineaReagrupable>(params: {
     }
   }
 
-  return { hijas: nuevasHijas, lineas: lineasNuevas, renglonesSinLinea };
+  return {
+    hijas: nuevasHijas,
+    lineas: lineasNuevas,
+    renglonesSinLinea,
+    movimientos,
+    otNuevas,
+  };
 }
 
 /** Copia profunda del estado previo para poder deshacer (R10). */
@@ -407,4 +437,111 @@ export function crearSnapshotReagrupacion<TLinea extends LineaReagrupable>(
     hijas: structuredClone(hijas) as OrdenTrabajoHija[],
     lineas: structuredClone(lineas) as TLinea[],
   };
+}
+
+/** Solo se puede reagrupar una OV por confirmar y con al menos una OT (R1). */
+export function puedeReagruparOt(
+  estadoOrdenVenta: string | null | undefined,
+  cantidadOts: number,
+): boolean {
+  return (
+    (estadoOrdenVenta ?? "").trim().toLowerCase() === "por_confirmar" &&
+    cantidadOts >= 1
+  );
+}
+
+/**
+ * Firma estable de lo que ve el modelo (OT, renglones y a qué OT pertenece cada línea).
+ * Si cambia entre pedir y confirmar la propuesta, la propuesta ya no aplica (R5).
+ */
+export function firmaEstadoReagrupacion(
+  hijas: readonly OrdenTrabajoHija[],
+  lineas: readonly LineaReagrupable[],
+): string {
+  return JSON.stringify([
+    hijas.map((hija) => [
+      hija.id,
+      hija.renglones.map((renglon) => [
+        texto(renglon.Producto),
+        parseCantidadRenglon(renglon.Cantidad),
+      ]),
+    ]),
+    lineas.map((linea) => [linea.otId ?? "", linea.nombre, linea.cantidadInput]),
+  ]);
+}
+
+const MAX_INSTRUCCION_BITACORA = 500;
+
+/** Mensaje y datos de bitácora de una reagrupación guardada (R12). */
+export function describirReagrupacionParaBitacora(params: {
+  autor: string;
+  instruccion: string;
+  resumen: ResumenReagrupacion;
+  movimientos: readonly MovimientoAplicado[];
+  otNuevas: ReadonlyArray<{ id: string; label: string }>;
+}): { mensaje: string; payloadExtra: Record<string, unknown> } {
+  const { resumen } = params;
+  const nuevas =
+    params.otNuevas.length > 0
+      ? ` (${params.otNuevas.length} ${params.otNuevas.length === 1 ? "nueva" : "nuevas"})`
+      : "";
+  return {
+    mensaje: `Órdenes de trabajo reagrupadas con IA por ${params.autor}: ${resumen.antes} → ${resumen.despues}${nuevas}.`,
+    payloadExtra: {
+      reagrupacionIa: {
+        instruccion: Array.from(params.instruccion.trim())
+          .slice(0, MAX_INSTRUCCION_BITACORA)
+          .join(""),
+        resumen,
+        movimientos: params.movimientos,
+        otNuevas: params.otNuevas,
+      },
+    },
+  };
+}
+
+export interface MovimientoVista {
+  producto: string;
+  cantidad: number | string;
+  desde: string;
+  hacia: string;
+}
+
+/**
+ * Traduce los movimientos de la propuesta (ids opacos) a nombres legibles para la
+ * vista previa. Solo usa texto del estado base y la etiqueta saneada de las OT nuevas.
+ */
+export function describirMovimientosPropuesta(
+  propuesta: Pick<PropuestaReagrupacionApi, "ots" | "movimientos">,
+  estadoBase: EstadoBaseApi,
+): MovimientoVista[] {
+  const etiquetaPorOt = new Map<string, string>(
+    estadoBase.ots.map((ot) => [ot.otId, ot.etiqueta]),
+  );
+  for (const ot of propuesta.ots) {
+    if (ot.nuevaClave !== null) {
+      etiquetaPorOt.set(
+        ot.nuevaClave,
+        sanitizarEtiqueta(ot.etiquetaSugerida) || ETIQUETA_OT_NUEVA_POR_DEFECTO,
+      );
+    }
+  }
+  const renglonPorId = new Map(
+    estadoBase.ots.flatMap((ot) =>
+      ot.renglones.map((renglon) => [renglon.renglonId, renglon] as const),
+    ),
+  );
+
+  return propuesta.movimientos.flatMap((movimiento) => {
+    const renglon = renglonPorId.get(movimiento.renglonId);
+    if (!renglon) return [];
+    return [
+      {
+        producto: renglon.producto,
+        cantidad: renglon.cantidad,
+        desde: etiquetaPorOt.get(movimiento.deOtId) ?? movimiento.deOtId,
+        hacia: etiquetaPorOt.get(movimiento.aOtId) ?? movimiento.aOtId,
+      },
+    ];
+  });
 }

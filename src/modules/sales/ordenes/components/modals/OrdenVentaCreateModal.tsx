@@ -69,7 +69,22 @@ import {
 } from "../../../shared/constants/sales-status";
 import { fetchProductosVentaCatalogo } from "../../../shared/services/sales-catalog.api";
 import { emitirOrdenVentaApi } from "../../../shared/services/sales-api.service";
-import { postOrdenVentaLogForOts } from "../../services/orden-venta-log.client";
+import {
+  postOrdenVentaLog,
+  postOrdenVentaLogForOts,
+} from "../../services/orden-venta-log.client";
+import {
+  aplicarReagrupacion,
+  construirEstadoBaseApi,
+  crearSnapshotReagrupacion,
+  describirReagrupacionParaBitacora,
+  firmaEstadoReagrupacion,
+  puedeReagruparOt,
+  type MovimientoAplicado,
+  type PropuestaReagrupacionApi,
+  type ResumenReagrupacion,
+} from "../../utils/ot/reagrupar-ordenes-trabajo";
+import { OrdenVentaReagruparOtModal } from "./OrdenVentaReagruparOtModal";
 import {
   createOrdenVenta,
   fetchUltimosPreciosPorComprador,
@@ -387,6 +402,19 @@ interface LineaVentaForm {
   sugerenciasAlternativas?: LineaSugerenciaCatalogo[];
 }
 
+/** Reagrupación de OT con IA aplicada al formulario y aún sin guardar (REQ-125). */
+interface ReagrupacionAplicada {
+  /** Estado previo, para Deshacer. */
+  snapshot: { hijas: OrdenTrabajoHija[]; lineas: LineaVentaForm[] };
+  instruccion: string;
+  resumen: ResumenReagrupacion;
+  movimientos: MovimientoAplicado[];
+  otNuevas: Array<{ id: string; label: string }>;
+}
+
+const parseCantidadReagrupacion = (raw: string): number =>
+  parseDecimalEs(raw) ?? 0;
+
 function fieldControlClass(params: {
   field?: string;
   autoFields?: Set<string>;
@@ -685,6 +713,9 @@ export function OrdenVentaCreateModal({
   >([]);
   const [formOtPage, setFormOtPage] = useState(0);
   const [lineas, setLineas] = useState<LineaVentaForm[]>([]);
+  const [reagruparOpen, setReagruparOpen] = useState(false);
+  const [reagruparAplicada, setReagruparAplicada] =
+    useState<ReagrupacionAplicada | null>(null);
   const [productosBase, setProductosBase] = useState<ProductoVentaOption[]>(
     [],
   );
@@ -1195,6 +1226,71 @@ export function OrdenVentaCreateModal({
     ],
   );
 
+  /** Estado actual del formulario para pedir una propuesta de reagrupación (REQ-125). */
+  const obtenerSolicitudReagrupacion = useCallback(() => {
+    const hijas = syncActiveOtFromForm();
+    if (hijas.length === 0) return null;
+    const { estadoBase } = construirEstadoBaseApi(
+      hijas,
+      lineas,
+      parseCantidadReagrupacion,
+    );
+    return { estadoBase, firma: firmaEstadoReagrupacion(hijas, lineas) };
+  }, [lineas, syncActiveOtFromForm]);
+
+  /**
+   * Aplica la propuesta como BORRADOR: mueve renglones y reasigna las líneas a la
+   * vez, sin escribir en BD. Lanza si la propuesta no respeta las OT originales.
+   */
+  const handleAplicarReagrupacion = useCallback(
+    (datos: { propuesta: PropuestaReagrupacionApi; instruccion: string }) => {
+      const hijas = syncActiveOtFromForm();
+      // Los ids de renglón son deterministas: se reconstruye el índice con el estado actual.
+      const { indice } = construirEstadoBaseApi(
+        hijas,
+        lineas,
+        parseCantidadReagrupacion,
+      );
+      const snapshot = crearSnapshotReagrupacion(hijas, lineas);
+      const resultado = aplicarReagrupacion({
+        hijas,
+        lineas,
+        propuesta: datos.propuesta,
+        indice,
+      });
+
+      applyOrdenesTrabajo(resultado.hijas);
+      setLineas(resultado.lineas);
+      setFormOtPage(0);
+      setReagruparAplicada({
+        snapshot,
+        instruccion: datos.instruccion,
+        resumen: datos.propuesta.resumen,
+        movimientos: resultado.movimientos,
+        otNuevas: resultado.otNuevas,
+      });
+      setReagruparOpen(false);
+      setError(null);
+      showToast({
+        title: "Órdenes de trabajo reorganizadas",
+        content:
+          "El cambio quedó como borrador. Guarda el pedido para conservarlo o pulsa Deshacer.",
+        variant: "success",
+        durationMs: 5000,
+      });
+    },
+    [applyOrdenesTrabajo, lineas, showToast, syncActiveOtFromForm],
+  );
+
+  /** Deshacer: restaura OT y líneas como estaban antes de aplicar la reagrupación (R10). */
+  const handleDeshacerReagrupacion = useCallback(() => {
+    if (!reagruparAplicada) return;
+    applyOrdenesTrabajo(reagruparAplicada.snapshot.hijas);
+    setLineas(reagruparAplicada.snapshot.lineas);
+    setReagruparAplicada(null);
+    setError(null);
+  }, [applyOrdenesTrabajo, reagruparAplicada]);
+
   useEffect(() => {
     if (!onCompanionOtPickerChange) return;
 
@@ -1231,6 +1327,9 @@ export function OrdenVentaCreateModal({
         setStep("form");
         goToOtPage(index);
       },
+      onReagrupar: puedeReagruparOt(editingEstado, ordenesTrabajoForm.length)
+        ? () => setReagruparOpen(true)
+        : undefined,
     });
 
     return () => {
@@ -1702,6 +1801,8 @@ export function OrdenVentaCreateModal({
     setPendingEmitId(null);
     setEditingEstado(null);
     setEditingCodigo("");
+    setReagruparOpen(false);
+    setReagruparAplicada(null);
     setPicker(null);
     setReplaceLineaIndex(null);
     setAutoFields(new Set());
@@ -3644,6 +3745,29 @@ export function OrdenVentaCreateModal({
           });
         }
 
+        if (reagruparAplicada && idOrdenVenta) {
+          const detalle = describirReagrupacionParaBitacora({
+            autor: autorLog,
+            instruccion: reagruparAplicada.instruccion,
+            resumen: reagruparAplicada.resumen,
+            movimientos: reagruparAplicada.movimientos,
+            otNuevas: reagruparAplicada.otNuevas,
+          });
+          // Evento a nivel de OV (sin OT): se ve al filtrar por cualquier OT.
+          void postOrdenVentaLog({
+            idOrdenVenta,
+            codigoCuenta,
+            accion: "actualizacion",
+            mensaje: detalle.mensaje,
+            idUsuario: idCreador || null,
+            autorNombre: session?.nombre ?? null,
+            idBodega: payload.idBodega ?? null,
+            idOrdenTrabajo: null,
+            payloadExtra: detalle.payloadExtra,
+          });
+          setReagruparAplicada(null);
+        }
+
         if (shouldEmit && !isDraft) {
           if (!idOrdenVenta) {
             throw new DomainServiceError(
@@ -3788,6 +3912,7 @@ export function OrdenVentaCreateModal({
       onClose,
       onCreated,
       onEmitSuccess,
+      reagruparAplicada,
       showToast,
       ordenCompraHotel,
       origenAdjuntos,
@@ -4123,33 +4248,56 @@ export function OrdenVentaCreateModal({
           ) : undefined
         }
         footerCenter={
-          step === "form" && revisionPendiente ? (
-            <button
-              type="button"
-              onClick={() => {
-                revisionFocusRequestRef.current = revisionPendiente;
-                if (
-                  revisionPendiente.otIndex != null &&
-                  paginarPorOt &&
-                  ordenesTrabajoForm.length > 1 &&
-                  formOtSafePage !== revisionPendiente.otIndex
-                ) {
-                  goToOtPage(revisionPendiente.otIndex);
-                  return;
-                }
-                focusRevisionPendiente(revisionPendiente);
-                revisionFocusRequestRef.current = null;
-              }}
-              className={cn(
-                "max-w-full cursor-pointer rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-2.5 py-1.5 text-left",
-                "polaria-text-caption font-medium text-polaria-warning hover:opacity-90",
-              )}
-              title="Ir al campo pendiente"
-            >
-              <span className="line-clamp-2 break-words">
-                {revisionPendiente.message}
-              </span>
-            </button>
+          reagruparAplicada || (step === "form" && revisionPendiente) ? (
+            <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
+              {reagruparAplicada ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2.5 py-1.5">
+                  <span className="polaria-text-caption text-polaria-w">
+                    {`Reorganizado con IA (${reagruparAplicada.resumen.antes} → ${reagruparAplicada.resumen.despues} OT). Guarda para conservarlo.`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDeshacerReagrupacion}
+                    title="Restaura las órdenes de trabajo como estaban antes (se pierden los cambios hechos después)"
+                    className={cn(
+                      "rounded-md border border-polaria-t-20 px-2 py-0.5",
+                      "polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                    )}
+                  >
+                    Deshacer
+                  </button>
+                </div>
+              ) : null}
+              {step === "form" && revisionPendiente ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    revisionFocusRequestRef.current = revisionPendiente;
+                    if (
+                      revisionPendiente.otIndex != null &&
+                      paginarPorOt &&
+                      ordenesTrabajoForm.length > 1 &&
+                      formOtSafePage !== revisionPendiente.otIndex
+                    ) {
+                      goToOtPage(revisionPendiente.otIndex);
+                      return;
+                    }
+                    focusRevisionPendiente(revisionPendiente);
+                    revisionFocusRequestRef.current = null;
+                  }}
+                  className={cn(
+                    "max-w-full cursor-pointer rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-2.5 py-1.5 text-left",
+                    "polaria-text-caption font-medium text-polaria-warning hover:opacity-90",
+                  )}
+                  title="Ir al campo pendiente"
+                >
+                  <span className="line-clamp-2 break-words">
+                    {revisionPendiente.message}
+                  </span>
+                </button>
+              ) : null}
+            </div>
           ) : undefined
         }
         footerAction={
@@ -6049,6 +6197,15 @@ export function OrdenVentaCreateModal({
         description="Se quitará la tarea y sus productos de esta venta. Esta acción no se puede deshacer aquí."
         confirmLabel="Sí, eliminar"
         cancelLabel="Conservar"
+      />
+
+      <OrdenVentaReagruparOtModal
+        open={reagruparOpen && isEditing && Boolean(editingId)}
+        idOrdenVenta={editingId}
+        folio={folioVisible}
+        onClose={() => setReagruparOpen(false)}
+        obtenerSolicitud={obtenerSolicitudReagrupacion}
+        onAplicar={handleAplicarReagrupacion}
       />
     </>
   );

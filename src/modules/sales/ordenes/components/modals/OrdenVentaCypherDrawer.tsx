@@ -91,6 +91,7 @@ import { resolveOrdenCompraLimpia } from "../../utils/pedido/normalize-numero-pe
 import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
 import { OrigenPedidoBodyView } from "../shared/OrigenPedidoBodyView";
 import { CypherAlistadoSection } from "./CypherAlistadoSection";
+import { CypherReagruparOtButton } from "./CypherReagruparOtButton";
 import { CypherAlistamientoSection } from "./CypherAlistamientoSection";
 import { CypherClienteVsMateoSection } from "./CypherClienteVsMateoSection";
 import { CypherDatosFiscalesSection } from "./CypherDatosFiscalesSection";
@@ -192,6 +193,7 @@ function StageAccordion({
   open,
   muted = false,
   onToggle,
+  headerAction,
   children,
 }: {
   stageId: CypherStageId;
@@ -200,51 +202,63 @@ function StageAccordion({
   open: boolean;
   muted?: boolean;
   onToggle: (stageId: CypherStageId) => void;
+  /** Acción a la derecha del título (hermana del botón del acordeón, no anidada). */
+  headerAction?: ReactNode;
   children: ReactNode;
 }) {
   const panelId = `cypher-stage-${stageId}-panel`;
   return (
     <section id={`cypher-stage-${stageId}`} className="scroll-mt-4 pt-3">
-      <h3>
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={panelId}
-          onClick={() => onToggle(stageId)}
-          className={cn(
-            "flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-            open
-              ? "border-polaria-teal bg-polaria-t-08"
-              : "border-polaria-t-20 bg-polaria-t-08 hover:border-polaria-teal",
-          )}
-        >
-          <span
+      <div className="relative">
+        <h3>
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={panelId}
+            onClick={() => onToggle(stageId)}
             className={cn(
-              "shrink-0 polaria-text-caption font-extrabold tracking-[0.16em]",
-              muted && !open ? "text-polaria-w-20" : "text-polaria-teal",
+              "flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+              open
+                ? "border-polaria-teal bg-polaria-t-08"
+                : "border-polaria-t-20 bg-polaria-t-08 hover:border-polaria-teal",
             )}
           >
-            {num}
-          </span>
-          <span
-            className={cn(
-              "min-w-0 flex-1 polaria-text-card-title font-extrabold",
-              muted && !open ? "text-polaria-w-50" : "text-polaria-w",
-            )}
-          >
-            {title}
-          </span>
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 shrink-0 text-polaria-teal transition-transform duration-200",
-              open && "rotate-180",
-            )}
-            strokeWidth={2.25}
-            aria-hidden
-          />
-        </button>
-      </h3>
+            <span
+              className={cn(
+                "shrink-0 polaria-text-caption font-extrabold tracking-[0.16em]",
+                muted && !open ? "text-polaria-w-20" : "text-polaria-teal",
+              )}
+            >
+              {num}
+            </span>
+            <span
+              className={cn(
+                "min-w-0 flex-1 polaria-text-card-title font-extrabold",
+                muted && !open ? "text-polaria-w-50" : "text-polaria-w",
+              )}
+            >
+              {title}
+            </span>
+            {headerAction ? (
+              <span aria-hidden className="w-36 shrink-0" />
+            ) : null}
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 shrink-0 text-polaria-teal transition-transform duration-200",
+                open && "rotate-180",
+              )}
+              strokeWidth={2.25}
+              aria-hidden
+            />
+          </button>
+        </h3>
+        {headerAction ? (
+          <div className="absolute inset-y-0 right-10 flex items-center">
+            {headerAction}
+          </div>
+        ) : null}
+      </div>
       <div id={panelId} hidden={!open} className={open ? "pt-3" : undefined}>
         {children}
       </div>
@@ -286,6 +300,11 @@ export type CypherCompanionOtPicker = {
   /** OT activa en el panel izquierdo (resaltada). */
   selectedId?: string | null;
   onSelect: (id: string) => void;
+  /**
+   * Abre el modal «Reorganizar con IA» (REQ-125). Solo lo entrega el formulario de
+   * edición cuando la OV está por confirmar; sin él, el botón no se dibuja.
+   */
+  onReagrupar?: () => void;
 };
 
 export interface OrdenVentaCypherDrawerProps {
@@ -1030,6 +1049,13 @@ export function OrdenVentaCypherDrawer({
                   !stageReached(estado, "confirmacion")
                 }
                 onToggle={toggleAccordionStage}
+                headerAction={
+                  activeOtPicker && activeOtPicker.hijas.length > 0 ? (
+                    <CypherReagruparOtButton
+                      onClick={activeOtPicker.onReagrupar}
+                    />
+                  ) : undefined
+                }
               >
                 {activeOtPicker && activeOtPicker.hijas.length > 0 ? (
                   <>
