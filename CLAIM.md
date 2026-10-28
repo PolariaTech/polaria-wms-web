@@ -15,6 +15,7 @@
 - `src/modules/dashboard/operador-cuenta/components/OperadorCuentaHub.test.tsx`
 - `src/modules/dashboard/shell/components/DashboardPageContent.test.tsx`
 - `src/modules/purchases/shared/services/purchases.service.test.ts`
+- `CHANGELOG.md` — autorizada por el usuario el 2026-10-28
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
