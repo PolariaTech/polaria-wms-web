@@ -303,7 +303,18 @@ export function drawOrdenTareaAlmacenLandscapePage(
     true,
   );
   y += rowH;
-  field(doc, leftX, y, LEFT_W, rowH, "Cliente", data.cliente);
+  field(doc, leftX, y, LEFT_W, rowH, "Cliente: Razón Social", data.cliente);
+  y += rowH;
+  // REQ-178: la denominación comercial va debajo de la razón social.
+  field(
+    doc,
+    leftX,
+    y,
+    LEFT_W,
+    rowH,
+    "Cliente: Denominación Comercial",
+    data.clienteDenominacionComercial ?? "",
+  );
   y += rowH;
   field(doc, leftX, y, LEFT_W, rowH, "Centro de consumo", data.centroConsumo);
   y += rowH;
@@ -422,7 +433,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
     "Incidencias",
     incidenciasTexto,
     8,
-    6.5,
+    5.2,
     true,
   );
 

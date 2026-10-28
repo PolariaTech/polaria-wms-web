@@ -336,7 +336,10 @@ function buildBaseSheet(input: {
     })(),
     impresa: formatOrdenTareaImpresaAt(printedAt, zonaId),
     zonaImpresionLabel,
-    cliente: formatCompradorNombreOrdenVenta(detalle),
+    cliente:
+      detalle.comprador_razon_social?.trim() ||
+      formatCompradorNombreOrdenVenta(detalle),
+    clienteDenominacionComercial: detalle.comprador_apodo?.trim() || "",
     centroConsumo:
       hija?.almacen ||
       captura.centroConsumo ||

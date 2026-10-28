@@ -39,7 +39,7 @@ const SHEET_CSS = `
   .notes-block{margin:6px 0 4px;font-size:11px;}
   .notes-block .nlbl{font-weight:700;margin:0 0 8px;font-size:11px;line-height:1.2;}
   .notes-block .nline{border-bottom:1px solid #000;height:14px;margin:0 0 2px;}
-  .notes-block.incidencias .nline{height:22px;margin:0 0 7px;}
+  .notes-block.incidencias .nline{height:18px;margin:0 0 5px;}
   .notes-block .nval{font-size:10.5px;line-height:1.2;min-height:1.2em;}
   .comb{display:inline-block;vertical-align:middle;font-size:0;}
   .comb i{display:inline-block;width:13px;height:17px;border:1px solid #555;margin:0;}
@@ -214,7 +214,7 @@ export function buildOrdenTareaAlmacenHtml(
           <td></td>
         </tr>
         <tr>
-          <td><label>Cliente</label><div class="v">${fieldValue(data.cliente)}</div></td>
+          <td><label>Cliente: Razón Social</label><div class="v">${fieldValue(data.cliente)}</div></td>
           <td><label>Centro de consumo</label><div class="v">${fieldValue(data.centroConsumo)}</div></td>
           <td class="split">
             <div class="split-row">
@@ -228,6 +228,13 @@ export function buildOrdenTareaAlmacenHtml(
               </div>
             </div>
           </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <label>Cliente: Denominación Comercial</label>
+            <div class="v">${fieldValue(data.clienteDenominacionComercial ?? "")}</div>
+          </td>
+          <td></td>
         </tr>
         <tr>
           <td class="addr" colspan="3"><label>Dirección de entrega</label><div class="v">${fieldValue(data.direccionEntrega)}</div></td>

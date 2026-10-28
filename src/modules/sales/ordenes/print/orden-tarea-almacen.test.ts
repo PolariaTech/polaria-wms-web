@@ -70,6 +70,48 @@ const DETALLE: OrdenVentaDetalleRow = {
 };
 
 describe("orden de tarea almacén", () => {
+  it("REQ-178: cliente es la razón social y trae la denominación comercial aparte", () => {
+    const data = mapOrdenVentaToAlmacenPrintData({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        comprador_razon_social: "PACIFIC & CARIBBEAN SEAFOOD S DE RL DE CV",
+        comprador_apodo: "Marbella",
+      },
+    });
+
+    expect(data.cliente).toBe("PACIFIC & CARIBBEAN SEAFOOD S DE RL DE CV");
+    expect(data.clienteDenominacionComercial).toBe("Marbella");
+  });
+
+  it("REQ-178: sin razón social cae al nombre; sin apodo la denominación queda vacía", () => {
+    const data = mapOrdenVentaToAlmacenPrintData({
+      listRow: LIST_ROW,
+      detalle: { ...DETALLE, comprador_razon_social: "  ", comprador_apodo: null },
+    });
+
+    expect(data.cliente).toBe("Edgar Escobar");
+    expect(data.clienteDenominacionComercial).toBe("");
+  });
+
+  it("REQ-178: el HTML rotula Razón Social y Denominación Comercial y cabe en una hoja", () => {
+    const data = mapOrdenVentaToAlmacenPrintData({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        comprador_razon_social: "PACIFIC & CARIBBEAN SEAFOOD S DE RL DE CV",
+        comprador_apodo: "Marbella",
+      },
+    });
+    const html = buildOrdenTareaAlmacenHtml(data);
+
+    expect(html).toContain("Cliente: Razón Social");
+    expect(html).toContain("Cliente: Denominación Comercial");
+    expect(html).toContain("Marbella");
+    expect(buildOrdenTareaAlmacenPdf(data).getNumberOfPages()).toBe(1);
+    expect(buildOrdenTareaAlmacenLandscapePdf(data).getNumberOfPages()).toBe(1);
+  });
+
   it("si hay notas de almacén editadas, el PDF usa esas (no el correo)", () => {
     const data = mapOrdenVentaToAlmacenPrintData({
       listRow: LIST_ROW,

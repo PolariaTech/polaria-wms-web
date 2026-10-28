@@ -31,7 +31,10 @@ export interface OrdenTareaAlmacenPrintData {
   impresa: string;
   /** Ej. "hora de Cancún" (pie de página). */
   zonaImpresionLabel?: string;
+  /** Razón social del comprador (cae al nombre si no hay). Se imprime como «Cliente: Razón Social». */
   cliente: string;
+  /** Denominación comercial del comprador (REQ-178). Vacía si el comprador no la tiene. */
+  clienteDenominacionComercial?: string;
   centroConsumo: string;
   numeroOrdenCliente: string;
   /** Índice de OT en esta OV, p.ej. "1/9" o "1-2/9" si la OT ocupa varias hojas. */

@@ -142,6 +142,10 @@ export interface OrdenVentaLineaRow {
 export interface OrdenVentaDetalleRow extends OrdenVentaRow {
   comprador_nombre: string | null;
   comprador_codigo: string | null;
+  /** Razón social fiscal del comprador (hoja de la OT, REQ-178). */
+  comprador_razon_social?: string | null;
+  /** Denominación comercial del comprador, columna `apodo` (hoja de la OT, REQ-178). */
+  comprador_apodo?: string | null;
   bodega_nombre: string | null;
   bodega_destino_nombre: string | null;
   lineas: OrdenVentaLineaRow[];
