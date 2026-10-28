@@ -83,13 +83,13 @@ describe("AppTopbar — perfil", () => {
     render(<AppTopbar />);
 
     const fecha = screen.getByRole("button", {
-      name: "Filtrar órdenes del 16-09-2026",
+      name: "Filtrar por fecha de entrega del 16-09-2026",
     });
     expect(fecha).toHaveAttribute("aria-pressed", "false");
 
     await user.click(fecha);
     expect(fecha).toHaveAttribute("aria-pressed", "true");
-    expect(fecha).toHaveAccessibleName("Quitar filtro del 16-09-2026");
+    expect(fecha).toHaveAccessibleName("Quitar filtro de entrega del 16-09-2026");
     expect(useOvFechaFiltroStore.getState().dia).toBe("2026-09-16");
 
     await user.click(fecha);

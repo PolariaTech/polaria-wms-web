@@ -1,7 +1,8 @@
 import { create } from "zustand";
 
 /**
- * REQ-100: la fecha del topbar filtra las OV de ese día.
+ * REQ-100 / REQ-177: la fecha del topbar filtra las OV por fecha de entrega
+ * de ese día (las que no tienen fecha de entrega siguen visibles).
  * `dia` es `YYYY-MM-DD` mientras el filtro está activo; null lo apaga.
  */
 type OvFechaFiltroState = {

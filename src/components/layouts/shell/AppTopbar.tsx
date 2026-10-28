@@ -123,12 +123,12 @@ export function AppTopbar({
                   title={
                     fechaPresionada
                       ? "Ver todas las órdenes"
-                      : "Ver solo las órdenes de esta fecha"
+                      : "Ver órdenes con esta fecha de entrega, y las que no tienen fecha"
                   }
                   aria-label={
                     fechaPresionada
-                      ? `Quitar filtro del ${dateLabel}`
-                      : `Filtrar órdenes del ${dateLabel}`
+                      ? `Quitar filtro de entrega del ${dateLabel}`
+                      : `Filtrar por fecha de entrega del ${dateLabel}`
                   }
                   onClick={() => toggleFechaFiltro(dateTime)}
                   className="flex flex-col items-start rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal"

@@ -8,7 +8,7 @@ import {
   PolariaTableBadge,
   PolariaTableCode,
 } from "@/components/shared/table/PolariaTableCells";
-import { calendarDayKey, formatDateTime } from "@/components/shared/utils/formatters";
+import { formatDateTime } from "@/components/shared/utils/formatters";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useVisibleInterval } from "@/hooks/shared/useVisibleInterval";
@@ -74,6 +74,7 @@ import { listOrdenIdsConSurtidoCaptura } from "../../surtido/list-orden-ids-con-
 import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
 import { useAuthStore } from "@/stores/auth.store";
 import { useOvFechaFiltroStore } from "@/stores/ov-fecha-filtro.store";
+import { ordenPasaFiltroFechaEntrega } from "./filtrar-por-fecha-entrega";
 import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import { OrdenVentaCreateModal } from "../modals/OrdenVentaCreateModal";
 import {
@@ -349,8 +350,12 @@ export function OperadorOrdenesVentaPageContent({
   }, [data?.rows, idsOcultosBorrados]);
   const rowsDelDia = useMemo(() => {
     if (!fechaFiltroDia) return rows;
-    return rows.filter(
-      (row) => calendarDayKey(row.fecha, zonaHoraria) === fechaFiltroDia,
+    return rows.filter((row) =>
+      ordenPasaFiltroFechaEntrega(
+        row.fechaEntrega,
+        fechaFiltroDia,
+        zonaHoraria,
+      ),
     );
   }, [fechaFiltroDia, rows, zonaHoraria]);
   const idsCorreoServidor = useMemo(
@@ -1124,7 +1129,7 @@ export function OperadorOrdenesVentaPageContent({
           estadoFiltro
             ? `Sin órdenes en estado «${ESTADO_ORDEN_VENTA_LABELS[estadoFiltro]}».`
             : fechaFiltroDia
-              ? "Sin órdenes de venta de esta fecha."
+              ? "Sin órdenes con entrega en esta fecha."
               : "Sin órdenes de venta registradas."
         }
         onRefresh={() => {
