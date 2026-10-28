@@ -1,6 +1,6 @@
 # REQ-186 — «El correo no fue enviado a la impresora» (413 al imprimir una OV)
 
-> Análisis y plan de solución. **Estado: pendiente de implementar.** Bloqueado por el reclamo de REQ-058 (Mauro) sobre `src/modules/sales/ordenes/`, que incluye `ordenes/print/`. Redactado el 2026-10-28.
+> Análisis y plan de solución. **Estado: implementado y validado en vista previa de Vercel; falta confirmar la impresión real en producción tras el merge.** Redactado el 2026-10-28.
 
 ## 1. Síntoma
 
@@ -95,8 +95,11 @@ Subir el PDF a un almacenamiento y que el servidor lo adjunte. Quita el límite 
 
 ## 8. Estado del trabajo y siguiente paso
 
+- **Implementado (2026-10-28):** `compress: true` en los tres constructores de jsPDF, prueba de tamaño `render-orden-pdf-size.test.ts` y entrada en `CHANGELOG.md`. El reclamo se liberó antes del PR.
+- **Validado en vista previa de Vercel (2026-10-28):** sin el cambio, imprimir la OV grande daba 413 y la petición no llegaba a la función; con el cambio llega a la función (502 mientras faltaban las `SMTP_*` en preview) y, ya cargadas las `SMTP_*` y redesplegada la rama, el PDF sale por correo. No se confirmó todavía que la impresora lo imprima comprimido: queda para la primera impresión en producción tras el merge.
+- Nota de seguridad: las `SMTP_*` de preview se crearon como «encrypted» (visibles en el panel para quien tenga acceso al proyecto); conviene recrearlas como «Sensitive», como las de producción.
 - Sheet: REQ-186 en `En Progreso`, asignado a Dani.
-- Rama local creada: `dani/req-186-comprimir-pdf-impresion` (desde `origin/main`), sin reclamo y sin cambios.
-- Reclamo bloqueado: `paralelo.js reclamar` choca con REQ-058 (`mauro/req-058-flujo-estados-orden`, zona `src/modules/sales/ordenes/`). Mauro debe liberar o acotar su reclamo (sin incluir `ordenes/print/`) y publicar la rama.
-- Cuando se libere: `importar-claims`, `reclamar` con las zonas `ordenes/print/render-orden-tarea-almacen-landscape-pdf.ts`, `ordenes/print/render-orden-tarea-almacen-pdf.ts` y la prueba nueva (más `print-silent-cuenta.ts` si se incluye el mensaje del 413).
+- Rama: `dani/req-186-comprimir-pdf-impresion`. El reclamo se tuvo que esperar a que REQ-058 (Mauro) acotara su zona sobre `src/modules/sales/ordenes/`.
+- Pendiente tras el merge: imprimir en producción la OV grande y confirmar que la hoja sale legible (todas las páginas y el QR). Si la impresora rechaza el PDF comprimido, pasar al respaldo de la sección 5.
+- Pendiente opcional: mensaje claro para el 413 en `print-silent-cuenta.ts` y `console.error` en la ruta (sección 7); no están en este cambio.
 - Relacionado: REQ-179 («OT» → «Tareas», «OCC» → «Orden de compra») también vive en `ordenes/print/`; conviene reclamarlo junto.
