@@ -545,6 +545,7 @@ export function buildOrdenTareaAlmacenLandscapePdf(
     orientation: "portrait",
     unit: "mm",
     format: [PAGE_W, PAGE_H],
+    compress: true,
   });
   drawOrdenTareaAlmacenLandscapePage(doc, data);
   return doc;
@@ -561,6 +562,7 @@ export function buildOrdenTareaAlmacenLandscapePdfMulti(
     orientation: "portrait",
     unit: "mm",
     format: [PAGE_W, PAGE_H],
+    compress: true,
   });
   sheets.forEach((sheet, index) => {
     if (index > 0) {

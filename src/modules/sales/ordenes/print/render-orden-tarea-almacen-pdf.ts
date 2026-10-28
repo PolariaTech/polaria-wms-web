@@ -347,6 +347,7 @@ export function buildOrdenTareaAlmacenPdf(
     orientation: "portrait",
     unit: "mm",
     format: [PAGE_W, PAGE_H],
+    compress: true,
   });
 
   const QR_SIZE = 28;
