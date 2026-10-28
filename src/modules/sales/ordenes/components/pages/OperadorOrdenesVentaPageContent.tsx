@@ -1226,7 +1226,7 @@ export function OperadorOrdenesVentaPageContent({
             cypherId,
             formularioAbierto: isCreateOpen,
             detalleAbierto: Boolean(detalleId),
-            estadoOrdenVenta: rows.find((r) => r.idOrdenVenta === cypherId)
+            estadoOrdenVenta: rows.find((fila) => fila.idOrdenVenta === cypherId)
               ?.estado,
           })
             ? () => {
@@ -1253,21 +1253,21 @@ export function OperadorOrdenesVentaPageContent({
         }}
         onPrint={() => {
           const target = cypherId
-            ? rows.find((r) => r.idOrdenVenta === cypherId)
+            ? rows.find((fila) => fila.idOrdenVenta === cypherId)
             : null;
           if (!target) return;
           void runPrint(target);
         }}
         onPreview={() => {
           const target = cypherId
-            ? rows.find((r) => r.idOrdenVenta === cypherId)
+            ? rows.find((fila) => fila.idOrdenVenta === cypherId)
             : null;
           if (!target) return;
           void openPdfPreview(target);
         }}
         onFotos={(idOrdenTrabajo) => {
           const target = cypherId
-            ? rows.find((r) => r.idOrdenVenta === cypherId)
+            ? rows.find((fila) => fila.idOrdenVenta === cypherId)
             : null;
           if (!target) return;
           void openFotosCaptura(target, idOrdenTrabajo);

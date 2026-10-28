@@ -52,6 +52,7 @@ import type {
 } from "../../../shared/types/sales.types";
 import { fetchOrdenVentaLog } from "../../services/orden-venta-log.client";
 import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
+import { armarPickerOtRespaldo } from "../../utils/ot/reagrupacion-modal-estado";
 import { filterLogEntriesVisible } from "../../utils/ot/filter-log-entries-visible";
 import {
   extractLogSlaCallout,
@@ -546,19 +547,12 @@ export function OrdenVentaCypherDrawer({
     if (companionOtPicker && companionOtPicker.hijas.length > 0) {
       return companionOtPicker;
     }
-    if (hijasFromOrden.length === 0) return null;
-    return {
-      hijas: hijasFromOrden.map((hija) => ({
-        id: hija.id,
-        label: hija.label,
-        productosCount: hija.renglones.length,
-        totalCantidad: hija.totalCantidad,
-        almacen: hija.almacen,
-      })),
-      selectedId: fallbackOtId ?? hijasFromOrden[0]?.id ?? null,
-      onSelect: (id: string) => setFallbackOtId(id),
+    return armarPickerOtRespaldo({
+      hijas: hijasFromOrden,
+      selectedId: fallbackOtId,
+      onSelect: setFallbackOtId,
       onReagrupar: onReagruparDesdeLista,
-    };
+    });
   }, [companionOtPicker, fallbackOtId, hijasFromOrden, onReagruparDesdeLista]);
 
   /** OT activa: bitácora se acota a esa OT. */

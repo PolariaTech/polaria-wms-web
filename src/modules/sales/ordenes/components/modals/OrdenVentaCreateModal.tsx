@@ -84,7 +84,10 @@ import {
   type PropuestaReagrupacionApi,
   type ResumenReagrupacion,
 } from "../../utils/ot/reagrupar-ordenes-trabajo";
-import { reagruparModalAbierto } from "../../utils/ot/reagrupacion-modal-estado";
+import {
+  decidirAperturaReagruparAlCargar,
+  reagruparModalAbierto,
+} from "../../utils/ot/reagrupacion-modal-estado";
 import { OrdenVentaReagruparOtModal } from "./OrdenVentaReagruparOtModal";
 import {
   createOrdenVenta,
@@ -1361,11 +1364,15 @@ export function OrdenVentaCreateModal({
   // REQ-188: «Modificar con IA» pedido desde el «+» de Acciones: abrir el chat en
   // cuanto el formulario trae las OT (y solo si la OV todavía lo permite).
   useEffect(() => {
-    if (!abrirReagruparAlCargar || !open || !isEditing) return;
-    if (!editingEstado || ordenesTrabajoForm.length === 0) return;
-    if (puedeReagruparOt(editingEstado, ordenesTrabajoForm.length)) {
-      setReagruparOpen(true);
-    }
+    const decision = decidirAperturaReagruparAlCargar({
+      pedida: abrirReagruparAlCargar,
+      formularioAbierto: open,
+      editando: isEditing,
+      estadoOrdenVenta: editingEstado,
+      cantidadOt: ordenesTrabajoForm.length,
+    });
+    if (decision === "ninguna" || decision === "esperar") return;
+    if (decision === "abrir") setReagruparOpen(true);
     onReagruparAlCargarAtendido?.();
   }, [
     abrirReagruparAlCargar,

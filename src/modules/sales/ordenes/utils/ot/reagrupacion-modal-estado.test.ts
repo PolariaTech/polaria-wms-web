@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { PropuestaReagrupacionApi } from "./reagrupar-ordenes-trabajo";
 import {
+  armarPickerOtRespaldo,
+  decidirAperturaReagruparAlCargar,
   ESTADO_INICIAL_REAGRUPACION,
   LIMITE_INSTRUCCION_REAGRUPACION,
   MENSAJE_FUERA_DE_ALCANCE,
@@ -298,5 +300,76 @@ describe("puedeModificarConIaDesdeLista (REQ-188)", () => {
   it("CA4: con el formulario o el detalle abiertos el botón lo publica el formulario", () => {
     expect(puedeModificarConIaDesdeLista({ ...base, formularioAbierto: true })).toBe(false);
     expect(puedeModificarConIaDesdeLista({ ...base, detalleAbierto: true })).toBe(false);
+  });
+});
+
+describe("armarPickerOtRespaldo (REQ-188)", () => {
+  const hijas = [
+    { id: "ot-1", label: "OT 1", renglones: [{}, {}], totalCantidad: 5, almacen: "Frío" },
+    { id: "ot-2", label: "OT 2", renglones: [{}], totalCantidad: 1, almacen: "Seco" },
+  ];
+
+  it("CA1: lleva el botón «Modificar con IA» cuando la página lo entrega", () => {
+    const onReagrupar = vi.fn();
+    const picker = armarPickerOtRespaldo({
+      hijas,
+      selectedId: null,
+      onSelect: vi.fn(),
+      onReagrupar,
+    });
+
+    expect(picker?.onReagrupar).toBe(onReagrupar);
+    expect(picker?.hijas.map((hija) => hija.productosCount)).toEqual([2, 1]);
+  });
+
+  it("CA2: sin acción de la página no hay botón", () => {
+    const picker = armarPickerOtRespaldo({
+      hijas,
+      selectedId: "ot-2",
+      onSelect: vi.fn(),
+    });
+
+    expect(picker?.onReagrupar).toBeUndefined();
+    expect(picker?.selectedId).toBe("ot-2");
+  });
+
+  it("CA3: sin selección toma la primera OT, y sin OT no hay selector", () => {
+    expect(
+      armarPickerOtRespaldo({ hijas, selectedId: null, onSelect: vi.fn() })?.selectedId,
+    ).toBe("ot-1");
+    expect(
+      armarPickerOtRespaldo({ hijas: [], selectedId: null, onSelect: vi.fn() }),
+    ).toBeNull();
+  });
+});
+
+describe("decidirAperturaReagruparAlCargar (REQ-188)", () => {
+  const listo = {
+    pedida: true,
+    formularioAbierto: true,
+    editando: true,
+    estadoOrdenVenta: "por_confirmar",
+    cantidadOt: 2,
+  };
+
+  it("CA1: con el formulario cargado y la OV por confirmar, abre el chat", () => {
+    expect(decidirAperturaReagruparAlCargar(listo)).toBe("abrir");
+  });
+
+  it("CA2: espera mientras el formulario no trae el estado ni las OT", () => {
+    expect(decidirAperturaReagruparAlCargar({ ...listo, estadoOrdenVenta: null })).toBe("esperar");
+    expect(decidirAperturaReagruparAlCargar({ ...listo, cantidadOt: 0 })).toBe("esperar");
+  });
+
+  it("CA3: si la OV ya no está por confirmar, descarta la petición sin abrir", () => {
+    expect(
+      decidirAperturaReagruparAlCargar({ ...listo, estadoOrdenVenta: "confirmada" }),
+    ).toBe("descartar");
+  });
+
+  it("CA4: sin petición, sin formulario abierto o sin edición no hace nada", () => {
+    expect(decidirAperturaReagruparAlCargar({ ...listo, pedida: false })).toBe("ninguna");
+    expect(decidirAperturaReagruparAlCargar({ ...listo, formularioAbierto: false })).toBe("ninguna");
+    expect(decidirAperturaReagruparAlCargar({ ...listo, editando: false })).toBe("ninguna");
   });
 });
