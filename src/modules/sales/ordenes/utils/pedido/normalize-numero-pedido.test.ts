@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   detectOrdenCompraFromSource,
+  isGarbageOcValue,
   normalizeNumeroPedidoFields,
   resolveOrdenCompraLimpia,
   shouldUnifyNumeroPedidoToOc,
@@ -74,6 +75,19 @@ describe('normalizeNumeroPedidoFields — requisición vs basura OCR', () => {
       'Articulo 00001678 AGUACATE HASS',
     ].join('\n');
     expect(resolveOrdenCompraLimpia('00001678', source)).toBe('50179');
+  });
+
+  it('REQ-163: OCC con ceros a la izquierda (PO hotel) no es basura', () => {
+    const occ = '000000000028593';
+    expect(isGarbageOcValue(occ)).toBe(false);
+    expect(isGarbageOcValue('00001678')).toBe(true);
+    expect(resolveOrdenCompraLimpia(occ)).toBe(occ);
+    expect(
+      resolveOrdenCompraLimpia(
+        occ,
+        'Se le ha enviado una orden de compra: 000000000028593 de SLS Playa Mujeres.',
+      ),
+    ).toBe(occ);
   });
 });
 
