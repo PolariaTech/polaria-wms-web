@@ -5,6 +5,7 @@ import {
   LIMITE_INSTRUCCION_REAGRUPACION,
   MENSAJE_FUERA_DE_ALCANCE,
   puedeGenerar,
+  puedeModificarConIaDesdeLista,
   reagruparModalAbierto,
   reducirModalReagrupacion,
   type AccionModalReagrupacion,
@@ -266,5 +267,36 @@ describe("textos y cierre del chat de reorganizar OT", () => {
     expect(reagruparModalAbierto({ ...abierto, isEditing: false })).toBe(false);
     expect(reagruparModalAbierto({ ...abierto, tieneOrdenVenta: false })).toBe(false);
     expect(reagruparModalAbierto({ ...abierto, reagruparOpen: false })).toBe(false);
+  });
+});
+
+describe("puedeModificarConIaDesdeLista (REQ-188)", () => {
+  const base = {
+    inspect: false,
+    cypherId: "ov-1",
+    formularioAbierto: false,
+    detalleAbierto: false,
+    estadoOrdenVenta: "por_confirmar",
+  };
+
+  it("CA1: con el Cypher solo abierto y la OV por confirmar, el botón aparece", () => {
+    expect(puedeModificarConIaDesdeLista(base)).toBe(true);
+  });
+
+  it.each(["confirmada", "alistamiento", "alistada", "cancelada", null, undefined])(
+    "CA2: con la OV en %s no aparece",
+    (estadoOrdenVenta) => {
+      expect(puedeModificarConIaDesdeLista({ ...base, estadoOrdenVenta })).toBe(false);
+    },
+  );
+
+  it("CA3: no aparece sin Cypher abierto ni en modo inspección", () => {
+    expect(puedeModificarConIaDesdeLista({ ...base, cypherId: null })).toBe(false);
+    expect(puedeModificarConIaDesdeLista({ ...base, inspect: true })).toBe(false);
+  });
+
+  it("CA4: con el formulario o el detalle abiertos el botón lo publica el formulario", () => {
+    expect(puedeModificarConIaDesdeLista({ ...base, formularioAbierto: true })).toBe(false);
+    expect(puedeModificarConIaDesdeLista({ ...base, detalleAbierto: true })).toBe(false);
   });
 });

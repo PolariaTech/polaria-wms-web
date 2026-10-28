@@ -206,3 +206,24 @@ export function reagruparModalAbierto(estado: {
     estado.tieneOrdenVenta
   );
 }
+
+/**
+ * REQ-188: «Modificar con IA» desde el «+» de Acciones. Solo con el Cypher abierto solo
+ * (sin formulario ni detalle: ahí el botón lo publica el propio formulario) y la OV por
+ * confirmar.
+ */
+export function puedeModificarConIaDesdeLista(estado: {
+  inspect: boolean;
+  cypherId: string | null;
+  formularioAbierto: boolean;
+  detalleAbierto: boolean;
+  estadoOrdenVenta: string | null | undefined;
+}): boolean {
+  return (
+    !estado.inspect &&
+    Boolean(estado.cypherId) &&
+    !estado.formularioAbierto &&
+    !estado.detalleAbierto &&
+    (estado.estadoOrdenVenta ?? "").trim().toLowerCase() === "por_confirmar"
+  );
+}

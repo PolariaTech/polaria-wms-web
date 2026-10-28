@@ -301,7 +301,7 @@ export type CypherCompanionOtPicker = {
   selectedId?: string | null;
   onSelect: (id: string) => void;
   /**
-   * Abre el modal «Reorganizar con IA» (REQ-125). Solo lo entrega el formulario de
+   * Abre el modal «Modificar con IA» (REQ-125). Solo lo entrega el formulario de
    * edición cuando la OV está por confirmar; sin él, el botón no se dibuja.
    */
   onReagrupar?: () => void;
@@ -331,6 +331,12 @@ export interface OrdenVentaCypherDrawerProps {
   companionOtPicker?: CypherCompanionOtPicker | null;
   /** REQ-126: cliente vivo del formulario de edición (prioridad sobre detalle). */
   companionIdComprador?: string | null;
+  /**
+   * REQ-188: Cypher abierto solo desde el «+» de Acciones (sin formulario). Abre la
+   * edición de la OV con el chat «Modificar con IA» ya listo. Solo se entrega con la
+   * OV por confirmar.
+   */
+  onReagruparDesdeLista?: () => void;
 }
 
 export function OrdenVentaCypherDrawer({
@@ -348,6 +354,7 @@ export function OrdenVentaCypherDrawer({
   companionWithEdit = false,
   companionOtPicker = null,
   companionIdComprador = null,
+  onReagruparDesdeLista,
 }: OrdenVentaCypherDrawerProps) {
   const titleId = useId();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -550,8 +557,9 @@ export function OrdenVentaCypherDrawer({
       })),
       selectedId: fallbackOtId ?? hijasFromOrden[0]?.id ?? null,
       onSelect: (id: string) => setFallbackOtId(id),
+      onReagrupar: onReagruparDesdeLista,
     };
-  }, [companionOtPicker, fallbackOtId, hijasFromOrden]);
+  }, [companionOtPicker, fallbackOtId, hijasFromOrden, onReagruparDesdeLista]);
 
   /** OT activa: bitácora se acota a esa OT. */
   const idOrdenTrabajoBitacora =

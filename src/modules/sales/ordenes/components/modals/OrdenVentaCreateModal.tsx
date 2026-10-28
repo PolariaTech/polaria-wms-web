@@ -228,6 +228,13 @@ interface OrdenVentaCreateModalProps {
   operadorRowsForDuplicado?: readonly OrdenVentaOperadorRow[];
   /** REQ-126: avisa al Cypher compañero el cliente vivo del formulario. */
   onCompanionIdCompradorChange?: (idComprador: string | null) => void;
+  /**
+   * REQ-188: la OV se abrió desde el «+» de Acciones con «Modificar con IA»; en cuanto
+   * el formulario trae las OT se abre el chat de la instrucción.
+   */
+  abrirReagruparAlCargar?: boolean;
+  /** Avisa que la apertura pedida arriba ya se atendió (o no aplica). */
+  onReagruparAlCargarAtendido?: () => void;
 }
 
 type CaptureStep = "start" | "preview" | "pickOt" | "form";
@@ -669,6 +676,8 @@ export function OrdenVentaCreateModal({
   codigoVenta = null,
   cypherOpen = false,
   onToggleCypher,
+  abrirReagruparAlCargar = false,
+  onReagruparAlCargarAtendido,
   onCompanionOtPickerChange,
   operadorRowsForDuplicado = [],
   onCompanionIdCompradorChange,
@@ -1347,6 +1356,24 @@ export function OrdenVentaCreateModal({
     open,
     ordenesTrabajoForm,
     step,
+  ]);
+
+  // REQ-188: «Modificar con IA» pedido desde el «+» de Acciones: abrir el chat en
+  // cuanto el formulario trae las OT (y solo si la OV todavía lo permite).
+  useEffect(() => {
+    if (!abrirReagruparAlCargar || !open || !isEditing) return;
+    if (!editingEstado || ordenesTrabajoForm.length === 0) return;
+    if (puedeReagruparOt(editingEstado, ordenesTrabajoForm.length)) {
+      setReagruparOpen(true);
+    }
+    onReagruparAlCargarAtendido?.();
+  }, [
+    abrirReagruparAlCargar,
+    editingEstado,
+    isEditing,
+    onReagruparAlCargarAtendido,
+    open,
+    ordenesTrabajoForm.length,
   ]);
 
   // REQ-126: Cypher fiscal usa el cliente del formulario (no solo el guardado).

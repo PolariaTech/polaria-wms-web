@@ -25,6 +25,10 @@ describe("CypherReagruparOtButton", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it("REQ-188: se llama «Modificar con IA»", () => {
+    expect(ETIQUETA_BOTON_REAGRUPAR).toBe("Modificar con IA");
+  });
+
   it("es un botón de tipo button (no envía formularios)", () => {
     render(<CypherReagruparOtButton onClick={() => undefined} />);
 

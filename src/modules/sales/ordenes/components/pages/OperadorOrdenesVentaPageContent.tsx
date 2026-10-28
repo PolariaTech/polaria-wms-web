@@ -77,6 +77,7 @@ import { useOvFechaFiltroStore } from "@/stores/ov-fecha-filtro.store";
 import { ordenPasaFiltroFechaEntrega } from "./filtrar-por-fecha-entrega";
 import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import { OrdenVentaCreateModal } from "../modals/OrdenVentaCreateModal";
+import { puedeModificarConIaDesdeLista } from "../../utils/ot/reagrupacion-modal-estado";
 import {
   OrdenVentaCypherDrawer,
   type CypherCompanionOtPicker,
@@ -131,6 +132,10 @@ export function OperadorOrdenesVentaPageContent({
   >(null);
   const [companionOtPicker, setCompanionOtPicker] =
     useState<CypherCompanionOtPicker | null>(null);
+  /** REQ-188: OV cuyo chat «Modificar con IA» se abre al cargar el formulario. */
+  const [reagruparAlAbrirId, setReagruparAlAbrirId] = useState<string | null>(
+    null,
+  );
   /** Soft-delete: ocultar de la tabla al instante (fila sigue en BD como cancelada). */
   const [idsOcultosBorrados, setIdsOcultosBorrados] = useState<Set<string>>(
     () => new Set(),
@@ -1214,6 +1219,23 @@ export function OperadorOrdenesVentaPageContent({
         companionWithEdit={companionWithCypher}
         companionOtPicker={companionOtPicker}
         companionIdComprador={companionIdComprador}
+        onReagruparDesdeLista={
+          cypherId &&
+          puedeModificarConIaDesdeLista({
+            inspect,
+            cypherId,
+            formularioAbierto: isCreateOpen,
+            detalleAbierto: Boolean(detalleId),
+            estadoOrdenVenta: rows.find((r) => r.idOrdenVenta === cypherId)
+              ?.estado,
+          })
+            ? () => {
+                setEditingId(cypherId);
+                setIsCreateOpen(true);
+                setReagruparAlAbrirId(cypherId);
+              }
+            : undefined
+        }
         busyKind={
           cypherId && busyAction?.id === cypherId
             ? busyAction.kind
@@ -1329,12 +1351,17 @@ export function OperadorOrdenesVentaPageContent({
         }
         onCompanionOtPickerChange={setCompanionOtPicker}
         onCompanionIdCompradorChange={setCompanionIdComprador}
+        abrirReagruparAlCargar={Boolean(
+          editingId && reagruparAlAbrirId === editingId,
+        )}
+        onReagruparAlCargarAtendido={() => setReagruparAlAbrirId(null)}
         operadorRowsForDuplicado={rows}
         onClose={() => {
           // Cypher abierto desde el formulario del pedido se cierra al salir.
           const closingId = editingId;
           setIsCreateOpen(false);
           setEditingId(null);
+          setReagruparAlAbrirId(null);
           setCompanionOtPicker(null);
           setCompanionIdComprador(null);
           setCypherId((prev) =>
