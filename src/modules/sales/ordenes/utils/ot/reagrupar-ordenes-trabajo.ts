@@ -14,7 +14,6 @@ import { scoreMatch } from "./filter-lineas-by-orden-trabajo";
  * (`buildOrigenCorreoFromOrdenesYLineas`), y si no se movieran, revertirían el cambio.
  */
 
-export const PREFIJO_OT_NUEVA = "NUEVA-";
 const PATRON_OT_NUEVA = /^NUEVA-\d+$/;
 const ETIQUETA_OT_NUEVA_POR_DEFECTO = "Nueva orden de trabajo";
 const MAX_ETIQUETA_OT = 60;
@@ -354,7 +353,7 @@ export function aplicarReagrupacion<TLinea extends LineaReagrupable>(params: {
   validarPropuestaContraBase(propuesta, hijas, indice);
 
   const hijaPorId = new Map(hijas.map((hija) => [hija.id, hija]));
-  const posicionRenglon = new Map(indice.orden.map((id, i) => [id, i]));
+  const posicionRenglon = new Map(indice.orden.map((id, posicion) => [id, posicion]));
   const lineasNuevas = lineas.map((linea) => ({ ...linea }));
   let renglonesSinLinea = 0;
   const movimientos: MovimientoAplicado[] = [];
@@ -381,8 +380,8 @@ export function aplicarReagrupacion<TLinea extends LineaReagrupable>(params: {
       const origenes = indexados.map(
         (item) => hijaPorId.get(item.otIdOrigen)!,
       );
-      const almacen = mismoValorOVacio(origenes.map((o) => o.almacen));
-      const numeroPedido = mismoValorOVacio(origenes.map((o) => o.numeroPedido));
+      const almacen = mismoValorOVacio(origenes.map((origen) => origen.almacen));
+      const numeroPedido = mismoValorOVacio(origenes.map((origen) => origen.numeroPedido));
       const etiqueta =
         sanitizarEtiqueta(ot.etiquetaSugerida) || ETIQUETA_OT_NUEVA_POR_DEFECTO;
       base = {
@@ -390,10 +389,10 @@ export function aplicarReagrupacion<TLinea extends LineaReagrupable>(params: {
         label: etiqueta,
         numeroPedido,
         almacen,
-        referenciaPedido: mismoValorOVacio(origenes.map((o) => o.referenciaPedido)),
-        fecha: mismoValorOVacio(origenes.map((o) => o.fecha)),
+        referenciaPedido: mismoValorOVacio(origenes.map((origen) => origen.referenciaPedido)),
+        fecha: mismoValorOVacio(origenes.map((origen) => origen.fecha)),
         responsableExterno: mismoValorOVacio(
-          origenes.map((o) => o.responsableExterno),
+          origenes.map((origen) => origen.responsableExterno),
         ),
         renglones,
         totalCantidad,
