@@ -192,7 +192,6 @@ describe("aplicarReagrupacion", () => {
     expect(res.hijas[0].totalCantidad).toBe(35);
     expect(res.hijas[1].renglones.map((r) => r.Producto)).toEqual(["LIMON", "PIÑA", "MELON"]);
     expect(res.hijas[1].totalCantidad).toBe(92);
-    expect(res.renglonesSinLinea).toBe(0);
   });
 
   it("CA7: las líneas se reasignan y la distribución sobrevive al guardado", () => {
@@ -320,7 +319,7 @@ describe("aplicarReagrupacion", () => {
     expect(res.lineas.map((l) => l.otId)).toEqual(["ot-unica", "manual:segunda"]);
   });
 
-  it("cuenta los renglones movidos que no tenían línea del formulario", () => {
+  it("mueve los renglones que no tenían línea del formulario", () => {
     const { hijas, lineas } = escenario();
     const sinLineaDeMelon = lineas.filter((l) => l.nombre !== "MELON");
     const { indice } = construirEstadoBaseApi(hijas, sinLineaDeMelon, parseCantidad);
@@ -332,7 +331,6 @@ describe("aplicarReagrupacion", () => {
       indice,
     });
 
-    expect(res.renglonesSinLinea).toBe(1);
     expect(res.hijas[1].renglones.map((r) => r.Producto)).toContain("MELON");
   });
 

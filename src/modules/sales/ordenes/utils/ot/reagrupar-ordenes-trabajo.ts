@@ -314,8 +314,6 @@ export interface MovimientoAplicado {
 export interface ResultadoReagrupacion<TLinea extends LineaReagrupable> {
   hijas: OrdenTrabajoHija[];
   lineas: TLinea[];
-  /** Renglones movidos que no tenían línea del formulario emparejada. */
-  renglonesSinLinea: number;
   /** Movimientos ya resueltos con nombres legibles (para la bitácora). */
   movimientos: MovimientoAplicado[];
   /** OT creadas por la propuesta. */
@@ -355,7 +353,6 @@ export function aplicarReagrupacion<TLinea extends LineaReagrupable>(params: {
   const hijaPorId = new Map(hijas.map((hija) => [hija.id, hija]));
   const posicionRenglon = new Map(indice.orden.map((id, posicion) => [id, posicion]));
   const lineasNuevas = lineas.map((linea) => ({ ...linea }));
-  let renglonesSinLinea = 0;
   const movimientos: MovimientoAplicado[] = [];
   const otNuevas: Array<{ id: string; label: string }> = [];
 
@@ -410,10 +407,7 @@ export function aplicarReagrupacion<TLinea extends LineaReagrupable>(params: {
           hacia: base.label,
         });
       }
-      if (item.lineaIndex === null) {
-        if (item.otIdOrigen !== base.id) renglonesSinLinea += 1;
-        continue;
-      }
+      if (item.lineaIndex === null) continue;
       lineasNuevas[item.lineaIndex]!.otId = base.id;
     }
   }
@@ -421,7 +415,6 @@ export function aplicarReagrupacion<TLinea extends LineaReagrupable>(params: {
   return {
     hijas: nuevasHijas,
     lineas: lineasNuevas,
-    renglonesSinLinea,
     movimientos,
     otNuevas,
   };
