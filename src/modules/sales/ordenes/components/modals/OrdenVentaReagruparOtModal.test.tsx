@@ -108,6 +108,27 @@ describe("OrdenVentaReagruparOtModal", () => {
     expect(screen.getByText(/supera los 4000 caracteres/)).toBeInTheDocument();
   });
 
+  it("Nivel 2: Tab recorre Instrucción → Cancelar → Generar, y salta Generar mientras está deshabilitado", async () => {
+    montar();
+    const usuario = userEvent.setup();
+    const campo = screen.getByLabelText("Instrucción");
+    const cancelar = screen.getByRole("button", { name: "Cancelar" });
+    const generar = screen.getByRole("button", { name: "Generar" });
+
+    campo.focus();
+    await usuario.tab();
+    expect(cancelar).toHaveFocus();
+    await usuario.tab();
+    expect(generar).not.toHaveFocus();
+
+    await usuario.click(campo);
+    await usuario.type(campo, "Junta");
+    await usuario.tab();
+    expect(cancelar).toHaveFocus();
+    await usuario.tab();
+    expect(generar).toHaveFocus();
+  });
+
   it("R2: usa el modal compartido en dock-left y nivel base (z-100), para que Cypher (z-110) quede visible", () => {
     montar();
 
