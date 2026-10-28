@@ -66,10 +66,21 @@ export const ESTADO_INICIAL_REAGRUPACION: EstadoModalReagrupacion = {
   error: null,
 };
 
+/** Techo provisional del API (maxInstruccion); se ajusta tras más pruebas reales. */
+export const LIMITE_INSTRUCCION_REAGRUPACION = 4000;
+
+export const MENSAJE_INSTRUCCION_MUY_LARGA = `La instrucción supera los ${LIMITE_INSTRUCCION_REAGRUPACION} caracteres. Acórtala para poder generar la propuesta.`;
+
+export function instruccionExcedeLimite(instruccion: string): boolean {
+  return instruccion.trim().length > LIMITE_INSTRUCCION_REAGRUPACION;
+}
+
 export function puedeGenerar(estado: EstadoModalReagrupacion): boolean {
+  const longitud = estado.instruccion.trim().length;
   return (
     (estado.fase === "escribiendo" || estado.fase === "error") &&
-    estado.instruccion.trim().length > 0
+    longitud > 0 &&
+    longitud <= LIMITE_INSTRUCCION_REAGRUPACION
   );
 }
 

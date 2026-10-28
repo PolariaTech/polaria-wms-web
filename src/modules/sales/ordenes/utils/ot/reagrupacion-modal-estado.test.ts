@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PropuestaReagrupacionApi } from "./reagrupar-ordenes-trabajo";
 import {
   ESTADO_INICIAL_REAGRUPACION,
+  LIMITE_INSTRUCCION_REAGRUPACION,
   MENSAJE_FUERA_DE_ALCANCE,
   puedeGenerar,
   reducirModalReagrupacion,
@@ -37,6 +38,14 @@ describe("reducirModalReagrupacion", () => {
   it("no genera con una instrucción vacía o de solo espacios", () => {
     expect(puedeGenerar(correr(escribir("   ")))).toBe(false);
     expect(correr(escribir("   "), generar("r1")).fase).toBe("escribiendo");
+  });
+
+  it("respeta el límite de la instrucción: 4000 permite generar, 4001 no (se cuenta tras recortar)", () => {
+    const enElLimite = "a".repeat(LIMITE_INSTRUCCION_REAGRUPACION);
+    expect(puedeGenerar(correr(escribir(enElLimite)))).toBe(true);
+    expect(puedeGenerar(correr(escribir(`  ${enElLimite}  `)))).toBe(true);
+    expect(puedeGenerar(correr(escribir(`${enElLimite}a`)))).toBe(false);
+    expect(correr(escribir(`${enElLimite}a`), generar("r1")).fase).toBe("escribiendo");
   });
 
   it("generar pasa a 'generando' con el requestId y la firma del estado", () => {

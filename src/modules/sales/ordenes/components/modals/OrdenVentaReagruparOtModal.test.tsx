@@ -95,6 +95,19 @@ describe("OrdenVentaReagruparOtModal", () => {
     expect(screen.getByRole("button", { name: "Generar" })).toBeEnabled();
   });
 
+  it("deshabilita Generar y explica el motivo cuando la instrucción pasa de 4000 caracteres", () => {
+    montar();
+    const campo = screen.getByLabelText("Instrucción");
+
+    fireEvent.change(campo, { target: { value: "a".repeat(4000) } });
+    expect(screen.getByRole("button", { name: "Generar" })).toBeEnabled();
+    expect(screen.queryByText(/supera los 4000 caracteres/)).not.toBeInTheDocument();
+
+    fireEvent.change(campo, { target: { value: "a".repeat(4001) } });
+    expect(screen.getByRole("button", { name: "Generar" })).toBeDisabled();
+    expect(screen.getByText(/supera los 4000 caracteres/)).toBeInTheDocument();
+  });
+
   it("R2: usa el modal compartido en dock-left y nivel base (z-100), para que Cypher (z-110) quede visible", () => {
     montar();
 

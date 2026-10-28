@@ -11,6 +11,8 @@ import {
 } from "../../services/reagrupar-ot.client";
 import {
   ESTADO_INICIAL_REAGRUPACION,
+  instruccionExcedeLimite,
+  MENSAJE_INSTRUCCION_MUY_LARGA,
   puedeGenerar,
   reducirModalReagrupacion,
 } from "../../utils/ot/reagrupacion-modal-estado";
@@ -305,6 +307,11 @@ export function OrdenVentaReagruparOtModal({
               textoBloqueado && "opacity-70",
             )}
           />
+          {instruccionExcedeLimite(estado.instruccion) ? (
+            <p role="alert" className="polaria-text-caption text-polaria-danger">
+              {MENSAJE_INSTRUCCION_MUY_LARGA}
+            </p>
+          ) : null}
         </div>
 
         {estado.aviso ? (
