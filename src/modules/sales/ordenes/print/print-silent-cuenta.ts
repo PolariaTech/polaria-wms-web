@@ -5,11 +5,14 @@ import {
   getImpresoraActivaCuenta,
   type ImpresoraPrintTarget,
 } from "@/modules/configurator/impresoras/services/impresoras.service";
+import type { PrintQueueOutcome } from "./print-queue-status";
 import { printPdfViaQzTray } from "./qz-tray-print";
 
 export type SilentPrintResult = {
   via: "ipp" | "qz-tray" | "email" | "epson_connect";
   impresora: string;
+  /** `unknown` en correo o IPP: esos caminos no ven la cola de Windows. */
+  queue: PrintQueueOutcome;
 };
 
 async function tryServerPrint(input: {
@@ -88,7 +91,11 @@ export async function printPdfSilentToCuenta(input: {
       jobName: input.jobName,
     });
     if (cloud.ok) {
-      return { via: cloud.via, impresora: cloud.impresora };
+      return {
+        via: cloud.via,
+        impresora: cloud.impresora,
+        queue: { kind: "unknown" },
+      };
     }
     throw new Error(cloud.error);
   }
@@ -103,17 +110,25 @@ export async function printPdfSilentToCuenta(input: {
       jobName: input.jobName,
     });
     if (ipp.ok) {
-      return { via: "ipp", impresora: ipp.impresora };
+      return {
+        via: "ipp",
+        impresora: ipp.impresora,
+        queue: { kind: "unknown" },
+      };
     }
     if (ipp.target) target = ipp.target;
   }
 
   try {
-    await printPdfViaQzTray({
+    const printed = await printPdfViaQzTray({
       target,
       pdfBase64: input.pdfBase64,
     });
-    return { via: "qz-tray", impresora: target.nombre };
+    return {
+      via: "qz-tray",
+      impresora: printed.impresora,
+      queue: printed.queue,
+    };
   } catch (err) {
     const qzMessage =
       err instanceof Error ? err.message : "Falló la impresión con QZ Tray.";

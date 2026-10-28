@@ -5,6 +5,7 @@ import { normalizeIdOrdenTrabajo } from "../utils/origen/origen-correo-ordenes-t
 import { readCuentaZonaHoraria } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 import { stampOrdenTareaImpresaNow } from "./map-orden-tarea-almacen";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
+import type { SilentPrintResult } from "./print-silent-cuenta";
 
 function stampWithCuentaZone(
   sheets: readonly OrdenTareaAlmacenPrintData[],
@@ -80,7 +81,7 @@ function multiFilename(
 export async function printOrdenTareaAlmacen(
   data: OrdenTareaAlmacenPrintData,
   options?: { codigoCuenta?: string },
-): Promise<void> {
+): Promise<SilentPrintResult> {
   const { buildOrdenTareaAlmacenPdf } = await import(
     "./render-orden-tarea-almacen-pdf"
   );
@@ -99,7 +100,7 @@ export async function printOrdenTareaAlmacen(
   }
 
   const { printPdfSilentToCuenta } = await import("./print-silent-cuenta");
-  await printPdfSilentToCuenta({
+  return printPdfSilentToCuenta({
     codigoCuenta,
     pdfBase64,
     jobName: `OV ${data.folio || "Polaria"}`,
@@ -181,7 +182,7 @@ export async function buildOrdenTareaAlmacenLandscapePdfBlob(
 export async function printOrdenTareaAlmacenLandscape(
   sheets: readonly OrdenTareaAlmacenPrintData[],
   options?: { codigoCuenta?: string },
-): Promise<void> {
+): Promise<SilentPrintResult> {
   if (sheets.length === 0) {
     throw new Error("No hay datos para generar el PDF.");
   }
@@ -204,7 +205,7 @@ export async function printOrdenTareaAlmacenLandscape(
   }
 
   const { printPdfSilentToCuenta } = await import("./print-silent-cuenta");
-  await printPdfSilentToCuenta({
+  return printPdfSilentToCuenta({
     codigoCuenta,
     pdfBase64,
     jobName: `OV ${sheets[0]?.folio || "Polaria"}`,
