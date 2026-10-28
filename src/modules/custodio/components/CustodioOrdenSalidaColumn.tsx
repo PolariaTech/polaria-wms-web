@@ -77,8 +77,13 @@ export function CustodioOrdenSalidaColumn({
         [
           "confirmada",
           "en_preparacion",
+          "alistamiento",
+          "alistada",
+          "revisada",
+          "facturada",
           "parcialmente_despachada",
           "despachada",
+          "embarcada",
         ].includes(venta.estado),
       ),
     [ventas],

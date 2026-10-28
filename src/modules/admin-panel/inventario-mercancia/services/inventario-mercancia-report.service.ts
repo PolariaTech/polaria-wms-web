@@ -204,7 +204,14 @@ export async function getInventarioMercanciaReport(
 
   const ventasKg = sumCantidadPedidaOrdenVenta(
     ordenVentaLineas,
-    new Set(["confirmada", "en_preparacion", "parcialmente_despachada"]),
+    new Set([
+      "confirmada",
+      "en_preparacion",
+      "alistamiento",
+      "alistada",
+      "revisada",
+      "parcialmente_despachada",
+    ]),
   );
 
   // Transporte: cantidad pedida en OV vinculadas a guías en tránsito (aprox.).
@@ -215,8 +222,13 @@ export async function getInventarioMercanciaReport(
       new Set([
         "confirmada",
         "en_preparacion",
+        "alistamiento",
+        "alistada",
+        "revisada",
+        "facturada",
         "parcialmente_despachada",
         "despachada",
+        "embarcada",
       ]),
     );
     // Si hay guías activas pero sin OV asociadas en líneas, mantener 0 hasta integración fina.
