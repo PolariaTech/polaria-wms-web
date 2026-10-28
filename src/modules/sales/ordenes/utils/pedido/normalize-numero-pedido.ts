@@ -27,7 +27,14 @@ const REQUISICION_NUM_BEFORE_RE =
 const REQUISICION_NUM_AFTER_RE =
   /requisici[oó]n\s*(?:(?:n[uú]mero|no\.?|n[º°])\s*|#|:)\s*[\r\n\s]*(\d{4,12})\b/gi;
 
-const FILENAME_OC_RE = /^(\d{8,15})(?:[_\s.-]|$)/i;
+const FILENAME_OC_RE = /^(\d{8,20})(?:[_\s.-]|$)/i;
+
+/**
+ * PO/OCC hotel/SAP (con o sin ceros). SLS usa 15–16 dígitos
+ * (ej. 000000000028593, 0020000000028545). Artículos tipo 00001678 quedan fuera.
+ */
+const OC_NUMERIC_LEN_RE = /^\d{9,20}$/;
+const OC_NUMERIC_TOKEN_RE = /\b(\d{9,20})\b/g;
 
 /**
  * IDs de "Usuario" / centro suelen ser 6–8 dígitos (ej. 3672091).
@@ -39,12 +46,12 @@ function looksLikeUsuarioId(value: string): boolean {
 
 /**
  * SKU / Artículo con ceros a la izquierda (ej. 00001678) — no es OCC.
- * PO/OCC largas con padding (9–15 dígitos, ej. 000000000028593 de SLS) SÍ son OCC.
+ * PO/OCC largas con padding (9–20 dígitos, SLS) SÍ son OCC.
  */
 function looksLikeArticuloSku(value: string): boolean {
   const v = value.trim();
-  // Misma franja que Oc Generada / PO SAP: no descartar como Artículo.
-  if (/^\d{9,15}$/.test(v)) return false;
+  // Misma franja que Oc Generada / PO hotel: no descartar como Artículo.
+  if (OC_NUMERIC_LEN_RE.test(v)) return false;
   return /^0{2,}\d+$/.test(v) || /^0+\d{5,}$/.test(v);
 }
 
@@ -65,8 +72,8 @@ export function isGarbageOcValue(value: string | null | undefined): boolean {
 function looksLikeOcCode(value: string): boolean {
   const v = value.trim();
   if (!v || isGarbageOcValue(v)) return false;
-  // SAP / Oc Generada suele ser 9–15 dígitos (no confundir con Usuario 5–8).
-  if (/^\d{9,15}$/.test(v)) return true;
+  // SAP / Oc Generada / PO hotel (9–20 dígitos; no confundir con Usuario 5–8).
+  if (OC_NUMERIC_LEN_RE.test(v)) return true;
   if (/^[A-Z]{2,}\d{4,}$/i.test(v)) return true;
   return v.length >= 8 && /[A-Z0-9]/i.test(v);
 }
@@ -112,7 +119,7 @@ function collectFromFilenames(fileNames: readonly string[]): string[] {
  */
 function collectFrequentNumericOcs(sourceText: string): Array<{ value: string; count: number }> {
   const counts = new Map<string, number>();
-  for (const match of sourceText.matchAll(/\b(\d{9,15})\b/g)) {
+  for (const match of sourceText.matchAll(OC_NUMERIC_TOKEN_RE)) {
     const v = match[1]!;
     counts.set(v, (counts.get(v) ?? 0) + 1);
   }
@@ -237,8 +244,8 @@ export function resolveOrdenCompraLimpia(
   if (trimmed && looksLikeOcCode(trimmed)) {
     return trimmed;
   }
-  if (trimmed && /^\d{4,15}$/.test(trimmed)) {
-    // Requisición hotel (5 dígitos) u OC corta numérica válida.
+  if (trimmed && /^\d{4,20}$/.test(trimmed)) {
+    // Requisición hotel (5 dígitos) u OC numérica válida (incl. PO SLS 16 dígitos).
     return trimmed;
   }
   const detected = detectOrdenCompraFromSource(sourceText, fileNames);
