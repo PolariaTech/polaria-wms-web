@@ -62,13 +62,14 @@ const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
 const ORDEN_VENTA_COLUMNS =
   "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at,estado_desde";
 
-/** Listado operador: OCC + origen_correo para contar OT y buscar OCC. */
+/** Listado operador: OCC, origen_correo y fecha de entrega para el filtro del topbar. */
 const ORDEN_VENTA_OPERADOR_LIST_COLUMNS =
-  `${ORDEN_VENTA_COLUMNS},orden_compra_hotel,origen_correo`;
+  `${ORDEN_VENTA_COLUMNS},orden_compra_hotel,origen_correo,fecha_entrega`;
 
 type OrdenVentaOperadorListRow = OrdenVentaRow & {
   orden_compra_hotel?: string | null;
   origen_correo?: unknown;
+  fecha_entrega?: string | null;
 };
 
 /** Más reciente primero (fecha de creación); id como desempate estable. */
@@ -714,6 +715,7 @@ function mapOrdenVentaOperadorRow(
     total: resumen.total,
     estado,
     fecha: row.created_at || row.fecha_pedido,
+    fechaEntrega: row.fecha_entrega?.trim() || null,
     ordenesTrabajo: countOrdenesTrabajo(row.origen_correo),
     destino,
     idBodega: row.id_bodega,
