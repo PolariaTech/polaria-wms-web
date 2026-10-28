@@ -292,6 +292,11 @@ describe("puedeModificarConIaDesdeLista (REQ-188)", () => {
     },
   );
 
+  it("CA2b: un estado legado se trata como el formulario (por confirmar), igual que normalizeEstadoOrdenVenta", () => {
+    expect(puedeModificarConIaDesdeLista({ ...base, estadoOrdenVenta: "borrador" })).toBe(true);
+    expect(puedeModificarConIaDesdeLista({ ...base, estadoOrdenVenta: "   " })).toBe(false);
+  });
+
   it("CA3: no aparece sin Cypher abierto ni en modo inspección", () => {
     expect(puedeModificarConIaDesdeLista({ ...base, cypherId: null })).toBe(false);
     expect(puedeModificarConIaDesdeLista({ ...base, inspect: true })).toBe(false);

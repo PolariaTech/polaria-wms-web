@@ -1,3 +1,4 @@
+import { normalizeEstadoOrdenVenta } from "../../../shared/constants/sales-status";
 import type { CypherCompanionOtPicker } from "../../components/modals/OrdenVentaCypherDrawer";
 import type { RespuestaReagrupacion } from "../../services/reagrupar-ot.client";
 import {
@@ -226,7 +227,8 @@ export function puedeModificarConIaDesdeLista(estado: {
     Boolean(estado.cypherId) &&
     !estado.formularioAbierto &&
     !estado.detalleAbierto &&
-    (estado.estadoOrdenVenta ?? "").trim().toLowerCase() === "por_confirmar"
+    Boolean(estado.estadoOrdenVenta?.trim()) &&
+    normalizeEstadoOrdenVenta(estado.estadoOrdenVenta) === "por_confirmar"
   );
 }
 

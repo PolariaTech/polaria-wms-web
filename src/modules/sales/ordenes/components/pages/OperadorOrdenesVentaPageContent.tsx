@@ -199,6 +199,11 @@ export function OperadorOrdenesVentaPageContent({
       return { marcados, quitados };
     });
   }, []);
+  const limpiarReagruparAlAbrir = useCallback(
+    () => setReagruparAlAbrirId(null),
+    [],
+  );
+
   const handleEmitSuccess = useCallback(
     (info: { idOrdenVenta: string; codigo: string }) => {
       const codigo = info.codigo.trim() || "OV";
@@ -1354,7 +1359,7 @@ export function OperadorOrdenesVentaPageContent({
         abrirReagruparAlCargar={Boolean(
           editingId && reagruparAlAbrirId === editingId,
         )}
-        onReagruparAlCargarAtendido={() => setReagruparAlAbrirId(null)}
+        onReagruparAlCargarAtendido={limpiarReagruparAlAbrir}
         operadorRowsForDuplicado={rows}
         onClose={() => {
           // Cypher abierto desde el formulario del pedido se cierra al salir.
