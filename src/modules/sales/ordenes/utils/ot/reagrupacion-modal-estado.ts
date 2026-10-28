@@ -52,7 +52,7 @@ export type AccionModalReagrupacion =
   | { tipo: "REINICIAR" };
 
 export const MENSAJE_FUERA_DE_ALCANCE =
-  "Solo puedo mover renglones entre las órdenes de trabajo o crear órdenes nuevas. No puedo cambiar cantidades ni datos del pedido.";
+  "Solo puedo crear, modificar o eliminar órdenes de trabajo. No puedo cambiar cantidades ni datos del pedido.";
 
 export const ESTADO_INICIAL_REAGRUPACION: EstadoModalReagrupacion = {
   fase: "escribiendo",

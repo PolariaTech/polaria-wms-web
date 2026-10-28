@@ -17,7 +17,7 @@ export function CypherReagruparOtButton({ onClick }: { onClick?: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      title="Pide a la IA que mueva renglones entre las órdenes de trabajo o cree nuevas"
+      title="Pide a la IA que cree, modifique o elimine órdenes de trabajo"
       className={cn(
         "inline-flex items-center gap-1.5 rounded-lg border border-polaria-t-20 bg-transparent px-2.5 py-1.5",
         "polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08",

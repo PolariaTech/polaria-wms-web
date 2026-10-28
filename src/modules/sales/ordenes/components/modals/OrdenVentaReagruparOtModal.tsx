@@ -258,7 +258,7 @@ export function OrdenVentaReagruparOtModal({
       onClose={onClose}
       sectionLabel={folio ? `Orden de venta ${folio}` : "Orden de venta"}
       title="Reorganizar órdenes de trabajo"
-      description="Escribe qué quieres cambiar. Puedo mover renglones entre las órdenes de trabajo o crear órdenes nuevas; no cambio cantidades ni datos del pedido."
+      description="Escribe qué quieres cambiar. Puedo crear, modificar o eliminar órdenes de trabajo (mover renglones entre ellas, crear nuevas o dejar vacías las que sobren); no cambio cantidades ni datos del pedido."
       layout="dock-left"
       stackLevel="base"
       asForm={false}

@@ -6200,7 +6200,7 @@ export function OrdenVentaCreateModal({
       />
 
       <OrdenVentaReagruparOtModal
-        open={reagruparOpen && isEditing && Boolean(editingId)}
+        open={reagruparOpen && cypherOpen && isEditing && Boolean(editingId)}
         idOrdenVenta={editingId}
         folio={folioVisible}
         onClose={() => setReagruparOpen(false)}
