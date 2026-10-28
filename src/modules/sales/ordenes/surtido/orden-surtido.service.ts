@@ -130,8 +130,18 @@ interface OrdenPrintAdminRow {
   ventana_hasta?: string | null;
   origen_correo?: unknown;
   comprador:
-    | { nombre?: string | null; codigo?: string | null }
-    | Array<{ nombre?: string | null; codigo?: string | null }>
+    | {
+        nombre?: string | null;
+        codigo?: string | null;
+        razon_social?: string | null;
+        apodo?: string | null;
+      }
+    | Array<{
+        nombre?: string | null;
+        codigo?: string | null;
+        razon_social?: string | null;
+        apodo?: string | null;
+      }>
     | null;
 }
 
@@ -288,7 +298,7 @@ export async function buildPrintDataAdmin(
         "ventana_desde",
         "ventana_hasta",
         "origen_correo",
-        "comprador:comprador(nombre,codigo)",
+        "comprador:comprador(nombre,codigo,razon_social,apodo)",
       ].join(","),
     )
     .eq("id_orden_venta", idOrdenVenta)
@@ -344,7 +354,8 @@ export async function buildPrintDataAdmin(
   const compradorNombre = compradorRel?.nombre?.trim() || "—";
 
   const captura = parseOrdenVentaCapturaObservaciones(orden.observaciones);
-  const cliente = compradorNombre;
+  const cliente = compradorRel?.razon_social?.trim() || compradorNombre;
+  const clienteDenominacionComercial = compradorRel?.apodo?.trim() || "";
 
   const centroConsumo =
     hija?.almacen ||
@@ -405,6 +416,7 @@ export async function buildPrintDataAdmin(
     })(),
     impresa: formatOrdenTareaImpresaAt(new Date()),
     cliente,
+    clienteDenominacionComercial,
     centroConsumo,
     numeroOrdenCliente,
     ordenTrabajo: `${tareaIndex > 0 ? tareaIndex : 1}/${tareaTotal > 0 ? tareaTotal : 1}`,

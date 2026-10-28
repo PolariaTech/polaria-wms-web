@@ -88,7 +88,7 @@ const ORDEN_VENTA_DETALLE_FLAT_COLUMNS =
 
 const ORDEN_VENTA_DETALLE_SELECT =
   `${ORDEN_VENTA_COLUMNS},${ORDEN_VENTA_DETALLE_FLAT_COLUMNS},` +
-  "comprador:comprador(nombre,codigo)," +
+  "comprador:comprador(nombre,codigo,razon_social,apodo)," +
   "orden_venta_linea(id_linea_orden_venta,id_producto,cantidad_pedida,precio_unitario,cajas,presentacion,unidad_medida,match_producto,producto(sku,descripcion,metadatos_catalogo))";
 
 interface OrdenVentaLineaDetalleDbRow {
@@ -106,11 +106,15 @@ interface OrdenVentaLineaDetalleDbRow {
     | null;
 }
 
+interface CompradorDetalleDbRel {
+  nombre: string | null;
+  codigo: string | null;
+  razon_social?: string | null;
+  apodo?: string | null;
+}
+
 interface OrdenVentaDetalleDbRow extends OrdenVentaRow {
-  comprador:
-    | { nombre: string | null; codigo: string | null }
-    | { nombre: string | null; codigo: string | null }[]
-    | null;
+  comprador: CompradorDetalleDbRel | CompradorDetalleDbRel[] | null;
   orden_venta_linea: OrdenVentaLineaDetalleDbRow[] | null;
   origen_texto?: string | null;
   origen_archivos?: string | null;
@@ -1647,7 +1651,7 @@ export async function borrarOrdenVenta(params: {
 
 function resolveCompradorRel(
   comprador: OrdenVentaDetalleDbRow["comprador"],
-): { nombre: string | null; codigo: string | null } | null {
+): CompradorDetalleDbRel | null {
   if (!comprador) return null;
   return Array.isArray(comprador) ? (comprador[0] ?? null) : comprador;
 }
@@ -1699,6 +1703,8 @@ function mapOrdenVentaDetalleRow(
     estado: normalizeEstadoOrdenVenta(orden.estado),
     comprador_nombre: compradorRel?.nombre?.trim() || null,
     comprador_codigo: compradorRel?.codigo?.trim() || null,
+    comprador_razon_social: compradorRel?.razon_social?.trim() || null,
+    comprador_apodo: compradorRel?.apodo?.trim() || null,
     bodega_nombre: bodegaLabels.get(orden.id_bodega) ?? null,
     bodega_destino_nombre: orden.id_bodega_destino
       ? (bodegaLabels.get(orden.id_bodega_destino) ?? null)

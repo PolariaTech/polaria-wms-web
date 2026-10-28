@@ -354,6 +354,7 @@ export function buildOrdenTareaAlmacenPdf(
   const gridW = CONTENT_W - QR_SIZE - QR_GAP;
   const col = gridW / 3;
   const rowH = 11;
+  const denomH = 8;
   const addrH = 12;
   const sigH = 16;
   const pageMetaH = 6;
@@ -433,7 +434,7 @@ export function buildOrdenTareaAlmacenPdf(
   );
   y += rowH;
   // Fila 3: Cliente · Centro · Fecha|Hora
-  field(doc, MARGIN, y, col, rowH, "Cliente", data.cliente);
+  field(doc, MARGIN, y, col, rowH, "Cliente: Razón Social", data.cliente);
   field(
     doc,
     MARGIN + col,
@@ -453,6 +454,17 @@ export function buildOrdenTareaAlmacenPdf(
     { label: "Hora de entrega", value: data.horaEntrega },
   );
   y += rowH;
+  // Fila 3b: Cliente: Denominación Comercial (2 cols), REQ-178
+  field(
+    doc,
+    MARGIN,
+    y,
+    col * 2,
+    denomH,
+    "Cliente: Denominación Comercial",
+    data.clienteDenominacionComercial ?? "",
+  );
+  y += denomH;
 
   // Fila 3: Dirección sola
   field(
@@ -640,7 +652,7 @@ export function buildOrdenTareaAlmacenPdf(
     "incidencias",
     "Incidencias",
   );
-  drawNotesLines(doc, y, "Incidencias", incidenciasTexto, 9, 7.5, true, false);
+  drawNotesLines(doc, y, "Incidencias", incidenciasTexto, 9, 4.8, true, false);
 
   writePageNumbers(doc, data.creada, data.impresa);
   return doc;
