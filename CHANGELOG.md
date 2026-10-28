@@ -2,6 +2,11 @@
 
 Versión de producto alineada con Polaria WMS.
 
+## Sin publicar
+
+### Ventas / OV
+- Reorganizar órdenes de trabajo con IA (REQ-125, POL-391): botón «Reorganizar con IA» en la sección «Órdenes de trabajo» del Cypher, solo con la OV por confirmar y una o más OT. Abre un modal junto al Cypher donde se escribe la instrucción (juntar, dividir, mover renglones), se revisa la propuesta («5 OT → 3 OT») y se confirma o rechaza; al rechazar se puede refinar. Al confirmar el cambio queda como borrador del formulario: mueve los renglones y reasigna las líneas a la vez, y nada se guarda hasta pulsar el disquete o Confirmar. «Deshacer» restaura el estado anterior mientras no se guarde. Al guardar queda una entrada en la bitácora con la instrucción, el resumen y los movimientos. Requiere el endpoint `POST /ventas/ordenes/:id/ordenes-trabajo/propuesta-reagrupacion` de `polaria-wms-api` (POL-390).
+
 ## 2.12.86 — 2026-10-26
 
 ### Ventas / OV
