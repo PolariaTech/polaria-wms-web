@@ -89,6 +89,26 @@ describe('normalizeNumeroPedidoFields — requisición vs basura OCR', () => {
       ),
     ).toBe(occ);
   });
+
+  it('REQ-172: OCC SLS de 16 dígitos se puede pegar y no se pisa', () => {
+    const occ = '0020000000028545';
+    expect(occ).toHaveLength(16);
+    expect(isGarbageOcValue(occ)).toBe(false);
+    expect(isGarbageOcValue('00001678')).toBe(true);
+    expect(resolveOrdenCompraLimpia(occ)).toBe(occ);
+    expect(
+      resolveOrdenCompraLimpia(
+        '43518893',
+        'Propiedad: SLS Playa Mujeres Número de Referencia de la OC del comprador: 0020000000028545',
+      ),
+    ).toBe('43518893');
+    expect(
+      resolveOrdenCompraLimpia(
+        occ,
+        'Número de Referencia de la OC del comprador: 0020000000028545',
+      ),
+    ).toBe(occ);
+  });
 });
 
 describe("normalizeNumeroPedidoFields — caso Xcaret", () => {
