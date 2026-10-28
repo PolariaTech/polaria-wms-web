@@ -188,3 +188,21 @@ export function reducirModalReagrupacion(
       return ESTADO_INICIAL_REAGRUPACION;
   }
 }
+
+/**
+ * El chat de reorganizar solo vive mientras el Cypher esté abierto: al cerrar el panel
+ * que tiene el botón, el chat se cierra con él.
+ */
+export function reagruparModalAbierto(estado: {
+  reagruparOpen: boolean;
+  cypherOpen: boolean;
+  isEditing: boolean;
+  tieneOrdenVenta: boolean;
+}): boolean {
+  return (
+    estado.reagruparOpen &&
+    estado.cypherOpen &&
+    estado.isEditing &&
+    estado.tieneOrdenVenta
+  );
+}

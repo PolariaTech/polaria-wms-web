@@ -84,6 +84,7 @@ import {
   type PropuestaReagrupacionApi,
   type ResumenReagrupacion,
 } from "../../utils/ot/reagrupar-ordenes-trabajo";
+import { reagruparModalAbierto } from "../../utils/ot/reagrupacion-modal-estado";
 import { OrdenVentaReagruparOtModal } from "./OrdenVentaReagruparOtModal";
 import {
   createOrdenVenta,
@@ -6200,7 +6201,12 @@ export function OrdenVentaCreateModal({
       />
 
       <OrdenVentaReagruparOtModal
-        open={reagruparOpen && cypherOpen && isEditing && Boolean(editingId)}
+        open={reagruparModalAbierto({
+          reagruparOpen,
+          cypherOpen,
+          isEditing,
+          tieneOrdenVenta: Boolean(editingId),
+        })}
         idOrdenVenta={editingId}
         folio={folioVisible}
         onClose={() => setReagruparOpen(false)}

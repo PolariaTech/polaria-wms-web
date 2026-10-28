@@ -5,6 +5,7 @@ import {
   LIMITE_INSTRUCCION_REAGRUPACION,
   MENSAJE_FUERA_DE_ALCANCE,
   puedeGenerar,
+  reagruparModalAbierto,
   reducirModalReagrupacion,
   type AccionModalReagrupacion,
   type EstadoModalReagrupacion,
@@ -234,5 +235,36 @@ describe("reducirModalReagrupacion", () => {
   it("reiniciar vuelve al estado inicial", () => {
     const estado = correr(escribir("Junta"), generar("r1"), { tipo: "REINICIAR" });
     expect(estado).toEqual(ESTADO_INICIAL_REAGRUPACION);
+  });
+});
+
+describe("textos y cierre del chat de reorganizar OT", () => {
+  it("el mensaje de fuera de alcance dice que se pueden crear, modificar o eliminar OT", () => {
+    expect(MENSAJE_FUERA_DE_ALCANCE).toBe(
+      "Solo puedo crear, modificar o eliminar órdenes de trabajo. No puedo cambiar cantidades ni datos del pedido.",
+    );
+  });
+
+  it("el chat se cierra cuando se cierra el Cypher", () => {
+    const abierto = {
+      reagruparOpen: true,
+      cypherOpen: true,
+      isEditing: true,
+      tieneOrdenVenta: true,
+    };
+    expect(reagruparModalAbierto(abierto)).toBe(true);
+    expect(reagruparModalAbierto({ ...abierto, cypherOpen: false })).toBe(false);
+  });
+
+  it("el chat no se abre sin edición, sin OV o sin haberlo pedido", () => {
+    const abierto = {
+      reagruparOpen: true,
+      cypherOpen: true,
+      isEditing: true,
+      tieneOrdenVenta: true,
+    };
+    expect(reagruparModalAbierto({ ...abierto, isEditing: false })).toBe(false);
+    expect(reagruparModalAbierto({ ...abierto, tieneOrdenVenta: false })).toBe(false);
+    expect(reagruparModalAbierto({ ...abierto, reagruparOpen: false })).toBe(false);
   });
 });
