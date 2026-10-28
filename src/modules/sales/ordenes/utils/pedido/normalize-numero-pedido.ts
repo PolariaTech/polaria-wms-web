@@ -37,9 +37,14 @@ function looksLikeUsuarioId(value: string): boolean {
   return /^\d{6,8}$/.test(value.trim());
 }
 
-/** SKU / Artículo con ceros a la izquierda (ej. 00001678) — no es OCC. */
+/**
+ * SKU / Artículo con ceros a la izquierda (ej. 00001678) — no es OCC.
+ * PO/OCC largas con padding (9–15 dígitos, ej. 000000000028593 de SLS) SÍ son OCC.
+ */
 function looksLikeArticuloSku(value: string): boolean {
   const v = value.trim();
+  // Misma franja que Oc Generada / PO SAP: no descartar como Artículo.
+  if (/^\d{9,15}$/.test(v)) return false;
   return /^0{2,}\d+$/.test(v) || /^0+\d{5,}$/.test(v);
 }
 
