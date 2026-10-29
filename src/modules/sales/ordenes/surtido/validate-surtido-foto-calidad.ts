@@ -5,9 +5,15 @@ import type { OrdenSurtidoCapturaPayload } from "./orden-surtido.types";
 export const MSG_CAPTURA_NO_HOJA =
   "No se ve la hoja de surtido. Toma la foto de la hoja impresa, de frente y completa.";
 
-/** Hoja presente pero mal tomada (ángulo, manos, borrosa, hora ilegible). */
+/** Hoja presente pero inutilizable (casi nada se lee / no hay señal de captura). */
 export const MSG_CAPTURA_FOTO_MALA =
-  "La foto fue tomada mal. Intenta de nuevo: encaja la hoja completa dentro del marco y asegúrate de que se vea clara (incluida la hora impresa).";
+  "La foto no se pudo leer bien. Acerca la cámara a la hoja impresa (puede ser imperfecta) y vuelve a intentar.";
+
+/**
+ * Precisión mínima (0–100) para aceptar una hoja imperfecta.
+ * ~40%: basta con que se vea el papel y se haya leído algo útil.
+ */
+export const UMBRAL_PRECISION_ACEPTABLE = 40;
 
 export type CalificacionFotoSurtido =
   | { ok: true }
@@ -29,29 +35,40 @@ function payloadTieneSenalLectura(payload: OrdenSurtidoCapturaPayload): boolean 
   );
 }
 
+function precisionPayload(payload: OrdenSurtidoCapturaPayload): number {
+  return typeof payload.precisionEstimada === "number"
+    ? payload.precisionEstimada
+    : 0;
+}
+
 /**
  * Decide si la foto del QR es aceptable para guardar captura.
- * Prioriza el veredicto de visión (`calidadFoto`); si falta, usa precisión baja.
+ * Exige que se vea la hoja; el encuadre/legibilidad pueden ser imperfectos
+ * si hay ~40% de precisión o señal de lectura (REQ-194 aflojado).
  */
 export function evaluarCalidadFotoSurtido(
   payload: OrdenSurtidoCapturaPayload,
 ): CalificacionFotoSurtido {
   const calidad = payload.calidadFoto;
+  const precision = precisionPayload(payload);
+  const tieneSenal = payloadTieneSenalLectura(payload);
+
   if (calidad) {
     if (!calidad.esHojaSurtido) {
       return { ok: false, error: MSG_CAPTURA_NO_HOJA, codigo: "no_hoja" };
     }
-    if (!calidad.hojaCompletaYLegible) {
-      return { ok: false, error: MSG_CAPTURA_FOTO_MALA, codigo: "foto_mala" };
+    // Es la hoja: aceptar si Mateo la da por usable O si hay señal / ~40%.
+    if (
+      calidad.hojaCompletaYLegible ||
+      precision >= UMBRAL_PRECISION_ACEPTABLE ||
+      tieneSenal
+    ) {
+      return { ok: true };
     }
-    return { ok: true };
+    return { ok: false, error: MSG_CAPTURA_FOTO_MALA, codigo: "foto_mala" };
   }
 
-  const precision =
-    typeof payload.precisionEstimada === "number"
-      ? payload.precisionEstimada
-      : 0;
-  if (precision < 15 && !payloadTieneSenalLectura(payload)) {
+  if (precision < UMBRAL_PRECISION_ACEPTABLE && !tieneSenal) {
     return {
       ok: false,
       error: MSG_CAPTURA_FOTO_MALA,
