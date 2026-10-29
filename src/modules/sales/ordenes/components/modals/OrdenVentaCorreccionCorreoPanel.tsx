@@ -268,6 +268,17 @@ export interface OrdenVentaCorreccionCorreoPanelProps {
   onDescartar: () => void;
 }
 
+/** «1 renglón» / «2 renglones». */
+export function etiquetaRenglones(cantidad: number): string {
+  return `${cantidad} ${cantidad === 1 ? "renglón" : "renglones"}`;
+}
+
+/** `correo.eml → PEDIDO.pdf` → `PEDIDO.pdf`: un adjunto incrustado se nombra por su archivo. */
+export function nombreDeArchivo(documento: string): string {
+  const partes = documento.split(" → ");
+  return partes[partes.length - 1] ?? documento;
+}
+
 function etiquetaVerificacion(documento: DocumentoCorreccionApi): string {
   const { cuadra, totalDocumento, importe } = documento.verificacion;
   if (cuadra === true) return `Cuadra con el total del documento (${formatearImporte(importe)})`;
@@ -308,9 +319,9 @@ export function OrdenVentaCorreccionCorreoPanel({
           {`${propuesta.resumen.renglonesAntes} → ${propuesta.resumen.renglonesDespues} renglones · ${formatearImporte(propuesta.resumen.importeAntes)} → ${formatearImporte(propuesta.resumen.importeDespues)}`}
         </p>
         <p className="text-sm leading-relaxed text-polaria-w-50 lg:text-base">
-          {`${propuesta.diff.otNuevas.length} OT nuevas, ${propuesta.diff.renglonesAgregados} renglones agregados.`}
+          {`${propuesta.diff.otNuevas.length} OT nuevas, ${etiquetaRenglones(propuesta.diff.renglonesAgregados)} agregados.`}
           {propuesta.diff.renglonesQuitados > 0
-            ? ` ${propuesta.diff.renglonesQuitados} renglones que no están en los documentos se quitan.`
+            ? ` ${etiquetaRenglones(propuesta.diff.renglonesQuitados)} que no ${propuesta.diff.renglonesQuitados === 1 ? "está" : "están"} en los documentos se ${propuesta.diff.renglonesQuitados === 1 ? "quita" : "quitan"}.`
             : ""}
         </p>
 
@@ -324,7 +335,7 @@ export function OrdenVentaCorreccionCorreoPanel({
               {documento.oc ? (
                 <span className="text-polaria-w-50">{` · OC ${documento.oc}`}</span>
               ) : null}
-              <span className="text-polaria-w-50">{` · ${documento.renglones} renglones`}</span>
+              <span className="text-polaria-w-50">{` · ${etiquetaRenglones(documento.renglones)}`}</span>
               <br />
               <span
                 className={cn(
@@ -347,6 +358,9 @@ export function OrdenVentaCorreccionCorreoPanel({
           >
             {propuesta.advertencias.map((aviso, indice) => (
               <li key={`${indice}-${aviso.codigo}`} className="break-words">
+                {aviso.documento ? (
+                  <span className="font-medium text-polaria-w">{`${nombreDeArchivo(aviso.documento)}: `}</span>
+                ) : null}
                 {aviso.detalle}
               </li>
             ))}

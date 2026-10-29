@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -238,6 +238,60 @@ describe("OrdenVentaCorreccionCorreoPanel", () => {
     expect(screen.getByText("AGUACATES_4502987208.pdf")).toBeTruthy();
     expect(screen.getByText(/Cuadra con el total del documento/)).toBeTruthy();
     expect(screen.getByText("Adjunto leído una sola vez.")).toBeTruthy();
+  });
+
+  it("cada aviso nombra el archivo al que se refiere (sin la parte del .eml) y los avisos iguales se distinguen", () => {
+    montar({
+      propuesta: propuesta({
+        advertencias: [
+          {
+            codigo: "ADJUNTO_DUPLICADO",
+            documento: "correo.eml → AGUACATES_4502987208.pdf",
+            detalle: "Adjunto incrustado en el .eml que también se subió suelto: se leyó una sola vez.",
+          },
+          {
+            codigo: "ADJUNTO_DUPLICADO",
+            documento: "correo.eml → AGUACATES_4502987081.pdf",
+            detalle: "Adjunto incrustado en el .eml que también se subió suelto: se leyó una sola vez.",
+          },
+        ],
+      }),
+    });
+
+    const avisos = within(screen.getByRole("list", { name: "Avisos" })).getAllByRole("listitem");
+    expect(avisos).toHaveLength(2);
+    expect(avisos[0]!.textContent).toContain("AGUACATES_4502987208.pdf: Adjunto incrustado");
+    expect(avisos[1]!.textContent).toContain("AGUACATES_4502987081.pdf: Adjunto incrustado");
+    expect(avisos[0]!.textContent).not.toContain("correo.eml");
+  });
+
+  it("un aviso sin archivo se muestra solo con su texto", () => {
+    montar();
+
+    const aviso = within(screen.getByRole("list", { name: "Avisos" })).getByRole("listitem");
+    expect(aviso.textContent).toBe("Adjunto leído una sola vez.");
+  });
+
+  it("respeta el singular de «renglón» en lo que se quita, en lo que se agrega y en cada documento", () => {
+    montar({
+      propuesta: propuesta({
+        diff: { otNuevas: ["a"], otEliminadas: [], renglonesAgregados: 1, renglonesQuitados: 1 },
+        documentos: [
+          {
+            nombre: "UNO.pdf",
+            oc: "4500000001",
+            renglones: 1,
+            ocFuente: "ambas",
+            verificacion: { cuadra: true, totalDocumento: 10, importe: 10, diferencia: 0 },
+            relecturaPorBloques: false,
+          },
+        ],
+      }),
+    });
+
+    expect(screen.getByText(/1 renglón agregados\./)).toBeTruthy();
+    expect(screen.getByText(/1 renglón que no está en los documentos se quita\./)).toBeTruthy();
+    expect(screen.getByText(/^· 1 renglón$/)).toBeTruthy();
   });
 
   it("aplicar entrega la propuesta y descartar avisa", async () => {
