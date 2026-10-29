@@ -3,8 +3,8 @@
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
-/** Nombre provisional del botón (R14 de POL-391: lo define el dueño del producto). */
-export const ETIQUETA_BOTON_REAGRUPAR = "Reorganizar con IA";
+/** Nombre del botón (REQ-188: antes «Reorganizar con IA»). */
+export const ETIQUETA_BOTON_REAGRUPAR = "Modificar con IA";
 
 /**
  * Botón de la sección «Órdenes de trabajo» del Cypher. No se dibuja si no hay

@@ -113,13 +113,13 @@ describe("LoginFlow", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
+      expect(screen.getByLabelText("Contraseña", { exact: true })).toBeInTheDocument();
     });
 
     expect(screen.getByText(/Empresa:/i)).toBeInTheDocument();
     expect(screen.getByText("ACME Corp")).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText(/contraseña/i), "secret123");
+    await user.type(screen.getByLabelText("Contraseña", { exact: true }), "secret123");
     await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
 
     await waitFor(() => {
@@ -165,10 +165,10 @@ describe("LoginFlow", () => {
     await user.click(screen.getByRole("button", { name: /continuar/i }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
+      expect(screen.getByLabelText("Contraseña", { exact: true })).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText(/contraseña/i), "secret123");
+    await user.type(screen.getByLabelText("Contraseña", { exact: true }), "secret123");
     await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
 
     await waitFor(() => {
@@ -200,10 +200,10 @@ describe("LoginFlow", () => {
     await user.click(screen.getByRole("button", { name: /continuar/i }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
+      expect(screen.getByLabelText("Contraseña", { exact: true })).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText(/contraseña/i), "secret123");
+    await user.type(screen.getByLabelText("Contraseña", { exact: true }), "secret123");
     await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
 
     await waitFor(() => {

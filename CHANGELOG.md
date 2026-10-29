@@ -6,8 +6,12 @@ Versión de producto alineada con Polaria WMS.
 
 ### Ventas / OV
 - Imprimir OV con muchas órdenes de trabajo (REQ-186): el PDF de la hoja (vertical y horizontal) se genera comprimido (`compress: true` en jsPDF). Antes una OV de 18 hojas pesaba ~4,6 MB (≈6 MB en base64) y Vercel rechazaba el envío a `/api/ventas/imprimir-orden` con 413, por lo que salía «El correo no fue enviado a la impresora». Con la compresión pesa ~0,2 MB. Análisis y respaldo (envío en varios correos) en `docs/REQ-186-IMPRESION-413.md`.
+- «Modificar con IA» desde el «+» de Acciones (REQ-188): el botón (antes «Reorganizar con IA») ya se ve en el Cypher que abre el «+» de la columna Acciones, sin entrar a la OV. Con la OV por confirmar, al pulsarlo se abre la edición del pedido con el chat de la instrucción listo.
 - Hoja de la OT (REQ-178): el campo «Cliente» pasa a «Cliente: Razón Social» (razón social del comprador; si no la tiene, su nombre) y debajo se agrega «Cliente: Denominación Comercial» (el campo `apodo` del comprador, vacío si no lo tiene). Aplica al HTML, al PDF vertical y al PDF horizontal. Se reduce el espacio de Incidencias para que la hoja siga cabiendo en una sola carta.
 - Reorganizar órdenes de trabajo con IA (REQ-125, POL-391): botón «Reorganizar con IA» en la sección «Órdenes de trabajo» del Cypher, solo con la OV por confirmar y una o más OT. Abre un modal junto al Cypher donde se escribe la instrucción (juntar, dividir, mover renglones), se revisa la propuesta («5 OT → 3 OT») y se confirma o rechaza; al rechazar se puede refinar. Al confirmar el cambio queda como borrador del formulario: mueve los renglones y reasigna las líneas a la vez, y nada se guarda hasta pulsar el disquete o Confirmar. «Deshacer» restaura el estado anterior mientras no se guarde. Al guardar queda una entrada en la bitácora con la instrucción, el resumen y los movimientos. Requiere el endpoint `POST /ventas/ordenes/:id/ordenes-trabajo/propuesta-reagrupacion` de `polaria-wms-api` (POL-390).
+
+### Pruebas
+- Suite del front en verde salvo `sales.service.test.ts` (POL-394): se actualizaron 15 pruebas que habían quedado viejas frente al código (ventana de 7 días de `ORDERS_VISIBLE_DAYS`, selector de contraseña en el login, `useCompany` en el hub y el dashboard, «Impresoras» fuera del panel de asignación, botón «Ver detalle» en la lista de OV y `tipo_producto` en el catálogo de alias). Sin cambios de código de producto.
 
 ## 2.12.86 — 2026-10-26
 

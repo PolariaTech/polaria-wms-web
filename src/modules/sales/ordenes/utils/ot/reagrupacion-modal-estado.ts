@@ -1,7 +1,10 @@
+import { normalizeEstadoOrdenVenta } from "../../../shared/constants/sales-status";
+import type { CypherCompanionOtPicker } from "../../components/modals/OrdenVentaCypherDrawer";
 import type { RespuestaReagrupacion } from "../../services/reagrupar-ot.client";
-import type {
-  MovimientoVista,
-  PropuestaReagrupacionApi,
+import {
+  puedeReagruparOt,
+  type MovimientoVista,
+  type PropuestaReagrupacionApi,
 } from "./reagrupar-ordenes-trabajo";
 
 /**
@@ -205,4 +208,80 @@ export function reagruparModalAbierto(estado: {
     estado.isEditing &&
     estado.tieneOrdenVenta
   );
+}
+
+/**
+ * REQ-188: «Modificar con IA» desde el «+» de Acciones. Solo con el Cypher abierto solo
+ * (sin formulario ni detalle: ahí el botón lo publica el propio formulario) y la OV por
+ * confirmar.
+ */
+export function puedeModificarConIaDesdeLista(estado: {
+  inspect: boolean;
+  cypherId: string | null;
+  formularioAbierto: boolean;
+  detalleAbierto: boolean;
+  estadoOrdenVenta: string | null | undefined;
+}): boolean {
+  return (
+    !estado.inspect &&
+    Boolean(estado.cypherId) &&
+    !estado.formularioAbierto &&
+    !estado.detalleAbierto &&
+    Boolean(estado.estadoOrdenVenta?.trim()) &&
+    normalizeEstadoOrdenVenta(estado.estadoOrdenVenta) === "por_confirmar"
+  );
+}
+
+/**
+ * REQ-188: selector de OT del Cypher cuando está solo (sin formulario). Lleva el botón
+ * «Modificar con IA» si la página lo entrega; sin OT no hay selector.
+ */
+export function armarPickerOtRespaldo(datos: {
+  hijas: ReadonlyArray<{
+    id: string;
+    label: string;
+    renglones: readonly unknown[];
+    totalCantidad: number;
+    almacen: string;
+  }>;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onReagrupar?: () => void;
+}): CypherCompanionOtPicker | null {
+  if (datos.hijas.length === 0) return null;
+  return {
+    hijas: datos.hijas.map((hija) => ({
+      id: hija.id,
+      label: hija.label,
+      productosCount: hija.renglones.length,
+      totalCantidad: hija.totalCantidad,
+      almacen: hija.almacen,
+    })),
+    selectedId: datos.selectedId ?? datos.hijas[0]?.id ?? null,
+    onSelect: datos.onSelect,
+    onReagrupar: datos.onReagrupar,
+  };
+}
+
+/**
+ * REQ-188: qué hacer con la apertura pedida desde el «+» de Acciones cuando el
+ * formulario de edición ya está abierto.
+ * - `esperar`: aún no cargan el estado de la OV o sus OT.
+ * - `abrir`: abrir el chat y dar la petición por atendida.
+ * - `descartar`: la OV ya no admite el cambio; dar la petición por atendida sin abrir.
+ */
+export function decidirAperturaReagruparAlCargar(estado: {
+  pedida: boolean;
+  formularioAbierto: boolean;
+  editando: boolean;
+  estadoOrdenVenta: string | null | undefined;
+  cantidadOt: number;
+}): "ninguna" | "esperar" | "abrir" | "descartar" {
+  if (!estado.pedida || !estado.formularioAbierto || !estado.editando) {
+    return "ninguna";
+  }
+  if (!estado.estadoOrdenVenta || estado.cantidadOt === 0) return "esperar";
+  return puedeReagruparOt(estado.estadoOrdenVenta, estado.cantidadOt)
+    ? "abrir"
+    : "descartar";
 }
