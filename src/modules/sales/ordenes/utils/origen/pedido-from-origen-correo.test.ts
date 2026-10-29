@@ -105,4 +105,26 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
 
     expect(pedido.fechaEntrega).toBe("2026-10-24");
   });
+
+  it("REQ-158: pone la maduración de cada producto, también si el nombre no la trae", () => {
+    const pedido = buildPedidoExtraidoFromOrigenCorreo({
+      origenCorreo: [
+        { Cantidad: 10, Producto: "Aguacate Hass", Maduración: "enrriados" },
+        { Cantidad: 4, Producto: "Jitomate" },
+        { Cantidad: 2, Producto: "Cebolla" },
+      ],
+      origenTexto: [
+        "Producto        Maduración",
+        "Aguacate Hass   Enrriados",
+        "Jitomate        Rojo",
+        "Cebolla",
+      ].join("\n"),
+    });
+
+    expect(pedido.lineas.map((linea) => linea.especificacion)).toEqual([
+      "Enrriado",
+      "Rojo",
+      null,
+    ]);
+  });
 });

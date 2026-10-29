@@ -14,6 +14,10 @@ import {
   shouldAutoAssignComprador,
 } from "../match/match-comprador-from-nombre";
 import {
+  asignarMadurezAProductos,
+  madurezDesdeRegistro,
+} from "../pedido/madurez-linea";
+import {
   resolveCantidadPrecioDesdeEnvase,
   resolveEspecificacionPedidoLinea,
 } from "../pedido/resolve-cantidad-envase";
@@ -230,6 +234,8 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
   origenCorreo: unknown;
   productos: readonly ProductoVentaOption[];
   compradores: readonly CompradorListRow[];
+  /** Cuerpo del correo, si todavía trae la columna de maduración. */
+  origenTexto?: string | null;
 }): MaterializeOvPlan {
   const renglones = parseOrigenCorreoJson(params.origenCorreo);
   const nombreClienteOrigen =
@@ -261,8 +267,14 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
 
   const lineas: MaterializeLineaPlan[] = [];
   const sinMatchProductos: string[] = [];
+  const niveles = asignarMadurezAProductos({
+    productos: renglones.map((renglon) => renglon.Producto?.trim() || ""),
+    textoFuente: params.origenTexto,
+    madurezPorRenglon: renglones.map((renglon) => madurezDesdeRegistro(renglon)),
+  });
 
-  for (const renglon of renglones) {
+  for (let index = 0; index < renglones.length; index++) {
+    const renglon = renglones[index]!;
     const cantidad = parseCantidad(renglon.Cantidad);
     if (cantidad <= 0) continue;
 
@@ -296,7 +308,7 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
         match.codigo,
       ),
       especificacion: resolveEspecificacionPedidoLinea({
-        especificacionIa: null,
+        especificacionIa: niveles[index] ?? null,
         envase: converted,
         textoOriginal: alias,
       }),
