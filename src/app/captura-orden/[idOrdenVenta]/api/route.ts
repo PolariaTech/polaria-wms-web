@@ -15,7 +15,35 @@ import {
   syncOrdenVentaEstadoAlistamiento,
   upsertOrdenSurtidoCaptura,
 } from "@/modules/sales/ordenes/surtido/orden-surtido.service";
+import { evaluarCalidadFotoSurtido } from "@/modules/sales/ordenes/surtido/validate-surtido-foto-calidad";
 import { normalizeIdOrdenTrabajo } from "@/modules/sales/ordenes/utils/origen/origen-correo-ordenes-trabajo";
+
+/** Errores de proceso → mensaje claro para el celular (sin “error de servidor”). */
+function mensajeErrorCaptura(error: unknown): string {
+  const raw =
+    error instanceof Error ? error.message : String(error ?? "");
+  const lower = raw.toLowerCase();
+  if (!raw.trim()) {
+    return "No se pudo leer la foto. Intenta de nuevo con mejor luz.";
+  }
+  if (
+    lower.includes("openai") ||
+    lower.includes("api key") ||
+    lower.includes("rate limit") ||
+    lower.includes("timeout") ||
+    lower.includes("etimedout") ||
+    lower.includes("fetch failed")
+  ) {
+    return "Mateo no pudo analizar la foto ahora. Espera unos segundos e intenta de nuevo.";
+  }
+  if (lower.includes("json") || lower.includes("contenido")) {
+    return "No se entendió la foto. Encaja la hoja en el marco e intenta de nuevo.";
+  }
+  if (raw.length <= 160 && !lower.includes("internal") && !lower.includes("500")) {
+    return raw;
+  }
+  return "No se pudo procesar la foto. Revisa el encuadre (hoja clara en el marco) e intenta de nuevo.";
+}
 
 /**
  * Fuera de `/api/*` para no pasar por el rewrite hacia Nest.
@@ -352,6 +380,22 @@ export async function POST(
     );
     const payload = { ...rawPayload, precisionEstimada };
 
+    const calidad = evaluarCalidadFotoSurtido(payload);
+    if (!calidad.ok) {
+      return jsonOrRedirect(
+        request,
+        idOrdenVenta,
+        resolvedOt,
+        {
+          error: calidad.error,
+          codigo: calidad.codigo,
+          motivoIa: payload.calidadFoto?.motivo || null,
+          precisionEstimada,
+        },
+        422,
+      );
+    }
+
     let urlFoto: string | null = null;
     try {
       const blobFile = new File([buffer], file.name || "hoja-surtido.jpg", {
@@ -428,19 +472,18 @@ export async function POST(
       );
     }
   } catch (error) {
-    const message =
+    const detail =
       error instanceof Error
         ? error.message
         : "No se pudo procesar la foto de la orden.";
-    console.error("[captura-orden] POST falló:", message, error);
+    console.error("[captura-orden] POST falló:", detail, error);
     return jsonOrRedirect(
       request,
       idOrdenVenta,
       idOrdenTrabajo,
       {
-        error:
-          "No se pudo procesar la foto. Espera un momento e inténtalo de nuevo.",
-        detail: message,
+        error: mensajeErrorCaptura(error),
+        detail,
       },
       500,
     );
