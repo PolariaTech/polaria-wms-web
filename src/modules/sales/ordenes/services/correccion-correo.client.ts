@@ -167,7 +167,7 @@ function errorDeRespuesta(
   }
   if (status === 400) {
     return new CorreccionCorreoApiError(
-      "La solicitud no es válida. Recarga la orden e inténtalo de nuevo.",
+      "La solicitud no es válida. Revisa la instrucción e inténtalo de nuevo.",
       "SOLICITUD_INVALIDA",
       status,
     );
@@ -273,17 +273,17 @@ export async function interpretarInstruccion(params: {
 
 function esPropuesta(valor: unknown): valor is PropuestaCorreccionCorreoApi {
   if (typeof valor !== "object" || valor === null) return false;
-  const p = valor as Record<string, unknown>;
+  const propuestaBruta = valor as Record<string, unknown>;
   return (
-    typeof p.propuestaId === "string" &&
-    typeof p.baseHash === "string" &&
-    Array.isArray(p.documentos) &&
-    Array.isArray(p.ots) &&
-    typeof p.resumen === "object" &&
-    p.resumen !== null &&
-    typeof p.diff === "object" &&
-    p.diff !== null &&
-    Array.isArray(p.advertencias)
+    typeof propuestaBruta.propuestaId === "string" &&
+    typeof propuestaBruta.baseHash === "string" &&
+    Array.isArray(propuestaBruta.documentos) &&
+    Array.isArray(propuestaBruta.ots) &&
+    typeof propuestaBruta.resumen === "object" &&
+    propuestaBruta.resumen !== null &&
+    typeof propuestaBruta.diff === "object" &&
+    propuestaBruta.diff !== null &&
+    Array.isArray(propuestaBruta.advertencias)
   );
 }
 

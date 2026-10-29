@@ -126,13 +126,13 @@ export function describirCorreccionParaBitacora(params: {
     payloadExtra: {
       correccionCorreoIa: {
         resumen,
-        documentos: params.documentos.slice(0, MAX_DOCUMENTOS_BITACORA).map((d) => ({
-          nombre: d.nombre,
-          oc: d.oc,
-          renglones: d.renglones,
-          totalDocumento: d.verificacion.totalDocumento,
-          importe: d.verificacion.importe,
-          cuadra: d.verificacion.cuadra,
+        documentos: params.documentos.slice(0, MAX_DOCUMENTOS_BITACORA).map((documento) => ({
+          nombre: documento.nombre,
+          oc: documento.oc,
+          renglones: documento.renglones,
+          totalDocumento: documento.verificacion.totalDocumento,
+          importe: documento.verificacion.importe,
+          cuadra: documento.verificacion.cuadra,
         })),
       },
     },

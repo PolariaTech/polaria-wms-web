@@ -141,6 +141,22 @@ describe("interpretarInstruccion", () => {
       interpretarInstruccion({ idOrdenVenta: ID_OV, requestId: REQUEST_ID, instruccion: "x" }),
     ).rejects.toMatchObject({ codigo: "NO_ENCONTRADA" });
   });
+
+  it("un 400 pide revisar la instrucción, con el mensaje que define el schema del formulario", async () => {
+    fetchMock.mockResolvedValueOnce(respuesta(400, {}));
+
+    const error = await interpretarInstruccion({
+      idOrdenVenta: ID_OV,
+      requestId: REQUEST_ID,
+      instruccion: "x",
+    }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(CorreccionCorreoApiError);
+    expect(error).toMatchObject({
+      codigo: "SOLICITUD_INVALIDA",
+      message: "La solicitud no es válida. Revisa la instrucción e inténtalo de nuevo.",
+    });
+  });
 });
 
 describe("solicitarCorreccionCorreo (inicia y consulta el avance)", () => {
