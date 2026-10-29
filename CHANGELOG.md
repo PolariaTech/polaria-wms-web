@@ -5,6 +5,7 @@ Versión de producto alineada con Polaria WMS.
 ## Sin publicar
 
 ### Ventas / OV
+- Lista de Órdenes de venta (REQ-179): los encabezados «OT» y «OCC» pasan a «Tareas» y «Orden de compra». La columna Tareas amplía su ancho mínimo (de 4 rem a 5 rem) para que el título quepa.
 - Imprimir OV con muchas órdenes de trabajo (REQ-186): el PDF de la hoja (vertical y horizontal) se genera comprimido (`compress: true` en jsPDF). Antes una OV de 18 hojas pesaba ~4,6 MB (≈6 MB en base64) y Vercel rechazaba el envío a `/api/ventas/imprimir-orden` con 413, por lo que salía «El correo no fue enviado a la impresora». Con la compresión pesa ~0,2 MB. Análisis y respaldo (envío en varios correos) en `docs/REQ-186-IMPRESION-413.md`.
 - «Modificar con IA» desde el «+» de Acciones (REQ-188): el botón (antes «Reorganizar con IA») ya se ve en el Cypher que abre el «+» de la columna Acciones, sin entrar a la OV. Con la OV por confirmar, al pulsarlo se abre la edición del pedido con el chat de la instrucción listo.
 - Hoja de la OT (REQ-178): el campo «Cliente» pasa a «Cliente: Razón Social» (razón social del comprador; si no la tiene, su nombre) y debajo se agrega «Cliente: Denominación Comercial» (el campo `apodo` del comprador, vacío si no lo tiene). Aplica al HTML, al PDF vertical y al PDF horizontal. Se reduce el espacio de Incidencias para que la hoja siga cabiendo en una sola carta.
