@@ -9,6 +9,9 @@ Versión de producto alineada con Polaria WMS.
 - Hoja de la OT (REQ-178): el campo «Cliente» pasa a «Cliente: Razón Social» (razón social del comprador; si no la tiene, su nombre) y debajo se agrega «Cliente: Denominación Comercial» (el campo `apodo` del comprador, vacío si no lo tiene). Aplica al HTML, al PDF vertical y al PDF horizontal. Se reduce el espacio de Incidencias para que la hoja siga cabiendo en una sola carta.
 - Reorganizar órdenes de trabajo con IA (REQ-125, POL-391): botón «Reorganizar con IA» en la sección «Órdenes de trabajo» del Cypher, solo con la OV por confirmar y una o más OT. Abre un modal junto al Cypher donde se escribe la instrucción (juntar, dividir, mover renglones), se revisa la propuesta («5 OT → 3 OT») y se confirma o rechaza; al rechazar se puede refinar. Al confirmar el cambio queda como borrador del formulario: mueve los renglones y reasigna las líneas a la vez, y nada se guarda hasta pulsar el disquete o Confirmar. «Deshacer» restaura el estado anterior mientras no se guarde. Al guardar queda una entrada en la bitácora con la instrucción, el resumen y los movimientos. Requiere el endpoint `POST /ventas/ordenes/:id/ordenes-trabajo/propuesta-reagrupacion` de `polaria-wms-api` (POL-390).
 
+### Pruebas
+- Suite del front en verde salvo `sales.service.test.ts` (POL-394): se actualizaron 15 pruebas que habían quedado viejas frente al código (ventana de 7 días de `ORDERS_VISIBLE_DAYS`, selector de contraseña en el login, `useCompany` en el hub y el dashboard, «Impresoras» fuera del panel de asignación, botón «Ver detalle» en la lista de OV y `tipo_producto` en el catálogo de alias). Sin cambios de código de producto.
+
 ## 2.12.86 — 2026-10-26
 
 ### Ventas / OV

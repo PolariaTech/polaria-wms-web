@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AssignmentPanel } from "@/modules/configurator/shared/components/AssignmentPanel";
 
 describe("AssignmentPanel", () => {
-  it("muestra título, subtítulo y tarjetas Usuarios e Impresoras", () => {
+  it("muestra título, subtítulo y tarjeta Usuarios", () => {
     render(<AssignmentPanel />);
 
     expect(
@@ -16,8 +16,5 @@ describe("AssignmentPanel", () => {
       screen.getByText("Selecciona el tipo de recurso que deseas gestionar"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Usuarios" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Impresoras" }),
-    ).toBeInTheDocument();
   });
 });

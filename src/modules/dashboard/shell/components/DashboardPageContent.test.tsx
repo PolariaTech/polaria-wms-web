@@ -10,6 +10,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }));
 
+vi.mock("@/providers/tenant/CompanyProvider", () => ({
+  useCompany: () => ({ codigoCuenta: "" }),
+}));
+
 vi.mock("@/hooks/auth/usePermissions", () => ({
   usePermissions: () => mockPermissions,
 }));
