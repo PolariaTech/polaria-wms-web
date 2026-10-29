@@ -274,14 +274,34 @@ export function decidirAperturaReagruparAlCargar(estado: {
   pedida: boolean;
   formularioAbierto: boolean;
   editando: boolean;
+  /**
+   * El detalle que hay en el formulario es el de la OV que se está abriendo. Al cerrar el
+   * formulario NO se limpian su estado ni sus OT, así que al abrir otra OV el primer render
+   * trae los de la anterior: sin esta comprobación se decidiría con datos ajenos (abriría el
+   * chat y el reseteo del formulario lo cerraría al instante, o descartaría la petición).
+   */
+  ordenCargada: boolean;
   estadoOrdenVenta: string | null | undefined;
   cantidadOt: number;
 }): "ninguna" | "esperar" | "abrir" | "descartar" {
   if (!estado.pedida || !estado.formularioAbierto || !estado.editando) {
     return "ninguna";
   }
+  if (!estado.ordenCargada) return "esperar";
   if (!estado.estadoOrdenVenta || estado.cantidadOt === 0) return "esperar";
   return puedeReagruparOt(estado.estadoOrdenVenta, estado.cantidadOt)
     ? "abrir"
     : "descartar";
+}
+
+/**
+ * El chat de «Modificar con IA» vive con el Cypher: si éste se cierra (la X, o cerrar el
+ * formulario), el chat se cierra con él. Sin esto, `reagruparOpen` quedaba en true con el
+ * Cypher cerrado y, al volver a abrirlo, el modal reaparecía solo.
+ */
+export function reagruparAbiertoSegunCypher(
+  reagruparOpen: boolean,
+  cypherOpen: boolean,
+): boolean {
+  return cypherOpen && reagruparOpen;
 }

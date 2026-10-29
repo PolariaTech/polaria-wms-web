@@ -8,6 +8,7 @@ import {
   MENSAJE_FUERA_DE_ALCANCE,
   puedeGenerar,
   puedeModificarConIaDesdeLista,
+  reagruparAbiertoSegunCypher,
   reagruparModalAbierto,
   reducirModalReagrupacion,
   type AccionModalReagrupacion,
@@ -353,6 +354,7 @@ describe("decidirAperturaReagruparAlCargar (REQ-188)", () => {
     pedida: true,
     formularioAbierto: true,
     editando: true,
+    ordenCargada: true,
     estadoOrdenVenta: "por_confirmar",
     cantidadOt: 2,
   };
@@ -376,5 +378,56 @@ describe("decidirAperturaReagruparAlCargar (REQ-188)", () => {
     expect(decidirAperturaReagruparAlCargar({ ...listo, pedida: false })).toBe("ninguna");
     expect(decidirAperturaReagruparAlCargar({ ...listo, formularioAbierto: false })).toBe("ninguna");
     expect(decidirAperturaReagruparAlCargar({ ...listo, editando: false })).toBe("ninguna");
+  });
+});
+
+describe("decidirAperturaReagruparAlCargar — datos de la OV anterior (REQ-188, «a veces solo abre el formulario»)", () => {
+  const pedido = {
+    pedida: true,
+    formularioAbierto: true,
+    editando: true,
+    estadoOrdenVenta: "por_confirmar",
+    cantidadOt: 2,
+  };
+
+  it("mientras el formulario aún trae el estado y las OT de la OV anterior, espera (no abre ni descarta)", () => {
+    // Primer render al abrir otra OV: estado y OT son los de la anterior, ordenCargada = false.
+    expect(decidirAperturaReagruparAlCargar({ ...pedido, ordenCargada: false })).toBe("esperar");
+    // Aunque la OV anterior hubiera estado confirmada, no se descarta la petición con datos ajenos.
+    expect(
+      decidirAperturaReagruparAlCargar({ ...pedido, ordenCargada: false, estadoOrdenVenta: "confirmada" }),
+    ).toBe("esperar");
+  });
+
+  it("una vez cargada la OV pedida decide con sus datos", () => {
+    expect(decidirAperturaReagruparAlCargar({ ...pedido, ordenCargada: true })).toBe("abrir");
+    expect(
+      decidirAperturaReagruparAlCargar({ ...pedido, ordenCargada: true, estadoOrdenVenta: "confirmada" }),
+    ).toBe("descartar");
+  });
+
+  it("sin petición no hace nada aunque no esté cargada", () => {
+    expect(decidirAperturaReagruparAlCargar({ ...pedido, pedida: false, ordenCargada: false })).toBe("ninguna");
+  });
+});
+
+describe("reagruparAbiertoSegunCypher (el chat se cierra con el Cypher)", () => {
+  it("con el Cypher cerrado el chat queda cerrado, aunque estuviera abierto", () => {
+    expect(reagruparAbiertoSegunCypher(true, false)).toBe(false);
+  });
+
+  it("con el Cypher abierto respeta el estado del chat", () => {
+    expect(reagruparAbiertoSegunCypher(true, true)).toBe(true);
+    expect(reagruparAbiertoSegunCypher(false, true)).toBe(false);
+  });
+
+  it("cerrar el Cypher y volver a abrirlo no hace reaparecer el chat", () => {
+    let reagruparOpen = true;
+    // Se cierra el Cypher con la X.
+    reagruparOpen = reagruparAbiertoSegunCypher(reagruparOpen, false);
+    // Se vuelve a abrir el Cypher con el «+».
+    reagruparOpen = reagruparAbiertoSegunCypher(reagruparOpen, true);
+    expect(reagruparOpen).toBe(false);
+    expect(reagruparModalAbierto({ reagruparOpen, cypherOpen: true, isEditing: true, tieneOrdenVenta: true })).toBe(false);
   });
 });

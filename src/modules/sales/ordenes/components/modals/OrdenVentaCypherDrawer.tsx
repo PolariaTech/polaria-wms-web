@@ -452,8 +452,9 @@ export function OrdenVentaCypherDrawer({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<CypherStageId>("correo");
+  // Todas las secciones arrancan cerradas (también «Recepción del correo»): se abren al tocarlas.
   const [openStages, setOpenStages] = useState<ReadonlySet<CypherStageId>>(
-    () => new Set<CypherStageId>(["correo"]),
+    () => new Set<CypherStageId>(),
   );
   const [logEntries, setLogEntries] = useState<OrdenVentaLogEntry[]>([]);
   const [logLoading, setLogLoading] = useState(false);
@@ -534,7 +535,7 @@ export function OrdenVentaCypherDrawer({
     setError(null);
     setOrden(null);
     setActiveStage("correo");
-    setOpenStages(new Set<CypherStageId>(["correo"]));
+    setOpenStages(new Set<CypherStageId>());
 
     void loadDetalle(idOrdenVenta, codigoCuenta)
       .then((detalle) => {
