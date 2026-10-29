@@ -26,6 +26,8 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.tsx` — autorizada por el usuario el 2026-10-29
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.test.tsx` — autorizada por el usuario el 2026-10-29
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCypherDrawer.tsx` — autorizada por el usuario el 2026-10-29
+- `src/modules/sales/ordenes/components/modals/CypherReagruparOtButton.tsx` — autorizada por el usuario el 2026-10-29
+- `src/modules/sales/ordenes/components/modals/CypherReagruparOtButton.test.tsx` — autorizada por el usuario el 2026-10-29
 
 ### Compartidos (cambio mínimo y aviso)
 - `CHANGELOG.md`
