@@ -23,6 +23,8 @@
 - `src/modules/sales/ordenes/services/correccion-correo.client.test.ts` — archivo nuevo
 - `src/modules/sales/ordenes/utils/ot/aplicar-correccion-correo.ts` — archivo nuevo
 - `src/modules/sales/ordenes/utils/ot/aplicar-correccion-correo.test.ts` — archivo nuevo
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.tsx` — autorizada por el usuario el 2026-10-29
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.test.tsx` — autorizada por el usuario el 2026-10-29
 
 ### Compartidos (cambio mínimo y aviso)
 - `CHANGELOG.md`
