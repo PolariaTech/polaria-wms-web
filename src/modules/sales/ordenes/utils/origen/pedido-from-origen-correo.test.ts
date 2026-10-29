@@ -127,4 +127,20 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
       null,
     ]);
   });
+
+  it("REQ-158: 3 piezas aprox 5.4 kg queda como 5.4 kg y especificación 3 PZA", () => {
+    const pedido = buildPedidoExtraidoFromOrigenCorreo({
+      origenCorreo: [
+        {
+          Cantidad: 3,
+          Producto: "Aguacate Hass",
+        },
+      ],
+      origenTexto: "Aguacate Hass 3 piezas, aprox 5.4 KG",
+    });
+
+    expect(pedido.lineas[0]?.cantidad).toBe(5.4);
+    expect(pedido.lineas[0]?.especificacion).toBe("3 PZA");
+    expect(pedido.lineas[0]?.unidad).toBe("KGM");
+  });
 });

@@ -26,6 +26,7 @@ import {
   enrichLineasAlmacenConCodigoDesdeTexto,
 } from "../utils/pedido/enrich-almacen-codigo";
 import { aplicarMadurezDesdeTexto } from "../utils/pedido/madurez-linea";
+import { aplicarPiezasAproxKg } from "../utils/pedido/piezas-aprox-kg";
 import { normalizeNumeroPedidoFields } from "../utils/pedido/normalize-numero-pedido";
 import {
   serializeCuerpoMensaje,
@@ -779,6 +780,7 @@ export async function extraerPedido({
     `- "direccion", "anden", "contacto", "telefono", "correo", "horarioDesde" y "horarioHasta" salen del correo, mensaje o PDF (Ship To, Deliver To, Enviar a, Andén, Dock, Contacto, Tel, Email, hora de entrega, ventana de recepción, delivery window). Llénalos siempre que el dato aparezca; null solo si no está. No inventes ni uses un valor habitual que el documento no diga.`,
     `- "correo" (REQ-122): usa mail humano del hotel. Si De/From es bss_system@birchstreet.net, noreply o cuenta del proveedor (admonaguacatesdepuebla), busca Email/mailto en el cuerpo/PDF. Si De/From es persona del hotel, úsalo. No pongas el Para/To del proveedor.`,
     `- "especificacion" (REQ-158): en correos de Pedidos · Aguacates de Puebla, cada renglón puede traer su nivel de maduración en una columna. Cópialo en la especificación de ESA fila, en todas las filas que tengan valor, aunque el nombre del producto no diga verde/firme/maduro. No lo dejes solo en las notas generales.`,
+    `- "cantidad" y "especificacion" (REQ-158, piezas): si el renglón dice "3 piezas, aprox 5.4 KG", la cantidad es 5.4, la unidad es KGM, y la especificación lleva "3 PZA". No uses el número de piezas como cantidad.`,
     `- "nombreCliente" (REQ-116): en POs BirchStreet (bss_system) copia Property/Hotel/Bill To (ej. FAIRMONT MAYAKOBA), no el remitente ni la cocina.`,
     `- "horarioDesde"/"horarioHasta" (crítico): si el cuerpo dice "Hora de entrega 6:00 am", "8:00 AM – 2:00 PM", "de 8 a 14", "ventana de recepción…", DEBES llenarlos en 24h HH:MM. No los dejes null si aparecen. Una sola hora → solo horarioDesde.`,
     `- "regimen", "tolerancia", "sustituciones", "lote" y "temperatura": llénalos solo si el documento los declara. Si no aparecen, null.`,
@@ -896,9 +898,12 @@ export async function extraerPedido({
   });
   const ordenCompraHotelNormalizado = normalizedPedidos.ordenCompraHotel;
 
-  const lineas: LineaExtraida[] = aplicarMadurezDesdeTexto(
-    enrichLineasAlmacenConCodigoDesdeTexto(
-      normalizedPedidos.lineas,
+  const lineas: LineaExtraida[] = aplicarPiezasAproxKg(
+    aplicarMadurezDesdeTexto(
+      enrichLineasAlmacenConCodigoDesdeTexto(
+        normalizedPedidos.lineas,
+        sourceForEntrega,
+      ),
       sourceForEntrega,
     ),
     sourceForEntrega,

@@ -239,4 +239,26 @@ describe("materialize-ov-desde-origen", () => {
     expect(plan.lineas[0]?.especificacion).toBe("Pintón");
     expect(plan.lineas[1]?.especificacion).toBe("Maduro");
   });
+
+  it("REQ-158: 3 piezas aprox 5.4 kg usa el peso y deja 3 PZA", () => {
+    const plan = buildMaterializeOvDesdeOrigenPlan({
+      origenCorreo: [
+        {
+          Fecha: "2026-09-10",
+          Precio: 23,
+          Cantidad: 3,
+          Producto: "Limon persa *",
+          "Numero pedido": "MYK-0302085",
+          "Nombre cliente": "Fairmont Mayakoba",
+          Almacen: "Cocina",
+        },
+      ],
+      origenTexto: "Limon persa * 3 piezas, aprox 5.4 KG",
+      productos,
+      compradores,
+    });
+
+    expect(plan.lineas[0]?.cantidadPedida).toBe(5.4);
+    expect(plan.lineas[0]?.especificacion).toBe("3 PZA");
+  });
 });

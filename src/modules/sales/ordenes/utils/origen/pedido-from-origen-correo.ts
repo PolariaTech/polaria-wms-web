@@ -14,6 +14,7 @@ import {
   asignarMadurezAProductos,
   madurezDesdeRegistro,
 } from "../pedido/madurez-linea";
+import { aplicarPiezasAproxKg } from "../pedido/piezas-aprox-kg";
 import {
   normalizeNumeroPedidoFields,
   sanitizeOrigenCorreoNumeroPedido,
@@ -88,7 +89,7 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     textoFuente: origenTexto,
     madurezPorRenglon: rows.map((row) => madurezDesdeRegistro(row)),
   });
-  const lineasRaw: LineaExtraida[] = rows.map((row, index) => ({
+  const lineasSinPiezas: LineaExtraida[] = rows.map((row, index) => ({
     textoOriginal: textos[index] ?? "",
     productoCatalogo: null,
     cantidad: parseCantidad(row.Cantidad),
@@ -104,6 +105,13 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     responsableExterno: row["Responsable externo"]?.trim() || null,
     precioUnitario: parsePrecio(row.Precio),
   }));
+  const lineasRaw = aplicarPiezasAproxKg(
+    lineasSinPiezas,
+    origenTexto,
+    rows.map((row) =>
+      typeof row.Cantidad === "string" ? row.Cantidad : null,
+    ),
+  );
 
   const hotelRaw = mostFrequent(
     rows.map((r) => (r["Numero pedido"] ?? "").toString()),
