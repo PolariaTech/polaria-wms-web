@@ -325,6 +325,7 @@ export function CypherAlistamientoSection({
                               nombre,
                               cantidad: linea.cantidad_pedida,
                               otId: hija.id || null,
+                              idProducto: linea.id_producto,
                               allowUnscoped: ots.length <= 1,
                             }) || "—";
                           return (

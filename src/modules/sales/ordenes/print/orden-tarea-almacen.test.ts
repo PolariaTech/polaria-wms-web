@@ -322,6 +322,74 @@ describe("orden de tarea almacén", () => {
     expect(data.lineas[0]?.especificacion).toBe("");
   });
 
+  it("REQ-185/192: imprime la especificación guardada por id de producto y OT", () => {
+    const sheets = mapOrdenVentaToAlmacenPrintSheets({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        notas_lineas: [
+          "ot:ot-cocina|pid:prod-1: 5x10litros",
+          "ot:ot-bar|pid:prod-2: 7x5LT",
+        ].join("\n"),
+        lineas: [
+          {
+            id_linea_orden_venta: "line-1",
+            id_producto: "prod-1",
+            cantidad_pedida: 10,
+            precio_unitario: 1000,
+            producto: {
+              sku: "A",
+              descripcion: "Jugo",
+              metadatos_catalogo: { titulo: "JUGO DE LIMON" },
+            },
+          },
+          {
+            id_linea_orden_venta: "line-2",
+            id_producto: "prod-2",
+            cantidad_pedida: 7,
+            precio_unitario: 80,
+            producto: {
+              sku: "B",
+              descripcion: "Agua",
+              metadatos_catalogo: { titulo: "AGUA" },
+            },
+          },
+        ],
+        origen_correo: [
+          {
+            _otId: "ot-cocina",
+            "Numero pedido": "942",
+            Almacen: "Cocina",
+            Producto: "JUGO DE LIMON",
+            Cantidad: 10,
+          },
+          {
+            _otId: "ot-bar",
+            "Numero pedido": "943",
+            Almacen: "Bar",
+            Producto: "AGUA",
+            Cantidad: 7,
+          },
+        ],
+      },
+    });
+
+    expect(sheets[0]?.lineas[0]?.especificacion).toBe("5x10litros");
+    expect(sheets[1]?.lineas[0]?.especificacion).toBe("7x5LT");
+    expect(buildOrdenTareaAlmacenHtml(sheets[0]!)).toContain("5x10litros");
+  });
+
+  it("REQ-185/192: sin OT imprime la especificación guardada solo por id de producto", () => {
+    const data = mapOrdenVentaToAlmacenPrintData({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        notas_lineas: "pid:prod-1: 5x10litros",
+      },
+    });
+    expect(data.lineas[0]?.especificacion).toBe("5x10litros");
+  });
+
   it("cabe en una sola hoja carta aunque la dirección sea larga", () => {
     const data = mapOrdenVentaToAlmacenPrintData({
       listRow: LIST_ROW,

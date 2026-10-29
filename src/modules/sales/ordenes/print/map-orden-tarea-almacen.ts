@@ -243,6 +243,7 @@ function mapLineasPrint(
       nombre: producto,
       cantidad: linea.cantidad_pedida,
       otId: hija?.id,
+      idProducto: linea.id_producto,
       allowUnscoped: !hija,
     });
     const unidad =
