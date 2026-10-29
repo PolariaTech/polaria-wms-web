@@ -122,22 +122,23 @@ const SURTIDO_SCHEMA = {
         esHojaSurtido: {
           type: "boolean",
           description:
-            "true SOLO si la imagen muestra la hoja impresa de ORDEN DE VENTA / surtido de almacén. " +
-            "false si son manos, resaltador, caja, scanner, selfie, otra factura, o la hoja no es el sujeto.",
+            "true si el sujeto PRINCIPAL es la hoja impresa de ORDEN DE VENTA / surtido de almacén. " +
+            "Puede haber dedos/mesa al borde. false SOLO si NO es esa hoja (selfie, caja, scanner vacío, " +
+            "otra factura, solo manos/resaltador sin la OV).",
         },
         hojaCompletaYLegible: {
           type: "boolean",
           description:
-            "true SOLO si la hoja entra casi completa en el encuadre, de frente (sin ángulo extremo), " +
-            "sin desenfoque grave ni sombras/reflejos que impidan leer, y se distingue la hora impresa " +
-            "y el contenido principal de la hoja. false si está recortada, de lado, arrugada/tapada, " +
-            "o la hora impresa no se lee.",
+            "Umbral LAXO (~40%): true si se reconoce la hoja y se puede leer ALGO útil " +
+            "(productos, checks, firmas o cabecera), aunque el ángulo, luz, recorte parcial o " +
+            "hora impresa no sean perfectos. false SOLO si la hoja está tan mal que casi nada se lee.",
         },
         motivo: {
           type: "string",
           description:
-            "Si esHojaSurtido o hojaCompletaYLegible es false: una frase corta en español con el problema. " +
-            "Si ambas son true: cadena vacía.",
+            "Si esHojaSurtido es false, o ambas flags fallan: una frase corta en español. " +
+            "Si esHojaSurtido es true (aunque hojaCompletaYLegible sea false por imperfección leve): " +
+            "puedes dejar vacío o una nota breve; no inventes rechazo duro.",
         },
       },
     },
@@ -780,12 +781,15 @@ export async function extraerSurtidoDesdeFoto(input: {
         content:
           "Eres un lector experto de hojas de ORDEN DE VENTA de almacén impresas y llenadas a mano (bolígrafo). " +
           "Comparas la foto con el snapshot del PDF ORIGINAL. " +
-          "PRIMERO evalúa calidadFoto (esHojaSurtido / hojaCompletaYLegible / motivo). " +
+          "PRIMERO evalúa calidadFoto (esHojaSurtido / hojaCompletaYLegible / motivo) con umbral LAXO. " +
           "Luego extrae TODO lo manuscrito y TODAS las casillas marcadas, mapeándolas a cabecera / checks / lineas. " +
           "Reglas:\n" +
-          "0) calidadFoto: rechaza (false) fotos con manos/resaltador/caja/scanner de fondo, hoja de lado, " +
-          "recortada, borrosa o donde no se lea la hora impresa. Solo true si la hoja es el sujeto, " +
-          "completa y legible. Si calidad falla, igual llena el resto con null/false sin inventar.\n" +
+          "0) calidadFoto (LAXO ~40%): esHojaSurtido=true si el sujeto es la hoja OV/surtido " +
+          "(dedos/mesa al borde OK). hojaCompletaYLegible=true si se lee algo útil aunque el encuadre, " +
+          "ángulo o luz no sean perfectos; false SOLO si casi nada se lee. " +
+          "Rechaza esHojaSurtido=false solo si NO es esa hoja (selfie, caja, otro doc). " +
+          "SIEMPRE intenta extraer manuscrito/checks aunque la foto sea imperfecta; no dejes todo null " +
+          "solo por un ángulo o borde recortado.\n" +
           "1) Solo valores escritos o corregidos a mano, o checkboxes con X/✓/raya clara. NUNCA inventes.\n" +
           "2) No copies texto ya impreso (cliente, productos, cantidades solicitadas) salvo que se haya tachado/reescrito a mano.\n" +
           "3) Si un campo está vacío o ilegible → null. Si un checkbox está vacío → false; si no se ve → null.\n" +
@@ -840,7 +844,8 @@ export async function extraerSurtidoDesdeFoto(input: {
               "Snapshot del PDF ORIGINAL (referencia de lo ya impreso):\n" +
               snapshot +
               "\n\nAnaliza la foto adjunta de la misma hoja ya surtida/llenada. " +
-              "Primero llena calidadFoto con rigor (encuadre, legibilidad, hora impresa). " +
+              "Primero llena calidadFoto con criterio LAXO: acepta fotos imperfectas de la hoja " +
+              "(~40%: se ve el papel y se lee algo). Solo marca esHojaSurtido=false si no es la hoja. " +
               "Luego llena cabecera, checks y lineas con TODO lo manuscrito y marcado. " +
               "Incluye UNA linea por cada producto del snapshot (parciales: filas sin marca → alisto=false, reviso=false). " +
               "Para cada linea incluye productoImpreso del snapshot de esa fila. " +

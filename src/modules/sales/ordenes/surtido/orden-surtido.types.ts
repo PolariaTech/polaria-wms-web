@@ -30,9 +30,12 @@ export interface OrdenSurtidoChecks {
 
 /** Veredicto de visión sobre si la foto del QR es usable (REQ-194). */
 export interface OrdenSurtidoCalidadFoto {
-  /** true solo si se ve la hoja impresa de OV/surtido (no manos/caja/otra cosa). */
+  /** true si el sujeto principal es la hoja impresa de OV/surtido (no selfie/caja/otro doc). */
   esHojaSurtido: boolean;
-  /** true solo si la hoja entra completa, de frente y se lee (hora impresa incluida). */
+  /**
+   * true si la hoja es usable aunque el encuadre/luz sean imperfectos (~40%+).
+   * false solo si casi no se puede leer nada útil de la hoja.
+   */
   hojaCompletaYLegible: boolean;
   /** Motivo corto en español si falla; vacío si pasa. */
   motivo: string;
