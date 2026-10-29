@@ -10,6 +10,10 @@
 ### Zonas que voy a tocar
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.tsx`
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.test.tsx`
+- `src/modules/sales/ordenes/services/correccion-correo.client.ts` — autorizada por el usuario el 2026-10-29
+- `src/modules/sales/ordenes/services/correccion-correo.client.test.ts` — autorizada por el usuario el 2026-10-29
+- `src/modules/sales/ordenes/utils/ot/aplicar-correccion-correo.ts` — autorizada por el usuario el 2026-10-29
+- `schemas/checklist_manual_reagrupar_ot_ia.md` — autorizada por el usuario el 2026-10-29
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
