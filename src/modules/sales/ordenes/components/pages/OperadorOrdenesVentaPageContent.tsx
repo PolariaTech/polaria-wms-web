@@ -931,7 +931,7 @@ export function OperadorOrdenesVentaPageContent({
       },
       {
         id: "occ",
-        header: "OCC",
+        header: "Orden de compra",
         headerClassName: ordenVentaTableColumnClass("occ", "header"),
         cellClassName: ordenVentaTableColumnClass("occ"),
         cell: (row: OrdenVentaOperadorRow) => {
@@ -984,7 +984,7 @@ export function OperadorOrdenesVentaPageContent({
       },
       {
         id: "ot",
-        header: "OT",
+        header: "Tareas",
         headerClassName: ordenVentaTableColumnClass("ot", "header"),
         cellClassName: ordenVentaTableColumnClass("ot"),
         cell: (row: OrdenVentaOperadorRow) => String(row.ordenesTrabajo),
