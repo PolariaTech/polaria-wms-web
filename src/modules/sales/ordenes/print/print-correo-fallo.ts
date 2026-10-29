@@ -44,7 +44,9 @@ export function idsConCorreoNoEnviado(
 export const VIGENCIA_MARCA_LOCAL_MS = 20_000;
 
 export const MENSAJE_VERSION_NUEVA =
-  "Hay una versión nueva de Polaria. Recarga la página (Ctrl+F5) y vuelve a imprimir.";
+  "Hay una versión nueva de Polaria. Recarga la página para poder imprimir.";
+
+export const ETIQUETA_RECARGAR_PAGINA = "Recargar página";
 
 const PATRON_VERSION_VIEJA =
   /failed to load chunk|loading chunk [\w-]+ failed|loading css chunk|error loading dynamically imported module|failed to fetch dynamically imported module|importing a module script failed/i;

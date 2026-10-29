@@ -39,6 +39,7 @@ import {
   type AutoPrintOvResult,
 } from "../../print/auto-print-ov-tras-emitir";
 import {
+  ETIQUETA_RECARGAR_PAGINA,
   MENSAJE_CORREO_MAS_TARDE,
   MENSAJE_CORREO_NO_ENVIADO,
   MENSAJE_VERSION_NUEVA,
@@ -105,6 +106,28 @@ type PrintRetryTarget = {
   idBodega: string | null;
 };
 
+type OvFeedback = {
+  ok: boolean;
+  title: string;
+  lines: string[];
+  retry: PrintRetryTarget | null;
+  /** REQ-189: pestaña con versión vieja; el botón recarga la página. */
+  recargar?: boolean;
+};
+
+/**
+ * Pestaña abierta antes de un despliegue: no es un fallo de impresión ni se reintenta,
+ * solo hay que recargar. La app responde `no-store` (incluido /_next/*) y no usa service
+ * worker, así que una recarga normal descarga todo de nuevo, igual que Ctrl+Shift+R.
+ */
+const FEEDBACK_VERSION_NUEVA: OvFeedback = {
+  ok: false,
+  title: MENSAJE_VERSION_NUEVA,
+  lines: [],
+  retry: null,
+  recargar: true,
+};
+
 function renderEstadoBadge(estado: string) {
   return (
     <PolariaTableBadge variant={variantEstadoOrdenVenta(estado)}>
@@ -162,12 +185,7 @@ export function OperadorOrdenesVentaPageContent({
   const [reprintConfirmRow, setReprintConfirmRow] =
     useState<OrdenVentaOperadorRow | null>(null);
   /** Un solo modal: orden confirmada + impresión (REQ-039). */
-  const [feedback, setFeedback] = useState<{
-    ok: boolean;
-    title: string;
-    lines: string[];
-    retry: PrintRetryTarget | null;
-  } | null>(null);
+  const [feedback, setFeedback] = useState<OvFeedback | null>(null);
   const showFeedback = useCallback(
     (item: { ok: boolean; title: string; detail: string }) => {
       setFeedback({
@@ -232,12 +250,7 @@ export function OperadorOrdenesVentaPageContent({
     if (!print.ok) {
       if (print.versionVieja) {
         // Pestaña con versión vieja: no es un fallo del correo y reintentar fallaría igual.
-        setFeedback({
-          ok: false,
-          title: MENSAJE_VERSION_NUEVA,
-          lines: [],
-          retry: null,
-        });
+        setFeedback(FEEDBACK_VERSION_NUEVA);
         return;
       }
       const target = lastEmitRef.current;
@@ -541,12 +554,7 @@ export function OperadorOrdenesVentaPageContent({
         if (esErrorDeVersionVieja(error)) {
           // REQ-189: pestaña con versión vieja. No es un fallo de impresión: no se registra
           // ni se marca la OV; basta con recargar la página.
-          setFeedback({
-            ok: false,
-            title: MENSAJE_VERSION_NUEVA,
-            lines: [],
-            retry: null,
-          });
+          setFeedback(FEEDBACK_VERSION_NUEVA);
           return;
         }
         if (modo === "reintento") {
@@ -633,12 +641,7 @@ export function OperadorOrdenesVentaPageContent({
               : "No se pudo enviar a la impresora.";
           console.error("[ov] reintento de correo a impresora:", detalle);
           if (esErrorDeVersionVieja(detalle)) {
-            setFeedback({
-              ok: false,
-              title: MENSAJE_VERSION_NUEVA,
-              lines: [],
-              retry: null,
-            });
+            setFeedback(FEEDBACK_VERSION_NUEVA);
             return;
           }
           await postOrdenVentaLog({
@@ -1489,7 +1492,15 @@ export function OperadorOrdenesVentaPageContent({
               </div>
             </div>
             <div className="border-t border-polaria-w-08 px-5 py-4 sm:px-6">
-              {feedback.retry ? (
+              {feedback.recargar ? (
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="w-full rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
+                >
+                  {ETIQUETA_RECARGAR_PAGINA}
+                </button>
+              ) : feedback.retry ? (
                 <button
                   type="button"
                   disabled={Boolean(busyAction)}
