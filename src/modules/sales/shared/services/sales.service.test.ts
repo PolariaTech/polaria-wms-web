@@ -7,6 +7,7 @@ import {
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { createSupabaseMock } from "@/test/create-supabase-mock";
 import {
+  avanzarEstadoOrdenVenta,
   borrarOrdenVenta,
   createOrdenVenta,
   getOrdenVentaDetalle,
@@ -250,7 +251,7 @@ describe("sales.service", () => {
     expect(chain.eq).toHaveBeenCalledWith("id_bodega", "BOD-01");
     expect(chain.gte).toHaveBeenCalledWith(
       "created_at",
-      getOrdersVisibleSinceDate(3),
+      getOrdersVisibleSinceDate(),
     );
     expect(chain.order).toHaveBeenCalledWith("created_at", {
       ascending: false,
@@ -1484,6 +1485,78 @@ describe("sales.service", () => {
       borrarOrdenVenta({
         codigoCuenta: "CUENTA-01",
         idOrdenVenta: "ov-dup",
+      }),
+    ).rejects.toBeInstanceOf(DomainServiceError);
+  });
+
+  it("avanzarEstadoOrdenVenta pasa de revisada a facturada", async () => {
+    const selectChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    selectChain.select.mockReturnValue(selectChain);
+    selectChain.eq.mockReturnValue(selectChain);
+    selectChain.maybeSingle.mockResolvedValue({
+      data: { estado: "revisada" },
+      error: null,
+    });
+
+    const updateChain = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    updateChain.update.mockReturnValue(updateChain);
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    updateChain.maybeSingle.mockResolvedValue({
+      data: { id_orden_venta: "ov-1" },
+      error: null,
+    });
+
+    let ordenCalls = 0;
+    const from = vi.fn((table: string) => {
+      if (table !== "orden_venta") throw new Error(`unexpected ${table}`);
+      ordenCalls += 1;
+      return ordenCalls === 1 ? selectChain : updateChain;
+    });
+    setSupabaseClientForTests({ from } as never);
+
+    await expect(
+      avanzarEstadoOrdenVenta({
+        codigoCuenta: "CUENTA-01",
+        idOrdenVenta: "ov-1",
+        estado: "facturada",
+      }),
+    ).resolves.toBe("facturada");
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ estado: "facturada" }),
+    );
+  });
+
+  it("avanzarEstadoOrdenVenta rechaza un retroceso", async () => {
+    const selectChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    selectChain.select.mockReturnValue(selectChain);
+    selectChain.eq.mockReturnValue(selectChain);
+    selectChain.maybeSingle.mockResolvedValue({
+      data: { estado: "despachada" },
+      error: null,
+    });
+    const from = vi.fn(() => selectChain);
+    setSupabaseClientForTests({ from } as never);
+
+    await expect(
+      avanzarEstadoOrdenVenta({
+        codigoCuenta: "CUENTA-01",
+        idOrdenVenta: "ov-1",
+        estado: "revisada",
       }),
     ).rejects.toBeInstanceOf(DomainServiceError);
   });

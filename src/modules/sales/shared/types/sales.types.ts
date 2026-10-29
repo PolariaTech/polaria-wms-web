@@ -3,13 +3,17 @@ import type { OrigenCorreoRenglon } from "@/modules/sales/ordenes/utils/origen/o
 
 /**
  * Estados de OV.
- * Los cuatro de flujo operativo + `cancelada` (soft-delete / «Borrar» en UI).
+ * Flujo operativo + `cancelada` (soft-delete / «Borrar» en UI).
+ * Tras alistada: revisada (Revisó), despachada (Despachó) y facturada (Factura OK).
  */
 export type EstadoOrdenVenta =
   | "por_confirmar"
   | "confirmada"
   | "alistamiento"
   | "alistada"
+  | "revisada"
+  | "despachada"
+  | "facturada"
   | "cancelada";
 
 export interface OrdenVentaRow {

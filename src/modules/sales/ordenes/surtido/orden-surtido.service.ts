@@ -24,7 +24,11 @@ import { filterLineasByOrdenTrabajoHija } from "../utils/ot/filter-lineas-by-ord
 import { extractNotasClaveCorreo } from "../utils/origen/texto-origen-pedido";
 import {
   capturaTieneAlistoCompleto,
+  capturaTieneDespacho,
+  capturaTieneFactura,
+  capturaTieneRevisoCompleto,
   computeEstadoAlistamientoFromCapturas,
+  estadoSurtidoEsAvance,
   puedeAplicarEstadoAlistamiento,
 } from "./compute-estado-alistamiento";
 import type {
@@ -446,7 +450,7 @@ export async function getOrdenSurtidoCaptura(
   if (!ctx) return null;
 
   const ot = normalizeIdOrdenTrabajo(idOrdenTrabajo);
-  let query = adminFrom(admin, ctx.schemaName, "orden_venta_surtido_captura")
+  const query = adminFrom(admin, ctx.schemaName, "orden_venta_surtido_captura")
     .select(CAPTURA_SELECT)
     .eq("id_orden_venta", idOrdenVenta)
     .eq("id_orden_trabajo", ot);
@@ -867,7 +871,9 @@ export async function applySurtidoCapturaToOrdenVenta(input: {
 
 /**
  * Tras subir una foto QR, actualiza el estado de la OV:
- * confirmada → alistamiento (foto / parcial) → alistada (foto + Alistó en todas las líneas).
+ * confirmada → alistamiento → alistada (Alistó) → revisada (Revisó) → despachada (Despachó) → facturada (Factura OK).
+ * Gana la marca más avanzada de cualquier foto. La firma de Despachó o de Factura (OK)
+ * no depende de los chulos. Solo avanza; no regresa un hito ya alcanzado.
  */
 export async function syncOrdenVentaEstadoAlistamiento(input: {
   idOrdenVenta: string;
@@ -971,6 +977,55 @@ export async function syncOrdenVentaEstadoAlistamiento(input: {
     return capturaTieneAlistoCompleto(captura.payload, esperadas);
   };
 
+  const capturaDeOt = (hija: OrdenTrabajoHija | null) => {
+    const otKey = normalizeIdOrdenTrabajo(hija?.id);
+    return (
+      (otKey ? capturaByOt.get(otKey) : undefined) ??
+      capturaByOt.get("") ??
+      capturaByOt.get("default") ??
+      capturas[0]
+    );
+  };
+
+  const lineasEsperadasDeOt = (hija: OrdenTrabajoHija | null): number => {
+    const captura = capturaDeOt(hija);
+    if (!captura) return 0;
+    const lineasOt = filterLineasByOrdenTrabajoHija(
+      lineasOrden as never,
+      hija && hija.renglones.length > 0 ? hija : null,
+      {
+        emptyFallback:
+          !hija || hija.renglones.length === 0 || hijas.length <= 1
+            ? "all"
+            : "none",
+      },
+    );
+    return lineasOt.length > 0
+      ? lineasOt.length
+      : (captura.payload.lineas?.length ?? 0);
+  };
+
+  const countRevisoCompletoForOt = (hija: OrdenTrabajoHija | null): boolean => {
+    const captura = capturaDeOt(hija);
+    if (!captura) return false;
+    return capturaTieneRevisoCompleto(
+      captura.payload,
+      lineasEsperadasDeOt(hija),
+    );
+  };
+
+  const countDespachoForOt = (hija: OrdenTrabajoHija | null): boolean => {
+    const captura = capturaDeOt(hija);
+    if (!captura) return false;
+    return capturaTieneDespacho(captura.payload);
+  };
+
+  const countFacturaForOt = (hija: OrdenTrabajoHija | null): boolean => {
+    const captura = capturaDeOt(hija);
+    if (!captura) return false;
+    return capturaTieneFactura(captura.payload);
+  };
+
   const totalOrdenesTrabajo = hijas.length;
   const ordenesTrabajoConFoto =
     totalOrdenesTrabajo === 0
@@ -986,13 +1041,37 @@ export async function syncOrdenVentaEstadoAlistamiento(input: {
         : 0
       : hijas.filter((hija) => countAlistoCompletoForOt(hija)).length;
 
+  const ordenesTrabajoConRevisoCompleto =
+    totalOrdenesTrabajo === 0
+      ? countRevisoCompletoForOt(null)
+        ? 1
+        : 0
+      : hijas.filter((hija) => countRevisoCompletoForOt(hija)).length;
+
+  const ordenesTrabajoConFactura =
+    totalOrdenesTrabajo === 0
+      ? countFacturaForOt(null)
+        ? 1
+        : 0
+      : hijas.filter((hija) => countFacturaForOt(hija)).length;
+
+  const ordenesTrabajoConDespacho =
+    totalOrdenesTrabajo === 0
+      ? countDespachoForOt(null)
+        ? 1
+        : 0
+      : hijas.filter((hija) => countDespachoForOt(hija)).length;
+
   const siguiente = computeEstadoAlistamientoFromCapturas({
     totalOrdenesTrabajo,
     ordenesTrabajoConFoto,
     ordenesTrabajoConAlistoCompleto,
+    ordenesTrabajoConRevisoCompleto,
+    ordenesTrabajoConFactura,
+    ordenesTrabajoConDespacho,
   });
 
-  if (!siguiente || siguiente === estadoActual) {
+  if (!siguiente || !estadoSurtidoEsAvance(estadoActual, siguiente)) {
     return { estado: estadoActual, updated: false };
   }
 
@@ -1015,11 +1094,17 @@ export async function syncOrdenVentaEstadoAlistamiento(input: {
     );
     const ot = normalizeIdOrdenTrabajo(input.idOrdenTrabajo);
     const labelEstado =
-      siguiente === "alistada"
-        ? "alistada"
-        : siguiente === "alistamiento"
-          ? "en alistamiento"
-          : siguiente;
+      siguiente === "alistamiento"
+        ? "en alistamiento"
+        : siguiente === "alistada"
+          ? "alistada"
+          : siguiente === "revisada"
+            ? "revisada"
+            : siguiente === "facturada"
+              ? "facturada"
+              : siguiente === "despachada"
+                ? "despachada"
+                : siguiente;
     await recordOrdenVentaLogServer({
       idOrdenVenta: input.idOrdenVenta,
       codigoCuenta: ctx.codigoCuenta,

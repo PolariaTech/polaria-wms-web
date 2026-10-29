@@ -395,6 +395,9 @@ export function OperadorOrdenesVentaPageContent({
       confirmada: 0,
       alistamiento: 0,
       alistada: 0,
+      revisada: 0,
+      facturada: 0,
+      despachada: 0,
       cancelada: 0,
     };
     for (const row of rowsDelDia) {
@@ -1074,7 +1077,7 @@ export function OperadorOrdenesVentaPageContent({
           aria-pressed={estadoFiltro === null}
           onClick={() => setEstadoFiltro(null)}
           className={cn(
-            "min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm font-semibold transition sm:py-3.5 sm:text-base",
+            "flex flex-1 items-center justify-center whitespace-nowrap rounded-xl border px-2.5 py-2 text-sm font-semibold transition",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
             estadoFiltro === null
               ? "border-polaria-teal bg-polaria-teal text-polaria-on-teal"
@@ -1084,7 +1087,7 @@ export function OperadorOrdenesVentaPageContent({
           Todos
           <span
             className={cn(
-              "ml-2 tabular-nums",
+              "ml-1.5 tabular-nums",
               estadoFiltro === null
                 ? "text-polaria-on-teal/80"
                 : "text-polaria-w-50",
@@ -1103,7 +1106,7 @@ export function OperadorOrdenesVentaPageContent({
               aria-pressed={selected}
               onClick={() => setEstadoFiltro(estado)}
               className={cn(
-                "min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm font-semibold transition sm:py-3.5 sm:text-base",
+                "flex flex-1 items-center justify-center whitespace-nowrap rounded-xl border px-2.5 py-2 text-sm font-semibold transition",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
                 selected
                   ? "border-polaria-teal bg-polaria-teal text-polaria-on-teal"
@@ -1113,7 +1116,7 @@ export function OperadorOrdenesVentaPageContent({
               {ESTADO_ORDEN_VENTA_LABELS[estado]}
               <span
                 className={cn(
-                  "ml-2 tabular-nums",
+                  "ml-1.5 tabular-nums",
                   selected ? "text-polaria-on-teal/80" : "text-polaria-w-50",
                 )}
               >
@@ -1276,6 +1279,9 @@ export function OperadorOrdenesVentaPageContent({
             : null;
           if (!target) return;
           void openFotosCaptura(target, idOrdenTrabajo);
+        }}
+        onEstadoCambiado={() => {
+          void reload();
         }}
         onBorrar={
           inspect || !cypherId || !codigoCuenta

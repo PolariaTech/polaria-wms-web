@@ -41,11 +41,15 @@ describe("ov-sla", () => {
     });
   });
 
-  it("cierra SLA/alerta cuando la OV está alistada", () => {
+  it("mantiene el reloj en alistado y lo cierra al despachar", () => {
     const now = Date.parse(base) + 120 * 60_000;
-    const result = computeOvSla("alistada", base, config, now);
-    expect(result.slaStatus).toBe("cerrada");
-    expect(result.alertaStatus).toBe("cerrada");
+    const alistada = computeOvSla("alistada", base, config, now);
+    expect(alistada.slaStatus).toBe("atrasada");
+    const despachada = computeOvSla("despachada", base, config, now);
+    expect(despachada.slaStatus).toBe("cerrada");
+    expect(despachada.alertaStatus).toBe("cerrada");
+    const facturada = computeOvSla("facturada", base, config, now);
+    expect(facturada.slaStatus).toBe("cerrada");
   });
 
   it("formatea el tiempo en etapa", () => {

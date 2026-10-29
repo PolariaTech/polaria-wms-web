@@ -50,7 +50,7 @@ export function computeOvSla(
 ): OvSlaComputed {
   const minutosEnEstado = minutesSince(estadoDesde, nowMs);
 
-  if (estado === "alistada" || estado === "cancelada") {
+  if (estado === "despachada" || estado === "facturada" || estado === "cancelada") {
     return {
       minutosEnEstado,
       slaStatus: "cerrada",

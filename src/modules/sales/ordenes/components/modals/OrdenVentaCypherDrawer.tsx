@@ -36,7 +36,9 @@ import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
 import { withCuentaSchema } from "@/lib/supabase/cuenta-schema";
 import { useCuentaZonaHoraria } from "@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria";
+import { useAuthStore } from "@/stores/auth.store";
 import {
+  estadosSuperioresOrdenVenta,
   formatEstadoOrdenVenta,
   normalizeEstadoOrdenVenta,
   puedeAccionesAlmacenOrdenVenta,
@@ -44,13 +46,19 @@ import {
   puedeEditarOrdenVentaDesdeLista,
   variantEstadoOrdenVenta,
 } from "../../../shared/constants/sales-status";
-import { getOrdenVentaDetalle } from "../../../shared/services/sales.service";
+import {
+  avanzarEstadoOrdenVenta,
+  getOrdenVentaDetalle,
+} from "../../../shared/services/sales.service";
 import type {
   EstadoOrdenVenta,
   OrdenVentaDetalleRow,
   OrdenVentaOperadorRow,
 } from "../../../shared/types/sales.types";
-import { fetchOrdenVentaLog } from "../../services/orden-venta-log.client";
+import {
+  fetchOrdenVentaLog,
+  postOrdenVentaLog,
+} from "../../services/orden-venta-log.client";
 import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
 import { armarPickerOtRespaldo } from "../../utils/ot/reagrupacion-modal-estado";
 import { filterLogEntriesVisible } from "../../utils/ot/filter-log-entries-visible";
@@ -104,7 +112,11 @@ type CypherStageId =
   | "cliente-vs-mateo"
   | "alistamiento"
   | "alistado"
-  | "bitacora";
+  | "revisado"
+  | "facturado"
+  | "despachado"
+  | "bitacora"
+  | "cambio-estado";
 
 const CYPHER_STAGES: ReadonlyArray<{
   id: CypherStageId;
@@ -138,11 +150,20 @@ const CYPHER_STAGES: ReadonlyArray<{
     title: "Alistamiento",
   },
   { id: "alistado", num: "05", label: "Alistado", title: "Alistado" },
+  { id: "revisado", num: "06", label: "Revisado", title: "Revisado" },
+  { id: "despachado", num: "07", label: "Despachado", title: "Despachado" },
+  { id: "facturado", num: "08", label: "Facturado", title: "Facturado" },
   {
     id: "bitacora",
-    num: "06",
+    num: "09",
     label: "Bitácora",
     title: "Bitácora de eventos",
+  },
+  {
+    id: "cambio-estado",
+    num: "10",
+    label: "Cambio de estado",
+    title: "Cambio de estado",
   },
 ];
 
@@ -151,6 +172,9 @@ const ESTADO_STAGE_INDEX: Record<EstadoOrdenVenta, number> = {
   confirmada: 1,
   alistamiento: 2,
   alistada: 3,
+  revisada: 4,
+  despachada: 5,
+  facturada: 6,
   cancelada: 0,
 };
 
@@ -165,7 +189,10 @@ function stageReached(
   if (stage === "cliente-vs-mateo") return true;
   if (stage === "alistamiento") return current >= 2;
   if (stage === "alistado") return current >= 3;
-  return true; // bitácora siempre
+  if (stage === "revisado") return current >= 4;
+  if (stage === "despachado") return current >= 5;
+  if (stage === "facturado") return current >= 6;
+  return true; // bitácora y cambio de estado siempre
 }
 
 /** Texto crudo del correo (completo) para el modal. */
@@ -332,6 +359,8 @@ export interface OrdenVentaCypherDrawerProps {
   companionOtPicker?: CypherCompanionOtPicker | null;
   /** REQ-126: cliente vivo del formulario de edición (prioridad sobre detalle). */
   companionIdComprador?: string | null;
+  /** Recarga la lista después de un avance manual de estado. */
+  onEstadoCambiado?: () => void;
   /**
    * REQ-188: Cypher abierto solo desde el «+» de Acciones (sin formulario). Abre la
    * edición de la OV con el chat «Modificar con IA» ya listo. Solo se entrega con la
@@ -355,6 +384,7 @@ export function OrdenVentaCypherDrawer({
   companionWithEdit = false,
   companionOtPicker = null,
   companionIdComprador = null,
+  onEstadoCambiado,
   onReagruparDesdeLista,
 }: OrdenVentaCypherDrawerProps) {
   const titleId = useId();
@@ -434,6 +464,17 @@ export function OrdenVentaCypherDrawer({
   const [emlInnerLoading, setEmlInnerLoading] = useState(false);
   const [confirmBorrarOpen, setConfirmBorrarOpen] = useState(false);
   const [borrarError, setBorrarError] = useState<string | null>(null);
+  const [estadoForzado, setEstadoForzado] = useState<EstadoOrdenVenta | null>(
+    null,
+  );
+  const [estadoCambiando, setEstadoCambiando] =
+    useState<EstadoOrdenVenta | null>(null);
+  const [estadoPendiente, setEstadoPendiente] =
+    useState<EstadoOrdenVenta | null>(null);
+  const [cambioEstadoError, setCambioEstadoError] = useState<string | null>(
+    null,
+  );
+  const [logNonce, setLogNonce] = useState(0);
   const [panelMounted, setPanelMounted] = useState(false);
   const [panelEntered, setPanelEntered] = useState(false);
 
@@ -483,6 +524,10 @@ export function OrdenVentaCypherDrawer({
     // REQ-108: al cambiar de OV, el pop-up de borrar de la anterior no debe reaparecer.
     setConfirmBorrarOpen(false);
     setBorrarError(null);
+    setEstadoForzado(null);
+    setEstadoCambiando(null);
+    setEstadoPendiente(null);
+    setCambioEstadoError(null);
 
     let cancelled = false;
     setIsLoading(true);
@@ -595,6 +640,7 @@ export function OrdenVentaCypherDrawer({
     orden?.fecha_pedido,
     orden?.vendedor,
     row?.fecha,
+    logNonce,
   ]);
 
   useBodyScrollLock(open);
@@ -682,8 +728,64 @@ export function OrdenVentaCypherDrawer({
 
   // Lista operativa primero: no mostrar «Confirmada» si la fila es por_confirmar.
   const estado = normalizeEstadoOrdenVenta(
-    row?.estado ?? orden?.estado ?? "por_confirmar",
+    estadoForzado ?? row?.estado ?? orden?.estado ?? "por_confirmar",
   ) as EstadoOrdenVenta;
+  const estadosSuperiores = estadosSuperioresOrdenVenta(estado);
+
+  const cambiarEstado = useCallback(
+    (destino: EstadoOrdenVenta) => {
+      if (!idOrdenVenta || !codigoCuenta || estadoCambiando) return;
+      setCambioEstadoError(null);
+      setEstadoCambiando(destino);
+      void avanzarEstadoOrdenVenta({
+        codigoCuenta,
+        idOrdenVenta,
+        estado: destino,
+      })
+        .then(() => {
+          setEstadoPendiente(null);
+          setEstadoForzado(destino);
+          setOrden((prev) => (prev ? { ...prev, estado: destino } : prev));
+          setLogNonce((value) => value + 1);
+          const session = useAuthStore.getState().session;
+          const autor = session?.nombre?.trim() || "usuario";
+          void postOrdenVentaLog({
+            idOrdenVenta,
+            codigoCuenta,
+            accion: "cambio_estado",
+            mensaje: `Estado de la orden actualizado a ${formatEstadoOrdenVenta(destino)} por ${autor}.`,
+            idUsuario: session?.idUsuario ?? null,
+            autorNombre: session?.nombre ?? null,
+            idBodega: row?.idBodega ?? orden?.id_bodega ?? null,
+            payloadExtra: {
+              tipo: "cambio_estado_manual",
+              estadoAnterior: estado,
+              estadoNuevo: destino,
+            },
+          });
+          onEstadoCambiado?.();
+        })
+        .catch((err: unknown) => {
+          setCambioEstadoError(
+            err instanceof Error
+              ? err.message
+              : "No se pudo cambiar el estado.",
+          );
+        })
+        .finally(() => {
+          setEstadoCambiando(null);
+        });
+    },
+    [
+      codigoCuenta,
+      estado,
+      estadoCambiando,
+      idOrdenVenta,
+      onEstadoCambiado,
+      orden?.id_bodega,
+      row?.idBodega,
+    ],
+  );
   const codigo = orden?.codigo ?? row?.venta ?? "OV";
   const comprador =
     (orden ? formatCompradorOrdenVenta(orden) : null) ||
@@ -1284,8 +1386,59 @@ export function OrdenVentaCypherDrawer({
               </StageAccordion>
 
               <StageAccordion
-                stageId="bitacora"
+                stageId="revisado"
                 num="06"
+                title="Revisado"
+                open={openStages.has("revisado")}
+                muted={!stageReached(estado, "revisado")}
+                onToggle={toggleAccordionStage}
+              >
+                {stageReached(estado, "revisado") ? (
+                  <p className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3 polaria-text-body-sm text-polaria-w">
+                    Todas las órdenes de trabajo tienen el chequeo de revisión.
+                  </p>
+                ) : (
+                  <PendingStageBody />
+                )}
+              </StageAccordion>
+
+              <StageAccordion
+                stageId="despachado"
+                num="07"
+                title="Despachado"
+                open={openStages.has("despachado")}
+                muted={!stageReached(estado, "despachado")}
+                onToggle={toggleAccordionStage}
+              >
+                {stageReached(estado, "despachado") ? (
+                  <p className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3 polaria-text-body-sm text-polaria-w">
+                    La hoja tiene la firma de Despachó. La orden quedó embarcada.
+                  </p>
+                ) : (
+                  <PendingStageBody />
+                )}
+              </StageAccordion>
+
+              <StageAccordion
+                stageId="facturado"
+                num="08"
+                title="Facturado"
+                open={openStages.has("facturado")}
+                muted={!stageReached(estado, "facturado")}
+                onToggle={toggleAccordionStage}
+              >
+                {stageReached(estado, "facturado") ? (
+                  <p className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3 polaria-text-body-sm text-polaria-w">
+                    La hoja tiene Factura (OK) o el folio de la factura.
+                  </p>
+                ) : (
+                  <PendingStageBody />
+                )}
+              </StageAccordion>
+
+              <StageAccordion
+                stageId="bitacora"
+                num="09"
                 title="Bitácora de eventos"
                 open={openStages.has("bitacora")}
                 onToggle={toggleAccordionStage}
@@ -1396,6 +1549,38 @@ export function OrdenVentaCypherDrawer({
                     </ul>
                   )}
                 </div>
+              </StageAccordion>
+
+              <StageAccordion
+                stageId="cambio-estado"
+                num="10"
+                title="Cambio de estado"
+                open={openStages.has("cambio-estado")}
+                onToggle={toggleAccordionStage}
+              >
+                {estadosSuperiores.length === 0 ? (
+                  <p className="polaria-text-body-sm text-polaria-w-50">
+                    No hay estados posteriores.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {estadosSuperiores.map((destino) => (
+                      <button
+                        key={destino}
+                        type="button"
+                        disabled={estadoCambiando !== null}
+                        onClick={() => {
+                          if (estadoCambiando) return;
+                          setCambioEstadoError(null);
+                          setEstadoPendiente(destino);
+                        }}
+                        className="rounded-lg bg-polaria-teal px-2.5 py-1.5 text-xs font-semibold text-polaria-on-teal transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {formatEstadoOrdenVenta(destino)}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </StageAccordion>
             </>
           ) : null}
@@ -1516,6 +1701,32 @@ export function OrdenVentaCypherDrawer({
         cancelLabel="Conservar"
         isSubmitting={busyKind === "borrar"}
         error={borrarError}
+      />
+
+      <PolariaConfirmDialog
+        open={estadoPendiente !== null}
+        stackLevel="nested"
+        onClose={() => {
+          if (estadoCambiando) return;
+          setEstadoPendiente(null);
+          setCambioEstadoError(null);
+        }}
+        onConfirm={() => {
+          if (!estadoPendiente || estadoCambiando) return;
+          cambiarEstado(estadoPendiente);
+        }}
+        title={
+          estadoPendiente
+            ? `¿Pasar a ${formatEstadoOrdenVenta(estadoPendiente)}?`
+            : "¿Cambiar el estado?"
+        }
+        description="Este cambio no se puede deshacer. La orden solo puede seguir hacia un estado posterior."
+        confirmLabel={
+          estadoCambiando ? "Guardando…" : "Sí, cambiar estado"
+        }
+        cancelLabel="Cancelar"
+        isSubmitting={estadoCambiando !== null}
+        error={cambioEstadoError}
       />
 
     </div>

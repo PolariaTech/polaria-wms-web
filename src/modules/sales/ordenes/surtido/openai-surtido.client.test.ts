@@ -3,7 +3,6 @@ import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.ty
 import {
   ensureLineasCompletas,
   expandNombresParcialesFirmas,
-  promoteRevisoSoloToAlisto,
   remapLineasPorProducto,
   sanitizeFacturaAsociada,
   sanitizeFacturaOkFolioFirma,
@@ -184,28 +183,16 @@ describe("ensureLineasCompletas (REQ-153)", () => {
   });
 });
 
-describe("promoteRevisoSoloToAlisto (REQ-153)", () => {
-  it("promueve Revisó solo a Alistó", () => {
-    const lineas = promoteRevisoSoloToAlisto([
-      {
-        indice: 1,
-        alisto: false,
-        reviso: true,
-      },
-      {
-        indice: 2,
-        alisto: true,
-        reviso: true,
-      },
-      {
-        indice: 3,
-        alisto: false,
-        reviso: false,
-      },
+describe("chulo de Revisó", () => {
+  it("no convierte Revisó en Alistó", () => {
+    const lineas = ensureLineasCompletas(original, [
+      { indice: 1, alisto: false, reviso: true },
+      { indice: 2, alisto: true, reviso: true },
+      { indice: 3, alisto: false, reviso: false },
     ]);
-    expect(lineas[0]?.alisto).toBe(true);
-    expect(lineas[1]?.alisto).toBe(true);
-    expect(lineas[2]?.alisto).toBe(false);
+    expect(lineas[0]).toMatchObject({ alisto: false, reviso: true });
+    expect(lineas[1]).toMatchObject({ alisto: true, reviso: true });
+    expect(lineas[2]).toMatchObject({ alisto: false, reviso: false });
   });
 });
 

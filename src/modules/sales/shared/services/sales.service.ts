@@ -14,6 +14,7 @@ import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bod
 import type { WarehouseStateRow } from "@/modules/inventory/shared/types/inventory.types";
 import {
   normalizeEstadoOrdenVenta,
+  puedeAvanzarEstadoOrdenVenta,
   puedeBorrarOrdenVenta,
   puedeEditarOrdenVenta,
 } from "../constants/sales-status";
@@ -44,6 +45,7 @@ import {
   type CreateOrdenVentaInput,
   type OrdenVentaDetalleRow,
   type OrdenVentaLineaRow,
+  type EstadoOrdenVenta,
   type OrdenVentaOperadorRow,
   type OrdenVentaRow,
   type ProductoVentaOption,
@@ -807,6 +809,9 @@ const DEMO_TECNO_ESTADOS = [
   "confirmada",
   "alistamiento",
   "alistada",
+  "revisada",
+  "despachada",
+  "facturada",
 ] as const;
 
 async function listOrdenesVentaOperadorDemoOnePerEstado(
@@ -1649,6 +1654,83 @@ export async function borrarOrdenVenta(params: {
       "MUTATION_FAILED",
     );
   }
+}
+
+/** Avanza la OV solo a un estado posterior. No retrocede. */
+export async function avanzarEstadoOrdenVenta(params: {
+  codigoCuenta: string;
+  idOrdenVenta: string;
+  estado: EstadoOrdenVenta;
+}): Promise<EstadoOrdenVenta> {
+  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  const idOrdenVenta = params.idOrdenVenta.trim();
+  const destino = normalizeEstadoOrdenVenta(params.estado);
+  if (!idOrdenVenta) {
+    throw new DomainServiceError(
+      "La orden de venta no es válida.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const existing = await runDomainQuery<{ estado: string } | null>(
+    (client) => {
+      const query = client
+        .from("orden_venta")
+        .select("estado")
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_orden_venta", idOrdenVenta)
+        .maybeSingle();
+
+      return query as unknown as Promise<{
+        data: { estado: string } | null;
+        error: { message: string } | null;
+      }>;
+    },
+  );
+
+  if (!existing) {
+    throw new DomainServiceError(
+      "No se encontró la orden de venta.",
+      "NOT_FOUND",
+    );
+  }
+
+  if (!puedeAvanzarEstadoOrdenVenta(existing.estado, destino)) {
+    throw new DomainServiceError(
+      "Solo se puede pasar a un estado superior.",
+      "MUTATION_FAILED",
+    );
+  }
+
+  const updated = await runDomainMutation<{ id_orden_venta: string } | null>(
+    (client) => {
+      const query = client
+        .from("orden_venta")
+        .update({
+          estado: destino,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_orden_venta", idOrdenVenta)
+        .eq("estado", existing.estado)
+        .select("id_orden_venta")
+        .maybeSingle();
+
+      return query as unknown as Promise<{
+        data: { id_orden_venta: string } | null;
+        error: { message: string } | null;
+      }>;
+    },
+  );
+
+  if (!updated?.id_orden_venta) {
+    throw new DomainServiceError(
+      "No se pudo cambiar el estado. Recarga e inténtalo de nuevo.",
+      "MUTATION_FAILED",
+    );
+  }
+
+  return destino;
 }
 
 function resolveCompradorRel(
