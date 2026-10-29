@@ -28,6 +28,16 @@ export interface OrdenSurtidoChecks {
   recepcionRetornoFactura?: boolean | null;
 }
 
+/** Veredicto de visión sobre si la foto del QR es usable (REQ-194). */
+export interface OrdenSurtidoCalidadFoto {
+  /** true solo si se ve la hoja impresa de OV/surtido (no manos/caja/otra cosa). */
+  esHojaSurtido: boolean;
+  /** true solo si la hoja entra completa, de frente y se lee (hora impresa incluida). */
+  hojaCompletaYLegible: boolean;
+  /** Motivo corto en español si falla; vacío si pasa. */
+  motivo: string;
+}
+
 export interface OrdenSurtidoCapturaPayload {
   /**
    * Campos de texto detectados.
@@ -42,6 +52,8 @@ export interface OrdenSurtidoCapturaPayload {
   observacionesIa?: string | null;
   /** 0–100 cobertura/confianza estimada de la lectura. */
   precisionEstimada?: number | null;
+  /** Calidad del encuadre / legibilidad (REQ-194). */
+  calidadFoto?: OrdenSurtidoCalidadFoto | null;
 }
 
 export interface OrdenSurtidoCapturaRow {
