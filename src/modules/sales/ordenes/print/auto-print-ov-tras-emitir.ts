@@ -11,6 +11,10 @@ import { postOrdenVentaLogForOts } from "../services/orden-venta-log.client";
 import { printOrdenTareaAlmacenLandscape } from "./download-orden-tarea-almacen-pdf";
 import { mapOrdenVentaToAlmacenPrintSheets } from "./map-orden-tarea-almacen";
 import {
+  MENSAJE_VERSION_NUEVA,
+  esErrorDeVersionVieja,
+} from "./print-correo-fallo";
+import {
   printNotQueuedDetail,
   printQueueLogMensaje,
   printQueuePayload,
@@ -207,6 +211,8 @@ export function autoPrintResultToFeedback(result: AutoPrintOvResult): {
   title: string;
   detail: string;
   line: string;
+  /** La pestaña corre una versión vieja de la página: basta con recargarla (REQ-189). */
+  versionVieja?: boolean;
 } | null {
   if (result.status === "skipped") return null;
   if (result.status === "ok") {
@@ -217,6 +223,15 @@ export function autoPrintResultToFeedback(result: AutoPrintOvResult): {
       hojas: result.hojas,
     });
     return { ok: true, ...message };
+  }
+  if (esErrorDeVersionVieja(result.message)) {
+    return {
+      ok: false,
+      title: "Recarga la página",
+      detail: MENSAJE_VERSION_NUEVA,
+      line: MENSAJE_VERSION_NUEVA,
+      versionVieja: true,
+    };
   }
   const sinImpresora = result.message.includes("impresora configurada");
   if (sinImpresora) {
