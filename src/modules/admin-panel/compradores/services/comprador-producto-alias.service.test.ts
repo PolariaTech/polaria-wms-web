@@ -144,6 +144,7 @@ describe("comprador-producto-alias.service", () => {
           metadatos_catalogo: {
             titulo: "BPNY FROZEN-BEEF PRIME NY STRIP",
             precio: "90",
+            tipo_producto: 1,
           },
         },
       ],
@@ -518,6 +519,7 @@ describe("comprador-producto-alias.service", () => {
           metadatos_catalogo: {
             titulo: "BPNY FROZEN-BEEF PRIME NY STRIP",
             precio: "90",
+            tipo_producto: 1,
           },
         },
       ],
@@ -676,7 +678,7 @@ describe("comprador-producto-alias.service", () => {
           es_secundario: false,
           unidad_visualizacion: "cantidad",
           id_producto_primario: null,
-          metadatos_catalogo: { titulo: "Pollo entero" },
+          metadatos_catalogo: { titulo: "Pollo entero", tipo_producto: 1 },
         },
         {
           id_producto: "dddddddd-dddd-dddd-dddd-dddddddddddd",
@@ -687,7 +689,7 @@ describe("comprador-producto-alias.service", () => {
           es_secundario: false,
           unidad_visualizacion: "cantidad",
           id_producto_primario: null,
-          metadatos_catalogo: { titulo: "Hamburguesa" },
+          metadatos_catalogo: { titulo: "Hamburguesa", tipo_producto: 1 },
         },
       ],
       error: null,

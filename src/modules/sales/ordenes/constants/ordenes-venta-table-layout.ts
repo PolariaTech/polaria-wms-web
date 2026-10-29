@@ -7,7 +7,7 @@ const COLUMN_MIN_WIDTH: Record<string, string> = {
   total: "min-w-[6.5rem]",
   estado: "min-w-[8rem]",
   fecha: "min-w-[10rem]",
-  ot: "min-w-[4rem]",
+  ot: "min-w-[5rem]",
   origen: "min-w-[7rem]",
   imprimir: "min-w-[6.5rem]",
   descargar: "min-w-[6.5rem]",

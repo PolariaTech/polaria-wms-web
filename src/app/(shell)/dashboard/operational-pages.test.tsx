@@ -550,9 +550,9 @@ describe("vistas operativas dashboard", () => {
     await waitFor(() => {
       expect(listOrdenesVentaOperador).toHaveBeenCalled();
       expect(screen.getByText("OV")).toBeInTheDocument();
-      expect(screen.getByText("OCC")).toBeInTheDocument();
+      expect(screen.getByText("Orden de compra")).toBeInTheDocument();
       expect(screen.getByText("Cliente")).toBeInTheDocument();
-      expect(screen.getByText("OT")).toBeInTheDocument();
+      expect(screen.getByText("Tareas")).toBeInTheDocument();
       expect(screen.getByText("Acciones")).toBeInTheDocument();
       expect(screen.getByText("OV-001")).toBeInTheDocument();
       expect(screen.getByText("OC-100")).toBeInTheDocument();
@@ -561,7 +561,7 @@ describe("vistas operativas dashboard", () => {
       expect(screen.getByText("Retail Norte")).toBeInTheDocument();
       expect(screen.getByText("2")).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Imprimir" }),
+        screen.getByRole("button", { name: "Ver detalle de OV-001" }),
       ).toBeInTheDocument();
       // Descargar PDF vertical solo en NODE_ENV=development (no en vitest).
     });

@@ -9,6 +9,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
+vi.mock("@/providers/tenant/CompanyProvider", () => ({
+  useCompany: () => ({ codigoCuenta: "" }),
+}));
+
 import { OperadorCuentaHub } from "../../operador-cuenta/components/OperadorCuentaHub";
 
 describe("OperadorCuentaHub", () => {

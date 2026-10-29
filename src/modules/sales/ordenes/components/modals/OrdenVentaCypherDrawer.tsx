@@ -60,6 +60,7 @@ import {
   postOrdenVentaLog,
 } from "../../services/orden-venta-log.client";
 import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
+import { armarPickerOtRespaldo } from "../../utils/ot/reagrupacion-modal-estado";
 import { filterLogEntriesVisible } from "../../utils/ot/filter-log-entries-visible";
 import {
   extractLogSlaCallout,
@@ -328,7 +329,7 @@ export type CypherCompanionOtPicker = {
   selectedId?: string | null;
   onSelect: (id: string) => void;
   /**
-   * Abre el modal «Reorganizar con IA» (REQ-125). Solo lo entrega el formulario de
+   * Abre el modal «Modificar con IA» (REQ-125). Solo lo entrega el formulario de
    * edición cuando la OV está por confirmar; sin él, el botón no se dibuja.
    */
   onReagrupar?: () => void;
@@ -360,6 +361,12 @@ export interface OrdenVentaCypherDrawerProps {
   companionIdComprador?: string | null;
   /** Recarga la lista después de un avance manual de estado. */
   onEstadoCambiado?: () => void;
+  /**
+   * REQ-188: Cypher abierto solo desde el «+» de Acciones (sin formulario). Abre la
+   * edición de la OV con el chat «Modificar con IA» ya listo. Solo se entrega con la
+   * OV por confirmar.
+   */
+  onReagruparDesdeLista?: () => void;
 }
 
 export function OrdenVentaCypherDrawer({
@@ -378,6 +385,7 @@ export function OrdenVentaCypherDrawer({
   companionOtPicker = null,
   companionIdComprador = null,
   onEstadoCambiado,
+  onReagruparDesdeLista,
 }: OrdenVentaCypherDrawerProps) {
   const titleId = useId();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -584,19 +592,13 @@ export function OrdenVentaCypherDrawer({
     if (companionOtPicker && companionOtPicker.hijas.length > 0) {
       return companionOtPicker;
     }
-    if (hijasFromOrden.length === 0) return null;
-    return {
-      hijas: hijasFromOrden.map((hija) => ({
-        id: hija.id,
-        label: hija.label,
-        productosCount: hija.renglones.length,
-        totalCantidad: hija.totalCantidad,
-        almacen: hija.almacen,
-      })),
-      selectedId: fallbackOtId ?? hijasFromOrden[0]?.id ?? null,
-      onSelect: (id: string) => setFallbackOtId(id),
-    };
-  }, [companionOtPicker, fallbackOtId, hijasFromOrden]);
+    return armarPickerOtRespaldo({
+      hijas: hijasFromOrden,
+      selectedId: fallbackOtId,
+      onSelect: setFallbackOtId,
+      onReagrupar: onReagruparDesdeLista,
+    });
+  }, [companionOtPicker, fallbackOtId, hijasFromOrden, onReagruparDesdeLista]);
 
   /** OT activa: bitácora se acota a esa OT. */
   const idOrdenTrabajoBitacora =
