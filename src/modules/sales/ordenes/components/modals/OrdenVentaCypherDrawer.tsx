@@ -31,6 +31,7 @@ import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDia
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
+import { useCenterActiveTab } from "@/hooks/shared/useCenterActiveTab";
 import { cn } from "@/lib/utils/cn";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
@@ -677,19 +678,8 @@ export function OrdenVentaCypherDrawer({
     });
   }, []);
 
-  // La pestaña activa se centra sola dentro de la barra de etapas (scroll lateral).
-  useEffect(() => {
-    const nav = stageNavRef.current;
-    const tab = nav?.querySelector<HTMLElement>('[aria-current="true"]');
-    if (!nav || !tab) return;
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    nav.scrollTo({
-      left: Math.max(0, tab.offsetLeft - (nav.clientWidth - tab.offsetWidth) / 2),
-      behavior: reduceMotion ? "auto" : "smooth",
-    });
-  }, [activeStage, open]);
+  // La etapa activa se centra sola en la barra de etapas (scroll lateral).
+  useCenterActiveTab(stageNavRef, activeStage, open);
 
   const toggleAccordionStage = useCallback((stageId: CypherStageId) => {
     setOpenStages((prev) => {
