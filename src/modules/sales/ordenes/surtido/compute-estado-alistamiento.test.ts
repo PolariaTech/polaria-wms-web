@@ -306,5 +306,26 @@ describe("captura de revisión y despacho", () => {
         lineas: [],
       }),
     ).toBe(false);
+    expect(
+      capturaTieneFactura({
+        campos: { "Documentación folio": "FAC-10" },
+        checks: {},
+        lineas: [],
+      }),
+    ).toBe(true);
+    expect(
+      capturaTieneFactura({
+        campos: { "Documentación firma": "Ana Ruiz" },
+        checks: {},
+        lineas: [],
+      }),
+    ).toBe(true);
+    expect(
+      capturaTieneFactura({
+        campos: { "Documentó nombre": "Ana Ruiz", documentoNombre: "Ana Ruiz" },
+        checks: {},
+        lineas: [],
+      }),
+    ).toBe(false);
   });
 });

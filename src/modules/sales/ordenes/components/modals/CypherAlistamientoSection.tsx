@@ -239,6 +239,7 @@ export function CypherAlistamientoSection({
           "facturaAsociada",
           "Folio factura asociada",
           "Factura (OK) folio",
+          "Documentación folio",
           "Folio",
         );
         const escaneoAt = captura?.updatedAt ?? null;

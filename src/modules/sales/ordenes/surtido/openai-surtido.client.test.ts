@@ -102,6 +102,39 @@ describe("sanitizeFacturaOkFolioFirma", () => {
     expect(campos.facturaOkFolio).toBe("FAC-221");
     expect(campos.facturaOkFirma).toBeUndefined();
   });
+
+  it("trata Documentación como la misma caja que Factura (OK)", () => {
+    const campos = {
+      "Documentación folio": "FAC-10",
+      "Documentación firma": "Ana Ruiz",
+    };
+    sanitizeFacturaOkFolioFirma(campos);
+    expect(campos.facturaOkFolio).toBe("FAC-10");
+    expect(campos.facturaOkFirma).toBe("Ana Ruiz");
+    expect(campos["Documentación folio"]).toBeUndefined();
+    expect(campos["Documentación firma"]).toBeUndefined();
+  });
+
+  it("no copia Documentó a Factura (OK)", () => {
+    const campos = {
+      "Documentó nombre": "Ana Ruiz",
+      documentoNombre: "Ana Ruiz",
+    };
+    sanitizeFacturaOkFolioFirma(campos);
+    expect(campos.facturaOkNombre).toBeUndefined();
+    expect(campos.facturaOkFirma).toBeUndefined();
+    expect(campos.documentoNombre).toBe("Ana Ruiz");
+  });
+
+  it("corrige folio y firma invertidos cuando el rótulo es Documentación", () => {
+    const campos = {
+      "Documentación folio": "Ana Ruiz",
+      "Documentación firma": "F-9081",
+    };
+    sanitizeFacturaOkFolioFirma(campos);
+    expect(campos.facturaOkFolio).toBe("F-9081");
+    expect(campos.facturaOkFirma).toBe("Ana Ruiz");
+  });
 });
 
 describe("remapLineasPorProducto", () => {
@@ -218,6 +251,30 @@ describe("estimateSurtidoPrecision (REQ-153)", () => {
     };
     expect(estimateSurtidoPrecision(soloReviso, 3)).toBeLessThan(
       estimateSurtidoPrecision(conAlisto, 3),
+    );
+  });
+
+  it("cuenta Documentación folio igual que Factura (OK) folio", () => {
+    const vacio: OrdenSurtidoCapturaPayload = {
+      campos: {},
+      checks: {},
+      lineas: [],
+    };
+    const viejo: OrdenSurtidoCapturaPayload = {
+      campos: { "Factura (OK) folio": "F-1" },
+      checks: {},
+      lineas: [],
+    };
+    const nuevo: OrdenSurtidoCapturaPayload = {
+      campos: { "Documentación folio": "F-1" },
+      checks: {},
+      lineas: [],
+    };
+    expect(estimateSurtidoPrecision(nuevo, 0)).toBe(
+      estimateSurtidoPrecision(viejo, 0),
+    );
+    expect(estimateSurtidoPrecision(nuevo, 0)).toBeGreaterThan(
+      estimateSurtidoPrecision(vacio, 0),
     );
   });
 });

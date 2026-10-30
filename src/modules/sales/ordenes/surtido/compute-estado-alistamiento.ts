@@ -9,7 +9,7 @@ import type { OrdenSurtidoCapturaPayload } from "./orden-surtido.types";
  * - Todas las OT con Alistó completo → alistada
  * - Un chulo de Revisó → revisada, aunque falte Alistó
  * - Una firma de Despachó → despachada, con o sin chulos
- * - Una firma de Factura (OK) → facturada, con o sin chulos y con o sin Despachó
+ * - Una firma de Factura (OK) o Documentación → facturada, con o sin chulos y con o sin Despachó
  *
  * Despachado va antes que Facturado. El retroceso lo frena quien llama.
  */
@@ -20,7 +20,7 @@ export function computeEstadoAlistamientoFromCapturas(params: {
   ordenesTrabajoConAlistoCompleto: number;
   /** OTs con al menos un chulo de Revisó, o con firma de revisión. */
   ordenesTrabajoConRevisoCompleto?: number;
-  /** OTs con firma (o folio) en Factura (OK). Una basta. */
+  /** OTs con firma (o folio) en Factura (OK) o Documentación. Una basta. */
   ordenesTrabajoConFactura?: number;
   /** OTs con firma en la caja Despachó. Una basta. */
   ordenesTrabajoConDespacho?: number;
@@ -106,7 +106,7 @@ export function capturaTieneRevisoCompleto(
   return false;
 }
 
-/** Caja Factura (OK) o folio de factura asociada. */
+/** Caja Factura (OK) o Documentación, o folio de factura asociada. */
 export function capturaTieneFactura(
   payload: OrdenSurtidoCapturaPayload | null | undefined,
 ): boolean {
@@ -120,6 +120,11 @@ export function capturaTieneFactura(
     "Factura (OK) firma",
     "Factura (OK) nombre",
     "Factura (OK) hora",
+    "Documentación",
+    "Documentación folio",
+    "Documentación firma",
+    "Documentación nombre",
+    "Documentación hora",
     "facturaAsociada",
     "Folio factura asociada",
     "Factura asociada",

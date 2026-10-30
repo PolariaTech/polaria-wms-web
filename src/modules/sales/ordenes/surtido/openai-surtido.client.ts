@@ -352,10 +352,50 @@ function pareceNombrePersona(valor: string): boolean {
   return /^[\p{L}\s.'’-]+$/u.test(t);
 }
 
+const ALIAS_DOCUMENTACION: Array<{
+  canonical: (typeof CABECERA_KEYS)[number];
+  alias: string;
+}> = [
+  { canonical: "facturaOkFolio", alias: "Documentación folio" },
+  { canonical: "facturaOkFirma", alias: "Documentación firma" },
+  { canonical: "facturaOkNombre", alias: "Documentación nombre" },
+  { canonical: "facturaOkHora", alias: "Documentación hora" },
+];
+
+/**
+ * Hojas nuevas rotulan la caja «Documentación»; las viejas, «Factura (OK)».
+ * Copia el alias al campo canónico y lo borra para que el resto del flujo no cambie.
+ * «Documentó» es otra caja y no se toca.
+ */
+function absorberAliasDocumentacion(campos: Record<string, string>): void {
+  for (const { canonical, alias } of ALIAS_DOCUMENTACION) {
+    const aliasValor = campos[alias]?.trim();
+    const yaCanonico = campoValor(
+      campos,
+      canonical,
+      CABECERA_LABELS[canonical],
+    );
+    if (!yaCanonico && aliasValor) {
+      setCampoNombre(campos, canonical, aliasValor);
+    }
+    delete campos[alias];
+  }
+  const suelto = campos["Documentación"]?.trim();
+  delete campos["Documentación"];
+  if (
+    suelto &&
+    !campos.facturaOkNombre?.trim() &&
+    !campos.facturaOkFirma?.trim()
+  ) {
+    setCampoNombre(campos, "facturaOkNombre", suelto);
+  }
+}
+
 /** Factura asociada ≠ firmas: no debe llevar nombres de Alistó/Revisó/Despachó/etc. */
 export function sanitizeFacturaAsociada(
   campos: Record<string, string>,
 ): void {
+  absorberAliasDocumentacion(campos);
   const factura = campoValor(
     campos,
     "facturaAsociada",
@@ -367,8 +407,18 @@ export function sanitizeFacturaAsociada(
   const firmas = [
     campoValor(campos, "alistoNombre", "Alistó nombre", "Alistó"),
     campoValor(campos, "revisoNombre", "Revisó nombre", "Revisó"),
-    campoValor(campos, "facturaOkNombre", "Factura (OK) nombre"),
-    campoValor(campos, "facturaOkFirma", "Factura (OK) firma"),
+    campoValor(
+      campos,
+      "facturaOkNombre",
+      "Factura (OK) nombre",
+      "Documentación nombre",
+    ),
+    campoValor(
+      campos,
+      "facturaOkFirma",
+      "Factura (OK) firma",
+      "Documentación firma",
+    ),
     campoValor(campos, "documentoNombre", "Documentó nombre"),
     campoValor(campos, "despachoNombre", "Despachó nombre", "Despachó"),
     campoValor(campos, "despachoFirma", "Despachó firma"),
@@ -406,6 +456,7 @@ export function sanitizeFacturaAsociada(
 export function sanitizeFacturaOkFolioFirma(
   campos: Record<string, string>,
 ): void {
+  absorberAliasDocumentacion(campos);
   let folio = campoValor(campos, "facturaOkFolio", "Factura (OK) folio");
   let firma = campoValor(
     campos,
@@ -795,22 +846,24 @@ export async function extraerSurtidoDesdeFoto(input: {
           "3) Si un campo está vacío o ilegible → null. Si un checkbox está vacío → false; si no se ve → null.\n" +
           "4) facturaAsociada = SOLO el folio/número de factura manuscrito junto a la etiqueta «Folio factura asociada» " +
           "(arriba, cerca de cliente/# orden; antes «Factura asociada»). NUNCA pongas ahí un nombre de persona. " +
-          "Los nombres van SOLO en las cajas de firma Alistó / Revisó / Factura (OK) / Despachó / Retorno.\n" +
+          "Los nombres van SOLO en las cajas de firma Alistó / Revisó / Factura (OK) o Documentación / Despachó / Retorno.\n" +
           "4b) COLOCACIÓN ESTRICTA POR CAJA (columna izquierda, de arriba a abajo): " +
-          "Alistó → alistoNombre; Revisó → revisoNombre; Factura (OK) → facturaOkFolio/facturaOkFirma; " +
+          "Alistó → alistoNombre; Revisó → revisoNombre; " +
+          "la caja «Factura (OK)» (hojas ya impresas) o «Documentación» (hojas nuevas) es la misma y va a facturaOkFolio/facturaOkFirma; " +
           "Despachó → despachoNombre/despachoHora; Retorno → retornoNombre. " +
           "SOLO asigna un valor al campo de la caja donde VES la tinta. " +
           "Si la caja está en blanco → null. NUNCA copies el mismo texto a otra caja «por si acaso». " +
-          "NUNCA muevas un nombre de Despachó a Factura (OK) ni de Alistó a Revisó si esa caja está vacía.\n" +
+          "NUNCA muevas un nombre de Despachó a Factura (OK) o Documentación ni de Alistó a Revisó si esa caja está vacía. " +
+          "No confundas «Documentó» con «Documentación»: Documentó no llena facturaOk*.\n" +
           "4c) Nombres de firma: captura el nombre COMPLETO tal como está escrito (nombre + apellido). " +
           "No truncues a solo el apellido.\n" +
-          "4d) Caja «Factura (OK)» (más alta que las demás): " +
+          "4d) Caja «Factura (OK)» o «Documentación» (mismo recuadro, rótulo viejo o nuevo; más alta que las demás): " +
           "esquina inferior IZQUIERDA (etiqueta Folio) → facturaOkFolio (número/código de factura, suele traer dígitos); " +
           "esquina inferior DERECHA (etiqueta Firma) → facturaOkFirma (nombre de persona, sin dígitos). " +
           "NUNCA pongas un nombre en facturaOkFolio ni un folio/número en facturaOkFirma. " +
           "Si solo hay tinta en un lado, llena SOLO ese lado; el otro → null.\n" +
           "4e) Despachó: inferior izquierda Firma → despachoNombre; inferior derecha Fecha → despachoHora. " +
-          "No pongas la fecha de Despachó en Factura (OK).\n" +
+          "No pongas la fecha de Despachó en Factura (OK) ni en Documentación.\n" +
           "5) Cabecera también: horaComprometida, horaSugeridaSalida, chofer, unidad, " +
           "renglonesSurtidosCompletos, cajas15kg, cajas21kg, totalBultosCamion, toleranciaPesoPct, recepción.\n" +
           "6) Si en el snapshot estaban vacíos y ahora hay manuscrito, llena también: " +
