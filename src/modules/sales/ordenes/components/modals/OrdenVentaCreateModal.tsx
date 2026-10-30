@@ -189,6 +189,7 @@ import {
 } from "../../utils/ot/por-confirmar-revision-alert";
 import { extractCorreoContactoDesdeTexto } from "../../utils/origen/correo-chrome";
 import { findDuplicadosAgainstDraft } from "../../utils/match/find-potencial-duplicado-ov";
+import { debeAvisarVerificarDireccion } from "../../utils/pedido/debe-avisar-direccion";
 import { sanitizeTelefonoContacto } from "../../utils/pedido/sanitize-telefono-contacto";
 import {
   cleanCorreoBodyForNotas,
@@ -2683,11 +2684,6 @@ export function OrdenVentaCreateModal({
       },
     ) => {
       const previousId = selectedCompradorIdRef.current;
-      const fromDocumento =
-        startMode === "docs" ||
-        origenCorreoDraft.length > 0 ||
-        Boolean(origenTexto.trim()) ||
-        Boolean(direccion.trim());
 
       selectedCompradorIdRef.current = row.idComprador;
       setIdComprador(row.idComprador);
@@ -2706,11 +2702,12 @@ export function OrdenVentaCreateModal({
         return next;
       });
 
-      const clienteCambio =
-        Boolean(previousId) && previousId !== row.idComprador;
       if (
-        options?.verificarDireccionEntrega &&
-        (clienteCambio || (fromDocumento && Boolean(direccion.trim())))
+        debeAvisarVerificarDireccion({
+          verificarDireccionEntrega: options?.verificarDireccionEntrega,
+          idClienteAnterior: previousId,
+          idClienteNuevo: row.idComprador,
+        })
       ) {
         setAvisoVerificarDireccion(true);
         setWarnFields((prev) => {
@@ -2774,14 +2771,7 @@ export function OrdenVentaCreateModal({
           setEquivalenciaByProducto({});
         });
     },
-    [
-      applyCompradorPrefill,
-      codigoCuenta,
-      direccion,
-      origenCorreoDraft.length,
-      origenTexto,
-      startMode,
-    ],
+    [applyCompradorPrefill, codigoCuenta],
   );
 
   const handleSelectProducto = useCallback(
