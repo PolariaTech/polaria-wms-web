@@ -5,6 +5,7 @@ Versión de producto alineada con Polaria WMS.
 ## Sin publicar
 
 ### Ventas / OV
+- QR de captura: ya no usa el origin de la pestaña (evita imprimir previews de Vercel con SSO). Usa `NEXT_PUBLIC_APP_URL` de producción; si falta o es preview, no genera el QR.
 - Captura QR (REQ-194): Mateo acepta fotos imperfectas de la hoja (~40% de precisión o con señal de lectura). Sigue rechazando si no se ve el papel de surtido/OV.
 - Imprimir OV con muchas órdenes de trabajo (REQ-186): el PDF de la hoja (vertical y horizontal) se genera comprimido (`compress: true` en jsPDF). Antes una OV de 18 hojas pesaba ~4,6 MB (≈6 MB en base64) y Vercel rechazaba el envío a `/api/ventas/imprimir-orden` con 413, por lo que salía «El correo no fue enviado a la impresora». Con la compresión pesa ~0,2 MB. Análisis y respaldo (envío en varios correos) en `docs/REQ-186-IMPRESION-413.md`.
 - «Modificar con IA» desde el «+» de Acciones (REQ-188): el botón (antes «Reorganizar con IA») ya se ve en el Cypher que abre el «+» de la columna Acciones, sin entrar a la OV. Con la OV por confirmar, al pulsarlo se abre la edición del pedido con el chat de la instrucción listo.
