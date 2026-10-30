@@ -11,6 +11,7 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCypherDrawer.tsx`
 - `CHANGELOG.md`
 - `src/hooks/shared/useCenterActiveTab.ts` — autorizada por el usuario el 2026-10-30
+- `src/hooks/shared/useCenterActiveTab.test.ts` — autorizada por el usuario el 2026-10-30
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
