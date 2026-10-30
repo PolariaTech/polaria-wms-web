@@ -341,6 +341,37 @@ const SHIP_TO_LABEL_RE =
 const SHIP_TO_STOP_RE =
   /\b(?:bill\s*to|sold\s*to|ship\s*from|invoice\b|factura\b|orden\s*de\s*compra|purchase\s*order|\bpo\s*#|cantidad\b|quantity\b|qty\b|item\b|producto\b|subtotal\b|\btotal\b|and[eé]n\b|dock\b)\b/i;
 
+const CONTACTO_ETIQUETA_RE =
+  /^(?:fax|tel(?:[eé]fono)?s?\b\.?|phone|celular|cel\b\.?|whatsapp|correos?\b|e-?mail|mail\b)/i;
+const CONTACTO_CORREO_RE = /\S+@\S+\.\S+/;
+const CONTACTO_TELEFONO_RE = /^\+?[\d\s().-]+$/;
+
+function esSegmentoDeContacto(segmento: string): boolean {
+  if (CONTACTO_ETIQUETA_RE.test(segmento) || CONTACTO_CORREO_RE.test(segmento)) {
+    return true;
+  }
+  return (
+    CONTACTO_TELEFONO_RE.test(segmento) &&
+    segmento.replace(/\D/g, "").length >= 7
+  );
+}
+
+/**
+ * Quita de una dirección de entrega los segmentos (separados por coma, punto y
+ * coma o salto de línea) que son correo, fax o teléfono. Devuelve null si no
+ * queda una dirección.
+ */
+export function quitarContactoDeDireccion(
+  valor: string | null | undefined,
+): string | null {
+  const segmentos = (valor ?? "")
+    .split(/[,;\n]/)
+    .map((s) => s.trim().replace(/\s+/g, " "))
+    .filter((s) => s && !esSegmentoDeContacto(s));
+  const limpio = segmentos.join(", ");
+  return limpio.length >= 5 ? limpio : null;
+}
+
 /**
  * Dirección de ENTREGA desde bloque Ship To / Deliver To / Enviar a.
  * Manda sobre Bill To (facturación) cuando ambos aparecen en el documento.
@@ -365,19 +396,11 @@ export function extractDireccionShipToDesdeTexto(
     }
     if (SHIP_TO_STOP_RE.test(trimmed)) break;
     if (/^(bill\s*to|sold\s*to)\b/i.test(trimmed)) break;
-    lines.push(trimmed);
+    const sinContacto = quitarContactoDeDireccion(trimmed);
+    if (!sinContacto) continue;
+    lines.push(sinContacto);
     if (lines.length >= 6) break;
   }
 
-  // Misma línea: "Ship To: Calle 1, Cancún"
-  if (lines.length === 0) {
-    const sameLine = after.split(/\r?\n/)[0]?.trim().replace(/\s+/g, " ") ?? "";
-    if (sameLine && !SHIP_TO_STOP_RE.test(sameLine) && sameLine.length >= 5) {
-      return sameLine;
-    }
-    return null;
-  }
-
-  const joined = lines.join(", ").trim();
-  return joined.length >= 5 ? joined : null;
+  return quitarContactoDeDireccion(lines.join(", "));
 }
