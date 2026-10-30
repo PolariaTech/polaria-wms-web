@@ -389,6 +389,7 @@ export function OrdenVentaCypherDrawer({
 }: OrdenVentaCypherDrawerProps) {
   const titleId = useId();
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const stageNavRef = useRef<HTMLElement | null>(null);
   const cypherWidthMode = useShellOverlayStore((s) => s.cypherWidthMode);
   const setCypherWidthMode = useShellOverlayStore((s) => s.setCypherWidthMode);
   const resizeDragRef = useRef<{
@@ -675,6 +676,20 @@ export function OrdenVentaCypherDrawer({
       });
     });
   }, []);
+
+  // La pestaña activa se centra sola dentro de la barra de etapas (scroll lateral).
+  useEffect(() => {
+    const nav = stageNavRef.current;
+    const tab = nav?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!nav || !tab) return;
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    nav.scrollTo({
+      left: Math.max(0, tab.offsetLeft - (nav.clientWidth - tab.offsetWidth) / 2),
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [activeStage, open]);
 
   const toggleAccordionStage = useCallback((stageId: CypherStageId) => {
     setOpenStages((prev) => {
@@ -995,8 +1010,9 @@ export function OrdenVentaCypherDrawer({
           </div>
 
           <nav
+            ref={stageNavRef}
             aria-label="Etapas de la orden"
-            className="flex flex-wrap gap-x-0.5 gap-y-0 px-2 @md/cypher:gap-x-1 @md/cypher:px-3"
+            className="relative flex gap-x-0.5 overflow-x-auto overscroll-x-contain px-2 @md/cypher:gap-x-1 @md/cypher:px-3"
           >
             {CYPHER_STAGES.map((stage) => {
               const active = activeStage === stage.id;
@@ -1008,7 +1024,7 @@ export function OrdenVentaCypherDrawer({
                   title={`${stage.num} ${stage.label}`}
                   onClick={() => scrollToStage(stage.id)}
                   className={cn(
-                    "relative flex h-9 max-w-full items-center gap-1 border-b-2 px-1.5 polaria-text-caption font-bold transition",
+                    "relative flex h-9 shrink-0 items-center gap-1 border-b-2 px-1.5 polaria-text-caption font-bold transition",
                     "@md/cypher:h-10 @md/cypher:gap-1.5 @md/cypher:px-2.5 @md/cypher:polaria-text-body-sm",
                     active
                       ? "border-polaria-teal text-polaria-w"
@@ -1023,7 +1039,7 @@ export function OrdenVentaCypherDrawer({
                   >
                     {stage.num}
                   </span>
-                  <span className="truncate">{stage.label}</span>
+                  <span className="whitespace-nowrap">{stage.label}</span>
                 </button>
               );
             })}
