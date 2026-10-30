@@ -91,4 +91,24 @@ describe("correo-chrome", () => {
       "compras.mayakoba@fairmont.com",
     );
   });
+
+  it("REQ-239: copia el remitente de Sent By y no el CONTACTO de facturación", () => {
+    const text = [
+      "De: bss_system@birchstreet.net",
+      "Para: pedidos@aguacatesdepuebla.com",
+      "Asunto: PO CUNMC0047780",
+      "",
+      "Sent By:",
+      "Ixayana Cid",
+      "",
+      "NODEPT",
+      "Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT, MEXICO",
+      "Ixayana.Cid@Hilton.com",
+      "",
+      "CONTACTO: CUNMC_CXP@Hilton.com",
+    ].join("\n");
+    expect(extractCorreoContactoDesdeTexto(text)).toBe(
+      "Ixayana.Cid@Hilton.com",
+    );
+  });
 });

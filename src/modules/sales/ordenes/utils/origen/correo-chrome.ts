@@ -2,6 +2,8 @@
  * Cabeceras de correo (De / Para / Asunto) para Cypher y origen_texto.
  */
 
+import { extractCorreoRemitenteBirchstreet } from "./correo-remitente-birchstreet";
+
 export type CorreoChrome = {
   from?: string;
   to?: string;
@@ -188,7 +190,7 @@ export function extractCorreoContactoDesdeTexto(
 
   if (fromEmail && !fromEsGenerico) return fromEmail;
 
-  const fromBody = pickBodyEmail();
+  const fromBody = extractCorreoRemitenteBirchstreet(text) ?? pickBodyEmail();
   if (fromBody) return fromBody;
 
   // Último recurso: From genérico solo si no hubo nada humano en el cuerpo.

@@ -1,9 +1,11 @@
 import type { PedidoExtraido, LineaExtraida } from "../../ai/openai-pedido.client";
 import { extractCorreoContactoDesdeTexto } from "./correo-chrome";
+import { limpiarNotasBirchstreet } from "./notas-birchstreet";
 import {
   extractDireccionShipToDesdeTexto,
   extractEntregaDesdeTexto,
 } from "../pedido/extract-entrega-desde-texto";
+import { limpiarDireccionEntrega } from "../pedido/limpiar-direccion-birchstreet";
 import { sanitizeTelefonoContactoOrNull } from "../pedido/sanitize-telefono-contacto";
 import { parseFechaOrigen } from "./materialize-ov-desde-origen";
 import {
@@ -123,12 +125,16 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
   });
   const lineas = normalized.lineas;
 
-  const notasFromRows = firstNonEmpty(rows, (r) => r["Notas generales"]);
+  const notasRaw =
+    firstNonEmpty(rows, (r) => r["Notas generales"]) ||
+    params.notasAlmacen?.trim() ||
+    "";
+  const notasFromRows = limpiarNotasBirchstreet(notasRaw, origenTexto);
   const destino = firstNonEmpty(rows, (r) => r.Destino);
   const hoyISO =
     params.hoyISO?.trim() || new Date().toISOString().slice(0, 10);
   const fromBody = extractEntregaDesdeTexto(
-    [origenTexto, notasFromRows].filter(Boolean).join("\n"),
+    [origenTexto, notasRaw].filter(Boolean).join("\n"),
     hoyISO,
   );
 
@@ -139,17 +145,17 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
   return {
     fechaEntrega: fechaFromRows || fromBody.fechaIso,
     centroConsumo: mostFrequent(rows.map((r) => (r.Almacen ?? "").toString())),
-    observaciones: notasFromRows || params.notasAlmacen?.trim() || null,
-    notasGeneralesAlmacen: notasFromRows || params.notasAlmacen?.trim() || null,
+    observaciones: notasFromRows || null,
+    notasGeneralesAlmacen: notasFromRows || null,
     ordenCompraHotel: normalized.ordenCompraHotel,
     nombreCliente: firstNonEmpty(rows, (r) => r["Nombre cliente"]),
     rfc: null,
     regimen: null,
     direccion:
       extractDireccionShipToDesdeTexto(origenTexto) ||
-      firstNonEmpty(rows, (r) => r["Direccion entrega"]) ||
-      destino ||
-      null,
+      limpiarDireccionEntrega(
+        firstNonEmpty(rows, (r) => r["Direccion entrega"]) || destino,
+      ),
     anden: firstNonEmpty(rows, (r) => r.Anden),
     contacto: mostFrequent(
       rows.map((r) => (r["Responsable externo"] ?? "").toString()),
@@ -158,8 +164,8 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
       firstNonEmpty(rows, (r) => r["Telefono contacto"]),
     ),
     correo:
-      firstNonEmpty(rows, (r) => r["Correo contacto"]) ||
       extractCorreoContactoDesdeTexto(origenTexto) ||
+      firstNonEmpty(rows, (r) => r["Correo contacto"]) ||
       null,
     horarioDesde: horarioDesdeRow || fromBody.horarioDesde,
     horarioHasta: horarioHastaRow || fromBody.horarioHasta,

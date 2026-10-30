@@ -15,6 +15,7 @@ import {
   extractCorreoContactoDesdeTexto,
   isCorreoRemitenteGenerico,
 } from "../utils/origen/correo-chrome";
+import { limpiarNotasBirchstreet } from "../utils/origen/notas-birchstreet";
 import {
   extractDireccionShipToDesdeTexto,
   extractEntregaDesdeTexto, quitarContactoDeDireccion,
@@ -930,7 +931,6 @@ export async function extraerPedido({
     (typeof parsed.nombreCliente === "string"
       ? parsed.nombreCliente.trim()
       : "") || "";
-  // Ship To del documento manda sobre Bill To / lo que Mateo haya puesto.
   const direccionCabecera =
     extractDireccionShipToDesdeTexto(sourceForEntrega) ||
     quitarContactoDeDireccion(parsed.direccion) ||
@@ -941,17 +941,16 @@ export async function extraerPedido({
   const correoIa = parsed.correo?.trim() || "";
   const correoDesdeTexto =
     extractCorreoContactoDesdeTexto(sourceForEntrega) || "";
-  // REQ-122: no quedarse con From genérico si el cuerpo trae mail humano.
   const correoCabecera =
-    (correoIa && !isCorreoRemitenteGenerico(correoIa)
-      ? correoIa
-      : correoDesdeTexto || correoIa) || "";
+    correoDesdeTexto ||
+    (correoIa && !isCorreoRemitenteGenerico(correoIa) ? correoIa : "") ||
+    "";
   const ventanaDesdeCabecera = horarioDesde || "";
   const ventanaHastaCabecera = horarioHasta || "";
-  const notasCabecera =
-    parsed.notasGeneralesAlmacen?.trim() ||
-    parsed.observaciones?.trim() ||
-    "";
+  const notasCabecera = limpiarNotasBirchstreet(
+    parsed.notasGeneralesAlmacen?.trim() || parsed.observaciones?.trim(),
+    sourceForEntrega,
+  );
   const origenCorreo = lineas.map((l, index) => ({
     // ISO primero: al reabrir OV, parseFechaOrigen no debe romper MM/DD BirchStreet.
     Fecha: fechaEntrega || fechaLabel || "",
@@ -1030,8 +1029,8 @@ export async function extraerPedido({
       ),
       nombreCliente,
     ),
-    observaciones: parsed.observaciones,
-    notasGeneralesAlmacen: parsed.notasGeneralesAlmacen?.trim() || null,
+    observaciones: notasCabecera || null,
+    notasGeneralesAlmacen: notasCabecera || null,
     ordenCompraHotel: ordenCompraHotelNormalizado,
     nombreCliente,
     rfc: parsed.rfc,
