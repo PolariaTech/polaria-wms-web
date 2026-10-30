@@ -316,6 +316,10 @@ export function formatEspecificacionEnvase(
 const FRASE_MADUREZ =
   String.raw`no muy maduros?|bien firmes?|muy firmes?|firmes?|amarillos?|roj[oa]s?|verdes?|enrriados?|enriados?|pintones?|maduros?`;
 
+/** Misma lista sin colores que suelen ser parte del nombre (REQ-231). */
+const FRASE_MADUREZ_EN_LINEA =
+  String.raw`no muy maduros?|bien firmes?|muy firmes?|firmes?|amarillos?|enrriados?|enriados?|pintones?|maduros?`;
+
 /**
  * REQ-120 / REQ-158: madurez o firmeza para el campo Especificación.
  * Cubre singular y plural (enrriados, maduro) y la celda corta de admonaguacates.
@@ -349,7 +353,12 @@ export function extractMadurezEspecificacion(
     if (solo?.[1]) return canonMadurezFrase(solo[1]);
   }
 
-  const inline = t.match(new RegExp(String.raw`\b(${FRASE_MADUREZ})\b`, "i"));
+  // REQ-231: dentro de un texto más largo (nombre del producto) «verde» y «roja»
+  // son parte del nombre (PEPINO VERDE, TORONJA ROJA), no madurez. Solo cuentan
+  // rotulados («madurez: rojo») o como celda suelta, caminos que ya se resolvieron arriba.
+  const inline = t.match(
+    new RegExp(String.raw`\b(${FRASE_MADUREZ_EN_LINEA})\b`, "i"),
+  );
   if (inline?.[1]) return canonMadurezFrase(inline[1]);
   return null;
 }

@@ -201,4 +201,32 @@ describe("formatEspecificacionEnvase / resolveEspecificacionPedidoLinea", () => 
       }),
     ).toBe("3/4");
   });
+
+  it("REQ-231: el color que es parte del nombre del producto no es especificación", () => {
+    for (const nombre of [
+      "PEPINO VERDE",
+      "TOMATE VERDE",
+      "TORONJA ROJA",
+      "CHILE MORRON VERDE",
+      "CEBOLLA MORADA",
+    ]) {
+      expect(
+        resolveEspecificacionPedidoLinea({
+          especificacionIa: null,
+          envase: null,
+          textoOriginal: nombre,
+        }),
+      ).toBe("");
+    }
+  });
+
+  it("REQ-231: el color sí cuenta cuando viene rotulado como madurez", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: null,
+        envase: null,
+        textoOriginal: "JITOMATE GUAJE madurez: rojo",
+      }),
+    ).toBe("Rojo");
+  });
 });
