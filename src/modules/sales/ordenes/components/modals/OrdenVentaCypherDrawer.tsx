@@ -1429,7 +1429,7 @@ export function OrdenVentaCypherDrawer({
               >
                 {stageReached(estado, "facturado") ? (
                   <p className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3 polaria-text-body-sm text-polaria-w">
-                    La hoja tiene Factura (OK) o el folio de la factura.
+                    La hoja tiene Documentación o Factura (OK), o el folio de la factura.
                   </p>
                 ) : (
                   <PendingStageBody />

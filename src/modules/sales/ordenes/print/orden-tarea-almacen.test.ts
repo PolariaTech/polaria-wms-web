@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { inflateSync } from "node:zlib";
 import type {
   OrdenVentaDetalleRow,
   OrdenVentaOperadorRow,
@@ -11,6 +12,21 @@ import {
   mapOrdenVentaToAlmacenPrintData,
   mapOrdenVentaToAlmacenPrintSheets,
 } from "./map-orden-tarea-almacen";
+
+function textoPdf(pdf: { output: (tipo: "arraybuffer") => ArrayBuffer }): string {
+  const crudo = Buffer.from(pdf.output("arraybuffer")).toString("latin1");
+  const partes: string[] = [];
+  const streams = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  for (const coincidencia of crudo.matchAll(streams)) {
+    const cuerpo = coincidencia[1] ?? "";
+    try {
+      partes.push(inflateSync(Buffer.from(cuerpo, "latin1")).toString("latin1"));
+    } catch {
+      partes.push(cuerpo);
+    }
+  }
+  return partes.join("\n");
+}
 
 const LIST_ROW: OrdenVentaOperadorRow = {
   idOrdenVenta: "ov-1",
@@ -285,11 +301,12 @@ describe("orden de tarea almacén", () => {
     expect(html).not.toContain("Si algo no se puede surtir");
     expect(html).not.toContain("coincide con la factura impresa");
     expect(html).not.toContain("Responsables");
-    expect(html).not.toContain("Documentó");
+    expect(html).not.toContain('<div class="role">Documentó</div>');
     expect(html).not.toContain("Turno PM");
     expect(html).not.toContain("Noche / AM");
     expect(html).not.toContain("Facturó");
-    expect(html).toContain("Factura (OK)");
+    expect(html).not.toContain("Factura (OK)");
+    expect(html).toContain('<div class="role">Documentación</div>');
     expect(html).toContain("Retorno");
     expect(html).toContain("Despachó");
     expect(html).toContain("Firma");
@@ -348,6 +365,9 @@ describe("orden de tarea almacén", () => {
     expect(pdf.getNumberOfPages()).toBe(1);
     expect(pdf.internal.pageSize.getWidth()).toBeCloseTo(215.9, 1);
     expect(pdf.internal.pageSize.getHeight()).toBeCloseTo(279.4, 1);
+    const texto = textoPdf(pdf);
+    expect(texto).toContain("Documentaci\u00f3n");
+    expect(texto).not.toContain("Factura (OK)");
   });
 
   it("genera PDF horizontal en 2 divisiones con los mismos campos", () => {
@@ -360,6 +380,9 @@ describe("orden de tarea almacén", () => {
     expect(pdf.getNumberOfPages()).toBe(1);
     expect(pdf.internal.pageSize.getWidth()).toBeCloseTo(215.9, 1);
     expect(pdf.internal.pageSize.getHeight()).toBeCloseTo(279.4, 1);
+    const texto = textoPdf(pdf);
+    expect(texto).toContain("Documentaci\u00f3n");
+    expect(texto).not.toContain("Factura (OK)");
   });
 
   it("parte origen_correo en una hoja por orden de trabajo con índice n/N", () => {

@@ -254,7 +254,7 @@ export function buildOrdenTareaAlmacenHtml(
   <table class="signs"><tr>
     <td class="sig"><div class="role">Alistó</div></td>
     <td class="sig"><div class="role">Revisó</div></td>
-    <td class="sig"><div class="role">Factura (OK)</div></td>
+    <td class="sig"><div class="role">Documentación</div></td>
     <td class="sig"><div class="role">Despachó</div><div class="cap">Firma &nbsp;&nbsp;&nbsp; Fecha</div></td>
     <td class="sig"><div class="role">Retorno</div></td>
   </tr></table>

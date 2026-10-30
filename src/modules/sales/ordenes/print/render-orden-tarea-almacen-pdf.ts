@@ -550,7 +550,8 @@ export function buildOrdenTareaAlmacenPdf(
   doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
   y += 3;
 
-  // Alistó/Revisó/Factura (OK)/Retorno: caja simple. Despachó: Firma/Fecha.
+  // Alistó/Revisó/Documentación/Retorno: caja simple. Despachó: Firma/Fecha.
+  // Hojas viejas guardan la firma bajo «Factura (OK)»; las nuevas, bajo «Documentación».
   const roles: Array<{
     role: string;
     esDespacho?: boolean;
@@ -566,12 +567,15 @@ export function buildOrdenTareaAlmacenPdf(
       textoKeys: ["revisoNombre", "Revisó nombre", "Revisó"],
     },
     {
-      role: "Factura (OK)",
+      role: "Documentación",
       textoKeys: [
         "facturaOkFirma",
         "Factura (OK) firma",
+        "Documentación firma",
         "facturaOkNombre",
         "Factura (OK) nombre",
+        "Documentación nombre",
+        "Documentación",
       ],
     },
     {

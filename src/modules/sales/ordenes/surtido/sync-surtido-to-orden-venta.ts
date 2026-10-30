@@ -118,10 +118,31 @@ function buildSurtidoNotasAlmacen(
   push("Revisó hora", "revisoHora");
   push("Documentó", "documentoNombre");
   push("Documentó hora", "documentoHora");
-  push("Factura (OK)", "facturaOkNombre", "documentoNombre");
-  push("Factura (OK) hora", "facturaOkHora", "documentoHora");
-  push("Factura (OK) folio", "facturaOkFolio", "Factura (OK) folio");
-  push("Factura (OK) firma", "facturaOkFirma", "Factura (OK) firma");
+  push(
+    "Factura (OK)",
+    "facturaOkNombre",
+    "documentoNombre",
+    "Documentación nombre",
+    "Documentación",
+  );
+  push(
+    "Factura (OK) hora",
+    "facturaOkHora",
+    "documentoHora",
+    "Documentación hora",
+  );
+  push(
+    "Factura (OK) folio",
+    "facturaOkFolio",
+    "Factura (OK) folio",
+    "Documentación folio",
+  );
+  push(
+    "Factura (OK) firma",
+    "facturaOkFirma",
+    "Factura (OK) firma",
+    "Documentación firma",
+  );
   push("Despachó", "despachoNombre");
   push("Despachó hora", "despachoHora");
   push("Retorno", "retornoNombre");

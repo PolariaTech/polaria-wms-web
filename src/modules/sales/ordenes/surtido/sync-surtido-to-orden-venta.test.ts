@@ -148,4 +148,18 @@ describe("buildOrdenVentaPatchFromSurtido", () => {
     expect(flat.hora_salida).toBe("6AM");
     expect(flat.turno).toBe("PM");
   });
+
+  it("guarda el folio leído bajo el rótulo Documentación", () => {
+    const { flat } = buildOrdenVentaPatchFromSurtido({
+      payload: {
+        campos: { "Documentación folio": "F-77", "Documentación firma": "Ana Ruiz" },
+        checks: {},
+        lineas: [],
+      },
+      observacionesActuales: null,
+    });
+
+    expect(flat.notas_almacen).toContain("Factura (OK) folio: F-77");
+    expect(flat.notas_almacen).toContain("Factura (OK) firma: Ana Ruiz");
+  });
 });

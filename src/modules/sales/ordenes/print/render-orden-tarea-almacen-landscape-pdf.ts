@@ -342,7 +342,8 @@ export function drawOrdenTareaAlmacenLandscapePage(
   y = drawNotesLines(doc, leftX, y, LEFT_W, "", data.notasGenerales, 3);
   y += 2;
 
-  // Alistó/Revisó/Factura (OK)/Retorno: caja simple. Despachó: Firma/Fecha.
+  // Alistó/Revisó/Documentación/Retorno: caja simple. Despachó: Firma/Fecha.
+  // Hojas viejas guardan la firma bajo «Factura (OK)»; las nuevas, bajo «Documentación».
   const roles: Array<{
     role: string;
     esDespacho?: boolean;
@@ -358,12 +359,15 @@ export function drawOrdenTareaAlmacenLandscapePage(
       textoKeys: ["revisoNombre", "Revisó nombre", "Revisó"],
     },
     {
-      role: "Factura (OK)",
+      role: "Documentación",
       textoKeys: [
         "facturaOkFirma",
         "Factura (OK) firma",
+        "Documentación firma",
         "facturaOkNombre",
         "Factura (OK) nombre",
+        "Documentación nombre",
+        "Documentación",
       ],
     },
     {
