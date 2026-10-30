@@ -3,6 +3,9 @@
  */
 
 import { extractCorreoRemitenteBirchstreet } from "./correo-remitente-birchstreet";
+import { extractDireccionShipToDesdeTexto } from "../pedido/extract-entrega-desde-texto";
+import { limpiarDireccionEntrega } from "../pedido/limpiar-direccion-birchstreet";
+import { limpiarNotasBirchstreet } from "./notas-birchstreet";
 
 export type CorreoChrome = {
   from?: string;
@@ -216,4 +219,28 @@ export function mergeCorreoChromeIntoTexto(
   if (!block) return body;
   if (!body) return block;
   return `${block}\n\n${body}`;
+}
+
+/** Dirección, correo y notas de cabecera: el documento manda sobre el modelo. */
+export function resolveCabeceraCorreoPedido(params: {
+  origenTexto: string | null | undefined;
+  direccionModelo?: string | null;
+  correoModelo?: string | null;
+  notas?: string | null;
+}): { direccion: string; correo: string; notas: string } {
+  const origen = params.origenTexto ?? "";
+  const correoModelo = (params.correoModelo ?? "").trim();
+  const correoTexto = extractCorreoContactoDesdeTexto(origen) ?? "";
+  return {
+    direccion:
+      extractDireccionShipToDesdeTexto(origen) ||
+      limpiarDireccionEntrega(params.direccionModelo) ||
+      "",
+    correo:
+      correoTexto ||
+      (correoModelo && !isCorreoRemitenteGenerico(correoModelo)
+        ? correoModelo
+        : ""),
+    notas: limpiarNotasBirchstreet(params.notas, origen),
+  };
 }
