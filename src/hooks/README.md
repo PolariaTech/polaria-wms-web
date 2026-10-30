@@ -9,7 +9,7 @@ Hooks React reutilizables.
 | `auth/` | `usePermissions` |
 | `table/` | `useClientTablePagination` |
 | `warehouse/` | `useWarehouseStateRealtime` |
-| `shared/` | `useAsyncQuery`, `useTenantList`, `useLiveDate` |
+| `shared/` | `useAsyncQuery`, `useTenantList`, `useLiveDate`, `useCenterActiveTab` |
 
 ## Convención
 

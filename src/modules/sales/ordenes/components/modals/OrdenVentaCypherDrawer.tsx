@@ -31,6 +31,7 @@ import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDia
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
 import { formatDateTime } from "@/components/shared/utils/formatters";
+import { useCenterActiveTab } from "@/hooks/shared/useCenterActiveTab";
 import { cn } from "@/lib/utils/cn";
 import { formatKgEs, formatPrecioEs } from "@/lib/utils/decimal-es";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
@@ -389,6 +390,7 @@ export function OrdenVentaCypherDrawer({
 }: OrdenVentaCypherDrawerProps) {
   const titleId = useId();
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const stageNavRef = useRef<HTMLElement | null>(null);
   const cypherWidthMode = useShellOverlayStore((s) => s.cypherWidthMode);
   const setCypherWidthMode = useShellOverlayStore((s) => s.setCypherWidthMode);
   const resizeDragRef = useRef<{
@@ -675,6 +677,9 @@ export function OrdenVentaCypherDrawer({
       });
     });
   }, []);
+
+  // La etapa activa se centra sola en la barra de etapas (scroll lateral).
+  useCenterActiveTab(stageNavRef, activeStage, open);
 
   const toggleAccordionStage = useCallback((stageId: CypherStageId) => {
     setOpenStages((prev) => {
@@ -995,8 +1000,9 @@ export function OrdenVentaCypherDrawer({
           </div>
 
           <nav
+            ref={stageNavRef}
             aria-label="Etapas de la orden"
-            className="flex flex-wrap gap-x-0.5 gap-y-0 px-2 @md/cypher:gap-x-1 @md/cypher:px-3"
+            className="relative flex gap-x-0.5 overflow-x-auto overscroll-x-contain px-2 @md/cypher:gap-x-1 @md/cypher:px-3"
           >
             {CYPHER_STAGES.map((stage) => {
               const active = activeStage === stage.id;
@@ -1008,7 +1014,7 @@ export function OrdenVentaCypherDrawer({
                   title={`${stage.num} ${stage.label}`}
                   onClick={() => scrollToStage(stage.id)}
                   className={cn(
-                    "relative flex h-9 max-w-full items-center gap-1 border-b-2 px-1.5 polaria-text-caption font-bold transition",
+                    "relative flex h-9 shrink-0 items-center gap-1 border-b-2 px-1.5 polaria-text-caption font-bold transition",
                     "@md/cypher:h-10 @md/cypher:gap-1.5 @md/cypher:px-2.5 @md/cypher:polaria-text-body-sm",
                     active
                       ? "border-polaria-teal text-polaria-w"
@@ -1023,7 +1029,7 @@ export function OrdenVentaCypherDrawer({
                   >
                     {stage.num}
                   </span>
-                  <span className="truncate">{stage.label}</span>
+                  <span className="whitespace-nowrap">{stage.label}</span>
                 </button>
               );
             })}
