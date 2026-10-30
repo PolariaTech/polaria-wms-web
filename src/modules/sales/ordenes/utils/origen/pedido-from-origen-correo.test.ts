@@ -143,4 +143,56 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
     expect(pedido.lineas[0]?.especificacion).toBe("3 PZA");
     expect(pedido.lineas[0]?.unidad).toBe("KGM");
   });
+
+  describe("REQ-231: correo «Pedidos · Aguacates de Puebla»", () => {
+    const origenTexto = [
+      "PEDIDO ADP-261030-0944-OQX · ORDINARIO",
+      "Cliente: Fogón del mar",
+      "",
+      "PRODUCTOS",
+      "1. AGUACATE EXTRA (200 a 260g) [Cód. 115001005] · 3 kg · $47.00/kg · Madurez: Amarillo · $141.00",
+      "   Obs.: Firme",
+      "2. PEPINO VERDE [Cód. 10501519] · 4 kg · $25.00/kg · $100.00",
+      "3. TORONJA ROJA · 3 kg · $15.00/kg · $45.00",
+      "4. JITOMATE GUAJE [Cód. 10501518] · 7 kg · $37.00/kg · Madurez: Amarillo · $259.00",
+      "   Obs.: Macizo por favor  es para picar para ceviches",
+      "5. PIÑA [Cód. 105001508] · 4 pza (aprox. 7.2 kg) · $26.00/kg · Madurez: Amarillo · $187.20 aprox.",
+      "   Obs.: NO MANDAR AGUACATE MUY MADUROS",
+      "6. ELOTE [Cód. 105001552] · 4 pza · $17.00/pza · $68.00",
+    ].join("\n");
+
+    const pedido = buildPedidoExtraidoFromOrigenCorreo({
+      origenCorreo: [
+        { Cantidad: 3, Producto: "AGUACATE EXTRA (200 a 260g)" },
+        { Cantidad: 4, Producto: "PEPINO VERDE" },
+        { Cantidad: 3, Producto: "TORONJA ROJA" },
+        { Cantidad: 7, Producto: "JITOMATE GUAJE" },
+        { Cantidad: 4, Producto: "PIÑA" },
+        { Cantidad: 4, Producto: "ELOTE" },
+      ],
+      origenTexto,
+    });
+    const espec = pedido.lineas.map((linea) => linea.especificacion);
+
+    it("junta la madurez y lo que va en rojo (Obs.) como especificación", () => {
+      expect(espec[0]).toBe("Amarillo · Firme");
+      expect(espec[3]).toBe("Amarillo · Macizo por favor es para picar para ceviches");
+    });
+
+    it("no convierte el color del nombre en especificación", () => {
+      expect(espec[1]).toBeNull();
+      expect(espec[2]).toBeNull();
+    });
+
+    it("pone los kilos como cantidad y las piezas en la especificación", () => {
+      expect(pedido.lineas[4]?.cantidad).toBe(7.2);
+      expect(pedido.lineas[4]?.unidad).toBe("KGM");
+      expect(espec[4]).toBe("Amarillo · NO MANDAR AGUACATE MUY MADUROS · 4 PZA");
+    });
+
+    it("deja igual lo que se pide y se cobra por pieza", () => {
+      expect(pedido.lineas[5]?.cantidad).toBe(4);
+      expect(espec[5]).toBeNull();
+    });
+  });
 });

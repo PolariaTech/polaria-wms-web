@@ -220,6 +220,16 @@ describe("formatEspecificacionEnvase / resolveEspecificacionPedidoLinea", () => 
     }
   });
 
+  it("REQ-231: la nota que ya trae la madurez no la repite", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "Amarillo · Firme",
+        envase: null,
+        textoOriginal: "AGUACATE EXTRA (200 a 260g)",
+      }),
+    ).toBe("Amarillo · Firme");
+  });
+
   it("REQ-231: el color sí cuenta cuando viene rotulado como madurez", () => {
     expect(
       resolveEspecificacionPedidoLinea({

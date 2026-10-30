@@ -408,7 +408,10 @@ export function resolveEspecificacionPedidoLinea(params: {
   const parts: string[] = [];
   if (envaseTxt) parts.push(envaseTxt);
 
-  if (madurez) {
+  // REQ-231: si la nota («Amarillo · Firme») ya trae la madurez, no se antepone otra vez.
+  const notaTraeMadurez =
+    Boolean(madurez) && quitarAcentos(ia).includes(quitarAcentos(madurez));
+  if (madurez && !notaTraeMadurez) {
     const already = parts.some((p) =>
       quitarAcentos(p).includes(quitarAcentos(madurez)),
     );

@@ -1,8 +1,52 @@
 import { describe, expect, it } from "vitest";
 import {
   aplicarMadurezDesdeTexto,
+  asignarMadurezAProductos,
   filasMadurezDesdeTexto,
+  observacionesDesdeTexto,
 } from "./madurez-linea";
+
+const CORREO_ADP = [
+  "PRODUCTOS",
+  "1. AGUACATE EXTRA (200 a 260g) [Cód. 115001005] · 3 kg · $47.00/kg · Madurez: Amarillo · $141.00",
+  "   Obs.: Firme",
+  "2. PEPINO VERDE [Cód. 10501519] · 4 kg · $25.00/kg · $100.00",
+  "3. JITOMATE GUAJE [Cód. 10501518] · 7 kg · $37.00/kg · Madurez: Amarillo · $259.00",
+  "   Obs.: Macizo por favor  es para picar para ceviches",
+  "",
+  "TOTAL: $500.00",
+].join("\n");
+
+describe("observacionesDesdeTexto (REQ-231)", () => {
+  it("ata cada «Obs.:» al producto numerado que la antecede", () => {
+    expect(observacionesDesdeTexto(CORREO_ADP)).toEqual([
+      { producto: "AGUACATE EXTRA (200 a 260g)", observacion: "Firme" },
+      {
+        producto: "JITOMATE GUAJE",
+        observacion: "Macizo por favor es para picar para ceviches",
+      },
+    ]);
+  });
+
+  it("ignora un «Obs.:» que no sigue a un producto", () => {
+    expect(observacionesDesdeTexto("Obs.: llamar antes de entregar")).toEqual([]);
+  });
+});
+
+describe("asignarMadurezAProductos con Obs. (REQ-231)", () => {
+  it("junta la madurez y la observación de cada producto", () => {
+    expect(
+      asignarMadurezAProductos({
+        productos: ["AGUACATE EXTRA (200 a 260g)", "PEPINO VERDE", "JITOMATE GUAJE"],
+        textoFuente: CORREO_ADP,
+      }),
+    ).toEqual([
+      "Amarillo · Firme",
+      null,
+      "Amarillo · Macizo por favor es para picar para ceviches",
+    ]);
+  });
+});
 
 describe("filasMadurezDesdeTexto", () => {
   it("lee la columna Maduración de cada renglón", () => {
