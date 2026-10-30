@@ -168,6 +168,23 @@ describe("resolveCabeceraGuardada (REQ-230)", () => {
     ).toBe("");
   });
 
+  it("un cuerpo de correo guardado en las notas no vuelve como hilo crudo", () => {
+    const cuerpo = "From: cocina@hotel.com\nSubject: pedido\n\nEntregar en andén 2";
+    const observaciones = resolveCabeceraGuardada({
+      detalle: {
+        orden_compra_hotel: "OCC-EDITADA-77",
+        notas_almacen: cuerpo,
+        observaciones: "Fecha entrega: 2026-10-30",
+        origen_texto: "Oc Generada 4501056534",
+      },
+      filasOrigen: [{ "Notas generales": "Notas generales del correo" }],
+      propuesta,
+    }).observaciones;
+    expect(observaciones).not.toBe(cuerpo);
+    expect(observaciones).not.toContain("From:");
+    expect(observaciones).not.toContain("Subject:");
+  });
+
   it("OV recién llegada del correo: usa lo propuesto", () => {
     expect(
       resolveCabeceraGuardada({
