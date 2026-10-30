@@ -454,15 +454,19 @@ function DetalleContent({
           <div className="overflow-hidden rounded-xl border border-polaria-w-08">
             <table className="w-full table-fixed border-collapse text-left">
               <colgroup>
-                <col className="w-[44%]" />
-                <col className="w-[20%]" />
-                <col className="w-[18%]" />
-                <col className="w-[18%]" />
+                <col className="w-[34%]" />
+                <col className="w-[22%]" />
+                <col className="w-[16%]" />
+                <col className="w-[14%]" />
+                <col className="w-[14%]" />
               </colgroup>
               <thead className="bg-polaria-w-08">
                 <tr className="border-b border-polaria-t-20">
                   <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
                     Producto
+                  </th>
+                  <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
+                    Especificación
                   </th>
                   <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
                     Cantidad
@@ -482,6 +486,7 @@ function DetalleContent({
                     nombre: titulo,
                     cantidad: linea.cantidad_pedida,
                     otId: hija?.id,
+                    idProducto: linea.id_producto,
                     allowUnscoped: !hija,
                   });
                   const skuVisible = resolveSkuVisible({
@@ -502,8 +507,14 @@ function DetalleContent({
                           {skuVisible
                             ? `SKU ${skuVisible}`
                             : resolveOrdenVentaLineaUnidad(linea)}
-                          {nota ? ` · ${nota}` : null}
                         </p>
+                      </td>
+                      <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w">
+                        {nota ? (
+                          <span className="break-words">{nota}</span>
+                        ) : (
+                          <span className="text-polaria-w-50">—</span>
+                        )}
                       </td>
                       <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
                         {formatOrdenVentaCantidadConUnidad(

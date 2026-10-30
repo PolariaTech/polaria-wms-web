@@ -170,4 +170,35 @@ describe("formatEspecificacionEnvase / resolveEspecificacionPedidoLinea", () => 
       }),
     ).toBe("Firme");
   });
+
+  it("REQ-158: maduro y plurales también van a la especificación", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: null,
+        envase: null,
+        textoOriginal: "AGUACATE HASS maduro",
+      }),
+    ).toBe("Maduro");
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: null,
+        envase: null,
+        textoOriginal: "enrriados",
+      }),
+    ).toBe("Enrriado");
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: null,
+        envase: null,
+        textoOriginal: "aguacate no muy maduro",
+      }),
+    ).toBe("No muy maduro");
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: null,
+        envase: null,
+        textoOriginal: "PLATANO maduración: 3/4",
+      }),
+    ).toBe("3/4");
+  });
 });

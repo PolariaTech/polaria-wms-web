@@ -39,9 +39,13 @@ import {
   type AutoPrintOvResult,
 } from "../../print/auto-print-ov-tras-emitir";
 import {
+  ETIQUETA_RECARGAR_PAGINA,
   MENSAJE_CORREO_MAS_TARDE,
   MENSAJE_CORREO_NO_ENVIADO,
+  MENSAJE_VERSION_NUEVA,
   TIPO_CORREO_NO_ENVIADO,
+  VIGENCIA_MARCA_LOCAL_MS,
+  esErrorDeVersionVieja,
   mergeCorreoNoEnviado,
 } from "../../print/print-correo-fallo";
 import { listOrdenIdsCorreoNoEnviado } from "../../print/list-orden-ids-correo-no-enviado";
@@ -102,6 +106,28 @@ type PrintRetryTarget = {
   idBodega: string | null;
 };
 
+type OvFeedback = {
+  ok: boolean;
+  title: string;
+  lines: string[];
+  retry: PrintRetryTarget | null;
+  /** REQ-189: pestaña con versión vieja; el botón recarga la página. */
+  recargar?: boolean;
+};
+
+/**
+ * Pestaña abierta antes de un despliegue: no es un fallo de impresión ni se reintenta,
+ * solo hay que recargar. La app responde `no-store` (incluido /_next/*) y no usa service
+ * worker, así que una recarga normal descarga todo de nuevo, igual que Ctrl+Shift+R.
+ */
+const FEEDBACK_VERSION_NUEVA: OvFeedback = {
+  ok: false,
+  title: MENSAJE_VERSION_NUEVA,
+  lines: [],
+  retry: null,
+  recargar: true,
+};
+
 function renderEstadoBadge(estado: string) {
   return (
     <PolariaTableBadge variant={variantEstadoOrdenVenta(estado)}>
@@ -159,12 +185,7 @@ export function OperadorOrdenesVentaPageContent({
   const [reprintConfirmRow, setReprintConfirmRow] =
     useState<OrdenVentaOperadorRow | null>(null);
   /** Un solo modal: orden confirmada + impresión (REQ-039). */
-  const [feedback, setFeedback] = useState<{
-    ok: boolean;
-    title: string;
-    lines: string[];
-    retry: PrintRetryTarget | null;
-  } | null>(null);
+  const [feedback, setFeedback] = useState<OvFeedback | null>(null);
   const showFeedback = useCallback(
     (item: { ok: boolean; title: string; detail: string }) => {
       setFeedback({
@@ -177,25 +198,27 @@ export function OperadorOrdenesVentaPageContent({
     [],
   );
   const lastEmitRef = useRef<PrintRetryTarget | null>(null);
+  /** Marcas locales con la hora en que se pusieron: pasada su vigencia manda el servidor (REQ-189). */
   const [marcasLocales, setMarcasLocales] = useState<{
-    marcados: Set<string>;
-    quitados: Set<string>;
-  }>({ marcados: new Set(), quitados: new Set() });
+    marcados: Map<string, number>;
+    quitados: Map<string, number>;
+  }>({ marcados: new Map(), quitados: new Map() });
+  const [ahoraMarcas, setAhoraMarcas] = useState(() => Date.now());
   const marcarCorreoNoEnviado = useCallback((idOrdenVenta: string) => {
     setMarcasLocales((prev) => {
-      const marcados = new Set(prev.marcados);
-      const quitados = new Set(prev.quitados);
-      marcados.add(idOrdenVenta);
+      const marcados = new Map(prev.marcados);
+      const quitados = new Map(prev.quitados);
+      marcados.set(idOrdenVenta, Date.now());
       quitados.delete(idOrdenVenta);
       return { marcados, quitados };
     });
   }, []);
   const quitarCorreoNoEnviado = useCallback((idOrdenVenta: string) => {
     setMarcasLocales((prev) => {
-      const marcados = new Set(prev.marcados);
-      const quitados = new Set(prev.quitados);
+      const marcados = new Map(prev.marcados);
+      const quitados = new Map(prev.quitados);
       marcados.delete(idOrdenVenta);
-      quitados.add(idOrdenVenta);
+      quitados.set(idOrdenVenta, Date.now());
       return { marcados, quitados };
     });
   }, []);
@@ -225,6 +248,11 @@ export function OperadorOrdenesVentaPageContent({
     const print = autoPrintResultToFeedback(result);
     if (!print) return;
     if (!print.ok) {
+      if (print.versionVieja) {
+        // Pestaña con versión vieja: no es un fallo del correo y reintentar fallaría igual.
+        setFeedback(FEEDBACK_VERSION_NUEVA);
+        return;
+      }
       const target = lastEmitRef.current;
       setFeedback({
         ok: false,
@@ -378,9 +406,27 @@ export function OperadorOrdenesVentaPageContent({
         servidor: idsCorreoServidor,
         marcados: marcasLocales.marcados,
         quitados: marcasLocales.quitados,
+        ahora: ahoraMarcas,
       }),
-    [idsCorreoServidor, marcasLocales],
+    [idsCorreoServidor, marcasLocales, ahoraMarcas],
   );
+
+  // REQ-189: al vencer la marca local más próxima, se recarga la lista y se deja decidir al servidor.
+  useEffect(() => {
+    const vigentes = [
+      ...marcasLocales.marcados.values(),
+      ...marcasLocales.quitados.values(),
+    ].filter((puestaEn) => ahoraMarcas - puestaEn < VIGENCIA_MARCA_LOCAL_MS);
+    if (vigentes.length === 0) return;
+    const vence = Math.min(...vigentes) + VIGENCIA_MARCA_LOCAL_MS;
+    const timer = setTimeout(
+      () => {
+        void reload().finally(() => setAhoraMarcas(Date.now()));
+      },
+      Math.max(vence - Date.now(), 0) + 50,
+    );
+    return () => clearTimeout(timer);
+  }, [marcasLocales, ahoraMarcas, reload]);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
 
@@ -505,6 +551,12 @@ export function OperadorOrdenesVentaPageContent({
             ? error.message
             : "No se pudo enviar a la impresora.";
         console.error("[ov] no se envió el correo a la impresora:", message);
+        if (esErrorDeVersionVieja(error)) {
+          // REQ-189: pestaña con versión vieja. No es un fallo de impresión: no se registra
+          // ni se marca la OV; basta con recargar la página.
+          setFeedback(FEEDBACK_VERSION_NUEVA);
+          return;
+        }
         if (modo === "reintento") {
           const session = useAuthStore.getState().session;
           await postOrdenVentaLog({
@@ -588,6 +640,10 @@ export function OperadorOrdenesVentaPageContent({
               ? result.message
               : "No se pudo enviar a la impresora.";
           console.error("[ov] reintento de correo a impresora:", detalle);
+          if (esErrorDeVersionVieja(detalle)) {
+            setFeedback(FEEDBACK_VERSION_NUEVA);
+            return;
+          }
           await postOrdenVentaLog({
             idOrdenVenta: target.idOrdenVenta,
             codigoCuenta,
@@ -1436,7 +1492,15 @@ export function OperadorOrdenesVentaPageContent({
               </div>
             </div>
             <div className="border-t border-polaria-w-08 px-5 py-4 sm:px-6">
-              {feedback.retry ? (
+              {feedback.recargar ? (
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="w-full rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
+                >
+                  {ETIQUETA_RECARGAR_PAGINA}
+                </button>
+              ) : feedback.retry ? (
                 <button
                   type="button"
                   disabled={Boolean(busyAction)}

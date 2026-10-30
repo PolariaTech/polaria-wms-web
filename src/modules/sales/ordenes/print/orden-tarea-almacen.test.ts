@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { inflateSync } from "node:zlib";
 import type {
   OrdenVentaDetalleRow,
   OrdenVentaOperadorRow,
@@ -11,6 +12,21 @@ import {
   mapOrdenVentaToAlmacenPrintData,
   mapOrdenVentaToAlmacenPrintSheets,
 } from "./map-orden-tarea-almacen";
+
+function textoPdf(pdf: { output: (tipo: "arraybuffer") => ArrayBuffer }): string {
+  const crudo = Buffer.from(pdf.output("arraybuffer")).toString("latin1");
+  const partes: string[] = [];
+  const streams = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  for (const coincidencia of crudo.matchAll(streams)) {
+    const cuerpo = coincidencia[1] ?? "";
+    try {
+      partes.push(inflateSync(Buffer.from(cuerpo, "latin1")).toString("latin1"));
+    } catch {
+      partes.push(cuerpo);
+    }
+  }
+  return partes.join("\n");
+}
 
 const LIST_ROW: OrdenVentaOperadorRow = {
   idOrdenVenta: "ov-1",
@@ -285,11 +301,12 @@ describe("orden de tarea almacén", () => {
     expect(html).not.toContain("Si algo no se puede surtir");
     expect(html).not.toContain("coincide con la factura impresa");
     expect(html).not.toContain("Responsables");
-    expect(html).not.toContain("Documentó");
+    expect(html).not.toContain('<div class="role">Documentó</div>');
     expect(html).not.toContain("Turno PM");
     expect(html).not.toContain("Noche / AM");
     expect(html).not.toContain("Facturó");
-    expect(html).toContain("Factura (OK)");
+    expect(html).not.toContain("Factura (OK)");
+    expect(html).toContain('<div class="role">Documentación</div>');
     expect(html).toContain("Retorno");
     expect(html).toContain("Despachó");
     expect(html).toContain("Firma");
@@ -322,6 +339,74 @@ describe("orden de tarea almacén", () => {
     expect(data.lineas[0]?.especificacion).toBe("");
   });
 
+  it("REQ-185/192: imprime la especificación guardada por id de producto y OT", () => {
+    const sheets = mapOrdenVentaToAlmacenPrintSheets({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        notas_lineas: [
+          "ot:ot-cocina|pid:prod-1: 5x10litros",
+          "ot:ot-bar|pid:prod-2: 7x5LT",
+        ].join("\n"),
+        lineas: [
+          {
+            id_linea_orden_venta: "line-1",
+            id_producto: "prod-1",
+            cantidad_pedida: 10,
+            precio_unitario: 1000,
+            producto: {
+              sku: "A",
+              descripcion: "Jugo",
+              metadatos_catalogo: { titulo: "JUGO DE LIMON" },
+            },
+          },
+          {
+            id_linea_orden_venta: "line-2",
+            id_producto: "prod-2",
+            cantidad_pedida: 7,
+            precio_unitario: 80,
+            producto: {
+              sku: "B",
+              descripcion: "Agua",
+              metadatos_catalogo: { titulo: "AGUA" },
+            },
+          },
+        ],
+        origen_correo: [
+          {
+            _otId: "ot-cocina",
+            "Numero pedido": "942",
+            Almacen: "Cocina",
+            Producto: "JUGO DE LIMON",
+            Cantidad: 10,
+          },
+          {
+            _otId: "ot-bar",
+            "Numero pedido": "943",
+            Almacen: "Bar",
+            Producto: "AGUA",
+            Cantidad: 7,
+          },
+        ],
+      },
+    });
+
+    expect(sheets[0]?.lineas[0]?.especificacion).toBe("5x10litros");
+    expect(sheets[1]?.lineas[0]?.especificacion).toBe("7x5LT");
+    expect(buildOrdenTareaAlmacenHtml(sheets[0]!)).toContain("5x10litros");
+  });
+
+  it("REQ-185/192: sin OT imprime la especificación guardada solo por id de producto", () => {
+    const data = mapOrdenVentaToAlmacenPrintData({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        notas_lineas: "pid:prod-1: 5x10litros",
+      },
+    });
+    expect(data.lineas[0]?.especificacion).toBe("5x10litros");
+  });
+
   it("cabe en una sola hoja carta aunque la dirección sea larga", () => {
     const data = mapOrdenVentaToAlmacenPrintData({
       listRow: LIST_ROW,
@@ -348,6 +433,9 @@ describe("orden de tarea almacén", () => {
     expect(pdf.getNumberOfPages()).toBe(1);
     expect(pdf.internal.pageSize.getWidth()).toBeCloseTo(215.9, 1);
     expect(pdf.internal.pageSize.getHeight()).toBeCloseTo(279.4, 1);
+    const texto = textoPdf(pdf);
+    expect(texto).toContain("Documentaci\u00f3n");
+    expect(texto).not.toContain("Factura (OK)");
   });
 
   it("genera PDF horizontal en 2 divisiones con los mismos campos", () => {
@@ -360,6 +448,9 @@ describe("orden de tarea almacén", () => {
     expect(pdf.getNumberOfPages()).toBe(1);
     expect(pdf.internal.pageSize.getWidth()).toBeCloseTo(215.9, 1);
     expect(pdf.internal.pageSize.getHeight()).toBeCloseTo(279.4, 1);
+    const texto = textoPdf(pdf);
+    expect(texto).toContain("Documentaci\u00f3n");
+    expect(texto).not.toContain("Factura (OK)");
   });
 
   it("parte origen_correo en una hoja por orden de trabajo con índice n/N", () => {

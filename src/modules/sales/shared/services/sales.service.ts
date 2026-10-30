@@ -1824,11 +1824,12 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
     fecha_entrega: string | null;
     notas_lineas: string | null;
     origen_correo: unknown;
+    origen_texto: string | null;
   } | null>((client) => {
     const query = client
       .from("orden_venta")
       .select(
-        "estado,id_comprador,orden_compra_hotel,centro_consumo,contacto_entrega,correo_contacto,fecha_entrega,notas_lineas,origen_correo",
+        "estado,id_comprador,orden_compra_hotel,centro_consumo,contacto_entrega,correo_contacto,fecha_entrega,notas_lineas,origen_correo,origen_texto",
       )
       .eq("codigo_cuenta", codigoCuenta)
       .eq("id_orden_venta", idOrdenVenta)
@@ -1845,6 +1846,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
         fecha_entrega: string | null;
         notas_lineas: string | null;
         origen_correo: unknown;
+        origen_texto: string | null;
       } | null;
       error: { message: string } | null;
     }>;
@@ -1895,6 +1897,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
     origenCorreo: origen,
     productos,
     compradores,
+    origenTexto: header.origen_texto,
   });
 
   const patch: Record<string, unknown> = {};

@@ -186,7 +186,8 @@ export function CapturaOrdenCard({
         >
           {alertError}
           <span className="mt-1 block text-polaria-w-50">
-            Vuelve a tomar la foto; no se guardó esta captura.
+            No se guardó esta captura. Encaja la hoja en el marco e intenta de
+            nuevo.
           </span>
         </p>
       ) : null}

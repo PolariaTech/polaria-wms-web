@@ -105,8 +105,43 @@ export const CABECERA_LABELS: Record<(typeof CABECERA_KEYS)[number], string> = {
 const SURTIDO_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["cabecera", "checks", "lineas", "camposExtra", "observacionesIa"],
+  required: [
+    "calidadFoto",
+    "cabecera",
+    "checks",
+    "lineas",
+    "camposExtra",
+    "observacionesIa",
+  ],
   properties: {
+    calidadFoto: {
+      type: "object",
+      additionalProperties: false,
+      required: ["esHojaSurtido", "hojaCompletaYLegible", "motivo"],
+      properties: {
+        esHojaSurtido: {
+          type: "boolean",
+          description:
+            "true si el sujeto PRINCIPAL es la hoja impresa de ORDEN DE VENTA / surtido de almacén. " +
+            "Puede haber dedos/mesa al borde. false SOLO si NO es esa hoja (selfie, caja, scanner vacío, " +
+            "otra factura, solo manos/resaltador sin la OV).",
+        },
+        hojaCompletaYLegible: {
+          type: "boolean",
+          description:
+            "Umbral LAXO (~40%): true si se reconoce la hoja y se puede leer ALGO útil " +
+            "(productos, checks, firmas o cabecera), aunque el ángulo, luz, recorte parcial o " +
+            "hora impresa no sean perfectos. false SOLO si la hoja está tan mal que casi nada se lee.",
+        },
+        motivo: {
+          type: "string",
+          description:
+            "Si esHojaSurtido es false, o ambas flags fallan: una frase corta en español. " +
+            "Si esHojaSurtido es true (aunque hojaCompletaYLegible sea false por imperfección leve): " +
+            "puedes dejar vacío o una nota breve; no inventes rechazo duro.",
+        },
+      },
+    },
     cabecera: {
       type: "object",
       additionalProperties: false,
@@ -317,10 +352,50 @@ function pareceNombrePersona(valor: string): boolean {
   return /^[\p{L}\s.'’-]+$/u.test(t);
 }
 
+const ALIAS_DOCUMENTACION: Array<{
+  canonical: (typeof CABECERA_KEYS)[number];
+  alias: string;
+}> = [
+  { canonical: "facturaOkFolio", alias: "Documentación folio" },
+  { canonical: "facturaOkFirma", alias: "Documentación firma" },
+  { canonical: "facturaOkNombre", alias: "Documentación nombre" },
+  { canonical: "facturaOkHora", alias: "Documentación hora" },
+];
+
+/**
+ * Hojas nuevas rotulan la caja «Documentación»; las viejas, «Factura (OK)».
+ * Copia el alias al campo canónico y lo borra para que el resto del flujo no cambie.
+ * «Documentó» es otra caja y no se toca.
+ */
+function absorberAliasDocumentacion(campos: Record<string, string>): void {
+  for (const { canonical, alias } of ALIAS_DOCUMENTACION) {
+    const aliasValor = campos[alias]?.trim();
+    const yaCanonico = campoValor(
+      campos,
+      canonical,
+      CABECERA_LABELS[canonical],
+    );
+    if (!yaCanonico && aliasValor) {
+      setCampoNombre(campos, canonical, aliasValor);
+    }
+    delete campos[alias];
+  }
+  const suelto = campos["Documentación"]?.trim();
+  delete campos["Documentación"];
+  if (
+    suelto &&
+    !campos.facturaOkNombre?.trim() &&
+    !campos.facturaOkFirma?.trim()
+  ) {
+    setCampoNombre(campos, "facturaOkNombre", suelto);
+  }
+}
+
 /** Factura asociada ≠ firmas: no debe llevar nombres de Alistó/Revisó/Despachó/etc. */
 export function sanitizeFacturaAsociada(
   campos: Record<string, string>,
 ): void {
+  absorberAliasDocumentacion(campos);
   const factura = campoValor(
     campos,
     "facturaAsociada",
@@ -332,8 +407,18 @@ export function sanitizeFacturaAsociada(
   const firmas = [
     campoValor(campos, "alistoNombre", "Alistó nombre", "Alistó"),
     campoValor(campos, "revisoNombre", "Revisó nombre", "Revisó"),
-    campoValor(campos, "facturaOkNombre", "Factura (OK) nombre"),
-    campoValor(campos, "facturaOkFirma", "Factura (OK) firma"),
+    campoValor(
+      campos,
+      "facturaOkNombre",
+      "Factura (OK) nombre",
+      "Documentación nombre",
+    ),
+    campoValor(
+      campos,
+      "facturaOkFirma",
+      "Factura (OK) firma",
+      "Documentación firma",
+    ),
     campoValor(campos, "documentoNombre", "Documentó nombre"),
     campoValor(campos, "despachoNombre", "Despachó nombre", "Despachó"),
     campoValor(campos, "despachoFirma", "Despachó firma"),
@@ -371,6 +456,7 @@ export function sanitizeFacturaAsociada(
 export function sanitizeFacturaOkFolioFirma(
   campos: Record<string, string>,
 ): void {
+  absorberAliasDocumentacion(campos);
   let folio = campoValor(campos, "facturaOkFolio", "Factura (OK) folio");
   let firma = campoValor(
     campos,
@@ -686,12 +772,26 @@ function normalizePayload(
   const remapped = remapLineasPorProducto(lineasParsed, original);
   const lineas = ensureLineasCompletas(original, remapped);
 
+  const calidadRaw =
+    obj.calidadFoto && typeof obj.calidadFoto === "object"
+      ? (obj.calidadFoto as Record<string, unknown>)
+      : null;
+  const calidadFoto = calidadRaw
+    ? {
+        esHojaSurtido: asNullableBool(calidadRaw.esHojaSurtido) === true,
+        hojaCompletaYLegible:
+          asNullableBool(calidadRaw.hojaCompletaYLegible) === true,
+        motivo: asNullableString(calidadRaw.motivo)?.trim() || "",
+      }
+    : null;
+
   const base: OrdenSurtidoCapturaPayload = {
     campos,
     checks,
     lineas,
     observacionesIa: asNullableString(obj.observacionesIa),
     precisionEstimada: null,
+    calidadFoto,
   };
 
   sanitizeFacturaAsociada(base.campos);
@@ -732,29 +832,38 @@ export async function extraerSurtidoDesdeFoto(input: {
         content:
           "Eres un lector experto de hojas de ORDEN DE VENTA de almacén impresas y llenadas a mano (bolígrafo). " +
           "Comparas la foto con el snapshot del PDF ORIGINAL. " +
-          "Debes extraer TODO lo manuscrito y TODAS las casillas marcadas, mapeándolas a cabecera / checks / lineas. " +
+          "PRIMERO evalúa calidadFoto (esHojaSurtido / hojaCompletaYLegible / motivo) con umbral LAXO. " +
+          "Luego extrae TODO lo manuscrito y TODAS las casillas marcadas, mapeándolas a cabecera / checks / lineas. " +
           "Reglas:\n" +
+          "0) calidadFoto (LAXO ~40%): esHojaSurtido=true si el sujeto es la hoja OV/surtido " +
+          "(dedos/mesa al borde OK). hojaCompletaYLegible=true si se lee algo útil aunque el encuadre, " +
+          "ángulo o luz no sean perfectos; false SOLO si casi nada se lee. " +
+          "Rechaza esHojaSurtido=false solo si NO es esa hoja (selfie, caja, otro doc). " +
+          "SIEMPRE intenta extraer manuscrito/checks aunque la foto sea imperfecta; no dejes todo null " +
+          "solo por un ángulo o borde recortado.\n" +
           "1) Solo valores escritos o corregidos a mano, o checkboxes con X/✓/raya clara. NUNCA inventes.\n" +
           "2) No copies texto ya impreso (cliente, productos, cantidades solicitadas) salvo que se haya tachado/reescrito a mano.\n" +
           "3) Si un campo está vacío o ilegible → null. Si un checkbox está vacío → false; si no se ve → null.\n" +
           "4) facturaAsociada = SOLO el folio/número de factura manuscrito junto a la etiqueta «Folio factura asociada» " +
           "(arriba, cerca de cliente/# orden; antes «Factura asociada»). NUNCA pongas ahí un nombre de persona. " +
-          "Los nombres van SOLO en las cajas de firma Alistó / Revisó / Factura (OK) / Despachó / Retorno.\n" +
+          "Los nombres van SOLO en las cajas de firma Alistó / Revisó / Factura (OK) o Documentación / Despachó / Retorno.\n" +
           "4b) COLOCACIÓN ESTRICTA POR CAJA (columna izquierda, de arriba a abajo): " +
-          "Alistó → alistoNombre; Revisó → revisoNombre; Factura (OK) → facturaOkFolio/facturaOkFirma; " +
+          "Alistó → alistoNombre; Revisó → revisoNombre; " +
+          "la caja «Factura (OK)» (hojas ya impresas) o «Documentación» (hojas nuevas) es la misma y va a facturaOkFolio/facturaOkFirma; " +
           "Despachó → despachoNombre/despachoHora; Retorno → retornoNombre. " +
           "SOLO asigna un valor al campo de la caja donde VES la tinta. " +
           "Si la caja está en blanco → null. NUNCA copies el mismo texto a otra caja «por si acaso». " +
-          "NUNCA muevas un nombre de Despachó a Factura (OK) ni de Alistó a Revisó si esa caja está vacía.\n" +
+          "NUNCA muevas un nombre de Despachó a Factura (OK) o Documentación ni de Alistó a Revisó si esa caja está vacía. " +
+          "No confundas «Documentó» con «Documentación»: Documentó no llena facturaOk*.\n" +
           "4c) Nombres de firma: captura el nombre COMPLETO tal como está escrito (nombre + apellido). " +
           "No truncues a solo el apellido.\n" +
-          "4d) Caja «Factura (OK)» (más alta que las demás): " +
+          "4d) Caja «Factura (OK)» o «Documentación» (mismo recuadro, rótulo viejo o nuevo; más alta que las demás): " +
           "esquina inferior IZQUIERDA (etiqueta Folio) → facturaOkFolio (número/código de factura, suele traer dígitos); " +
           "esquina inferior DERECHA (etiqueta Firma) → facturaOkFirma (nombre de persona, sin dígitos). " +
           "NUNCA pongas un nombre en facturaOkFolio ni un folio/número en facturaOkFirma. " +
           "Si solo hay tinta en un lado, llena SOLO ese lado; el otro → null.\n" +
           "4e) Despachó: inferior izquierda Firma → despachoNombre; inferior derecha Fecha → despachoHora. " +
-          "No pongas la fecha de Despachó en Factura (OK).\n" +
+          "No pongas la fecha de Despachó en Factura (OK) ni en Documentación.\n" +
           "5) Cabecera también: horaComprometida, horaSugeridaSalida, chofer, unidad, " +
           "renglonesSurtidosCompletos, cajas15kg, cajas21kg, totalBultosCamion, toleranciaPesoPct, recepción.\n" +
           "6) Si en el snapshot estaban vacíos y ahora hay manuscrito, llena también: " +
@@ -788,7 +897,9 @@ export async function extraerSurtidoDesdeFoto(input: {
               "Snapshot del PDF ORIGINAL (referencia de lo ya impreso):\n" +
               snapshot +
               "\n\nAnaliza la foto adjunta de la misma hoja ya surtida/llenada. " +
-              "Llena cabecera, checks y lineas con TODO lo manuscrito y marcado. " +
+              "Primero llena calidadFoto con criterio LAXO: acepta fotos imperfectas de la hoja " +
+              "(~40%: se ve el papel y se lee algo). Solo marca esHojaSurtido=false si no es la hoja. " +
+              "Luego llena cabecera, checks y lineas con TODO lo manuscrito y marcado. " +
               "Incluye UNA linea por cada producto del snapshot (parciales: filas sin marca → alisto=false, reviso=false). " +
               "Para cada linea incluye productoImpreso del snapshot de esa fila. " +
               "especificacion siempre null. Alinea checkboxes a la fila correcta por posición vertical. " +

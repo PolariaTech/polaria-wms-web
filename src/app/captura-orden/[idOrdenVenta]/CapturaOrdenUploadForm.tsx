@@ -10,6 +10,10 @@ import {
 import { flushSync } from "react-dom";
 import { compressImageFile } from "@/lib/images/compress-image-file";
 import { ROUTES } from "@/config/routes";
+import {
+  CapturaOrdenCamera,
+  requestSurtidoCameraStream,
+} from "./CapturaOrdenCamera";
 
 interface CapturaOrdenUploadFormProps {
   idOrdenVenta: string;
@@ -65,8 +69,31 @@ function readFirstFile(
   return null;
 }
 
+function mensajeErrorRespuesta(
+  data: { error?: string; codigo?: string },
+  status: number,
+): string {
+  if (typeof data.error === "string" && data.error.trim()) {
+    return data.error.trim();
+  }
+  if (status === 422) {
+    return "La foto fue tomada mal. Intenta de nuevo: la hoja debe verse clara dentro del marco.";
+  }
+  if (status === 413 || status === 400) {
+    return "La foto no se pudo enviar. Tómala de nuevo más liviana o con mejor encuadre.";
+  }
+  if (status >= 500) {
+    return "Mateo no pudo analizar la foto ahora. Espera un momento e intenta de nuevo.";
+  }
+  if (status === 0) {
+    return "Error de red al subir. Revisa la conexión e inténtalo de nuevo.";
+  }
+  return `No se pudo procesar la foto (${status}). Intenta de nuevo.`;
+}
+
 /**
- * Un solo input de cámara. Sin <form action> para que Safari no recargue al volver.
+ * Cámara in-app con marco (getUserMedia en el tap).
+ * Sin `capture` nativo: en iPhone abre la cámara del sistema y no hay overlay.
  */
 export function CapturaOrdenUploadForm({
   idOrdenVenta,
@@ -76,11 +103,12 @@ export function CapturaOrdenUploadForm({
   onUploadError,
   onUploadingChange,
 }: CapturaOrdenUploadFormProps) {
-  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<File | null>(null);
   const lastKeyRef = useRef("");
   const uploadingRef = useRef(false);
   const uploadFnRef = useRef<(picked?: File) => void>(() => {});
+  const openingRef = useRef(false);
   const onUploadOkRef = useRef(onUploadOk);
   onUploadOkRef.current = onUploadOk;
   const onUploadErrorRef = useRef(onUploadError);
@@ -93,11 +121,19 @@ export function CapturaOrdenUploadForm({
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
+  const [openingCamera, setOpeningCamera] = useState(false);
+  /** Solo tras montar: evita hydration mismatch (SSR ≠ cliente en HTTP). */
+  const [insecureHttp, setInsecureHttp] = useState(false);
 
   const actionUrl = ROUTES.capturaOrdenApi(
     idOrdenVenta,
     idOrdenTrabajo || undefined,
   );
+
+  useEffect(() => {
+    setInsecureHttp(window.isSecureContext === false);
+  }, []);
 
   const acceptFile = useCallback(
     (picked: File) => {
@@ -114,6 +150,7 @@ export function CapturaOrdenUploadForm({
         setHasFile(true);
         setError(null);
         setDone(false);
+        setLiveStream(null);
       });
       window.setTimeout(() => uploadFnRef.current(picked), 0);
     },
@@ -122,37 +159,19 @@ export function CapturaOrdenUploadForm({
 
   const ingestFromInput = useCallback(() => {
     if (submitting || done) return;
-    const file = readFirstFile(cameraRef.current);
+    const file = readFirstFile(galleryRef.current);
     if (!file) return;
     acceptFile(file);
   }, [acceptFile, done, submitting]);
 
   useEffect(() => {
-    const camera = cameraRef.current;
-
+    const gallery = galleryRef.current;
     const onPick = () => ingestFromInput();
-    camera?.addEventListener("change", onPick);
-    camera?.addEventListener("input", onPick);
-
-    const onReturn = () => {
-      window.setTimeout(ingestFromInput, 0);
-      window.setTimeout(ingestFromInput, 300);
-      window.setTimeout(ingestFromInput, 800);
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") onReturn();
-    };
-
-    window.addEventListener("focus", onReturn);
-    window.addEventListener("pageshow", onReturn);
-    document.addEventListener("visibilitychange", onVisibility);
-
+    gallery?.addEventListener("change", onPick);
+    gallery?.addEventListener("input", onPick);
     return () => {
-      camera?.removeEventListener("change", onPick);
-      camera?.removeEventListener("input", onPick);
-      window.removeEventListener("focus", onReturn);
-      window.removeEventListener("pageshow", onReturn);
-      document.removeEventListener("visibilitychange", onVisibility);
+      gallery?.removeEventListener("change", onPick);
+      gallery?.removeEventListener("input", onPick);
     };
   }, [ingestFromInput]);
 
@@ -161,13 +180,52 @@ export function CapturaOrdenUploadForm({
     if (file) acceptFile(file);
   };
 
+  const openLiveCamera = () => {
+    if (submitting || done || openingRef.current || liveStream) return;
+    setError(null);
+
+    // iOS/Safari solo expone mediaDevices en HTTPS o localhost.
+    // http://192.168.x.x → sin getUserMedia → no hay marco posible.
+    if (insecureHttp || !navigator.mediaDevices?.getUserMedia) {
+      setError(
+        insecureHttp
+          ? "La cámara con marco solo funciona en HTTPS (no en http://IP). Abre el link seguro del QR o usa «Elegir de galería»."
+          : "Este navegador no permite cámara con marco. Usa «Elegir de galería».",
+      );
+      return;
+    }
+
+    openingRef.current = true;
+    setOpeningCamera(true);
+
+    // Crítico en iOS/Android: getUserMedia en el mismo gesto del tap.
+    void requestSurtidoCameraStream()
+      .then((stream) => {
+        setLiveStream(stream);
+      })
+      .catch((err: unknown) => {
+        const name = err instanceof DOMException ? err.name : "";
+        const msg =
+          name === "NotAllowedError" || name === "PermissionDeniedError"
+            ? "Permiso de cámara denegado. Actívalo en Ajustes (Safari/Chrome) o elige una foto de la galería."
+            : name === "NotFoundError" || name === "DevicesNotFoundError"
+              ? "No se encontró cámara trasera. Prueba de nuevo o elige una foto de la galería."
+              : "No se pudo abrir la cámara con marco. Elige una foto de la galería.";
+        setError(msg);
+      })
+      .finally(() => {
+        openingRef.current = false;
+        setOpeningCamera(false);
+      });
+  };
+
   const upload = (picked?: File) => {
     if (submitting || done || uploadingRef.current) return;
 
     const original =
       picked ??
       fileRef.current ??
-      readFirstFile(cameraRef.current);
+      readFirstFile(galleryRef.current);
     if (!original) {
       setError("Selecciona una foto de la hoja llenada.");
       return;
@@ -182,7 +240,6 @@ export function CapturaOrdenUploadForm({
       let toSend = original;
       try {
         toSend = await Promise.race([
-          // Más resolución/calidad: los chulos Alistó/Revisó son cuadritos chicos.
           compressImageFile(original, {
             maxBytes: MAX_UPLOAD_BYTES,
             maxEdge: 2400,
@@ -198,7 +255,7 @@ export function CapturaOrdenUploadForm({
 
       if (toSend.size > MAX_SELECT_BYTES) {
         const msg =
-          "La foto supera 10 MB y no se pudo comprimir lo suficiente.";
+          "La foto supera 10 MB y no se pudo comprimir lo suficiente. Tómala de nuevo más cerca o con menos resolución.";
         uploadingRef.current = false;
         setSubmitting(false);
         onUploadingChangeRef.current?.(false);
@@ -228,6 +285,7 @@ export function CapturaOrdenUploadForm({
         let data: {
           ok?: boolean;
           error?: string;
+          codigo?: string;
         } = {};
         try {
           data = (await response.json()) as typeof data;
@@ -241,10 +299,7 @@ export function CapturaOrdenUploadForm({
           return;
         }
 
-        fail(
-          data.error ||
-            `No se pudo procesar la foto (${response.status || "red"}). Intenta de nuevo.`,
-        );
+        fail(mensajeErrorRespuesta(data, response.status));
       } catch {
         fail("Error de red al subir. Revisa la conexión e inténtalo de nuevo.");
       } finally {
@@ -259,19 +314,22 @@ export function CapturaOrdenUploadForm({
 
   if (done || submitting) return null;
 
-  const pickerClass =
-    "absolute inset-0 z-20 m-0 h-full w-full cursor-pointer p-0";
-  const pickerStyle = {
-    opacity: 0.01,
-    fontSize: 16,
-    WebkitTapHighlightColor: "transparent",
-  } as const;
-
   const pillClass =
-    "relative flex h-14 w-full items-center justify-center overflow-hidden rounded-full bg-polaria-teal px-6 font-semibold text-polaria-on-teal hover:opacity-90";
+    "relative flex h-14 w-full items-center justify-center overflow-hidden rounded-full bg-polaria-teal px-6 font-semibold text-polaria-on-teal hover:opacity-90 disabled:opacity-60";
 
   return (
     <div className="space-y-4">
+      {liveStream ? (
+        <CapturaOrdenCamera
+          stream={liveStream}
+          onCapture={acceptFile}
+          onCancel={() => {
+            for (const track of liveStream.getTracks()) track.stop();
+            setLiveStream(null);
+          }}
+        />
+      ) : null}
+
       {fileLabel ? (
         <p className="text-center polaria-text-caption text-polaria-w-50">
           {fileLabel}
@@ -279,22 +337,38 @@ export function CapturaOrdenUploadForm({
       ) : null}
 
       {error ? (
-        <p role="alert" className="text-center polaria-text-caption text-polaria-w-50">
+        <p
+          role="alert"
+          className="text-center polaria-text-caption text-polaria-w-50"
+        >
           {error}
         </p>
       ) : null}
 
-      <div className={pillClass}>
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={onReactChange}
-          className={pickerClass}
-          style={pickerStyle}
-          aria-label="Tomar foto"
-        />
+      <p className="text-center polaria-text-caption text-polaria-w-50">
+        {insecureHttp
+          ? "Estás en HTTP local: iPhone bloquea la cámara con marco. Prueba el QR en HTTPS (preview/prod) o elige de galería."
+          : "Encaja la hoja impresa dentro del marco. Debe verse clara la hora impresa."}
+      </p>
+
+      {/* Sin capture: evita la cámara nativa de iOS (sin marco). */}
+      <input
+        ref={galleryRef}
+        type="file"
+        accept="image/*"
+        onChange={onReactChange}
+        className="sr-only"
+        tabIndex={-1}
+        aria-label="Elegir de galería"
+      />
+
+      <button
+        type="button"
+        onClick={openLiveCamera}
+        disabled={openingCamera}
+        className={pillClass}
+        aria-label="Tomar foto"
+      >
         <svg
           viewBox="0 0 24 24"
           className="pointer-events-none relative z-0 h-6 w-6"
@@ -308,7 +382,15 @@ export function CapturaOrdenUploadForm({
           <path d="M4.5 8.5h2.2l1.1-2h6.4l1.1 2H19.5A1.5 1.5 0 0 1 21 10v7.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V10A1.5 1.5 0 0 1 4.5 8.5Z" />
           <circle cx="12" cy="13.5" r="3.1" />
         </svg>
-      </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => galleryRef.current?.click()}
+        className="w-full text-center polaria-text-caption font-medium text-polaria-teal underline-offset-2 hover:underline"
+      >
+        Elegir de galería
+      </button>
     </div>
   );
 }
