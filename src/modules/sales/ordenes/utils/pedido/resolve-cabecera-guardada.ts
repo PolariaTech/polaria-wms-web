@@ -10,6 +10,10 @@ import {
   looksLikeCorreoCuerpoEnNotas,
   sanitizeNotasGeneralesPedido,
 } from "../origen/texto-origen-pedido";
+export {
+  salirDeHoraConTab,
+  useFocoOrdenCompraAlAbrir,
+} from "./foco-formulario-ov";
 
 /**
  * REQ-230: al reabrir en edición una OV de tercero (`por_confirmar`), lo que

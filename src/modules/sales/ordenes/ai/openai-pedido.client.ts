@@ -17,8 +17,7 @@ import {
 } from "../utils/origen/correo-chrome";
 import {
   extractDireccionShipToDesdeTexto,
-  extractEntregaDesdeTexto,
-  quitarContactoDeDireccion,
+  extractEntregaDesdeTexto, quitarContactoDeDireccion,
 } from "../utils/pedido/extract-entrega-desde-texto";
 import { sanitizeTelefonoContacto } from "../utils/pedido/sanitize-telefono-contacto";
 import { resolveCentroConsumoSinConfundirConCliente } from "../utils/pedido/centro-consumo-vs-cliente";

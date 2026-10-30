@@ -23,7 +23,6 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type KeyboardEvent,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -39,26 +38,6 @@ import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDia
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { usePolariaToast } from "@/components/shared/toast/PolariaToastProvider";
-
-/** Un input type=time se queda el foco en hora, minutos y AM/PM. Un Tab sale del campo. */
-function salirDeHoraConTab(event: KeyboardEvent<HTMLInputElement>) {
-  if (event.key !== "Tab") return;
-  const dialog = event.currentTarget.closest('[role="dialog"]');
-  if (!dialog) return;
-  const focusables = Array.from(
-    dialog.querySelectorAll<HTMLElement>("button, input, select, textarea"),
-  ).filter(
-    (el) =>
-      !el.hasAttribute("disabled") &&
-      el.tabIndex >= 0 &&
-      !el.closest("[hidden], [aria-hidden='true']"),
-  );
-  const index = focusables.indexOf(event.currentTarget);
-  const destino = focusables[index + (event.shiftKey ? -1 : 1)];
-  if (index < 0 || !destino) return;
-  event.preventDefault();
-  destino.focus();
-}
 import { MateoIaLoadingScreen } from "@/components/mateo/MateoIaLoadingScreen";
 import {
   formatDecimalInputEs,
@@ -189,7 +168,7 @@ import {
   resolveOrdenCompraLimpia,
   sanitizeOrigenCorreoNumeroPedido,
 } from "../../utils/pedido/normalize-numero-pedido";
-import { resolveCabeceraGuardada } from "../../utils/pedido/resolve-cabecera-guardada";
+import { resolveCabeceraGuardada, salirDeHoraConTab, useFocoOrdenCompraAlAbrir } from "../../utils/pedido/resolve-cabecera-guardada";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
   FECHA_ENTREGA_DEFAULT_WARNING,
@@ -4202,10 +4181,7 @@ export function OrdenVentaCreateModal({
    * ESC / salir: primero retrocede un paso del wizard; si ya no hay paso
    * anterior y hay progreso, pide confirmación antes de volver a Ventas.
    */
-  useEffect(() => {
-    if (!open || step !== "form" || isLoading) return;
-    document.getElementById("orden-venta-oc-hotel")?.focus();
-  }, [open, step, isLoading]);
+  useFocoOrdenCompraAlAbrir(open, step, isLoading);
 
   const requestClose = useCallback(() => {
     if (
