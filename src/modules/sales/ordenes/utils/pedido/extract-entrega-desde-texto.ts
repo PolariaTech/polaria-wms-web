@@ -1,4 +1,7 @@
 import * as chrono from "chrono-node";
+import { quitarContactoDeDireccion } from "./quitar-contacto-direccion";
+
+export { quitarContactoDeDireccion };
 
 export type EntregaExtraidaTexto = {
   /** YYYY-MM-DD si se pudo resolver. */
@@ -365,19 +368,11 @@ export function extractDireccionShipToDesdeTexto(
     }
     if (SHIP_TO_STOP_RE.test(trimmed)) break;
     if (/^(bill\s*to|sold\s*to)\b/i.test(trimmed)) break;
-    lines.push(trimmed);
+    const sinContacto = quitarContactoDeDireccion(trimmed);
+    if (!sinContacto) continue;
+    lines.push(sinContacto);
     if (lines.length >= 6) break;
   }
 
-  // Misma línea: "Ship To: Calle 1, Cancún"
-  if (lines.length === 0) {
-    const sameLine = after.split(/\r?\n/)[0]?.trim().replace(/\s+/g, " ") ?? "";
-    if (sameLine && !SHIP_TO_STOP_RE.test(sameLine) && sameLine.length >= 5) {
-      return sameLine;
-    }
-    return null;
-  }
-
-  const joined = lines.join(", ").trim();
-  return joined.length >= 5 ? joined : null;
+  return quitarContactoDeDireccion(lines.join(", "));
 }
