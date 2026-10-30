@@ -5,6 +5,7 @@ import {
   mergeCorreoChromeIntoTexto,
   parseCorreoChromeFromText,
   prependCorreoChromeToBody,
+  resolveCabeceraCorreoPedido,
   withCorreoChromePreserved,
 } from "./correo-chrome";
 
@@ -89,6 +90,50 @@ describe("correo-chrome", () => {
     ].join("\n");
     expect(extractCorreoContactoDesdeTexto(text)).toBe(
       "compras.mayakoba@fairmont.com",
+    );
+  });
+
+  it("REQ-239: resolveCabeceraCorreoPedido limpia dirección, correo y notas", () => {
+    const origen = [
+      "De: bss_system@birchstreet.net",
+      "Sent By:",
+      "Ixayana Cid",
+      "Ixayana.Cid@Hilton.com",
+      "Ship To: Kukulcan Km 17, Zona Hotelera",
+      "CANCUN, ROO, 77500, MX",
+      "Attn: Ixayana Cid",
+    ].join("\n");
+    const cabecera = resolveCabeceraCorreoPedido({
+      origenTexto: origen,
+      direccionModelo: "Otra, Attn: X, Sent From: Y",
+      correoModelo: "CUNMC_CXP@Hilton.com",
+      notas:
+        "Horario de recepción: 8:00 AM a 2:00 PM. Pedido parcial no aceptado.",
+    });
+    expect(cabecera.direccion).toBe(
+      "Kukulcan Km 17, Zona Hotelera, CANCUN, ROO, 77500, MX",
+    );
+    expect(cabecera.correo).toBe("Ixayana.Cid@Hilton.com");
+    expect(cabecera.notas).toBe("Pedido parcial no aceptado.");
+  });
+
+  it("REQ-239: copia el remitente de Sent By y no el CONTACTO de facturación", () => {
+    const text = [
+      "De: bss_system@birchstreet.net",
+      "Para: pedidos@aguacatesdepuebla.com",
+      "Asunto: PO CUNMC0047780",
+      "",
+      "Sent By:",
+      "Ixayana Cid",
+      "",
+      "NODEPT",
+      "Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT, MEXICO",
+      "Ixayana.Cid@Hilton.com",
+      "",
+      "CONTACTO: CUNMC_CXP@Hilton.com",
+    ].join("\n");
+    expect(extractCorreoContactoDesdeTexto(text)).toBe(
+      "Ixayana.Cid@Hilton.com",
     );
   });
 });
