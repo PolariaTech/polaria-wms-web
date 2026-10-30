@@ -168,6 +168,7 @@ import {
   resolveOrdenCompraLimpia,
   sanitizeOrigenCorreoNumeroPedido,
 } from "../../utils/pedido/normalize-numero-pedido";
+import { resolveCabeceraGuardada } from "../../utils/pedido/resolve-cabecera-guardada";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
   FECHA_ENTREGA_DEFAULT_WARNING,
@@ -2261,18 +2262,14 @@ export function OrdenVentaCreateModal({
               : fechaOrigen || fechaMapped || "",
           );
           setCentroConsumo(mapped.centroConsumo);
-          setObservaciones(mapped.observaciones);
-          {
-            const occMapped = resolveOrdenCompraLimpia(
-              mapped.ordenCompraHotel,
-              detalle.origen_texto ?? "",
-            );
-            // Si Mateo no propone y lo guardado era basura (rAutorizado), dejar vacío.
-            if (occMapped) setOrdenCompraHotel(occMapped);
-            else if (isGarbageOcValue(detalle.orden_compra_hotel)) {
-              setOrdenCompraHotel("");
-            }
-          }
+          // REQ-230: lo guardado por el usuario manda sobre lo reconstruido del correo.
+          const cabecera = resolveCabeceraGuardada({
+            detalle,
+            filasOrigen: origenCorreoRows,
+            propuesta: mapped,
+          });
+          setObservaciones(cabecera.observaciones);
+          setOrdenCompraHotel(cabecera.ordenCompraHotel);
           setDireccion(mapped.direccion);
           setAnden(mapped.anden);
           setContacto(mapped.contacto);
