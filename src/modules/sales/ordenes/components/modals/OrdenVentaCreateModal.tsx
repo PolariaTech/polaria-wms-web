@@ -85,7 +85,15 @@ import {
   type ResumenReagrupacion,
 } from "../../utils/ot/reagrupar-ordenes-trabajo";
 import {
+  describirCorreccionParaBitacora,
+  origenCorreoDePropuesta,
+  type DocumentoCorreccionApi,
+  type PropuestaCorreccionCorreoApi,
+  type ResumenCorreccionApi,
+} from "../../utils/ot/aplicar-correccion-correo";
+import {
   decidirAperturaReagruparAlCargar,
+  reagruparAbiertoSegunCypher,
   reagruparModalAbierto,
 } from "../../utils/ot/reagrupacion-modal-estado";
 import { OrdenVentaReagruparOtModal } from "./OrdenVentaReagruparOtModal";
@@ -421,6 +429,41 @@ interface ReagrupacionAplicada {
   resumen: ResumenReagrupacion;
   movimientos: MovimientoAplicado[];
   otNuevas: Array<{ id: string; label: string }>;
+  /** REQ-187: la aplicó «Corregir con el correo» (no el chat); cambia el texto y la bitácora. */
+  correccion?: {
+    resumen: ResumenCorreccionApi;
+    documentos: DocumentoCorreccionApi[];
+  };
+}
+
+/** Línea del formulario a partir de la que arma `mapPedidoExtraidoToForm`. */
+function lineaFormDesdeIa(
+  linea: ReturnType<typeof mapPedidoExtraidoToForm>["lineas"][number],
+): LineaVentaForm {
+  return {
+    idProducto: linea.idProducto,
+    nombre: linea.nombre,
+    codigo: linea.codigo,
+    idBodega: linea.idBodega,
+    cantidadInput: linea.cantidadInput,
+    cajasInput: linea.cajasInput,
+    presentacion: linea.presentacion,
+    especificacion: linea.especificacion,
+    descuentoPctInput: linea.descuentoPctInput,
+    ivaPct: "0",
+    kgDisponible: linea.kgDisponible,
+    unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+    precioUnitario: linea.precioUnitario,
+    precioInput: formatPrecioInput(linea.precioUnitario),
+    precioManual: linea.precioManual,
+    aliasCliente: linea.aliasCliente,
+    filledByIa: linea.filledByIa,
+    otId: linea.otId,
+    catalogPending: linea.catalogPending,
+    catalogAmbiguo: linea.catalogAmbiguo,
+    sugerencia: linea.sugerencia ?? null,
+    sugerenciasAlternativas: linea.sugerenciasAlternativas ?? [],
+  };
 }
 
 const parseCantidadReagrupacion = (raw: string): number =>
@@ -727,6 +770,8 @@ export function OrdenVentaCreateModal({
   const [formOtPage, setFormOtPage] = useState(0);
   const [lineas, setLineas] = useState<LineaVentaForm[]>([]);
   const [reagruparOpen, setReagruparOpen] = useState(false);
+  /** Id de la OV cuyo detalle ya está cargado en el formulario (no el de la OV anterior). */
+  const [ordenCargadaId, setOrdenCargadaId] = useState<string | null>(null);
   const [reagruparAplicada, setReagruparAplicada] =
     useState<ReagrupacionAplicada | null>(null);
   const [productosBase, setProductosBase] = useState<ProductoVentaOption[]>(
@@ -1295,6 +1340,111 @@ export function OrdenVentaCreateModal({
     [applyOrdenesTrabajo, lineas, showToast, syncActiveOtFromForm],
   );
 
+  /**
+   * REQ-187: aplica como BORRADOR la corrección propuesta tras releer el correo y los
+   * archivos de la OV. Reemplaza las OT y las líneas del formulario con la misma
+   * interpretación que al abrir una OV externa (renglones → líneas con producto de
+   * catálogo); lo que no se reconoce queda marcado para elegir. No escribe en BD.
+   */
+  const handleAplicarCorreccionCorreo = useCallback(
+    (propuesta: PropuestaCorreccionCorreoApi) => {
+      const hijasActuales = syncActiveOtFromForm();
+      const snapshot = crearSnapshotReagrupacion(hijasActuales, lineas);
+      const filas = origenCorreoDePropuesta(propuesta);
+
+      const pedido = buildPedidoExtraidoFromOrigenCorreo({
+        origenCorreo: filas,
+        origenTexto,
+        notasAlmacen: observaciones,
+      });
+      // El servidor ya fijó la OC de cada documento: la clave de cada línea debe ser
+      // exactamente la de su renglón para que caiga en su OT (pedido + almacén).
+      pedido.lineas = pedido.lineas.map((linea, indice) => ({
+        ...linea,
+        numeroPedido: filas[indice]?.["Numero pedido"]?.toString().trim() || null,
+      }));
+
+      const mapped = mapPedidoExtraidoToForm({
+        pedido,
+        productos,
+        ficha: {
+          centroConsumo,
+          ventanaDesde,
+          ventanaHasta,
+          direccion,
+          anden,
+          contacto,
+          telefono,
+          correo,
+          aceptaSustituciones,
+          requiereLote,
+          registrarTemperatura,
+          observaciones,
+        },
+        tomorrowIso: tomorrowIsoDate(),
+        todayIso: todayIsoDate(),
+      });
+
+      // REQ-141: el origen no debe reinyectar notas que el usuario ya borró de la OV.
+      const hijas = withNotasGeneralesOnHijas(
+        groupOrigenCorreoToOrdenesTrabajo(filas),
+        observaciones,
+      );
+      if (hijas.length === 0 || mapped.lineas.length === 0) {
+        throw new Error("La corrección no trae renglones.");
+      }
+
+      applyOrdenesTrabajo(hijas);
+      setLineas(mapped.lineas.map(lineaFormDesdeIa));
+      setFormOtPage(0);
+      setReagruparAplicada({
+        snapshot,
+        instruccion: "Corrección contra el correo",
+        resumen: {
+          antes: propuesta.resumen.otAntes,
+          despues: propuesta.resumen.otDespues,
+          nuevas: propuesta.diff.otNuevas.length,
+          vacias: propuesta.diff.otEliminadas.length,
+        },
+        movimientos: [],
+        otNuevas: [],
+        correccion: {
+          resumen: propuesta.resumen,
+          documentos: propuesta.documentos,
+        },
+      });
+      setReagruparOpen(false);
+      setError(null);
+      showToast({
+        title: "Órdenes de trabajo corregidas con el correo",
+        content:
+          "El cambio quedó como borrador. Revisa los productos marcados, guarda el pedido para conservarlo o pulsa Deshacer.",
+        variant: "success",
+        durationMs: 6000,
+      });
+    },
+    [
+      aceptaSustituciones,
+      anden,
+      applyOrdenesTrabajo,
+      centroConsumo,
+      contacto,
+      correo,
+      direccion,
+      lineas,
+      observaciones,
+      origenTexto,
+      productos,
+      registrarTemperatura,
+      requiereLote,
+      showToast,
+      syncActiveOtFromForm,
+      telefono,
+      ventanaDesde,
+      ventanaHasta,
+    ],
+  );
+
   /** Deshacer: restaura OT y líneas como estaban antes de aplicar la reagrupación (R10). */
   const handleDeshacerReagrupacion = useCallback(() => {
     if (!reagruparAplicada) return;
@@ -1362,12 +1512,14 @@ export function OrdenVentaCreateModal({
   ]);
 
   // REQ-188: «Modificar con IA» pedido desde el «+» de Acciones: abrir el chat en
-  // cuanto el formulario trae las OT (y solo si la OV todavía lo permite).
+  // cuanto el formulario trae las OT (y solo si la OV todavía lo permite). Se decide solo
+  // con el detalle de LA OV pedida: el formulario conserva el de la anterior al cerrarse.
   useEffect(() => {
     const decision = decidirAperturaReagruparAlCargar({
       pedida: abrirReagruparAlCargar,
       formularioAbierto: open,
       editando: isEditing,
+      ordenCargada: Boolean(editingId) && ordenCargadaId === editingId,
       estadoOrdenVenta: editingEstado,
       cantidadOt: ordenesTrabajoForm.length,
     });
@@ -1377,11 +1529,19 @@ export function OrdenVentaCreateModal({
   }, [
     abrirReagruparAlCargar,
     editingEstado,
+    editingId,
     isEditing,
     onReagruparAlCargarAtendido,
     open,
+    ordenCargadaId,
     ordenesTrabajoForm.length,
   ]);
+
+  // El chat vive con el Cypher: al cerrar éste (la X, o el formulario) el chat se cierra
+  // con él, y al reabrirlo no debe reaparecer solo.
+  useEffect(() => {
+    setReagruparOpen((actual) => reagruparAbiertoSegunCypher(actual, cypherOpen));
+  }, [cypherOpen]);
 
   // REQ-126: Cypher fiscal usa el cliente del formulario (no solo el guardado).
   useEffect(() => {
@@ -1791,7 +1951,12 @@ export function OrdenVentaCreateModal({
   }, [codigoVenta]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      // Al cerrar el formulario su detalle queda en memoria: que no se tome por el de la
+      // próxima OV que se abra.
+      setOrdenCargadaId(null);
+      return;
+    }
 
     setStep(isEditing ? "form" : "start");
     setStartMode(isEditing ? "scratch" : null);
@@ -1837,6 +2002,7 @@ export function OrdenVentaCreateModal({
     setEditingEstado(null);
     setEditingCodigo("");
     setReagruparOpen(false);
+    setOrdenCargadaId(null);
     setReagruparAplicada(null);
     setPicker(null);
     setReplaceLineaIndex(null);
@@ -1912,6 +2078,7 @@ export function OrdenVentaCreateModal({
         if (!detalle) return;
 
         setEditingEstado(detalle.estado);
+        setOrdenCargadaId(editingId || null);
         setEditingCodigo(
           detalle.codigo?.trim() || codigoVenta?.trim() || "",
         );
@@ -3781,13 +3948,19 @@ export function OrdenVentaCreateModal({
         }
 
         if (reagruparAplicada && idOrdenVenta) {
-          const detalle = describirReagrupacionParaBitacora({
-            autor: autorLog,
-            instruccion: reagruparAplicada.instruccion,
-            resumen: reagruparAplicada.resumen,
-            movimientos: reagruparAplicada.movimientos,
-            otNuevas: reagruparAplicada.otNuevas,
-          });
+          const detalle = reagruparAplicada.correccion
+            ? describirCorreccionParaBitacora({
+                autor: autorLog,
+                resumen: reagruparAplicada.correccion.resumen,
+                documentos: reagruparAplicada.correccion.documentos,
+              })
+            : describirReagrupacionParaBitacora({
+                autor: autorLog,
+                instruccion: reagruparAplicada.instruccion,
+                resumen: reagruparAplicada.resumen,
+                movimientos: reagruparAplicada.movimientos,
+                otNuevas: reagruparAplicada.otNuevas,
+              });
           // Evento a nivel de OV (sin OT): se ve al filtrar por cualquier OT.
           void postOrdenVentaLog({
             idOrdenVenta,
@@ -4288,7 +4461,7 @@ export function OrdenVentaCreateModal({
               {reagruparAplicada ? (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2.5 py-1.5">
                   <span className="polaria-text-caption text-polaria-w">
-                    {`Reorganizado con IA (${reagruparAplicada.resumen.antes} → ${reagruparAplicada.resumen.despues} OT). Guarda para conservarlo.`}
+                    {`${reagruparAplicada.correccion ? "Corregido con el correo" : "Reorganizado con IA"} (${reagruparAplicada.resumen.antes} → ${reagruparAplicada.resumen.despues} OT). Guarda para conservarlo.`}
                   </span>
                   <button
                     type="button"
@@ -6246,6 +6419,7 @@ export function OrdenVentaCreateModal({
         onClose={() => setReagruparOpen(false)}
         obtenerSolicitud={obtenerSolicitudReagrupacion}
         onAplicar={handleAplicarReagrupacion}
+        onAplicarCorreccion={handleAplicarCorreccionCorreo}
       />
     </>
   );

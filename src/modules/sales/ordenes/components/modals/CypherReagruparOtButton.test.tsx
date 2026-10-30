@@ -29,6 +29,18 @@ describe("CypherReagruparOtButton", () => {
     expect(ETIQUETA_BOTON_REAGRUPAR).toBe("Modificar con IA");
   });
 
+  it("el icono es el isotipo de Polo: decorativo, con el color del texto y sin estrellas genéricas", () => {
+    render(<CypherReagruparOtButton onClick={() => undefined} />);
+
+    const boton = screen.getByRole("button", { name: ETIQUETA_BOTON_REAGRUPAR });
+    const svg = boton.querySelector("svg")!;
+    expect(svg).toHaveAttribute("aria-hidden", "true");
+    expect(svg.querySelectorAll("line")).toHaveLength(6);
+    expect(svg.querySelector("g[fill='currentColor']")).not.toBeNull();
+    expect(svg.querySelector("mask")).not.toBeNull();
+    expect(boton.querySelector(".lucide-sparkles")).toBeNull();
+  });
+
   it("es un botón de tipo button (no envía formularios)", () => {
     render(<CypherReagruparOtButton onClick={() => undefined} />);
 
