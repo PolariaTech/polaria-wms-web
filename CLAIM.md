@@ -16,6 +16,7 @@
 - `src/modules/sales/ordenes/ai/openai-pedido.client.ts` — autorizada por el usuario el 2026-10-30
 - `src/modules/sales/ordenes/utils/pedido/extract-entrega-desde-texto.ts` — autorizada por el usuario el 2026-10-30
 - `src/modules/sales/ordenes/utils/pedido/foco-formulario-ov.ts` — autorizada por el usuario el 2026-10-30
+- `src/modules/sales/ordenes/utils/pedido/quitar-contacto-direccion.ts` — autorizada por el usuario el 2026-10-30
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
