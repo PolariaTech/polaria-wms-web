@@ -13,6 +13,7 @@
 - `src/modules/sales/ordenes/utils/pedido/map-pedido-extraido-to-form.test.ts`
 - `src/modules/sales/ordenes/utils/pedido/resolve-cabecera-guardada.ts` — archivo nuevo
 - `src/modules/sales/ordenes/utils/pedido/resolve-cabecera-guardada.test.ts` — archivo nuevo
+- `src/modules/sales/ordenes/ai/openai-pedido.client.ts` — autorizada por el usuario el 2026-10-30
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
