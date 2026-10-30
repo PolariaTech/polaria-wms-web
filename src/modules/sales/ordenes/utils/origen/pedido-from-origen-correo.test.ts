@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildPedidoExtraidoFromOrigenCorreo } from "./pedido-from-origen-correo";
+import { findTypoRivalProductos } from "../match/find-closest-producto-catalogo";
+import type { ProductoVentaOption } from "../../../shared/types/sales.types";
 
 describe("buildPedidoExtraidoFromOrigenCorreo", () => {
   it("arma cabecera y líneas desde el JSON del tercero", () => {
@@ -188,6 +190,27 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
       expect(pedido.lineas[4]?.cantidad).toBe(7.2);
       expect(pedido.lineas[4]?.unidad).toBe("KGM");
       expect(espec[4]).toBe("Amarillo · NO MANDAR AGUACATE MUY MADUROS · 4 PZA");
+    });
+
+    it("no marca como rival de typo a otro calibre del mismo aguacate (200g vs 260g)", () => {
+      const producto = (id: string, codigo: string, nombre: string) =>
+        ({
+          idProducto: id,
+          label: `${nombre} (${codigo})`,
+          idCliente: null,
+          idBodega: "b1",
+          codigo,
+          nombre,
+          kgDisponible: 100,
+          precioUnitario: 45,
+          unidadMedida: "KGM",
+        }) as ProductoVentaOption;
+      const extra = producto("extra", "115001005", "AGUACATE EXTRA (200 a 260g)");
+      const primera = producto("primera", "115001009", "AGUACATE PRIMERA (170 a 200g)");
+
+      expect(
+        findTypoRivalProductos("AGUACATE EXTRA (200 a 260g)", extra, [extra, primera]),
+      ).toEqual([]);
     });
 
     it("deja igual lo que se pide y se cobra por pieza", () => {

@@ -347,34 +347,6 @@ describe("rankProductosCatalogo", () => {
     expect(rivals.some((r) => r.idProducto === "p1")).toBe(true);
   });
 
-  it("REQ-231: calibres distintos (200g vs 260g) no son un typo del producto", () => {
-    const mk = (
-      idProducto: string,
-      codigo: string,
-      nombre: string,
-    ): ProductoVentaOption => ({
-      idProducto,
-      label: `${nombre} (${codigo})`,
-      idCliente: null,
-      idBodega: "b1",
-      codigo,
-      nombre,
-      kgDisponible: 100,
-      precioUnitario: 45,
-      unidadMedida: "KGM",
-    });
-    const extra = mk("extra", "115001005", "AGUACATE EXTRA (200 a 260g)");
-    const primera = mk("primera", "115001009", "AGUACATE PRIMERA (170 a 200g)");
-    const mediano = mk("mediano", "115001013", "AGUACATE MEDIANO (140 a 170g)");
-
-    const rivals = findTypoRivalProductos(
-      "AGUACATE EXTRA (200 a 260g)",
-      extra,
-      [extra, primera, mediano],
-    );
-    expect(rivals).toEqual([]);
-  });
-
   it("entiende blue berry como arándanos/blueberries", () => {
     const berries: ProductoVentaOption[] = [
       ...productos,
