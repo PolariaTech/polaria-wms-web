@@ -313,9 +313,12 @@ export function formatEspecificacionEnvase(
   return `${resolved.envases}x ${nombre} de ${contenido} ${unidad}`;
 }
 
+const FRASE_MADUREZ =
+  String.raw`no muy maduros?|bien firmes?|muy firmes?|firmes?|amarillos?|roj[oa]s?|verdes?|enrriados?|enriados?|pintones?|maduros?`;
+
 /**
- * REQ-120: madurez / firmeza (aguacate y similares) para el campo Especificación.
- * Ej. "amarillo", "rojo", "firme", "enrriado".
+ * REQ-120 / REQ-158: madurez o firmeza para el campo Especificación.
+ * Cubre singular y plural (enrriados, maduro) y la celda corta de admonaguacates.
  */
 export function extractMadurezEspecificacion(
   texto: string | null | undefined,
@@ -324,48 +327,53 @@ export function extractMadurezEspecificacion(
   if (!raw) return null;
   const t = quitarAcentos(raw);
 
-  const labeled = t.match(
-    /\b(?:madurez|color|calidad|firmeza)\s*[:=]?\s*(amarillo|roja?|verde|firme|maduro|enrriado|enriado|pint[oó]n)\b/i,
+  const labeled = raw.match(
+    /\b(?:niveles?\s+de\s+)?(?:maduraci[oó]n|madurez|firmeza|color|calidad)\s*[:=]\s*([^\n|;]{1,40})/i,
   );
   if (labeled?.[1]) {
-    return capitalizeMadurez(labeled[1]);
+    const valor = labeled[1].trim().replace(/[.:]+$/, "");
+    const canon = canonMadurezFrase(valor);
+    if (canon) return canon;
+    if (
+      /maduraci[oó]n|madurez|firmeza/i.test(labeled[0]) &&
+      valor.length > 0 &&
+      valor.length <= 40
+    ) {
+      return valor.charAt(0).toUpperCase() + valor.slice(1);
+    }
   }
 
   // Palabra suelta en columna/celda corta (formatos admonaguacates).
   if (t.length <= 40) {
-    const solo = t.match(
-      /^(?:madurez\s+)?(amarillo|roja?|verde|firme|maduro|enrriado|enriado|pint[oó]n)$/i,
-    );
-    if (solo?.[1]) return capitalizeMadurez(solo[1]);
+    const solo = t.match(new RegExp(String.raw`^(?:madurez\s+)?(${FRASE_MADUREZ})$`, "i"));
+    if (solo?.[1]) return canonMadurezFrase(solo[1]);
   }
 
-  const inline = t.match(
-    /\b(bien\s+firme|muy\s+firme|firme|amarillo|roja?|verde|enrriado|enriado|pint[oó]n|no\s+muy\s+maduro)\b/i,
-  );
-  if (inline?.[1]) {
-    const phrase = inline[1].replace(/\s+/g, " ").trim();
-    if (/^roja?$/i.test(phrase)) return "Rojo";
-    if (/amarillo/i.test(phrase)) return "Amarillo";
-    if (/verde/i.test(phrase)) return "Verde";
-    if (/firme/i.test(phrase)) return phrase.toLowerCase().includes("bien")
-      ? "Bien firme"
-      : phrase.toLowerCase().includes("muy")
-        ? "Muy firme"
-        : "Firme";
-    if (/enrr?iado/i.test(phrase)) return "Enrriado";
-    if (/pint/i.test(phrase)) return "Pintón";
-    if (/no\s+muy\s+maduro/i.test(phrase)) return "No muy maduro";
-    return capitalizeMadurez(phrase);
-  }
+  const inline = t.match(new RegExp(String.raw`\b(${FRASE_MADUREZ})\b`, "i"));
+  if (inline?.[1]) return canonMadurezFrase(inline[1]);
   return null;
 }
 
-function capitalizeMadurez(value: string): string {
-  const v = value.trim().toLowerCase();
-  if (v === "roja") return "Rojo";
-  if (v.startsWith("pint")) return "Pintón";
-  if (v.startsWith("enrr") || v.startsWith("enri")) return "Enrriado";
-  return v.charAt(0).toUpperCase() + v.slice(1);
+function canonMadurezFrase(value: string | null | undefined): string | null {
+  const phrase = quitarAcentos(value ?? "").replace(/\s+/g, " ").trim();
+  if (!phrase) return null;
+  if (/^no muy maduros?$/.test(phrase)) return "No muy maduro";
+  if (/^bien firmes?$/.test(phrase)) return "Bien firme";
+  if (/^muy firmes?$/.test(phrase)) return "Muy firme";
+  if (/^firmes?$/.test(phrase)) return "Firme";
+  if (/^amarillos?$/.test(phrase)) return "Amarillo";
+  if (/^roj[oa]s?$/.test(phrase)) return "Rojo";
+  if (/^verdes?$/.test(phrase)) return "Verde";
+  if (/^enrriados?$/.test(phrase) || /^enriados?$/.test(phrase)) return "Enrriado";
+  if (/^pintones?$/.test(phrase)) return "Pintón";
+  if (/^maduros?$/.test(phrase)) return "Maduro";
+  return null;
+}
+
+function pareceFraseEnvase(texto: string): boolean {
+  return /\b(?:galon|cubeta|litro|caja|bidon|envase|\dx)\b/i.test(
+    quitarAcentos(texto),
+  );
 }
 
 /**
@@ -398,11 +406,13 @@ export function resolveEspecificacionPedidoLinea(params: {
     if (!already) parts.push(madurez);
   }
 
-  // Sin envase convertido: conservar nota IA (si no es solo la madurez).
-  if (!envaseTxt && ia) {
+  // Conservar la nota de la línea. Si ya se convirtió el envase, no repetir
+  // esa frase; un nivel que no es envase (3/4, listo para hoy) sí se queda.
+  if (ia) {
     const iaEsSoloMadurez =
       Boolean(madurez) && quitarAcentos(ia) === quitarAcentos(madurez);
-    if (!iaEsSoloMadurez) {
+    const iaEsEnvase = Boolean(envaseTxt) && pareceFraseEnvase(ia);
+    if (!iaEsSoloMadurez && !iaEsEnvase) {
       const already = parts.some((p) =>
         quitarAcentos(p).includes(quitarAcentos(ia)),
       );
