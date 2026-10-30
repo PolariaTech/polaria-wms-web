@@ -14,6 +14,14 @@ import {
   shouldAutoAssignComprador,
 } from "../match/match-comprador-from-nombre";
 import {
+  asignarMadurezAProductos,
+  madurezDesdeRegistro,
+} from "../pedido/madurez-linea";
+import {
+  especificacionConPiezas,
+  piezasAproxKgParaLinea,
+} from "../pedido/piezas-aprox-kg";
+import {
   resolveCantidadPrecioDesdeEnvase,
   resolveEspecificacionPedidoLinea,
 } from "../pedido/resolve-cantidad-envase";
@@ -230,6 +238,8 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
   origenCorreo: unknown;
   productos: readonly ProductoVentaOption[];
   compradores: readonly CompradorListRow[];
+  /** Cuerpo del correo, si todavía trae la columna de maduración. */
+  origenTexto?: string | null;
 }): MaterializeOvPlan {
   const renglones = parseOrigenCorreoJson(params.origenCorreo);
   const nombreClienteOrigen =
@@ -261,13 +271,27 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
 
   const lineas: MaterializeLineaPlan[] = [];
   const sinMatchProductos: string[] = [];
+  const niveles = asignarMadurezAProductos({
+    productos: renglones.map((renglon) => renglon.Producto?.trim() || ""),
+    textoFuente: params.origenTexto,
+    madurezPorRenglon: renglones.map((renglon) => madurezDesdeRegistro(renglon)),
+  });
 
-  for (const renglon of renglones) {
-    const cantidad = parseCantidad(renglon.Cantidad);
+  for (let index = 0; index < renglones.length; index++) {
+    const renglon = renglones[index]!;
+    const alias = renglon.Producto?.trim() || "";
+    const piezas = piezasAproxKgParaLinea({
+      producto: alias,
+      textosLinea: [
+        alias,
+        typeof renglon.Cantidad === "string" ? renglon.Cantidad : null,
+      ],
+      textoFuente: params.origenTexto,
+    });
+    const cantidad = piezas?.kg ?? parseCantidad(renglon.Cantidad);
     if (cantidad <= 0) continue;
 
     const match = resolveProductoForRenglon(renglon, params.productos);
-    const alias = renglon.Producto?.trim() || "";
     if (!match) {
       if (alias) sinMatchProductos.push(alias);
       continue;
@@ -282,7 +306,7 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
     });
     lineas.push({
       idProducto: match.idProducto,
-      cantidadPedida: converted?.cantidad ?? cantidad,
+      cantidadPedida: piezas ? piezas.kg : (converted?.cantidad ?? cantidad),
       precioUnitario:
         converted?.precioUnitario ??
         precioDoc ??
@@ -295,11 +319,14 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
         match.nombre,
         match.codigo,
       ),
-      especificacion: resolveEspecificacionPedidoLinea({
-        especificacionIa: null,
-        envase: converted,
-        textoOriginal: alias,
-      }),
+      especificacion: especificacionConPiezas(
+        resolveEspecificacionPedidoLinea({
+          especificacionIa: niveles[index] ?? null,
+          envase: converted,
+          textoOriginal: alias,
+        }),
+        piezas,
+      ),
     });
   }
 

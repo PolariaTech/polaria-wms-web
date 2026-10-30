@@ -204,4 +204,61 @@ describe("materialize-ov-desde-origen", () => {
     expect(plan.lineas[0]?.precioUnitario).toBe(70);
     expect(plan.lineas[0]?.especificacion).toBe("2x galón de 5 litros");
   });
+
+  it("REQ-158: copia la maduración de cada renglón del correo", () => {
+    const plan = buildMaterializeOvDesdeOrigenPlan({
+      origenCorreo: [
+        {
+          Fecha: "2026-09-10",
+          Precio: 23,
+          Cantidad: 5,
+          Producto: "Limon persa *",
+          "Numero pedido": "MYK-0302085",
+          "Nombre cliente": "Fairmont Mayakoba",
+          Almacen: "Cocina",
+        },
+        {
+          Fecha: "2026-09-10",
+          Precio: 33,
+          Cantidad: 10,
+          Producto: "BROCOLI",
+          "Numero pedido": "MYK-0302085",
+          "Nombre cliente": "Fairmont Mayakoba",
+          Almacen: "Cocina",
+        },
+      ],
+      origenTexto: [
+        "Producto       Maduración",
+        "Limon persa    Pintón",
+        "BROCOLI        Maduro",
+      ].join("\n"),
+      productos,
+      compradores,
+    });
+
+    expect(plan.lineas[0]?.especificacion).toBe("Pintón");
+    expect(plan.lineas[1]?.especificacion).toBe("Maduro");
+  });
+
+  it("REQ-158: 3 piezas aprox 5.4 kg usa el peso y deja 3 PZA", () => {
+    const plan = buildMaterializeOvDesdeOrigenPlan({
+      origenCorreo: [
+        {
+          Fecha: "2026-09-10",
+          Precio: 23,
+          Cantidad: 3,
+          Producto: "Limon persa *",
+          "Numero pedido": "MYK-0302085",
+          "Nombre cliente": "Fairmont Mayakoba",
+          Almacen: "Cocina",
+        },
+      ],
+      origenTexto: "Limon persa * 3 piezas, aprox 5.4 KG",
+      productos,
+      compradores,
+    });
+
+    expect(plan.lineas[0]?.cantidadPedida).toBe(5.4);
+    expect(plan.lineas[0]?.especificacion).toBe("3 PZA");
+  });
 });

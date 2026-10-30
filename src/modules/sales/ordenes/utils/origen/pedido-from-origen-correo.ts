@@ -11,6 +11,11 @@ import {
   type OrigenCorreoRenglon,
 } from "./origen-correo-ordenes-trabajo";
 import {
+  asignarMadurezAProductos,
+  madurezDesdeRegistro,
+} from "../pedido/madurez-linea";
+import { aplicarPiezasAproxKg } from "../pedido/piezas-aprox-kg";
+import {
   normalizeNumeroPedidoFields,
   sanitizeOrigenCorreoNumeroPedido,
 } from "../pedido/normalize-numero-pedido";
@@ -76,14 +81,22 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     rowsRaw,
     origenTexto ?? "",
   );
-  const lineasRaw: LineaExtraida[] = rows.map((row) => ({
-    textoOriginal: row.Producto?.trim() || row["Codigo producto"]?.trim() || "",
+  const textos = rows.map(
+    (row) => row.Producto?.trim() || row["Codigo producto"]?.trim() || "",
+  );
+  const niveles = asignarMadurezAProductos({
+    productos: textos,
+    textoFuente: origenTexto,
+    madurezPorRenglon: rows.map((row) => madurezDesdeRegistro(row)),
+  });
+  const lineasSinPiezas: LineaExtraida[] = rows.map((row, index) => ({
+    textoOriginal: textos[index] ?? "",
     productoCatalogo: null,
     cantidad: parseCantidad(row.Cantidad),
     unidad: null,
     cajas: null,
     presentacion: null,
-    especificacion: null,
+    especificacion: niveles[index] ?? null,
     numeroPedido: row["Numero pedido"]?.trim() || null,
     almacen: row.Almacen?.trim() || null,
     numeroAlmacen: row["Numero almacen"]?.trim() || null,
@@ -92,6 +105,13 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     responsableExterno: row["Responsable externo"]?.trim() || null,
     precioUnitario: parsePrecio(row.Precio),
   }));
+  const lineasRaw = aplicarPiezasAproxKg(
+    lineasSinPiezas,
+    origenTexto,
+    rows.map((row) =>
+      typeof row.Cantidad === "string" ? row.Cantidad : null,
+    ),
+  );
 
   const hotelRaw = mostFrequent(
     rows.map((r) => (r["Numero pedido"] ?? "").toString()),

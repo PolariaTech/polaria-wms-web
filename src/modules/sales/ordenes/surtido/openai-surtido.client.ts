@@ -105,8 +105,43 @@ export const CABECERA_LABELS: Record<(typeof CABECERA_KEYS)[number], string> = {
 const SURTIDO_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["cabecera", "checks", "lineas", "camposExtra", "observacionesIa"],
+  required: [
+    "calidadFoto",
+    "cabecera",
+    "checks",
+    "lineas",
+    "camposExtra",
+    "observacionesIa",
+  ],
   properties: {
+    calidadFoto: {
+      type: "object",
+      additionalProperties: false,
+      required: ["esHojaSurtido", "hojaCompletaYLegible", "motivo"],
+      properties: {
+        esHojaSurtido: {
+          type: "boolean",
+          description:
+            "true si el sujeto PRINCIPAL es la hoja impresa de ORDEN DE VENTA / surtido de almacén. " +
+            "Puede haber dedos/mesa al borde. false SOLO si NO es esa hoja (selfie, caja, scanner vacío, " +
+            "otra factura, solo manos/resaltador sin la OV).",
+        },
+        hojaCompletaYLegible: {
+          type: "boolean",
+          description:
+            "Umbral LAXO (~40%): true si se reconoce la hoja y se puede leer ALGO útil " +
+            "(productos, checks, firmas o cabecera), aunque el ángulo, luz, recorte parcial o " +
+            "hora impresa no sean perfectos. false SOLO si la hoja está tan mal que casi nada se lee.",
+        },
+        motivo: {
+          type: "string",
+          description:
+            "Si esHojaSurtido es false, o ambas flags fallan: una frase corta en español. " +
+            "Si esHojaSurtido es true (aunque hojaCompletaYLegible sea false por imperfección leve): " +
+            "puedes dejar vacío o una nota breve; no inventes rechazo duro.",
+        },
+      },
+    },
     cabecera: {
       type: "object",
       additionalProperties: false,
@@ -686,12 +721,26 @@ function normalizePayload(
   const remapped = remapLineasPorProducto(lineasParsed, original);
   const lineas = ensureLineasCompletas(original, remapped);
 
+  const calidadRaw =
+    obj.calidadFoto && typeof obj.calidadFoto === "object"
+      ? (obj.calidadFoto as Record<string, unknown>)
+      : null;
+  const calidadFoto = calidadRaw
+    ? {
+        esHojaSurtido: asNullableBool(calidadRaw.esHojaSurtido) === true,
+        hojaCompletaYLegible:
+          asNullableBool(calidadRaw.hojaCompletaYLegible) === true,
+        motivo: asNullableString(calidadRaw.motivo)?.trim() || "",
+      }
+    : null;
+
   const base: OrdenSurtidoCapturaPayload = {
     campos,
     checks,
     lineas,
     observacionesIa: asNullableString(obj.observacionesIa),
     precisionEstimada: null,
+    calidadFoto,
   };
 
   sanitizeFacturaAsociada(base.campos);
@@ -732,8 +781,15 @@ export async function extraerSurtidoDesdeFoto(input: {
         content:
           "Eres un lector experto de hojas de ORDEN DE VENTA de almacén impresas y llenadas a mano (bolígrafo). " +
           "Comparas la foto con el snapshot del PDF ORIGINAL. " +
-          "Debes extraer TODO lo manuscrito y TODAS las casillas marcadas, mapeándolas a cabecera / checks / lineas. " +
+          "PRIMERO evalúa calidadFoto (esHojaSurtido / hojaCompletaYLegible / motivo) con umbral LAXO. " +
+          "Luego extrae TODO lo manuscrito y TODAS las casillas marcadas, mapeándolas a cabecera / checks / lineas. " +
           "Reglas:\n" +
+          "0) calidadFoto (LAXO ~40%): esHojaSurtido=true si el sujeto es la hoja OV/surtido " +
+          "(dedos/mesa al borde OK). hojaCompletaYLegible=true si se lee algo útil aunque el encuadre, " +
+          "ángulo o luz no sean perfectos; false SOLO si casi nada se lee. " +
+          "Rechaza esHojaSurtido=false solo si NO es esa hoja (selfie, caja, otro doc). " +
+          "SIEMPRE intenta extraer manuscrito/checks aunque la foto sea imperfecta; no dejes todo null " +
+          "solo por un ángulo o borde recortado.\n" +
           "1) Solo valores escritos o corregidos a mano, o checkboxes con X/✓/raya clara. NUNCA inventes.\n" +
           "2) No copies texto ya impreso (cliente, productos, cantidades solicitadas) salvo que se haya tachado/reescrito a mano.\n" +
           "3) Si un campo está vacío o ilegible → null. Si un checkbox está vacío → false; si no se ve → null.\n" +
@@ -788,7 +844,9 @@ export async function extraerSurtidoDesdeFoto(input: {
               "Snapshot del PDF ORIGINAL (referencia de lo ya impreso):\n" +
               snapshot +
               "\n\nAnaliza la foto adjunta de la misma hoja ya surtida/llenada. " +
-              "Llena cabecera, checks y lineas con TODO lo manuscrito y marcado. " +
+              "Primero llena calidadFoto con criterio LAXO: acepta fotos imperfectas de la hoja " +
+              "(~40%: se ve el papel y se lee algo). Solo marca esHojaSurtido=false si no es la hoja. " +
+              "Luego llena cabecera, checks y lineas con TODO lo manuscrito y marcado. " +
               "Incluye UNA linea por cada producto del snapshot (parciales: filas sin marca → alisto=false, reviso=false). " +
               "Para cada linea incluye productoImpreso del snapshot de esa fila. " +
               "especificacion siempre null. Alinea checkboxes a la fila correcta por posición vertical. " +

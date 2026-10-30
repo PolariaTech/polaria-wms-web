@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { normalizeIdOrdenTrabajo } from "../utils/origen/origen-correo-ordenes-trabajo";
 import { readCuentaZonaHoraria } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 import { stampOrdenTareaImpresaNow } from "./map-orden-tarea-almacen";
+import { resolveCapturaOrdenOrigin } from "./resolve-captura-orden-origin";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 import type { SilentPrintResult } from "./print-silent-cuenta";
 
@@ -29,10 +30,13 @@ export function buildCapturaOrdenUrl(
   idOrdenVenta: string,
   idOrdenTrabajo?: string | null,
 ): string {
-  const origin =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ?? "");
+  const origin = resolveCapturaOrdenOrigin();
+  if (!origin) {
+    throw new Error(
+      "Falta NEXT_PUBLIC_APP_URL de producción para el QR de captura. " +
+        "No se imprime un enlace de preview de Vercel.",
+    );
+  }
   const base = `${origin}/captura-orden/${encodeURIComponent(idOrdenVenta)}`;
   const ot = normalizeIdOrdenTrabajo(idOrdenTrabajo);
   if (!ot) return base;
@@ -56,7 +60,11 @@ async function withQrDataUrl(
       },
     );
     return { ...data, qrDataUrl };
-  } catch {
+  } catch (error) {
+    console.error(
+      "[print] QR captura no generado:",
+      error instanceof Error ? error.message : error,
+    );
     return data;
   }
 }
