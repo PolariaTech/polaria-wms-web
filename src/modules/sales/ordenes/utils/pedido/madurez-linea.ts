@@ -124,6 +124,38 @@ export function filasMadurezDesdeTexto(
   return out;
 }
 
+export type FilaObservacion = {
+  producto: string;
+  observacion: string;
+};
+
+const LINEA_NUMERADA = /^\s*\d+\s*[.)]\s+(.+?)\s*(?:\[|·|$)/;
+const LINEA_OBSERVACION = /^\s*obs(?:ervaci[oó]n(?:es)?)?\.?\s*:\s*(\S.*?)\s*$/i;
+
+/**
+ * REQ-231: en el correo del aplicativo lo que va en rojo en el PDF llega como una
+ * línea «Obs.: …» justo debajo del producto numerado; es la especificación de ese producto.
+ */
+export function observacionesDesdeTexto(
+  raw: string | null | undefined,
+): FilaObservacion[] {
+  const out: FilaObservacion[] = [];
+  let producto: string | null = null;
+  for (const line of (raw ?? "").replace(/\r\n/g, "\n").split("\n")) {
+    const numerada = line.match(LINEA_NUMERADA);
+    if (numerada?.[1]) {
+      producto = numerada[1].trim();
+      continue;
+    }
+    const obs = line.match(LINEA_OBSERVACION);
+    if (obs?.[1] && producto) {
+      out.push({ producto, observacion: obs[1].replace(/\s+/g, " ") });
+      producto = null;
+    }
+  }
+  return out;
+}
+
 function nombresCoinciden(producto: string, fila: string): boolean {
   const a = norm(producto);
   const b = norm(fila);
@@ -156,6 +188,41 @@ function unirEspecificacion(
  * y, si hay las mismas filas que productos, la misma posición.
  */
 export function asignarMadurezAProductos(params: {
+  productos: readonly string[];
+  textoFuente?: string | null;
+  madurezPorRenglon?: readonly (string | null | undefined)[];
+}): (string | null)[] {
+  const niveles = nivelesDeMadurez(params);
+  const observaciones = observacionesDesdeTexto(params.textoFuente);
+  if (observaciones.length === 0) return niveles;
+
+  // REQ-231: la observación de cada producto (lo que va en rojo) se suma a su madurez.
+  const usadas = new Set<number>();
+  return params.productos.map((producto, index) => {
+    const hits = observaciones
+      .map((fila, posicion) => ({ fila, posicion }))
+      .filter(
+        ({ fila, posicion }) =>
+          !usadas.has(posicion) && nombresCoinciden(producto, fila.producto),
+      );
+    if (hits.length !== 1) return niveles[index] ?? null;
+    usadas.add(hits[0]!.posicion);
+    return sumarObservacion(niveles[index], hits[0]!.fila.observacion);
+  });
+}
+
+/** A diferencia de `unirEspecificacion`, no reemplaza el nivel: lo conserva y agrega la nota. */
+function sumarObservacion(
+  nivel: string | null | undefined,
+  observacion: string,
+): string {
+  const base = nivel?.trim() || "";
+  if (!base) return observacion;
+  if (norm(base).includes(norm(observacion))) return base;
+  return `${base} · ${observacion}`;
+}
+
+function nivelesDeMadurez(params: {
   productos: readonly string[];
   textoFuente?: string | null;
   madurezPorRenglon?: readonly (string | null | undefined)[];

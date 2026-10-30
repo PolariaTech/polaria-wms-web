@@ -10,7 +10,7 @@ export type PiezasAproxKg = {
 };
 
 const PIEZAS_APROX_KG =
-  /(\d+(?:[.,]\d+)?)\s*(?:piezas?|pzas?|pza)\b[\s,;:.-]{0,16}aprox(?:imadamente)?\.?\s*(\d+(?:[.,]\d+)?)\s*(?:kilos?|kgs?|kgm|kg)\b/i;
+  /(\d+(?:[.,]\d+)?)\s*(?:piezas?|pzas?|pza)\b[\s,;:.()-]{0,16}aprox(?:imadamente)?\.?\s*(\d+(?:[.,]\d+)?)\s*(?:kilos?|kgs?|kgm|kg)\b/i;
 
 function norm(value: string): string {
   return value

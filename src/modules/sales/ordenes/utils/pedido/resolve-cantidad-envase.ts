@@ -349,7 +349,10 @@ export function extractMadurezEspecificacion(
     if (solo?.[1]) return canonMadurezFrase(solo[1]);
   }
 
-  const inline = t.match(new RegExp(String.raw`\b(${FRASE_MADUREZ})\b`, "i"));
+  // REQ-231: dentro de un texto más largo (nombre del producto) «verde» y «roja»
+  // son parte del nombre (PEPINO VERDE, TORONJA ROJA), no madurez. Solo cuentan
+  // rotulados («madurez: rojo») o como celda suelta, caminos que ya se resolvieron arriba.
+  const inline = t.match(new RegExp(String.raw`\b(${FRASE_MADUREZ.replace("|roj[oa]s?|verdes?", "")})\b`, "i"));
   if (inline?.[1]) return canonMadurezFrase(inline[1]);
   return null;
 }
@@ -399,7 +402,8 @@ export function resolveEspecificacionPedidoLinea(params: {
   const parts: string[] = [];
   if (envaseTxt) parts.push(envaseTxt);
 
-  if (madurez) {
+  // REQ-231: si la nota («Amarillo · Firme») ya trae la madurez, no se antepone otra vez.
+  if (madurez && !quitarAcentos(ia).includes(quitarAcentos(madurez))) {
     const already = parts.some((p) =>
       quitarAcentos(p).includes(quitarAcentos(madurez)),
     );
