@@ -14,6 +14,7 @@
 - `src/modules/sales/ordenes/components/modals/detalle-venta-presentacion.test.ts` — autorizada por el usuario el 2026-11-02
 - `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleProductos.tsx` — autorizada por el usuario el 2026-11-02
 - `src/modules/sales/ordenes/print/render-orden-pdf-size.test.ts` — autorizada por el usuario el 2026-11-02
+- `vitest.config.ts` — autorizada por el usuario el 2026-11-02
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
