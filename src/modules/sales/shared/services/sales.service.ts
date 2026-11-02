@@ -713,9 +713,8 @@ function mapOrdenVentaOperadorRow(
     occ: occTodas[0] ?? "—",
     occTodas,
     cuenta: row.codigo_cuenta,
-    comprador: row.id_comprador
-      ? (compradorLabels.get(row.id_comprador) ?? "—")
-      : "—",
+    comprador: row.id_comprador ? (compradorLabels.get(row.id_comprador) ?? "—") : "—",
+    origenCorreo: row.origen_correo,
     productos: formatProductosResumen(resumen.count),
     cantidadKg: resumen.cantidadKg,
     total: resumen.total,

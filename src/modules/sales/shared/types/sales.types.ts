@@ -54,13 +54,15 @@ export interface OrdenVentaOperadorRow {
   cantidadKg: number;
   total: number;
   estado: EstadoOrdenVenta;
-  /** Fecha de creación del pedido (columna del listado). */
+  /** Fecha de creación del pedido. El listado ya no la muestra en columna. */
   fecha: string;
   /**
    * Fecha de entrega `YYYY-MM-DD`.
    * Null o ausente: el pedido no tiene fecha de entrega (REQ-177).
    */
   fechaEntrega?: string | null;
+  /** origen_correo crudo, para la fecha tentativa del listado. */
+  origenCorreo?: unknown;
   /** Cantidad de órdenes de trabajo (OT) de la OV. */
   ordenesTrabajo: number;
   destino: string;
