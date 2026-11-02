@@ -49,6 +49,7 @@ import {
 } from "@/lib/utils/decimal-es";
 import { cn } from "@/lib/utils/cn";
 import { formatDateTime } from "@/components/shared/utils/formatters";
+import { resolverFechaCreacionEdicion } from "../../utils/pedido/resolver-fecha-creacion-edicion";
 import { CatalogStatusHint } from "./catalog-status-hint";
 import {
   FolioFacturaCampos,
@@ -1992,7 +1993,12 @@ export function OrdenVentaCreateModal({
         if (!detalle) return;
 
         setEditingEstado(detalle.estado);
-        setFechaCreacion(detalle.created_at || detalle.fecha_pedido || "");
+        setFechaCreacion(
+          resolverFechaCreacionEdicion(
+            detalle.created_at,
+            detalle.fecha_pedido,
+          ),
+        );
         setOrdenCargadaId(editingId || null);
         setEditingCodigo(
           detalle.codigo?.trim() || codigoVenta?.trim() || "",
