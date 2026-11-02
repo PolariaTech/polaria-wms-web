@@ -10,6 +10,10 @@
 ### Zonas que voy a tocar
 - `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleModal.tsx#DetalleContent`
 - `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleModal.tsx#OrdenVentaDetalleModal`
+- `src/modules/sales/ordenes/components/modals/detalle-venta-presentacion.ts` — autorizada por el usuario el 2026-11-02
+- `src/modules/sales/ordenes/components/modals/detalle-venta-presentacion.test.ts` — autorizada por el usuario el 2026-11-02
+- `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleProductos.tsx` — autorizada por el usuario el 2026-11-02
+- `src/modules/sales/ordenes/print/render-orden-pdf-size.test.ts` — autorizada por el usuario el 2026-11-02
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
