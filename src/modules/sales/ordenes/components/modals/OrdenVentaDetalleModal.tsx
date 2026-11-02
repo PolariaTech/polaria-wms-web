@@ -52,16 +52,10 @@ import {
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
 } from "../../utils/origen/origen-correo-ordenes-trabajo";
-import { OrigenPedidoSourceView } from "../shared/OrigenPedidoBodyView";
-import {
-  nombresOrigenAdjuntos,
-  parseOrigenArchivos,
-} from "../../utils/origen/origen-adjuntos";
+import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
 import {
   formatCompradorOrdenVenta,
   formatOrdenVentaCantidadConUnidad,
-  formatOrdenVentaLineaTotal,
-  formatOrdenVentaTotal,
   resolveOrdenVentaLineaTitulo,
   resolveOrdenVentaLineaUnidad,
   resolveUnidadComunLineas,
@@ -159,6 +153,58 @@ function TextValue({ value }: { value: string | undefined }) {
   return <>{trimmed || "—"}</>;
 }
 
+const CLAVES_FOLIO_FACTURA = [
+  "facturaOkFolio",
+  "facturaAsociada",
+  "Folio factura asociada",
+  "Factura (OK) folio",
+  "Documentación folio",
+  "Folio",
+];
+
+function leerFolioFacturaVista(
+  campos: Record<string, string> | undefined,
+): string {
+  if (!campos) return "";
+  for (const key of CLAVES_FOLIO_FACTURA) {
+    const direct = campos[key]?.trim();
+    if (direct) return direct;
+  }
+  const lower = Object.fromEntries(
+    Object.entries(campos).map(([key, value]) => [key.toLowerCase(), value]),
+  );
+  for (const key of CLAVES_FOLIO_FACTURA) {
+    const value = lower[key.toLowerCase()]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function porcentajeDeNota(nota: string, etiqueta: "desc" | "IVA"): number {
+  const match = nota.match(
+    new RegExp(`(?:^|·)\\s*${etiqueta}\\s+([\\d.,]+)\\s*%`, "i"),
+  );
+  if (!match?.[1]) return 0;
+  const pct = Number(match[1].replace(",", "."));
+  if (!Number.isFinite(pct) || pct <= 0) return 0;
+  return etiqueta === "desc" ? Math.min(100, pct) : pct;
+}
+
+function especificacionVisible(nota: string): string {
+  return nota
+    .replace(/(?:^|\s*·\s*)desc\s+[\d.,]+\s*%/gi, "")
+    .replace(/(?:^|\s*·\s*)IVA\s+[\d.,]+\s*%/gi, "")
+    .replace(/^\s*·\s*/, "")
+    .replace(/\s*·\s*$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function textoConteoOrdenesTrabajo(cantidad: number): string {
+  if (cantidad === 1) return "1 orden de trabajo";
+  return `${cantidad} órdenes de trabajo`;
+}
+
 function renderEstadoBadge(estado: string) {
   return (
     <PolariaTableBadge variant={variantEstadoOrdenVenta(estado)}>
@@ -170,9 +216,15 @@ function renderEstadoBadge(estado: string) {
 function DetalleContent({
   orden,
   hija = null,
+  codigoCuenta,
+  idOrdenVenta,
+  mostrarTotalOv,
 }: {
   orden: OrdenVentaDetalleRow;
   hija?: OrdenTrabajoHija | null;
+  codigoCuenta: string | null;
+  idOrdenVenta: string;
+  mostrarTotalOv: boolean;
 }) {
   const allLineItems = orden.lineas ?? [];
   const lineItems: OrdenVentaLineaRow[] = useMemo(() => {
@@ -247,12 +299,36 @@ function DetalleContent({
     ventanaEntrega: ventanaFlat || fromObs.ventanaEntrega,
     notasLineas: orden.notas_lineas?.trim() || fromObs.notasLineas,
     origenTexto: orden.origen_texto?.trim() || fromObs.origenTexto,
-    origenArchivos: (() => {
-      const fromCol = parseOrigenArchivos(orden.origen_archivos);
-      if (fromCol.length > 0) return nombresOrigenAdjuntos(fromCol);
-      return fromObs.origenArchivos;
-    })(),
   };
+  const [folioFactura, setFolioFactura] = useState("");
+
+  useEffect(() => {
+    const cuenta = codigoCuenta?.trim() ?? "";
+    const id = idOrdenVenta.trim();
+    if (!cuenta || !id) {
+      setFolioFactura("");
+      return;
+    }
+    let cancelled = false;
+    void listOrdenSurtidoCapturasClient({
+      codigoCuenta: cuenta,
+      idOrdenVenta: id,
+    })
+      .then((rows) => {
+        if (cancelled) return;
+        const otId = hija?.id?.trim() ?? "";
+        const match = otId
+          ? rows.find((row) => row.idOrdenTrabajo === otId)
+          : rows[0];
+        setFolioFactura(leerFolioFacturaVista(match?.payload.campos));
+      })
+      .catch(() => {
+        if (!cancelled) setFolioFactura("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [codigoCuenta, hija?.id, idOrdenVenta]);
   const prioridad = captura.prioridad.trim();
   // Cuerpo: origen_texto / bloque "Pedido original" / observaciones crudas del correo.
   const cuerpoMensaje = (() => {
@@ -279,46 +355,76 @@ function DetalleContent({
     cuerpoMensaje,
   );
   const pesoHija = lineItems.reduce((s, l) => s + l.cantidad_pedida, 0);
-  const totalHija = lineItems.reduce(
-    (s, l) => s + l.cantidad_pedida * l.precio_unitario,
-    0,
-  );
+  const montosLinea = lineItems.map((linea) => {
+    const titulo = resolveOrdenVentaLineaTitulo(linea);
+    const nota = notaCapturaForLinea(captura.notasLineas, {
+      nombre: titulo,
+      cantidad: linea.cantidad_pedida,
+      otId: hija?.id,
+      idProducto: linea.id_producto,
+      allowUnscoped: !hija,
+    });
+    const descuentoPct = porcentajeDeNota(nota, "desc");
+    const ivaPct = porcentajeDeNota(nota, "IVA");
+    const bruto = linea.cantidad_pedida * linea.precio_unitario;
+    const descuento = bruto * (descuentoPct / 100);
+    const base = Math.max(0, bruto - descuento);
+    const iva = base * (ivaPct / 100);
+    return {
+      linea,
+      titulo,
+      especificacion: especificacionVisible(nota),
+      descuentoPct,
+      ivaPct,
+      bruto,
+      descuento,
+      iva,
+      importe: base,
+    };
+  });
+  const subtotalOt = montosLinea.reduce((sum, row) => sum + row.bruto, 0);
+  const descuentosOt = montosLinea.reduce((sum, row) => sum + row.descuento, 0);
+  const ivaOt = montosLinea.reduce((sum, row) => sum + row.iva, 0);
+  const totalOt = Math.max(0, subtotalOt - descuentosOt + ivaOt);
+  const montosOv = (orden.lineas ?? []).map((linea) => {
+    const nota = notaCapturaForLinea(captura.notasLineas, {
+      nombre: resolveOrdenVentaLineaTitulo(linea),
+      cantidad: linea.cantidad_pedida,
+      idProducto: linea.id_producto,
+      allowUnscoped: true,
+    });
+    const descuentoPct = porcentajeDeNota(nota, "desc");
+    const ivaPct = porcentajeDeNota(nota, "IVA");
+    const bruto = linea.cantidad_pedida * linea.precio_unitario;
+    const base = Math.max(0, bruto - bruto * (descuentoPct / 100));
+    return base + base * (ivaPct / 100);
+  });
+  const totalOv = montosOv.reduce((sum, importe) => sum + importe, 0);
 
   return (
     <>
-      <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
-        <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
-          Orden de trabajo
-        </p>
-        <p className="mt-1 polaria-text-body-sm font-semibold text-polaria-w">
-          {hija?.label ?? orden.codigo}
-        </p>
-        {hija?.referenciaPedido ? (
-          <p className="mt-1 polaria-text-caption text-polaria-w-50">
-            {hija.referenciaPedido}
-          </p>
-        ) : null}
-      </div>
-
-      {cuerpoMensaje || captura.origenArchivos.length > 0 ? (
-        <CaptureSection title="De dónde salió este pedido">
-          <OrigenPedidoSourceView
-            archivos={captura.origenArchivos}
-            tieneTexto={Boolean(cuerpoMensaje)}
-          />
-        </CaptureSection>
-      ) : null}
-
       <CaptureSection title="Datos del pedido">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <MetaField label="Cliente">
             <TextValue value={clienteOrigenFallback} />
           </MetaField>
+          <MetaField label="Código de cliente">
+            <TextValue value={orden.comprador_codigo ?? ""} />
+          </MetaField>
+          <MetaField label="Denominación comercial">
+            <TextValue value={orden.comprador_apodo ?? ""} />
+          </MetaField>
           <MetaField label="Orden de compra del cliente">
             <TextValue value={captura.ordenCompraHotel} />
           </MetaField>
+          <MetaField label="Folio de factura">
+            <TextValue value={folioFactura} />
+          </MetaField>
           <MetaField label="Centro de consumo">
             <TextValue value={captura.centroConsumo} />
+          </MetaField>
+          <MetaField label="Referencia de pedido">
+            <TextValue value={hija?.referenciaPedido} />
           </MetaField>
           <MetaField label="Fecha de creación">
             {formatDateTime(orden.created_at || orden.fecha_pedido)}
@@ -454,11 +560,13 @@ function DetalleContent({
           <div className="overflow-hidden rounded-xl border border-polaria-w-08">
             <table className="w-full table-fixed border-collapse text-left">
               <colgroup>
-                <col className="w-[34%]" />
-                <col className="w-[22%]" />
-                <col className="w-[16%]" />
-                <col className="w-[14%]" />
-                <col className="w-[14%]" />
+                <col className="w-[26%]" />
+                <col className="w-[18%]" />
+                <col className="w-[13%]" />
+                <col className="w-[9%]" />
+                <col className="w-[12%]" />
+                <col className="w-[10%]" />
+                <col className="w-[12%]" />
               </colgroup>
               <thead className="bg-polaria-w-08">
                 <tr className="border-b border-polaria-t-20">
@@ -472,7 +580,13 @@ function DetalleContent({
                     Cantidad
                   </th>
                   <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
+                    Desc%
+                  </th>
+                  <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
                     Precio
+                  </th>
+                  <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
+                    IVA
                   </th>
                   <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
                     Importe
@@ -480,60 +594,58 @@ function DetalleContent({
                 </tr>
               </thead>
               <tbody>
-                {lineItems.map((linea) => {
-                  const titulo = resolveOrdenVentaLineaTitulo(linea);
-                  const nota = notaCapturaForLinea(captura.notasLineas, {
-                    nombre: titulo,
-                    cantidad: linea.cantidad_pedida,
-                    otId: hija?.id,
-                    idProducto: linea.id_producto,
-                    allowUnscoped: !hija,
-                  });
+                {montosLinea.map((row) => {
                   const skuVisible = resolveSkuVisible({
-                    linea,
+                    linea: row.linea,
                     origenRenglones: hija?.renglones ?? undefined,
                     hija,
                   });
                   return (
                     <tr
-                      key={linea.id_linea_orden_venta}
+                      key={row.linea.id_linea_orden_venta}
                       className="border-b border-polaria-w-08 last:border-b-0"
                     >
                       <td className="px-3 py-2.5 align-middle">
                         <p className="polaria-text-body-sm font-medium text-polaria-w">
-                          {titulo}
+                          {row.titulo}
                         </p>
                         <p className="polaria-text-caption text-polaria-w-50">
                           {skuVisible
                             ? `SKU ${skuVisible}`
-                            : resolveOrdenVentaLineaUnidad(linea)}
+                            : resolveOrdenVentaLineaUnidad(row.linea)}
                         </p>
                       </td>
                       <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w">
-                        {nota ? (
-                          <span className="break-words">{nota}</span>
+                        {row.especificacion ? (
+                          <span className="break-words">{row.especificacion}</span>
                         ) : (
                           <span className="text-polaria-w-50">—</span>
                         )}
                       </td>
                       <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
                         {formatOrdenVentaCantidadConUnidad(
-                          linea.cantidad_pedida,
-                          resolveOrdenVentaLineaUnidad(linea),
+                          row.linea.cantidad_pedida,
+                          resolveOrdenVentaLineaUnidad(row.linea),
                         )}
                       </td>
                       <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
-                        ${formatPrecioEs(linea.precio_unitario)}
+                        {row.descuentoPct}
+                      </td>
+                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
+                        ${formatPrecioEs(row.linea.precio_unitario)}
+                      </td>
+                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
+                        {row.ivaPct}
                       </td>
                       <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm font-medium text-polaria-teal">
-                        ${formatPrecioEs(formatOrdenVentaLineaTotal(linea))}
+                        ${formatPrecioEs(row.importe)}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-            <div className="flex items-center justify-between border-t border-polaria-t-20 bg-polaria-w-08 px-3 py-2">
+            <div className="flex items-start justify-between gap-4 border-t border-polaria-t-20 bg-polaria-w-08 px-3 py-2">
               <p className="polaria-text-caption text-polaria-w-50">
                 {lineItems.length === 1
                   ? "1 producto"
@@ -545,14 +657,52 @@ function DetalleContent({
                     UNIDAD_MEDIDA_VENTA_DEFAULT,
                 )}
               </p>
-              <p className="polaria-text-body-sm text-polaria-w-50">
-                Total venta:{" "}
-                <span className="font-semibold text-polaria-teal">
-                  {hija
-                    ? `$${formatPrecioEs(totalHija)}`
-                    : formatOrdenVentaTotal(orden)}
-                </span>
-              </p>
+              <table className="text-right">
+                <tbody>
+                  <tr>
+                    <td className="pr-6 polaria-text-body-sm text-polaria-w-50">
+                      Subtotal
+                    </td>
+                    <td className="font-mono polaria-text-body-sm text-polaria-w">
+                      ${formatPrecioEs(subtotalOt)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="pr-6 polaria-text-body-sm text-polaria-w-50">
+                      Descuentos
+                    </td>
+                    <td className="font-mono polaria-text-body-sm text-polaria-w">
+                      ${formatPrecioEs(descuentosOt)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="pr-6 polaria-text-body-sm text-polaria-w-50">
+                      IVA
+                    </td>
+                    <td className="font-mono polaria-text-body-sm text-polaria-w">
+                      ${formatPrecioEs(ivaOt)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="pt-1 pr-6 polaria-text-body-sm font-semibold text-polaria-w">
+                      {mostrarTotalOv ? "Total OT" : "Total"}
+                    </td>
+                    <td className="pt-1 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
+                      ${formatPrecioEs(totalOt)}
+                    </td>
+                  </tr>
+                  {mostrarTotalOv ? (
+                    <tr>
+                      <td className="pt-1 pr-6 polaria-text-body-sm font-semibold text-polaria-w">
+                        Total OV
+                      </td>
+                      <td className="pt-1 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
+                        ${formatPrecioEs(totalOv)}
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -913,14 +1063,18 @@ export function OrdenVentaDetalleModal({
 
       {!isLoading && !error && orden ? (
         <div className="space-y-3">
-          {ordenesTrabajo.length > 1 ? (
+          {ordenesTrabajo.length > 0 ? (
             <p className="polaria-text-caption text-polaria-w-50">
-              {cypherOpen
-                ? "Cambia de orden de trabajo en Cypher (Confirmación)."
-                : `${ordenesTrabajo.length} órdenes de trabajo · ábrelas con + en Cypher.`}
+              {textoConteoOrdenesTrabajo(ordenesTrabajo.length)}
             </p>
           ) : null}
-          <DetalleContent orden={orden} hija={hijaActiva} />
+          <DetalleContent
+            orden={orden}
+            hija={hijaActiva}
+            codigoCuenta={codigoCuenta}
+            idOrdenVenta={idOrdenVenta}
+            mostrarTotalOv={ordenesTrabajo.length > 1}
+          />
         </div>
       ) : null}
     </PolariaFormModal>
