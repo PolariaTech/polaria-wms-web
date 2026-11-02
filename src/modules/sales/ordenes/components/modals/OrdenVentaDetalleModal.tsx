@@ -58,7 +58,9 @@ import {
   textoConteoOrdenesTrabajo,
   totalLineaConIva,
 } from "./detalle-venta-presentacion";
+import { useRecargaFolioFactura } from "../../surtido/folio-factura-captura";
 import { OrdenVentaDetalleProductos } from "./OrdenVentaDetalleProductos";
+import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
 import {
   formatCompradorOrdenVenta,
   formatOrdenVentaCantidadConUnidad,
@@ -254,6 +256,7 @@ function DetalleContent({
     origenTexto: orden.origen_texto?.trim() || fromObs.origenTexto,
   };
   const [folioFactura, setFolioFactura] = useState("");
+  const recargaFolio = useRecargaFolioFactura(idOrdenVenta);
 
   useEffect(() => {
     const cuenta = codigoCuenta?.trim() ?? "";
@@ -281,7 +284,7 @@ function DetalleContent({
     return () => {
       cancelled = true;
     };
-  }, [codigoCuenta, hija?.id, idOrdenVenta]);
+  }, [codigoCuenta, hija?.id, idOrdenVenta, recargaFolio]);
   const prioridad = captura.prioridad.trim();
   // Cuerpo: origen_texto / bloque "Pedido original" / observaciones crudas del correo.
   const cuerpoMensaje = (() => {
@@ -547,6 +550,11 @@ export function OrdenVentaDetalleModal({
     }
     return ordenesTrabajo[0] ?? null;
   }, [hijaId, ordenesTrabajo]);
+
+  const indiceOt = Math.max(
+    0,
+    ordenesTrabajo.findIndex((hija) => hija.id === hijaActiva?.id),
+  );
 
   // El grid de OT vive solo en Cypher; aquí siempre hay OT activa (1ª por defecto).
   useEffect(() => {
@@ -876,6 +884,16 @@ export function OrdenVentaDetalleModal({
             codigoCuenta={codigoCuenta}
             idOrdenVenta={idOrdenVenta}
             mostrarTotalOv={ordenesTrabajo.length > 1}
+          />
+          <OrdenTrabajoPager
+            page={indiceOt}
+            total={ordenesTrabajo.length}
+            onPrev={() =>
+              setHijaId(ordenesTrabajo[indiceOt - 1]?.id ?? null)
+            }
+            onNext={() =>
+              setHijaId(ordenesTrabajo[indiceOt + 1]?.id ?? null)
+            }
           />
         </div>
       ) : null}

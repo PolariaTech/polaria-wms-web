@@ -5,6 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { cn } from "@/lib/utils/cn";
 import { formatKgEs } from "@/lib/utils/decimal-es";
+import {
+  leerFolioFactura,
+  useRecargaFolioFactura,
+} from "../../surtido/folio-factura-captura";
 import type { OrdenSurtidoCapturaPayload } from "../../surtido/orden-surtido.types";
 import { notaCapturaForLinea } from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import { filterLineasByOrdenTrabajoHija } from "../../utils/ot/filter-lineas-by-orden-trabajo";
@@ -89,6 +93,7 @@ export function CypherAlistamientoSection({
   hijas,
   onVerFotosOt,
 }: CypherAlistamientoSectionProps) {
+  const recargaFolio = useRecargaFolioFactura(idOrdenVenta);
   const [capturas, setCapturas] = useState<CapturaApiRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [now] = useState(() => Date.now());
@@ -118,7 +123,7 @@ export function CypherAlistamientoSection({
     return () => {
       cancelled = true;
     };
-  }, [idOrdenVenta]);
+  }, [idOrdenVenta, recargaFolio]);
 
   const capturaByOt = useMemo(() => {
     const map = new Map<string, CapturaApiRow>();
@@ -233,15 +238,7 @@ export function CypherAlistamientoSection({
           "Despachó nombre",
           "Despachó",
         );
-        const folio = campoCaptura(
-          payload?.campos,
-          "facturaOkFolio",
-          "facturaAsociada",
-          "Folio factura asociada",
-          "Factura (OK) folio",
-          "Documentación folio",
-          "Folio",
-        );
+        const folio = leerFolioFactura(payload?.campos);
         const escaneoAt = captura?.updatedAt ?? null;
         const notasLineas = orden.notas_lineas?.trim() || "";
 
