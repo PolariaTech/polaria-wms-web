@@ -77,19 +77,23 @@ describe("AppTopbar — perfil", () => {
     expect(link).toHaveTextContent("Configurador TI");
   });
 
-  it("en órdenes de venta, la fecha filtra ese día y se apaga al pulsar de nuevo", async () => {
+  it("en órdenes de venta, la fecha filtra hoy y mañana y se apaga al pulsar de nuevo", async () => {
     nav.pathname = ROUTES.dashboardVentasOrdenes;
     const user = userEvent.setup();
     render(<AppTopbar />);
 
     const fecha = screen.getByRole("button", {
-      name: "Filtrar por fecha de entrega del 16-09-2026",
+      name: "Filtrar por fecha de entrega de hoy y mañana (16-09-2026)",
     });
     expect(fecha).toHaveAttribute("aria-pressed", "false");
+    expect(fecha).toHaveTextContent("Fecha");
 
     await user.click(fecha);
     expect(fecha).toHaveAttribute("aria-pressed", "true");
-    expect(fecha).toHaveAccessibleName("Quitar filtro de entrega del 16-09-2026");
+    expect(fecha).toHaveTextContent("Hoy y mañana");
+    expect(fecha).toHaveAccessibleName(
+      "Quitar filtro de entrega de hoy y mañana (16-09-2026)",
+    );
     expect(useOvFechaFiltroStore.getState().dia).toBe("2026-09-16");
 
     await user.click(fecha);

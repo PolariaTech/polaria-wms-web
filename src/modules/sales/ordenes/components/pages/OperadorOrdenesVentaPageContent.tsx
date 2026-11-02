@@ -1198,7 +1198,7 @@ export function OperadorOrdenesVentaPageContent({
           estadoFiltro
             ? `Sin órdenes en estado «${ESTADO_ORDEN_VENTA_LABELS[estadoFiltro]}».`
             : fechaFiltroDia
-              ? "Sin órdenes con entrega en esta fecha."
+              ? "Sin órdenes con entrega hoy o mañana."
               : "Sin órdenes de venta registradas."
         }
         onRefresh={() => {
