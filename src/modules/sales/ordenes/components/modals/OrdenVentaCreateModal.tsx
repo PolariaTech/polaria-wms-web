@@ -16,7 +16,7 @@ import type {BodegaDestinoOption, CaptureStep, LineaVentaForm, OrdenVentaCreateM
 import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 import {OrdenVentaModalShell} from "./OrdenVentaModalShell";
 import {useContarProductosOt, useHandleSubmitOv} from "../../hooks/confirmar-envio-ov";
-import {useEditarLineasOv, useScrollFormularioOv} from "../../hooks/editar-lineas-ov";
+import {useEditarLineasOv} from "../../hooks/editar-lineas-ov";
 import {useAperturaDesdeDocsOv, useForzarFormularioAlEditar, useResetFormularioOv} from "../../hooks/reset-formulario-ov";
 import {useCatalogoPickerOv, useEfectosCompaneroOv, useSembrarLineasDesdeOrigen} from "../../hooks/sembrar-lineas-desde-origen";
 import {useAplicarCorreccionCorreoOv, useDeshacerReagrupacionOv} from "../../hooks/aplicar-correccion-correo-ov";
@@ -24,7 +24,7 @@ import {useAplicarReagrupacionOv, useCamposDeLaOtActiva, useEfectosFormularioOt}
 import {useAbrirCapturaOv, useAvisosValidacionOv, usePrefillYDiscrepanciasOv} from "../../utils/pedido/campos-faltantes-ov";
 import {useCierreCapturaOv, useFolioDesdeLista} from "../../utils/pedido/aviso-direccion-ov";
 import {useSyncOtFormulario, useTotalesVentaOv} from "../../hooks/sync-ot-formulario";
-import {useSeleccionarCompradorModal} from "../../hooks/seleccionar-comprador-ov";
+import {useScrollFormularioOv, useSeleccionarCompradorModal} from "../../hooks/seleccionar-comprador-ov";
 
 export function OrdenVentaCreateModal({
   open,

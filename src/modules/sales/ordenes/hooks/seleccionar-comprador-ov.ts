@@ -179,3 +179,21 @@ export function useSeleccionarCompradorModal(estado: OrdenVentaFormEstado) {
   );
   return { handleSelectComprador };
 }
+
+export function useScrollFormularioOv(estado: OrdenVentaFormEstado) {
+  const { formScrollRef, formScrollTopRef } = estado;
+  const captureFormScroll = useCallback(() => {
+    const scroller = formScrollRef.current;
+    if (scroller) formScrollTopRef.current = scroller.scrollTop;
+  }, [formScrollRef, formScrollTopRef]);
+  const restoreFormScroll = useCallback(() => {
+    const scroller = formScrollRef.current;
+    const top = formScrollTopRef.current;
+    if (!scroller || top == null) return;
+    scroller.scrollTop = top;
+    requestAnimationFrame(() => {
+      scroller.scrollTop = top;
+    });
+  }, [formScrollRef, formScrollTopRef]);
+  return { captureFormScroll, restoreFormScroll };
+}

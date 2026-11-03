@@ -298,21 +298,3 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
   }, []);
   return { handleSelectProducto, handleOpenReplaceProducto, handleAcceptSugerencia, handleRemoveLinea, clearFieldMarks, handleCantidadChange, handleCantidadBlur, handleLineaFieldChange, handlePrecioChange, handlePrecioBlur };
 }
-
-export function useScrollFormularioOv(estado: OrdenVentaFormEstado) {
-  const { formScrollRef, formScrollTopRef } = estado;
-  const captureFormScroll = useCallback(() => {
-    const scroller = formScrollRef.current;
-    if (scroller) formScrollTopRef.current = scroller.scrollTop;
-  }, [formScrollRef, formScrollTopRef]);
-  const restoreFormScroll = useCallback(() => {
-    const scroller = formScrollRef.current;
-    const top = formScrollTopRef.current;
-    if (!scroller || top == null) return;
-    scroller.scrollTop = top;
-    requestAnimationFrame(() => {
-      scroller.scrollTop = top;
-    });
-  }, [formScrollRef, formScrollTopRef]);
-  return { captureFormScroll, restoreFormScroll };
-}
