@@ -8,7 +8,7 @@ import {
   PolariaTableBadge,
   PolariaTableCode,
 } from "@/components/shared/table/PolariaTableCells";
-import { formatDateTime } from "@/components/shared/utils/formatters";
+import { textoFechaEntregaListado } from "./texto-fecha-entrega-listado";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useVisibleInterval } from "@/hooks/shared/useVisibleInterval";
@@ -1021,7 +1021,7 @@ export function OperadorOrdenesVentaPageContent({
         headerClassName: ordenVentaTableColumnClass("comprador", "header"),
         cellClassName: ordenVentaTableColumnClass("comprador"),
         cell: (row: OrdenVentaOperadorRow) => (
-          <span className="block max-w-[9.5rem] truncate" title={row.comprador}>
+          <span className="block max-w-[12.5rem] truncate" title={row.comprador}>
             {row.comprador}
           </span>
         ),
@@ -1035,11 +1035,10 @@ export function OperadorOrdenesVentaPageContent({
       },
       {
         id: "fecha",
-        header: "Fecha de creación",
+        header: "Fecha de entrega",
         headerClassName: ordenVentaTableColumnClass("fecha", "header"),
         cellClassName: ordenVentaTableColumnClass("fecha"),
-        cell: (row: OrdenVentaOperadorRow) =>
-          formatDateTime(row.fecha, zonaHoraria),
+        cell: (row: OrdenVentaOperadorRow) => textoFechaEntregaListado(row),
       },
       {
         id: "ot",
@@ -1111,7 +1110,7 @@ export function OperadorOrdenesVentaPageContent({
             },
           ]),
     ],
-    [idsCorreoNoEnviado, inspect, cypherId, zonaHoraria],
+    [idsCorreoNoEnviado, inspect, cypherId],
   );
 
   const companionWithCypher = Boolean(
@@ -1198,7 +1197,7 @@ export function OperadorOrdenesVentaPageContent({
           estadoFiltro
             ? `Sin órdenes en estado «${ESTADO_ORDEN_VENTA_LABELS[estadoFiltro]}».`
             : fechaFiltroDia
-              ? "Sin órdenes con entrega en esta fecha."
+              ? "Sin órdenes con entrega hoy o mañana."
               : "Sin órdenes de venta registradas."
         }
         onRefresh={() => {

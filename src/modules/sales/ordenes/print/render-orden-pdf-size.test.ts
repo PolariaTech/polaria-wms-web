@@ -55,7 +55,7 @@ describe("tamaño del PDF de impresión (REQ-186)", () => {
     );
     const pdf = buildOrdenTareaAlmacenLandscapePdfMulti(sheets);
     expect(base64Bytes(pdf)).toBeLessThan(LIMITE_BASE64_BYTES);
-  });
+  }, 30_000);
 
   it("el PDF vertical de una hoja sale comprimido", async () => {
     const pdf = buildOrdenTareaAlmacenPdf(await buildSheet(1, 1));

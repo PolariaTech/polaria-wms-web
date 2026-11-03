@@ -25,7 +25,6 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   PolariaFormField,
   PolariaFormInput,
@@ -49,6 +48,13 @@ import {
   sanitizePrecioInputMx,
 } from "@/lib/utils/decimal-es";
 import { cn } from "@/lib/utils/cn";
+import { formatDateTime } from "@/components/shared/utils/formatters";
+import { resolverFechaCreacionEdicion } from "../../utils/pedido/resolver-fecha-creacion-edicion";
+import { CatalogStatusHint } from "./catalog-status-hint";
+import {
+  FolioFacturaCampos,
+  useFolioFacturaEdicion,
+} from "../../surtido/guardar-folio-factura-captura.client";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import {
   getCompradorAdmin,
@@ -267,106 +273,6 @@ function formatProductoNombreConSku(nombre: string, codigo: string): string {
   if (!sku || sku === "—") return name;
   if (name.toLowerCase().includes(`(${sku.toLowerCase()})`)) return name;
   return `${name} (${sku})`;
-}
-
-const CATALOG_STATUS_TONE_CLASS = {
-  teal: "text-polaria-teal",
-  warning: "text-polaria-warning",
-  danger: "text-polaria-danger",
-} as const;
-
-/** Tooltip en portal fijo: no lo corta overflow de tablas/modales. */
-function CatalogStatusHint({
-  label,
-  tone,
-  size = "sm",
-  children,
-}: {
-  label: string;
-  tone: keyof typeof CATALOG_STATUS_TONE_CLASS;
-  size?: "sm" | "md";
-  children: ReactNode;
-}) {
-  const triggerRef = useRef<HTMLSpanElement>(null);
-  const tipRef = useRef<HTMLSpanElement>(null);
-  const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
-    null,
-  );
-
-  const updatePosition = useCallback(() => {
-    const trigger = triggerRef.current;
-    const tip = tipRef.current;
-    if (!trigger || !tip) return;
-    const rect = trigger.getBoundingClientRect();
-    const tipRect = tip.getBoundingClientRect();
-    const gap = 6;
-    const pad = 8;
-    let top = rect.bottom + gap;
-    if (top + tipRect.height > window.innerHeight - pad) {
-      top = rect.top - tipRect.height - gap;
-    }
-    top = Math.max(pad, top);
-    let left = rect.left + rect.width / 2 - tipRect.width / 2;
-    left = Math.min(
-      Math.max(pad, left),
-      window.innerWidth - tipRect.width - pad,
-    );
-    setCoords({ top, left });
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setCoords(null);
-      return;
-    }
-    updatePosition();
-    const onReposition = () => updatePosition();
-    window.addEventListener("scroll", onReposition, true);
-    window.addEventListener("resize", onReposition);
-    return () => {
-      window.removeEventListener("scroll", onReposition, true);
-      window.removeEventListener("resize", onReposition);
-    };
-  }, [open, updatePosition]);
-
-  return (
-    <>
-      <span
-        ref={triggerRef}
-        tabIndex={0}
-        aria-label={label}
-        className={cn(
-          "relative inline-flex shrink-0 items-center justify-center outline-none",
-          size === "md" ? "h-7 w-7" : null,
-          CATALOG_STATUS_TONE_CLASS[tone],
-        )}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-      >
-        {children}
-      </span>
-      {open
-        ? createPortal(
-            <span
-              ref={tipRef}
-              role="tooltip"
-              style={
-                coords
-                  ? { top: coords.top, left: coords.left }
-                  : { top: 0, left: 0, visibility: "hidden" as const }
-              }
-              className="pointer-events-none fixed z-[300] w-max max-w-[16rem] rounded-lg border border-polaria-t-20 bg-polaria-bg px-2 py-1 text-center polaria-text-caption text-polaria-w shadow-lg"
-            >
-              {label}
-            </span>,
-            document.body,
-          )
-        : null}
-    </>
-  );
 }
 
 function collectSugerenciasLinea(
@@ -737,6 +643,12 @@ export function OrdenVentaCreateModal({
   const vendedorNombre = session?.nombre?.trim() ?? "";
   const editingId = idOrdenVenta?.trim() || "";
   const isEditing = Boolean(editingId);
+  const folioFactura = useFolioFacturaEdicion({
+    open,
+    activo: isEditing,
+    codigoCuenta,
+    idOrdenVenta: editingId || null,
+  });
   const [step, setStep] = useState<CaptureStep>("start");
   const [startMode, setStartMode] = useState<StartMode | null>(null);
   const [idComprador, setIdComprador] = useState("");
@@ -774,6 +686,7 @@ export function OrdenVentaCreateModal({
   const [reagruparOpen, setReagruparOpen] = useState(false);
   /** Id de la OV cuyo detalle ya está cargado en el formulario (no el de la OV anterior). */
   const [ordenCargadaId, setOrdenCargadaId] = useState<string | null>(null);
+  const [fechaCreacion, setFechaCreacion] = useState("");
   const [reagruparAplicada, setReagruparAplicada] =
     useState<ReagrupacionAplicada | null>(null);
   const [productosBase, setProductosBase] = useState<ProductoVentaOption[]>(
@@ -1957,6 +1870,7 @@ export function OrdenVentaCreateModal({
       // Al cerrar el formulario su detalle queda en memoria: que no se tome por el de la
       // próxima OV que se abra.
       setOrdenCargadaId(null);
+      setFechaCreacion("");
       return;
     }
 
@@ -1969,6 +1883,7 @@ export function OrdenVentaCreateModal({
     setCompradorSugerencias([]);
     selectedCompradorIdRef.current = "";
     setFechaEntrega("");
+    setFechaCreacion("");
     setVentanaDesde("");
     setVentanaHasta("");
     setPrioridad("Normal");
@@ -2080,6 +1995,12 @@ export function OrdenVentaCreateModal({
         if (!detalle) return;
 
         setEditingEstado(detalle.estado);
+        setFechaCreacion(
+          resolverFechaCreacionEdicion(
+            detalle.created_at,
+            detalle.fecha_pedido,
+          ),
+        );
         setOrdenCargadaId(editingId || null);
         setEditingCodigo(
           detalle.codigo?.trim() || codigoVenta?.trim() || "",
@@ -3934,6 +3855,10 @@ export function OrdenVentaCreateModal({
           });
         }
 
+        if (idOrdenVenta && codigoCuenta) {
+          await folioFactura.guardar(idOrdenVenta, codigoCuenta);
+        }
+
         if (reagruparAplicada && idOrdenVenta) {
           const detalle = reagruparAplicada.correccion
             ? describirCorreccionParaBitacora({
@@ -4093,6 +4018,7 @@ export function OrdenVentaCreateModal({
       editingId,
       exigeOc,
       fechaEntrega,
+      folioFactura,
       hasProductos,
       hijaFormActiva,
       horaSalida,
@@ -5251,6 +5177,27 @@ export function OrdenVentaCreateModal({
                       fieldClassName="sm:col-span-2"
                       compact
                     />
+
+                    {isEditing ? (
+                      <PolariaFormInput
+                        id="orden-venta-fecha-creacion"
+                        label="Fecha de creación"
+                        value={formatDateTime(fechaCreacion)}
+                        readOnly
+                        placeholder="—"
+                        compact
+                      />
+                    ) : null}
+
+                    {isEditing ? (
+                      <FolioFacturaCampos
+                        paginar={paginarPorOt}
+                        activa={hijaFormActiva}
+                        ots={ordenesTrabajoForm}
+                        valores={folioFactura.valores}
+                        onChange={folioFactura.setValor}
+                      />
+                    ) : null}
 
                     <PolariaFormInput
                       id="orden-venta-oc-hotel"

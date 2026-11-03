@@ -39,7 +39,6 @@ import {
   stripSurtidoFotoQrFromNotas,
 } from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import { sanitizeTelefonoContacto } from "../../utils/pedido/sanitize-telefono-contacto";
-import { resolveSkuVisible } from "../../utils/display/resolve-sku-visible";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
@@ -52,18 +51,20 @@ import {
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
 } from "../../utils/origen/origen-correo-ordenes-trabajo";
-import { OrigenPedidoSourceView } from "../shared/OrigenPedidoBodyView";
+import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
 import {
-  nombresOrigenAdjuntos,
-  parseOrigenArchivos,
-} from "../../utils/origen/origen-adjuntos";
+  leerFolioFacturaVista,
+  montoDeNota,
+  textoConteoOrdenesTrabajo,
+  totalLineaConIva,
+} from "./detalle-venta-presentacion";
+import { useRecargaFolioFactura } from "../../surtido/folio-factura-captura";
+import { OrdenVentaDetalleProductos } from "./OrdenVentaDetalleProductos";
+import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
 import {
   formatCompradorOrdenVenta,
   formatOrdenVentaCantidadConUnidad,
-  formatOrdenVentaLineaTotal,
-  formatOrdenVentaTotal,
   resolveOrdenVentaLineaTitulo,
-  resolveOrdenVentaLineaUnidad,
   resolveUnidadComunLineas,
   sumOrdenVentaCantidadKg,
 } from "../../utils/display/orden-venta-display";
@@ -170,9 +171,15 @@ function renderEstadoBadge(estado: string) {
 function DetalleContent({
   orden,
   hija = null,
+  codigoCuenta,
+  idOrdenVenta,
+  mostrarTotalOv,
 }: {
   orden: OrdenVentaDetalleRow;
   hija?: OrdenTrabajoHija | null;
+  codigoCuenta: string | null;
+  idOrdenVenta: string;
+  mostrarTotalOv: boolean;
 }) {
   const allLineItems = orden.lineas ?? [];
   const lineItems: OrdenVentaLineaRow[] = useMemo(() => {
@@ -247,12 +254,37 @@ function DetalleContent({
     ventanaEntrega: ventanaFlat || fromObs.ventanaEntrega,
     notasLineas: orden.notas_lineas?.trim() || fromObs.notasLineas,
     origenTexto: orden.origen_texto?.trim() || fromObs.origenTexto,
-    origenArchivos: (() => {
-      const fromCol = parseOrigenArchivos(orden.origen_archivos);
-      if (fromCol.length > 0) return nombresOrigenAdjuntos(fromCol);
-      return fromObs.origenArchivos;
-    })(),
   };
+  const [folioFactura, setFolioFactura] = useState("");
+  const recargaFolio = useRecargaFolioFactura(idOrdenVenta);
+
+  useEffect(() => {
+    const cuenta = codigoCuenta?.trim() ?? "";
+    const id = idOrdenVenta.trim();
+    if (!cuenta || !id) {
+      setFolioFactura("");
+      return;
+    }
+    let cancelled = false;
+    void listOrdenSurtidoCapturasClient({
+      codigoCuenta: cuenta,
+      idOrdenVenta: id,
+    })
+      .then((rows) => {
+        if (cancelled) return;
+        const otId = hija?.id?.trim() ?? "";
+        const match = otId
+          ? rows.find((row) => row.idOrdenTrabajo === otId)
+          : rows[0];
+        setFolioFactura(leerFolioFacturaVista(match?.payload.campos));
+      })
+      .catch(() => {
+        if (!cancelled) setFolioFactura("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [codigoCuenta, hija?.id, idOrdenVenta, recargaFolio]);
   const prioridad = captura.prioridad.trim();
   // Cuerpo: origen_texto / bloque "Pedido original" / observaciones crudas del correo.
   const cuerpoMensaje = (() => {
@@ -279,46 +311,59 @@ function DetalleContent({
     cuerpoMensaje,
   );
   const pesoHija = lineItems.reduce((s, l) => s + l.cantidad_pedida, 0);
-  const totalHija = lineItems.reduce(
-    (s, l) => s + l.cantidad_pedida * l.precio_unitario,
-    0,
-  );
+  const montosLinea = lineItems.map((linea) => {
+    const titulo = resolveOrdenVentaLineaTitulo(linea);
+    const nota = notaCapturaForLinea(captura.notasLineas, {
+      nombre: titulo,
+      cantidad: linea.cantidad_pedida,
+      otId: hija?.id,
+      idProducto: linea.id_producto,
+      allowUnscoped: !hija,
+    });
+    return {
+      linea,
+      titulo,
+      ...montoDeNota(nota, linea.cantidad_pedida, linea.precio_unitario),
+    };
+  });
+  const subtotalOt = montosLinea.reduce((sum, row) => sum + row.bruto, 0);
+  const descuentosOt = montosLinea.reduce((sum, row) => sum + row.descuento, 0);
+  const ivaOt = montosLinea.reduce((sum, row) => sum + row.iva, 0);
+  const totalOt = Math.max(0, subtotalOt - descuentosOt + ivaOt);
+  const totalOv = (orden.lineas ?? []).reduce((sum, linea) => {
+    const nota = notaCapturaForLinea(captura.notasLineas, {
+      nombre: resolveOrdenVentaLineaTitulo(linea),
+      cantidad: linea.cantidad_pedida,
+      idProducto: linea.id_producto,
+      allowUnscoped: true,
+    });
+    return sum + totalLineaConIva(linea.cantidad_pedida, linea.precio_unitario, nota);
+  }, 0);
 
   return (
     <>
-      <div className="rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-4 py-3">
-        <p className="polaria-text-label uppercase tracking-wide text-polaria-teal">
-          Orden de trabajo
-        </p>
-        <p className="mt-1 polaria-text-body-sm font-semibold text-polaria-w">
-          {hija?.label ?? orden.codigo}
-        </p>
-        {hija?.referenciaPedido ? (
-          <p className="mt-1 polaria-text-caption text-polaria-w-50">
-            {hija.referenciaPedido}
-          </p>
-        ) : null}
-      </div>
-
-      {cuerpoMensaje || captura.origenArchivos.length > 0 ? (
-        <CaptureSection title="De dónde salió este pedido">
-          <OrigenPedidoSourceView
-            archivos={captura.origenArchivos}
-            tieneTexto={Boolean(cuerpoMensaje)}
-          />
-        </CaptureSection>
-      ) : null}
-
       <CaptureSection title="Datos del pedido">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <MetaField label="Cliente">
             <TextValue value={clienteOrigenFallback} />
           </MetaField>
+          <MetaField label="Código de cliente">
+            <TextValue value={orden.comprador_codigo ?? ""} />
+          </MetaField>
+          <MetaField label="Denominación comercial">
+            <TextValue value={orden.comprador_apodo ?? ""} />
+          </MetaField>
           <MetaField label="Orden de compra del cliente">
             <TextValue value={captura.ordenCompraHotel} />
           </MetaField>
+          <MetaField label="Folio de factura">
+            <TextValue value={folioFactura} />
+          </MetaField>
           <MetaField label="Centro de consumo">
             <TextValue value={captura.centroConsumo} />
+          </MetaField>
+          <MetaField label="Referencia de pedido">
+            <TextValue value={hija?.referenciaPedido} />
           </MetaField>
           <MetaField label="Fecha de creación">
             {formatDateTime(orden.created_at || orden.fecha_pedido)}
@@ -451,110 +496,20 @@ function DetalleContent({
             </table>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-polaria-w-08">
-            <table className="w-full table-fixed border-collapse text-left">
-              <colgroup>
-                <col className="w-[34%]" />
-                <col className="w-[22%]" />
-                <col className="w-[16%]" />
-                <col className="w-[14%]" />
-                <col className="w-[14%]" />
-              </colgroup>
-              <thead className="bg-polaria-w-08">
-                <tr className="border-b border-polaria-t-20">
-                  <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
-                    Producto
-                  </th>
-                  <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
-                    Especificación
-                  </th>
-                  <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
-                    Cantidad
-                  </th>
-                  <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
-                    Precio
-                  </th>
-                  <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
-                    Importe
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.map((linea) => {
-                  const titulo = resolveOrdenVentaLineaTitulo(linea);
-                  const nota = notaCapturaForLinea(captura.notasLineas, {
-                    nombre: titulo,
-                    cantidad: linea.cantidad_pedida,
-                    otId: hija?.id,
-                    idProducto: linea.id_producto,
-                    allowUnscoped: !hija,
-                  });
-                  const skuVisible = resolveSkuVisible({
-                    linea,
-                    origenRenglones: hija?.renglones ?? undefined,
-                    hija,
-                  });
-                  return (
-                    <tr
-                      key={linea.id_linea_orden_venta}
-                      className="border-b border-polaria-w-08 last:border-b-0"
-                    >
-                      <td className="px-3 py-2.5 align-middle">
-                        <p className="polaria-text-body-sm font-medium text-polaria-w">
-                          {titulo}
-                        </p>
-                        <p className="polaria-text-caption text-polaria-w-50">
-                          {skuVisible
-                            ? `SKU ${skuVisible}`
-                            : resolveOrdenVentaLineaUnidad(linea)}
-                        </p>
-                      </td>
-                      <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w">
-                        {nota ? (
-                          <span className="break-words">{nota}</span>
-                        ) : (
-                          <span className="text-polaria-w-50">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
-                        {formatOrdenVentaCantidadConUnidad(
-                          linea.cantidad_pedida,
-                          resolveOrdenVentaLineaUnidad(linea),
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
-                        ${formatPrecioEs(linea.precio_unitario)}
-                      </td>
-                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm font-medium text-polaria-teal">
-                        ${formatPrecioEs(formatOrdenVentaLineaTotal(linea))}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <div className="flex items-center justify-between border-t border-polaria-t-20 bg-polaria-w-08 px-3 py-2">
-              <p className="polaria-text-caption text-polaria-w-50">
-                {lineItems.length === 1
-                  ? "1 producto"
-                  : `${lineItems.length} productos`}{" "}
-                ·{" "}
-                {formatOrdenVentaCantidadConUnidad(
-                  hija ? pesoHija : sumOrdenVentaCantidadKg(orden),
-                  resolveUnidadComunLineas(lineItems) ??
-                    UNIDAD_MEDIDA_VENTA_DEFAULT,
-                )}
-              </p>
-              <p className="polaria-text-body-sm text-polaria-w-50">
-                Total venta:{" "}
-                <span className="font-semibold text-polaria-teal">
-                  {hija
-                    ? `$${formatPrecioEs(totalHija)}`
-                    : formatOrdenVentaTotal(orden)}
-                </span>
-              </p>
-            </div>
-          </div>
+          <OrdenVentaDetalleProductos
+            filas={montosLinea}
+            hija={hija}
+            cantidadTexto={formatOrdenVentaCantidadConUnidad(
+              hija ? pesoHija : sumOrdenVentaCantidadKg(orden),
+              resolveUnidadComunLineas(lineItems) ?? UNIDAD_MEDIDA_VENTA_DEFAULT,
+            )}
+            subtotal={subtotalOt}
+            descuentos={descuentosOt}
+            iva={ivaOt}
+            total={totalOt}
+            mostrarTotalOv={mostrarTotalOv}
+            totalOv={totalOv}
+          />
         )}
       </CaptureSection>
 
@@ -595,6 +550,11 @@ export function OrdenVentaDetalleModal({
     }
     return ordenesTrabajo[0] ?? null;
   }, [hijaId, ordenesTrabajo]);
+
+  const indiceOt = Math.max(
+    0,
+    ordenesTrabajo.findIndex((hija) => hija.id === hijaActiva?.id),
+  );
 
   // El grid de OT vive solo en Cypher; aquí siempre hay OT activa (1ª por defecto).
   useEffect(() => {
@@ -913,14 +873,28 @@ export function OrdenVentaDetalleModal({
 
       {!isLoading && !error && orden ? (
         <div className="space-y-3">
-          {ordenesTrabajo.length > 1 ? (
+          {ordenesTrabajo.length > 0 ? (
             <p className="polaria-text-caption text-polaria-w-50">
-              {cypherOpen
-                ? "Cambia de orden de trabajo en Cypher (Confirmación)."
-                : `${ordenesTrabajo.length} órdenes de trabajo · ábrelas con + en Cypher.`}
+              {textoConteoOrdenesTrabajo(ordenesTrabajo.length)}
             </p>
           ) : null}
-          <DetalleContent orden={orden} hija={hijaActiva} />
+          <DetalleContent
+            orden={orden}
+            hija={hijaActiva}
+            codigoCuenta={codigoCuenta}
+            idOrdenVenta={idOrdenVenta}
+            mostrarTotalOv={ordenesTrabajo.length > 1}
+          />
+          <OrdenTrabajoPager
+            page={indiceOt}
+            total={ordenesTrabajo.length}
+            onPrev={() =>
+              setHijaId(ordenesTrabajo[indiceOt - 1]?.id ?? null)
+            }
+            onNext={() =>
+              setHijaId(ordenesTrabajo[indiceOt + 1]?.id ?? null)
+            }
+          />
         </div>
       ) : null}
     </PolariaFormModal>

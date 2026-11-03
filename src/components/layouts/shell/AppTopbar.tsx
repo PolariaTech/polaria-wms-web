@@ -123,17 +123,19 @@ export function AppTopbar({
                   title={
                     fechaPresionada
                       ? "Ver todas las órdenes"
-                      : "Ver órdenes con esta fecha de entrega, y las que no tienen fecha"
+                      : "Ver órdenes con entrega hoy y mañana, y las que no tienen fecha"
                   }
                   aria-label={
                     fechaPresionada
-                      ? `Quitar filtro de entrega del ${dateLabel}`
-                      : `Filtrar por fecha de entrega del ${dateLabel}`
+                      ? `Quitar filtro de entrega de hoy y mañana (${dateLabel})`
+                      : `Filtrar por fecha de entrega de hoy y mañana (${dateLabel})`
                   }
                   onClick={() => toggleFechaFiltro(dateTime)}
                   className="flex flex-col items-start rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal"
                 >
-                  <span className="polaria-text-label">Fecha</span>
+                  <span className="polaria-text-label">
+                    {fechaPresionada ? "Hoy y mañana" : "Fecha"}
+                  </span>
                   <time
                     dateTime={dateTime}
                     className="polaria-text-body-sm mt-0.5"
