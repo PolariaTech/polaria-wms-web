@@ -128,6 +128,45 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
     ]);
   });
 
+  it("REQ-239: en BirchStreet limpia dirección, correo operativo y notas", () => {
+    const origenTexto = [
+      "De: bss_system@birchstreet.net",
+      "Para: pedidos@aguacatesdepuebla.com",
+      "",
+      "Sent By:",
+      "Ixayana Cid",
+      "NODEPT",
+      "Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT, MEXICO",
+      "Ixayana.Cid@Hilton.com",
+      "",
+      "Ship To: Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT, MEXICO",
+      "Kukulcan Km 17, Zona Hotelera",
+      "CANCUN, ROO, 77500, MX",
+      "Attn: Ixayana Cid",
+      "CONTACTO: CUNMC_CXP@Hilton.com",
+    ].join("\n");
+    const pedido = buildPedidoExtraidoFromOrigenCorreo({
+      origenCorreo: [
+        {
+          Cantidad: 1,
+          Producto: "Aguacate Hass",
+          "Correo contacto": "CUNMC_CXP@Hilton.com",
+          "Direccion entrega":
+            "Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT, MEXICO, Kukulcan Km 17, Zona Hotelera, CANCUN, ROO, 77500, MX. Attn: Ixayana Cid, Sent From: Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT,",
+          "Notas generales":
+            "Horario de recepción: lunes a viernes de 8:00 AM a 2:00 PM; sábados de 8:00 AM a 12:00 PM. Pedido parcial no aceptado.",
+        },
+      ],
+      origenTexto,
+    });
+
+    expect(pedido.direccion).toBe(
+      "Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT, MEXICO, Kukulcan Km 17, Zona Hotelera, CANCUN, ROO, 77500, MX",
+    );
+    expect(pedido.correo).toBe("Ixayana.Cid@Hilton.com");
+    expect(pedido.observaciones).toBe("Pedido parcial no aceptado.");
+  });
+
   it("REQ-158: 3 piezas aprox 5.4 kg queda como 5.4 kg y especificación 3 PZA", () => {
     const pedido = buildPedidoExtraidoFromOrigenCorreo({
       origenCorreo: [

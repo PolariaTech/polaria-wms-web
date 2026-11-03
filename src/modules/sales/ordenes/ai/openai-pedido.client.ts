@@ -11,14 +11,8 @@ import {
   calcularCantidadDesdeCajas,
   pesoPorCajaKg,
 } from "../utils/pedido/empaque-lineas";
-import {
-  extractCorreoContactoDesdeTexto,
-  isCorreoRemitenteGenerico,
-} from "../utils/origen/correo-chrome";
-import {
-  extractDireccionShipToDesdeTexto,
-  extractEntregaDesdeTexto, quitarContactoDeDireccion,
-} from "../utils/pedido/extract-entrega-desde-texto";
+import { resolveCabeceraCorreoPedido } from "../utils/origen/correo-chrome";
+import { extractEntregaDesdeTexto } from "../utils/pedido/extract-entrega-desde-texto";
 import { sanitizeTelefonoContacto } from "../utils/pedido/sanitize-telefono-contacto";
 import { resolveCentroConsumoSinConfundirConCliente } from "../utils/pedido/centro-consumo-vs-cliente";
 import {
@@ -930,28 +924,15 @@ export async function extraerPedido({
     (typeof parsed.nombreCliente === "string"
       ? parsed.nombreCliente.trim()
       : "") || "";
-  // Ship To del documento manda sobre Bill To / lo que Mateo haya puesto.
-  const direccionCabecera =
-    extractDireccionShipToDesdeTexto(sourceForEntrega) ||
-    quitarContactoDeDireccion(parsed.direccion) ||
-    "";
+  const cabecera = resolveCabeceraCorreoPedido({
+    origenTexto: sourceForEntrega,
+    direccionModelo: parsed.direccion,
+    correoModelo: parsed.correo,
+    notas: parsed.notasGeneralesAlmacen?.trim() || parsed.observaciones?.trim(),
+  });
   const andenCabecera = parsed.anden?.trim() || "";
   const contactoCabecera = parsed.contacto?.trim() || "";
   const telefonoCabecera = sanitizeTelefonoContacto(parsed.telefono);
-  const correoIa = parsed.correo?.trim() || "";
-  const correoDesdeTexto =
-    extractCorreoContactoDesdeTexto(sourceForEntrega) || "";
-  // REQ-122: no quedarse con From genérico si el cuerpo trae mail humano.
-  const correoCabecera =
-    (correoIa && !isCorreoRemitenteGenerico(correoIa)
-      ? correoIa
-      : correoDesdeTexto || correoIa) || "";
-  const ventanaDesdeCabecera = horarioDesde || "";
-  const ventanaHastaCabecera = horarioHasta || "";
-  const notasCabecera =
-    parsed.notasGeneralesAlmacen?.trim() ||
-    parsed.observaciones?.trim() ||
-    "";
   const origenCorreo = lineas.map((l, index) => ({
     // ISO primero: al reabrir OV, parseFechaOrigen no debe romper MM/DD BirchStreet.
     Fecha: fechaEntrega || fechaLabel || "",
@@ -975,15 +956,15 @@ export async function extraerPedido({
     "Responsable externo": l.responsableExterno || contactoCabecera || "",
     "Responsable interno": "",
     "Referencia del cliente": "",
-    "Ventana desde": ventanaDesdeCabecera,
-    "Ventana hasta": ventanaHastaCabecera,
-    Destino: direccionCabecera,
-    "Direccion entrega": direccionCabecera,
+    "Ventana desde": horarioDesde || "",
+    "Ventana hasta": horarioHasta || "",
+    Destino: cabecera.direccion,
+    "Direccion entrega": cabecera.direccion,
     Anden: andenCabecera,
     "Telefono contacto": telefonoCabecera,
-    "Correo contacto": correoCabecera,
+    "Correo contacto": cabecera.correo,
     Prioridad: "",
-    "Notas generales": notasCabecera,
+    "Notas generales": cabecera.notas,
     _lineaIndex: index,
   }));
 
@@ -1030,17 +1011,17 @@ export async function extraerPedido({
       ),
       nombreCliente,
     ),
-    observaciones: parsed.observaciones,
-    notasGeneralesAlmacen: parsed.notasGeneralesAlmacen?.trim() || null,
+    observaciones: cabecera.notas || null,
+    notasGeneralesAlmacen: cabecera.notas || null,
     ordenCompraHotel: ordenCompraHotelNormalizado,
     nombreCliente,
     rfc: parsed.rfc,
     regimen: parsed.regimen,
-    direccion: direccionCabecera || null,
+    direccion: cabecera.direccion || null,
     anden: parsed.anden,
     contacto: parsed.contacto,
     telefono: telefonoCabecera || null,
-    correo: correoCabecera || null,
+    correo: cabecera.correo || null,
     horarioDesde,
     horarioHasta,
     tolerancia: parsed.tolerancia,

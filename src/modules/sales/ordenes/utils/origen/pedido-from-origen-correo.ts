@@ -1,9 +1,6 @@
 import type { PedidoExtraido, LineaExtraida } from "../../ai/openai-pedido.client";
-import { extractCorreoContactoDesdeTexto } from "./correo-chrome";
-import {
-  extractDireccionShipToDesdeTexto,
-  extractEntregaDesdeTexto,
-} from "../pedido/extract-entrega-desde-texto";
+import { resolveCabeceraCorreoPedido } from "./correo-chrome";
+import { extractEntregaDesdeTexto } from "../pedido/extract-entrega-desde-texto";
 import { sanitizeTelefonoContactoOrNull } from "../pedido/sanitize-telefono-contacto";
 import { parseFechaOrigen } from "./materialize-ov-desde-origen";
 import {
@@ -123,12 +120,22 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
   });
   const lineas = normalized.lineas;
 
-  const notasFromRows = firstNonEmpty(rows, (r) => r["Notas generales"]);
+  const notasRaw =
+    firstNonEmpty(rows, (r) => r["Notas generales"]) ||
+    params.notasAlmacen?.trim() ||
+    "";
   const destino = firstNonEmpty(rows, (r) => r.Destino);
+  const cabecera = resolveCabeceraCorreoPedido({
+    origenTexto,
+    direccionModelo:
+      firstNonEmpty(rows, (r) => r["Direccion entrega"]) || destino,
+    correoModelo: firstNonEmpty(rows, (r) => r["Correo contacto"]),
+    notas: notasRaw,
+  });
   const hoyISO =
     params.hoyISO?.trim() || new Date().toISOString().slice(0, 10);
   const fromBody = extractEntregaDesdeTexto(
-    [origenTexto, notasFromRows].filter(Boolean).join("\n"),
+    [origenTexto, notasRaw].filter(Boolean).join("\n"),
     hoyISO,
   );
 
@@ -139,17 +146,13 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
   return {
     fechaEntrega: fechaFromRows || fromBody.fechaIso,
     centroConsumo: mostFrequent(rows.map((r) => (r.Almacen ?? "").toString())),
-    observaciones: notasFromRows || params.notasAlmacen?.trim() || null,
-    notasGeneralesAlmacen: notasFromRows || params.notasAlmacen?.trim() || null,
+    observaciones: cabecera.notas || null,
+    notasGeneralesAlmacen: cabecera.notas || null,
     ordenCompraHotel: normalized.ordenCompraHotel,
     nombreCliente: firstNonEmpty(rows, (r) => r["Nombre cliente"]),
     rfc: null,
     regimen: null,
-    direccion:
-      extractDireccionShipToDesdeTexto(origenTexto) ||
-      firstNonEmpty(rows, (r) => r["Direccion entrega"]) ||
-      destino ||
-      null,
+    direccion: cabecera.direccion || null,
     anden: firstNonEmpty(rows, (r) => r.Anden),
     contacto: mostFrequent(
       rows.map((r) => (r["Responsable externo"] ?? "").toString()),
@@ -157,10 +160,7 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     telefono: sanitizeTelefonoContactoOrNull(
       firstNonEmpty(rows, (r) => r["Telefono contacto"]),
     ),
-    correo:
-      firstNonEmpty(rows, (r) => r["Correo contacto"]) ||
-      extractCorreoContactoDesdeTexto(origenTexto) ||
-      null,
+    correo: cabecera.correo || null,
     horarioDesde: horarioDesdeRow || fromBody.horarioDesde,
     horarioHasta: horarioHastaRow || fromBody.horarioHasta,
     tolerancia: null,

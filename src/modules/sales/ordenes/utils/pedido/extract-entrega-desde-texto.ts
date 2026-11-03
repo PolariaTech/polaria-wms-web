@@ -1,5 +1,6 @@
 import * as chrono from "chrono-node";
 import { quitarContactoDeDireccion } from "./quitar-contacto-direccion";
+import { limpiarDireccionEntrega } from "./limpiar-direccion-birchstreet";
 
 export { quitarContactoDeDireccion };
 
@@ -342,7 +343,7 @@ const SHIP_TO_LABEL_RE =
   /\b(?:ship\s*to(?:\s*address)?|deliver\s*to|enviar\s*a|entregar\s*(?:en|a)|domicilio\s*de\s*entrega|direcci[oó]n\s*de\s*(?:entrega|env[ií]o))\b\s*[:\-]?\s*/i;
 
 const SHIP_TO_STOP_RE =
-  /\b(?:bill\s*to|sold\s*to|ship\s*from|invoice\b|factura\b|orden\s*de\s*compra|purchase\s*order|\bpo\s*#|cantidad\b|quantity\b|qty\b|item\b|producto\b|subtotal\b|\btotal\b|and[eé]n\b|dock\b)\b/i;
+  /\b(?:bill\s*to|sold\s*to|ship\s*from|invoice\b|factura\b|orden\s*de\s*compra|purchase\s*order|\bpo\s*#|cantidad\b|quantity\b|qty\b|item\b|producto\b|subtotal\b|\btotal\b|and[eé]n\b|dock\b|attn|attention|atenci[oó]n|sent\s*from)\b/i;
 
 /**
  * Dirección de ENTREGA desde bloque Ship To / Deliver To / Enviar a.
@@ -368,11 +369,11 @@ export function extractDireccionShipToDesdeTexto(
     }
     if (SHIP_TO_STOP_RE.test(trimmed)) break;
     if (/^(bill\s*to|sold\s*to)\b/i.test(trimmed)) break;
-    const sinContacto = quitarContactoDeDireccion(trimmed);
+    const sinContacto = limpiarDireccionEntrega(trimmed);
     if (!sinContacto) continue;
     lines.push(sinContacto);
     if (lines.length >= 6) break;
   }
 
-  return quitarContactoDeDireccion(lines.join(", "));
+  return limpiarDireccionEntrega(lines.join(", "));
 }

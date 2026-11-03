@@ -6,6 +6,7 @@ import {
   normalizarHoraAHhMm,
   quitarContactoDeDireccion,
 } from "./extract-entrega-desde-texto";
+import { limpiarDireccionEntrega } from "./limpiar-direccion-birchstreet";
 
 describe("normalizarHoraAHhMm", () => {
   it("convierte am/pm a 24h", () => {
@@ -162,6 +163,21 @@ describe("extractDireccionShipToDesdeTexto", () => {
       extractDireccionShipToDesdeTexto("Enviar a: ventas@empresa.com\nQty: 3"),
     ).toBeNull();
   });
+
+  it("REQ-239: quita Attn y Sent From del Ship To de BirchStreet", () => {
+    const texto = [
+      "Bill To: OPERADORA RR CARIBBEAN SA DE CV",
+      "Ship To: Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT, MEXICO",
+      "Kukulcan Km 17, Zona Hotelera",
+      "CANCUN, ROO, 77500, MX",
+      "Attn: Ixayana Cid",
+      "Sent From: Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT, MEXICO",
+      "Name: Ixayana Cid",
+    ].join("\n");
+    expect(extractDireccionShipToDesdeTexto(texto)).toBe(
+      "Hilton CANCUN MAR CARIBE ALL-INCLUSIVE RESORT, MEXICO, Kukulcan Km 17, Zona Hotelera, CANCUN, ROO, 77500, MX",
+    );
+  });
 });
 
 describe("quitarContactoDeDireccion", () => {
@@ -183,5 +199,13 @@ describe("quitarContactoDeDireccion", () => {
     expect(quitarContactoDeDireccion("ventas@a.com")).toBeNull();
     expect(quitarContactoDeDireccion("Tel: 998 166 0605")).toBeNull();
     expect(quitarContactoDeDireccion(null)).toBeNull();
+  });
+
+  it("REQ-239: también corta ATTN y FROM pegados a la dirección", () => {
+    expect(
+      limpiarDireccionEntrega(
+        "Kukulcan Km 17, CANCUN, MX. Attn: Ixayana Cid, Sent From: Hilton,",
+      ),
+    ).toBe("Kukulcan Km 17, CANCUN, MX");
   });
 });
