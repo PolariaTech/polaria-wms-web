@@ -82,3 +82,10 @@ export function separarAdjuntos(valor: string | null): string[] {
     .map((nombre) => nombre.trim())
     .filter(Boolean);
 }
+
+/** El mensaje de un error, listo para mostrárselo a quien opera. */
+export function mensajeDeError(error: unknown): string {
+  return error instanceof Error && error.message
+    ? error.message
+    : "Ocurrió un error inesperado. Intenta de nuevo.";
+}
