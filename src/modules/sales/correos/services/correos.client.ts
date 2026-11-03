@@ -2,6 +2,8 @@ import { getApiBaseUrl } from "@/config/env";
 import { applyTenantHeaders } from "@/lib/utils/tenant-headers";
 import { useAuthStore } from "@/stores/auth.store";
 import type {
+  AdjuntoCorreo,
+  CorreoContenido,
   CorreoFila,
   CorreosLista,
   EstadoIngresoCorreo,
@@ -12,9 +14,11 @@ import type {
 
 /**
  * Cliente de REQ-104:
- *  - `GET  /ventas/correos`                        lista los correos que registra n8n.
- *  - `POST /ventas/correos/:messageId/ingresar`    reserva el correo y crea la OV en segundo plano (202).
- *  - `GET  /ventas/correos/:messageId/ingreso`     avance del ingreso (se sondea).
+ *  - `GET  /ventas/correos`                          lista los correos que registra n8n.
+ *  - `POST /ventas/correos/:messageId/ingresar`      crea la OV en segundo plano (202).
+ *  - `GET  /ventas/correos/:messageId/ingreso`       avance del ingreso (se sondea).
+ *  - `GET  /ventas/correos/:messageId/contenido`     el correo completo, para mostrarlo.
+ *  - `GET  /ventas/correos/:messageId/adjuntos/:n`   un adjunto, para descargarlo.
  */
 
 export type CodigoErrorCorreos =
@@ -51,95 +55,108 @@ const ESTADOS: readonly EstadoIngresoCorreo[] = [
   "error",
 ];
 
-const esObjeto = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
+const esObjeto = (valor: unknown): valor is Record<string, unknown> =>
+  typeof valor === "object" && valor !== null && !Array.isArray(valor);
 
-const textoONulo = (v: unknown): string | null =>
-  typeof v === "string" ? v : null;
+const textoONulo = (valor: unknown): string | null =>
+  typeof valor === "string" ? valor : null;
 
-function errorDeRespuesta(status: number, cuerpo: CuerpoError): CorreosApiError {
-  const codigoNegocio = typeof cuerpo.error === "string" ? cuerpo.error : "";
-  const mensaje = typeof cuerpo.message === "string" ? cuerpo.message : "";
-
-  if (status === 401) {
-    return new CorreosApiError(
-      "Tu sesión expiró. Vuelve a iniciar sesión.",
-      "SESION",
-      status,
-    );
-  }
-  if (status === 403 && codigoNegocio === "CORREOS_NO_DISPONIBLES") {
-    return new CorreosApiError(
-      "Los correos de pedidos no están habilitados para esta cuenta.",
-      "CUENTA_NO_HABILITADA",
-      status,
-    );
-  }
-  if (status === 403) {
-    return new CorreosApiError(
-      "No tienes permiso para ver los correos de pedidos.",
-      "SIN_PERMISO",
-      status,
-    );
-  }
-  if (status === 404) {
-    return new CorreosApiError(
-      "Este correo todavía no se ha intentado ingresar.",
-      "NO_ENCONTRADO",
-      status,
-    );
-  }
-  if (status === 409 && codigoNegocio === "CORREO_YA_INGRESADO") {
-    return new CorreosApiError(
-      mensaje || "Este pedido ya fue ingresado.",
-      "YA_INGRESADO",
-      status,
-    );
-  }
-  if (status === 429) {
-    return new CorreosApiError(
-      "Hay demasiadas solicitudes en poco tiempo. Espera un momento e inténtalo de nuevo.",
-      "LIMITE_SOLICITUDES",
-      status,
-    );
-  }
-  if (status === 502 || codigoNegocio.startsWith("N8N_")) {
-    return new CorreosApiError(
-      "No se pudo consultar los correos en este momento. Intenta de nuevo en un minuto.",
-      "N8N",
-      status,
-    );
-  }
-  if (status === 503 && codigoNegocio === "CORREOS_NO_CONFIGURADOS") {
-    return new CorreosApiError(
-      "Los correos de pedidos todavía no están configurados en este entorno.",
-      "N8N",
-      status,
-    );
-  }
-  return new CorreosApiError(
-    "Error del servidor. Intenta de nuevo más tarde.",
-    "SERVIDOR",
-    status,
-  );
+interface ReglaError {
+  cuando: (estado: number, errorApi: string) => boolean;
+  codigo: CodigoErrorCorreos;
+  mensaje: string | ((mensajeApi: string) => string);
 }
 
-async function pedir(
+/** La primera regla que coincide manda; el orden va de lo específico a lo general. */
+const REGLAS_ERROR: readonly ReglaError[] = [
+  {
+    cuando: (estado) => estado === 401,
+    codigo: "SESION",
+    mensaje: "Tu sesión expiró. Vuelve a iniciar sesión.",
+  },
+  {
+    cuando: (estado, errorApi) =>
+      estado === 403 && errorApi === "CORREOS_NO_DISPONIBLES",
+    codigo: "CUENTA_NO_HABILITADA",
+    mensaje: "Los correos de pedidos no están habilitados para esta cuenta.",
+  },
+  {
+    cuando: (estado) => estado === 403,
+    codigo: "SIN_PERMISO",
+    mensaje: "No tienes permiso para ver los correos de pedidos.",
+  },
+  {
+    cuando: (estado, errorApi) =>
+      estado === 404 && errorApi === "ADJUNTO_NO_ENCONTRADO",
+    codigo: "NO_ENCONTRADO",
+    mensaje: "El correo no tiene ese adjunto.",
+  },
+  {
+    cuando: (estado) => estado === 404,
+    codigo: "NO_ENCONTRADO",
+    mensaje: "Este correo todavía no se ha intentado ingresar.",
+  },
+  {
+    cuando: (estado, errorApi) =>
+      estado === 409 && errorApi === "CORREO_YA_INGRESADO",
+    codigo: "YA_INGRESADO",
+    mensaje: (mensajeApi) => mensajeApi || "Este pedido ya fue ingresado.",
+  },
+  {
+    cuando: (estado) => estado === 429,
+    codigo: "LIMITE_SOLICITUDES",
+    mensaje:
+      "Hay demasiadas solicitudes en poco tiempo. Espera un momento e inténtalo de nuevo.",
+  },
+  {
+    cuando: (estado, errorApi) =>
+      estado === 502 || errorApi.startsWith("N8N_"),
+    codigo: "N8N",
+    mensaje:
+      "No se pudo consultar los correos en este momento. Intenta de nuevo en un minuto.",
+  },
+  {
+    cuando: (estado, errorApi) =>
+      estado === 503 && errorApi === "CORREOS_NO_CONFIGURADOS",
+    codigo: "N8N",
+    mensaje: "Los correos de pedidos todavía no están configurados en este entorno.",
+  },
+];
+
+function errorDeRespuesta(estado: number, cuerpo: CuerpoError): CorreosApiError {
+  const errorApi = typeof cuerpo.error === "string" ? cuerpo.error : "";
+  const mensajeApi = typeof cuerpo.message === "string" ? cuerpo.message : "";
+  const regla = REGLAS_ERROR.find((candidata) =>
+    candidata.cuando(estado, errorApi),
+  );
+  if (!regla) {
+    return new CorreosApiError(
+      "Error del servidor. Intenta de nuevo más tarde.",
+      "SERVIDOR",
+      estado,
+    );
+  }
+  const mensaje =
+    typeof regla.mensaje === "function" ? regla.mensaje(mensajeApi) : regla.mensaje;
+  return new CorreosApiError(mensaje, regla.codigo, estado);
+}
+
+async function enviar(
   ruta: string,
-  init: { method: "GET" | "POST"; signal?: AbortSignal },
-): Promise<unknown> {
+  opciones: { method: "GET" | "POST"; signal?: AbortSignal },
+): Promise<Response> {
   const headers = new Headers({ "Content-Type": "application/json" });
   const accessToken = useAuthStore.getState().accessToken;
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   applyTenantHeaders(headers);
 
-  let response: Response;
+  let respuesta: Response;
   try {
-    response = await fetch(`${getApiBaseUrl()}${ruta}`, {
-      method: init.method,
+    respuesta = await fetch(`${getApiBaseUrl()}${ruta}`, {
+      method: opciones.method,
       headers,
       cache: "no-store",
-      signal: init.signal,
+      signal: opciones.signal,
     });
   } catch (error) {
     // La cancelación la maneja quien llama (AbortError); no es un fallo de red.
@@ -152,14 +169,22 @@ async function pedir(
     );
   }
 
-  const cuerpo: unknown = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  if (!respuesta.ok) {
+    const cuerpo: unknown = await respuesta.json().catch(() => ({}));
     throw errorDeRespuesta(
-      response.status,
+      respuesta.status,
       esObjeto(cuerpo) ? (cuerpo as CuerpoError) : {},
     );
   }
-  return cuerpo;
+  return respuesta;
+}
+
+async function pedir(
+  ruta: string,
+  opciones: { method: "GET" | "POST"; signal?: AbortSignal },
+): Promise<unknown> {
+  const respuesta = await enviar(ruta, opciones);
+  return respuesta.json().catch(() => ({}));
 }
 
 function inesperada(): CorreosApiError {
@@ -169,36 +194,48 @@ function inesperada(): CorreosApiError {
   );
 }
 
-export function leerIngreso(v: unknown): IngresoCorreo | null {
-  if (!esObjeto(v)) return null;
-  const { messageId, estado } = v;
+export function leerIngreso(valor: unknown): IngresoCorreo | null {
+  if (!esObjeto(valor)) return null;
+  const { messageId, estado } = valor;
   if (typeof messageId !== "string") return null;
   if (!ESTADOS.includes(estado as EstadoIngresoCorreo)) return null;
   return {
     messageId,
     estado: estado as EstadoIngresoCorreo,
-    idOrdenVenta: textoONulo(v.idOrdenVenta),
-    codigoOrdenVenta: textoONulo(v.codigoOrdenVenta),
-    error: textoONulo(v.error),
+    idOrdenVenta: textoONulo(valor.idOrdenVenta),
+    codigoOrdenVenta: textoONulo(valor.codigoOrdenVenta),
+    error: textoONulo(valor.error),
   };
 }
 
-function leerFila(v: unknown): CorreoFila | null {
-  if (!esObjeto(v) || typeof v.messageId !== "string") return null;
+function leerFila(valor: unknown): CorreoFila | null {
+  if (!esObjeto(valor) || typeof valor.messageId !== "string") return null;
   return {
-    messageId: v.messageId,
-    recibidoEn: textoONulo(v.recibidoEn),
-    de: textoONulo(v.de),
-    para: textoONulo(v.para),
-    asunto: textoONulo(v.asunto),
-    hilo: textoONulo(v.hilo),
-    adjunto: textoONulo(v.adjunto),
-    nuevoPedido: typeof v.nuevoPedido === "boolean" ? v.nuevoPedido : null,
-    motivo: textoONulo(v.motivo),
-    idRegistro: textoONulo(v.idRegistro),
-    registradoEn: textoONulo(v.registradoEn),
-    actualizadoEn: textoONulo(v.actualizadoEn),
-    ingreso: leerIngreso(v.ingreso),
+    messageId: valor.messageId,
+    recibidoEn: textoONulo(valor.recibidoEn),
+    de: textoONulo(valor.de),
+    para: textoONulo(valor.para),
+    asunto: textoONulo(valor.asunto),
+    hilo: textoONulo(valor.hilo),
+    adjunto: textoONulo(valor.adjunto),
+    nuevoPedido: typeof valor.nuevoPedido === "boolean" ? valor.nuevoPedido : null,
+    motivo: textoONulo(valor.motivo),
+    idRegistro: textoONulo(valor.idRegistro),
+    registradoEn: textoONulo(valor.registradoEn),
+    actualizadoEn: textoONulo(valor.actualizadoEn),
+    ingreso: leerIngreso(valor.ingreso),
+  };
+}
+
+function leerAdjunto(valor: unknown): AdjuntoCorreo | null {
+  if (!esObjeto(valor)) return null;
+  const { indice, nombre, mimeType, tamano } = valor;
+  if (typeof indice !== "number" || typeof nombre !== "string") return null;
+  return {
+    indice,
+    nombre,
+    mimeType: typeof mimeType === "string" ? mimeType : "application/octet-stream",
+    tamano: typeof tamano === "number" ? tamano : 0,
   };
 }
 
@@ -212,7 +249,7 @@ export function finDelDiaColombia(dia: string): string {
 }
 
 export async function listarCorreos(
-  params: {
+  parametros: {
     modo: ModoCorreos;
     pagina: number;
     tamano: number;
@@ -220,18 +257,18 @@ export async function listarCorreos(
   },
   signal?: AbortSignal,
 ): Promise<CorreosLista> {
-  const query = new URLSearchParams({
-    modo: params.modo,
-    pagina: String(params.pagina),
-    tamano: String(params.tamano),
+  const consulta = new URLSearchParams({
+    modo: parametros.modo,
+    pagina: String(parametros.pagina),
+    tamano: String(parametros.tamano),
   });
-  const { remitente, asunto, desde, hasta } = params.filtros;
-  if (remitente.trim()) query.set("remitente", remitente.trim());
-  if (asunto.trim()) query.set("asunto", asunto.trim());
-  if (desde) query.set("desde", inicioDelDiaColombia(desde));
-  if (hasta) query.set("hasta", finDelDiaColombia(hasta));
+  const { remitente, asunto, desde, hasta } = parametros.filtros;
+  if (remitente.trim()) consulta.set("remitente", remitente.trim());
+  if (asunto.trim()) consulta.set("asunto", asunto.trim());
+  if (desde) consulta.set("desde", inicioDelDiaColombia(desde));
+  if (hasta) consulta.set("hasta", finDelDiaColombia(hasta));
 
-  const cuerpo = await pedir(`/ventas/correos?${query.toString()}`, {
+  const cuerpo = await pedir(`/ventas/correos?${consulta.toString()}`, {
     method: "GET",
     signal,
   });
@@ -242,8 +279,8 @@ export async function listarCorreos(
     .filter((fila): fila is CorreoFila => fila !== null);
   return {
     total: typeof cuerpo.total === "number" ? cuerpo.total : filas.length,
-    pagina: typeof cuerpo.pagina === "number" ? cuerpo.pagina : params.pagina,
-    tamano: typeof cuerpo.tamano === "number" ? cuerpo.tamano : params.tamano,
+    pagina: typeof cuerpo.pagina === "number" ? cuerpo.pagina : parametros.pagina,
+    tamano: typeof cuerpo.tamano === "number" ? cuerpo.tamano : parametros.tamano,
     filas,
   };
 }
@@ -269,4 +306,40 @@ export async function consultarIngreso(
   const ingreso = leerIngreso(cuerpo);
   if (!ingreso) throw inesperada();
   return ingreso;
+}
+
+/** El correo completo (cuerpo y datos de adjuntos). Lo lee el api en Gmail: puede tardar. */
+export async function obtenerCorreoCompleto(
+  messageId: string,
+  signal?: AbortSignal,
+): Promise<CorreoContenido> {
+  const cuerpo = await pedir(
+    `/ventas/correos/${encodeURIComponent(messageId)}/contenido`,
+    { method: "GET", signal },
+  );
+  if (!esObjeto(cuerpo)) throw inesperada();
+  return {
+    asunto: textoONulo(cuerpo.asunto) ?? "",
+    de: textoONulo(cuerpo.de) ?? "",
+    para: textoONulo(cuerpo.para) ?? "",
+    fecha: textoONulo(cuerpo.fecha),
+    texto: textoONulo(cuerpo.texto) ?? "",
+    html: textoONulo(cuerpo.html) ?? "",
+    adjuntos: (Array.isArray(cuerpo.adjuntos) ? cuerpo.adjuntos : [])
+      .map(leerAdjunto)
+      .filter((adjunto): adjunto is AdjuntoCorreo => adjunto !== null),
+  };
+}
+
+/** Los bytes de un adjunto. Va con la sesión, por eso no es un simple enlace de descarga. */
+export async function descargarAdjunto(
+  messageId: string,
+  indice: number,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const respuesta = await enviar(
+    `/ventas/correos/${encodeURIComponent(messageId)}/adjuntos/${indice}`,
+    { method: "GET", signal },
+  );
+  return respuesta.blob();
 }

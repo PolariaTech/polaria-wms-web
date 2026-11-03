@@ -4,15 +4,8 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Loader2,
-  LogOut,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Snowflake,
-} from "lucide-react";
+import { Loader2, LogOut, Snowflake } from "lucide-react";
 import { ROUTES } from "@/config/routes";
-import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useLiveDate } from "@/hooks/shared/useLiveDate";
 import {
   getSessionDisplayName,
@@ -20,10 +13,7 @@ import {
   getSessionRolNombre,
 } from "@/lib/auth/auth-session";
 import { cn } from "@/lib/utils/cn";
-import {
-  useVentasMenuStore,
-  VENTAS_MENU_ID,
-} from "@/modules/sales/correos/components/VentasSidebar";
+import { BotonMenuVentas } from "@/modules/sales/correos/components/VentasSidebar";
 import { TenantBodegaSelector } from "@/providers/tenant/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
 import { useOvFechaFiltroStore } from "@/stores/ov-fecha-filtro.store";
@@ -67,19 +57,6 @@ export function AppTopbar({
   const toggleFechaFiltro = useOvFechaFiltroStore((s) => s.toggle);
   const clearFechaFiltro = useOvFechaFiltroStore((s) => s.clear);
   const fechaPresionada = onOrdenesVenta && Boolean(fechaFiltroDia);
-  // REQ-104: el menú de Ventas (órdenes y correos) solo existe en Ventas y para roles de cuenta.
-  const enVentas =
-    pathname === ROUTES.dashboardVentas ||
-    pathname.startsWith(`${ROUTES.dashboardVentas}/`);
-  const mostrarMenuVentas =
-    enVentas && session
-      ? (ROLES_NIVEL_CUENTA as readonly string[]).includes(session.idRol)
-      : false;
-  const menuVentasAbierto = useVentasMenuStore((s) => s.abierto);
-  const alternarMenuVentas = useVentasMenuStore((s) => s.alternar);
-  const etiquetaMenuVentas = menuVentasAbierto
-    ? "Ocultar menú de Ventas"
-    : "Mostrar menú de Ventas";
 
   useEffect(() => {
     if (!onOrdenesVenta && fechaFiltroDia) clearFechaFiltro();
@@ -193,24 +170,7 @@ export function AppTopbar({
           <div className="polaria-topbar__end">
             <TenantBodegaSelector className="hidden sm:inline-flex" />
 
-            {mostrarMenuVentas ? (
-              <button
-                type="button"
-                onClick={alternarMenuVentas}
-                aria-expanded={menuVentasAbierto}
-                aria-controls={VENTAS_MENU_ID}
-                aria-label={etiquetaMenuVentas}
-                title={etiquetaMenuVentas}
-                className="polaria-topbar-btn polaria-topbar-btn--menu"
-                style={{ paddingInline: 0, width: "2.375rem" }}
-              >
-                {menuVentasAbierto ? (
-                  <PanelLeftClose className={ICON} strokeWidth={1.75} aria-hidden />
-                ) : (
-                  <PanelLeftOpen className={ICON} strokeWidth={1.75} aria-hidden />
-                )}
-              </button>
-            ) : null}
+            <BotonMenuVentas />
 
             {showMateoIa ? (
             <button

@@ -33,6 +33,26 @@ export interface CorreoFila {
   ingreso: IngresoCorreo | null;
 }
 
+/** Datos de un adjunto; los bytes se bajan aparte con su `indice`. */
+export interface AdjuntoCorreo {
+  indice: number;
+  nombre: string;
+  mimeType: string;
+  /** Tamaño del archivo en bytes. */
+  tamano: number;
+}
+
+/** El correo completo, tal como está en Gmail. El HTML no es seguro: se muestra aislado. */
+export interface CorreoContenido {
+  asunto: string;
+  de: string;
+  para: string;
+  fecha: string | null;
+  texto: string;
+  html: string;
+  adjuntos: AdjuntoCorreo[];
+}
+
 export interface CorreosLista {
   total: number;
   pagina: number;
