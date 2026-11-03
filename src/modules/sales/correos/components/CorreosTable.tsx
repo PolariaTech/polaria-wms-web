@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Loader2, Paperclip, RotateCw } from "lucide-react";
+import { CheckCircle2, Loader2, MailX, Paperclip, RotateCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
@@ -153,6 +153,114 @@ export function formatearFechaCompleta(iso: string | null): string {
 const SIN_DATO = <span className="text-polaria-w-50">—</span>;
 const dato = (valor: string | null): ReactNode => valor ?? SIN_DATO;
 
+export interface DireccionCorreo {
+  nombre: string | null;
+  correo: string;
+}
+
+/**
+ * Separa `"Ana Torres" <ana@x.com>, ventas@x.com` en personas. Las comas dentro de comillas
+ * o de `<…>` no separan: un nombre como "Torres, Ana" sigue siendo una sola persona.
+ */
+export function separarDirecciones(texto: string | null): DireccionCorreo[] {
+  if (!texto) return [];
+  const partes: string[] = [];
+  let actual = "";
+  let enComillas = false;
+  let enAngulos = false;
+  for (const caracter of texto) {
+    if (caracter === '"') enComillas = !enComillas;
+    else if (!enComillas && caracter === "<") enAngulos = true;
+    else if (!enComillas && caracter === ">") enAngulos = false;
+    if (caracter === "," && !enComillas && !enAngulos) {
+      partes.push(actual);
+      actual = "";
+    } else {
+      actual += caracter;
+    }
+  }
+  partes.push(actual);
+
+  return partes
+    .map((parte) => parte.trim())
+    .filter(Boolean)
+    .map((parte) => {
+      const conNombre = /^"?([^"<]*?)"?\s*<([^>]+)>$/.exec(parte);
+      if (conNombre) {
+        const nombre = (conNombre[1] ?? "").trim();
+        return { nombre: nombre || null, correo: (conNombre[2] ?? "").trim() };
+      }
+      return { nombre: null, correo: parte.replace(/^"|"$/g, "") };
+    });
+}
+
+function Personas({ valor }: { valor: string | null }) {
+  const personas = separarDirecciones(valor);
+  if (personas.length === 0) return SIN_DATO;
+  return (
+    <ul className="space-y-1">
+      {personas.map((persona, indice) => (
+        <li key={`${persona.correo}-${indice}`} className="break-words">
+          {persona.nombre ? (
+            <>
+              <span className="font-medium">{persona.nombre}</span>{" "}
+              <span className="text-polaria-w-50">{persona.correo}</span>
+            </>
+          ) : (
+            <span>{persona.correo}</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Lo que dijo el flujo y por qué: es lo que decide si hace falta ingresarlo a mano. */
+function VeredictoFlujo({ fila }: { fila: CorreoFila }) {
+  const descartado = fila.nuevoPedido === false;
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-3 rounded-xl border px-4 py-3",
+        descartado
+          ? "border-polaria-warning-border bg-polaria-warning-bg"
+          : "border-polaria-t-20 bg-polaria-t-08",
+      )}
+    >
+      {descartado ? (
+        <MailX
+          className="mt-0.5 h-5 w-5 shrink-0 text-polaria-warning"
+          strokeWidth={1.75}
+          aria-hidden
+        />
+      ) : (
+        <CheckCircle2
+          className="mt-0.5 h-5 w-5 shrink-0 text-polaria-teal"
+          strokeWidth={1.75}
+          aria-hidden
+        />
+      )}
+      <div className="min-w-0">
+        <p
+          className={cn(
+            "polaria-text-body font-semibold",
+            descartado ? "text-polaria-warning" : "text-polaria-teal",
+          )}
+        >
+          {descartado ? "Descartado por el flujo" : "Ingresado por el flujo"}
+        </p>
+        {fila.motivo ? (
+          <p className="polaria-text-body-sm mt-1 max-w-prose">{fila.motivo}</p>
+        ) : descartado ? (
+          <p className="polaria-text-body-sm mt-1 text-polaria-w-50">
+            El flujo no dejó un motivo.
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /** Etiqueta chica arriba y el valor debajo: para los datos de referencia de n8n. */
 function Campo({
   etiqueta,
@@ -179,9 +287,14 @@ function Campo({
   );
 }
 
+const puedeIngresarAMano = (fila: CorreoFila): boolean =>
+  fila.ingreso?.estado === "error" ||
+  (fila.nuevoPedido === false && !fila.ingreso);
+
 /**
  * Detalle del correo (REQ-104). Primero lo que decide si es un pedido: qué dijo el flujo y por
- * qué, y quién lo mandó; después, en pequeño, los datos de referencia de n8n.
+ * qué; luego quién lo mandó y a quién, como en un cliente de correo; al final, en pequeño, los
+ * datos de referencia de n8n.
  */
 function DetalleCorreoModal({
   fila,
@@ -192,8 +305,6 @@ function DetalleCorreoModal({
   onClose: () => void;
   onIngresar: (messageId: string) => void;
 }) {
-  const descartado = fila.nuevoPedido === false;
-
   return (
     <PolariaFormModal
       open
@@ -210,64 +321,67 @@ function DetalleCorreoModal({
       size="lg"
       hideHeaderClose
       cancelLabel="Cerrar"
+      footerCenter={
+        puedeIngresarAMano(fila) ? (
+          <p className="polaria-text-caption max-w-xs text-center text-polaria-w-50">
+            Crea una orden de venta por confirmar leyendo el correo y su adjunto.
+          </p>
+        ) : undefined
+      }
       footerAction={<AccionIngreso fila={fila} onIngresar={onIngresar} />}
     >
-      <div className="space-y-2">
-        <PolariaTableBadge variant={descartado ? "warning" : "positive"} withDot>
-          {descartado ? "Descartado por el flujo" : "Ingresado por el flujo"}
-        </PolariaTableBadge>
-        {fila.motivo ? (
-          <p className="polaria-text-body max-w-prose">
-            <span className="text-polaria-w-50">Motivo: </span>
-            {fila.motivo}
-          </p>
-        ) : null}
-      </div>
+      <div className="space-y-5">
+        <VeredictoFlujo fila={fila} />
 
-      <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 gap-y-2.5">
-        <dt className="polaria-text-body-sm text-polaria-w-50">De</dt>
-        <dd className="polaria-text-body-sm min-w-0 break-words">{dato(fila.de)}</dd>
-        <dt className="polaria-text-body-sm text-polaria-w-50">Para</dt>
-        <dd className="polaria-text-body-sm min-w-0 break-words">{dato(fila.para)}</dd>
-        <dt className="polaria-text-body-sm text-polaria-w-50">Adjunto</dt>
-        <dd className="polaria-text-body-sm flex min-w-0 items-start gap-1.5 break-words">
-          {fila.adjunto ? (
-            <>
-              <Paperclip
-                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-polaria-w-50"
-                strokeWidth={1.75}
-                aria-hidden
-              />
-              <span>{fila.adjunto}</span>
-            </>
-          ) : (
-            SIN_DATO
-          )}
-        </dd>
-      </dl>
-
-      <section className="border-t border-polaria-w-08 pt-4">
-        <h3 className="polaria-text-body-sm font-semibold text-polaria-w-50">
-          Datos de n8n
-        </h3>
-        <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-          <Campo etiqueta="ID del mensaje" tecnico>
-            {fila.messageId}
-          </Campo>
-          <Campo etiqueta="ID del hilo" tecnico>
-            {dato(fila.hilo)}
-          </Campo>
-          <Campo etiqueta="Registro en n8n" tecnico>
-            {dato(fila.idRegistro)}
-          </Campo>
-          <Campo etiqueta="Registrado en n8n">
-            {formatearFechaCompleta(fila.registradoEn)}
-          </Campo>
-          <Campo etiqueta="Última actualización">
-            {formatearFechaCompleta(fila.actualizadoEn)}
-          </Campo>
+        <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 gap-y-3">
+          <dt className="polaria-text-body-sm pt-0.5 text-polaria-w-50">De</dt>
+          <dd className="polaria-text-body-sm min-w-0">
+            <Personas valor={fila.de} />
+          </dd>
+          <dt className="polaria-text-body-sm pt-0.5 text-polaria-w-50">Para</dt>
+          <dd className="polaria-text-body-sm min-w-0">
+            <Personas valor={fila.para} />
+          </dd>
+          <dt className="polaria-text-body-sm pt-1 text-polaria-w-50">Adjunto</dt>
+          <dd className="min-w-0">
+            {fila.adjunto ? (
+              <span className="polaria-text-body-sm inline-flex max-w-full items-center gap-1.5 rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-2.5 py-1">
+                <Paperclip
+                  className="h-3.5 w-3.5 shrink-0 text-polaria-w-50"
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+                <span className="min-w-0 break-all">{fila.adjunto}</span>
+              </span>
+            ) : (
+              <span className="polaria-text-body-sm">{SIN_DATO}</span>
+            )}
+          </dd>
         </dl>
-      </section>
+
+        <section className="border-t border-polaria-w-08 pt-4">
+          <h3 className="polaria-text-body-sm font-semibold text-polaria-w-50">
+            Datos de n8n
+          </h3>
+          <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+            <Campo etiqueta="ID del mensaje" tecnico>
+              {fila.messageId}
+            </Campo>
+            <Campo etiqueta="ID del hilo" tecnico>
+              {dato(fila.hilo)}
+            </Campo>
+            <Campo etiqueta="Registro en n8n" tecnico>
+              {dato(fila.idRegistro)}
+            </Campo>
+            <Campo etiqueta="Registrado en n8n">
+              {formatearFechaCompleta(fila.registradoEn)}
+            </Campo>
+            <Campo etiqueta="Última actualización">
+              {formatearFechaCompleta(fila.actualizadoEn)}
+            </Campo>
+          </dl>
+        </section>
+      </div>
     </PolariaFormModal>
   );
 }

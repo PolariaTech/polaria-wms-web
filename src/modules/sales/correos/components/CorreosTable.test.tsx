@@ -28,7 +28,11 @@ import {
   type CorreoFila,
   type IngresoCorreo,
 } from "../types/correos.types";
-import { CorreosTable, formatearRecibido } from "./CorreosTable";
+import {
+  CorreosTable,
+  formatearRecibido,
+  separarDirecciones,
+} from "./CorreosTable";
 
 const MSG = "msg-descartado-1";
 
@@ -76,6 +80,35 @@ describe("formatearRecibido", () => {
     expect(formatearRecibido("2026-11-03T13:27:51.000Z")).toMatch(/0?8:27/);
     expect(formatearRecibido(null)).toBe("—");
     expect(formatearRecibido("no-es-fecha")).toBe("—");
+  });
+});
+
+describe("separarDirecciones", () => {
+  it("separa nombre y correo, y reparte varios destinatarios", () => {
+    expect(
+      separarDirecciones(
+        '"Ana Torres" <ana@restaurantemar.example>, ventas@aguacates.example, Pedidos ADP <pedidos@aguacates.example>',
+      ),
+    ).toEqual([
+      { nombre: "Ana Torres", correo: "ana@restaurantemar.example" },
+      { nombre: null, correo: "ventas@aguacates.example" },
+      { nombre: "Pedidos ADP", correo: "pedidos@aguacates.example" },
+    ]);
+  });
+
+  it("una coma dentro de las comillas no parte a la persona", () => {
+    expect(separarDirecciones('"Torres, Ana" <ana@x.example>, b@x.example')).toEqual([
+      { nombre: "Torres, Ana", correo: "ana@x.example" },
+      { nombre: null, correo: "b@x.example" },
+    ]);
+  });
+
+  it("tolera vacíos y direcciones sin nombre", () => {
+    expect(separarDirecciones(null)).toEqual([]);
+    expect(separarDirecciones("  ")).toEqual([]);
+    expect(separarDirecciones("<solo@x.example>")).toEqual([
+      { nombre: null, correo: "solo@x.example" },
+    ]);
   });
 });
 
@@ -269,9 +302,8 @@ describe("CorreosTable (REQ-104)", () => {
       expect(en.getByRole("heading", { name: "Pedido XEL", level: 2 })).toBeInTheDocument();
       expect(dialogo).toHaveTextContent(/Recibido el 3 de noviembre de 2026/);
       // lo que la vista previa no muestra
-      expect(
-        en.getByText("ventas@aguacates.example, facturacion@aguacates.example"),
-      ).toBeInTheDocument();
+      expect(en.getByText("ventas@aguacates.example")).toBeInTheDocument();
+      expect(en.getByText("facturacion@aguacates.example")).toBeInTheDocument();
       expect(en.getByText("msg-detalle-1")).toBeInTheDocument();
       expect(en.getByText("hilo-77")).toBeInTheDocument();
       expect(en.getByText("299")).toBeInTheDocument();
@@ -340,6 +372,49 @@ describe("CorreosTable (REQ-104)", () => {
       const dialogo = await screen.findByRole("dialog");
       expect(within(dialogo).getAllByText("Ingresado por el flujo").length).toBeGreaterThan(0);
       expect(within(dialogo).queryByRole("button", { name: BOTON_INGRESAR })).not.toBeInTheDocument();
+    });
+
+    it("muestra el nombre del remitente aparte de su dirección y explica qué hará el botón", async () => {
+      api.listarCorreos.mockResolvedValue(
+        lista([
+          {
+            ...completa(),
+            de: '"Ana Torres" <ana@restaurantemar.example>',
+          },
+        ]),
+      );
+      const user = usuario();
+      render(<CorreosTable modo="descartados" />);
+
+      await user.click(await screen.findByText(/Ana Torres/));
+
+      const dialogo = await screen.findByRole("dialog");
+      expect(within(dialogo).getByText("Ana Torres")).toBeInTheDocument();
+      expect(within(dialogo).getByText("ana@restaurantemar.example")).toBeInTheDocument();
+      expect(dialogo).toHaveTextContent(
+        "Crea una orden de venta por confirmar leyendo el correo y su adjunto.",
+      );
+    });
+
+    it("no explica un ingreso que ya no se puede hacer", async () => {
+      api.listarCorreos.mockResolvedValue(
+        lista([{ ...completa(), nuevoPedido: null, motivo: null }]),
+      );
+      const user = usuario();
+      render(<CorreosTable modo="todos" />);
+      await user.click(await screen.findByText("compras@hotel.com"));
+
+      const dialogo = await screen.findByRole("dialog");
+      expect(dialogo).not.toHaveTextContent("Crea una orden de venta por confirmar");
+    });
+
+    it("si el flujo no dejó motivo, lo dice", async () => {
+      api.listarCorreos.mockResolvedValue(lista([{ ...completa(), motivo: null }]));
+      const user = usuario();
+      render(<CorreosTable modo="descartados" />);
+      await user.click(await screen.findByText("compras@hotel.com"));
+
+      expect(await screen.findByText("El flujo no dejó un motivo.")).toBeInTheDocument();
     });
 
     it("sin fecha ni datos opcionales muestra rayas y no se rompe", async () => {
