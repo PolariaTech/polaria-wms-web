@@ -39,6 +39,7 @@
 - `src/modules/sales/ordenes/hooks/cargar-orden-detalle.ts` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/ordenes/hooks/validar-envio-ov.ts` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/ordenes/hooks/confirmar-envio-ov.ts` — autorizada por el usuario el 2026-11-03
+- `src/modules/sales/ordenes/components/modals/OrdenVentaDiscrepanciasDialog.tsx` — autorizada por el usuario el 2026-11-03
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
