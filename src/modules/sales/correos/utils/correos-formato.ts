@@ -158,6 +158,15 @@ const ESTILO_DEL_CORREO =
   "img{max-width:100%;height:auto}pre{white-space:pre-wrap;font:inherit}a{color:#0b6b5c}";
 
 /**
+ * Modo oscuro de Polaria (fondo #020609, texto #f8f8f6) para un contenido pensado sobre blanco:
+ * se invierte todo el documento y se parte de #fdf9f6, que invertido da el fondo de Polaria; las
+ * imágenes se invierten de nuevo para que no se vean en negativo.
+ */
+const ESTILO_OSCURO =
+  "html{filter:invert(1) hue-rotate(180deg);background:#fdf9f6}" +
+  "body{background:#fdf9f6;color:#1a1a1a}img{filter:invert(1) hue-rotate(180deg)}";
+
+/**
  * El documento que se muestra dentro del marco aislado. Su política de contenido bloquea
  * scripts, formularios y conexiones; las imágenes de internet solo se permiten si se pide.
  */
@@ -165,6 +174,8 @@ export function armarDocumentoDelCorreo(opciones: {
   html: string;
   texto: string;
   permitirImagenes: boolean;
+  /** Fondo oscuro de Polaria en lugar del blanco. */
+  oscuro?: boolean;
 }): string {
   const cuerpo = opciones.html.trim()
     ? sanearHtmlDelCorreo(opciones.html)
@@ -174,6 +185,6 @@ export function armarDocumentoDelCorreo(opciones: {
   return (
     `<!doctype html><html><head><meta charset="utf-8">` +
     `<meta http-equiv="Content-Security-Policy" content="${politica}">` +
-    `<base target="_blank"><style>${ESTILO_DEL_CORREO}</style></head><body>${cuerpo}</body></html>`
+    `<base target="_blank"><style>${ESTILO_DEL_CORREO}${opciones.oscuro ? ESTILO_OSCURO : ""}</style></head><body>${cuerpo}</body></html>`
   );
 }

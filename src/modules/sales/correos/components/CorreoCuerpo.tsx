@@ -1,6 +1,8 @@
 "use client";
 
+import { Moon, Sun } from "lucide-react";
 import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils/cn";
 import {
   armarDocumentoDelCorreo,
   tieneImagenesExternas,
@@ -21,6 +23,29 @@ function AvisoDeImagenes({ onMostrar }: { onMostrar: () => void }) {
   );
 }
 
+/** Esquina superior derecha del recuadro; deja libre el borde donde va la barra de desplazamiento. */
+function BotonDeFondo({ oscuro, onCambiar }: { oscuro: boolean; onCambiar: () => void }) {
+  const Icono = oscuro ? Sun : Moon;
+  return (
+    <button
+      type="button"
+      onClick={onCambiar}
+      aria-pressed={oscuro}
+      aria-label={oscuro ? "Usar fondo blanco" : "Usar modo oscuro de Polaria"}
+      title={oscuro ? "Usar fondo blanco" : "Usar modo oscuro de Polaria"}
+      className={cn(
+        "absolute top-2 right-5 inline-flex h-8 w-8 items-center justify-center rounded-lg border transition",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
+        oscuro
+          ? "border-polaria-w-08 bg-polaria-bg/90 text-polaria-w hover:bg-polaria-bg"
+          : "border-neutral-300 bg-white/90 text-neutral-700 hover:bg-white",
+      )}
+    >
+      <Icono className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+    </button>
+  );
+}
+
 /**
  * El mensaje del correo, dentro de un marco aislado: sin scripts, sin formularios, sin acceso a
  * esta página y con las imágenes de internet bloqueadas hasta que se pidan. El cuerpo de un
@@ -37,9 +62,10 @@ export function CorreoCuerpo({
   onCargado?: () => void;
 }) {
   const [permitirImagenes, setPermitirImagenes] = useState(false);
+  const [oscuro, setOscuro] = useState(false);
   const documento = useMemo(
-    () => armarDocumentoDelCorreo({ html, texto, permitirImagenes }),
-    [html, texto, permitirImagenes],
+    () => armarDocumentoDelCorreo({ html, texto, permitirImagenes, oscuro }),
+    [html, texto, permitirImagenes, oscuro],
   );
   const hayImagenesBloqueadas = !permitirImagenes && tieneImagenesExternas(html);
 
@@ -49,14 +75,20 @@ export function CorreoCuerpo({
       {hayImagenesBloqueadas ? (
         <AvisoDeImagenes onMostrar={() => setPermitirImagenes(true)} />
       ) : null}
-      <iframe
-        title="Cuerpo del correo"
-        sandbox="allow-popups allow-popups-to-escape-sandbox"
-        referrerPolicy="no-referrer"
-        srcDoc={documento}
-        onLoad={onCargado}
-        className="mt-3 h-[70vh] min-h-96 w-full rounded-xl border border-polaria-w-08 bg-white"
-      />
+      <div className="relative mt-3">
+        <iframe
+          title="Cuerpo del correo"
+          sandbox="allow-popups allow-popups-to-escape-sandbox"
+          referrerPolicy="no-referrer"
+          srcDoc={documento}
+          onLoad={onCargado}
+          className={cn(
+            "h-[70vh] min-h-96 w-full rounded-xl border border-polaria-w-08",
+            oscuro ? "bg-polaria-bg" : "bg-white",
+          )}
+        />
+        <BotonDeFondo oscuro={oscuro} onCambiar={() => setOscuro((actual) => !actual)} />
+      </div>
     </section>
   );
 }

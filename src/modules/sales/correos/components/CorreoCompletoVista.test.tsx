@@ -186,6 +186,22 @@ describe("CorreoCompletoVista — aislamiento del mensaje (REQ-104)", () => {
     expect(screen.queryByRole("button", { name: "Mostrar imágenes" })).not.toBeInTheDocument();
   });
 
+  it("un botón en la esquina del recuadro cambia entre fondo blanco y modo oscuro de Polaria", async () => {
+    const usr = usuario();
+    await abrir();
+    expect(marco().getAttribute("srcdoc")).not.toContain("invert(1)");
+
+    await usr.click(screen.getByRole("button", { name: "Usar modo oscuro de Polaria" }));
+    expect(marco().getAttribute("srcdoc")).toContain("invert(1)");
+    expect(screen.getByRole("button", { name: "Usar fondo blanco" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await usr.click(screen.getByRole("button", { name: "Usar fondo blanco" }));
+    expect(marco().getAttribute("srcdoc")).not.toContain("invert(1)");
+  });
+
   it("no ofrece mostrar imágenes si el correo no trae ninguna de internet", async () => {
     await abrir({ html: '<p>Hola</p><img src="data:image/png;base64,AAAA">' });
     expect(screen.queryByRole("button", { name: "Mostrar imágenes" })).not.toBeInTheDocument();

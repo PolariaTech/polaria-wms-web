@@ -166,6 +166,14 @@ describe("armarDocumentoDelCorreo", () => {
     );
   });
 
+  it("el modo oscuro de Polaria solo se aplica si se pide", () => {
+    expect(armarDocumentoDelCorreo(base)).not.toContain("invert(1)");
+    const oscuro = armarDocumentoDelCorreo({ ...base, oscuro: true });
+    expect(oscuro).toContain("html{filter:invert(1) hue-rotate(180deg);background:#fdf9f6}");
+    expect(oscuro).toContain("img{filter:invert(1) hue-rotate(180deg)}");
+    expect(oscuro).toContain("default-src 'none'");
+  });
+
   it("sin HTML muestra el texto escapado, para que no se interprete", () => {
     const documento = armarDocumentoDelCorreo({ html: "  ", texto: "a <b> & c", permitirImagenes: false });
     expect(documento).toContain("<pre>a &lt;b&gt; &amp; c</pre>");
