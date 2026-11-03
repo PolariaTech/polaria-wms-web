@@ -11,12 +11,11 @@ vi.mock("@/stores/auth.store", () => ({
 }));
 
 import { FILTROS_CORREOS_VACIOS } from "../types/correos.types";
+import { finDelDiaColombia, inicioDelDiaColombia } from "../utils/correos-formato";
 import {
   consultarIngreso,
   CorreosApiError,
-  finDelDiaColombia,
   ingresarCorreo,
-  inicioDelDiaColombia,
   leerIngreso,
   listarCorreos,
 } from "./correos.client";

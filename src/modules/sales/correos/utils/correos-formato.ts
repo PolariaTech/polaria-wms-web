@@ -89,3 +89,12 @@ export function mensajeDeError(error: unknown): string {
     ? error.message
     : "Ocurrió un error inesperado. Intenta de nuevo.";
 }
+
+/** `YYYY-MM-DD` del campo de fecha → instante en hora de Colombia (UTC-5). */
+export function inicioDelDiaColombia(dia: string): string {
+  return `${dia}T00:00:00.000-05:00`;
+}
+
+export function finDelDiaColombia(dia: string): string {
+  return `${dia}T23:59:59.999-05:00`;
+}

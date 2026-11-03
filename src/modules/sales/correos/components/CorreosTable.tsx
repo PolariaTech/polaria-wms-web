@@ -83,6 +83,52 @@ function AvisoDeError({
   );
 }
 
+interface ContenidoDeListaProps {
+  correos: ReturnType<typeof useCorreosIngreso>;
+  primeraCarga: boolean;
+  textoVacio: string;
+  onVerDetalle: (messageId: string) => void;
+  onIngresar: (messageId: string) => void;
+}
+
+/** Lo que va bajo los filtros: el error, la primera carga, o la tabla con su paginación. */
+function ContenidoDeLista({
+  correos,
+  primeraCarga,
+  textoVacio,
+  onVerDetalle,
+  onIngresar,
+}: ContenidoDeListaProps) {
+  if (correos.error) {
+    return <AvisoDeError mensaje={correos.error} onReintentar={correos.recargar} />;
+  }
+  if (primeraCarga) {
+    return (
+      <div style={getTableBodyMinHeightStyle(correos.tamano)}>
+        <PolariaStatusLoading embedded />
+      </div>
+    );
+  }
+  return (
+    <>
+      <CorreosCuerpoTabla
+        filas={correos.filas}
+        tamano={correos.tamano}
+        cargando={correos.cargando}
+        textoVacio={textoVacio}
+        onVerDetalle={onVerDetalle}
+        onIngresar={onIngresar}
+      />
+      <PolariaTablePaginationFooter
+        page={correos.pagina}
+        pageSize={correos.tamano}
+        totalItems={correos.total}
+        onPageChange={correos.setPagina}
+      />
+    </>
+  );
+}
+
 /**
  * Lista de correos de pedidos (REQ-104): filtros, tabla y paginación, con la columna que ingresa
  * un correo como OV y el detalle completo en un modal al hacer clic en una fila.
@@ -90,13 +136,12 @@ function AvisoDeError({
 export function CorreosTable({ modo }: { modo: ModoCorreos }) {
   const correos = useCorreosIngreso(modo);
   const [detalleId, setDetalleId] = useState<string | null>(null);
-  const { filas, tamano, error } = correos;
 
-  const primeraCarga = correos.cargando && filas.length === 0;
+  const primeraCarga = correos.cargando && correos.filas.length === 0;
   const alIngresar = (messageId: string) => void correos.ingresar(messageId);
   // Se busca en las filas vigentes: el modal refleja el avance del ingreso y se cierra solo
   // si el correo sale de la página (otra página, otros filtros).
-  const detalle = filas.find((fila) => fila.messageId === detalleId) ?? null;
+  const detalle = correos.filas.find((fila) => fila.messageId === detalleId) ?? null;
   const textos = TEXTOS_VACIO[modo];
 
   return (
@@ -113,30 +158,13 @@ export function CorreosTable({ modo }: { modo: ModoCorreos }) {
           onLimpiar={correos.limpiarFiltros}
           hayFiltros={correos.hayFiltros}
         />
-        {error ? <AvisoDeError mensaje={error} onReintentar={correos.recargar} /> : null}
-        {primeraCarga && !error ? (
-          <div style={getTableBodyMinHeightStyle(tamano)}>
-            <PolariaStatusLoading embedded />
-          </div>
-        ) : null}
-        {!primeraCarga && !error ? (
-          <>
-            <CorreosCuerpoTabla
-              filas={filas}
-              tamano={tamano}
-              cargando={correos.cargando}
-              textoVacio={correos.hayFiltros ? textos.conFiltros : textos.sinFiltros}
-              onVerDetalle={setDetalleId}
-              onIngresar={alIngresar}
-            />
-            <PolariaTablePaginationFooter
-              page={correos.pagina}
-              pageSize={tamano}
-              totalItems={correos.total}
-              onPageChange={correos.setPagina}
-            />
-          </>
-        ) : null}
+        <ContenidoDeLista
+          correos={correos}
+          primeraCarga={primeraCarga}
+          textoVacio={correos.hayFiltros ? textos.conFiltros : textos.sinFiltros}
+          onVerDetalle={setDetalleId}
+          onIngresar={alIngresar}
+        />
       </section>
 
       {/* Fuera del <section>: su `backdrop-blur` volvería «relativo» al `fixed` del modal. */}

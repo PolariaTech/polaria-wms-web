@@ -11,6 +11,7 @@ import type {
   IngresoCorreo,
   ModoCorreos,
 } from "../types/correos.types";
+import { finDelDiaColombia, inicioDelDiaColombia } from "../utils/correos-formato";
 
 /**
  * Cliente de REQ-104:
@@ -237,15 +238,6 @@ function leerAdjunto(valor: unknown): AdjuntoCorreo | null {
     mimeType: typeof mimeType === "string" ? mimeType : "application/octet-stream",
     tamano: typeof tamano === "number" ? tamano : 0,
   };
-}
-
-/** `YYYY-MM-DD` del campo de fecha → instante en hora de Colombia (UTC-5). */
-export function inicioDelDiaColombia(dia: string): string {
-  return `${dia}T00:00:00.000-05:00`;
-}
-
-export function finDelDiaColombia(dia: string): string {
-  return `${dia}T23:59:59.999-05:00`;
 }
 
 export async function listarCorreos(
