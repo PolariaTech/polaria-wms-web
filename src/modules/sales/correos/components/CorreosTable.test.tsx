@@ -31,6 +31,7 @@ import {
 import {
   CorreosTable,
   formatearRecibido,
+  separarAdjuntos,
   separarDirecciones,
 } from "./CorreosTable";
 
@@ -80,6 +81,23 @@ describe("formatearRecibido", () => {
     expect(formatearRecibido("2026-11-03T13:27:51.000Z")).toMatch(/0?8:27/);
     expect(formatearRecibido(null)).toBe("—");
     expect(formatearRecibido("no-es-fecha")).toBe("—");
+  });
+});
+
+describe("separarAdjuntos", () => {
+  it("reparte los nombres que el flujo guarda separados por « | »", () => {
+    expect(separarAdjuntos("PO_2000.pdf | detalle.xlsx |  foto.jpg ")).toEqual([
+      "PO_2000.pdf",
+      "detalle.xlsx",
+      "foto.jpg",
+    ]);
+  });
+
+  it("un solo adjunto, o ninguno, también funciona", () => {
+    expect(separarAdjuntos("PO_2000.pdf")).toEqual(["PO_2000.pdf"]);
+    expect(separarAdjuntos("")).toEqual([]);
+    expect(separarAdjuntos(null)).toEqual([]);
+    expect(separarAdjuntos(" | ")).toEqual([]);
   });
 });
 
@@ -372,6 +390,32 @@ describe("CorreosTable (REQ-104)", () => {
       const dialogo = await screen.findByRole("dialog");
       expect(within(dialogo).getAllByText("Ingresado por el flujo").length).toBeGreaterThan(0);
       expect(within(dialogo).queryByRole("button", { name: BOTON_INGRESAR })).not.toBeInTheDocument();
+    });
+
+    it("con varios adjuntos, la tabla muestra el primero y cuántos faltan, y el modal una ficha por archivo", async () => {
+      api.listarCorreos.mockResolvedValue(
+        lista([
+          {
+            ...completa(),
+            adjunto: "PO_2000.pdf | detalle.xlsx | foto.jpg",
+          },
+        ]),
+      );
+      const user = usuario();
+      render(<CorreosTable modo="descartados" />);
+
+      expect(await screen.findByText("PO_2000.pdf")).toBeInTheDocument();
+      expect(screen.getByLabelText("y 2 adjuntos más")).toHaveTextContent("+2");
+      expect(screen.queryByText("detalle.xlsx")).not.toBeInTheDocument();
+
+      await user.click(screen.getByText("compras@hotel.com"));
+
+      const dialogo = await screen.findByRole("dialog");
+      const en = within(dialogo);
+      expect(en.getByText("Adjuntos")).toBeInTheDocument();
+      expect(en.getAllByRole("listitem").map((el) => el.textContent)).toEqual(
+        expect.arrayContaining(["PO_2000.pdf", "detalle.xlsx", "foto.jpg"]),
+      );
     });
 
     it("muestra el nombre del remitente aparte de su dirección y explica qué hará el botón", async () => {

@@ -194,6 +194,42 @@ export function separarDirecciones(texto: string | null): DireccionCorreo[] {
     });
 }
 
+/** El flujo guarda todos los adjuntos en una sola columna, separados por « | ». */
+export function separarAdjuntos(valor: string | null): string[] {
+  if (!valor) return [];
+  return valor
+    .split("|")
+    .map((nombre) => nombre.trim())
+    .filter(Boolean);
+}
+
+/** En la tabla: el primer archivo y, si hay más, cuántos faltan. */
+function AdjuntosResumen({ valor }: { valor: string | null }) {
+  const nombres = separarAdjuntos(valor);
+  if (nombres.length === 0) {
+    return <span className="polaria-text-body-sm text-polaria-w-50">—</span>;
+  }
+  const [primero, ...resto] = nombres;
+  return (
+    <span
+      className="flex max-w-[13rem] items-center gap-1.5"
+      title={nombres.join(", ")}
+    >
+      <span className="polaria-text-body-sm min-w-0 truncate text-polaria-w-50">
+        {primero}
+      </span>
+      {resto.length > 0 ? (
+        <span
+          aria-label={`y ${resto.length} adjunto${resto.length === 1 ? "" : "s"} más`}
+          className="polaria-text-caption shrink-0 rounded-md border border-polaria-w-08 bg-polaria-w-08 px-1.5 tabular-nums text-polaria-w"
+        >
+          +{resto.length}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function Personas({ valor }: { valor: string | null }) {
   const personas = separarDirecciones(valor);
   if (personas.length === 0) return SIN_DATO;
@@ -305,6 +341,7 @@ function DetalleCorreoModal({
   onClose: () => void;
   onIngresar: (messageId: string) => void;
 }) {
+  const adjuntos = separarAdjuntos(fila.adjunto);
   return (
     <PolariaFormModal
       open
@@ -342,17 +379,26 @@ function DetalleCorreoModal({
           <dd className="polaria-text-body-sm min-w-0">
             <Personas valor={fila.para} />
           </dd>
-          <dt className="polaria-text-body-sm pt-1 text-polaria-w-50">Adjunto</dt>
+          <dt className="polaria-text-body-sm pt-1 text-polaria-w-50">
+            {adjuntos.length > 1 ? "Adjuntos" : "Adjunto"}
+          </dt>
           <dd className="min-w-0">
-            {fila.adjunto ? (
-              <span className="polaria-text-body-sm inline-flex max-w-full items-center gap-1.5 rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-2.5 py-1">
-                <Paperclip
-                  className="h-3.5 w-3.5 shrink-0 text-polaria-w-50"
-                  strokeWidth={1.75}
-                  aria-hidden
-                />
-                <span className="min-w-0 break-all">{fila.adjunto}</span>
-              </span>
+            {adjuntos.length > 0 ? (
+              <ul className="flex flex-wrap gap-2">
+                {adjuntos.map((nombre, indice) => (
+                  <li
+                    key={`${nombre}-${indice}`}
+                    className="polaria-text-body-sm inline-flex max-w-full items-center gap-1.5 rounded-lg border border-polaria-w-08 bg-polaria-w-08 px-2.5 py-1"
+                  >
+                    <Paperclip
+                      className="h-3.5 w-3.5 shrink-0 text-polaria-w-50"
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 break-all">{nombre}</span>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <span className="polaria-text-body-sm">{SIN_DATO}</span>
             )}
@@ -563,12 +609,7 @@ export function CorreosTable({ modo }: { modo: ModoCorreos }) {
                       </button>
                     </td>
                     <td className={CELDA}>
-                      <span
-                        className="polaria-text-body-sm block max-w-[12rem] truncate text-polaria-w-50"
-                        title={fila.adjunto ?? undefined}
-                      >
-                        {fila.adjunto ?? "—"}
-                      </span>
+                      <AdjuntosResumen valor={fila.adjunto} />
                     </td>
                     <td className={CELDA}>
                       {fila.motivo ? (
