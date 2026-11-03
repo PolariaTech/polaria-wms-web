@@ -183,6 +183,10 @@ import {
   useFocoOrdenCompraAlAbrir,
 } from "../../utils/pedido/resolve-cabecera-guardada";
 import {
+  mapDetalleLineasAForm,
+  ovTieneLineasMaterializadas,
+} from "../../utils/pedido/map-detalle-lineas-a-form";
+import {
   FECHA_ENTREGA_ATRASADA_WARNING,
   FECHA_ENTREGA_DEFAULT_WARNING,
   isFechaEntregaAtrasada,
@@ -201,6 +205,12 @@ import {
   revisionFocusSelector,
   type RevisionPendiente,
 } from "../../utils/ot/por-confirmar-revision-alert";
+import {
+  isConfirmSubmitDisabled,
+  resolveConfirmBloqueoReason,
+  shouldCloseModalAfterSubmit,
+} from "../../utils/ot/confirm-bloqueo-ov";
+import { OrdenVentaFormFooterCenter } from "./OrdenVentaFormFooterCenter";
 import { extractCorreoContactoDesdeTexto } from "../../utils/origen/correo-chrome";
 import { findDuplicadosAgainstDraft } from "../../utils/match/find-potencial-duplicado-ov";
 import { debeAvisarVerificarDireccion } from "../../utils/pedido/debe-avisar-direccion";
@@ -1817,43 +1827,41 @@ export function OrdenVentaCreateModal({
   ]);
 
   /** REQ-195: motivo explícito cuando Confirmar está deshabilitado. */
-  const confirmBloqueoReason = useMemo(() => {
-    if (step !== "form") return null;
-    if (isLoading || isSaving) return null;
-    if (!hasProductos) return "Espera a que cargue el catálogo de productos";
-    if (lineas.length === 0) return "Agrega al menos un producto";
-    if (!idComprador) return "Falta cliente";
-    if (hasCatalogPending) {
-      return (
-        revisionPendiente?.message ??
-        "Hay productos no identificados. Elige uno del catálogo o quita la línea"
-      );
-    }
-    if (esPorConfirmar && revisionPendiente) {
-      return revisionPendiente.message;
-    }
-    return null;
-  }, [
-    esPorConfirmar,
-    hasCatalogPending,
-    hasProductos,
-    idComprador,
+  const confirmBloqueoReason = useMemo(
+    () =>
+      resolveConfirmBloqueoReason({
+        step,
+        isLoading,
+        isSaving,
+        hasProductos,
+        lineasCount: lineas.length,
+        idComprador,
+        hasCatalogPending,
+        esPorConfirmar,
+        revisionMessage: revisionPendiente?.message ?? null,
+      }),
+    [
+      esPorConfirmar,
+      hasCatalogPending,
+      hasProductos,
+      idComprador,
+      isLoading,
+      isSaving,
+      lineas.length,
+      revisionPendiente?.message,
+      step,
+    ],
+  );
+
+  const confirmSubmitDisabled = isConfirmSubmitDisabled({
+    step,
     isLoading,
     isSaving,
-    lineas.length,
-    revisionPendiente,
-    step,
-  ]);
-
-  const confirmSubmitDisabled = Boolean(
-    step === "form" &&
-      (isLoading ||
-        isSaving ||
-        !hasProductos ||
-        lineas.length === 0 ||
-        hasCatalogPending ||
-        !idComprador),
-  );
+    hasProductos,
+    lineasCount: lineas.length,
+    hasCatalogPending,
+    idComprador,
+  });
 
   const focusRevisionPendiente = useCallback((pendiente: RevisionPendiente) => {
     const selector = revisionFocusSelector(pendiente);
@@ -2168,80 +2176,17 @@ export function OrdenVentaCreateModal({
           origenCorreoRows.length > 0;
         const detalleLineas = detalle.lineas ?? [];
         const notasLineas = detalle.notas_lineas?.trim() || "";
-        // REQ-195: si ya hay líneas en BD, no remapear todo desde origen (evita
-        // catalogPending falso y bloqueo de Confirmar sin motivo claro).
-        const ovMaterializada = detalleLineas.some((linea) =>
-          Boolean(linea.id_producto?.trim()),
-        );
-
-        const mapDetalleLineasAForm = () => {
-          const lineasEditBase = detalleLineas.map((linea) => {
-            const catalogo = productoRows.find(
-              (row) => row.idProducto === linea.id_producto,
-            );
-            const skuFromOrigen = resolveSkuVisible({
-              linea,
-              origenRenglones: origenCorreoRows,
-            });
-            const skuRaw = linea.producto?.sku?.trim() || "";
-            const skuUsable =
-              skuRaw && !skuRaw.toUpperCase().startsWith("ARCH-")
-                ? skuRaw
-                : "";
-            const codigo =
-              catalogo?.codigo || skuUsable || skuFromOrigen || "";
-            const nombreRaw =
-              catalogo?.nombre || resolveOrdenVentaLineaTitulo(linea);
-            const nombre = stripLeadingProductoCodigo(nombreRaw, codigo);
-            const aliasCliente =
-              resolveTextoProductoOrigen({
-                linea,
-                origenRenglones: origenCorreoRows,
-              }) || undefined;
-            return {
-              idProducto: linea.id_producto,
-              nombre,
-              codigo,
-              idBodega: catalogo?.idBodega || detalle.id_bodega,
-              cantidadInput: formatDecimalInputEs(linea.cantidad_pedida),
-              cajasInput:
-                linea.cajas != null && linea.cajas > 0
-                  ? formatDecimalInputEs(linea.cajas)
-                  : "",
-              presentacion: linea.presentacion?.trim() || "",
-              especificacion: "",
-              descuentoPctInput: "",
-              ivaPct: "0",
-              kgDisponible: catalogo?.kgDisponible ?? 0,
-              unidadMedida:
-                linea.unidad_medida?.trim() ||
-                catalogo?.unidadMedida ||
-                UNIDAD_MEDIDA_VENTA_DEFAULT,
-              precioUnitario: linea.precio_unitario,
-              precioInput: formatPrecioInput(linea.precio_unitario),
-              precioManual: true as const,
-              aliasCliente,
-            };
+        // REQ-195: si ya hay líneas en BD, no remapear todo desde origen.
+        const ovMaterializada = ovTieneLineasMaterializadas(detalleLineas);
+        const lineasDesdeDetalle = () =>
+          mapDetalleLineasAForm({
+            detalleLineas,
+            productoRows,
+            origenCorreoRows,
+            idBodegaDetalle: detalle.id_bodega,
+            notasLineas,
+            hijas: hijasEdit,
           });
-          const lineasConOt = assignOtIdsToFormLineas(
-            lineasEditBase,
-            hijasEdit,
-            (raw) => parseDecimalEs(raw) ?? 0,
-          );
-          return lineasConOt.map((linea) => ({
-            ...linea,
-            especificacion: notaCapturaForLinea(notasLineas, {
-              nombre: linea.nombre,
-              cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
-              otId: linea.otId,
-              idProducto: linea.idProducto || null,
-              allowUnscoped:
-                !linea.otId &&
-                lineasConOt.filter((l) => l.nombre === linea.nombre)
-                  .length === 1,
-            }),
-          }));
-        };
 
         // OV del tercero: Mateo interpreta origen_correo → formulario (1ª OT) + Cypher.
         if (esExternoPorConfirmar) {
@@ -2390,35 +2335,10 @@ export function OrdenVentaCreateModal({
           setDiscrepancias(mapped.discrepancias);
           if (ovMaterializada) {
             skipOtSeedFromOrigenRef.current = true;
-            setLineas(mapDetalleLineasAForm());
+            setLineas(lineasDesdeDetalle());
           } else {
             skipOtSeedFromOrigenRef.current = false;
-            setLineas(
-              mapped.lineas.map((linea) => ({
-                idProducto: linea.idProducto,
-                nombre: linea.nombre,
-                codigo: linea.codigo,
-                idBodega: linea.idBodega,
-                cantidadInput: linea.cantidadInput,
-                cajasInput: linea.cajasInput,
-                presentacion: linea.presentacion,
-                especificacion: linea.especificacion,
-                descuentoPctInput: linea.descuentoPctInput,
-                ivaPct: "0",
-                kgDisponible: linea.kgDisponible,
-                unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
-                precioUnitario: linea.precioUnitario,
-                precioInput: formatPrecioInput(linea.precioUnitario),
-                precioManual: linea.precioManual,
-                aliasCliente: linea.aliasCliente,
-                filledByIa: linea.filledByIa,
-                otId: linea.otId,
-                catalogPending: linea.catalogPending,
-                catalogAmbiguo: linea.catalogAmbiguo,
-                sugerencia: linea.sugerencia ?? null,
-                sugerenciasAlternativas: linea.sugerenciasAlternativas ?? [],
-              })),
-            );
+            setLineas(mapped.lineas.map(lineaFormDesdeIa));
           }
           setStartMode("docs");
           setFormOtPage(0);
@@ -2426,7 +2346,7 @@ export function OrdenVentaCreateModal({
           setStep("form");
         } else {
           skipOtSeedFromOrigenRef.current = ovMaterializada;
-          setLineas(mapDetalleLineasAForm());
+          setLineas(lineasDesdeDetalle());
 
           if (hijasEdit.length > 0) {
             setStartMode("docs");
@@ -4135,7 +4055,9 @@ export function OrdenVentaCreateModal({
         } else {
           setPendingEmitId(null);
           onCreated();
-          onClose();
+          if (shouldCloseModalAfterSubmit(false)) {
+            onClose();
+          }
         }
       } catch (err: unknown) {
         // REQ-195: mensaje concreto + toast fijo (el alert del scroll se pierde tras Mateo).
@@ -4544,80 +4466,26 @@ export function OrdenVentaCreateModal({
           ) : undefined
         }
         footerCenter={
-          reagruparAplicada ||
-          (step === "form" && (revisionPendiente || error || confirmBloqueoReason)) ? (
-            <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
-              {reagruparAplicada ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2.5 py-1.5">
-                  <span className="polaria-text-caption text-polaria-w">
-                    {`${reagruparAplicada.correccion ? "Corregido con el correo" : "Reorganizado con IA"} (${reagruparAplicada.resumen.antes} → ${reagruparAplicada.resumen.despues} OT). Guarda para conservarlo.`}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleDeshacerReagrupacion}
-                    title="Restaura las órdenes de trabajo como estaban antes (se pierden los cambios hechos después)"
-                    className={cn(
-                      "rounded-md border border-polaria-t-20 px-2 py-0.5",
-                      "polaria-text-caption font-semibold text-polaria-teal transition hover:bg-polaria-t-08",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                    )}
-                  >
-                    Deshacer
-                  </button>
-                </div>
-              ) : null}
-              {step === "form" && error ? (
-                <p
-                  role="alert"
-                  className="max-w-full rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-2.5 py-1.5 polaria-text-caption font-medium text-polaria-danger"
-                >
-                  <span className="line-clamp-2 break-words">{error}</span>
-                </p>
-              ) : null}
-              {step === "form" && !error && revisionPendiente ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    revisionFocusRequestRef.current = revisionPendiente;
-                    if (
-                      revisionPendiente.otIndex != null &&
-                      paginarPorOt &&
-                      ordenesTrabajoForm.length > 1 &&
-                      formOtSafePage !== revisionPendiente.otIndex
-                    ) {
-                      goToOtPage(revisionPendiente.otIndex);
-                      return;
-                    }
-                    focusRevisionPendiente(revisionPendiente);
-                    revisionFocusRequestRef.current = null;
-                  }}
-                  className={cn(
-                    "max-w-full cursor-pointer rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-2.5 py-1.5 text-left",
-                    "polaria-text-caption font-medium text-polaria-warning hover:opacity-90",
-                  )}
-                  title="Ir al campo pendiente"
-                >
-                  <span className="line-clamp-2 break-words">
-                    {revisionPendiente.message}
-                  </span>
-                </button>
-              ) : null}
-              {step === "form" &&
-              !error &&
-              !revisionPendiente &&
-              confirmBloqueoReason &&
-              confirmSubmitDisabled ? (
-                <p
-                  role="status"
-                  className="max-w-full rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-2.5 py-1.5 polaria-text-caption font-medium text-polaria-warning"
-                >
-                  <span className="line-clamp-2 break-words">
-                    {confirmBloqueoReason}
-                  </span>
-                </p>
-              ) : null}
-            </div>
-          ) : undefined
+          <OrdenVentaFormFooterCenter
+            step={step}
+            reagruparAplicada={reagruparAplicada}
+            onDeshacerReagrupacion={handleDeshacerReagrupacion}
+            error={error}
+            revisionPendiente={revisionPendiente}
+            confirmBloqueoReason={confirmBloqueoReason}
+            confirmSubmitDisabled={confirmSubmitDisabled}
+            paginarPorOt={paginarPorOt}
+            ordenesTrabajoCount={ordenesTrabajoForm.length}
+            formOtSafePage={formOtSafePage}
+            onGoToOtPage={goToOtPage}
+            onFocusRevision={focusRevisionPendiente}
+            onRequestRevisionFocus={(pendiente) => {
+              revisionFocusRequestRef.current = pendiente;
+            }}
+            onClearRevisionFocusRequest={() => {
+              revisionFocusRequestRef.current = null;
+            }}
+          />
         }
         footerAction={
           step === "pickOt" ? (

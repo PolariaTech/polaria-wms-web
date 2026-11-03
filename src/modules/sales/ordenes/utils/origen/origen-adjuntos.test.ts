@@ -7,7 +7,6 @@ import {
   origenAdjuntoDownloadUrl,
   origenAdjuntoViewUrl,
   parseOrigenArchivos,
-  resolveAdjuntoContentType,
   serializeOrigenArchivos,
 } from "./origen-adjuntos";
 
@@ -69,18 +68,6 @@ describe("origen-adjuntos", () => {
         path: "cuenta/uuid-hoja.xlsx",
       }),
     ).toBe(false);
-  });
-
-  it("fuerza text/html para .html aunque Storage diga octet-stream (REQ-159)", () => {
-    expect(
-      resolveAdjuntoContentType("PO.html", "application/octet-stream"),
-    ).toBe("text/html; charset=utf-8");
-    expect(resolveAdjuntoContentType("nota.htm", null)).toBe(
-      "text/html; charset=utf-8",
-    );
-    expect(resolveAdjuntoContentType("a.pdf", "application/octet-stream")).toBe(
-      "application/pdf",
-    );
   });
 
   it("etiqueta tipos", () => {

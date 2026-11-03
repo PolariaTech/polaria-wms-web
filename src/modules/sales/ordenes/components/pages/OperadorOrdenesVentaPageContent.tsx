@@ -9,7 +9,7 @@ import {
   PolariaTableCode,
 } from "@/components/shared/table/PolariaTableCells";
 import { textoFechaEntregaListado } from "./texto-fecha-entrega-listado";
-import { resolveCompradorParaListado } from "../../utils/pedido/resolve-cabecera-guardada";
+import { renderClienteListadoCell } from "./cliente-listado-cell";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useVisibleInterval } from "@/hooks/shared/useVisibleInterval";
@@ -1021,18 +1021,7 @@ export function OperadorOrdenesVentaPageContent({
         header: "Cliente",
         headerClassName: ordenVentaTableColumnClass("comprador", "header"),
         cellClassName: ordenVentaTableColumnClass("comprador"),
-        cell: (row: OrdenVentaOperadorRow) => {
-          // REQ-169: sin id de catálogo, mostrar tentativo Mateo desde origen.
-          const cliente = resolveCompradorParaListado({
-            compradorCatalogo: row.comprador,
-            origenCorreo: row.origenCorreo,
-          });
-          return (
-            <span className="block max-w-[12.5rem] truncate" title={cliente}>
-              {cliente}
-            </span>
-          );
-        },
+        cell: (row: OrdenVentaOperadorRow) => renderClienteListadoCell(row),
       },
       {
         id: "estado",

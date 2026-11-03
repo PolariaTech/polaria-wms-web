@@ -5,7 +5,7 @@ import { getEmlAttachmentBuffer } from "@/modules/sales/ordenes/utils/origen/eml
 import {
   isHtmlOrigenAdjunto,
   resolveAdjuntoContentType,
-} from "@/modules/sales/ordenes/utils/origen/origen-adjuntos";
+} from "@/modules/sales/ordenes/utils/origen/origen-adjunto-content-type";
 
 export const runtime = "nodejs";
 
