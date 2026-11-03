@@ -1,9 +1,11 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
+import { ROUTES } from "@/config/routes";
 import type { CorreoFila } from "../types/correos.types";
 import { formatearFechaCompleta } from "../utils/correos-formato";
-import { AccionIngreso, puedeIngresarAMano } from "./AccionIngreso";
+import { AccionIngreso, BOTON_SECUNDARIO, puedeIngresarAMano } from "./AccionIngreso";
 import {
   DatosDeN8n,
   ParticipantesDelCorreo,
@@ -30,6 +32,21 @@ function AvisoDelBoton() {
   );
 }
 
+/** Abre el correo tal como llegó (cuerpo y adjuntos) en una pestaña nueva. */
+function EnlaceCorreoCompleto({ messageId }: { messageId: string }) {
+  return (
+    <a
+      href={ROUTES.dashboardVentasCorreo(messageId)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={BOTON_SECUNDARIO}
+    >
+      <ExternalLink className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      Ver correo completo
+    </a>
+  );
+}
+
 /**
  * Detalle del correo (REQ-104). Primero lo que decide si es un pedido: qué dijo el flujo y por
  * qué; luego quién lo mandó y a quién, como en un cliente de correo; al final, en pequeño, los
@@ -52,6 +69,7 @@ export function DetalleCorreoModal({
       size="lg"
       hideHeaderClose
       cancelLabel="Cerrar"
+      footerLeading={<EnlaceCorreoCompleto messageId={fila.messageId} />}
       footerCenter={puedeIngresarAMano(fila) ? <AvisoDelBoton /> : undefined}
       footerAction={<AccionIngreso fila={fila} onIngresar={onIngresar} />}
     >

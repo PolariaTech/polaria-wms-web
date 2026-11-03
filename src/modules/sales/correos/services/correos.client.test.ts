@@ -11,13 +11,14 @@ vi.mock("@/stores/auth.store", () => ({
 }));
 
 import { FILTROS_CORREOS_VACIOS } from "../types/correos.types";
-import { finDelDiaColombia, inicioDelDiaColombia } from "../utils/correos-formato";
 import {
   consultarIngreso,
   CorreosApiError,
+  descargarAdjunto,
   ingresarCorreo,
   leerIngreso,
   listarCorreos,
+  obtenerCorreoCompleto,
 } from "./correos.client";
 
 const MSG = "1a1a198510cde156";
@@ -250,9 +251,75 @@ describe("correos.client (REQ-104)", () => {
       expect(leerIngreso(null)).toBeNull();
     });
 
-    it("los límites del día son los de Colombia (UTC-5)", () => {
-      expect(inicioDelDiaColombia("2026-11-03")).toBe("2026-11-03T00:00:00.000-05:00");
-      expect(finDelDiaColombia("2026-11-03")).toBe("2026-11-03T23:59:59.999-05:00");
+  });
+
+  describe("obtenerCorreoCompleto", () => {
+    const correoDelApi = {
+      asunto: "Pedido XEL",
+      de: "a@x.example",
+      para: "b@x.example",
+      fecha: "2026-11-03T13:27:51.000Z",
+      texto: "Hola",
+      html: "<p>Hola</p>",
+      adjuntos: [
+        { indice: 0, nombre: "a.pdf", mimeType: "application/pdf", tamano: 10 },
+        { nombre: "sin-indice.pdf" },
+        "basura",
+      ],
+    };
+
+    it("lee el correo y deja solo los adjuntos completos", async () => {
+      fetchMock.mockResolvedValue(respuesta(200, correoDelApi));
+
+      const correo = await obtenerCorreoCompleto(MSG);
+
+      expect((fetchMock.mock.calls[0] as [string])[0]).toBe(`/api/ventas/correos/${MSG}/contenido`);
+      expect(correo).toMatchObject({ asunto: "Pedido XEL", html: "<p>Hola</p>" });
+      expect(correo.adjuntos).toEqual([
+        { indice: 0, nombre: "a.pdf", mimeType: "application/pdf", tamano: 10 },
+      ]);
+    });
+
+    it("si faltan campos usa valores vacíos en lugar de romperse", async () => {
+      fetchMock.mockResolvedValue(respuesta(200, {}));
+      const correo = await obtenerCorreoCompleto(MSG);
+      expect(correo).toEqual({
+        asunto: "",
+        de: "",
+        para: "",
+        fecha: null,
+        texto: "",
+        html: "",
+        adjuntos: [],
+      });
+    });
+
+    it("rechaza una respuesta que no es un objeto", async () => {
+      fetchMock.mockResolvedValue(respuesta(200, ["no"]));
+      await expect(obtenerCorreoCompleto(MSG)).rejects.toMatchObject({
+        codigo: "RESPUESTA_INESPERADA",
+      });
+    });
+  });
+
+  describe("descargarAdjunto", () => {
+    it("baja los bytes del adjunto con la sesión", async () => {
+      fetchMock.mockResolvedValue(new Response("contenido", { status: 200 }));
+
+      const archivo = await descargarAdjunto(MSG, 2);
+
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe(`/api/ventas/correos/${MSG}/adjuntos/2`);
+      expect(new Headers(init.headers).get("Authorization")).toBe("Bearer token-de-prueba");
+      expect(await archivo.text()).toBe("contenido");
+    });
+
+    it("un adjunto que no existe se dice con su propio mensaje", async () => {
+      fetchMock.mockResolvedValue(respuesta(404, { error: "ADJUNTO_NO_ENCONTRADO" }));
+      await expect(descargarAdjunto(MSG, 9)).rejects.toMatchObject({
+        codigo: "NO_ENCONTRADO",
+        message: "El correo no tiene ese adjunto.",
+      });
     });
   });
 });

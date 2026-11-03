@@ -13,7 +13,7 @@ import {
 const SIN_DATO = <span className="text-polaria-w-50">—</span>;
 const dato = (valor: string | null): ReactNode => valor ?? SIN_DATO;
 
-function Personas({ valor }: { valor: string | null }) {
+export function Personas({ valor }: { valor: string | null }) {
   const personas = separarDirecciones(valor);
   if (personas.length === 0) return SIN_DATO;
   return (

@@ -62,6 +62,9 @@ export const ROUTES = {
   dashboardVentasCorreosMateo: "/dashboard/ventas/correos-mateo",
   /** REQ-104: correos que el flujo descartó, para ingresarlos a mano como OV. */
   dashboardVentasCorreosDescartados: "/dashboard/ventas/correos-descartados",
+  /** REQ-104: el correo completo (cuerpo y adjuntos), en una pestaña propia. */
+  dashboardVentasCorreo: (messageId: string) =>
+    `/dashboard/ventas/correo/${encodeURIComponent(messageId)}`,
   /** Captura pública (QR) de hoja surtida — sin login. */
   capturaOrden: (idOrdenVenta: string, idOrdenTrabajo?: string) => {
     const base = `/captura-orden/${encodeURIComponent(idOrdenVenta)}`;

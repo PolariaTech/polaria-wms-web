@@ -98,3 +98,82 @@ export function inicioDelDiaColombia(dia: string): string {
 export function finDelDiaColombia(dia: string): string {
   return `${dia}T23:59:59.999-05:00`;
 }
+
+const FORMATO_TAMANO = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
+
+/** Tamaño de un archivo para leerlo de un vistazo: `812 B`, `48 KB`, `1,5 MB`. */
+export function formatearTamano(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${FORMATO_TAMANO.format(bytes / 1024)} KB`;
+  return `${FORMATO_TAMANO.format(bytes / (1024 * 1024))} MB`;
+}
+
+/** Solo estos tipos se abren en una pestaña: PDF e imágenes que no ejecutan nada (no SVG). */
+export function esVistaPreviaSegura(mimeType: string): boolean {
+  return /^(application\/pdf|image\/(png|jpe?g|gif|webp))$/i.test(mimeType.trim());
+}
+
+function escaparHtml(texto: string): string {
+  return texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+const ETIQUETAS_QUE_NO_VAN =
+  "script, iframe, frame, frameset, object, embed, form, base, link, meta, applet";
+const ATRIBUTOS_CON_ENLACE = ["href", "src", "action", "formaction", "xlink:href"];
+
+/**
+ * Limpia el HTML de un correo, que es contenido ajeno: quita lo que ejecuta o redirige y hace
+ * que los enlaces abran en otra pestaña sin dar acceso a esta. Es una segunda barrera: el marco
+ * aislado y su política de contenido ya impiden ejecutar nada.
+ */
+export function sanearHtmlDelCorreo(html: string): string {
+  const documento = new DOMParser().parseFromString(html, "text/html");
+  documento.querySelectorAll(ETIQUETAS_QUE_NO_VAN).forEach((nodo) => nodo.remove());
+  documento.querySelectorAll("*").forEach((nodo) => {
+    for (const atributo of Array.from(nodo.attributes)) {
+      const nombre = atributo.name.toLowerCase();
+      const esScript = atributo.value.trim().toLowerCase().startsWith("javascript:");
+      if (nombre.startsWith("on") || (ATRIBUTOS_CON_ENLACE.includes(nombre) && esScript)) {
+        nodo.removeAttribute(atributo.name);
+      }
+    }
+  });
+  documento.querySelectorAll("a").forEach((enlace) => {
+    enlace.setAttribute("target", "_blank");
+    enlace.setAttribute("rel", "noopener noreferrer");
+  });
+  return documento.body.innerHTML;
+}
+
+/** ¿El correo trae imágenes que se bajarían de internet? Cargarlas avisa al remitente que se abrió. */
+export function tieneImagenesExternas(html: string): boolean {
+  return /<img\b[^>]*\bsrc\s*=\s*["']?https?:/i.test(html);
+}
+
+const ESTILO_DEL_CORREO =
+  "body{margin:16px;font:14px/1.5 system-ui,sans-serif;color:#1a1a1a;background:#fff;overflow-wrap:anywhere}" +
+  "img{max-width:100%;height:auto}pre{white-space:pre-wrap;font:inherit}a{color:#0b6b5c}";
+
+/**
+ * El documento que se muestra dentro del marco aislado. Su política de contenido bloquea
+ * scripts, formularios y conexiones; las imágenes de internet solo se permiten si se pide.
+ */
+export function armarDocumentoDelCorreo(opciones: {
+  html: string;
+  texto: string;
+  permitirImagenes: boolean;
+}): string {
+  const cuerpo = opciones.html.trim()
+    ? sanearHtmlDelCorreo(opciones.html)
+    : `<pre>${escaparHtml(opciones.texto)}</pre>`;
+  const imagenes = opciones.permitirImagenes ? "img-src data: blob: https:" : "img-src data: blob:";
+  const politica = `default-src 'none'; ${imagenes}; style-src 'unsafe-inline'; font-src data:`;
+  return (
+    `<!doctype html><html><head><meta charset="utf-8">` +
+    `<meta http-equiv="Content-Security-Policy" content="${politica}">` +
+    `<base target="_blank"><style>${ESTILO_DEL_CORREO}</style></head><body>${cuerpo}</body></html>`
+  );
+}
