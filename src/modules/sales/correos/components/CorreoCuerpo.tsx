@@ -70,12 +70,13 @@ export function CorreoCuerpo({
   const hayImagenesBloqueadas = !permitirImagenes && tieneImagenesExternas(html);
 
   return (
-    <section>
+    <section className="flex min-h-0 flex-col lg:h-full">
       <h3 className="polaria-text-body font-semibold">Mensaje</h3>
       {hayImagenesBloqueadas ? (
         <AvisoDeImagenes onMostrar={() => setPermitirImagenes(true)} />
       ) : null}
-      <div className="relative mt-3">
+      {/* Apilado: alto fijo. En dos columnas: ocupa lo que queda del panel y solo el mensaje se desplaza. */}
+      <div className="relative mt-3 h-[70vh] min-h-96 lg:h-auto lg:min-h-0 lg:flex-1">
         <iframe
           title="Cuerpo del correo"
           sandbox="allow-popups allow-popups-to-escape-sandbox"
@@ -83,7 +84,7 @@ export function CorreoCuerpo({
           srcDoc={documento}
           onLoad={onCargado}
           className={cn(
-            "h-[70vh] min-h-96 w-full rounded-xl border border-polaria-w-08",
+            "absolute inset-0 h-full w-full rounded-xl border border-polaria-w-08",
             oscuro ? "bg-polaria-bg" : "bg-white",
           )}
         />

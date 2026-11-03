@@ -33,7 +33,7 @@ const correo = (parcial: Partial<CorreoContenido> = {}): CorreoContenido => ({
 async function abrir(parcial: Partial<CorreoContenido> = {}) {
   cliente.obtenerCorreoCompleto.mockResolvedValue(correo(parcial));
   render(<CorreoCompletoVista messageId={ID} />);
-  await screen.findByRole("heading", { name: parcial.asunto ?? "Pedido XEL" });
+  await screen.findByTitle("Cuerpo del correo");
 }
 
 const marco = () => screen.getByTitle("Cuerpo del correo");
@@ -65,7 +65,7 @@ describe("CorreoCompletoVista — el correo (REQ-104)", () => {
 
   it("mantiene a Polo hasta que el mensaje termina de dibujar, y entonces muestra todo junto", async () => {
     await abrir();
-    const articulo = screen.getByRole("article");
+    const articulo = screen.getByRole("region", { name: "Correo" });
 
     if (articulo.getAttribute("aria-busy") === "true") {
       expect(screen.getByText("Abriendo el correo…")).toBeInTheDocument();
@@ -118,7 +118,7 @@ describe("CorreoCompletoVista — el correo (REQ-104)", () => {
 
     cliente.obtenerCorreoCompleto.mockResolvedValue(correo());
     await usr.click(within(alerta).getByRole("button", { name: "Reintentar" }));
-    expect(await screen.findByRole("heading", { name: "Pedido XEL" })).toBeInTheDocument();
+    expect(await screen.findByTitle("Cuerpo del correo")).toBeInTheDocument();
     expect(cliente.obtenerCorreoCompleto).toHaveBeenCalledTimes(2);
   });
 
@@ -138,8 +138,19 @@ describe("CorreoCompletoVista — el correo (REQ-104)", () => {
     cliente.obtenerCorreoCompleto.mockResolvedValue(
       correo({ asunto: "", de: "", para: "", fecha: null }),
     );
-    render(<CorreoCompletoVista messageId={ID} />);
-    expect(await screen.findByRole("heading", { name: "Correo sin asunto" })).toBeInTheDocument();
+    const alTener = vi.fn();
+    render(<CorreoCompletoVista messageId={ID} onAsunto={alTener} />);
+    fireEvent.load(await screen.findByTitle("Cuerpo del correo"));
+    await waitFor(() => expect(alTener).toHaveBeenCalledWith("Correo sin asunto"));
+  });
+
+  it("entrega el asunto para que sea el título de la pantalla, solo cuando ya se ve todo", async () => {
+    const alTener = vi.fn();
+    cliente.obtenerCorreoCompleto.mockResolvedValue(correo());
+    render(<CorreoCompletoVista messageId={ID} onAsunto={alTener} />);
+    const cuerpo = await screen.findByTitle("Cuerpo del correo");
+    if (alTener.mock.calls.length === 0) fireEvent.load(cuerpo);
+    await waitFor(() => expect(alTener).toHaveBeenCalledWith("Pedido XEL"));
   });
 
   it("muestra el mensaje en texto cuando el correo no trae HTML", async () => {
