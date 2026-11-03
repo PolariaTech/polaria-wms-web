@@ -37,6 +37,7 @@
 - `src/modules/sales/correos/components/CorreoCuerpo.tsx` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/correos/components/AdjuntosDelCorreo.tsx` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/correos/components/CorreosTable.detalle.test.tsx` — autorizada por el usuario el 2026-11-03
+- `src/modules/sales/correos/components/CorreosTable.paginacion.test.tsx` — autorizada por el usuario el 2026-11-03
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/config/routes.ts`
