@@ -33,6 +33,7 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCapturePickOt.tsx` — archivo nuevo
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureForm.tsx` — archivo nuevo
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormPedido.tsx` — autorizada por el usuario el 2026-11-03
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormEntrega.tsx` — autorizada por el usuario el 2026-11-03
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
