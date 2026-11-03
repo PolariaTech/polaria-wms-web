@@ -1,6 +1,9 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ROUTES } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { CargaConPolo } from "@/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel";
 import type { RangoEspera } from "@/modules/sales/ordenes/utils/ot/aplicar-correccion-correo";
@@ -14,6 +17,25 @@ import { Personas } from "./DetalleCorreoPartes";
 
 /** Lo que suele tardar la primera lectura en Gmail; la siguiente, desde la memoria del api, es casi inmediata. */
 const ESPERA_LECTURA_DEL_CORREO: RangoEspera = { minSeg: 3, maxSeg: 15 };
+
+/**
+ * Regresa a la lista de donde se vino. Si la pantalla se abrió directo (sin historial en esta
+ * pestaña), lleva a los correos descartados para no sacar a la persona de la aplicación.
+ */
+function VolverALosCorreos() {
+  const router = useRouter();
+  const volver = () => {
+    if (window.history.length > 1) router.back();
+    else router.push(ROUTES.dashboardVentasCorreosDescartados);
+  };
+
+  return (
+    <button type="button" onClick={volver} className={BOTON_SECUNDARIO}>
+      <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      Volver a los correos
+    </button>
+  );
+}
 
 /** Tope para esperar a que el marco del mensaje termine de dibujar antes de mostrar todo. */
 const PLAZO_DEL_CUERPO_MS = 5000;
@@ -73,9 +95,10 @@ export function CorreoCompletoVista({ messageId }: { messageId: string }) {
     return () => clearTimeout(plazo);
   }, [hayCorreo, cuerpoListo]);
 
-  if (error) return <ErrorDeLectura mensaje={error} onReintentar={reintentar} />;
   return (
-    <>
+    <div className="space-y-6">
+      <VolverALosCorreos />
+      {error ? <ErrorDeLectura mensaje={error} onReintentar={reintentar} /> : null}
       {correo && hayCorreo ? (
         // Se arma mientras Polo sigue a la vista, para que la persona vea el correo ya completo.
         <article
@@ -91,13 +114,13 @@ export function CorreoCompletoVista({ messageId }: { messageId: string }) {
           />
         </article>
       ) : null}
-      {cuerpoListo ? null : (
+      {cuerpoListo || error ? null : (
         <CargaConPolo
           titulo="Abriendo el correo…"
           detalle={hayCorreo ? "Preparando el mensaje." : "Lo estamos leyendo en Gmail."}
           espera={ESPERA_LECTURA_DEL_CORREO}
         />
       )}
-    </>
+    </div>
   );
 }

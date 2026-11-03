@@ -1,6 +1,7 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { Mail } from "lucide-react";
+import Link from "next/link";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { ROUTES } from "@/config/routes";
 import type { CorreoFila } from "../types/correos.types";
@@ -32,18 +33,13 @@ function AvisoDelBoton() {
   );
 }
 
-/** Abre el correo tal como llegó (cuerpo y adjuntos) en una pestaña nueva. */
+/** Lleva al correo tal como llegó (cuerpo y adjuntos), en esta misma pestaña. */
 function EnlaceCorreoCompleto({ messageId }: { messageId: string }) {
   return (
-    <a
-      href={ROUTES.dashboardVentasCorreo(messageId)}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={BOTON_SECUNDARIO}
-    >
-      <ExternalLink className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+    <Link href={ROUTES.dashboardVentasCorreo(messageId)} className={BOTON_SECUNDARIO}>
+      <Mail className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       Ver correo completo
-    </a>
+    </Link>
   );
 }
 

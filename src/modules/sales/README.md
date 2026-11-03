@@ -25,4 +25,4 @@
 
 - `correos/`: barra lateral de Ventas, lista de correos de n8n con filtros y paginación del servidor, e ingreso manual de un correo como OV (asíncrono: 202 + sondeo del estado).
 - Rutas: `/dashboard/ventas/correos-mateo` (todos) y `/dashboard/ventas/correos-descartados` (los que el flujo no ingresó).
-- `/dashboard/ventas/correo/[messageId]`: el correo completo (mensaje aislado y adjuntos), en una pestaña nueva.
+- `/dashboard/ventas/correo/[messageId]`: el correo completo (mensaje aislado y adjuntos), en la misma pestaña, con «Volver a los correos».

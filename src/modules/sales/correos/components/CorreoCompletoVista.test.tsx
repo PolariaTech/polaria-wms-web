@@ -7,6 +7,9 @@ const cliente = vi.hoisted(() => ({
 }));
 vi.mock("../services/correos.client", () => cliente);
 
+const navegacion = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => navegacion }));
+
 import { usuario } from "../testing/correos.fixtures";
 import type { CorreoContenido } from "../types/correos.types";
 import { CorreoCompletoVista } from "./CorreoCompletoVista";
@@ -81,6 +84,28 @@ describe("CorreoCompletoVista — el correo (REQ-104)", () => {
     });
 
     expect(screen.queryByText("Abriendo el correo…")).not.toBeInTheDocument();
+  });
+
+  it("«Volver a los correos» regresa a la lista de donde se vino", async () => {
+    const usr = usuario();
+    vi.spyOn(window.history, "length", "get").mockReturnValue(3);
+    await abrir();
+
+    await usr.click(screen.getByRole("button", { name: "Volver a los correos" }));
+
+    expect(navegacion.back).toHaveBeenCalledTimes(1);
+    expect(navegacion.push).not.toHaveBeenCalled();
+  });
+
+  it("si la pantalla se abrió directo, «Volver» lleva a los correos descartados", async () => {
+    const usr = usuario();
+    vi.spyOn(window.history, "length", "get").mockReturnValue(1);
+    await abrir();
+
+    await usr.click(screen.getByRole("button", { name: "Volver a los correos" }));
+
+    expect(navegacion.push).toHaveBeenCalledWith("/dashboard/ventas/correos-descartados");
+    expect(navegacion.back).not.toHaveBeenCalled();
   });
 
   it("si falla la lectura muestra el motivo y deja reintentar", async () => {

@@ -41,7 +41,7 @@ describe("CorreosTable — detalle del correo (REQ-104)", () => {
         motivo: "Es una cotización y no pide surtir mercancía",
       });
 
-    it("ofrece ver el correo completo en una pestaña nueva, sin acceso a esta", async () => {
+    it("ofrece ver el correo completo en esta misma pestaña", async () => {
     api.listarCorreos.mockResolvedValue(lista([fila({ messageId: "msg-detalle-1" })]));
     const user = usuario();
     render(<CorreosTable modo="descartados" />);
@@ -52,8 +52,7 @@ describe("CorreosTable — detalle del correo (REQ-104)", () => {
       name: "Ver correo completo",
     });
     expect(enlace).toHaveAttribute("href", "/dashboard/ventas/correo/msg-detalle-1");
-    expect(enlace).toHaveAttribute("target", "_blank");
-    expect(enlace).toHaveAttribute("rel", "noopener noreferrer");
+    expect(enlace).not.toHaveAttribute("target");
   });
 
   it("al hacer clic en una fila abre el modal con todo lo que trae la data table", async () => {
