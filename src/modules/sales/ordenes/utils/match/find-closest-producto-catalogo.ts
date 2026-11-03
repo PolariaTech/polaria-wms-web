@@ -350,7 +350,8 @@ function tokensNearlyEqual(a: string, b: string): boolean {
   if (a === b) return true;
   if (a.length < 4 || b.length < 4) return false;
   // SKUs numéricos (115001413 vs 115001414) no son typos de producto.
-  if (/^\d+$/.test(a) || /^\d+$/.test(b)) return false;
+  // REQ-231: tampoco los calibres y medidas («200g» vs «260g», «10cm» vs «12cm»).
+  if (/\d/.test(a) || /\d/.test(b)) return false;
   return editDistanceAtMost(a, b, 1);
 }
 
