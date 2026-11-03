@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Loader2, RotateCw } from "lucide-react";
+import { CheckCircle2, Loader2, Paperclip, RotateCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
@@ -140,7 +140,6 @@ const FORMATO_COMPLETO = new Intl.DateTimeFormat("es-CO", {
   year: "numeric",
   hour: "numeric",
   minute: "2-digit",
-  second: "2-digit",
   hour12: true,
 });
 
@@ -151,7 +150,11 @@ export function formatearFechaCompleta(iso: string | null): string {
   return Number.isNaN(fecha.getTime()) ? "—" : FORMATO_COMPLETO.format(fecha);
 }
 
-function Dato({
+const SIN_DATO = <span className="text-polaria-w-50">—</span>;
+const dato = (valor: string | null): ReactNode => valor ?? SIN_DATO;
+
+/** Etiqueta chica arriba y el valor debajo: para los datos de referencia de n8n. */
+function Campo({
   etiqueta,
   children,
   tecnico = false,
@@ -162,11 +165,11 @@ function Dato({
   tecnico?: boolean;
 }) {
   return (
-    <div className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4">
-      <dt className="polaria-text-body-sm text-polaria-w-50">{etiqueta}</dt>
+    <div className="min-w-0">
+      <dt className="polaria-text-caption text-polaria-w-50">{etiqueta}</dt>
       <dd
         className={cn(
-          "min-w-0 break-words",
+          "mt-0.5 break-all",
           tecnico ? "font-mono text-xs tabular-nums" : "polaria-text-body-sm",
         )}
       >
@@ -176,19 +179,10 @@ function Dato({
   );
 }
 
-const SIN_DATO = <span className="text-polaria-w-50">—</span>;
-const dato = (valor: string | null): ReactNode => valor ?? SIN_DATO;
-
-function GrupoDetalle({ titulo, children }: { titulo: string; children: ReactNode }) {
-  return (
-    <section className="space-y-3">
-      <h3 className="polaria-text-body font-semibold">{titulo}</h3>
-      <dl className="space-y-3">{children}</dl>
-    </section>
-  );
-}
-
-/** Todo lo que trae la data table de n8n para el correo, sin recortes. */
+/**
+ * Detalle del correo (REQ-104). Primero lo que decide si es un pedido: qué dijo el flujo y por
+ * qué, y quién lo mandó; después, en pequeño, los datos de referencia de n8n.
+ */
 function DetalleCorreoModal({
   fila,
   onClose,
@@ -198,6 +192,8 @@ function DetalleCorreoModal({
   onClose: () => void;
   onIngresar: (messageId: string) => void;
 }) {
+  const descartado = fila.nuevoPedido === false;
+
   return (
     <PolariaFormModal
       open
@@ -205,7 +201,7 @@ function DetalleCorreoModal({
       title={fila.asunto ?? "Correo sin asunto"}
       description={
         fila.recibidoEn
-          ? `Recibido el ${formatearFechaCompleta(fila.recibidoEn)} (hora de Colombia)`
+          ? `Recibido el ${formatearFechaCompleta(fila.recibidoEn)} · hora de Colombia`
           : "Sin fecha de recepción"
       }
       onSubmit={(evento) => evento.preventDefault()}
@@ -216,39 +212,62 @@ function DetalleCorreoModal({
       cancelLabel="Cerrar"
       footerAction={<AccionIngreso fila={fila} onIngresar={onIngresar} />}
     >
-      <GrupoDetalle titulo="Correo">
-        <Dato etiqueta="De">{dato(fila.de)}</Dato>
-        <Dato etiqueta="Para">{dato(fila.para)}</Dato>
-        <Dato etiqueta="Asunto">{dato(fila.asunto)}</Dato>
-        <Dato etiqueta="Adjunto">{dato(fila.adjunto)}</Dato>
-      </GrupoDetalle>
+      <div className="space-y-2">
+        <PolariaTableBadge variant={descartado ? "warning" : "positive"} withDot>
+          {descartado ? "Descartado por el flujo" : "Ingresado por el flujo"}
+        </PolariaTableBadge>
+        {fila.motivo ? (
+          <p className="polaria-text-body max-w-prose">
+            <span className="text-polaria-w-50">Motivo: </span>
+            {fila.motivo}
+          </p>
+        ) : null}
+      </div>
 
-      <GrupoDetalle titulo="Flujo de n8n">
-        <Dato etiqueta="Estado">
-          {fila.nuevoPedido === false
-            ? "Descartado por el flujo"
-            : "Ingresado por el flujo"}
-        </Dato>
-        <Dato etiqueta="Motivo">{dato(fila.motivo)}</Dato>
-      </GrupoDetalle>
+      <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 gap-y-2.5">
+        <dt className="polaria-text-body-sm text-polaria-w-50">De</dt>
+        <dd className="polaria-text-body-sm min-w-0 break-words">{dato(fila.de)}</dd>
+        <dt className="polaria-text-body-sm text-polaria-w-50">Para</dt>
+        <dd className="polaria-text-body-sm min-w-0 break-words">{dato(fila.para)}</dd>
+        <dt className="polaria-text-body-sm text-polaria-w-50">Adjunto</dt>
+        <dd className="polaria-text-body-sm flex min-w-0 items-start gap-1.5 break-words">
+          {fila.adjunto ? (
+            <>
+              <Paperclip
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-polaria-w-50"
+                strokeWidth={1.75}
+                aria-hidden
+              />
+              <span>{fila.adjunto}</span>
+            </>
+          ) : (
+            SIN_DATO
+          )}
+        </dd>
+      </dl>
 
-      <GrupoDetalle titulo="Identificadores">
-        <Dato etiqueta="ID del mensaje" tecnico>
-          {fila.messageId}
-        </Dato>
-        <Dato etiqueta="ID del hilo" tecnico>
-          {dato(fila.hilo)}
-        </Dato>
-        <Dato etiqueta="Registro en n8n" tecnico>
-          {dato(fila.idRegistro)}
-        </Dato>
-        <Dato etiqueta="Registrado en n8n">
-          {formatearFechaCompleta(fila.registradoEn)}
-        </Dato>
-        <Dato etiqueta="Última actualización">
-          {formatearFechaCompleta(fila.actualizadoEn)}
-        </Dato>
-      </GrupoDetalle>
+      <section className="border-t border-polaria-w-08 pt-4">
+        <h3 className="polaria-text-body-sm font-semibold text-polaria-w-50">
+          Datos de n8n
+        </h3>
+        <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+          <Campo etiqueta="ID del mensaje" tecnico>
+            {fila.messageId}
+          </Campo>
+          <Campo etiqueta="ID del hilo" tecnico>
+            {dato(fila.hilo)}
+          </Campo>
+          <Campo etiqueta="Registro en n8n" tecnico>
+            {dato(fila.idRegistro)}
+          </Campo>
+          <Campo etiqueta="Registrado en n8n">
+            {formatearFechaCompleta(fila.registradoEn)}
+          </Campo>
+          <Campo etiqueta="Última actualización">
+            {formatearFechaCompleta(fila.actualizadoEn)}
+          </Campo>
+        </dl>
+      </section>
     </PolariaFormModal>
   );
 }
