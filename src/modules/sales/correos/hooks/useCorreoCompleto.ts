@@ -12,6 +12,17 @@ interface ResultadoDeLectura {
   error?: string;
 }
 
+/**
+ * Pide el correo en segundo plano para que el api lo deje en su memoria: cuando la persona pulse
+ * «Ver correo completo» ya estará listo. No se cancela al cerrar, para que la lectura termine, y
+ * un fallo se ignora: la pestaña del correo vuelve a pedirlo y muestra el error si persiste.
+ */
+export function usePrecargaDelCorreo(messageId: string): void {
+  useEffect(() => {
+    obtenerCorreoCompleto(messageId).catch(() => undefined);
+  }, [messageId]);
+}
+
 /** Lee el correo completo (cuerpo y datos de los adjuntos) al abrir la pantalla. */
 export function useCorreoCompleto(messageId: string) {
   const [intento, setIntento] = useState(0);

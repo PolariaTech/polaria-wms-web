@@ -5,6 +5,7 @@ const api = vi.hoisted(() => ({
   listarCorreos: vi.fn(),
   ingresarCorreo: vi.fn(),
   consultarIngreso: vi.fn(),
+  obtenerCorreoCompleto: vi.fn(),
 }));
 const toast = vi.hoisted(() => ({ showToast: vi.fn() }));
 
@@ -28,9 +29,24 @@ describe("CorreosTable — detalle del correo (REQ-104)", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
+    api.obtenerCorreoCompleto.mockResolvedValue({});
   });
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("al abrir el detalle pide el correo en segundo plano, y si falla no molesta", async () => {
+    api.obtenerCorreoCompleto.mockRejectedValue(new Error("n8n no respondió."));
+    api.listarCorreos.mockResolvedValue(lista([fila({ messageId: "msg-detalle-1" })]));
+    const user = usuario();
+    render(<CorreosTable modo="descartados" />);
+    expect(api.obtenerCorreoCompleto).not.toHaveBeenCalled();
+
+    await user.click(await screen.findByText("compras@hotel.com"));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(api.obtenerCorreoCompleto).toHaveBeenCalledWith("msg-detalle-1");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
     const completa = () =>

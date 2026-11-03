@@ -3,6 +3,7 @@
 import { ExternalLink } from "lucide-react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { ROUTES } from "@/config/routes";
+import { usePrecargaDelCorreo } from "../hooks/useCorreoCompleto";
 import type { CorreoFila } from "../types/correos.types";
 import { formatearFechaCompleta } from "../utils/correos-formato";
 import { AccionIngreso, BOTON_SECUNDARIO, puedeIngresarAMano } from "./AccionIngreso";
@@ -57,6 +58,7 @@ export function DetalleCorreoModal({
   onClose,
   onIngresar,
 }: DetalleCorreoModalProps) {
+  usePrecargaDelCorreo(fila.messageId);
   return (
     <PolariaFormModal
       open
