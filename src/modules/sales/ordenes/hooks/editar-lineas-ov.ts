@@ -52,6 +52,7 @@ import type {
   ReagrupacionAplicada,
   StartMode,
 } from "../types/orden-venta-create-modal.types";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import {
   formatDecimalInputEs,
   formatPrecioEs,
@@ -61,38 +62,38 @@ import {
   sanitizePrecioInputMx,
 } from "@/lib/utils/decimal-es";
 
-export function useEditarLineasOv(e: Record<string, any>) {
-  const { replaceLineaIndex, setLineas, setReplaceLineaIndex, setCantidadFocusId, setError, setIdBodegaDestino, restoreFormScroll, hijaFormActiva, setOrdenesTrabajoPreview, origenCorreoDraft, setOrigenCorreoDraft, captureFormScroll, setPicker, cantidadFocusId, picker, lineas, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias } = e;
+export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
+  const { replaceLineaIndex, setLineas, setReplaceLineaIndex, setCantidadFocusId, setError, setIdBodegaDestino, restoreFormScroll, hijaFormActiva, setOrdenesTrabajoPreview, origenCorreoDraft, setOrigenCorreoDraft, captureFormScroll, setPicker, cantidadFocusId, picker, lineas, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias } = estado;
   const handleSelectProducto = useCallback(
     (row: ProductoVentaOption) => {
       if (replaceLineaIndex != null) {
         const index = replaceLineaIndex;
-        setLineas((prev: any) =>
-          prev.map((linea: any, i: any) =>
+        setLineas((prev) =>
+          prev.map((linea, i) =>
             i === index ? applyProductoToLinea(linea, row) : linea,
           ),
         );
         setReplaceLineaIndex(null);
         setCantidadFocusId(row.idProducto);
         setError(null);
-        setIdBodegaDestino((prev: any) => prev || row.idBodega);
+        setIdBodegaDestino((prev) => prev || row.idBodega);
         restoreFormScroll();
         return;
       }
 
       setCantidadFocusId(row.idProducto);
       const otId = hijaFormActiva?.id;
-      setLineas((prev: any) => [...prev, crearLineaDesdeProducto(row, otId)]);
+      setLineas((prev) => [...prev, crearLineaDesdeProducto(row, otId)]);
       if (otId) {
-        setOrdenesTrabajoPreview((prev: any) => {
+        setOrdenesTrabajoPreview((prev) => {
           const base =
             prev.length > 0
               ? prev
               : groupOrigenCorreoToOrdenesTrabajo(origenCorreoDraft);
-          const next = base.map((hija: any) => {
+          const next = base.map((hija) => {
             if (hija.id !== otId) return hija;
             const sinPlaceholder = hija.renglones.filter(
-              (renglon: any) =>
+              (renglon) =>
                 (renglon.Producto ?? "").trim() ||
                 (renglon["Codigo producto"] ?? "").trim(),
             );
@@ -113,7 +114,7 @@ export function useEditarLineasOv(e: Record<string, any>) {
             return {
               ...hija,
               renglones,
-              totalCantidad: renglones.reduce((sum: any, item: any) => {
+              totalCantidad: renglones.reduce((sum, item) => {
                 const qty =
                   typeof item.Cantidad === "number"
                     ? item.Cantidad
@@ -128,7 +129,7 @@ export function useEditarLineasOv(e: Record<string, any>) {
         });
       }
       setError(null);
-      setIdBodegaDestino((prev: any) => prev || row.idBodega);
+      setIdBodegaDestino((prev) => prev || row.idBodega);
     },
     [
       hijaFormActiva?.id,
@@ -158,11 +159,11 @@ export function useEditarLineasOv(e: Record<string, any>) {
 
   const handleAcceptSugerencia = useCallback(
     (index: number, sug?: LineaSugerenciaCatalogo | null) => {
-      setLineas((prev: any) => {
+      setLineas((prev) => {
         const linea = prev[index];
         const chosen = sug ?? linea?.sugerencia;
         if (!linea || !chosen) return prev;
-        return prev.map((row: any, i: any) =>
+        return prev.map((row, i) =>
           i === index
             ? applyProductoToLinea(row, sugerenciaToOption(chosen))
             : row,
@@ -191,40 +192,40 @@ export function useEditarLineasOv(e: Record<string, any>) {
   }, [cantidadFocusId, lineas, picker, restoreFormScroll]);
 
   const handleRemoveLinea = useCallback((index: number) => {
-    setLineas((prev: any) => prev.filter((_: any, i: any) => i !== index));
+    setLineas((prev) => prev.filter((_, i) => i !== index));
     setError(null);
   }, []);
 
   const clearFieldMarks = useCallback((field: string) => {
-    setAutoFields((prev: any) => {
+    setAutoFields((prev) => {
       if (!prev.has(field)) return prev;
       const next = new Set(prev);
       next.delete(field);
       return next;
     });
-    setWarnFields((prev: any) => {
+    setWarnFields((prev) => {
       if (!prev.has(field)) return prev;
       const next = new Set(prev);
       next.delete(field);
       return next;
     });
-    setMissingFields((prev: any) => {
+    setMissingFields((prev) => {
       if (!prev.has(field)) return prev;
       const next = new Set(prev);
       next.delete(field);
       return next;
     });
     // REQ-118: al editar el campo, quitar la discrepancia vieja (evita falsa alerta).
-    setDiscrepancias((prev: any) => {
-      if (!prev.some((row: any) => row.fieldKey === field)) return prev;
-      return prev.filter((row: any) => row.fieldKey !== field);
+    setDiscrepancias((prev) => {
+      if (!prev.some((row) => row.fieldKey === field)) return prev;
+      return prev.filter((row) => row.fieldKey !== field);
     });
   }, []);
 
   const handleCantidadChange = useCallback((index: number, value: string) => {
     const nextValue = sanitizeDecimalInputEs(value);
-    setLineas((prev: any) =>
-      prev.map((linea: any, i: any) =>
+    setLineas((prev) =>
+      prev.map((linea, i) =>
         i === index
           ? { ...linea, cantidadInput: nextValue, filledByIa: false }
           : linea,
@@ -237,8 +238,8 @@ export function useEditarLineasOv(e: Record<string, any>) {
     if (parsed == null || parsed <= 0) return;
     const formatted = formatDecimalInputEs(parsed);
     if (formatted === value) return;
-    setLineas((prev: any) =>
-      prev.map((linea: any, i: any) =>
+    setLineas((prev) =>
+      prev.map((linea, i) =>
         i === index ? { ...linea, cantidadInput: formatted } : linea,
       ),
     );
@@ -250,8 +251,8 @@ export function useEditarLineasOv(e: Record<string, any>) {
       field: "especificacion" | "descuentoPctInput" | "ivaPct",
       value: string,
     ) => {
-      setLineas((prev: any) =>
-        prev.map((linea: any, i: any) =>
+      setLineas((prev) =>
+        prev.map((linea, i) =>
           i === index
             ? { ...linea, [field]: value, filledByIa: false }
             : linea,
@@ -263,8 +264,8 @@ export function useEditarLineasOv(e: Record<string, any>) {
 
   const handlePrecioChange = useCallback((index: number, value: string) => {
     const nextValue = sanitizePrecioInputMx(value);
-    setLineas((prev: any) =>
-      prev.map((linea: any, i: any) => {
+    setLineas((prev) =>
+      prev.map((linea, i) => {
         if (i !== index) return linea;
         const parsed = parseDecimalEs(nextValue);
         return {
@@ -283,8 +284,8 @@ export function useEditarLineasOv(e: Record<string, any>) {
     if (parsed == null || parsed <= 0) return;
     const formatted = formatPrecioInputMx(parsed);
     if (formatted === value) return;
-    setLineas((prev: any) =>
-      prev.map((linea: any, i: any) =>
+    setLineas((prev) =>
+      prev.map((linea, i) =>
         i === index
           ? {
               ...linea,
@@ -298,8 +299,8 @@ export function useEditarLineasOv(e: Record<string, any>) {
   return { handleSelectProducto, handleOpenReplaceProducto, handleAcceptSugerencia, handleRemoveLinea, clearFieldMarks, handleCantidadChange, handleCantidadBlur, handleLineaFieldChange, handlePrecioChange, handlePrecioBlur };
 }
 
-export function useScrollFormularioOv(e: Record<string, any>) {
-  const { formScrollRef, formScrollTopRef } = e;
+export function useScrollFormularioOv(estado: OrdenVentaFormEstado) {
+  const { formScrollRef, formScrollTopRef } = estado;
   const captureFormScroll = useCallback(() => {
     const scroller = formScrollRef.current;
     if (scroller) formScrollTopRef.current = scroller.scrollTop;

@@ -1,4 +1,5 @@
 "use client";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 
 import {
   useCallback,
@@ -61,8 +62,8 @@ import {
   toDateInputValue,
 } from "../utils/pedido/orden-venta-create-helpers";
 
-export function useAplicarCorreccionCorreoOv(e: Record<string, any>) {
-  const { correo, syncActiveOtFromForm, lineas, origenTexto, observaciones, productos, centroConsumo, ventanaDesde, ventanaHasta, direccion, anden, contacto, telefono, aceptaSustituciones, requiereLote, registrarTemperatura, applyOrdenesTrabajo, setLineas, setFormOtPage, setReagruparAplicada, setReagruparOpen, setError, isEditing, pendingEmitId, pendingDraftSaveAfterReorgRef, showToast } = e;
+export function useAplicarCorreccionCorreoOv(estado: OrdenVentaFormEstado) {
+  const { correo, syncActiveOtFromForm, lineas, origenTexto, observaciones, productos, centroConsumo, ventanaDesde, ventanaHasta, direccion, anden, contacto, telefono, aceptaSustituciones, requiereLote, registrarTemperatura, applyOrdenesTrabajo, setLineas, setFormOtPage, setReagruparAplicada, setReagruparOpen, setError, isEditing, pendingEmitId, pendingDraftSaveAfterReorgRef, showToast } = estado;
   /**
    * REQ-187: aplica como BORRADOR la corrección propuesta tras releer el correo y los
    * archivos de la OV. Reemplaza las OT y las líneas del formulario con la misma
@@ -82,7 +83,7 @@ export function useAplicarCorreccionCorreoOv(e: Record<string, any>) {
       });
       // El servidor ya fijó la OC de cada documento: la clave de cada línea debe ser
       // exactamente la de su renglón para que caiga en su OT (pedido + almacén).
-      pedido.lineas = pedido.lineas.map((linea: any, indice: any) => ({
+      pedido.lineas = pedido.lineas.map((linea, indice) => ({
         ...linea,
         numeroPedido: filas[indice]?.["Numero pedido"]?.toString().trim() || null,
       }));
@@ -189,8 +190,8 @@ import {
   resolveConfirmBloqueoReason,
 } from "../utils/ot/confirm-bloqueo-ov";
 
-export function useRevisionPendienteOv(e: Record<string, any>) {
-  const { step, esPorConfirmar, idComprador, exigeOc, ordenCompraHotel, fechaEntrega, ventanaDesde, ventanaHasta, ordenesTrabajoForm, lineas, isLoading, isSaving, hasProductos, hasCatalogPending, formScrollRef, revisionFocusRequestRef, paginarPorOt, formOtSafePage, lineasConIndice } = e;
+export function useRevisionPendienteOv(estado: OrdenVentaFormEstado) {
+  const { step, esPorConfirmar, idComprador, exigeOc, ordenCompraHotel, fechaEntrega, ventanaDesde, ventanaHasta, ordenesTrabajoForm, lineas, isLoading, isSaving, hasProductos, hasCatalogPending, formScrollRef, revisionFocusRequestRef, paginarPorOt, formOtSafePage, lineasConIndice } = estado;
   const revisionPendiente = useMemo(() => {
     if (step !== "form" || !esPorConfirmar) return null;
     return findPrimeraRevisionPendiente({
@@ -202,7 +203,7 @@ export function useRevisionPendienteOv(e: Record<string, any>) {
       ventanaDesde,
       ventanaHasta,
       hijas: ordenesTrabajoForm,
-      lineas: lineas.map((linea: any) => ({
+      lineas: lineas.map((linea) => ({
         otId: linea.otId,
         catalogPending: linea.catalogPending,
         idProducto: linea.idProducto,
@@ -299,8 +300,8 @@ export function useRevisionPendienteOv(e: Record<string, any>) {
   return { revisionPendiente, confirmBloqueoReason, confirmSubmitDisabled, focusRevisionPendiente };
 }
 
-export function useDeshacerReagrupacionOv(e: Record<string, any>) {
-  const { reagruparAplicada, applyOrdenesTrabajo, setLineas, setReagruparAplicada, setError } = e;
+export function useDeshacerReagrupacionOv(estado: OrdenVentaFormEstado) {
+  const { reagruparAplicada, applyOrdenesTrabajo, setLineas, setReagruparAplicada, setError } = estado;
   const handleDeshacerReagrupacion = useCallback(() => {
     if (!reagruparAplicada) return;
     applyOrdenesTrabajo(reagruparAplicada.snapshot.hijas);

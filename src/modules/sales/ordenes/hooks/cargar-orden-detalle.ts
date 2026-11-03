@@ -1,4 +1,5 @@
 import { normalizeEstadoOrdenVenta } from "../../shared/constants/sales-status";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import { extractCorreoContactoDesdeTexto } from "../utils/origen/correo-chrome";
 import {
   flattenOrdenesTrabajoToOrigenCorreo,
@@ -29,8 +30,8 @@ import {
 } from "../utils/pedido/orden-venta-create-helpers";
 import { aplicarDetalleExternoPorConfirmar, aplicarDetalleSinMateo, cargarFichaYPreciosDeComprador } from "./cargar-orden-al-abrir";
 
-export function aplicarDetalleCargado(d: Record<string, any>) {
-  const { productoRows, compradorRows, internas, externas, idBodegaDefault, detalle, codigoCuenta, editingId, codigoVenta, handleSelectComprador, selectedCompradorIdRef, skipOtSeedFromOrigenRef, setProductosBase, setCompradores, setBodegasDestino, setIdBodegaDestino, setEditingEstado, setFechaCreacion, setOrdenCargadaId, setEditingCodigo, setIdComprador, setCompradorLabel, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setObservaciones, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setOrigenAdjuntos, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setCompradorNombreIa, setCompradorSugerencias, setLineas, setStartMode, setFormOtPage, setStep, setMissingFields, setDiscrepancias, setAutoFields, setWarnFields, setFichaComprador, setExigeOc, setPrecioOverrideByProducto, setEquivalenciaByProducto } = d;
+export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
+  const { productoRows, compradorRows, internas, externas, idBodegaDefault, detalle, codigoCuenta, editingId, codigoVenta, handleSelectComprador, selectedCompradorIdRef, skipOtSeedFromOrigenRef, setProductosBase, setCompradores, setBodegasDestino, setIdBodegaDestino, setEditingEstado, setFechaCreacion, setOrdenCargadaId, setEditingCodigo, setIdComprador, setCompradorLabel, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setObservaciones, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setOrigenAdjuntos, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setCompradorNombreIa, setCompradorSugerencias, setLineas, setStartMode, setFormOtPage, setStep, setMissingFields, setDiscrepancias, setAutoFields, setWarnFields, setFichaComprador, setExigeOc, setPrecioOverrideByProducto, setEquivalenciaByProducto } = entrada;
         setProductosBase(productoRows);
         setCompradores(compradorRows);
         const incluirTipo = internas.length > 0 && externas.length > 0;
@@ -198,7 +199,7 @@ export function aplicarDetalleCargado(d: Record<string, any>) {
             setStartMode,
             setFormOtPage,
             setStep,
-          });
+          } as OrdenVentaFormEstado);
         } else {
           aplicarDetalleSinMateo({
             ovMaterializada,

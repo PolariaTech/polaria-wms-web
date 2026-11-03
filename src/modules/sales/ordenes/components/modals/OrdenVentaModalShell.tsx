@@ -8,117 +8,117 @@ import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { MateoIaLoadingScreen } from "@/components/mateo/MateoIaLoadingScreen";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
 import { OrdenVentaFormFooterCenter } from "./OrdenVentaFormFooterCenter";
-import { OrdenVentaModalCuerpo, OrdenVentaModalOverlays } from "./OrdenVentaDiscrepanciasDialog";
+import { OrdenVentaModalCuerpo, OrdenVentaModalOverlays, type OrdenVentaFormEstado } from "./OrdenVentaDiscrepanciasDialog";
 
-export function OrdenVentaModalShell({ e }: { e: Record<string, any> }) {
+export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado }) {
   return (
     <>
-      {e.showMateoLoading ? (
-        <MateoIaLoadingScreen message={e.mateoBusyMessage} />
+      {estado.showMateoLoading ? (
+        <MateoIaLoadingScreen message={estado.mateoBusyMessage} />
       ) : null}
 
       <PolariaFormModal
-        open={e.open && !e.showMateoLoading}
-        onClose={e.requestClose}
-        scrollRegionRef={e.formScrollRef}
+        open={estado.open && !estado.showMateoLoading}
+        onClose={estado.requestClose}
+        scrollRegionRef={estado.formScrollRef}
         title={
-          e.isEditing && e.step === "pickOt"
+          estado.isEditing && estado.step === "pickOt"
             ? "Órdenes de trabajo"
-            : e.isEditing
-              ? e.folioVisible
-                ? `Editar · ${e.folioVisible}`
+            : estado.isEditing
+              ? estado.folioVisible
+                ? `Editar · ${estado.folioVisible}`
                 : "Editar pedido"
-              : e.step === "form"
-                ? e.folioVisible
-                  ? `Pedido · ${e.folioVisible}`
+              : estado.step === "form"
+                ? estado.folioVisible
+                  ? `Pedido · ${estado.folioVisible}`
                   : "Pedido"
-                : e.step === "preview"
+                : estado.step === "preview"
                   ? "Órdenes de trabajo detectadas"
                   : "Nuevo pedido"
         }
         description={
-          e.isEditing && e.step === "pickOt"
+          estado.isEditing && estado.step === "pickOt"
             ? "Elige qué orden de trabajo quieres editar"
-            : e.isEditing
-              ? e.folioVisible
-                ? `Folio ${e.folioVisible} — actualiza los datos del pedido`
+            : estado.isEditing
+              ? estado.folioVisible
+                ? `Folio ${estado.folioVisible} — actualiza los datos del pedido`
                 : "Actualiza los datos del pedido"
-              : e.step === "form"
-                ? e.formDescription
-                : e.step === "preview"
+              : estado.step === "form"
+                ? estado.formDescription
+                : estado.step === "preview"
                   ? "Previsualización antes de confirmar el formulario"
-                  : e.startMode === "docs"
+                  : estado.startMode === "docs"
                     ? "Mateo lee el mensaje o los archivos del pedido"
                     : "¿Cómo quieres empezar?"
         }
         onSubmit={(event) => {
-          e.submitIntentRef.current = "emit";
-          void e.handleSubmit(event);
+          estado.submitIntentRef.current = "emit";
+          void estado.handleSubmit(event);
         }}
-        error={e.step === "form" ? null : e.error}
-        isSubmitting={e.isSaving}
+        error={estado.step === "form" ? null : estado.error}
+        isSubmitting={estado.isSaving}
         submitDisabled={
-          e.step === "preview" ||
-          e.step === "pickOt" ||
-          e.isLoading ||
-          e.isSaving ||
-          !e.hasProductos ||
-          e.lineas.length === 0 ||
-          e.hasCatalogPending
+          estado.step === "preview" ||
+          estado.step === "pickOt" ||
+          estado.isLoading ||
+          estado.isSaving ||
+          !estado.hasProductos ||
+          estado.lineas.length === 0 ||
+          estado.hasCatalogPending
         }
         submitLabel={
-          e.isEditing &&
-          e.editingEstado !== "por_confirmar" &&
-          !e.pendingEmitId
+          estado.isEditing &&
+          estado.editingEstado !== "por_confirmar" &&
+          !estado.pendingEmitId
             ? "Actualizar"
             : "Confirmar"
         }
         compact
-        size={e.step === "start" ? "lg" : "2xl"}
-        layout={e.cypherOpen && e.isEditing ? "dock-left" : "center"}
+        size={estado.step === "start" ? "lg" : "2xl"}
+        layout={estado.cypherOpen && estado.isEditing ? "dock-left" : "center"}
         closeOnBackdrop={false}
         hideHeaderClose
         headerCenter={
-          e.step === "form" && e.paginarPorOt && e.hijaFormActiva ? (
+          estado.step === "form" && estado.paginarPorOt && estado.hijaFormActiva ? (
             <div className="min-w-0 max-w-full text-center">
               <p className="truncate polaria-text-body-sm font-semibold text-polaria-w">
                 <span className="text-polaria-teal">
-                  OT {e.formOtSafePage + 1}/{e.ordenesTrabajoForm.length}
+                  OT {estado.formOtSafePage + 1}/{estado.ordenesTrabajoForm.length}
                 </span>
                 <span className="mx-1.5 text-polaria-w-20">·</span>
-                {e.hijaFormActiva.almacen?.trim() || e.hijaFormActiva.label}
+                {estado.hijaFormActiva.almacen?.trim() || estado.hijaFormActiva.label}
               </p>
               <p className="truncate polaria-text-caption text-polaria-w-50">
-                {e.hijaFormActiva.numeroPedido?.trim()
-                  ? `OC ${e.hijaFormActiva.numeroPedido.trim()} · `
+                {estado.hijaFormActiva.numeroPedido?.trim()
+                  ? `OC ${estado.hijaFormActiva.numeroPedido.trim()} · `
                   : null}
-                Total OV ${formatPrecioEs(e.totalOvCompleta)}
+                Total OV ${formatPrecioEs(estado.totalOvCompleta)}
               </p>
             </div>
           ) : undefined
         }
         headerTrailing={
-          e.step === "form" ? (
+          estado.step === "form" ? (
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 title="Guardar avance (sigue Por confirmar; no confirma el pedido)"
                 aria-label="Guardar avance"
                 disabled={
-                  e.isSaving ||
-                  e.isLoading ||
+                  estado.isSaving ||
+                  estado.isLoading ||
                   // Alta nueva: hace falta cliente o al menos un producto de catálogo.
                   // OV existente: siempre se puede guardar avance (REQ-134).
-                  (!(e.isEditing || e.pendingEmitId) &&
-                    !e.idComprador &&
-                    !e.lineas.some(
+                  (!(estado.isEditing || estado.pendingEmitId) &&
+                    !estado.idComprador &&
+                    !estado.lineas.some(
                       (linea: { catalogPending?: boolean; idProducto?: string }) =>
                         !linea.catalogPending && Boolean(linea.idProducto),
                     ))
                 }
                 onClick={() => {
-                  e.submitIntentRef.current = "draft";
-                  void e.handleSubmit({
+                  estado.submitIntentRef.current = "draft";
+                  void estado.handleSubmit({
                     preventDefault() {},
                   } as FormEvent<HTMLFormElement>);
                 }}
@@ -129,18 +129,18 @@ export function OrdenVentaModalShell({ e }: { e: Record<string, any> }) {
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
                 )}
               >
-                {e.isSaving ? (
+                {estado.isSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 ) : (
                   <Save className="h-4 w-4" strokeWidth={2.25} aria-hidden />
                 )}
               </button>
-              {!e.cypherOpen && e.isEditing && e.onToggleCypher ? (
+              {!estado.cypherOpen && estado.isEditing && estado.onToggleCypher ? (
                 <button
                   type="button"
                   title="Ver detalle Cypher"
                   aria-label="Abrir detalle Cypher"
-                  onClick={() => e.onToggleCypher()}
+                  onClick={() => estado.onToggleCypher()}
                   className={cn(
                     "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
                     "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
@@ -151,12 +151,12 @@ export function OrdenVentaModalShell({ e }: { e: Record<string, any> }) {
                 </button>
               ) : null}
             </div>
-          ) : !e.cypherOpen && e.isEditing && e.onToggleCypher ? (
+          ) : !estado.cypherOpen && estado.isEditing && estado.onToggleCypher ? (
             <button
               type="button"
               title="Ver detalle Cypher"
               aria-label="Abrir detalle Cypher"
-              onClick={() => e.onToggleCypher()}
+              onClick={() => estado.onToggleCypher()}
               className={cn(
                 "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
                 "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
@@ -167,32 +167,32 @@ export function OrdenVentaModalShell({ e }: { e: Record<string, any> }) {
             </button>
           ) : undefined
         }
-        asForm={e.step === "form"}
+        asForm={estado.step === "form"}
         footerLeading={
-          e.step === "pickOt" ? (
+          estado.step === "pickOt" ? (
             <></>
-          ) : e.step === "preview" && e.previewHijas.length > 1 ? (
+          ) : estado.step === "preview" && estado.previewHijas.length > 1 ? (
             <OrdenTrabajoPager
-              page={e.formOtSafePagePreview}
-              total={e.previewHijas.length}
-              onPrev={() => e.setFormOtPage((p: number) => Math.max(0, p - 1))}
+              page={estado.formOtSafePagePreview}
+              total={estado.previewHijas.length}
+              onPrev={() => estado.setFormOtPage((p: number) => Math.max(0, p - 1))}
               onNext={() =>
-                e.setFormOtPage((p: number) =>
-                  Math.min(Math.max(e.previewHijas.length - 1, 0), p + 1),
+                estado.setFormOtPage((p: number) =>
+                  Math.min(Math.max(estado.previewHijas.length - 1, 0), p + 1),
                 )
               }
             />
-          ) : e.step === "form" && e.paginarPorOt ? (
+          ) : estado.step === "form" && estado.paginarPorOt ? (
             <OrdenTrabajoPager
-              page={e.formOtSafePage}
-              total={e.ordenesTrabajoForm.length}
+              page={estado.formOtSafePage}
+              total={estado.ordenesTrabajoForm.length}
               label="Pedido OT"
-              nextDisabled={e.otPagerNextBlocked}
+              nextDisabled={estado.otPagerNextBlocked}
               nextDisabledHint="Completa los campos obligatorios (*) para continuar"
-              onPrev={() => e.goToOtPage(Math.max(0, e.formOtSafePage - 1))}
+              onPrev={() => estado.goToOtPage(Math.max(0, estado.formOtSafePage - 1))}
               onNext={() =>
-                e.goToOtPage(
-                  Math.min(e.ordenesTrabajoForm.length - 1, e.formOtSafePage + 1),
+                estado.goToOtPage(
+                  Math.min(estado.ordenesTrabajoForm.length - 1, estado.formOtSafePage + 1),
                 )
               }
             />
@@ -200,36 +200,36 @@ export function OrdenVentaModalShell({ e }: { e: Record<string, any> }) {
         }
         footerCenter={
           <OrdenVentaFormFooterCenter
-            step={e.step}
-            reagruparAplicada={e.reagruparAplicada}
-            onDeshacerReagrupacion={e.handleDeshacerReagrupacion}
-            error={e.error}
-            revisionPendiente={e.revisionPendiente}
-            confirmBloqueoReason={e.confirmBloqueoReason}
-            confirmSubmitDisabled={e.confirmSubmitDisabled}
-            paginarPorOt={e.paginarPorOt}
-            ordenesTrabajoCount={e.ordenesTrabajoForm.length}
-            formOtSafePage={e.formOtSafePage}
-            onGoToOtPage={e.goToOtPage}
-            onFocusRevision={e.focusRevisionPendiente}
+            step={estado.step}
+            reagruparAplicada={estado.reagruparAplicada}
+            onDeshacerReagrupacion={estado.handleDeshacerReagrupacion}
+            error={estado.error}
+            revisionPendiente={estado.revisionPendiente}
+            confirmBloqueoReason={estado.confirmBloqueoReason}
+            confirmSubmitDisabled={estado.confirmSubmitDisabled}
+            paginarPorOt={estado.paginarPorOt}
+            ordenesTrabajoCount={estado.ordenesTrabajoForm.length}
+            formOtSafePage={estado.formOtSafePage}
+            onGoToOtPage={estado.goToOtPage}
+            onFocusRevision={estado.focusRevisionPendiente}
             onRequestRevisionFocus={(pendiente) => {
-              e.revisionFocusRequestRef.current = pendiente;
+              estado.revisionFocusRequestRef.current = pendiente;
             }}
             onClearRevisionFocusRequest={() => {
-              e.revisionFocusRequestRef.current = null;
+              estado.revisionFocusRequestRef.current = null;
             }}
           />
         }
         footerAction={
-          e.step === "pickOt" ? (
+          estado.step === "pickOt" ? (
             <></>
-          ) : e.step === "preview" ? (
+          ) : estado.step === "preview" ? (
             <button
               type="button"
               onClick={() => {
-                e.setFormOtPage(0);
-                e.setStep("form");
-                e.setError(null);
+                estado.setFormOtPage(0);
+                estado.setStep("form");
+                estado.setError(null);
               }}
               className={cn(
                 "rounded-xl bg-polaria-teal px-5 py-2.5",
@@ -238,36 +238,36 @@ export function OrdenVentaModalShell({ e }: { e: Record<string, any> }) {
             >
               Continuar al formulario
             </button>
-          ) : e.step === "start" && e.startMode === "docs" ? (
+          ) : estado.step === "start" && estado.startMode === "docs" ? (
             <button
               type="button"
               onClick={() => {
-                void e.openFormFromDocs();
+                void estado.openFormFromDocs();
               }}
-              disabled={!e.docsReady || e.isReadingIa}
+              disabled={!estado.docsReady || estado.isReadingIa}
               className={cn(
                 "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-5 py-2.5",
                 "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
                 "disabled:cursor-not-allowed disabled:opacity-50",
               )}
             >
-              {e.isReadingIa ? (
+              {estado.isReadingIa ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               ) : null}
               Continuar
             </button>
-          ) : e.step === "start" ? (
+          ) : estado.step === "start" ? (
             <></>
-          ) : e.step === "form" ? (
+          ) : estado.step === "form" ? (
             <button
               type="submit"
-              disabled={e.confirmSubmitDisabled}
+              disabled={estado.confirmSubmitDisabled}
               title={
-                e.confirmSubmitDisabled
-                  ? (e.confirmBloqueoReason ?? "Completa lo pendiente para confirmar")
+                estado.confirmSubmitDisabled
+                  ? (estado.confirmBloqueoReason ?? "Completa lo pendiente para confirmar")
                   : undefined
               }
-              aria-disabled={e.confirmSubmitDisabled}
+              aria-disabled={estado.confirmSubmitDisabled}
               className={cn(
                 "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
                 "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
@@ -275,31 +275,31 @@ export function OrdenVentaModalShell({ e }: { e: Record<string, any> }) {
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
               )}
             >
-              {e.isSaving ? (
+              {estado.isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               ) : null}
-              {e.isEditing &&
-              e.editingEstado !== "por_confirmar" &&
-              !e.pendingEmitId
+              {estado.isEditing &&
+              estado.editingEstado !== "por_confirmar" &&
+              !estado.pendingEmitId
                 ? "Actualizar"
                 : "Confirmar"}
             </button>
           ) : undefined
         }
         closeOnEscape={
-          e.picker === null &&
-          !e.isCompradorCreateOpen &&
-          !e.confirmDiscrepanciasOpen &&
-          !e.confirmSaveOpen &&
-          !e.confirmDiscardOpen &&
-          !e.addOtOpen &&
-          !e.confirmRemoveOtId
+          estado.picker === null &&
+          !estado.isCompradorCreateOpen &&
+          !estado.confirmDiscrepanciasOpen &&
+          !estado.confirmSaveOpen &&
+          !estado.confirmDiscardOpen &&
+          !estado.addOtOpen &&
+          !estado.confirmRemoveOtId
         }
         submitOnEnter={false}
       >
-        <OrdenVentaModalCuerpo e={e} />
+        <OrdenVentaModalCuerpo estado={estado} />
       </PolariaFormModal>
-      <OrdenVentaModalOverlays e={e} />
+      <OrdenVentaModalOverlays estado={estado} />
     </>
   );
 }

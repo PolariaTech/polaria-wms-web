@@ -13,6 +13,7 @@ import {isFechaEntregaAtrasada} from "../../utils/pedido/pedido-form-validation"
 import {type RevisionPendiente} from "../../utils/ot/por-confirmar-revision-alert";
 import {type CampoDiscrepancia} from "../../utils/pedido/map-pedido-extraido-to-form";
 import type {BodegaDestinoOption, CaptureStep, LineaVentaForm, OrdenVentaCreateModalProps, PickerKind, ReagrupacionAplicada, StartMode} from "../../types/orden-venta-create-modal.types";
+import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 import {OrdenVentaModalShell} from "./OrdenVentaModalShell";
 import {useContarProductosOt, useHandleSubmitOv} from "../../hooks/confirmar-envio-ov";
 import {useEditarLineasOv, useScrollFormularioOv} from "../../hooks/editar-lineas-ov";
@@ -192,7 +193,7 @@ export function OrdenVentaCreateModal({
   const revisionFocusRequestRef = useRef<RevisionPendiente | null>(null);
   const [cantidadFocusId, setCantidadFocusId] = useState<string | null>(null);
 
-  const bolsa: Record<string, any> = {
+  const bolsa = {
     open, onClose, onCreated, onEmitSuccess, onAutoPrintResult, idOrdenVenta, codigoVenta,
     cypherOpen, onToggleCypher, abrirReagruparAlCargar, onReagruparAlCargarAtendido,
     onCompanionOtPickerChange, operadorRowsForDuplicado, onCompanionIdCompradorChange,
@@ -229,7 +230,7 @@ export function OrdenVentaCreateModal({
     docsFileInputRef, bootstrapPromiseRef, seededOtIdsRef, skipOtSeedFromOrigenRef,
     pendingDraftSaveAfterReorgRef, formScrollRef, formScrollTopRef, revisionFocusRequestRef,
     cantidadFocusId, setCantidadFocusId,
-  };
+  } as unknown as OrdenVentaFormEstado;
   Object.assign(bolsa, useScrollFormularioOv(bolsa));
   bolsa.hasProductos = productos.length > 0;
   bolsa.afterCutoff = isAfterWarehouseCutoff();
@@ -263,6 +264,6 @@ export function OrdenVentaCreateModal({
   Object.assign(bolsa, useCierreCapturaOv(bolsa));
   bolsa.showMateoLoading = open && (isReadingIa || isSaving);
   return (
-    <OrdenVentaModalShell e={bolsa} />
+    <OrdenVentaModalShell estado={bolsa} />
   );
 }

@@ -1,9 +1,10 @@
 import { isFechaEntregaIsoValida, validatePedidoCabecera } from "../utils/pedido/pedido-form-validation";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import { parseFechaOrigen, resolveFechaEntregaDesdeOrigen } from "../utils/origen/materialize-ov-desde-origen";
 import { todayIsoDate, tomorrowIsoDate } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { parseLineasParaEnvio } from "../utils/pedido/payload-envio-ov";
 
-export function validarEnvioOv(input: Record<string, any>) {
+export function validarEnvioOv(input: OrdenVentaFormEstado) {
   const { isDraft, codigoCuenta, hasProductos, step, isEditing, pendingEmitId, idComprador, setError, showToast, startMode, avisosCatalogoValidacion, skipDiscrepanciaConfirmRef, setConfirmDiscrepanciasOpen, exigeOc, ordenCompraHotel, syncActiveOtFromForm, ordenesTrabajoForm, applyOrdenesTrabajo, lineas, fechaEntrega, origenCorreoDraft, setFechaEntrega, setMissingFields, ventanaDesde, ventanaHasta, formScrollRef, bodegasDestino, idBodegaDestino, skipSaveConfirmRef, setConfirmSaveOpen, setIsSaving, setMateoBusyMessage, origenTexto, origenAdjuntos, origenArchivoFiles, setOrigenAdjuntos, compradorNombreIa, compradorLabel, prioridad, moneda, centroConsumo, vendedorNombre, direccion, anden, contacto, telefono, correo, turno, horaSalida, chofer, unidad, aceptaSustituciones, requiereLote, registrarTemperatura, observaciones, idCreador, editingId, editingEstado, session, setPendingEmitId, setEditingEstado, reagruparAplicada, setReagruparAplicada, folioFactura, onEmitSuccess, onAutoPrintResult, onCreated, onClose } = input;
       if (!codigoCuenta || !hasProductos || step !== "form") {
         return null;

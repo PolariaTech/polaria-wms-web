@@ -6,266 +6,189 @@ import { OrdenVentaCapturePickOt, OrdenVentaModalPickers } from "./OrdenVentaCap
 import { OrdenVentaCapturePreview, OrdenVentaModalDialogs } from "./OrdenVentaCapturePreview";
 import { OrdenVentaCaptureStart } from "./OrdenVentaCaptureStart";
 import { fieldControlClass } from "../../utils/pedido/orden-venta-create-helpers";
+import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 
-export function OrdenVentaModalCuerpo({ e }: { e: Record<string, any> }) {
+export type { OrdenVentaFormEstado };
+
+export function OrdenVentaModalCuerpo({ estado }: { estado: OrdenVentaFormEstado }) {
   return (
     <>
-        {e.isLoading &&
-        (e.isEditing || e.step !== "start" || e.startMode === "scratch") ? (
+        {estado.isLoading &&
+        (estado.isEditing || estado.step !== "start" || estado.startMode === "scratch") ? (
           <PolariaStatusLoading embedded className="py-4" />
         ) : null}
 
         <OrdenVentaCaptureStart
           showChoices={
-            e.step === "start" &&
-            e.startMode !== "docs" &&
-            !(e.startMode === "scratch" && e.isLoading)
+            estado.step === "start" &&
+            estado.startMode !== "docs" &&
+            !(estado.startMode === "scratch" && estado.isLoading)
           }
-          showDocs={e.step === "start" && e.startMode === "docs"}
-          startMode={e.startMode}
-          isEditing={e.isEditing}
-          onFirstTime={e.openFirstTimeFlow}
-          onScratch={e.openFormFromScratch}
+          showDocs={estado.step === "start" && estado.startMode === "docs"}
+          startMode={estado.startMode}
+          isEditing={estado.isEditing}
+          onFirstTime={estado.openFirstTimeFlow}
+          onScratch={estado.openFormFromScratch}
           onDocs={() => {
-            e.setStartMode("docs");
-            e.setError(null);
+            estado.setStartMode("docs");
+            estado.setError(null);
           }}
           onBack={() => {
-            e.setStartMode(null);
-            e.setError(null);
+            estado.setStartMode(null);
+            estado.setError(null);
           }}
-          compradorLabel={e.compradorLabel}
+          compradorLabel={estado.compradorLabel}
           clienteControlClass={fieldControlClass({
             field: "cliente",
-            missingFields: e.missingFields,
+            missingFields: estado.missingFields,
           })}
-          onSearchCliente={() => e.setPicker("comprador")}
+          onSearchCliente={() => estado.setPicker("comprador")}
           showClientePendiente={
-            !e.idComprador &&
-            (Boolean(e.compradorNombreIa) || e.compradorSugerencias.length > 0)
+            !estado.idComprador &&
+            (Boolean(estado.compradorNombreIa) || estado.compradorSugerencias.length > 0)
           }
-          origenTexto={e.origenTexto}
-          onOrigenTexto={e.setOrigenTexto}
-          origenArchivoFiles={e.origenArchivoFiles}
-          isDocsDropActive={e.isDocsDropActive}
-          docsFileInputRef={e.docsFileInputRef}
+          origenTexto={estado.origenTexto}
+          onOrigenTexto={estado.setOrigenTexto}
+          origenArchivoFiles={estado.origenArchivoFiles}
+          isDocsDropActive={estado.isDocsDropActive}
+          docsFileInputRef={estado.docsFileInputRef}
           onDragOver={(event) => {
             event.preventDefault();
-            e.setIsDocsDropActive(true);
+            estado.setIsDocsDropActive(true);
           }}
-          onDragLeave={() => e.setIsDocsDropActive(false)}
+          onDragLeave={() => estado.setIsDocsDropActive(false)}
           onDrop={(event) => {
             event.preventDefault();
-            e.setIsDocsDropActive(false);
-            e.appendDocsFiles(event.dataTransfer.files);
+            estado.setIsDocsDropActive(false);
+            estado.appendDocsFiles(event.dataTransfer.files);
           }}
-          onFilesSelected={e.appendDocsFiles}
+          onFilesSelected={estado.appendDocsFiles}
           onRemoveFile={(file: File) =>
-            e.setOrigenArchivoFiles((prev: File[]) =>
+            estado.setOrigenArchivoFiles((prev: File[]) =>
               prev.filter(
                 (item) => !(item.name === file.name && item.size === file.size),
               ),
             )
           }
-          docsHasContent={e.docsHasContent}
+          docsHasContent={estado.docsHasContent}
         />
 
-        {e.step === "preview" && !e.isLoading ? (
+        {estado.step === "preview" && !estado.isLoading ? (
           <OrdenVentaCapturePreview
-            clienteLabel={e.compradorLabel}
-            hijas={e.previewHijas}
-            page={e.formOtSafePagePreview}
-            onRemoveHija={(hijaId) => e.setConfirmRemoveOtId(hijaId)}
+            clienteLabel={estado.compradorLabel}
+            hijas={estado.previewHijas}
+            page={estado.formOtSafePagePreview}
+            onRemoveHija={(hijaId) => estado.setConfirmRemoveOtId(hijaId)}
             onAddTarea={() => {
-              e.setAddOtAlmacen("");
-              e.setAddOtNumeroPedido(e.ordenCompraHotel.trim());
-              e.setAddOtOpen(true);
-              e.setError(null);
+              estado.setAddOtAlmacen("");
+              estado.setAddOtNumeroPedido(estado.ordenCompraHotel.trim());
+              estado.setAddOtOpen(true);
+              estado.setError(null);
             }}
           />
         ) : null}
 
-        {e.step === "pickOt" && !e.isLoading ? (
+        {estado.step === "pickOt" && !estado.isLoading ? (
           <OrdenVentaCapturePickOt
-            cypherOpen={e.cypherOpen}
-            hijas={e.ordenesTrabajoForm}
+            cypherOpen={estado.cypherOpen}
+            hijas={estado.ordenesTrabajoForm}
             onEdit={(index: number) => {
-              e.setFormOtPage(index);
-              e.setStep("form");
-              e.setError(null);
+              estado.setFormOtPage(index);
+              estado.setStep("form");
+              estado.setError(null);
             }}
-            onRemove={(hijaId) => e.setConfirmRemoveOtId(hijaId)}
+            onRemove={(hijaId) => estado.setConfirmRemoveOtId(hijaId)}
             onAddTarea={() => {
-              e.setAddOtAlmacen("");
-              e.setAddOtNumeroPedido(e.ordenCompraHotel.trim());
-              e.setAddOtOpen(true);
-              e.setError(null);
+              estado.setAddOtAlmacen("");
+              estado.setAddOtNumeroPedido(estado.ordenCompraHotel.trim());
+              estado.setAddOtOpen(true);
+              estado.setError(null);
             }}
           />
         ) : null}
 
-        {e.step === "form" && !e.isLoading ? (
-          <OrdenVentaFormStep
-            ordenesTrabajoForm={e.ordenesTrabajoForm}
-            hijaFormActiva={e.hijaFormActiva}
-            setConfirmRemoveOtId={e.setConfirmRemoveOtId}
-            isEditing={e.isEditing}
-            setStep={e.setStep}
-            setStartMode={e.setStartMode}
-            setError={e.setError}
-            afterCutoff={e.afterCutoff}
-            successMessage={e.successMessage}
-            hasProductos={e.hasProductos}
-            emptyCatalogMessage={e.emptyCatalogMessage}
-            startMode={e.startMode}
-            origenTexto={e.origenTexto}
-            origenArchivosNombres={e.origenArchivosNombres}
-            vendedorNombre={e.vendedorNombre}
-            idComprador={e.idComprador}
-            compradorLabel={e.compradorLabel}
-            compradorNombreIa={e.compradorNombreIa}
-            compradorSugerencias={e.compradorSugerencias}
-            missingFields={e.missingFields}
-            setPicker={e.setPicker}
-            codigoClienteCatalogo={e.codigoClienteCatalogo}
-            denominacionComercialCatalogo={e.denominacionComercialCatalogo}
-            fechaCreacion={e.fechaCreacion}
-            paginarPorOt={e.paginarPorOt}
-            folioFactura={e.folioFactura}
-            ordenCompraHotel={e.ordenCompraHotel}
-            setOrdenCompraHotel={e.setOrdenCompraHotel}
-            exigeOc={e.exigeOc}
-            centroConsumo={e.centroConsumo}
-            setCentroConsumo={e.setCentroConsumo}
-            fechaEntrega={e.fechaEntrega}
-            setFechaEntrega={e.setFechaEntrega}
-            esPorConfirmar={e.esPorConfirmar}
-            ventanaDesde={e.ventanaDesde}
-            setVentanaDesde={e.setVentanaDesde}
-            ventanaHasta={e.ventanaHasta}
-            setVentanaHasta={e.setVentanaHasta}
-            prioridad={e.prioridad}
-            setPrioridad={e.setPrioridad}
-            moneda={e.moneda}
-            observaciones={e.observaciones}
-            setObservaciones={e.setObservaciones}
-            clearFieldMarks={e.clearFieldMarks}
-            autoFields={e.autoFields}
-            warnFields={e.warnFields}
-            direccion={e.direccion}
-            setDireccion={e.setDireccion}
-            setAvisoVerificarDireccion={e.setAvisoVerificarDireccion}
-            avisoVerificarDireccion={e.avisoVerificarDireccion}
-            contacto={e.contacto}
-            setContacto={e.setContacto}
-            telefono={e.telefono}
-            setTelefono={e.setTelefono}
-            correo={e.correo}
-            setCorreo={e.setCorreo}
-            lineasConIndice={e.lineasConIndice}
-            subtotalVenta={e.subtotalVenta}
-            ivaVenta={e.ivaVenta}
-            totalVenta={e.totalVenta}
-            totalOvCompleta={e.totalOvCompleta}
-            mostrarTotalOv={e.mostrarTotalOv}
-            puedeAgregarProducto={e.puedeAgregarProducto}
-            setReplaceLineaIndex={e.setReplaceLineaIndex}
-            handleOpenReplaceProducto={e.handleOpenReplaceProducto}
-            handleLineaFieldChange={e.handleLineaFieldChange}
-            handleCantidadChange={e.handleCantidadChange}
-            handleCantidadBlur={e.handleCantidadBlur}
-            handlePrecioChange={e.handlePrecioChange}
-            handlePrecioBlur={e.handlePrecioBlur}
-            handleRemoveLinea={e.handleRemoveLinea}
-            lineas={e.lineas}
-            setLineas={e.setLineas}
-            aceptaSustituciones={e.aceptaSustituciones}
-            setAceptaSustituciones={e.setAceptaSustituciones}
-            requiereLote={e.requiereLote}
-            setRequiereLote={e.setRequiereLote}
-            registrarTemperatura={e.registrarTemperatura}
-            setRegistrarTemperatura={e.setRegistrarTemperatura}
-          />
+        {estado.step === "form" && !estado.isLoading ? (
+          <OrdenVentaFormStep {...estado} />
         ) : null}
     </>
   );
 }
 
-export function OrdenVentaModalOverlays({ e }: { e: Record<string, any> }) {
+export function OrdenVentaModalOverlays({ estado }: { estado: OrdenVentaFormEstado }) {
   return (
     <>
       <OrdenVentaModalPickers
-        picker={e.picker}
-        setPicker={e.setPicker}
-        compradores={e.compradores}
-        compradorPickerPriorityIds={e.compradorPickerPriorityIds}
-        idComprador={e.idComprador}
-        handleSelectComprador={e.handleSelectComprador}
-        compradorNombreIa={e.compradorNombreIa}
-        compradorSugerencias={e.compradorSugerencias}
-        cypherOpen={e.cypherOpen}
-        isEditing={e.isEditing}
-        productosParaPicker={e.productosParaPicker}
-        productoPickerPriorityIds={e.productoPickerPriorityIds}
-        replaceLineaIndex={e.replaceLineaIndex}
-        setReplaceLineaIndex={e.setReplaceLineaIndex}
-        lineas={e.lineas}
-        handleSelectProducto={e.handleSelectProducto}
-        handleAcceptSugerencia={e.handleAcceptSugerencia}
-        handleOpenReplaceProducto={e.handleOpenReplaceProducto}
-        moneda={e.moneda}
-        setMoneda={e.setMoneda}
-        bodegasDestino={e.bodegasDestino}
-        idBodegaDestino={e.idBodegaDestino}
-        setIdBodegaDestino={e.setIdBodegaDestino}
-        isCompradorCreateOpen={e.isCompradorCreateOpen}
-        setIsCompradorCreateOpen={e.setIsCompradorCreateOpen}
-        startMode={e.startMode}
-        step={e.step}
-        setStartMode={e.setStartMode}
-        handleCompradorCreatedForSale={e.handleCompradorCreatedForSale}
+        picker={estado.picker}
+        setPicker={estado.setPicker}
+        compradores={estado.compradores}
+        compradorPickerPriorityIds={estado.compradorPickerPriorityIds}
+        idComprador={estado.idComprador}
+        handleSelectComprador={estado.handleSelectComprador}
+        compradorNombreIa={estado.compradorNombreIa}
+        compradorSugerencias={estado.compradorSugerencias}
+        cypherOpen={estado.cypherOpen}
+        isEditing={estado.isEditing}
+        productosParaPicker={estado.productosParaPicker}
+        productoPickerPriorityIds={estado.productoPickerPriorityIds}
+        replaceLineaIndex={estado.replaceLineaIndex}
+        setReplaceLineaIndex={estado.setReplaceLineaIndex}
+        lineas={estado.lineas}
+        handleSelectProducto={estado.handleSelectProducto}
+        handleAcceptSugerencia={estado.handleAcceptSugerencia}
+        handleOpenReplaceProducto={estado.handleOpenReplaceProducto}
+        moneda={estado.moneda}
+        setMoneda={estado.setMoneda}
+        bodegasDestino={estado.bodegasDestino}
+        idBodegaDestino={estado.idBodegaDestino}
+        setIdBodegaDestino={estado.setIdBodegaDestino}
+        isCompradorCreateOpen={estado.isCompradorCreateOpen}
+        setIsCompradorCreateOpen={estado.setIsCompradorCreateOpen}
+        startMode={estado.startMode}
+        step={estado.step}
+        setStartMode={estado.setStartMode}
+        handleCompradorCreatedForSale={estado.handleCompradorCreatedForSale}
       />
       <OrdenVentaModalDialogs
-        confirmDiscrepanciasOpen={e.confirmDiscrepanciasOpen}
-        setConfirmDiscrepanciasOpen={e.setConfirmDiscrepanciasOpen}
-        skipDiscrepanciaConfirmRef={e.skipDiscrepanciaConfirmRef}
-        skipSaveConfirmRef={e.skipSaveConfirmRef}
-        handleSubmit={e.handleSubmit}
-        avisosValidacion={e.avisosValidacion}
-        canReemplazarDiscrepancia={e.canReemplazarDiscrepancia}
-        handleReemplazarDiscrepancia={e.handleReemplazarDiscrepancia}
-        confirmSaveOpen={e.confirmSaveOpen}
-        setConfirmSaveOpen={e.setConfirmSaveOpen}
-        esPorConfirmar={e.esPorConfirmar}
-        fechaEntrega={e.fechaEntrega}
-        setMissingFields={e.setMissingFields}
-        setError={e.setError}
-        isEditing={e.isEditing}
-        editingEstado={e.editingEstado}
-        fechaEntregaAtrasada={e.fechaEntregaAtrasada}
-        avisoPotencialDuplicado={e.avisoPotencialDuplicado}
-        confirmDiscardOpen={e.confirmDiscardOpen}
-        setConfirmDiscardOpen={e.setConfirmDiscardOpen}
-        onClose={e.onClose}
-        ordenesTrabajoForm={e.ordenesTrabajoForm}
-        confirmRemoveOtId={e.confirmRemoveOtId}
-        setConfirmRemoveOtId={e.setConfirmRemoveOtId}
-        handleConfirmRemoveOrdenTrabajo={e.handleConfirmRemoveOrdenTrabajo}
-        addOtOpen={e.addOtOpen}
-        setAddOtOpen={e.setAddOtOpen}
-        addOtAlmacen={e.addOtAlmacen}
-        setAddOtAlmacen={e.setAddOtAlmacen}
-        addOtNumeroPedido={e.addOtNumeroPedido}
-        setAddOtNumeroPedido={e.setAddOtNumeroPedido}
-        handleAddOrdenTrabajo={e.handleAddOrdenTrabajo}
-        reagruparOpen={e.reagruparOpen}
-        cypherOpen={e.cypherOpen}
-        editingId={e.editingId}
-        folioVisible={e.folioVisible}
-        setReagruparOpen={e.setReagruparOpen}
-        obtenerSolicitudReagrupacion={e.obtenerSolicitudReagrupacion}
-        handleAplicarReagrupacion={e.handleAplicarReagrupacion}
-        handleAplicarCorreccionCorreo={e.handleAplicarCorreccionCorreo}
+        confirmDiscrepanciasOpen={estado.confirmDiscrepanciasOpen}
+        setConfirmDiscrepanciasOpen={estado.setConfirmDiscrepanciasOpen}
+        skipDiscrepanciaConfirmRef={estado.skipDiscrepanciaConfirmRef}
+        skipSaveConfirmRef={estado.skipSaveConfirmRef}
+        handleSubmit={estado.handleSubmit}
+        avisosValidacion={estado.avisosValidacion}
+        canReemplazarDiscrepancia={estado.canReemplazarDiscrepancia}
+        handleReemplazarDiscrepancia={estado.handleReemplazarDiscrepancia}
+        confirmSaveOpen={estado.confirmSaveOpen}
+        setConfirmSaveOpen={estado.setConfirmSaveOpen}
+        esPorConfirmar={estado.esPorConfirmar}
+        fechaEntrega={estado.fechaEntrega}
+        setMissingFields={estado.setMissingFields}
+        setError={estado.setError}
+        isEditing={estado.isEditing}
+        editingEstado={estado.editingEstado}
+        fechaEntregaAtrasada={estado.fechaEntregaAtrasada}
+        avisoPotencialDuplicado={estado.avisoPotencialDuplicado}
+        confirmDiscardOpen={estado.confirmDiscardOpen}
+        setConfirmDiscardOpen={estado.setConfirmDiscardOpen}
+        onClose={estado.onClose}
+        ordenesTrabajoForm={estado.ordenesTrabajoForm}
+        confirmRemoveOtId={estado.confirmRemoveOtId}
+        setConfirmRemoveOtId={estado.setConfirmRemoveOtId}
+        handleConfirmRemoveOrdenTrabajo={estado.handleConfirmRemoveOrdenTrabajo}
+        addOtOpen={estado.addOtOpen}
+        setAddOtOpen={estado.setAddOtOpen}
+        addOtAlmacen={estado.addOtAlmacen}
+        setAddOtAlmacen={estado.setAddOtAlmacen}
+        addOtNumeroPedido={estado.addOtNumeroPedido}
+        setAddOtNumeroPedido={estado.setAddOtNumeroPedido}
+        handleAddOrdenTrabajo={estado.handleAddOrdenTrabajo}
+        reagruparOpen={estado.reagruparOpen}
+        cypherOpen={estado.cypherOpen}
+        editingId={estado.editingId}
+        folioVisible={estado.folioVisible}
+        setReagruparOpen={estado.setReagruparOpen}
+        obtenerSolicitudReagrupacion={estado.obtenerSolicitudReagrupacion}
+        handleAplicarReagrupacion={estado.handleAplicarReagrupacion}
+        handleAplicarCorreccionCorreo={estado.handleAplicarCorreccionCorreo}
       />
     </>
   );

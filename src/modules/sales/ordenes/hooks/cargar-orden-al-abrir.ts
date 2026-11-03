@@ -23,6 +23,7 @@ import {
   shouldAutoAssignComprador,
 } from "../utils/match/match-comprador-from-nombre";
 import type { LineaVentaForm } from "../types/orden-venta-create-modal.types";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import type { OrdenTrabajoHija } from "../utils/origen/origen-correo-ordenes-trabajo";
 import { preciosYEquivalenciasDeComprador } from "./useClienteOv";
 
@@ -77,10 +78,10 @@ export function cargarFichaYPreciosDeComprador(input: {
   codigoCuenta: string;
   telefonoComprador?: string | null;
   selectedCompradorIdRef: { current: string };
-  setFichaComprador: (value: unknown) => void;
-  setExigeOc: (value: boolean) => void;
-  setPrecioOverrideByProducto: (value: Record<string, number>) => void;
-  setEquivalenciaByProducto: (value: Record<string, string>) => void;
+  setFichaComprador: OrdenVentaFormEstado["setFichaComprador"];
+  setExigeOc: OrdenVentaFormEstado["setExigeOc"];
+  setPrecioOverrideByProducto: OrdenVentaFormEstado["setPrecioOverrideByProducto"];
+  setEquivalenciaByProducto: OrdenVentaFormEstado["setEquivalenciaByProducto"];
 }) {
   const {
     idCompradorDetalle, codigoCuenta, telefonoComprador, selectedCompradorIdRef,
@@ -122,8 +123,9 @@ export function cargarFichaYPreciosDeComprador(input: {
 }
 
 
-export function aplicarDetalleExternoPorConfirmar(input: Record<string, any>) {
+export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
   const { origenCorreoRows, detalle, idCompradorDetalle, nombreEscritoOrigen, setCompradorNombreIa, compradorRows, handleSelectComprador, selectedCompradorIdRef, ovMaterializada, setCompradorSugerencias, setIdComprador, setCompradorLabel, setPrioridad, productoRows, hijasEdit, setFechaEntrega, setCentroConsumo, setObservaciones, setOrdenCompraHotel, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setVentanaDesde, setVentanaHasta, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias, skipOtSeedFromOrigenRef, lineasDesdeDetalle, setLineas, setStartMode, setFormOtPage, setStep } = input;
+  if (!detalle) return;
           const pedido = buildPedidoExtraidoFromOrigenCorreo({
             origenCorreo: origenCorreoRows,
             origenTexto: detalle.origen_texto,

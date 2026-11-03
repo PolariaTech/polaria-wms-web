@@ -1,4 +1,6 @@
 "use client";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
+import type { LineaVentaForm } from "../types/orden-venta-create-modal.types";
 
 import {
   useCallback,
@@ -28,12 +30,12 @@ import { todayIsoDate } from "../utils/pedido/build-orden-venta-captura-observac
 import { normalizeEstadoOrdenVenta } from "../../shared/constants/sales-status";
 import { useRevisionPendienteOv } from "./aplicar-correccion-correo-ov";
 
-export function useSyncOtFormulario(e: Record<string, any>) {
-  const { setOrdenesTrabajoPreview, setOrigenCorreoDraft, setFormOtPage, addOtAlmacen, setError, addOtNumeroPedido, ordenCompraHotel, fechaEntrega, ordenesTrabajoForm, setAddOtOpen, setAddOtAlmacen, setAddOtNumeroPedido, setStep, confirmRemoveOtId, setLineas, seededOtIdsRef, setConfirmRemoveOtId, step, formOtPage, startMode, lineas, centroConsumo, contacto, telefono, correo, direccion, anden, ventanaDesde, ventanaHasta, observaciones, prioridad, setSuccessMessage } = e;
+export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
+  const { setOrdenesTrabajoPreview, setOrigenCorreoDraft, setFormOtPage, addOtAlmacen, setError, addOtNumeroPedido, ordenCompraHotel, fechaEntrega, ordenesTrabajoForm, setAddOtOpen, setAddOtAlmacen, setAddOtNumeroPedido, setStep, confirmRemoveOtId, setLineas, seededOtIdsRef, setConfirmRemoveOtId, step, formOtPage, startMode, lineas, centroConsumo, contacto, telefono, correo, direccion, anden, ventanaDesde, ventanaHasta, observaciones, prioridad, setSuccessMessage } = estado;
   const applyOrdenesTrabajo = useCallback((next: OrdenTrabajoHija[]) => {
     setOrdenesTrabajoPreview(next);
     setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(next));
-    setFormOtPage((page: any) =>
+    setFormOtPage((page) =>
       next.length === 0 ? 0 : Math.min(page, next.length - 1),
     );
   }, []);
@@ -55,7 +57,7 @@ export function useSyncOtFormulario(e: Record<string, any>) {
     setAddOtAlmacen("");
     setAddOtNumeroPedido("");
     setError(null);
-    const newIndex = next.findIndex((h: any) => h.id === nueva.id);
+    const newIndex = next.findIndex((h) => h.id === nueva.id);
     setFormOtPage(newIndex >= 0 ? newIndex : next.length - 1);
     setStep("form");
   }, [
@@ -70,9 +72,9 @@ export function useSyncOtFormulario(e: Record<string, any>) {
   const handleConfirmRemoveOrdenTrabajo = useCallback(() => {
     const otId = confirmRemoveOtId;
     if (!otId) return;
-    const next = ordenesTrabajoForm.filter((hija: any) => hija.id !== otId);
+    const next = ordenesTrabajoForm.filter((hija) => hija.id !== otId);
     applyOrdenesTrabajo(next);
-    setLineas((prev: any) => prev.filter((linea: any) => linea.otId !== otId));
+    setLineas((prev) => prev.filter((linea) => linea.otId !== otId));
     seededOtIdsRef.current.delete(otId);
     setConfirmRemoveOtId(null);
     setError(null);
@@ -93,7 +95,7 @@ export function useSyncOtFormulario(e: Record<string, any>) {
   const paginarPorOt =
     startMode === "docs" &&
     ordenesTrabajoForm.length > 1 &&
-    lineas.some((linea: any) => Boolean(linea.otId));
+    lineas.some((linea) => Boolean(linea.otId));
 
   const formOtSafePage = paginarPorOt
     ? Math.min(formOtPage, ordenesTrabajoForm.length - 1)
@@ -127,7 +129,7 @@ export function useSyncOtFormulario(e: Record<string, any>) {
     const notasOt = observaciones.trim();
     const prioridadOt = prioridad.trim();
 
-    return ordenesTrabajoForm.map((hija: any) => {
+    return ordenesTrabajoForm.map((hija) => {
       // REQ-141 / REQ-112: notas y dirección son de la OV — propagar a todas las OT.
       if (hija.id !== targetHija.id) {
         return {
@@ -136,7 +138,7 @@ export function useSyncOtFormulario(e: Record<string, any>) {
             hija.renglones.length > 0
               ? hija.renglones
               : [{ Producto: "", Cantidad: 0 }]
-          ).map((row: any) => ({
+          ).map((row) => ({
             ...row,
             "Notas generales": notasOt,
             "Direccion entrega": direccionOt,
@@ -148,7 +150,7 @@ export function useSyncOtFormulario(e: Record<string, any>) {
         hija.renglones.length > 0
           ? hija.renglones
           : [{ Producto: "", Cantidad: 0 }]
-      ).map((row: any) => ({
+      ).map((row) => ({
         ...row,
         Almacen: almacen || row.Almacen,
         "Numero pedido":
@@ -220,15 +222,15 @@ export function useSyncOtFormulario(e: Record<string, any>) {
   return { applyOrdenesTrabajo, handleAddOrdenTrabajo, handleConfirmRemoveOrdenTrabajo, previewHijas, formOtSafePagePreview, paginarPorOt, formOtSafePage, hijaFormActiva, syncActiveOtFromForm, goToOtPage };
 }
 
-export function useTotalesVentaOv(e: Record<string, any>) {
+export function useTotalesVentaOv(estado: OrdenVentaFormEstado) {
   const {
     lineasConIndice, paginarPorOt, step, idComprador, exigeOc, ordenCompraHotel,
     idBodegaDestino, fechaEntrega, ventanaDesde, ventanaHasta, isEditing, editingEstado,
     ordenesTrabajoForm, lineas, isLoading, isSaving, hasProductos, hasCatalogPending,
     formScrollRef, revisionFocusRequestRef, formOtSafePage, codigoVenta, setEditingCodigo,
-  } = e;
+  } = estado;
   const lineasParaTotales = useMemo(
-    () => lineasConIndice.map(({ linea }: { linea: any }) => linea),
+    () => lineasConIndice.map(({ linea }: { linea: LineaVentaForm }) => linea),
     [lineasConIndice],
   );
   const otPagerNextBlocked = useMemo(() => {
@@ -242,7 +244,7 @@ export function useTotalesVentaOv(e: Record<string, any>) {
       todayIso: todayIsoDate(),
       ventanaDesde,
       ventanaHasta,
-      lineasPagina: lineasConIndice.map(({ linea }: { linea: any }) => ({
+      lineasPagina: lineasConIndice.map(({ linea }: { linea: LineaVentaForm }) => ({
         cantidadInput: linea.cantidadInput,
         precioInput: linea.precioInput,
       })),
@@ -261,17 +263,17 @@ export function useTotalesVentaOv(e: Record<string, any>) {
       ventanaDesde, ventanaHasta, ordenesTrabajoForm, lineas, isLoading, isSaving,
       hasProductos, hasCatalogPending, formScrollRef, revisionFocusRequestRef,
       paginarPorOt, formOtSafePage, lineasConIndice,
-    });
+    } as OrdenVentaFormEstado);
   const subtotalVenta = useMemo(
-    () => lineasParaTotales.reduce((sum: number, linea: any) => sum + lineAmounts(linea).bruto, 0),
+    () => lineasParaTotales.reduce((sum: number, linea) => sum + lineAmounts(linea).bruto, 0),
     [lineasParaTotales],
   );
   const descuentosVenta = useMemo(
-    () => lineasParaTotales.reduce((sum: number, linea: any) => sum + lineAmounts(linea).descuento, 0),
+    () => lineasParaTotales.reduce((sum: number, linea) => sum + lineAmounts(linea).descuento, 0),
     [lineasParaTotales],
   );
   const ivaVenta = useMemo(
-    () => lineasParaTotales.reduce((sum: number, linea: any) => sum + lineAmounts(linea).iva, 0),
+    () => lineasParaTotales.reduce((sum: number, linea) => sum + lineAmounts(linea).iva, 0),
     [lineasParaTotales],
   );
   const totalVenta = useMemo(
@@ -283,7 +285,7 @@ export function useTotalesVentaOv(e: Record<string, any>) {
     lineas.some((linea: { otId?: string }) => Boolean(linea.otId));
   const totalOvCompleta = useMemo(() => {
     if (!mostrarTotalOv) return 0;
-    return lineas.reduce((sum: number, linea: any) => {
+    return lineas.reduce((sum: number, linea) => {
       const a = lineAmounts(linea);
       return sum + Math.max(0, a.bruto - a.descuento + a.iva);
     }, 0);

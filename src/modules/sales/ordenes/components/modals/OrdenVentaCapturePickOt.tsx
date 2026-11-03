@@ -1,3 +1,5 @@
+"use client";
+
 import { CompradorCreateModal, type CompradorListRow } from "@/modules/admin-panel";
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
 import { OrdenVentaCompradorPickerModal } from "../pickers/OrdenVentaCompradorPickerModal";
@@ -7,7 +9,6 @@ import { OrdenVentaTablePickerModal } from "../pickers/OrdenVentaTablePickerModa
 import type { OrdenVentaModalPickersProps } from "../../types/orden-venta-create-modal.types";
 import { collectSugerenciasLinea } from "../../utils/pedido/orden-venta-create-helpers";
 import { MONEDA_OPTIONS } from "../../types/orden-venta-create-modal.types";
-"use client";
 
 import { Plus } from "lucide-react";
 import { formatKgEs } from "@/lib/utils/decimal-es";

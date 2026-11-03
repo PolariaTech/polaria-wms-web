@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import {
   getCompradorAdmin,
   listCompradorProductoAliasAdmin,
@@ -138,13 +139,13 @@ export function seleccionarCompradorOv(input: {
     });
 }
 
-export function useSeleccionarCompradorModal(e: Record<string, any>) {
+export function useSeleccionarCompradorModal(estado: OrdenVentaFormEstado) {
   const {
     codigoCuenta, selectedCompradorIdRef, setIdComprador, setCompradorLabel, setExigeOc,
     setCompradorNombreIa, setCompradorSugerencias, setError, setMissingFields,
     setAvisoVerificarDireccion, setWarnFields, setTelefono, applyCompradorPrefill,
     setPrecioOverrideByProducto, setEquivalenciaByProducto,
-  } = e;
+  } = estado;
   const handleSelectComprador = useCallback(
     (
       row: CompradorListRow,

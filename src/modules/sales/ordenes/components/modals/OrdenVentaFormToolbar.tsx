@@ -1,4 +1,5 @@
 import { Trash2 } from "lucide-react";
+import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 import { PolariaFormField, PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { formatDateTime } from "@/components/shared/utils/formatters";
 import { FolioFacturaCampos } from "../../surtido/guardar-folio-factura-captura.client";
@@ -9,7 +10,7 @@ import { OrdenVentaCaptureFormCliente, OrdenVentaCaptureFormOcultos } from "./Or
 import { OrdenVentaCaptureFormLineas } from "./OrdenVentaCaptureFormLineas";
 import { OrdenVentaCaptureFormPedido } from "./OrdenVentaCaptureFormPedido";
 
-export function OrdenVentaFormStep(input: Record<string, any>) {
+export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
   const { ordenesTrabajoForm, hijaFormActiva, setConfirmRemoveOtId, isEditing, setStep, setStartMode, setError, afterCutoff, successMessage, hasProductos, emptyCatalogMessage, startMode, origenTexto, origenArchivosNombres, vendedorNombre, idComprador, compradorLabel, compradorNombreIa, compradorSugerencias, missingFields, setPicker, codigoClienteCatalogo, denominacionComercialCatalogo, fechaCreacion, paginarPorOt, folioFactura, ordenCompraHotel, setOrdenCompraHotel, exigeOc, centroConsumo, setCentroConsumo, fechaEntrega, setFechaEntrega, esPorConfirmar, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, observaciones, setObservaciones, clearFieldMarks, autoFields, warnFields, direccion, setDireccion, setAvisoVerificarDireccion, avisoVerificarDireccion, contacto, setContacto, telefono, setTelefono, correo, setCorreo, lineasConIndice, subtotalVenta, ivaVenta, totalVenta, totalOvCompleta, mostrarTotalOv, puedeAgregarProducto, setReplaceLineaIndex, handleOpenReplaceProducto, handleLineaFieldChange, handleCantidadChange, handleCantidadBlur, handlePrecioChange, handlePrecioBlur, handleRemoveLinea, lineas, setLineas, aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote, registrarTemperatura, setRegistrarTemperatura } = input;
   return (
     <div className="flex flex-col gap-3">
@@ -235,14 +236,14 @@ export function OrdenVentaFormStep(input: Record<string, any>) {
                 <OrdenVentaCaptureFormOcultos
                   lineas={lineas}
                   onCajas={(index, value) =>
-                    setLineas((prev: Array<{ cajasInput?: string }>) =>
+                    setLineas((prev) =>
                       prev.map((row, i) =>
                         i === index ? { ...row, cajasInput: value } : row,
                       ),
                     )
                   }
                   onPresentacion={(index, value) =>
-                    setLineas((prev: Array<{ presentacion?: string }>) =>
+                    setLineas((prev) =>
                       prev.map((row, i) =>
                         i === index ? { ...row, presentacion: value } : row,
                       ),

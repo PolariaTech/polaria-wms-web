@@ -1,4 +1,5 @@
 import type { OrigenAdjunto } from "../utils/origen/origen-adjuntos";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import { uploadOvAdjuntosClient } from "../services/ov-adjuntos.client";
 import {
   buildPayloadEnvioOv,
@@ -10,7 +11,7 @@ import { ejecutarPersistenciaEnvio } from "./useEnvioOv";
 import { validarEnvioOv } from "./validar-envio-ov";
 import { useCallback, type FormEvent } from "react";
 
-export async function confirmarEnvioOv(input: Record<string, any>) {
+export async function confirmarEnvioOv(input: OrdenVentaFormEstado) {
   const {
     isDraft, codigoCuenta, isEditing, startMode, origenTexto, origenAdjuntos,
     origenArchivoFiles, setOrigenAdjuntos, setIsSaving, setMateoBusyMessage, setError,
@@ -99,10 +100,10 @@ export async function confirmarEnvioOv(input: Record<string, any>) {
     ...input,
     payload,
     fechaEntregaPersist,
-  });
+  } as OrdenVentaFormEstado);
 }
 
-export function useHandleSubmitOv(e: Record<string, any>) {
+export function useHandleSubmitOv(estado: OrdenVentaFormEstado) {
   const {
     submitIntentRef, setError, setSuccessMessage, codigoCuenta, hasProductos, step,
     isEditing, pendingEmitId, idComprador, showToast, startMode, avisosCatalogoValidacion,
@@ -117,7 +118,7 @@ export function useHandleSubmitOv(e: Record<string, any>) {
     editingId, editingEstado, session, setPendingEmitId, setEditingEstado, reagruparAplicada,
     setReagruparAplicada, folioFactura, onEmitSuccess, onAutoPrintResult, onCreated, onClose,
     hijaFormActiva, paginarPorOt,
-  } = e;
+  } = estado;
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -199,7 +200,7 @@ export function useHandleSubmitOv(e: Record<string, any>) {
         onClose,
         hijaFormActiva,
         paginarPorOt,
-      });
+      } as OrdenVentaFormEstado);
       if (!preparado) return;
       await confirmarEnvioOv({
         isDraft,
@@ -273,7 +274,7 @@ export function useHandleSubmitOv(e: Record<string, any>) {
         onClose,
         hijaFormActiva,
         paginarPorOt,
-      });
+      } as unknown as OrdenVentaFormEstado);
     },
     [
       anden, applyOrdenesTrabajo, bodegasDestino, centroConsumo, chofer, codigoCuenta,

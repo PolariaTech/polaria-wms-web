@@ -1,4 +1,5 @@
 import { getCompradorAdmin } from "@/modules/admin-panel";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../shared/types/sales.types";
 import { leerPedidoConIaApi } from "../services/sales-ai.api";
 import { extractCorreoContactoDesdeTexto } from "../utils/origen/correo-chrome";
@@ -11,7 +12,7 @@ import { formatPrecioInput } from "../utils/pedido/orden-venta-create-helpers";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/pedido/prefill-orden-venta-from-comprador";
 import { rankCompradoresFromNombre, shouldAutoAssignComprador } from "../utils/match/match-comprador-from-nombre";
 
-export async function abrirFormularioDesdeDocs(input: Record<string, any>) {
+export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
   const { codigoCuenta, origenTexto, origenArchivoFiles, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, fechaEntrega, ordenCompraHotel, aceptaSustituciones, requiereLote, registrarTemperatura, autoFields, warnFields, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields } = input;
     if (!codigoCuenta) {
       setError("No hay cuenta activa.");

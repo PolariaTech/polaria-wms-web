@@ -1,3 +1,5 @@
+"use client";
+
 import type { FormEvent } from "react";
 import { Save } from "lucide-react";
 import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
@@ -7,7 +9,6 @@ import { FECHA_ENTREGA_ATRASADA_WARNING, isFechaEntregaIsoValida } from "../../u
 import { reagruparModalAbierto } from "../../utils/ot/reagrupacion-modal-estado";
 import { OrdenVentaReagruparOtModal } from "./OrdenVentaReagruparOtModal";
 import type { OrdenVentaModalDialogsProps } from "../../types/orden-venta-create-modal.types";
-"use client";
 
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";

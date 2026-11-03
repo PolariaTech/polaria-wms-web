@@ -1,4 +1,5 @@
 "use client";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 
 import {
   useCallback,
@@ -36,8 +37,8 @@ import {
 } from "../utils/origen/origen-adjuntos";
 import { abrirFormularioDesdeDocs } from "./useOtOv";
 
-export function useResetFormularioOv(e: Record<string, any>) {
-  const { open, setOrdenCargadaId, setFechaCreacion, setStep, isEditing, setStartMode, setIsCompradorCreateOpen, setIdComprador, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, selectedCompradorIdRef, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setObservaciones, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setOrigenArchivoFiles, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setFormOtPage, setLineas, setProductosBase, setPrecioOverrideByProducto, setEquivalenciaByProducto, setCompradores, setBodegasDestino, setIdBodegaDestino, setPendingEmitId, setEditingEstado, setEditingCodigo, setReagruparOpen, setReagruparAplicada, setPicker, setReplaceLineaIndex, setAutoFields, setWarnFields, setAvisoVerificarDireccion, setMissingFields, setDiscrepancias, setConfirmDiscrepanciasOpen, setConfirmSaveOpen, setIsReadingIa, skipDiscrepanciaConfirmRef, skipSaveConfirmRef, skipOtSeedFromOrigenRef, pendingDraftSaveAfterReorgRef, setCantidadFocusId, setError, setSuccessMessage, setIsSaving, submitIntentRef, setOrigenAdjuntos, setEmlInnerAdjuntos, setConfirmDiscardOpen, setFichaComprador, setExigeOc, codigoCuenta, setFormDataReady, setIsLoading, editingId, codigoVenta, handleSelectComprador, bootstrapPromiseRef, compradores, formDataReady } = e;
+export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
+  const { open, setOrdenCargadaId, setFechaCreacion, setStep, isEditing, setStartMode, setIsCompradorCreateOpen, setIdComprador, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, selectedCompradorIdRef, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setObservaciones, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setOrigenArchivoFiles, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setFormOtPage, setLineas, setProductosBase, setPrecioOverrideByProducto, setEquivalenciaByProducto, setCompradores, setBodegasDestino, setIdBodegaDestino, setPendingEmitId, setEditingEstado, setEditingCodigo, setReagruparOpen, setReagruparAplicada, setPicker, setReplaceLineaIndex, setAutoFields, setWarnFields, setAvisoVerificarDireccion, setMissingFields, setDiscrepancias, setConfirmDiscrepanciasOpen, setConfirmSaveOpen, setIsReadingIa, skipDiscrepanciaConfirmRef, skipSaveConfirmRef, skipOtSeedFromOrigenRef, pendingDraftSaveAfterReorgRef, setCantidadFocusId, setError, setSuccessMessage, setIsSaving, submitIntentRef, setOrigenAdjuntos, setEmlInnerAdjuntos, setConfirmDiscardOpen, setFichaComprador, setExigeOc, codigoCuenta, setFormDataReady, setIsLoading, editingId, codigoVenta, handleSelectComprador, bootstrapPromiseRef, compradores, formDataReady } = estado;
   useEffect(() => {
     if (!open) {
       // Al cerrar el formulario su detalle queda en memoria: que no se tome por el de la
@@ -164,8 +165,8 @@ export function useResetFormularioOv(e: Record<string, any>) {
           setOrigenTexto, setOrigenAdjuntos, setOrigenCorreoDraft, setOrdenesTrabajoPreview,
           setCompradorNombreIa, setCompradorSugerencias, setLineas, setStartMode, setFormOtPage,
           setStep, setMissingFields, setDiscrepancias, setAutoFields, setWarnFields,
-          setFichaComprador, setExigeOc, setPrecioOverrideByProducto, setEquivalenciaByProducto,
-        });
+          setFichaComprador, setExigeOc, setPrecioOverrideByProducto,           setEquivalenciaByProducto,
+        } as OrdenVentaFormEstado);
       });
 
     bootstrapPromiseRef.current = bootstrap
@@ -199,17 +200,17 @@ export function useResetFormularioOv(e: Record<string, any>) {
   return { ensureFormDataReady };
 }
 
-export function useAperturaDesdeDocsOv(e: Record<string, any>) {
-  const { origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos, codigoCuenta, origenTexto, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, fechaEntrega, ordenCompraHotel, aceptaSustituciones, requiereLote, registrarTemperatura, autoFields, warnFields, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields, applyCompradorPrefill } = e;
+export function useAperturaDesdeDocsOv(estado: OrdenVentaFormEstado) {
+  const { origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos, codigoCuenta, origenTexto, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, fechaEntrega, ordenCompraHotel, aceptaSustituciones, requiereLote, registrarTemperatura, autoFields, warnFields, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields, applyCompradorPrefill } = estado;
   const origenArchivosNombres = useMemo(() => {
-    const fromFiles = origenArchivoFiles.map((file: any) => file.name);
+    const fromFiles = origenArchivoFiles.map((file) => file.name);
     const raw =
       fromFiles.length > 0
         ? fromFiles
         : nombresOrigenAdjuntos(
             mergeOrigenAdjuntosWithEmlParts(origenAdjuntos, emlInnerAdjuntos),
           );
-    return [...new Set(raw.map((name: any) => name.trim()).filter(Boolean))];
+    return [...new Set(raw.map((name) => name.trim()).filter(Boolean))];
   }, [origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos]);
 
   const openFormFromDocs = useCallback(async () => {
@@ -274,7 +275,7 @@ export function useAperturaDesdeDocsOv(e: Record<string, any>) {
       setVentanaDesde,
       setVentanaHasta,
       setWarnFields,
-    });
+    } as OrdenVentaFormEstado);
   }, [
     anden,
     applyCompradorPrefill,
@@ -301,8 +302,8 @@ export function useAperturaDesdeDocsOv(e: Record<string, any>) {
   return { origenArchivosNombres, openFormFromDocs };
 }
 
-export function useForzarFormularioAlEditar(e: Record<string, any>) {
-  const { open, isEditing, step, setFormOtPage, setStep, setError } = e;
+export function useForzarFormularioAlEditar(estado: OrdenVentaFormEstado) {
+  const { open, isEditing, step, setFormOtPage, setStep, setError } = estado;
   useEffect(() => {
     if (!open || !isEditing) return;
     if (step !== "pickOt") return;

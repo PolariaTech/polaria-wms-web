@@ -1,4 +1,5 @@
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
+import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import type { OrdenVentaOperadorRow } from "../../shared/types/sales.types";
 import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
 import {
@@ -17,7 +18,7 @@ import {
   fetchAutoImprimirFlag,
 } from "../print/auto-print-ov-tras-emitir";
 
-export async function ejecutarPersistenciaEnvio(input: Record<string, any>) {
+export async function ejecutarPersistenciaEnvio(input: OrdenVentaFormEstado) {
   const { isDraft, codigoCuenta, hasProductos, step, isEditing, pendingEmitId, idComprador, setError, showToast, startMode, avisosCatalogoValidacion, skipDiscrepanciaConfirmRef, setConfirmDiscrepanciasOpen, exigeOc, ordenCompraHotel, syncActiveOtFromForm, ordenesTrabajoForm, applyOrdenesTrabajo, lineas, fechaEntrega, origenCorreoDraft, setFechaEntrega, setMissingFields, ventanaDesde, ventanaHasta, formScrollRef, bodegasDestino, idBodegaDestino, skipSaveConfirmRef, setConfirmSaveOpen, setIsSaving, setMateoBusyMessage, origenTexto, origenAdjuntos, origenArchivoFiles, setOrigenAdjuntos, compradorNombreIa, compradorLabel, prioridad, moneda, centroConsumo, vendedorNombre, direccion, anden, contacto, telefono, correo, turno, horaSalida, chofer, unidad, aceptaSustituciones, requiereLote, registrarTemperatura, observaciones, idCreador, editingId, editingEstado, session, setPendingEmitId, setEditingEstado, reagruparAplicada, setReagruparAplicada, folioFactura, onEmitSuccess, onAutoPrintResult, onCreated, onClose } = input;
   const { payload, fechaEntregaPersist } = input;
 let idOrdenVenta = isEditing ? editingId : pendingEmitId;

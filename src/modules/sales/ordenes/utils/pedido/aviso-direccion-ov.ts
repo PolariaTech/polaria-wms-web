@@ -1,4 +1,5 @@
 "use client";
+import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 
 import { useCallback, useEffect, useMemo, type FormEvent } from "react";
 import {
@@ -24,8 +25,8 @@ import {
   useFocoOrdenCompraAlAbrir,
 } from "../../utils/pedido/resolve-cabecera-guardada";
 
-export function useLeerOcDesdeAdjuntos(e: Record<string, any>) {
-  const { step, open, ordenCompraHotel, origenAdjuntos, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft } = e;
+export function useLeerOcDesdeAdjuntos(estado: OrdenVentaFormEstado) {
+  const { step, open, ordenCompraHotel, origenAdjuntos, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft } = estado;
   useEffect(() => {
     if (step !== "form" || !open) return;
     if (ordenCompraHotel.trim() && !isGarbageOcValue(ordenCompraHotel)) {
@@ -34,7 +35,7 @@ export function useLeerOcDesdeAdjuntos(e: Record<string, any>) {
     const paths = [
       ...new Set(
         origenAdjuntos
-          .filter((item: any) => {
+          .filter((item) => {
             if (!item.path?.trim()) return false;
             const name = item.nombre.toLowerCase();
             const mime = (item.mime ?? "").toLowerCase();
@@ -44,7 +45,7 @@ export function useLeerOcDesdeAdjuntos(e: Record<string, any>) {
               name.endsWith(".pdf")
             );
           })
-          .map((item: any) => item.path!.trim()),
+          .map((item) => item.path!.trim()),
       ),
     ];
     if (paths.length === 0) return;
@@ -82,23 +83,23 @@ export function useLeerOcDesdeAdjuntos(e: Record<string, any>) {
       const occ = uniqueOccs[0] ?? "";
       if (!occ) return;
 
-      setOrdenCompraHotel((prev: any) =>
+      setOrdenCompraHotel((prev) =>
         prev.trim() && !isGarbageOcValue(prev) ? prev : occ,
       );
 
       if (Object.keys(byAlmacen).length === 0) {
         // Sin mapa por almacén: aplicar la misma OCC a hijas con basura/vacío.
-        setOrdenesTrabajoPreview((prev: any) => {
+        setOrdenesTrabajoPreview((prev) => {
           if (prev.length === 0) return prev;
           let changed = false;
-          const next = prev.map((hija: any) => {
+          const next = prev.map((hija) => {
             const cur = hija.numeroPedido?.trim() || "";
             if (cur && !isGarbageOcValue(cur)) return hija;
             changed = true;
             return {
               ...hija,
               numeroPedido: occ,
-              renglones: hija.renglones.map((row: any) => ({
+              renglones: hija.renglones.map((row) => ({
                 ...row,
                 "Numero pedido": occ,
               })),
@@ -113,10 +114,10 @@ export function useLeerOcDesdeAdjuntos(e: Record<string, any>) {
         return;
       }
 
-      setOrdenesTrabajoPreview((prev: any) => {
+      setOrdenesTrabajoPreview((prev) => {
         if (prev.length === 0) return prev;
         let changed = false;
-        const next = prev.map((hija: any) => {
+        const next = prev.map((hija) => {
           const alm = (hija.almacen || "").trim().toLowerCase();
           if (!alm) return hija;
           let matched = "";
@@ -149,7 +150,7 @@ export function useLeerOcDesdeAdjuntos(e: Record<string, any>) {
           return {
             ...hija,
             numeroPedido: matched,
-            renglones: hija.renglones.map((row: any) => ({
+            renglones: hija.renglones.map((row) => ({
               ...row,
               "Numero pedido": matched,
             })),
@@ -172,8 +173,8 @@ export function useLeerOcDesdeAdjuntos(e: Record<string, any>) {
   return {  };
 }
 
-export function useCierreCapturaOv(e: Record<string, any>) {
-  const { pendingDraftSaveAfterReorgRef, reagruparAplicada, step, isSaving, isLoading, submitIntentRef, handleSubmit, startMode, origenTexto, origenArchivoFiles, productos, isReadingIa, origenAdjuntos, open, picker, isCompradorCreateOpen, confirmDiscrepanciasOpen, confirmSaveOpen, confirmDiscardOpen, isEditing, setConfirmDiscardOpen, onClose, previewHijas, setStep, setError, setStartMode, ordenesTrabajoForm, setOrigenArchivoFiles } = e;
+export function useCierreCapturaOv(estado: OrdenVentaFormEstado) {
+  const { pendingDraftSaveAfterReorgRef, reagruparAplicada, step, isSaving, isLoading, submitIntentRef, handleSubmit, startMode, origenTexto, origenArchivoFiles, productos, isReadingIa, origenAdjuntos, open, picker, isCompradorCreateOpen, confirmDiscrepanciasOpen, confirmSaveOpen, confirmDiscardOpen, isEditing, setConfirmDiscardOpen, onClose, previewHijas, setStep, setError, setStartMode, ordenesTrabajoForm, setOrigenArchivoFiles } = estado;
   useEffect(() => {
     if (!pendingDraftSaveAfterReorgRef.current || !reagruparAplicada) return;
     if (step !== "form" || isSaving || isLoading) return;
@@ -287,13 +288,13 @@ export function useCierreCapturaOv(e: Record<string, any>) {
   const appendDocsFiles = useCallback((files: FileList | File[]) => {
     const next = Array.from(files).slice(0, 8);
     if (next.length === 0) return;
-    setOrigenArchivoFiles((prev: any) => {
+    setOrigenArchivoFiles((prev) => {
       const merged = [...prev];
       for (const file of next) {
         if (merged.length >= 8) break;
         if (
           merged.some(
-            (existing: any) =>
+            (existing) =>
               existing.name === file.name && existing.size === file.size,
           )
         ) {
@@ -308,8 +309,8 @@ export function useCierreCapturaOv(e: Record<string, any>) {
   return { emptyCatalogMessage, formDescription, docsHasContent, docsReady, requestClose, appendDocsFiles };
 }
 
-export function useFolioDesdeLista(e: Record<string, any>) {
-  const { codigoVenta, setEditingCodigo } = e;
+export function useFolioDesdeLista(estado: OrdenVentaFormEstado) {
+  const { codigoVenta, setEditingCodigo } = estado;
   useEffect(() => {
     const fromLista = codigoVenta?.trim() || "";
     if (!fromLista) return;

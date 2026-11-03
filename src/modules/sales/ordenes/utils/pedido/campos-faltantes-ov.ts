@@ -1,4 +1,5 @@
 "use client";
+import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 
 import { useCallback, useEffect, useMemo } from "react";
 import type { CompradorListRow } from "@/modules/admin-panel";
@@ -22,8 +23,8 @@ import {
 } from "../../utils/pedido/pedido-form-validation";
 import { findDuplicadosAgainstDraft } from "../../utils/match/find-potencial-duplicado-ov";
 
-export function usePrefillYDiscrepanciasOv(e: Record<string, any>) {
-  const { telefono, setFichaComprador, setExigeOc, exigeOc, setMoneda, moneda, setCentroConsumo, centroConsumo, setVentanaDesde, ventanaDesde, setVentanaHasta, ventanaHasta, setDireccion, direccion, setAnden, anden, setContacto, contacto, setTelefono, setCorreo, correo, setAceptaSustituciones, aceptaSustituciones, setRequiereLote, requiereLote, setRegistrarTemperatura, registrarTemperatura, setObservaciones, observaciones, fechaEntrega, setFechaEntrega, setDiscrepancias, setWarnFields, setMissingFields, setAutoFields } = e;
+export function usePrefillYDiscrepanciasOv(estado: OrdenVentaFormEstado) {
+  const { telefono, setFichaComprador, setExigeOc, exigeOc, setMoneda, moneda, setCentroConsumo, centroConsumo, setVentanaDesde, ventanaDesde, setVentanaHasta, ventanaHasta, setDireccion, direccion, setAnden, anden, setContacto, contacto, setTelefono, setCorreo, correo, setAceptaSustituciones, aceptaSustituciones, setRequiereLote, requiereLote, setRegistrarTemperatura, registrarTemperatura, setObservaciones, observaciones, fechaEntrega, setFechaEntrega, setDiscrepancias, setWarnFields, setMissingFields, setAutoFields } = estado;
   const applyCompradorPrefill = useCallback(
     (
       row: CompradorListRow,
@@ -46,21 +47,21 @@ export function usePrefillYDiscrepanciasOv(e: Record<string, any>) {
 
       setFichaComprador(ficha);
       setExigeOc(prefill.exigeOc);
-      setMoneda((prev: any) => take(prev, prefill.moneda));
-      setCentroConsumo((prev: any) => take(prev, prefill.centroConsumo));
-      setVentanaDesde((prev: any) => take(prev, prefill.ventanaDesde));
-      setVentanaHasta((prev: any) => take(prev, prefill.ventanaHasta));
-      setDireccion((prev: any) => take(prev, prefill.direccion));
-      setAnden((prev: any) => take(prev, prefill.anden));
-      setContacto((prev: any) => take(prev, prefill.contacto));
-      setTelefono((prev: any) => take(prev, prefill.telefono));
-      setCorreo((prev: any) => take(prev, prefill.correo));
-      setAceptaSustituciones((prev: any) => take(prev, prefill.aceptaSustituciones));
-      setRequiereLote((prev: any) => take(prev, prefill.requiereLote));
-      setRegistrarTemperatura((prev: any) =>
+      setMoneda((prev) => take(prev, prefill.moneda));
+      setCentroConsumo((prev) => take(prev, prefill.centroConsumo));
+      setVentanaDesde((prev) => take(prev, prefill.ventanaDesde));
+      setVentanaHasta((prev) => take(prev, prefill.ventanaHasta));
+      setDireccion((prev) => take(prev, prefill.direccion));
+      setAnden((prev) => take(prev, prefill.anden));
+      setContacto((prev) => take(prev, prefill.contacto));
+      setTelefono((prev) => take(prev, prefill.telefono));
+      setCorreo((prev) => take(prev, prefill.correo));
+      setAceptaSustituciones((prev) => take(prev, prefill.aceptaSustituciones));
+      setRequiereLote((prev) => take(prev, prefill.requiereLote));
+      setRegistrarTemperatura((prev) =>
         take(prev, prefill.registrarTemperatura),
       );
-      setObservaciones((prev: any) => take(prev, prefill.observaciones));
+      setObservaciones((prev) => take(prev, prefill.observaciones));
     },
     [],
   );
@@ -147,22 +148,22 @@ export function usePrefillYDiscrepanciasOv(e: Record<string, any>) {
 
       applyDiscrepanciaFieldValue(item.fieldKey, fichaValue);
 
-      setDiscrepancias((prev: any) =>
-        prev.filter((row: any) => row.fieldKey !== item.fieldKey),
+      setDiscrepancias((prev) =>
+        prev.filter((row) => row.fieldKey !== item.fieldKey),
       );
-      setWarnFields((prev: any) => {
+      setWarnFields((prev) => {
         if (!prev.has(item.fieldKey)) return prev;
         const next = new Set(prev);
         next.delete(item.fieldKey);
         return next;
       });
-      setMissingFields((prev: any) => {
+      setMissingFields((prev) => {
         if (!prev.has(item.fieldKey)) return prev;
         const next = new Set(prev);
         next.delete(item.fieldKey);
         return next;
       });
-      setAutoFields((prev: any) => {
+      setAutoFields((prev) => {
         const next = new Set(prev);
         next.add(item.fieldKey);
         return next;
@@ -175,11 +176,11 @@ export function usePrefillYDiscrepanciasOv(e: Record<string, any>) {
   return { applyCompradorPrefill, canReemplazarDiscrepancia, handleReemplazarDiscrepancia };
 }
 
-export function useAvisosValidacionOv(e: Record<string, any>) {
-  const { discrepancias, fechaEntrega, fechaEntregaAtrasada, correo, warnFields, ordenCompraHotel, ordenesTrabajoForm, compradorLabel, editingId, operadorRowsForDuplicado, idOrdenVenta } = e;
+export function useAvisosValidacionOv(estado: OrdenVentaFormEstado) {
+  const { discrepancias, fechaEntrega, fechaEntregaAtrasada, correo, warnFields, ordenCompraHotel, ordenesTrabajoForm, compradorLabel, editingId, operadorRowsForDuplicado, idOrdenVenta } = estado;
   const avisosValidacion = useMemo((): CampoDiscrepancia[] => {
     const sinFecha = discrepancias.filter(
-      (item: any) => item.fieldKey !== "fechaEntrega",
+      (item) => item.fieldKey !== "fechaEntrega",
     );
     const avisos: CampoDiscrepancia[] = [...sinFecha];
     if (fechaEntregaAtrasada && isFechaEntregaIsoValida(fechaEntrega)) {
@@ -191,7 +192,7 @@ export function useAvisosValidacionOv(e: Record<string, any>) {
       });
     } else {
       const fechaDefault = discrepancias.find(
-        (item: any) =>
+        (item) =>
           item.fieldKey === "fechaEntrega" && item.db === "Leída del correo",
       );
       if (fechaDefault && warnFields.has("fechaEntrega")) {
@@ -207,7 +208,7 @@ export function useAvisosValidacionOv(e: Record<string, any>) {
     // REQ-151: aviso de posible duplicado (OCC / cliente+día de creación).
     const occTokens = [
       ordenCompraHotel,
-      ...ordenesTrabajoForm.map((h: any) => h.numeroPedido ?? ""),
+      ...ordenesTrabajoForm.map((h) => h.numeroPedido ?? ""),
     ].filter(Boolean);
     if (occTokens.length > 0 || compradorLabel.trim()) {
       const hits = findDuplicadosAgainstDraft({
@@ -218,7 +219,7 @@ export function useAvisosValidacionOv(e: Record<string, any>) {
           fecha: new Date().toISOString(),
           idOrdenVentaExcluir: editingId || null,
         },
-        existentes: operadorRowsForDuplicado.map((row: any) => ({
+        existentes: operadorRowsForDuplicado.map((row) => ({
           idOrdenVenta: row.idOrdenVenta,
           codigo: row.venta,
           occTodas: row.occTodas,
@@ -233,7 +234,7 @@ export function useAvisosValidacionOv(e: Record<string, any>) {
           fieldKey: "potencialDuplicado",
           db: "Revisar antes de confirmar",
           ia: `Puede ser la misma OV que ${hits
-            .map((h: any) => h.codigo)
+            .map((h) => h.codigo)
             .slice(0, 4)
             .join(", ")} (Mateo aún aprende).`,
         });
@@ -255,7 +256,7 @@ export function useAvisosValidacionOv(e: Record<string, any>) {
 
   const avisoPotencialDuplicado = useMemo(
     () =>
-      avisosValidacion.find((item: any) => item.fieldKey === "potencialDuplicado") ??
+      avisosValidacion.find((item) => item.fieldKey === "potencialDuplicado") ??
       null,
     [avisosValidacion],
   );
@@ -264,19 +265,19 @@ export function useAvisosValidacionOv(e: Record<string, any>) {
   const avisosCatalogoValidacion = useMemo(
     () =>
       avisosValidacion.filter(
-        (item: any) => item.fieldKey !== "potencialDuplicado",
+        (item) => item.fieldKey !== "potencialDuplicado",
       ),
     [avisosValidacion],
   );
   return { avisosValidacion, avisoPotencialDuplicado, avisosCatalogoValidacion };
 }
 
-export function useAbrirCapturaOv(e: Record<string, any>) {
-  const { setStartMode, setError, ensureFormDataReady, setStep, setIsCompradorCreateOpen, setCompradores, idComprador, handleSelectComprador } = e;
+export function useAbrirCapturaOv(estado: OrdenVentaFormEstado) {
+  const { setStartMode, setError, ensureFormDataReady, setStep, setIsCompradorCreateOpen, setCompradores, idComprador, handleSelectComprador } = estado;
   const openFormFromScratch = useCallback(() => {
     setStartMode("scratch");
     setError(null);
-    void ensureFormDataReady().then((ok: any) => {
+    void ensureFormDataReady().then((ok) => {
       if (ok) setStep("form");
     });
   }, [ensureFormDataReady]);
@@ -291,11 +292,11 @@ export function useAbrirCapturaOv(e: Record<string, any>) {
 
   const handleCompradorCreatedForSale = useCallback(
     (created: CompradorListRow) => {
-      setCompradores((prev: any) => {
-        if (prev.some((row: any) => row.idComprador === created.idComprador)) {
+      setCompradores((prev) => {
+        if (prev.some((row) => row.idComprador === created.idComprador)) {
           return prev;
         }
-        return [...prev, created].sort((a: any, b: any) =>
+        return [...prev, created].sort((a, b) =>
           a.comprador.localeCompare(b.comprador, "es"),
         );
       });
@@ -303,7 +304,7 @@ export function useAbrirCapturaOv(e: Record<string, any>) {
       setStartMode("scratch");
       setError(null);
       setIsCompradorCreateOpen(false);
-      void ensureFormDataReady().then((ok: any) => {
+      void ensureFormDataReady().then((ok) => {
         if (ok) setStep("form");
       });
     },
