@@ -18,6 +18,10 @@ import {
 } from "../../utils/origen/origen-correo-ordenes-trabajo";
 import { resolveOrdenVentaLineaTitulo } from "../../utils/display/orden-venta-display";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
+import {
+  AlistoIncompletoAviso,
+  CheckinDespachoAviso,
+} from "../orden-trabajo/OrdenTrabajoChipSelector";
 
 function CheckMark({ ok }: { ok: boolean }) {
   if (!ok) {
@@ -206,41 +210,12 @@ export function CypherAlistamientoSection({
         ) : null}
       </p>
 
-      {lineasProductoTotal > 0 &&
-      lineasAlistoTotal < lineasProductoTotal &&
-      [...capturaByOt.values()].some(
-        (c) => (c.payload?.precisionEstimada ?? 0) >= 60,
-      ) ? (
-        <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-3 py-2 polaria-text-caption text-polaria-warning">
-          La lectura parece confiable, pero faltan chulos Alistó en algunas
-          filas. Revisa la foto o vuelve a capturar esa OT.
-        </p>
-      ) : null}
-
-      {/* REQ-243: despacho operativo exige check-in Despachó escaneado. */}
-      {ots.some((hija) => {
-        const otKey = normalizeIdOrdenTrabajo(hija.id);
-        const captura = capturaByOt.get(otKey) ?? capturaByOt.get("");
-        if (!captura) return true;
-        const nombre = campoCaptura(
-          captura.payload?.campos,
-          "despachoNombre",
-          "Despachó nombre",
-          "Despachó",
-        );
-        const hora = campoCaptura(
-          captura.payload?.campos,
-          "despachoHora",
-          "Despachó hora",
-        );
-        return !nombre && !hora;
-      }) ? (
-        <p className="rounded-xl border border-polaria-danger-border bg-polaria-danger-bg px-3 py-2 polaria-text-caption text-polaria-danger">
-          Check-in al despacho: escaneá la hoja desde la app (caja Despachó) antes
-          de armar el paquete o mover a salida. Sin ese escaneo no se puede
-          despachar.
-        </p>
-      ) : null}
+      <AlistoIncompletoAviso
+        lineasProductoTotal={lineasProductoTotal}
+        lineasAlistoTotal={lineasAlistoTotal}
+        capturaByOt={capturaByOt}
+      />
+      <CheckinDespachoAviso ots={ots} capturaByOt={capturaByOt} />
 
       {ots.map((hija, index) => {
         const otKey = normalizeIdOrdenTrabajo(hija.id);

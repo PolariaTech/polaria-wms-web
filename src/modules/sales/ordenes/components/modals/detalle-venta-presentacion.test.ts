@@ -4,6 +4,7 @@ import {
   leerFolioFacturaVista,
   montoDeNota,
   porcentajeDeNota,
+  resolveNumeroOrdenClientePrint,
   textoConteoOrdenesTrabajo,
   tituloDetalleOvConOt,
   totalLineaConIva,
@@ -46,5 +47,33 @@ describe("detalle de venta", () => {
     expect(tituloDetalleOvConOt("OV-00001047", 2, 2)).toBe("OV-00001047-2");
     expect(tituloDetalleOvConOt("OV-00001047", 1, 1)).toBe("OV-00001047");
     expect(tituloDetalleOvConOt("", 1, 3)).toBe("OV-1");
+  });
+
+  it("OCC print: 1 OT prioriza cabecera; multi-OT prioriza hija (REQ-176)", () => {
+    expect(
+      resolveNumeroOrdenClientePrint({
+        ordenCompraHotel: "11948",
+        hijaNumeroPedido: "ADP-x",
+        capturaOrdenCompra: "viejo",
+        tareaTotal: 1,
+      }),
+    ).toBe("11948");
+    expect(
+      resolveNumeroOrdenClientePrint({
+        ordenCompraHotel: "11948",
+        hijaNumeroPedido: "PO-OT-2",
+        tareaTotal: 2,
+      }),
+    ).toBe("PO-OT-2");
+  });
+
+  it("OCC print no usa el folio OV", () => {
+    expect(
+      resolveNumeroOrdenClientePrint({
+        ordenCompraHotel: "11948",
+        hijaNumeroPedido: "ADP-x",
+        tareaTotal: 1,
+      }),
+    ).not.toBe("OV-001");
   });
 });

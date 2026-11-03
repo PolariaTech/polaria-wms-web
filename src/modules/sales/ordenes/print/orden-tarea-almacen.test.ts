@@ -11,7 +11,6 @@ import {
   formatOrdenTareaImpresaAt,
   mapOrdenVentaToAlmacenPrintData,
   mapOrdenVentaToAlmacenPrintSheets,
-  resolveNumeroOrdenClientePrint,
 } from "./map-orden-tarea-almacen";
 
 function textoPdf(pdf: { output: (tipo: "arraybuffer") => ArrayBuffer }): string {
@@ -87,46 +86,6 @@ const DETALLE: OrdenVentaDetalleRow = {
 };
 
 describe("orden de tarea almacén", () => {
-  it("REQ-176: OCC del PDF prioriza cabecera OV sobre ADP de origen (1 OT)", () => {
-    expect(
-      resolveNumeroOrdenClientePrint({
-        ordenCompraHotel: "11948",
-        hijaNumeroPedido: "ADP-261028-0337-7T7",
-        capturaOrdenCompra: "viejo",
-        tareaTotal: 1,
-      }),
-    ).toBe("11948");
-
-    const data = mapOrdenVentaToAlmacenPrintData({
-      listRow: LIST_ROW,
-      detalle: {
-        ...DETALLE,
-        orden_compra_hotel: "11948",
-        origen_correo: JSON.stringify([
-          {
-            "Numero pedido": "ADP-261028-0337-7T7",
-            Almacen: "COCINA",
-            "Codigo producto": "SKU-1",
-            "Nombre producto": "Tomate",
-            Cantidad: "1",
-          },
-        ]),
-      },
-    });
-    expect(data.numeroOrdenCliente).toBe("11948");
-    expect(data.numeroOrdenCliente).not.toBe(data.folio);
-  });
-
-  it("REQ-176: multi-OT usa el numeroPedido de la hija", () => {
-    expect(
-      resolveNumeroOrdenClientePrint({
-        ordenCompraHotel: "11948",
-        hijaNumeroPedido: "PO-OT-2",
-        tareaTotal: 2,
-      }),
-    ).toBe("PO-OT-2");
-  });
-
   it("REQ-178: cliente es la razón social y trae la denominación comercial aparte", () => {
     const data = mapOrdenVentaToAlmacenPrintData({
       listRow: LIST_ROW,

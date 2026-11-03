@@ -266,3 +266,17 @@ export function assignOtIdsToFormLineas<T extends LineaFormOt>(
     otId: otByIndex.get(index) ?? linea.otId,
   }));
 }
+
+/** REQ-176: OCC PDF/detalle — 1 OT cabecera; multi-OT numeroPedido hija. */
+export function resolveNumeroOrdenClientePrint(input: {
+  ordenCompraHotel?: string | null;
+  hijaNumeroPedido?: string | null;
+  capturaOrdenCompra?: string | null;
+  tareaTotal: number;
+}): string {
+  const ovOcc = input.ordenCompraHotel?.trim() || "";
+  const otOcc = input.hijaNumeroPedido?.trim() || "";
+  const capturaOcc = input.capturaOrdenCompra?.trim() || "";
+  if (input.tareaTotal > 1) return otOcc || ovOcc || capturaOcc;
+  return ovOcc || otOcc || capturaOcc;
+}

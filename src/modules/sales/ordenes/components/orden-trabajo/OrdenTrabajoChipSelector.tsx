@@ -1,12 +1,64 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
+import { capturaTieneDespacho } from "../../surtido/compute-estado-alistamiento";
+import type { OrdenSurtidoCapturaPayload } from "../../surtido/orden-surtido.types";
+import { normalizeIdOrdenTrabajo } from "../../utils/origen/origen-correo-ordenes-trabajo";
 
 export type OrdenTrabajoChipItem = {
   id: string;
   /** Texto completo para title / aria (no se muestra en el chip). */
   label: string;
 };
+
+type CapturaMap = Map<string, { payload?: OrdenSurtidoCapturaPayload }>;
+
+/** REQ-243: aviso si falta check-in Despachó escaneado. */
+export function CheckinDespachoAviso({
+  ots,
+  capturaByOt,
+}: {
+  ots: ReadonlyArray<{ id: string }>;
+  capturaByOt: CapturaMap;
+}) {
+  const falta = ots.some((hija) => {
+    const key = normalizeIdOrdenTrabajo(hija.id);
+    const captura = capturaByOt.get(key) ?? capturaByOt.get("");
+    return !capturaTieneDespacho(captura?.payload);
+  });
+  if (!falta) return null;
+  return (
+    <p className="rounded-xl border border-polaria-danger-border bg-polaria-danger-bg px-3 py-2 polaria-text-caption text-polaria-danger">
+      Check-in al despacho: escaneá la hoja desde la app (caja Despachó) antes de
+      armar el paquete o mover a salida. Sin ese escaneo no se puede despachar.
+    </p>
+  );
+}
+
+/** Aviso de chulos Alistó incompletos con lectura confiable. */
+export function AlistoIncompletoAviso({
+  lineasProductoTotal,
+  lineasAlistoTotal,
+  capturaByOt,
+}: {
+  lineasProductoTotal: number;
+  lineasAlistoTotal: number;
+  capturaByOt: CapturaMap;
+}) {
+  const confiable =
+    lineasProductoTotal > 0 &&
+    lineasAlistoTotal < lineasProductoTotal &&
+    [...capturaByOt.values()].some(
+      (c) => (c.payload?.precisionEstimada ?? 0) >= 60,
+    );
+  if (!confiable) return null;
+  return (
+    <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-3 py-2 polaria-text-caption text-polaria-warning">
+      La lectura parece confiable, pero faltan chulos Alistó en algunas filas.
+      Revisa la foto o vuelve a capturar esa OT.
+    </p>
+  );
+}
 
 /**
  * Selector compacto de OT: solo el # dentro del pedido (1…N).
