@@ -42,6 +42,7 @@
 - `src/modules/sales/correos/hooks/useBloquesCorreos.ts` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/correos/hooks/useIngresoCorreo.ts` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/correos/hooks/useCorreoCompleto.ts` — autorizada por el usuario el 2026-11-03
+- `src/modules/sales/correos/testing/correos.fixtures.ts` — autorizada por el usuario el 2026-11-03
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/config/routes.ts`
