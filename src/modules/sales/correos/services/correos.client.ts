@@ -195,6 +195,9 @@ function leerFila(v: unknown): CorreoFila | null {
     adjunto: textoONulo(v.adjunto),
     nuevoPedido: typeof v.nuevoPedido === "boolean" ? v.nuevoPedido : null,
     motivo: textoONulo(v.motivo),
+    idRegistro: textoONulo(v.idRegistro),
+    registradoEn: textoONulo(v.registradoEn),
+    actualizadoEn: textoONulo(v.actualizadoEn),
     ingreso: leerIngreso(v.ingreso),
   };
 }

@@ -42,6 +42,9 @@ const fila = (parcial: Partial<CorreoFila> = {}): CorreoFila => ({
   adjunto: "pedido.pdf",
   nuevoPedido: false,
   motivo: "Cotización, no es pedido",
+  idRegistro: "299",
+  registradoEn: "2026-11-03T13:28:42.556Z",
+  actualizadoEn: "2026-11-03T13:29:10.000Z",
   ingreso: null,
   ...parcial,
 });
@@ -106,7 +109,9 @@ describe("CorreosTable (REQ-104)", () => {
 
     await screen.findByText("Pedido XEL");
     expect(screen.getAllByRole("button", { name: BOTON_INGRESAR })).toHaveLength(1);
-    expect(screen.getByText("Lo ingresa el flujo")).toBeInTheDocument();
+    // el flujo ya lo ingresó: se dice en pasado y sin botón
+    expect(screen.getByText("Ingresado por el flujo")).toBeInTheDocument();
+    expect(screen.queryByText(/Lo ingresa el flujo/)).not.toBeInTheDocument();
     expect(screen.getByText("OV-00001318")).toBeInTheDocument();
     expect(screen.getByText("Total: 3")).toBeInTheDocument();
     expect(api.listarCorreos).toHaveBeenCalledWith(
@@ -241,6 +246,126 @@ describe("CorreosTable (REQ-104)", () => {
       expect.any(AbortSignal),
     );
     expect(screen.queryByRole("button", { name: "Limpiar filtros" })).not.toBeInTheDocument();
+  });
+
+  describe("detalle del correo", () => {
+    const completa = () =>
+      fila({
+        para: "ventas@aguacates.example, facturacion@aguacates.example",
+        hilo: "hilo-77",
+        messageId: "msg-detalle-1",
+        motivo: "Es una cotización y no pide surtir mercancía",
+      });
+
+    it("al hacer clic en una fila abre el modal con todo lo que trae la data table", async () => {
+      api.listarCorreos.mockResolvedValue(lista([completa()]));
+      const user = usuario();
+      render(<CorreosTable modo="descartados" />);
+
+      await user.click(await screen.findByText("compras@hotel.com"));
+
+      const dialogo = await screen.findByRole("dialog");
+      const en = within(dialogo);
+      expect(en.getByRole("heading", { name: "Pedido XEL", level: 2 })).toBeInTheDocument();
+      expect(dialogo).toHaveTextContent(/Recibido el 3 de noviembre de 2026/);
+      // lo que la vista previa no muestra
+      expect(
+        en.getByText("ventas@aguacates.example, facturacion@aguacates.example"),
+      ).toBeInTheDocument();
+      expect(en.getByText("msg-detalle-1")).toBeInTheDocument();
+      expect(en.getByText("hilo-77")).toBeInTheDocument();
+      expect(en.getByText("299")).toBeInTheDocument();
+      expect(en.getByText("Descartado por el flujo")).toBeInTheDocument();
+      expect(dialogo).toHaveTextContent(/Registrado en n8n3 de noviembre de 2026/);
+      expect(dialogo).toHaveTextContent(/Última actualización3 de noviembre de 2026/);
+      // lo que la vista previa recorta, completo
+      expect(en.getByText("Es una cotización y no pide surtir mercancía")).toBeInTheDocument();
+      expect(en.getByText("pedido.pdf")).toBeInTheDocument();
+    });
+
+    it("también se abre con el asunto desde el teclado y se cierra con Cerrar o con Escape", async () => {
+      api.listarCorreos.mockResolvedValue(lista([completa()]));
+      const user = usuario();
+      render(<CorreosTable modo="descartados" />);
+
+      const asunto = await screen.findByRole("button", { name: "Pedido XEL" });
+      asunto.focus();
+      await user.keyboard("{Enter}");
+      const dialogo = await screen.findByRole("dialog");
+
+      await user.click(within(dialogo).getByRole("button", { name: "Cerrar" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+      await user.click(asunto);
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("el botón de ingreso de la fila no abre el detalle", async () => {
+      api.listarCorreos.mockResolvedValue(lista([completa()]));
+      api.ingresarCorreo.mockResolvedValue(ingreso({ messageId: "msg-detalle-1" }));
+      const user = usuario();
+      render(<CorreosTable modo="descartados" />);
+
+      await user.click(await screen.findByRole("button", { name: BOTON_INGRESAR }));
+
+      expect(api.ingresarCorreo).toHaveBeenCalledWith("msg-detalle-1");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("desde el modal se puede ingresar y el avance se ve ahí mismo", async () => {
+      api.listarCorreos.mockResolvedValue(lista([completa()]));
+      api.ingresarCorreo.mockResolvedValue(ingreso({ messageId: "msg-detalle-1" }));
+      const user = usuario();
+      render(<CorreosTable modo="descartados" />);
+      await user.click(await screen.findByText("compras@hotel.com"));
+      const dialogo = await screen.findByRole("dialog");
+
+      await user.click(within(dialogo).getByRole("button", { name: BOTON_INGRESAR }));
+
+      expect(api.ingresarCorreo).toHaveBeenCalledTimes(1);
+      expect(within(dialogo).getByText("Ingresando pedido…")).toBeInTheDocument();
+    });
+
+    it("un correo que pasó el flujo se muestra como ingresado por el flujo", async () => {
+      api.listarCorreos.mockResolvedValue(
+        lista([{ ...completa(), nuevoPedido: null, motivo: null }]),
+      );
+      const user = usuario();
+      render(<CorreosTable modo="todos" />);
+
+      await user.click(await screen.findByText("compras@hotel.com"));
+
+      const dialogo = await screen.findByRole("dialog");
+      expect(within(dialogo).getAllByText("Ingresado por el flujo").length).toBeGreaterThan(0);
+      expect(within(dialogo).queryByRole("button", { name: BOTON_INGRESAR })).not.toBeInTheDocument();
+    });
+
+    it("sin fecha ni datos opcionales muestra rayas y no se rompe", async () => {
+      api.listarCorreos.mockResolvedValue(
+        lista([
+          fila({
+            recibidoEn: null,
+            para: null,
+            hilo: null,
+            adjunto: null,
+            motivo: null,
+            idRegistro: null,
+            registradoEn: null,
+            actualizadoEn: null,
+          }),
+        ]),
+      );
+      const user = usuario();
+      render(<CorreosTable modo="descartados" />);
+
+      await user.click(await screen.findByText("compras@hotel.com"));
+
+      const dialogo = await screen.findByRole("dialog");
+      expect(dialogo).toHaveTextContent("Sin fecha de recepción");
+      expect(within(dialogo).getAllByText("—").length).toBeGreaterThanOrEqual(6);
+    });
   });
 
   it("usa las mismas filas por página que el resto de las tablas y completa la altura con filas de relleno", async () => {

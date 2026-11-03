@@ -113,6 +113,9 @@ describe("correos.client (REQ-104)", () => {
               adjunto: "PO.pdf",
               nuevoPedido: false,
               motivo: "cotización",
+              idRegistro: "299",
+              registradoEn: "2026-11-03T13:28:42.556Z",
+              actualizadoEn: "2026-11-03T13:29:10.000Z",
               ingreso: ingresoOk,
             },
             { asunto: "sin id" },
@@ -134,9 +137,17 @@ describe("correos.client (REQ-104)", () => {
         messageId: MSG,
         nuevoPedido: false,
         motivo: "cotización",
+        idRegistro: "299",
+        registradoEn: "2026-11-03T13:28:42.556Z",
+        actualizadoEn: "2026-11-03T13:29:10.000Z",
         ingreso: { estado: "ingresado", codigoOrdenVenta: "OV-00001319" },
       });
-      expect(lista.filas[1]).toMatchObject({ nuevoPedido: null, ingreso: null });
+      expect(lista.filas[1]).toMatchObject({
+        nuevoPedido: null,
+        idRegistro: null,
+        registradoEn: null,
+        ingreso: null,
+      });
     });
 
     it("rechaza una respuesta que no trae filas", async () => {

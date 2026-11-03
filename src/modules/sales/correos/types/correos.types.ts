@@ -26,6 +26,10 @@ export interface CorreoFila {
   /** `false` = el flujo lo descartó; `null` = pasó el filtro y lo ingresa el flujo. */
   nuevoPedido: boolean | null;
   motivo: string | null;
+  /** Columnas de sistema del data table de n8n (id, createdAt, updatedAt). */
+  idRegistro: string | null;
+  registradoEn: string | null;
+  actualizadoEn: string | null;
   ingreso: IngresoCorreo | null;
 }
 
