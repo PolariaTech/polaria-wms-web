@@ -145,20 +145,12 @@ import {
   formatCapturaFecha,
   isAfterWarehouseCutoff,
   buildNotasLineasText,
-  notaCapturaForLinea,
   parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
   todayIsoDate,
   tomorrowIsoDate,
 } from "../../utils/pedido/build-orden-venta-captura-observaciones";
-import {
-  assignOtIdsToFormLineas,
-  filterLineasByOrdenTrabajoHija,
-} from "../../utils/ot/filter-lineas-by-orden-trabajo";
-import {
-  resolveSkuVisible,
-  resolveTextoProductoOrigen,
-} from "../../utils/display/resolve-sku-visible";
+import { filterLineasByOrdenTrabajoHija } from "../../utils/ot/filter-lineas-by-orden-trabajo";
 import {
   buildOrigenCorreoFromOrdenesYLineas,
   createEmptyOrdenTrabajoHija,
@@ -233,10 +225,7 @@ import {
 } from "../../utils/match/match-comprador-from-nombre";
 import { buildPedidoExtraidoFromOrigenCorreo } from "../../utils/origen/pedido-from-origen-correo";
 import { buildOrdenVentaPrefillFromComprador } from "../../utils/pedido/prefill-orden-venta-from-comprador";
-import {
-  formatCompradorOrdenVenta,
-  resolveOrdenVentaLineaTitulo,
-} from "../../utils/display/orden-venta-display";
+import { formatCompradorOrdenVenta } from "../../utils/display/orden-venta-display";
 import type { CypherCompanionOtPicker } from "./OrdenVentaCypherDrawer";
 
 interface OrdenVentaCreateModalProps {
@@ -795,12 +784,9 @@ export function OrdenVentaCreateModal({
   const docsFileInputRef = useRef<HTMLInputElement | null>(null);
   const bootstrapPromiseRef = useRef<Promise<void> | null>(null);
   const seededOtIdsRef = useRef<Set<string>>(new Set());
-  /**
-   * REQ-195: si la OV ya trae líneas materializadas en BD, no re-sembrar
-   * productos “sin validar” desde origen_correo al cambiar de OT.
-   */
+  /** REQ-195: no re-sembrar catalogPending desde origen si ya hay líneas BD. */
   const skipOtSeedFromOrigenRef = useRef(false);
-  /** Tras aplicar Mateo/organizador: disparar Guardar avance una vez (OV existente). */
+  /** Tras Mateo/organizador: un Guardar avance (OV existente). */
   const pendingDraftSaveAfterReorgRef = useRef(false);
   const formScrollRef = useRef<HTMLDivElement | null>(null);
   const formScrollTopRef = useRef<number | null>(null);
