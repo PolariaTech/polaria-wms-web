@@ -27,6 +27,7 @@
 - `src/app/(shell)/dashboard/(operacion-cuenta)/ventas/correo/[messageId]/page.tsx` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/correos/components/CorreoCompletoVista.tsx` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/correos/components/CorreoCompletoVista.test.tsx` — autorizada por el usuario el 2026-11-03
+- `src/modules/sales/correos/utils/correos-formato.ts` — autorizada por el usuario el 2026-11-03
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/config/routes.ts`
