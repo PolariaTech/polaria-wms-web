@@ -18,6 +18,7 @@ import {
 import {
   extractDireccionShipToDesdeTexto,
   extractEntregaDesdeTexto,
+  quitarContactoDeDireccion,
 } from "../utils/pedido/extract-entrega-desde-texto";
 import { sanitizeTelefonoContacto } from "../utils/pedido/sanitize-telefono-contacto";
 import { resolveCentroConsumoSinConfundirConCliente } from "../utils/pedido/centro-consumo-vs-cliente";
@@ -296,7 +297,7 @@ const RESPONSE_SCHEMA = {
       direccion: {
         type: ["string", "null"],
         description:
-          "Dirección de ENTREGA tal como aparece en el correo, mensaje o PDF. Busca Ship To, Deliver To, Enviar a, Entregar en, Domicilio de entrega, Dirección de envío. Copia calle, número, colonia, ciudad y CP si vienen. Si hay Bill To (facturación) y Ship To (entrega), usa Ship To. null solo si el documento no trae ninguna dirección de entrega.",
+          "Dirección de ENTREGA tal como aparece en el correo, mensaje o PDF. Busca Ship To, Deliver To, Enviar a, Entregar en, Domicilio de entrega, Dirección de envío. Copia calle, número, colonia, ciudad y CP si vienen. Si hay Bill To (facturación) y Ship To (entrega), usa Ship To. Solo dirección física: NUNCA incluyas correos, fax ni teléfonos (van en sus propios campos), aunque aparezcan junto a la dirección; si el único dato junto a la etiqueta es un correo, no es la dirección. null solo si el documento no trae ninguna dirección de entrega.",
       },
       anden: {
         type: ["string", "null"],
@@ -933,7 +934,7 @@ export async function extraerPedido({
   // Ship To del documento manda sobre Bill To / lo que Mateo haya puesto.
   const direccionCabecera =
     extractDireccionShipToDesdeTexto(sourceForEntrega) ||
-    parsed.direccion?.trim() ||
+    quitarContactoDeDireccion(parsed.direccion) ||
     "";
   const andenCabecera = parsed.anden?.trim() || "";
   const contactoCabecera = parsed.contacto?.trim() || "";

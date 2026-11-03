@@ -4,6 +4,7 @@ import {
   extractEntregaDesdeTexto,
   extraerHorarioDesdeTexto,
   normalizarHoraAHhMm,
+  quitarContactoDeDireccion,
 } from "./extract-entrega-desde-texto";
 
 describe("normalizarHoraAHhMm", () => {
@@ -126,5 +127,61 @@ describe("extractDireccionShipToDesdeTexto", () => {
     expect(
       extractDireccionShipToDesdeTexto("Bill To:\nCESAR HILTON\nCDMX"),
     ).toBeNull();
+  });
+
+  it("descarta fax y correo mezclados tras Enviar a (REQ-162)", () => {
+    const texto = [
+      "Enviar a: SLS Playa Mujeres",
+      "Fax:",
+      "Correo elec: ventas@aguacatesdepuebla.com;facturacion@aguacatesdepuebla.com",
+      "Vialidad Paseo Mujeres Solar B",
+      "SM 3 M1 L34 CP 77400",
+      "Isla Mujeres, QR, 77400, MX",
+    ].join("\n");
+    expect(extractDireccionShipToDesdeTexto(texto)).toBe(
+      "SLS Playa Mujeres, Vialidad Paseo Mujeres Solar B, SM 3 M1 L34 CP 77400, Isla Mujeres, QR, 77400, MX",
+    );
+  });
+
+  it("descarta teléfono y correo en líneas propias", () => {
+    const texto = [
+      "Ship To:",
+      "Hotel Maya",
+      "Tel: 998 166 0605",
+      "9981660605",
+      "compras@hotelmaya.com",
+      "Blvd. Kukulcan km 17, Cancún",
+    ].join("\n");
+    expect(extractDireccionShipToDesdeTexto(texto)).toBe(
+      "Hotel Maya, Blvd. Kukulcan km 17, Cancún",
+    );
+  });
+
+  it("devuelve null si tras la etiqueta solo hay un correo", () => {
+    expect(
+      extractDireccionShipToDesdeTexto("Enviar a: ventas@empresa.com\nQty: 3"),
+    ).toBeNull();
+  });
+});
+
+describe("quitarContactoDeDireccion", () => {
+  it("quita correos, fax y teléfonos entre comas", () => {
+    expect(
+      quitarContactoDeDireccion(
+        "SLS Playa Mujeres, Fax:, Correo elec: ventas@a.com;fact@a.com, Isla Mujeres, QR",
+      ),
+    ).toBe("SLS Playa Mujeres, Isla Mujeres, QR");
+  });
+
+  it("deja intacta una dirección sin contacto", () => {
+    expect(quitarContactoDeDireccion("Av. Kukulcan km 9, Cancún, QR 77500")).toBe(
+      "Av. Kukulcan km 9, Cancún, QR 77500",
+    );
+  });
+
+  it("devuelve null si solo queda contacto", () => {
+    expect(quitarContactoDeDireccion("ventas@a.com")).toBeNull();
+    expect(quitarContactoDeDireccion("Tel: 998 166 0605")).toBeNull();
+    expect(quitarContactoDeDireccion(null)).toBeNull();
   });
 });
