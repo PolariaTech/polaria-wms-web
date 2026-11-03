@@ -170,7 +170,7 @@ describe("CorreoCompletoVista — aislamiento del mensaje (REQ-104)", () => {
   it("el marco no puede ejecutar scripts ni tocar esta página", async () => {
     await abrir();
     const permisos = (marco().getAttribute("sandbox") ?? "").split(" ").sort();
-    expect(permisos).toEqual(["allow-popups", "allow-popups-to-escape-sandbox"]);
+    expect(permisos).toEqual(["allow-popups", "allow-popups-to-escape-sandbox", "allow-same-origin"]);
     expect(marco()).toHaveAttribute("referrerpolicy", "no-referrer");
   });
 
@@ -197,12 +197,9 @@ describe("CorreoCompletoVista — aislamiento del mensaje (REQ-104)", () => {
     expect(screen.queryByRole("button", { name: "Mostrar imágenes" })).not.toBeInTheDocument();
   });
 
-  it("un botón en la esquina del recuadro cambia entre fondo blanco y modo oscuro de Polaria", async () => {
+  it("el recuadro nace en modo oscuro de Polaria y un botón de la esquina lo cambia a fondo blanco", async () => {
     const usr = usuario();
     await abrir();
-    expect(marco().getAttribute("srcdoc")).not.toContain("invert(1)");
-
-    await usr.click(screen.getByRole("button", { name: "Usar modo oscuro de Polaria" }));
     expect(marco().getAttribute("srcdoc")).toContain("invert(1)");
     expect(screen.getByRole("button", { name: "Usar fondo blanco" })).toHaveAttribute(
       "aria-pressed",
@@ -211,6 +208,28 @@ describe("CorreoCompletoVista — aislamiento del mensaje (REQ-104)", () => {
 
     await usr.click(screen.getByRole("button", { name: "Usar fondo blanco" }));
     expect(marco().getAttribute("srcdoc")).not.toContain("invert(1)");
+
+    await usr.click(screen.getByRole("button", { name: "Usar modo oscuro de Polaria" }));
+    expect(marco().getAttribute("srcdoc")).toContain("invert(1)");
+  });
+
+  it("el recuadro se ajusta al alto del mensaje, con un mínimo", async () => {
+    await abrir();
+    const documento = marco() as HTMLIFrameElement;
+    Object.defineProperty(documento, "contentDocument", {
+      configurable: true,
+      value: { body: { offsetHeight: 300 } },
+    });
+
+    fireEvent.load(documento);
+
+    await waitFor(() => expect(documento.parentElement?.getAttribute("style")).toContain("304px"));
+    Object.defineProperty(documento, "contentDocument", {
+      configurable: true,
+      value: { body: { offsetHeight: 10 } },
+    });
+    fireEvent.load(documento);
+    await waitFor(() => expect(documento.parentElement?.getAttribute("style")).toContain("96px"));
   });
 
   it("no ofrece mostrar imágenes si el correo no trae ninguna de internet", async () => {

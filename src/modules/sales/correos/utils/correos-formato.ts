@@ -154,7 +154,7 @@ export function tieneImagenesExternas(html: string): boolean {
 }
 
 const ESTILO_DEL_CORREO =
-  "body{margin:16px;font:14px/1.5 system-ui,sans-serif;color:#1a1a1a;background:#fff;overflow-wrap:anywhere}" +
+  "body{margin:0;padding:16px;font:14px/1.5 system-ui,sans-serif;color:#1a1a1a;background:#fff;overflow-wrap:anywhere}" +
   "img{max-width:100%;height:auto}pre{white-space:pre-wrap;font:inherit}a{color:#0b6b5c}";
 
 /**

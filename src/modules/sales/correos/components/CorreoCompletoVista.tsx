@@ -30,8 +30,9 @@ const MARGEN_INFERIOR_PX = 32;
 const ALTO_MINIMO_PX = 420;
 
 /**
- * Alto que queda en la ventana desde donde empieza el panel hasta su borde inferior, para que la
- * página no haga scroll y solo lo haga el mensaje. En pantallas angostas devuelve null: se apila
+ * Alto máximo del panel: lo que queda en la ventana desde donde empieza hasta su borde inferior,
+ * para que la página no haga scroll y solo lo haga el mensaje. El panel mide lo que mide su
+ * contenido y solo llega a este tope cuando el correo es más largo. En pantallas angostas devuelve null: se apila
  * y la página se desplaza como siempre. Se vuelve a medir al cambiar la ventana o el alto de la
  * página (por ejemplo, cuando el título pasa a ser el asunto y ocupa otra cantidad de líneas).
  */
@@ -127,7 +128,7 @@ interface CorreoCompletoVistaProps {
 /**
  * El correo completo tal como llegó (REQ-104). En pantallas anchas ocupa el alto de la ventana:
  * a la izquierda quién lo mandó y sus adjuntos, a la derecha el mensaje, que es lo único que
- * se desplaza. Se lee en Gmail al abrir la pantalla, por eso puede tardar un par de segundos.
+ * se desplaza y solo cuando no cabe. Se lee en Gmail al abrir la pantalla, por eso puede tardar un par de segundos.
  */
 export function CorreoCompletoVista({ messageId, onAsunto }: CorreoCompletoVistaProps) {
   const { correo, error, cargando, reintentar } = useCorreoCompleto(messageId);
@@ -153,14 +154,14 @@ export function CorreoCompletoVista({ messageId, onAsunto }: CorreoCompletoVista
       ref={panel}
       aria-label="Correo"
       aria-busy={!cuerpoListo}
-      style={alto ? { height: alto } : undefined}
+      style={alto ? { maxHeight: alto } : undefined}
       className={cn(
-        "flex flex-col gap-6 lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]",
+        "flex flex-col gap-6 lg:flex-row",
         // Se arma mientras Polo sigue a la vista, para que la persona vea el correo ya completo.
         !cuerpoListo && !error && "invisible",
       )}
     >
-      <div className="flex min-h-0 flex-col gap-6 lg:overflow-y-auto lg:pr-2">
+      <div className="flex min-h-0 flex-col gap-6 lg:w-[22rem] lg:shrink-0 lg:overflow-y-auto lg:pr-2">
         <VolverALosCorreos />
         {error ? <ErrorDeLectura mensaje={error} onReintentar={reintentar} /> : null}
         {correo && hayCorreo ? (
@@ -170,7 +171,7 @@ export function CorreoCompletoVista({ messageId, onAsunto }: CorreoCompletoVista
           </>
         ) : null}
       </div>
-      <div className="flex min-h-0 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-col lg:flex-1">
         {correo && hayCorreo ? (
           <CorreoCuerpo
             html={correo.html}
