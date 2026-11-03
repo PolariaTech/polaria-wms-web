@@ -52,10 +52,12 @@ import {
   type OrdenTrabajoHija,
 } from "../../utils/origen/origen-correo-ordenes-trabajo";
 import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
+import { resolveNumeroOrdenClientePrint } from "../../print/map-orden-tarea-almacen";
 import {
   leerFolioFacturaVista,
   montoDeNota,
   textoConteoOrdenesTrabajo,
+  tituloDetalleOvConOt,
   totalLineaConIva,
 } from "./detalle-venta-presentacion";
 import { useRecargaFolioFactura } from "../../surtido/folio-factura-captura";
@@ -174,12 +176,15 @@ function DetalleContent({
   codigoCuenta,
   idOrdenVenta,
   mostrarTotalOv,
+  tareaTotal = 1,
 }: {
   orden: OrdenVentaDetalleRow;
   hija?: OrdenTrabajoHija | null;
   codigoCuenta: string | null;
   idOrdenVenta: string;
   mostrarTotalOv: boolean;
+  /** Cantidad de OT de la OV (REQ-176: misma OCC que el PDF). */
+  tareaTotal?: number;
 }) {
   const allLineItems = orden.lineas ?? [];
   const lineItems: OrdenVentaLineaRow[] = useMemo(() => {
@@ -217,10 +222,13 @@ function DetalleContent({
   const captura = {
     ...fromObs,
     prioridad: orden.prioridad?.trim() || fromObs.prioridad,
-    ordenCompraHotel:
-      hija?.numeroPedido ||
-      orden.orden_compra_hotel?.trim() ||
-      fromObs.ordenCompraHotel,
+    // REQ-176: misma prioridad OCC que el PDF.
+    ordenCompraHotel: resolveNumeroOrdenClientePrint({
+      ordenCompraHotel: orden.orden_compra_hotel,
+      hijaNumeroPedido: hija?.numeroPedido,
+      capturaOrdenCompra: fromObs.ordenCompraHotel,
+      tareaTotal,
+    }),
     centroConsumo:
       hija?.almacen ||
       orden.centro_consumo?.trim() ||
@@ -787,8 +795,12 @@ export function OrdenVentaDetalleModal({
       onClose={onClose}
       sectionLabel="Detalle de venta"
       title={
-        hijaActiva
-          ? `${orden?.codigo ?? "OV"} · ${hijaActiva.label}`
+        hijaActiva && ordenesTrabajo.length > 1
+          ? tituloDetalleOvConOt(
+              orden?.codigo,
+              indiceOt + 1,
+              ordenesTrabajo.length,
+            )
           : (orden?.codigo ?? "Orden de venta")
       }
       description={
@@ -884,6 +896,7 @@ export function OrdenVentaDetalleModal({
             codigoCuenta={codigoCuenta}
             idOrdenVenta={idOrdenVenta}
             mostrarTotalOv={ordenesTrabajo.length > 1}
+            tareaTotal={Math.max(1, ordenesTrabajo.length)}
           />
           <OrdenTrabajoPager
             page={indiceOt}

@@ -63,7 +63,7 @@ export function OrdenTrabajoPager({
         disabled={cannotNext}
         title={
           nextDisabled
-            ? nextDisabledHint || "Completa los campos obligatorios"
+            ? nextDisabledHint || "No se puede avanzar"
             : undefined
         }
         onClick={onNext}

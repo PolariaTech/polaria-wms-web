@@ -1423,16 +1423,19 @@ export function OperadorOrdenesVentaPageContent({
         onReagruparAlCargarAtendido={limpiarReagruparAlAbrir}
         operadorRowsForDuplicado={rows}
         onClose={() => {
-          // Cypher abierto desde el formulario del pedido se cierra al salir.
+          // REQ-221: Cancelar / Actualizar / Confirmar → detalle de esa OV, no el listado.
           const closingId = editingId;
           setIsCreateOpen(false);
           setEditingId(null);
           setReagruparAlAbrirId(null);
           setCompanionOtPicker(null);
           setCompanionIdComprador(null);
-          setCypherId((prev) =>
-            prev && closingId && prev === closingId ? null : prev,
-          );
+          if (closingId) {
+            setDetalleId(closingId);
+            // Si Cypher ya estaba en esa OV, se mantiene; el detalle republica el picker.
+            return;
+          }
+          // Alta nueva cancelada: no hay detalle que reabrir.
         }}
         onCreated={() => {
           void reload();

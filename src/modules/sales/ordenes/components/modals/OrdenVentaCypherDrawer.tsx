@@ -100,6 +100,7 @@ import {
 import { resolveOrdenCompraLimpia } from "../../utils/pedido/normalize-numero-pedido";
 import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
 import { OrigenPedidoBodyView } from "../shared/OrigenPedidoBodyView";
+import { OrdenTrabajoChipSelector } from "../orden-trabajo/OrdenTrabajoChipSelector";
 import { CypherAlistadoSection } from "./CypherAlistadoSection";
 import { CypherReagruparOtButton } from "./CypherReagruparOtButton";
 import { CypherAlistamientoSection } from "./CypherAlistamientoSection";
@@ -1189,46 +1190,16 @@ export function OrdenVentaCypherDrawer({
                         </>
                       )}
                     </p>
-                    <div className="mt-4 grid grid-cols-1 gap-2.5 @sm/cypher:grid-cols-2 @lg/cypher:grid-cols-3">
-                      {activeOtPicker.hijas.map((hija) => {
-                        const selected =
-                          activeOtPicker.selectedId === hija.id;
-                        const showAlmacen =
-                          Boolean(hija.almacen?.trim()) &&
-                          hija.almacen.trim().toLowerCase() !==
-                            hija.label.trim().toLowerCase();
-                        return (
-                          <button
-                            key={hija.id}
-                            type="button"
-                            aria-pressed={selected}
-                            title={hija.label}
-                            onClick={() => activeOtPicker.onSelect(hija.id)}
-                            className={cn(
-                              "flex min-h-[4.75rem] flex-col items-center justify-center gap-1.5 rounded-xl border px-2.5 py-3 text-center transition",
-                              "@sm/cypher:aspect-square @sm/cypher:min-h-0",
-                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                              selected
-                                ? "border-polaria-teal bg-polaria-t-20 shadow-[0_0_0_1px_var(--teal)]"
-                                : "border-polaria-t-20 bg-polaria-t-08 hover:border-polaria-teal hover:bg-polaria-t-20",
-                            )}
-                          >
-                            <p className="line-clamp-3 w-full polaria-text-caption font-semibold leading-snug text-polaria-w sm:polaria-text-body-sm">
-                              {hija.label}
-                            </p>
-                            <p className="w-full polaria-text-caption tabular-nums text-polaria-teal">
-                              {hija.productosCount} prod. ·{" "}
-                              {formatKgEs(hija.totalCantidad)} kg
-                            </p>
-                            {showAlmacen ? (
-                              <p className="line-clamp-2 w-full polaria-text-caption text-polaria-w-50">
-                                {hija.almacen}
-                              </p>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    {/* REQ-223: chips 1…N; detalle (label/kg/almacén) vive en el panel izquierdo. */}
+                    <OrdenTrabajoChipSelector
+                      className="mt-4"
+                      items={activeOtPicker.hijas.map((hija) => ({
+                        id: hija.id,
+                        label: hija.label,
+                      }))}
+                      selectedId={activeOtPicker.selectedId}
+                      onSelect={activeOtPicker.onSelect}
+                    />
                   </>
                 ) : stageReached(estado, "confirmacion") ? (
                   <>

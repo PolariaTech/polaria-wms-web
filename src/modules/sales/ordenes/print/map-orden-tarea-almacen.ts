@@ -35,6 +35,27 @@ import {
 
 export const PRODUCTOS_POR_HOJA_TAREA = 49;
 
+/**
+ * REQ-176: "# de orden del cliente" en PDF = misma OCC que ve el operador.
+ * - 1 OT: prioriza `orden_compra_hotel` (cabecera guardada), no el ADP/PO viejo de origen_correo.
+ * - Multi-OT: prioriza `numeroPedido` de la hija (PO por centro); si falta, la cabecera.
+ * Nunca usa el folio OV como OCC.
+ */
+export function resolveNumeroOrdenClientePrint(input: {
+  ordenCompraHotel?: string | null;
+  hijaNumeroPedido?: string | null;
+  capturaOrdenCompra?: string | null;
+  tareaTotal: number;
+}): string {
+  const ovOcc = input.ordenCompraHotel?.trim() || "";
+  const otOcc = input.hijaNumeroPedido?.trim() || "";
+  const capturaOcc = input.capturaOrdenCompra?.trim() || "";
+  if (input.tareaTotal > 1) {
+    return otOcc || ovOcc || capturaOcc;
+  }
+  return ovOcc || otOcc || capturaOcc;
+}
+
 const DIAS_SEMANA_ES = [
   "DOMINGO",
   "LUNES",
@@ -296,7 +317,10 @@ function buildBaseSheet(input: {
       zonaImpresionLabel,
       cliente: listRow.comprador,
       centroConsumo: hija?.almacen ?? "",
-      numeroOrdenCliente: hija?.numeroPedido || listRow.venta,
+      numeroOrdenCliente: resolveNumeroOrdenClientePrint({
+        hijaNumeroPedido: hija?.numeroPedido,
+        tareaTotal,
+      }),
       ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
       fechaEntrega: (() => {
         const f = hija?.fecha
@@ -346,10 +370,12 @@ function buildBaseSheet(input: {
       captura.centroConsumo ||
       detalle.centro_consumo?.trim() ||
       "",
-    numeroOrdenCliente:
-      hija?.numeroPedido ||
-      captura.ordenCompraHotel.trim() ||
-      detalle.codigo,
+    numeroOrdenCliente: resolveNumeroOrdenClientePrint({
+      ordenCompraHotel: detalle.orden_compra_hotel,
+      hijaNumeroPedido: hija?.numeroPedido,
+      capturaOrdenCompra: captura.ordenCompraHotel,
+      tareaTotal,
+    }),
     ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
     fechaEntrega: (() => {
       const f = hija?.fecha

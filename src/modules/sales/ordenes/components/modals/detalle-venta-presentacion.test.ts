@@ -5,6 +5,7 @@ import {
   montoDeNota,
   porcentajeDeNota,
   textoConteoOrdenesTrabajo,
+  tituloDetalleOvConOt,
   totalLineaConIva,
 } from "./detalle-venta-presentacion";
 
@@ -38,5 +39,12 @@ describe("detalle de venta", () => {
   it("cuenta una orden y varias", () => {
     expect(textoConteoOrdenesTrabajo(1)).toBe("1 orden de trabajo");
     expect(textoConteoOrdenesTrabajo(3)).toBe("3 órdenes de trabajo");
+  });
+
+  it("arma el título OV-#OT en multi-OT (REQ-229)", () => {
+    expect(tituloDetalleOvConOt("OV-00001047", 1, 2)).toBe("OV-00001047-1");
+    expect(tituloDetalleOvConOt("OV-00001047", 2, 2)).toBe("OV-00001047-2");
+    expect(tituloDetalleOvConOt("OV-00001047", 1, 1)).toBe("OV-00001047");
+    expect(tituloDetalleOvConOt("", 1, 3)).toBe("OV-1");
   });
 });

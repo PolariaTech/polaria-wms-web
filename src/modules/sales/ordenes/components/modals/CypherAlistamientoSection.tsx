@@ -217,6 +217,31 @@ export function CypherAlistamientoSection({
         </p>
       ) : null}
 
+      {/* REQ-243: despacho operativo exige check-in Despachó escaneado. */}
+      {ots.some((hija) => {
+        const otKey = normalizeIdOrdenTrabajo(hija.id);
+        const captura = capturaByOt.get(otKey) ?? capturaByOt.get("");
+        if (!captura) return true;
+        const nombre = campoCaptura(
+          captura.payload?.campos,
+          "despachoNombre",
+          "Despachó nombre",
+          "Despachó",
+        );
+        const hora = campoCaptura(
+          captura.payload?.campos,
+          "despachoHora",
+          "Despachó hora",
+        );
+        return !nombre && !hora;
+      }) ? (
+        <p className="rounded-xl border border-polaria-danger-border bg-polaria-danger-bg px-3 py-2 polaria-text-caption text-polaria-danger">
+          Check-in al despacho: escaneá la hoja desde la app (caja Despachó) antes
+          de armar el paquete o mover a salida. Sin ese escaneo no se puede
+          despachar.
+        </p>
+      ) : null}
+
       {ots.map((hija, index) => {
         const otKey = normalizeIdOrdenTrabajo(hija.id);
         const captura = capturaByOt.get(otKey) ?? capturaByOt.get("");

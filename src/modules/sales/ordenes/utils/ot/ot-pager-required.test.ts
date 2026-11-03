@@ -13,75 +13,23 @@ const base = {
   lineasPagina: [{ cantidadInput: "10", precioInput: "25" }],
 };
 
-describe("hasOtPagerRequiredBlocking", () => {
-  it("permite avanzar cuando lo obligatorio está completo", () => {
+describe("hasOtPagerRequiredBlocking (REQ-233)", () => {
+  it("nunca bloquea el pager (Cypher permite moverse libre)", () => {
     expect(hasOtPagerRequiredBlocking(base)).toBe(false);
-  });
-
-  it("bloquea sin cliente", () => {
     expect(
       hasOtPagerRequiredBlocking({ ...base, idComprador: "" }),
-    ).toBe(true);
-  });
-
-  it("bloquea OC solo si el cliente la exige", () => {
+    ).toBe(false);
     expect(
       hasOtPagerRequiredBlocking({
         ...base,
         exigeOc: true,
         ordenCompraHotel: "",
       }),
-    ).toBe(true);
-    expect(
-      hasOtPagerRequiredBlocking({
-        ...base,
-        exigeOc: false,
-        ordenCompraHotel: "",
-      }),
-    ).toBe(false);
-  });
-
-  it("bloquea líneas de la página sin cantidad", () => {
-    expect(
-      hasOtPagerRequiredBlocking({
-        ...base,
-        lineasPagina: [{ cantidadInput: "", precioInput: "10" }],
-      }),
-    ).toBe(true);
-  });
-
-  it("no bloquea con precio vacío o 0 (REQ-135)", () => {
-    expect(
-      hasOtPagerRequiredBlocking({
-        ...base,
-        lineasPagina: [{ cantidadInput: "5", precioInput: "0" }],
-      }),
     ).toBe(false);
     expect(
       hasOtPagerRequiredBlocking({
         ...base,
-        lineasPagina: [{ cantidadInput: "5", precioInput: "" }],
-      }),
-    ).toBe(false);
-  });
-
-  it("no bloquea por campos opcionales vacíos (solo mira obligatorios)", () => {
-    expect(
-      hasOtPagerRequiredBlocking({
-        ...base,
-        ordenCompraHotel: "",
-        exigeOc: false,
-        idBodegaDestino: "",
-      }),
-    ).toBe(false);
-  });
-
-  it("no bloquea por fecha de entrega atrasada", () => {
-    expect(
-      hasOtPagerRequiredBlocking({
-        ...base,
-        fechaEntrega: "2026-09-20",
-        todayIso: "2026-10-01",
+        lineasPagina: [{ cantidadInput: "", precioInput: "" }],
       }),
     ).toBe(false);
   });

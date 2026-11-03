@@ -53,6 +53,20 @@ export function textoConteoOrdenesTrabajo(cantidad: number): string {
   return `${cantidad} órdenes de trabajo`;
 }
 
+/**
+ * Título del detalle multi-OT: folio OV + guión + # de OT (1…N).
+ * REQ-229 — ej. OV-00001047-2. Con una sola OT (o sin índice) solo el folio.
+ */
+export function tituloDetalleOvConOt(
+  codigoOv: string | null | undefined,
+  indiceOt1Based: number,
+  totalOt: number,
+): string {
+  const codigo = (codigoOv ?? "").trim() || "OV";
+  if (totalOt <= 1 || indiceOt1Based < 1) return codigo;
+  return `${codigo}-${indiceOt1Based}`;
+}
+
 export type MontoLineaVista = {
   descuentoPct: number;
   ivaPct: number;
