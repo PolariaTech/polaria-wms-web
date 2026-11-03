@@ -24,6 +24,7 @@
 - `src/modules/sales/correos/services/correos.client.test.ts` — archivo nuevo
 - `src/modules/sales/correos/types/correos.types.ts` — archivo nuevo
 - `src/modules/sales/correos/hooks/useCorreosIngreso.ts` — archivo nuevo
+- `src/app/(shell)/dashboard/(operacion-cuenta)/ventas/correo/[messageId]/page.tsx` — autorizada por el usuario el 2026-11-03
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/config/routes.ts`
