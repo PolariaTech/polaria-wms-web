@@ -24,6 +24,7 @@ vi.mock("../services/correos.client", async (importarOriginal) => ({
 
 import { CorreosApiError } from "../services/correos.client";
 import {
+  TAMANO_BLOQUE_CORREOS,
   TAMANO_PAGINA_CORREOS,
   type CorreoFila,
   type IngresoCorreo,
@@ -66,9 +67,19 @@ const ingreso = (parcial: Partial<IngresoCorreo> = {}): IngresoCorreo => ({
 const lista = (filas: CorreoFila[], total = filas.length) => ({
   total,
   pagina: 1,
-  tamano: TAMANO_PAGINA_CORREOS,
+  tamano: TAMANO_BLOQUE_CORREOS,
   filas,
 });
+
+/** `cantidad` correos distintos, numerados desde `desde` (asunto «Correo 1», «Correo 2»…). */
+const filasDe = (cantidad: number, desde = 1): CorreoFila[] =>
+  Array.from({ length: cantidad }, (_, i) =>
+    fila({
+      messageId: `msg-${desde + i}`,
+      asunto: `Correo ${desde + i}`,
+      de: `remitente${desde + i}@hotel.example`,
+    }),
+  );
 
 const BOTON_INGRESAR = /Ingresar como OV/;
 
@@ -169,7 +180,7 @@ describe("CorreosTable (REQ-104)", () => {
       expect.objectContaining({
         modo: "descartados",
         pagina: 1,
-        tamano: TAMANO_PAGINA_CORREOS,
+        tamano: TAMANO_BLOQUE_CORREOS,
       }),
       expect.any(AbortSignal),
     );
@@ -503,21 +514,106 @@ describe("CorreosTable (REQ-104)", () => {
     expect(contenedor.style.minHeight).toBe(`${TAMANO_PAGINA_CORREOS * 3.25}rem`);
   });
 
-  it("pagina con el servidor", async () => {
-    api.listarCorreos.mockResolvedValue(lista([fila()], 60));
-    const user = usuario();
-    render(<CorreosTable modo="todos" />);
-    await screen.findByText("Pedido XEL");
-    expect(
-      screen.getByText(`Página 1 de ${Math.ceil(60 / TAMANO_PAGINA_CORREOS)}`),
-    ).toBeInTheDocument();
+  describe("paginación", () => {
+    it("pasa de página sobre lo ya descargado, sin volver al servidor", async () => {
+      api.listarCorreos.mockResolvedValue(lista(filasDe(12), 12));
+      const user = usuario();
+      render(<CorreosTable modo="todos" />);
+      await screen.findByText("Correo 1");
+      expect(screen.getByText("Página 1 de 3")).toBeInTheDocument();
+      expect(screen.getByText("Correo 5")).toBeInTheDocument();
+      expect(screen.queryByText("Correo 6")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+      await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+      expect(screen.getByText("Correo 6")).toBeInTheDocument();
+      expect(screen.getByText("Correo 10")).toBeInTheDocument();
+      expect(screen.queryByText("Correo 1")).not.toBeInTheDocument();
 
-    expect(api.listarCorreos).toHaveBeenLastCalledWith(
-      expect.objectContaining({ pagina: 2 }),
-      expect.any(AbortSignal),
-    );
+      await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+      expect(screen.getByText("Correo 11")).toBeInTheDocument();
+      expect(screen.getByText("Correo 12")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Página anterior" }));
+      expect(screen.getByText("Correo 6")).toBeInTheDocument();
+
+      // un solo viaje al servidor para recorrer las tres páginas
+      expect(api.listarCorreos).toHaveBeenCalledTimes(1);
+    });
+
+    it("trae el siguiente bloque antes de llegar, así cruzar de bloque no espera", async () => {
+      const POR_BLOQUE = TAMANO_BLOQUE_CORREOS / TAMANO_PAGINA_CORREOS;
+      api.listarCorreos.mockImplementation(
+        ({ pagina }: { pagina: number }) =>
+          Promise.resolve(
+            lista(
+              filasDe(
+                Math.min(TAMANO_BLOQUE_CORREOS, 120 - (pagina - 1) * TAMANO_BLOQUE_CORREOS),
+                (pagina - 1) * TAMANO_BLOQUE_CORREOS + 1,
+              ),
+              120,
+            ),
+          ),
+      );
+      const user = usuario();
+      render(<CorreosTable modo="todos" />);
+      await screen.findByText("Correo 1");
+      expect(screen.getByText(`Página 1 de ${120 / TAMANO_PAGINA_CORREOS}`)).toBeInTheDocument();
+      // primero solo el bloque 1: aún lejos del final
+      expect(api.listarCorreos).toHaveBeenCalledTimes(1);
+
+      // se avanza hasta el penúltimo tramo del bloque (el aviso previo)
+      for (let i = 1; i < POR_BLOQUE - 2; i += 1) {
+        await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+      }
+      await screen.findByText(`Correo ${(POR_BLOQUE - 3) * TAMANO_PAGINA_CORREOS + 1}`);
+      await vi.waitFor(() => expect(api.listarCorreos).toHaveBeenCalledTimes(2));
+      expect(api.listarCorreos).toHaveBeenLastCalledWith(
+        expect.objectContaining({ pagina: 2, tamano: TAMANO_BLOQUE_CORREOS }),
+        expect.any(AbortSignal),
+      );
+
+      // al cruzar al bloque 2 las filas aparecen y no se pide nada más
+      for (let i = POR_BLOQUE - 2; i <= POR_BLOQUE; i += 1) {
+        await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+      }
+      expect(await screen.findByText("Correo 51")).toBeInTheDocument();
+      expect(api.listarCorreos).toHaveBeenCalledTimes(2);
+    });
+
+    it("al filtrar vuelve a la primera página y descarta lo guardado", async () => {
+      api.listarCorreos.mockResolvedValue(lista(filasDe(12), 12));
+      const user = usuario();
+      render(<CorreosTable modo="todos" />);
+      await screen.findByText("Correo 1");
+      await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+      expect(screen.getByText("Correo 6")).toBeInTheDocument();
+
+      api.listarCorreos.mockResolvedValue(lista(filasDe(2, 100), 2));
+      await user.type(screen.getByLabelText("Buscar asunto…"), "x");
+      await act(() => vi.advanceTimersByTimeAsync(400));
+
+      expect(await screen.findByText("Correo 100")).toBeInTheDocument();
+      expect(screen.getByText("Mostrando 1–2 de 2")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Página siguiente" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Correo 6")).not.toBeInTheDocument();
+    });
+
+    it("al actualizar vuelve a pedir los correos y no se queda en una página que ya no existe", async () => {
+      api.listarCorreos.mockResolvedValueOnce(lista(filasDe(12), 12));
+      const user = usuario();
+      render(<CorreosTable modo="todos" />);
+      await screen.findByText("Correo 1");
+      await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+      await user.click(screen.getByRole("button", { name: "Página siguiente" }));
+      expect(screen.getByText("Página 3 de 3")).toBeInTheDocument();
+
+      api.listarCorreos.mockResolvedValue(lista(filasDe(6), 6));
+      await user.click(screen.getByRole("button", { name: "Actualizar lista de correos" }));
+
+      expect(await screen.findByText("Página 2 de 2")).toBeInTheDocument();
+      expect(screen.getByText("Correo 6")).toBeInTheDocument();
+      expect(api.listarCorreos).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("si la lista falla muestra el motivo y deja reintentar", async () => {

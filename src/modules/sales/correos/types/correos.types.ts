@@ -57,3 +57,9 @@ export const FILTROS_CORREOS_VACIOS: FiltrosCorreos = {
 
 /** Mismas filas por página que el resto de las tablas del sistema. */
 export const TAMANO_PAGINA_CORREOS = DEFAULT_TABLE_PAGE_SIZE;
+
+/**
+ * Correos que se piden al servidor de una vez (el máximo que acepta el api). Cada clic en
+ * «siguiente» no va al servidor: se pagina sobre el bloque ya descargado.
+ */
+export const TAMANO_BLOQUE_CORREOS = 50;

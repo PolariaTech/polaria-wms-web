@@ -10,6 +10,7 @@ import {
 } from "../services/correos.client";
 import {
   FILTROS_CORREOS_VACIOS,
+  TAMANO_BLOQUE_CORREOS,
   TAMANO_PAGINA_CORREOS,
   type CorreoFila,
   type CorreosLista,
@@ -19,6 +20,18 @@ import {
 } from "../types/correos.types";
 
 const RETARDO_FILTROS_MS = 350;
+const PAGINAS_POR_BLOQUE = Math.floor(
+  TAMANO_BLOQUE_CORREOS / TAMANO_PAGINA_CORREOS,
+);
+/** Cuántas páginas antes del final del bloque se empieza a traer el siguiente. */
+const PAGINAS_DE_ANTICIPO = 3;
+const SIN_BLOQUES: Record<number, CorreosLista> = {};
+
+interface CacheBloques {
+  /** Identifica la consulta (modo, filtros, recarga): otra consulta descarta lo guardado. */
+  clave: string;
+  bloques: Record<number, CorreosLista>;
+}
 const SONDEO_CADA_MS = 3_000;
 /** Pasado este tiempo se deja de sondear; la tabla actualizada dirá si al final quedó. */
 const SONDEO_MAXIMO_MS = 5 * 60_000;
@@ -77,41 +90,99 @@ export function useCorreosIngreso(modo: ModoCorreos) {
   const [aplicados, setAplicados] =
     useState<FiltrosCorreos>(FILTROS_CORREOS_VACIOS);
   const [pagina, setPagina] = useState(1);
-  const [lista, setLista] = useState<CorreosLista | null>(null);
-  const [cargando, setCargando] = useState(true);
+  const [cache, setCache] = useState<CacheBloques>({ clave: "", bloques: {} });
   const [error, setError] = useState<string | null>(null);
   const [recarga, setRecarga] = useState(0);
   /** Lo que el operador acaba de hacer; manda sobre lo que trajo la lista. */
   const [locales, setLocales] = useState<Record<string, IngresoCorreo>>({});
   const sondeos = useRef(new Map<string, AbortController>());
+  const aplicadosRef = useRef<FiltrosCorreos>(FILTROS_CORREOS_VACIOS);
 
   useEffect(() => {
     const temporizador = setTimeout(() => {
+      // Solo si de verdad cambiaron: así un clic en «siguiente» justo al abrir no se pierde.
+      if (aplicadosRef.current === filtros) return;
+      aplicadosRef.current = filtros;
       setAplicados(filtros);
       setPagina(1);
     }, RETARDO_FILTROS_MS);
     return () => clearTimeout(temporizador);
   }, [filtros]);
 
+  const claveConsulta = useMemo(
+    () => JSON.stringify([modo, aplicados, recarga]),
+    [modo, aplicados, recarga],
+  );
+  const bloques = cache.clave === claveConsulta ? cache.bloques : SIN_BLOQUES;
+  const bloqueActual = Math.floor((pagina - 1) / PAGINAS_POR_BLOQUE) + 1;
+  const desplazamiento =
+    ((pagina - 1) % PAGINAS_POR_BLOQUE) * TAMANO_PAGINA_CORREOS;
+  const actual = bloques[bloqueActual];
+  const tieneActual = actual !== undefined;
+  const total = actual?.total ?? Object.values(bloques)[0]?.total ?? 0;
+  const totalPaginas = Math.max(1, Math.ceil(total / TAMANO_PAGINA_CORREOS));
+
+  const traerBloque = useCallback(
+    (bloque: number, signal: AbortSignal) =>
+      listarCorreos(
+        {
+          modo,
+          pagina: bloque,
+          tamano: TAMANO_BLOQUE_CORREOS,
+          filtros: aplicados,
+        },
+        signal,
+      ).then((lista) => {
+        setCache((previo) => ({
+          clave: claveConsulta,
+          bloques:
+            previo.clave === claveConsulta
+              ? { ...previo.bloques, [bloque]: lista }
+              : { [bloque]: lista },
+        }));
+      }),
+    [modo, aplicados, claveConsulta],
+  );
+
+  // El bloque de la página que se está viendo.
   useEffect(() => {
+    if (tieneActual) return;
     const control = new AbortController();
-    setCargando(true);
     setError(null);
-    listarCorreos(
-      { modo, pagina, tamano: TAMANO_PAGINA_CORREOS, filtros: aplicados },
-      control.signal,
-    )
-      .then((resultado) => {
-        setLista(resultado);
-        setCargando(false);
-      })
-      .catch((causa: unknown) => {
-        if (control.signal.aborted) return;
-        setError(mensajeDe(causa));
-        setCargando(false);
-      });
+    traerBloque(bloqueActual, control.signal).catch((causa: unknown) => {
+      if (control.signal.aborted) return;
+      setError(mensajeDe(causa));
+    });
     return () => control.abort();
-  }, [modo, pagina, aplicados, recarga]);
+  }, [tieneActual, bloqueActual, traerBloque]);
+
+  // Al acercarse al final del bloque se trae el siguiente, en silencio, para que el
+  // cambio de bloque tampoco espere al servidor.
+  const siguienteBloque = bloqueActual + 1;
+  const hayOtroBloque = bloqueActual * TAMANO_BLOQUE_CORREOS < total;
+  const cercaDelFinal =
+    (pagina - 1) % PAGINAS_POR_BLOQUE >= PAGINAS_POR_BLOQUE - PAGINAS_DE_ANTICIPO;
+  const tieneSiguiente = bloques[siguienteBloque] !== undefined;
+  useEffect(() => {
+    if (!tieneActual || !hayOtroBloque || !cercaDelFinal || tieneSiguiente) return;
+    const control = new AbortController();
+    traerBloque(siguienteBloque, control.signal).catch(() => undefined);
+    return () => control.abort();
+  }, [
+    tieneActual,
+    hayOtroBloque,
+    cercaDelFinal,
+    tieneSiguiente,
+    siguienteBloque,
+    traerBloque,
+  ]);
+
+  // Si al actualizar hay menos correos que antes, no se queda en una página que ya no existe.
+  useEffect(() => {
+    if (tieneActual && pagina > totalPaginas) setPagina(totalPaginas);
+  }, [tieneActual, pagina, totalPaginas]);
+
+  const cargando = !tieneActual && error === null;
 
   const fijar = useCallback((ingreso: IngresoCorreo) => {
     setLocales((previo) => ({ ...previo, [ingreso.messageId]: ingreso }));
@@ -200,11 +271,13 @@ export function useCorreosIngreso(modo: ModoCorreos) {
 
   const filas = useMemo<CorreoFila[]>(
     () =>
-      (lista?.filas ?? []).map((fila) => {
-        const local = locales[fila.messageId];
-        return local ? { ...fila, ingreso: local } : fila;
-      }),
-    [lista, locales],
+      (actual?.filas ?? [])
+        .slice(desplazamiento, desplazamiento + TAMANO_PAGINA_CORREOS)
+        .map((fila) => {
+          const local = locales[fila.messageId];
+          return local ? { ...fila, ingreso: local } : fila;
+        }),
+    [actual, desplazamiento, locales],
   );
 
   // Una fila que ya venía en `procesando` (otra pestaña, otro clic) también se sigue.
@@ -259,7 +332,7 @@ export function useCorreosIngreso(modo: ModoCorreos) {
     limpiarFiltros,
     hayFiltros: Object.values(filtros).some((valor) => valor !== ""),
     filas,
-    total: lista?.total ?? 0,
+    total,
     pagina,
     setPagina,
     tamano: TAMANO_PAGINA_CORREOS,
