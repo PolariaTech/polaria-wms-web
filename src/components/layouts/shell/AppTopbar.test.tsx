@@ -1,7 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTES } from "@/config/routes";
+import {
+  useVentasMenuStore,
+  VENTAS_MENU_ID,
+} from "@/modules/sales/correos/components/VentasSidebar";
 import { useOvFechaFiltroStore } from "@/stores/ov-fecha-filtro.store";
 import type { AuthSession } from "@/types/auth/auth";
 
@@ -101,27 +105,51 @@ describe("AppTopbar — perfil", () => {
     expect(useOvFechaFiltroStore.getState().dia).toBeNull();
   });
 
-  it("reserva el espacio de notificaciones (deshabilitado) solo para los roles de cuenta", () => {
+  describe("botón del menú de Ventas (REQ-104)", () => {
     const rolOriginal = mockSession.idRol;
-    try {
-      render(<AppTopbar />);
-      expect(
-        screen.queryByRole("button", { name: "Notificaciones (próximamente)" }),
-      ).not.toBeInTheDocument();
-    } finally {
-      mockSession.idRol = rolOriginal;
-    }
+    const MOSTRAR = "Mostrar menú de Ventas";
+    const OCULTAR = "Ocultar menú de Ventas";
 
-    mockSession.idRol = "operador_cuenta";
-    try {
-      render(<AppTopbar />);
-      const campana = screen.getByRole("button", {
-        name: "Notificaciones (próximamente)",
-      });
-      expect(campana).toBeDisabled();
-    } finally {
+    beforeEach(() => {
+      useVentasMenuStore.setState({ abierto: true });
+    });
+    afterEach(() => {
       mockSession.idRol = rolOriginal;
-    }
+      useVentasMenuStore.setState({ abierto: true });
+    });
+
+    it("despliega y oculta el menú, y su nombre dice qué hará al pulsarlo", async () => {
+      mockSession.idRol = "operador_cuenta";
+      nav.pathname = ROUTES.dashboardVentasOrdenes;
+      const user = userEvent.setup();
+      render(<AppTopbar />);
+
+      const boton = screen.getByRole("button", { name: OCULTAR });
+      expect(boton).toHaveAttribute("aria-expanded", "true");
+      expect(boton).toHaveAttribute("aria-controls", VENTAS_MENU_ID);
+
+      await user.click(boton);
+      expect(useVentasMenuStore.getState().abierto).toBe(false);
+      const cerrado = screen.getByRole("button", { name: MOSTRAR });
+      expect(cerrado).toHaveAttribute("aria-expanded", "false");
+
+      await user.click(cerrado);
+      expect(useVentasMenuStore.getState().abierto).toBe(true);
+    });
+
+    it("no aparece fuera de Ventas", () => {
+      mockSession.idRol = "operador_cuenta";
+      nav.pathname = "/dashboard";
+      render(<AppTopbar />);
+      expect(screen.queryByRole("button", { name: OCULTAR })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: MOSTRAR })).not.toBeInTheDocument();
+    });
+
+    it("no aparece para roles que no son de cuenta", () => {
+      nav.pathname = ROUTES.dashboardVentasOrdenes;
+      render(<AppTopbar />);
+      expect(screen.queryByRole("button", { name: OCULTAR })).not.toBeInTheDocument();
+    });
   });
 
   it("oculta Mateo IA cuando showMateoIa es false", () => {

@@ -23,7 +23,11 @@ vi.mock("../services/correos.client", async (importarOriginal) => ({
 }));
 
 import { CorreosApiError } from "../services/correos.client";
-import type { CorreoFila, IngresoCorreo } from "../types/correos.types";
+import {
+  TAMANO_PAGINA_CORREOS,
+  type CorreoFila,
+  type IngresoCorreo,
+} from "../types/correos.types";
 import { CorreosTable, formatearRecibido } from "./CorreosTable";
 
 const MSG = "msg-descartado-1";
@@ -54,7 +58,7 @@ const ingreso = (parcial: Partial<IngresoCorreo> = {}): IngresoCorreo => ({
 const lista = (filas: CorreoFila[], total = filas.length) => ({
   total,
   pagina: 1,
-  tamano: 25,
+  tamano: TAMANO_PAGINA_CORREOS,
   filas,
 });
 
@@ -106,7 +110,11 @@ describe("CorreosTable (REQ-104)", () => {
     expect(screen.getByText("OV-00001318")).toBeInTheDocument();
     expect(screen.getByText("Total: 3")).toBeInTheDocument();
     expect(api.listarCorreos).toHaveBeenCalledWith(
-      expect.objectContaining({ modo: "descartados", pagina: 1, tamano: 25 }),
+      expect.objectContaining({
+        modo: "descartados",
+        pagina: 1,
+        tamano: TAMANO_PAGINA_CORREOS,
+      }),
       expect.any(AbortSignal),
     );
   });
@@ -235,12 +243,30 @@ describe("CorreosTable (REQ-104)", () => {
     expect(screen.queryByRole("button", { name: "Limpiar filtros" })).not.toBeInTheDocument();
   });
 
+  it("usa las mismas filas por página que el resto de las tablas y completa la altura con filas de relleno", async () => {
+    expect(TAMANO_PAGINA_CORREOS).toBe(5);
+    api.listarCorreos.mockResolvedValue(lista([fila(), fila({ messageId: "m2" })], 2));
+    const { container } = render(<CorreosTable modo="todos" />);
+    await screen.findAllByText("Pedido XEL");
+
+    const cuerpo = container.querySelector("tbody") as HTMLElement;
+    const reales = cuerpo.querySelectorAll("tr:not([aria-hidden])");
+    const relleno = cuerpo.querySelectorAll('tr[aria-hidden="true"]');
+    expect(reales).toHaveLength(2);
+    expect(reales.length + relleno.length).toBe(TAMANO_PAGINA_CORREOS);
+    // la altura del cuerpo queda reservada, así la tabla no salta al paginar
+    const contenedor = container.querySelector("table")?.parentElement as HTMLElement;
+    expect(contenedor.style.minHeight).toBe(`${TAMANO_PAGINA_CORREOS * 3.25}rem`);
+  });
+
   it("pagina con el servidor", async () => {
     api.listarCorreos.mockResolvedValue(lista([fila()], 60));
     const user = usuario();
     render(<CorreosTable modo="todos" />);
     await screen.findByText("Pedido XEL");
-    expect(screen.getByText("Página 1 de 3")).toBeInTheDocument();
+    expect(
+      screen.getByText(`Página 1 de ${Math.ceil(60 / TAMANO_PAGINA_CORREOS)}`),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Página siguiente" }));
 

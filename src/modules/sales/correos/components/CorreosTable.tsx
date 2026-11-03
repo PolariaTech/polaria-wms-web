@@ -3,6 +3,8 @@
 import { CheckCircle2, Loader2, RotateCw } from "lucide-react";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import {
+  getPaginationPlaceholderCount,
+  getTableBodyMinHeightStyle,
   POLARIA_TABLE_ROW_HEIGHT_CLASS,
   POLARIA_TABLE_SCROLL_CLASS,
 } from "@/components/shared/table/polaria-table-layout";
@@ -131,7 +133,7 @@ function AccionIngreso({
   );
 }
 
-const CELDA = "px-5 py-2 sm:px-6";
+const CELDA = "px-5 py-1 align-middle sm:px-6";
 const ENCABEZADO = "polaria-text-label px-5 py-3 text-polaria-w-50 sm:px-6";
 
 /**
@@ -207,10 +209,18 @@ export function CorreosTable({ modo }: { modo: ModoCorreos }) {
         </div>
       ) : null}
 
-      {primeraCarga && !error ? <PolariaStatusLoading embedded /> : null}
+      {primeraCarga && !error ? (
+        <div style={getTableBodyMinHeightStyle(tamano)}>
+          <PolariaStatusLoading embedded />
+        </div>
+      ) : null}
 
       {!primeraCarga && !error ? (
-        <div className={POLARIA_TABLE_SCROLL_CLASS} aria-busy={cargando}>
+        <div
+          className={POLARIA_TABLE_SCROLL_CLASS}
+          style={getTableBodyMinHeightStyle(tamano)}
+          aria-busy={cargando}
+        >
           <table
             className={cn(
               "w-full text-left transition-opacity",
@@ -309,6 +319,25 @@ export function CorreosTable({ modo }: { modo: ModoCorreos }) {
                     </td>
                   </tr>
                 ))
+              )}
+              {Array.from(
+                {
+                  length: getPaginationPlaceholderCount(filas.length, tamano, true),
+                },
+                (_, indice) => (
+                  <tr
+                    key={`relleno-${indice}`}
+                    aria-hidden
+                    className={cn(
+                      POLARIA_TABLE_ROW_HEIGHT_CLASS,
+                      "border-t border-polaria-w-08",
+                    )}
+                  >
+                    <td colSpan={6} className="px-5 py-0 sm:px-6">
+                      &nbsp;
+                    </td>
+                  </tr>
+                ),
               )}
             </tbody>
           </table>

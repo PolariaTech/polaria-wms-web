@@ -1,3 +1,5 @@
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/constants/ui/table-pagination";
+
 /** REQ-104: correos de pedidos que registra n8n y su ingreso manual como OV. */
 
 export type ModoCorreos = "todos" | "descartados";
@@ -49,4 +51,5 @@ export const FILTROS_CORREOS_VACIOS: FiltrosCorreos = {
   hasta: "",
 };
 
-export const TAMANO_PAGINA_CORREOS = 25;
+/** Mismas filas por página que el resto de las tablas del sistema. */
+export const TAMANO_PAGINA_CORREOS = DEFAULT_TABLE_PAGE_SIZE;
