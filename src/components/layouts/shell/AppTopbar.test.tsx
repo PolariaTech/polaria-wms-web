@@ -101,6 +101,29 @@ describe("AppTopbar — perfil", () => {
     expect(useOvFechaFiltroStore.getState().dia).toBeNull();
   });
 
+  it("reserva el espacio de notificaciones (deshabilitado) solo para los roles de cuenta", () => {
+    const rolOriginal = mockSession.idRol;
+    try {
+      render(<AppTopbar />);
+      expect(
+        screen.queryByRole("button", { name: "Notificaciones (próximamente)" }),
+      ).not.toBeInTheDocument();
+    } finally {
+      mockSession.idRol = rolOriginal;
+    }
+
+    mockSession.idRol = "operador_cuenta";
+    try {
+      render(<AppTopbar />);
+      const campana = screen.getByRole("button", {
+        name: "Notificaciones (próximamente)",
+      });
+      expect(campana).toBeDisabled();
+    } finally {
+      mockSession.idRol = rolOriginal;
+    }
+  });
+
   it("oculta Mateo IA cuando showMateoIa es false", () => {
     render(<AppTopbar showMateoIa={false} />);
 

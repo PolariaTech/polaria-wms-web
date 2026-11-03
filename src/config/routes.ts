@@ -58,6 +58,10 @@ export const ROUTES = {
   dashboardProcesamiento: "/dashboard/procesamiento",
   dashboardVentas: "/dashboard/ventas",
   dashboardVentasOrdenes: "/dashboard/ventas/ordenes",
+  /** REQ-104: correos de pedidos que registra n8n (todos). */
+  dashboardVentasCorreosMateo: "/dashboard/ventas/correos-mateo",
+  /** REQ-104: correos que el flujo descartó, para ingresarlos a mano como OV. */
+  dashboardVentasCorreosDescartados: "/dashboard/ventas/correos-descartados",
   /** Captura pública (QR) de hoja surtida — sin login. */
   capturaOrden: (idOrdenVenta: string, idOrdenTrabajo?: string) => {
     const base = `/captura-orden/${encodeURIComponent(idOrdenVenta)}`;

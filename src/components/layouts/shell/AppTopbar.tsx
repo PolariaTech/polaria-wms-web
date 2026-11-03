@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Loader2, LogOut, Snowflake } from "lucide-react";
+import { Bell, Loader2, LogOut, Snowflake } from "lucide-react";
 import { ROUTES } from "@/config/routes";
+import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useLiveDate } from "@/hooks/shared/useLiveDate";
 import {
   getSessionDisplayName,
@@ -56,6 +57,10 @@ export function AppTopbar({
   const toggleFechaFiltro = useOvFechaFiltroStore((s) => s.toggle);
   const clearFechaFiltro = useOvFechaFiltroStore((s) => s.clear);
   const fechaPresionada = onOrdenesVenta && Boolean(fechaFiltroDia);
+  // REQ-104: espacio reservado para las notificaciones; su contenido se define después.
+  const mostrarNotificaciones = session
+    ? (ROLES_NIVEL_CUENTA as readonly string[]).includes(session.idRol)
+    : false;
 
   useEffect(() => {
     if (!onOrdenesVenta && fechaFiltroDia) clearFechaFiltro();
@@ -168,6 +173,19 @@ export function AppTopbar({
 
           <div className="polaria-topbar__end">
             <TenantBodegaSelector className="hidden sm:inline-flex" />
+
+            {mostrarNotificaciones ? (
+              <button
+                type="button"
+                disabled
+                aria-label="Notificaciones (próximamente)"
+                title="Notificaciones: próximamente"
+                className="polaria-topbar-btn polaria-topbar-btn--menu cursor-not-allowed opacity-60"
+                style={{ paddingInline: 0, width: "2.375rem" }}
+              >
+                <Bell className={ICON} strokeWidth={1.75} aria-hidden />
+              </button>
+            ) : null}
 
             {showMateoIa ? (
             <button
