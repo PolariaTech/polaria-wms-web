@@ -31,6 +31,7 @@
 - `src/modules/sales/correos/utils/correos-formato.test.ts` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/correos/components/AccionIngreso.tsx` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/correos/components/DetalleCorreoModal.tsx` — autorizada por el usuario el 2026-11-03
+- `src/modules/sales/correos/components/DetalleCorreoPartes.tsx` — autorizada por el usuario el 2026-11-03
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/config/routes.ts`
