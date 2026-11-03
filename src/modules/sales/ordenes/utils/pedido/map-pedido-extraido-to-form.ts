@@ -18,7 +18,6 @@ import {
 import { groupKeyOrigenCorreo } from "../origen/origen-correo-ordenes-trabajo";
 import {
   extractDireccionShipToDesdeTexto,
-  quitarContactoDeDireccion,
   extractEntregaDesdeTexto,
 } from "./extract-entrega-desde-texto";
 import { parseFechaOrigen } from "../origen/materialize-ov-desde-origen";
@@ -635,7 +634,7 @@ export function mapPedidoExtraidoToForm(params: {
     fieldKey: "direccion",
     label: "Dirección de entrega",
     valorDb: ficha.direccion,
-    valorIa: direccionShipTo || quitarContactoDeDireccion(pedido.direccion),
+    valorIa: direccionShipTo || pedido.direccion,
     patch,
     autoFields,
     warnFields,
