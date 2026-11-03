@@ -49,6 +49,7 @@
 - `src/modules/sales/ordenes/hooks/aplicar-reagrupacion-ov.ts` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/ordenes/hooks/aplicar-correccion-correo-ov.ts` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/ordenes/hooks/editar-lineas-ov.ts` — autorizada por el usuario el 2026-11-03
+- `src/app/globals.css` — autorizada por el usuario el 2026-11-03
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
