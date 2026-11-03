@@ -200,7 +200,6 @@ import {
 import {
   isConfirmSubmitDisabled,
   resolveConfirmBloqueoReason,
-  shouldCloseModalAfterSubmit,
 } from "../../utils/ot/confirm-bloqueo-ov";
 import { OrdenVentaFormFooterCenter } from "./OrdenVentaFormFooterCenter";
 import { extractCorreoContactoDesdeTexto } from "../../utils/origen/correo-chrome";
@@ -4041,9 +4040,7 @@ export function OrdenVentaCreateModal({
         } else {
           setPendingEmitId(null);
           onCreated();
-          if (shouldCloseModalAfterSubmit(false)) {
-            onClose();
-          }
+          onClose(); // REQ-182: solo confirmar cierra; draft ya retornó arriba
         }
       } catch (err: unknown) {
         // REQ-195: mensaje concreto + toast fijo (el alert del scroll se pierde tras Mateo).
