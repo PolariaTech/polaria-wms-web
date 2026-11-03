@@ -175,6 +175,61 @@ export function isBrokenCloudinaryPdfUrl(url: string): boolean {
   );
 }
 
+/** REQ-159: HTML se previsualiza en pestaña (no descarga). */
+export function isHtmlOrigenAdjunto(item: {
+  nombre: string;
+  mime?: string | null;
+}): boolean {
+  const mime = (item.mime ?? "").toLowerCase();
+  const name = item.nombre.toLowerCase();
+  return (
+    mime === "text/html" ||
+    mime === "application/xhtml+xml" ||
+    name.endsWith(".html") ||
+    name.endsWith(".htm")
+  );
+}
+
+/** REQ-159: .eml se puede abrir legible en pestaña. */
+export function isEmlOrigenAdjunto(item: {
+  nombre: string;
+  mime?: string | null;
+}): boolean {
+  const mime = (item.mime ?? "").toLowerCase();
+  const name = item.nombre.toLowerCase();
+  return (
+    name.endsWith(".eml") ||
+    mime.includes("message/rfc822") ||
+    mime === "application/eml"
+  );
+}
+
+/**
+ * Content-Type al servir el archivo. Corrige octet-stream de Storage en HTML/EML
+ * para que el navegador pinte en vez de descargar (REQ-159).
+ */
+export function resolveAdjuntoContentType(
+  nombre: string,
+  mime?: string | null,
+): string {
+  if (isHtmlOrigenAdjunto({ nombre, mime })) {
+    return "text/html; charset=utf-8";
+  }
+  if (isEmlOrigenAdjunto({ nombre, mime })) {
+    return "message/rfc822";
+  }
+  const raw = (mime ?? "").trim();
+  if (raw && raw !== "application/octet-stream") return raw;
+  const name = nombre.toLowerCase();
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".gif")) return "image/gif";
+  if (name.endsWith(".webp")) return "image/webp";
+  if (name.endsWith(".txt")) return "text/plain; charset=utf-8";
+  return raw || "application/octet-stream";
+}
+
 export function canPreviewOrigenAdjunto(item: OrigenAdjunto): boolean {
   const mime = (item.mime ?? "").toLowerCase();
   const name = item.nombre.toLowerCase();
@@ -183,15 +238,8 @@ export function canPreviewOrigenAdjunto(item: OrigenAdjunto): boolean {
   if (url && isBrokenCloudinaryPdfUrl(url) && !item.path?.trim()) return false;
   if (mime.startsWith("image/") && !name.endsWith(".pdf")) return true;
   if (mime === "application/pdf" || name.endsWith(".pdf")) return true;
-  // REQ-103: HTML igual que PDF (ojo → nueva pestaña).
-  if (
-    mime === "text/html" ||
-    mime === "application/xhtml+xml" ||
-    name.endsWith(".html") ||
-    name.endsWith(".htm")
-  ) {
-    return true;
-  }
+  // REQ-103 / REQ-159: HTML y EML → ojo abre en nueva pestaña.
+  if (isHtmlOrigenAdjunto(item) || isEmlOrigenAdjunto(item)) return true;
   return false;
 }
 

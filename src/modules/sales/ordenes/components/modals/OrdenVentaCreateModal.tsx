@@ -174,7 +174,14 @@ import {
   resolveOrdenCompraLimpia,
   sanitizeOrigenCorreoNumeroPedido,
 } from "../../utils/pedido/normalize-numero-pedido";
-import { resolveCabeceraGuardada, salirDeHoraConTab, useFocoOrdenCompraAlAbrir } from "../../utils/pedido/resolve-cabecera-guardada";
+import {
+  resolveCabeceraGuardada,
+  resolvePropuestaClienteMateoAlReabrir,
+  resolvePropuestaClienteMateoParaGuardar,
+  sellarNombreClienteMateoEnOrigen,
+  salirDeHoraConTab,
+  useFocoOrdenCompraAlAbrir,
+} from "../../utils/pedido/resolve-cabecera-guardada";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
   FECHA_ENTREGA_DEFAULT_WARNING,
@@ -778,6 +785,13 @@ export function OrdenVentaCreateModal({
   const docsFileInputRef = useRef<HTMLInputElement | null>(null);
   const bootstrapPromiseRef = useRef<Promise<void> | null>(null);
   const seededOtIdsRef = useRef<Set<string>>(new Set());
+  /**
+   * REQ-195: si la OV ya trae líneas materializadas en BD, no re-sembrar
+   * productos “sin validar” desde origen_correo al cambiar de OT.
+   */
+  const skipOtSeedFromOrigenRef = useRef(false);
+  /** Tras aplicar Mateo/organizador: disparar Guardar avance una vez (OV existente). */
+  const pendingDraftSaveAfterReorgRef = useRef(false);
   const formScrollRef = useRef<HTMLDivElement | null>(null);
   const formScrollTopRef = useRef<number | null>(null);
   const revisionFocusRequestRef = useRef<RevisionPendiente | null>(null);
@@ -1244,15 +1258,28 @@ export function OrdenVentaCreateModal({
       });
       setReagruparOpen(false);
       setError(null);
+      // REQ-195: en OV existente, persistir el borrador al aplicar (no solo memoria).
+      if (isEditing || pendingEmitId) {
+        pendingDraftSaveAfterReorgRef.current = true;
+      }
       showToast({
         title: "Órdenes de trabajo reorganizadas",
         content:
-          "El cambio quedó como borrador. Guarda el pedido para conservarlo o pulsa Deshacer.",
+          isEditing || pendingEmitId
+            ? "Guardando el avance para conservar la reorganización…"
+            : "El cambio quedó como borrador. Guarda el pedido para conservarlo o pulsa Deshacer.",
         variant: "success",
         durationMs: 5000,
       });
     },
-    [applyOrdenesTrabajo, lineas, showToast, syncActiveOtFromForm],
+    [
+      applyOrdenesTrabajo,
+      isEditing,
+      lineas,
+      pendingEmitId,
+      showToast,
+      syncActiveOtFromForm,
+    ],
   );
 
   /**
@@ -1330,10 +1357,16 @@ export function OrdenVentaCreateModal({
       });
       setReagruparOpen(false);
       setError(null);
+      // REQ-195: persistir corrección en OV existente.
+      if (isEditing || pendingEmitId) {
+        pendingDraftSaveAfterReorgRef.current = true;
+      }
       showToast({
         title: "Órdenes de trabajo corregidas con el correo",
         content:
-          "El cambio quedó como borrador. Revisa los productos marcados, guarda el pedido para conservarlo o pulsa Deshacer.",
+          isEditing || pendingEmitId
+            ? "Guardando el avance. Revisa productos marcados si quedan pendientes."
+            : "El cambio quedó como borrador. Revisa los productos marcados, guarda el pedido para conservarlo o pulsa Deshacer.",
         variant: "success",
         durationMs: 6000,
       });
@@ -1346,9 +1379,11 @@ export function OrdenVentaCreateModal({
       contacto,
       correo,
       direccion,
+      isEditing,
       lineas,
       observaciones,
       origenTexto,
+      pendingEmitId,
       productos,
       registrarTemperatura,
       requiereLote,
@@ -1606,9 +1641,12 @@ export function OrdenVentaCreateModal({
   useEffect(() => {
     if (!open) {
       seededOtIdsRef.current = new Set();
+      skipOtSeedFromOrigenRef.current = false;
       return;
     }
     if (step !== "form" || !hijaFormActiva) return;
+    // REQ-195: OV ya materializada → no inventar catalogPending desde origen.
+    if (skipOtSeedFromOrigenRef.current) return;
     if (hijaFormActiva.renglones.length === 0) return;
     if (seededOtIdsRef.current.has(hijaFormActiva.id)) return;
 
@@ -1778,6 +1816,45 @@ export function OrdenVentaCreateModal({
     ventanaHasta,
   ]);
 
+  /** REQ-195: motivo explícito cuando Confirmar está deshabilitado. */
+  const confirmBloqueoReason = useMemo(() => {
+    if (step !== "form") return null;
+    if (isLoading || isSaving) return null;
+    if (!hasProductos) return "Espera a que cargue el catálogo de productos";
+    if (lineas.length === 0) return "Agrega al menos un producto";
+    if (!idComprador) return "Falta cliente";
+    if (hasCatalogPending) {
+      return (
+        revisionPendiente?.message ??
+        "Hay productos no identificados. Elige uno del catálogo o quita la línea"
+      );
+    }
+    if (esPorConfirmar && revisionPendiente) {
+      return revisionPendiente.message;
+    }
+    return null;
+  }, [
+    esPorConfirmar,
+    hasCatalogPending,
+    hasProductos,
+    idComprador,
+    isLoading,
+    isSaving,
+    lineas.length,
+    revisionPendiente,
+    step,
+  ]);
+
+  const confirmSubmitDisabled = Boolean(
+    step === "form" &&
+      (isLoading ||
+        isSaving ||
+        !hasProductos ||
+        lineas.length === 0 ||
+        hasCatalogPending ||
+        !idComprador),
+  );
+
   const focusRevisionPendiente = useCallback((pendiente: RevisionPendiente) => {
     const selector = revisionFocusSelector(pendiente);
     if (!selector) return;
@@ -1933,6 +2010,8 @@ export function OrdenVentaCreateModal({
     setIsReadingIa(false);
     skipDiscrepanciaConfirmRef.current = false;
     skipSaveConfirmRef.current = false;
+    skipOtSeedFromOrigenRef.current = false;
+    pendingDraftSaveAfterReorgRef.current = false;
     setCantidadFocusId(null);
     setError(null);
     setSuccessMessage(null);
@@ -2083,17 +2162,86 @@ export function OrdenVentaCreateModal({
           origenCorreoRows
             .map((row) => row["Nombre cliente"]?.trim())
             .find((value): value is string => Boolean(value)) || null;
-        if (nombreEscritoOrigen) {
-          setCompradorNombreIa(nombreEscritoOrigen);
-        }
-        // Sin cliente de catálogo: mostrar el nombre del correo (no "—") + sugerencias.
-        if (!idCompradorDetalle && nombreEscritoOrigen) {
-          setCompradorLabel(nombreEscritoOrigen);
-        }
 
         const esExternoPorConfirmar =
           normalizeEstadoOrdenVenta(detalle.estado) === "por_confirmar" &&
           origenCorreoRows.length > 0;
+        const detalleLineas = detalle.lineas ?? [];
+        const notasLineas = detalle.notas_lineas?.trim() || "";
+        // REQ-195: si ya hay líneas en BD, no remapear todo desde origen (evita
+        // catalogPending falso y bloqueo de Confirmar sin motivo claro).
+        const ovMaterializada = detalleLineas.some((linea) =>
+          Boolean(linea.id_producto?.trim()),
+        );
+
+        const mapDetalleLineasAForm = () => {
+          const lineasEditBase = detalleLineas.map((linea) => {
+            const catalogo = productoRows.find(
+              (row) => row.idProducto === linea.id_producto,
+            );
+            const skuFromOrigen = resolveSkuVisible({
+              linea,
+              origenRenglones: origenCorreoRows,
+            });
+            const skuRaw = linea.producto?.sku?.trim() || "";
+            const skuUsable =
+              skuRaw && !skuRaw.toUpperCase().startsWith("ARCH-")
+                ? skuRaw
+                : "";
+            const codigo =
+              catalogo?.codigo || skuUsable || skuFromOrigen || "";
+            const nombreRaw =
+              catalogo?.nombre || resolveOrdenVentaLineaTitulo(linea);
+            const nombre = stripLeadingProductoCodigo(nombreRaw, codigo);
+            const aliasCliente =
+              resolveTextoProductoOrigen({
+                linea,
+                origenRenglones: origenCorreoRows,
+              }) || undefined;
+            return {
+              idProducto: linea.id_producto,
+              nombre,
+              codigo,
+              idBodega: catalogo?.idBodega || detalle.id_bodega,
+              cantidadInput: formatDecimalInputEs(linea.cantidad_pedida),
+              cajasInput:
+                linea.cajas != null && linea.cajas > 0
+                  ? formatDecimalInputEs(linea.cajas)
+                  : "",
+              presentacion: linea.presentacion?.trim() || "",
+              especificacion: "",
+              descuentoPctInput: "",
+              ivaPct: "0",
+              kgDisponible: catalogo?.kgDisponible ?? 0,
+              unidadMedida:
+                linea.unidad_medida?.trim() ||
+                catalogo?.unidadMedida ||
+                UNIDAD_MEDIDA_VENTA_DEFAULT,
+              precioUnitario: linea.precio_unitario,
+              precioInput: formatPrecioInput(linea.precio_unitario),
+              precioManual: true as const,
+              aliasCliente,
+            };
+          });
+          const lineasConOt = assignOtIdsToFormLineas(
+            lineasEditBase,
+            hijasEdit,
+            (raw) => parseDecimalEs(raw) ?? 0,
+          );
+          return lineasConOt.map((linea) => ({
+            ...linea,
+            especificacion: notaCapturaForLinea(notasLineas, {
+              nombre: linea.nombre,
+              cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
+              otId: linea.otId,
+              idProducto: linea.idProducto || null,
+              allowUnscoped:
+                !linea.otId &&
+                lineasConOt.filter((l) => l.nombre === linea.nombre)
+                  .length === 1,
+            }),
+          }));
+        };
 
         // OV del tercero: Mateo interpreta origen_correo → formulario (1ª OT) + Cypher.
         if (esExternoPorConfirmar) {
@@ -2103,13 +2251,23 @@ export function OrdenVentaCreateModal({
             notasAlmacen: detalle.notas_almacen,
           });
 
+          // REQ-166: propuesta de Mateo (pedido/origen), no el Cliente del Cypher-correo.
+          const propuestaMateo = resolvePropuestaClienteMateoAlReabrir({
+            idComprador: idCompradorDetalle,
+            nombrePedidoMateo: pedido.nombreCliente,
+            nombreEnOrigen: nombreEscritoOrigen,
+          });
+          if (propuestaMateo) {
+            setCompradorNombreIa(propuestaMateo);
+          }
+
           const compradorRank = rankCompradoresFromNombre(
-            pedido.nombreCliente,
+            propuestaMateo || pedido.nombreCliente,
             compradorRows,
           );
           const autoComprador = shouldAutoAssignComprador(
             compradorRank,
-            pedido.nombreCliente,
+            propuestaMateo || pedido.nombreCliente,
           );
           // Si ya venía un comprador de materialización pero no es match exacto
           // del texto del cliente, no lo dejamos elegido: solo sugerencias.
@@ -2121,19 +2279,27 @@ export function OrdenVentaCreateModal({
 
           if (autoComprador) {
             handleSelectComprador(autoComprador, {
-              keepNombreIa: Boolean(nombreEscritoOrigen),
+              keepNombreIa: Boolean(propuestaMateo || nombreEscritoOrigen),
               // No pisar Ship To del origen con la ficha del comprador.
               preservePedidoData: true,
             });
             idCompradorForMap = autoComprador.idComprador;
             telefonoForMap = autoComprador.telefono?.trim() || "";
-          } else if (nombreEscritoOrigen) {
-            selectedCompradorIdRef.current = "";
-            setIdComprador("");
-            setCompradorLabel(nombreEscritoOrigen);
-            setCompradorSugerencias(
-              compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
-            );
+          } else if (propuestaMateo) {
+            // REQ-166: no dejar el campo vacío («Falta cliente») si Mateo ya propuso.
+            // REQ-195: si la OV ya tiene comprador en BD, no lo borramos al reabrir.
+            if (ovMaterializada && idCompradorDetalle) {
+              setCompradorSugerencias(
+                compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
+              );
+            } else {
+              selectedCompradorIdRef.current = "";
+              setIdComprador("");
+              setCompradorLabel(propuestaMateo);
+              setCompradorSugerencias(
+                compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
+              );
+            }
           }
 
           const prioridadOrigen = origenCorreoRows
@@ -2209,116 +2375,58 @@ export function OrdenVentaCreateModal({
           setAutoFields(mapped.autoFields);
           setWarnFields(mapped.warnFields);
           const nextMissing = new Set(mapped.missingFields);
-          if (!autoComprador && !idCompradorForMap) {
-            nextMissing.add("cliente");
-          } else {
+          if (
+            (ovMaterializada && idCompradorDetalle) ||
+            autoComprador ||
+            idCompradorForMap
+          ) {
             nextMissing.delete("cliente");
+          } else {
+            nextMissing.add("cliente");
           }
           if (!mapped.direccion.trim()) nextMissing.add("direccion");
           else nextMissing.delete("direccion");
           setMissingFields(nextMissing);
           setDiscrepancias(mapped.discrepancias);
-          setLineas(
-            mapped.lineas.map((linea) => ({
-              idProducto: linea.idProducto,
-              nombre: linea.nombre,
-              codigo: linea.codigo,
-              idBodega: linea.idBodega,
-              cantidadInput: linea.cantidadInput,
-              cajasInput: linea.cajasInput,
-              presentacion: linea.presentacion,
-              especificacion: linea.especificacion,
-              descuentoPctInput: linea.descuentoPctInput,
-              ivaPct: "0",
-              kgDisponible: linea.kgDisponible,
-              unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
-              precioUnitario: linea.precioUnitario,
-              precioInput: formatPrecioInput(linea.precioUnitario),
-              precioManual: linea.precioManual,
-              aliasCliente: linea.aliasCliente,
-              filledByIa: linea.filledByIa,
-              otId: linea.otId,
-              catalogPending: linea.catalogPending,
-              catalogAmbiguo: linea.catalogAmbiguo,
-              sugerencia: linea.sugerencia ?? null,
-              sugerenciasAlternativas: linea.sugerenciasAlternativas ?? [],
-            })),
-          );
+          if (ovMaterializada) {
+            skipOtSeedFromOrigenRef.current = true;
+            setLineas(mapDetalleLineasAForm());
+          } else {
+            skipOtSeedFromOrigenRef.current = false;
+            setLineas(
+              mapped.lineas.map((linea) => ({
+                idProducto: linea.idProducto,
+                nombre: linea.nombre,
+                codigo: linea.codigo,
+                idBodega: linea.idBodega,
+                cantidadInput: linea.cantidadInput,
+                cajasInput: linea.cajasInput,
+                presentacion: linea.presentacion,
+                especificacion: linea.especificacion,
+                descuentoPctInput: linea.descuentoPctInput,
+                ivaPct: "0",
+                kgDisponible: linea.kgDisponible,
+                unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+                precioUnitario: linea.precioUnitario,
+                precioInput: formatPrecioInput(linea.precioUnitario),
+                precioManual: linea.precioManual,
+                aliasCliente: linea.aliasCliente,
+                filledByIa: linea.filledByIa,
+                otId: linea.otId,
+                catalogPending: linea.catalogPending,
+                catalogAmbiguo: linea.catalogAmbiguo,
+                sugerencia: linea.sugerencia ?? null,
+                sugerenciasAlternativas: linea.sugerenciasAlternativas ?? [],
+              })),
+            );
+          }
           setStartMode("docs");
           setFormOtPage(0);
           // Sin preview intermedio: formulario de la 1ª OT (Cypher se abre desde la lista).
           setStep("form");
         } else {
-          const detalleLineas = detalle.lineas ?? [];
-          const notasLineas = detalle.notas_lineas?.trim() || "";
-          const lineasEditBase = detalleLineas.map((linea) => {
-            const catalogo = productoRows.find(
-              (row) => row.idProducto === linea.id_producto,
-            );
-            const skuFromOrigen = resolveSkuVisible({
-              linea,
-              origenRenglones: origenCorreoRows,
-            });
-            const skuRaw = linea.producto?.sku?.trim() || "";
-            const skuUsable =
-              skuRaw && !skuRaw.toUpperCase().startsWith("ARCH-")
-                ? skuRaw
-                : "";
-            const codigo =
-              catalogo?.codigo || skuUsable || skuFromOrigen || "";
-            const nombreRaw =
-              catalogo?.nombre || resolveOrdenVentaLineaTitulo(linea);
-            const nombre = stripLeadingProductoCodigo(nombreRaw, codigo);
-            const aliasCliente =
-              resolveTextoProductoOrigen({
-                linea,
-                origenRenglones: origenCorreoRows,
-              }) || undefined;
-            return {
-              idProducto: linea.id_producto,
-              nombre,
-              codigo,
-              idBodega: catalogo?.idBodega || detalle.id_bodega,
-              cantidadInput: formatDecimalInputEs(linea.cantidad_pedida),
-              cajasInput:
-                linea.cajas != null && linea.cajas > 0
-                  ? formatDecimalInputEs(linea.cajas)
-                  : "",
-              presentacion: linea.presentacion?.trim() || "",
-              especificacion: "",
-              descuentoPctInput: "",
-              ivaPct: "0",
-              kgDisponible: catalogo?.kgDisponible ?? 0,
-              unidadMedida:
-                linea.unidad_medida?.trim() ||
-                catalogo?.unidadMedida ||
-                UNIDAD_MEDIDA_VENTA_DEFAULT,
-              precioUnitario: linea.precio_unitario,
-              precioInput: formatPrecioInput(linea.precio_unitario),
-              precioManual: true as const,
-              aliasCliente,
-            };
-          });
-          const lineasConOt = assignOtIdsToFormLineas(
-            lineasEditBase,
-            hijasEdit,
-            (raw) => parseDecimalEs(raw) ?? 0,
-          );
-          setLineas(
-            lineasConOt.map((linea) => ({
-              ...linea,
-              especificacion: notaCapturaForLinea(notasLineas, {
-                nombre: linea.nombre,
-                cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
-                otId: linea.otId,
-                idProducto: linea.idProducto || null,
-                allowUnscoped:
-                  !linea.otId &&
-                  lineasConOt.filter((l) => l.nombre === linea.nombre)
-                    .length === 1,
-              }),
-            })),
-          );
+          skipOtSeedFromOrigenRef.current = ovMaterializada;
+          setLineas(mapDetalleLineasAForm());
 
           if (hijasEdit.length > 0) {
             setStartMode("docs");
@@ -2327,10 +2435,16 @@ export function OrdenVentaCreateModal({
             setStep("form");
           }
 
-          // Confirmada (u otro estado) sin comprador: mismo criterio visual que por_confirmar.
-          if (!idCompradorDetalle && nombreEscritoOrigen) {
+          // Confirmada (u otro estado) sin comprador: misma propuesta Mateo (REQ-166).
+          const propuestaMateo = resolvePropuestaClienteMateoAlReabrir({
+            idComprador: idCompradorDetalle,
+            nombreEnOrigen: nombreEscritoOrigen,
+          });
+          if (propuestaMateo) {
+            setCompradorNombreIa(propuestaMateo);
+            setCompradorLabel(propuestaMateo);
             const compradorRank = rankCompradoresFromNombre(
-              nombreEscritoOrigen,
+              propuestaMateo,
               compradorRows,
             );
             setCompradorSugerencias(
@@ -3484,7 +3598,16 @@ export function OrdenVentaCreateModal({
         isDraft && (isEditing || Boolean(pendingEmitId));
 
       if (!idComprador && !puedeGuardarSinCliente) {
-        setError("Selecciona un cliente.");
+        const msg = "Selecciona un cliente.";
+        setError(msg);
+        if (!isDraft) {
+          showToast({
+            title: "No se pudo confirmar",
+            content: msg,
+            variant: "error",
+            durationMs: 5000,
+          });
+        }
         return;
       }
 
@@ -3513,6 +3636,8 @@ export function OrdenVentaCreateModal({
         applyOrdenesTrabajo(hijasSynced);
       }
 
+      // REQ-166: en avance solo se mandan a BD líneas ya de catálogo; las pendientes
+      // viven en origen_correo (abajo) para no perder el progreso al reabrir.
       const lineasParaPersistir = isDraft
         ? lineas.filter((linea) => !linea.catalogPending && linea.idProducto)
         : lineas;
@@ -3521,13 +3646,20 @@ export function OrdenVentaCreateModal({
         !isDraft &&
         lineas.some((linea) => linea.catalogPending || !linea.idProducto)
       ) {
-        setError(
-          "Hay productos no identificados. Elige uno del catálogo o quita la línea.",
-        );
+        const msg =
+          "Hay productos no identificados. Elige uno del catálogo o quita la línea.";
+        setError(msg);
+        showToast({
+          title: "No se pudo confirmar",
+          content: msg,
+          variant: "error",
+          durationMs: 6000,
+        });
         return;
       }
 
-      // REQ-134: avance en OV existente puede ir sin líneas de catálogo (solo cabecera).
+      // REQ-134/166: avance en OV existente puede ir sin líneas de catálogo
+      // (cabecera + origen con pendientes de Mateo).
       const puedeAvanceSinLineas =
         isDraft && (isEditing || Boolean(pendingEmitId));
 
@@ -3730,22 +3862,41 @@ export function OrdenVentaCreateModal({
         registrarTemperatura,
         origenTexto: persistOrigenTexto,
         origenArchivos: persistOrigenAdjuntos,
-        origenCorreo:
-          hijasSynced.length > 0
-            ? buildOrigenCorreoFromOrdenesYLineas({
-                hijas: hijasSynced,
-                lineas: lineas.map((linea) => ({
-                  otId: linea.otId,
-                  nombre: linea.nombre,
-                  codigo: linea.codigo,
-                  cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
-                  unidadMedida:
-                    linea.unidadMedida.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
-                  precioUnitario: parseDecimalEs(linea.precioInput) ?? 0,
-                  aliasCliente: linea.aliasCliente,
-                })),
-              })
-            : origenCorreoDraft,
+        origenCorreo: (() => {
+          // REQ-166: conservar la propuesta de cliente de Mateo en origen_correo.
+          const nombreEnOrigen =
+            (hijasSynced.length > 0
+              ? hijasSynced
+                  .flatMap((h) => h.renglones)
+                  .map((row) => row["Nombre cliente"]?.trim())
+                  .find(Boolean)
+              : origenCorreoDraft
+                  .map((row) => row["Nombre cliente"]?.trim())
+                  .find(Boolean)) || null;
+          const propuestaMateo = resolvePropuestaClienteMateoParaGuardar({
+            idComprador,
+            nombreIa: compradorNombreIa,
+            label: compradorLabel,
+            nombreEnOrigen,
+          });
+          const base =
+            hijasSynced.length > 0
+              ? buildOrigenCorreoFromOrdenesYLineas({
+                  hijas: hijasSynced,
+                  lineas: lineas.map((linea) => ({
+                    otId: linea.otId,
+                    nombre: linea.nombre,
+                    codigo: linea.codigo,
+                    cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
+                    unidadMedida:
+                      linea.unidadMedida.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
+                    precioUnitario: parseDecimalEs(linea.precioInput) ?? 0,
+                    aliasCliente: linea.aliasCliente,
+                  })),
+                })
+              : origenCorreoDraft;
+          return sellarNombreClienteMateoEnOrigen(base, propuestaMateo);
+        })(),
         notasLineas: notasLineasText,
         notasAlmacen: sanitizeNotasGeneralesPedido(observaciones),
         observaciones: buildOrdenVentaCapturaObservaciones({
@@ -3975,29 +4126,38 @@ export function OrdenVentaCreateModal({
           showToast({
             title: "Avance guardado",
             content:
-              "El pedido sigue Por confirmar. Puedes seguir editándolo cuando quieras.",
+              "El pedido sigue Por confirmar. Puedes seguir editando aquí; cierra cuando quieras.",
             variant: "success",
             durationMs: 4500,
           });
           onCreated();
-          onClose();
+          // REQ-182: el ícono de avance no cierra el modal; sale Cancelar/X.
         } else {
           setPendingEmitId(null);
           onCreated();
           onClose();
         }
       } catch (err: unknown) {
+        // REQ-195: mensaje concreto + toast fijo (el alert del scroll se pierde tras Mateo).
         const message =
           err instanceof DomainServiceError
             ? err.message
-            : isDraft
-              ? "No se pudo guardar el avance."
-              : isEditing && editingEstado !== "por_confirmar"
-                ? "No se pudieron guardar los cambios."
-                : idOrdenVenta
-                  ? "No se pudo enviar el pedido a la bodega destino."
-                  : "No se pudo crear la orden de venta.";
+            : err instanceof Error && err.message.trim()
+              ? err.message.trim()
+              : isDraft
+                ? "No se pudo guardar el avance."
+                : isEditing && editingEstado !== "por_confirmar"
+                  ? "No se pudieron guardar los cambios."
+                  : idOrdenVenta
+                    ? "No se pudo enviar el pedido a la bodega destino."
+                    : "No se pudo crear la orden de venta.";
         setError(message);
+        showToast({
+          title: isDraft ? "No se guardó el avance" : "No se pudo confirmar",
+          content: message,
+          variant: "error",
+          durationMs: 7000,
+        });
       } finally {
         setIsSaving(false);
         setMateoBusyMessage(undefined);
@@ -4010,6 +4170,8 @@ export function OrdenVentaCreateModal({
       centroConsumo,
       chofer,
       codigoCuenta,
+      compradorLabel,
+      compradorNombreIa,
       contacto,
       correo,
       direccion,
@@ -4059,6 +4221,17 @@ export function OrdenVentaCreateModal({
       ventanaHasta,
     ],
   );
+
+  // REQ-195: tras aplicar Mateo/organizador, guardar avance con el estado ya flusheado.
+  useEffect(() => {
+    if (!pendingDraftSaveAfterReorgRef.current || !reagruparAplicada) return;
+    if (step !== "form" || isSaving || isLoading) return;
+    pendingDraftSaveAfterReorgRef.current = false;
+    submitIntentRef.current = "draft";
+    void handleSubmit({
+      preventDefault() {},
+    } as FormEvent<HTMLFormElement>);
+  }, [handleSubmit, isLoading, isSaving, reagruparAplicada, step]);
 
   const emptyCatalogMessage = CATALOGO_VENTA_EMPTY_MESSAGE;
 
@@ -4227,7 +4400,7 @@ export function OrdenVentaCreateModal({
           submitIntentRef.current = "emit";
           void handleSubmit(event);
         }}
-        error={error}
+        error={step === "form" ? null : error}
         isSubmitting={isSaving}
         submitDisabled={
           step === "preview" ||
@@ -4371,7 +4544,8 @@ export function OrdenVentaCreateModal({
           ) : undefined
         }
         footerCenter={
-          reagruparAplicada || (step === "form" && revisionPendiente) ? (
+          reagruparAplicada ||
+          (step === "form" && (revisionPendiente || error || confirmBloqueoReason)) ? (
             <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
               {reagruparAplicada ? (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2.5 py-1.5">
@@ -4392,7 +4566,15 @@ export function OrdenVentaCreateModal({
                   </button>
                 </div>
               ) : null}
-              {step === "form" && revisionPendiente ? (
+              {step === "form" && error ? (
+                <p
+                  role="alert"
+                  className="max-w-full rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-2.5 py-1.5 polaria-text-caption font-medium text-polaria-danger"
+                >
+                  <span className="line-clamp-2 break-words">{error}</span>
+                </p>
+              ) : null}
+              {step === "form" && !error && revisionPendiente ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -4419,6 +4601,20 @@ export function OrdenVentaCreateModal({
                     {revisionPendiente.message}
                   </span>
                 </button>
+              ) : null}
+              {step === "form" &&
+              !error &&
+              !revisionPendiente &&
+              confirmBloqueoReason &&
+              confirmSubmitDisabled ? (
+                <p
+                  role="status"
+                  className="max-w-full rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-2.5 py-1.5 polaria-text-caption font-medium text-polaria-warning"
+                >
+                  <span className="line-clamp-2 break-words">
+                    {confirmBloqueoReason}
+                  </span>
+                </p>
               ) : null}
             </div>
           ) : undefined
@@ -4464,14 +4660,13 @@ export function OrdenVentaCreateModal({
           ) : step === "form" ? (
             <button
               type="submit"
-              disabled={
-                isLoading ||
-                isSaving ||
-                !hasProductos ||
-                lineas.length === 0 ||
-                hasCatalogPending ||
-                !idComprador
+              disabled={confirmSubmitDisabled}
+              title={
+                confirmSubmitDisabled
+                  ? (confirmBloqueoReason ?? "Completa lo pendiente para confirmar")
+                  : undefined
               }
+              aria-disabled={confirmSubmitDisabled}
               className={cn(
                 "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
                 "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
@@ -5487,14 +5682,7 @@ export function OrdenVentaCreateModal({
                               ${formatPrecioEs(subtotalVenta)}
                             </td>
                           </tr>
-                          <tr>
-                            <td className="pr-8 polaria-text-body-sm text-polaria-w-50">
-                              Descuentos
-                            </td>
-                            <td className="font-mono polaria-text-body-sm text-polaria-w">
-                              ${formatPrecioEs(descuentosVenta)}
-                            </td>
-                          </tr>
+                          {/* REQ-218: sin fila Descuentos en edición (columna Desc% ocultada). */}
                           <tr>
                             <td className="pr-8 polaria-text-body-sm text-polaria-w-50">
                               IVA
@@ -5533,7 +5721,7 @@ export function OrdenVentaCreateModal({
                         <col style={{ width: "6.25rem" }} />
                         <col style={{ width: "4.25rem" }} />
                         <col style={{ width: "4.75rem" }} />
-                        <col style={{ width: "4.25rem" }} />
+                        {/* REQ-218: sin columna Desc% (siempre 0% y no editable). */}
                         <col style={{ width: "4.75rem" }} />
                         <col style={{ width: "5rem" }} />
                         <col style={{ width: "5.5rem" }} />
@@ -5556,9 +5744,6 @@ export function OrdenVentaCreateModal({
                             Unidad
                         </th>
                           <th className="px-1 pb-2 text-left polaria-text-caption font-medium text-polaria-w-50">
-                            Desc%
-                          </th>
-                          <th className="px-1 pb-2 text-left polaria-text-caption font-medium text-polaria-w-50">
                             Precio{" "}
                             <span className="font-bold text-polaria-danger">*</span>
                           </th>
@@ -5577,7 +5762,7 @@ export function OrdenVentaCreateModal({
                         {lineasConIndice.length === 0 ? (
                           <tr>
                             <td
-                              colSpan={9}
+                              colSpan={8}
                               className="px-1 py-4 text-center polaria-text-caption text-polaria-w-50"
                             >
                               Sin productos. Agrega al menos uno para crear la
@@ -5780,22 +5965,6 @@ export function OrdenVentaCreateModal({
                                       className={cn(
                                         POLARIA_FORM_INPUT_CLASS_COMPACT,
                                         "h-full min-h-full px-1.5 text-center",
-                                      )}
-                                    />
-                                  </div>
-                                </td>
-                                <td className="h-px px-1 py-2">
-                                  <div className="flex h-full min-h-full items-stretch">
-                                    <input
-                                      aria-label={`Descuento % de ${linea.nombre}`}
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={linea.descuentoPctInput || "0"}
-                                      disabled
-                                      tabIndex={-1}
-                                      className={cn(
-                                        POLARIA_FORM_INPUT_CLASS_COMPACT,
-                                        "h-full min-h-full",
                                       )}
                                     />
                                   </div>

@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { OV_ADJUNTOS_BUCKET } from "@/lib/supabase/upload-ov-adjunto";
 import { getEmlAttachmentBuffer } from "@/modules/sales/ordenes/utils/origen/eml-attachments";
+import {
+  isHtmlOrigenAdjunto,
+  resolveAdjuntoContentType,
+} from "@/modules/sales/ordenes/utils/origen/origen-adjuntos";
 
 export const runtime = "nodejs";
 
 /**
  * Descarga un adjunto real embebido en un .eml de ov-adjuntos.
  * Query: path, index, disposition=inline|attachment
+ * REQ-159: HTML embebido en inline se sirve como text/html (no descarga).
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
@@ -61,14 +66,27 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     const safeName = part.nombre.replace(/[/\\"]/g, "_");
+    const contentType = resolveAdjuntoContentType(part.nombre, part.mime);
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "Content-Length": String(part.content.length),
+      "Content-Disposition": `${disposition}; filename="${safeName}"`,
+      "Cache-Control": "private, max-age=60",
+      "X-Content-Type-Options": "nosniff",
+    };
+
+    if (
+      disposition === "inline" &&
+      isHtmlOrigenAdjunto({ nombre: part.nombre, mime: part.mime })
+    ) {
+      headers["Content-Type"] = "text/html; charset=utf-8";
+      headers["Content-Security-Policy"] =
+        "default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'; font-src data:;";
+    }
+
     return new NextResponse(new Uint8Array(part.content), {
       status: 200,
-      headers: {
-        "Content-Type": part.mime,
-        "Content-Length": String(part.content.length),
-        "Content-Disposition": `${disposition}; filename="${safeName}"`,
-        "Cache-Control": "private, max-age=60",
-      },
+      headers,
     });
   } catch (err: unknown) {
     return NextResponse.json(

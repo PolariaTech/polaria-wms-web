@@ -7,6 +7,7 @@ import {
   origenAdjuntoDownloadUrl,
   origenAdjuntoViewUrl,
   parseOrigenArchivos,
+  resolveAdjuntoContentType,
   serializeOrigenArchivos,
 } from "./origen-adjuntos";
 
@@ -33,7 +34,7 @@ describe("origen-adjuntos", () => {
     expect(parseOrigenArchivos(raw)).toEqual(items);
   });
 
-  it("marca PDF e imagen como previsualizables", () => {
+  it("marca PDF, imagen, HTML y EML como previsualizables (REQ-159)", () => {
     expect(
       canPreviewOrigenAdjunto({
         nombre: "x.pdf",
@@ -43,11 +44,43 @@ describe("origen-adjuntos", () => {
     ).toBe(true);
     expect(
       canPreviewOrigenAdjunto({
+        nombre: "po.html",
+        path: "cuenta/uuid-po.html",
+        mime: "application/octet-stream",
+      }),
+    ).toBe(true);
+    expect(
+      canPreviewOrigenAdjunto({
+        nombre: "correo.eml",
+        path: "cuenta/uuid-correo.eml",
+        mime: "application/octet-stream",
+      }),
+    ).toBe(true);
+    expect(
+      canPreviewOrigenAdjunto({
         nombre: "doc.docx",
         url: "https://example.com/doc.docx",
         mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       }),
     ).toBe(false);
+    expect(
+      canPreviewOrigenAdjunto({
+        nombre: "hoja.xlsx",
+        path: "cuenta/uuid-hoja.xlsx",
+      }),
+    ).toBe(false);
+  });
+
+  it("fuerza text/html para .html aunque Storage diga octet-stream (REQ-159)", () => {
+    expect(
+      resolveAdjuntoContentType("PO.html", "application/octet-stream"),
+    ).toBe("text/html; charset=utf-8");
+    expect(resolveAdjuntoContentType("nota.htm", null)).toBe(
+      "text/html; charset=utf-8",
+    );
+    expect(resolveAdjuntoContentType("a.pdf", "application/octet-stream")).toBe(
+      "application/pdf",
+    );
   });
 
   it("etiqueta tipos", () => {
