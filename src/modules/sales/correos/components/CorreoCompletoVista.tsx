@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils/cn";
 import { CargaConPolo } from "@/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel";
 import type { RangoEspera } from "@/modules/sales/ordenes/utils/ot/aplicar-correccion-correo";
 import { useCorreoCompleto } from "../hooks/useCorreoCompleto";
@@ -12,6 +14,9 @@ import { Personas } from "./DetalleCorreoPartes";
 
 /** Lo que suele tardar la primera lectura en Gmail; la siguiente, desde la memoria del api, es casi inmediata. */
 const ESPERA_LECTURA_DEL_CORREO: RangoEspera = { minSeg: 3, maxSeg: 15 };
+
+/** Tope para esperar a que el marco del mensaje termine de dibujar antes de mostrar todo. */
+const PLAZO_DEL_CUERPO_MS = 5000;
 
 function EncabezadoDelCorreo({ correo }: { correo: CorreoContenido }) {
   return (
@@ -58,22 +63,41 @@ function ErrorDeLectura({
  */
 export function CorreoCompletoVista({ messageId }: { messageId: string }) {
   const { correo, error, cargando, reintentar } = useCorreoCompleto(messageId);
+  const [cuerpoListo, setCuerpoListo] = useState(false);
+  const hayCorreo = !cargando && correo !== null;
+
+  // Si el marco nunca avisara que cargó, no se deja a la persona esperando para siempre.
+  useEffect(() => {
+    if (!hayCorreo || cuerpoListo) return;
+    const plazo = setTimeout(() => setCuerpoListo(true), PLAZO_DEL_CUERPO_MS);
+    return () => clearTimeout(plazo);
+  }, [hayCorreo, cuerpoListo]);
 
   if (error) return <ErrorDeLectura mensaje={error} onReintentar={reintentar} />;
-  if (cargando || !correo) {
-    return (
-      <CargaConPolo
-        titulo="Abriendo el correo…"
-        detalle="Lo estamos leyendo en Gmail."
-        espera={ESPERA_LECTURA_DEL_CORREO}
-      />
-    );
-  }
   return (
-    <article className="space-y-8">
-      <EncabezadoDelCorreo correo={correo} />
-      <AdjuntosDelCorreo messageId={messageId} adjuntos={correo.adjuntos} />
-      <CorreoCuerpo html={correo.html} texto={correo.texto} />
-    </article>
+    <>
+      {correo && hayCorreo ? (
+        // Se arma mientras Polo sigue a la vista, para que la persona vea el correo ya completo.
+        <article
+          aria-busy={!cuerpoListo}
+          className={cn("space-y-8", !cuerpoListo && "invisible")}
+        >
+          <EncabezadoDelCorreo correo={correo} />
+          <AdjuntosDelCorreo messageId={messageId} adjuntos={correo.adjuntos} />
+          <CorreoCuerpo
+            html={correo.html}
+            texto={correo.texto}
+            onCargado={() => setCuerpoListo(true)}
+          />
+        </article>
+      ) : null}
+      {cuerpoListo ? null : (
+        <CargaConPolo
+          titulo="Abriendo el correo…"
+          detalle={hayCorreo ? "Preparando el mensaje." : "Lo estamos leyendo en Gmail."}
+          espera={ESPERA_LECTURA_DEL_CORREO}
+        />
+      )}
+    </>
   );
 }

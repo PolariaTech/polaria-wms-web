@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const cliente = vi.hoisted(() => ({
@@ -58,6 +58,29 @@ describe("CorreoCompletoVista — el correo (REQ-104)", () => {
     cliente.obtenerCorreoCompleto.mockReturnValue(new Promise(() => undefined));
     render(<CorreoCompletoVista messageId={ID} />);
     expect(screen.getByText("Abriendo el correo…")).toBeInTheDocument();
+  });
+
+  it("mantiene a Polo hasta que el mensaje termina de dibujar, y entonces muestra todo junto", async () => {
+    await abrir();
+    const articulo = screen.getByRole("article");
+
+    if (articulo.getAttribute("aria-busy") === "true") {
+      expect(screen.getByText("Abriendo el correo…")).toBeInTheDocument();
+      fireEvent.load(marco());
+    }
+
+    await waitFor(() => expect(screen.queryByText("Abriendo el correo…")).not.toBeInTheDocument());
+    expect(articulo).toHaveAttribute("aria-busy", "false");
+  });
+
+  it("si el marco nunca avisa que cargó, muestra el correo pasado el plazo", async () => {
+    await abrir();
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(screen.queryByText("Abriendo el correo…")).not.toBeInTheDocument();
   });
 
   it("si falla la lectura muestra el motivo y deja reintentar", async () => {

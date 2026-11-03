@@ -26,7 +26,16 @@ function AvisoDeImagenes({ onMostrar }: { onMostrar: () => void }) {
  * esta página y con las imágenes de internet bloqueadas hasta que se pidan. El cuerpo de un
  * correo es contenido ajeno, nunca se inserta directo en la pantalla.
  */
-export function CorreoCuerpo({ html, texto }: { html: string; texto: string }) {
+export function CorreoCuerpo({
+  html,
+  texto,
+  onCargado,
+}: {
+  html: string;
+  texto: string;
+  /** Avisa que el marco terminó de dibujar el mensaje. */
+  onCargado?: () => void;
+}) {
   const [permitirImagenes, setPermitirImagenes] = useState(false);
   const documento = useMemo(
     () => armarDocumentoDelCorreo({ html, texto, permitirImagenes }),
@@ -45,6 +54,7 @@ export function CorreoCuerpo({ html, texto }: { html: string; texto: string }) {
         sandbox="allow-popups allow-popups-to-escape-sandbox"
         referrerPolicy="no-referrer"
         srcDoc={documento}
+        onLoad={onCargado}
         className="mt-3 h-[70vh] min-h-96 w-full rounded-xl border border-polaria-w-08 bg-white"
       />
     </section>
