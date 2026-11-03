@@ -1,6 +1,7 @@
 "use client";
 
-import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
+import { CargaConPolo } from "@/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel";
+import type { RangoEspera } from "@/modules/sales/ordenes/utils/ot/aplicar-correccion-correo";
 import { useCorreoCompleto } from "../hooks/useCorreoCompleto";
 import type { CorreoContenido } from "../types/correos.types";
 import { formatearFechaCompleta } from "../utils/correos-formato";
@@ -8,6 +9,9 @@ import { BOTON_SECUNDARIO } from "./AccionIngreso";
 import { AdjuntosDelCorreo } from "./AdjuntosDelCorreo";
 import { CorreoCuerpo } from "./CorreoCuerpo";
 import { Personas } from "./DetalleCorreoPartes";
+
+/** Lo que suele tardar la primera lectura en Gmail; la siguiente, desde la memoria del api, es casi inmediata. */
+const ESPERA_LECTURA_DEL_CORREO: RangoEspera = { minSeg: 3, maxSeg: 15 };
 
 function EncabezadoDelCorreo({ correo }: { correo: CorreoContenido }) {
   return (
@@ -58,9 +62,10 @@ export function CorreoCompletoVista({ messageId }: { messageId: string }) {
   if (error) return <ErrorDeLectura mensaje={error} onReintentar={reintentar} />;
   if (cargando || !correo) {
     return (
-      <PolariaStatusLoading
-        title="Abriendo el correo…"
-        message="Lo estamos leyendo en Gmail."
+      <CargaConPolo
+        titulo="Abriendo el correo…"
+        detalle="Lo estamos leyendo en Gmail."
+        espera={ESPERA_LECTURA_DEL_CORREO}
       />
     );
   }
