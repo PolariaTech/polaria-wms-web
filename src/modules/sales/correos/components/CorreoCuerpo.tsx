@@ -99,7 +99,7 @@ export function CorreoCuerpo({
   onCargado?: () => void;
 }) {
   const [permitirImagenes, setPermitirImagenes] = useState(false);
-  const [oscuro, setOscuro] = useState(true);
+  const [oscuro, setOscuro] = useState(false);
   const marco = useRef<HTMLIFrameElement | null>(null);
   const { alto, alCargar } = useAltoDelContenido(marco);
   const documento = useMemo(

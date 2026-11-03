@@ -197,9 +197,12 @@ describe("CorreoCompletoVista — aislamiento del mensaje (REQ-104)", () => {
     expect(screen.queryByRole("button", { name: "Mostrar imágenes" })).not.toBeInTheDocument();
   });
 
-  it("el recuadro nace en modo oscuro de Polaria y un botón de la esquina lo cambia a fondo blanco", async () => {
+  it("el recuadro nace en fondo blanco y un botón de la esquina lo cambia al modo oscuro de Polaria", async () => {
     const usr = usuario();
     await abrir();
+    expect(marco().getAttribute("srcdoc")).not.toContain("invert(1)");
+
+    await usr.click(screen.getByRole("button", { name: "Usar modo oscuro de Polaria" }));
     expect(marco().getAttribute("srcdoc")).toContain("invert(1)");
     expect(screen.getByRole("button", { name: "Usar fondo blanco" })).toHaveAttribute(
       "aria-pressed",
@@ -208,9 +211,6 @@ describe("CorreoCompletoVista — aislamiento del mensaje (REQ-104)", () => {
 
     await usr.click(screen.getByRole("button", { name: "Usar fondo blanco" }));
     expect(marco().getAttribute("srcdoc")).not.toContain("invert(1)");
-
-    await usr.click(screen.getByRole("button", { name: "Usar modo oscuro de Polaria" }));
-    expect(marco().getAttribute("srcdoc")).toContain("invert(1)");
   });
 
   it("el recuadro se ajusta al alto del mensaje, con un mínimo", async () => {
