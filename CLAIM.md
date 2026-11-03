@@ -35,6 +35,7 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormPedido.tsx` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormEntrega.tsx` — autorizada por el usuario el 2026-11-03
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.tsx` — autorizada por el usuario el 2026-11-03
+- `src/modules/sales/ordenes/components/modals/OrdenVentaModalShell.tsx` — autorizada por el usuario el 2026-11-03
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
