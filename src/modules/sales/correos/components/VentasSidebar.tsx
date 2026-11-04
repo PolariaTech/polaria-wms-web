@@ -4,8 +4,7 @@ import {
   ClipboardList,
   Inbox,
   MailX,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -24,9 +23,9 @@ interface EstadoMenuVentas {
   alternar: () => void;
 }
 
-/** Abierto por defecto; el botón de la barra superior lo despliega y lo oculta. */
+/** Cerrado por defecto; el botón de la barra superior lo despliega y lo oculta. */
 export const useVentasMenuStore = create<EstadoMenuVentas>((poner) => ({
-  abierto: true,
+  abierto: false,
   alternar: () => poner((actual) => ({ abierto: !actual.abierto })),
 }));
 
@@ -136,8 +135,15 @@ export function VentasSidebar() {
 }
 
 /**
- * Botón de la barra superior que despliega y oculta el menú de Ventas. Solo existe dentro de
- * Ventas y para los roles de cuenta: en otra pantalla no habría nada que desplegar.
+ * Botón que despliega y oculta el menú de Ventas. Va en el encabezado de la página, a la izquierda
+ * del título, y tiene el alto de su línea (unidades `em` bajo la tipografía del título) para
+ * alinearse con él. Solo existe dentro de Ventas y para los roles de cuenta: en otra pantalla no
+ * habría nada que desplegar. Desde `lg` hacia abajo el menú es una tira arriba, no un panel
+ * izquierdo, así que ahí el botón no se muestra.
+ *
+ * Convención de la interfaz: el «+» que queda más a la izquierda abre el panel de la izquierda y el
+ * «+» más a la derecha abre el de la derecha. El mismo «+» sirve para abrir y para cerrar; el
+ * estado lo dicen `aria-expanded` y la etiqueta.
  */
 export function BotonMenuVentas() {
   const pathname = usePathname();
@@ -151,7 +157,6 @@ export function BotonMenuVentas() {
   if (!esRolDeCuenta || !enVentas) return null;
 
   const etiqueta = abierto ? "Ocultar menú de Ventas" : "Mostrar menú de Ventas";
-  const Icono = abierto ? PanelLeftClose : PanelLeftOpen;
   return (
     <button
       type="button"
@@ -160,10 +165,17 @@ export function BotonMenuVentas() {
       aria-controls={VENTAS_MENU_ID}
       aria-label={etiqueta}
       title={etiqueta}
-      className="polaria-topbar-btn polaria-topbar-btn--menu"
-      style={{ paddingInline: 0, width: "2.375rem" }}
+      // El tamaño sale del cuerpo del título (`polaria-text-display`): alto = su interlínea (1.1em).
+      // No usa `polaria-topbar-btn`: esa clase fija el alto de la barra superior y le gana a las utilidades.
+      className={cn(
+        "hidden h-[1.1em] w-[1.1em] shrink-0 items-center justify-center rounded-xl border lg:inline-flex",
+        "text-[length:clamp(1.875rem,4vw,3rem)] leading-none text-polaria-w",
+        "border-polaria-w-08 bg-polaria-w-08 transition-colors",
+        "hover:border-polaria-t-20 hover:bg-polaria-t-08",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+      )}
     >
-      <Icono className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+      <Plus className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden />
     </button>
   );
 }

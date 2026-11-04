@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTES } from "@/config/routes";
 
@@ -18,6 +19,7 @@ vi.mock("@/stores/auth.store", () => ({
 }));
 
 import {
+  BotonMenuVentas,
   useVentasMenuStore,
   VENTAS_MENU_ID,
   VentasSidebar,
@@ -30,6 +32,10 @@ describe("VentasSidebar (REQ-104)", () => {
     estado.pathname = ROUTES.dashboardVentasOrdenes;
     estado.idRol = "operador_cuenta";
     useVentasMenuStore.setState({ abierto: true });
+  });
+
+  it("arranca cerrado: al entrar a Ventas el menú no ocupa espacio hasta que se despliega", () => {
+    expect(useVentasMenuStore.getInitialState().abierto).toBe(false);
   });
 
   it("ofrece volver a las órdenes y las dos opciones de correos, con su ruta", () => {
@@ -100,6 +106,55 @@ describe("VentasSidebar (REQ-104)", () => {
       estado.idRol = rol;
       render(<VentasSidebar />);
       expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    },
+  );
+});
+
+describe("BotonMenuVentas (REQ-104)", () => {
+  const MOSTRAR = "Mostrar menú de Ventas";
+  const OCULTAR = "Ocultar menú de Ventas";
+
+  beforeEach(() => {
+    estado.pathname = ROUTES.dashboardVentasOrdenes;
+    estado.idRol = "operador_cuenta";
+    useVentasMenuStore.setState({ abierto: true });
+  });
+
+  it("despliega y oculta el menú, y su nombre dice qué hará al pulsarlo", async () => {
+    const user = userEvent.setup();
+    render(<BotonMenuVentas />);
+
+    const boton = screen.getByRole("button", { name: OCULTAR });
+    expect(boton).toHaveAttribute("aria-expanded", "true");
+    expect(boton).toHaveAttribute("aria-controls", VENTAS_MENU_ID);
+
+    await user.click(boton);
+    expect(useVentasMenuStore.getState().abierto).toBe(false);
+    const cerrado = screen.getByRole("button", { name: MOSTRAR });
+    expect(cerrado).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(cerrado);
+    expect(useVentasMenuStore.getState().abierto).toBe(true);
+  });
+
+  it("se muestra solo desde `lg`: debajo el menú es una tira arriba y no un panel izquierdo", () => {
+    render(<BotonMenuVentas />);
+    const boton = screen.getByRole("button", { name: OCULTAR });
+    expect(boton).toHaveClass("hidden", "lg:inline-flex");
+  });
+
+  it("no aparece fuera de Ventas", () => {
+    estado.pathname = "/dashboard";
+    render(<BotonMenuVentas />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it.each(["configurador", "operario", null])(
+    "no aparece para el rol %s",
+    (rol) => {
+      estado.idRol = rol;
+      render(<BotonMenuVentas />);
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
     },
   );
 });

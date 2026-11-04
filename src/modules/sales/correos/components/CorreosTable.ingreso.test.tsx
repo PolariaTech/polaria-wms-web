@@ -89,7 +89,7 @@ describe("CorreosTable — ingreso como OV (REQ-104)", () => {
     );
   });
 
-  it("si falla deja el motivo a la vista y permite reintentar", async () => {
+  it("si falla deja el motivo en el tooltip del botón y permite reintentar", async () => {
     api.listarCorreos.mockResolvedValue(lista([fila()]));
     api.ingresarCorreo.mockRejectedValue(
       new CorreosApiError("La IA no extrajo renglones.", "SERVIDOR", 500),
@@ -99,11 +99,10 @@ describe("CorreosTable — ingreso como OV (REQ-104)", () => {
 
     await user.click(await screen.findByRole("button", { name: BOTON_INGRESAR }));
 
-    expect(await screen.findByRole("button", { name: /Reintentar el ingreso/ })).toBeInTheDocument();
-    const aviso = screen.getAllByRole("alert").find((el) =>
-      el.textContent?.includes("La IA no extrajo renglones."),
-    );
-    expect(aviso).toBeDefined();
+    const reintentar = await screen.findByRole("button", { name: /Reintentar el ingreso/ });
+    // la columna Ingreso solo lleva el botón: el motivo no ensancha la fila (se lee en el modal)
+    expect(reintentar).toHaveAttribute("title", "La IA no extrajo renglones.");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(toast.showToast).toHaveBeenCalledWith(
       expect.objectContaining({ variant: "error" }),
     );

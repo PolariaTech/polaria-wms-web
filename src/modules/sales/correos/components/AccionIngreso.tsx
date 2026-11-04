@@ -46,11 +46,15 @@ function IngresadoPorElFlujo() {
   return (
     <span className="inline-flex items-center gap-2 text-polaria-teal">
       <CheckCircle2 className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden />
-      <span className="polaria-text-body-sm">Ingresado por el flujo</span>
+      <span className="polaria-text-body-sm">Ingresado por Mateo</span>
     </span>
   );
 }
 
+/**
+ * Solo el botón: el motivo de un fallo no cabe en la tabla sin romper la fila. Se lee en el modal
+ * del detalle (alerta del cuerpo) y, mientras tanto, en el tooltip del botón.
+ */
 function BotonIngresar({
   fila,
   onIngresar,
@@ -61,26 +65,18 @@ function BotonIngresar({
   const fallo = fila.ingreso?.estado === "error";
   const accion = fallo ? "Reintentar el ingreso" : "Ingresar como OV";
   return (
-    <div className="flex flex-col items-start gap-1">
-      <button
-        type="button"
-        onClick={() => onIngresar(fila.messageId)}
-        aria-label={`${accion} del correo ${fila.asunto ?? "sin asunto"}`}
-        className={BOTON_SECUNDARIO}
-      >
-        {fallo ? <RotateCw className="h-4 w-4" strokeWidth={1.75} aria-hidden /> : null}
-        {fallo ? "Reintentar" : "Ingresar como OV"}
-      </button>
-      {fallo && fila.ingreso?.error ? (
-        <p
-          role="alert"
-          title={fila.ingreso.error}
-          className="polaria-text-caption line-clamp-2 max-w-[16rem] text-polaria-danger"
-        >
-          {fila.ingreso.error}
-        </p>
-      ) : null}
-    </div>
+    <button
+      type="button"
+      onClick={() => onIngresar(fila.messageId)}
+      aria-label={`${accion} del correo ${fila.asunto ?? "sin asunto"}`}
+      title={fallo ? (fila.ingreso?.error ?? undefined) : undefined}
+      // Mismo ancho en «Ingresar como OV» y en «Reintentar»: la columna no cambia al fallar.
+      // Ancho fijo y no `w-full`: en el pie del modal (flex-wrap) el 100 % lo mandaba a otra línea.
+      className={cn(BOTON_SECUNDARIO, "w-[9.5rem] max-w-full justify-center whitespace-nowrap")}
+    >
+      {fallo ? <RotateCw className="h-4 w-4" strokeWidth={1.75} aria-hidden /> : null}
+      {fallo ? "Reintentar" : "Ingresar como OV"}
+    </button>
   );
 }
 

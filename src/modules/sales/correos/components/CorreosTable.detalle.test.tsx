@@ -55,7 +55,7 @@ describe("CorreosTable — detalle del correo (REQ-104)", () => {
     expect(enlace).not.toHaveAttribute("target");
   });
 
-  it("al hacer clic en una fila abre el modal con todo lo que trae la data table", async () => {
+  it("al hacer clic en una fila abre el modal con lo que trae el correo", async () => {
       api.listarCorreos.mockResolvedValue(lista([completa()]));
       const user = usuario();
       render(<CorreosTable modo="descartados" />);
@@ -69,12 +69,12 @@ describe("CorreosTable — detalle del correo (REQ-104)", () => {
       // lo que la vista previa no muestra
       expect(en.getByText("ventas@aguacates.example")).toBeInTheDocument();
       expect(en.getByText("facturacion@aguacates.example")).toBeInTheDocument();
-      expect(en.getByText("msg-detalle-1")).toBeInTheDocument();
-      expect(en.getByText("hilo-77")).toBeInTheDocument();
-      expect(en.getByText("299")).toBeInTheDocument();
       expect(en.getByText("Descartado por el flujo")).toBeInTheDocument();
-      expect(dialogo).toHaveTextContent(/Registrado en n8n3 de noviembre de 2026/);
-      expect(dialogo).toHaveTextContent(/Última actualización3 de noviembre de 2026/);
+      // del registro interno solo se ve cuándo entró, sin nombrar la herramienta ni sus ids
+      expect(dialogo).toHaveTextContent(/Registrado el 3 de noviembre de 2026/);
+      expect(dialogo).not.toHaveTextContent(/n8n/i);
+      expect(en.queryByText("msg-detalle-1")).not.toBeInTheDocument();
+      expect(en.queryByText("hilo-77")).not.toBeInTheDocument();
       // lo que la vista previa recorta, completo
       expect(en.getByText("Es una cotización y no pide surtir mercancía")).toBeInTheDocument();
       expect(en.getByText("pedido.pdf")).toBeInTheDocument();
@@ -125,7 +125,7 @@ describe("CorreosTable — detalle del correo (REQ-104)", () => {
       expect(within(dialogo).getByText("Ingresando pedido…")).toBeInTheDocument();
     });
 
-    it("un correo que pasó el flujo se muestra como ingresado por el flujo", async () => {
+    it("un correo que pasó el flujo se muestra como ingresado por Mateo", async () => {
       api.listarCorreos.mockResolvedValue(
         lista([{ ...completa(), nuevoPedido: null, motivo: null }]),
       );
@@ -135,7 +135,7 @@ describe("CorreosTable — detalle del correo (REQ-104)", () => {
       await user.click(await screen.findByText("compras@hotel.com"));
 
       const dialogo = await screen.findByRole("dialog");
-      expect(within(dialogo).getAllByText("Ingresado por el flujo").length).toBeGreaterThan(0);
+      expect(within(dialogo).getAllByText("Ingresado por Mateo").length).toBeGreaterThan(0);
       expect(within(dialogo).queryByRole("button", { name: BOTON_INGRESAR })).not.toBeInTheDocument();
     });
 
@@ -187,6 +187,31 @@ describe("CorreosTable — detalle del correo (REQ-104)", () => {
       );
     });
 
+    it("si el ingreso falla, el motivo sale como alerta del cuerpo y no en el pie junto al botón", async () => {
+      const motivo = "La IA no extrajo renglones de producto; no se crea la OV.";
+      api.listarCorreos.mockResolvedValue(
+        lista([
+          {
+            ...completa(),
+            ingreso: ingreso({ messageId: "msg-detalle-1", estado: "error", error: motivo }),
+          },
+        ]),
+      );
+      const user = usuario();
+      render(<CorreosTable modo="descartados" />);
+
+      await user.click(await screen.findByText("compras@hotel.com"));
+
+      const dialogo = await screen.findByRole("dialog");
+      const alertas = within(dialogo).getAllByRole("alert");
+      expect(alertas).toHaveLength(1);
+      expect(alertas[0]).toHaveTextContent(motivo);
+      expect(alertas[0]?.closest("footer")).toBeNull();
+      expect(
+        within(dialogo).getByRole("button", { name: /Reintentar el ingreso/ }),
+      ).toBeInTheDocument();
+    });
+
     it("no explica un ingreso que ya no se puede hacer", async () => {
       api.listarCorreos.mockResolvedValue(
         lista([{ ...completa(), nuevoPedido: null, motivo: null }]),
@@ -230,6 +255,8 @@ describe("CorreosTable — detalle del correo (REQ-104)", () => {
 
       const dialogo = await screen.findByRole("dialog");
       expect(dialogo).toHaveTextContent("Sin fecha de recepción");
-      expect(within(dialogo).getAllByText("—").length).toBeGreaterThanOrEqual(6);
+      // Para y Adjuntos sin dato; sin fecha de registro, esa línea no aparece
+      expect(within(dialogo).getAllByText("—").length).toBeGreaterThanOrEqual(2);
+      expect(dialogo).not.toHaveTextContent("Registrado el");
     });
 });
