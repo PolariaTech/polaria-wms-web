@@ -4,7 +4,6 @@ import {
   getPaginationPlaceholderCount,
   getTableBodyMinHeightStyle,
   POLARIA_TABLE_ROW_HEIGHT_CLASS,
-  POLARIA_TABLE_SCROLL_CLASS,
 } from "@/components/shared/table/polaria-table-layout";
 import { cn } from "@/lib/utils/cn";
 import type { CorreoFila } from "../types/correos.types";
@@ -18,6 +17,9 @@ const ENCABEZADOS = [
   "Motivo",
   "Ingreso",
 ] as const;
+
+/** Anchos fijos que suman 100 %: la tabla se reparte el ancho y nunca desborda hacia los lados. */
+const ANCHOS_COLUMNAS = ["13%", "15%", "20%", "13%", "19%", "20%"] as const;
 
 const ENCABEZADO = "polaria-text-label px-5 py-3 text-polaria-w-50 sm:px-6";
 
@@ -68,11 +70,18 @@ export function CorreosCuerpoTabla({
 }: CorreosCuerpoTablaProps) {
   return (
     <div
-      className={POLARIA_TABLE_SCROLL_CLASS}
+      className="overflow-x-hidden"
       style={getTableBodyMinHeightStyle(tamano)}
       aria-busy={cargando}
     >
-      <table className={cn("w-full text-left transition-opacity", cargando && "opacity-60")}>
+      <table
+        className={cn("w-full table-fixed text-left transition-opacity", cargando && "opacity-60")}
+      >
+        <colgroup>
+          {ANCHOS_COLUMNAS.map((ancho, indice) => (
+            <col key={ENCABEZADOS[indice]} style={{ width: ancho }} />
+          ))}
+        </colgroup>
         <thead className="border-b border-polaria-w-08">
           <tr>
             {ENCABEZADOS.map((titulo) => (

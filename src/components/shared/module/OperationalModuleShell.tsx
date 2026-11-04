@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { BodegaRequiredGuard } from "@/components/auth/guards/BodegaRequiredGuard";
 import { TenantScopeGuard } from "@/components/auth/guards/TenantScopeGuard";
 import { cn } from "@/lib/utils/cn";
+import { BotonMenuVentas } from "@/modules/sales/correos/components/VentasSidebar";
 import { cypherDockReserveClass } from "@/modules/sales/ordenes/constants/cypher-layout";
 import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import {
@@ -66,7 +67,11 @@ export function OperationalModuleShell({
           >
             <header className="flex min-w-0 flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
-                <h1 className="polaria-text-display">{title}</h1>
+                {/* Solo en Ventas hay botón (el propio componente decide): en otros módulos el título queda igual. */}
+                <div className="flex min-w-0 items-center gap-3">
+                  <BotonMenuVentas />
+                  <h1 className="polaria-text-display min-w-0">{title}</h1>
+                </div>
                 {description ? (
                   <p className="polaria-text-subtitle mt-2 text-polaria-w-50">
                     {description}

@@ -57,7 +57,7 @@ describe("CorreosTable — lista, filtros y estados (REQ-104)", () => {
     await screen.findByText("Pedido XEL");
     expect(screen.getAllByRole("button", { name: BOTON_INGRESAR })).toHaveLength(1);
     // el flujo ya lo ingresó: se dice en pasado y sin botón
-    expect(screen.getByText("Ingresado por el flujo")).toBeInTheDocument();
+    expect(screen.getByText("Ingresado por Mateo")).toBeInTheDocument();
     expect(screen.queryByText(/Lo ingresa el flujo/)).not.toBeInTheDocument();
     expect(screen.getByText("OV-00001318")).toBeInTheDocument();
     expect(screen.getByText("Total: 3")).toBeInTheDocument();
@@ -116,6 +116,22 @@ describe("CorreosTable — lista, filtros y estados (REQ-104)", () => {
     // la altura del cuerpo queda reservada, así la tabla no salta al paginar
     const contenedor = container.querySelector("table")?.parentElement as HTMLElement;
     expect(contenedor.style.minHeight).toBe(`${TAMANO_PAGINA_CORREOS * 3.25}rem`);
+  });
+
+  it("un motivo largo se recorta a dos líneas dentro de su badge y la tabla mantiene sus 5 filas", async () => {
+    const motivoLargo = "El correo no trae una orden de compra legible. ".repeat(12).trim();
+    api.listarCorreos.mockResolvedValue(
+      lista([fila({ motivo: motivoLargo }), fila({ messageId: "m2", motivo: null })]),
+    );
+
+    const { container } = render(<CorreosTable modo="descartados" />);
+
+    const texto = await screen.findByText(motivoLargo);
+    expect(texto).toHaveClass("line-clamp-2");
+    // el recorte vive dentro del badge: el motivo completo queda en el tooltip y en el modal
+    expect(texto.parentElement).toHaveAttribute("title", motivoLargo);
+    // 2 filas con datos + relleno aria-hidden: el cuerpo siempre tiene la altura de la página
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(TAMANO_PAGINA_CORREOS);
   });
 
   it("si la lista falla muestra el motivo y deja reintentar", async () => {

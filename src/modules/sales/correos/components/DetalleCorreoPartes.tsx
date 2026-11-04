@@ -1,7 +1,6 @@
 "use client";
 
 import { CheckCircle2, MailX, Paperclip } from "lucide-react";
-import type { ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 import type { CorreoFila } from "../types/correos.types";
 import {
@@ -11,7 +10,6 @@ import {
 } from "../utils/correos-formato";
 
 const SIN_DATO = <span className="text-polaria-w-50">—</span>;
-const dato = (valor: string | null): ReactNode => valor ?? SIN_DATO;
 
 export function Personas({ valor }: { valor: string | null }) {
   const personas = separarDirecciones(valor);
@@ -72,7 +70,7 @@ export function VeredictoFlujo({ fila }: { fila: CorreoFila }) {
       <Icono className={cn("mt-0.5 h-5 w-5 shrink-0", color)} strokeWidth={1.75} aria-hidden />
       <div className="min-w-0">
         <p className={cn("polaria-text-body font-semibold", color)}>
-          {descartado ? "Descartado por el flujo" : "Ingresado por el flujo"}
+          {descartado ? "Descartado por el flujo" : "Ingresado por Mateo"}
         </p>
         {fila.motivo ? (
           <p className="polaria-text-body-sm mt-1 max-w-prose">{fila.motivo}</p>
@@ -109,54 +107,12 @@ export function ParticipantesDelCorreo({ fila }: { fila: CorreoFila }) {
   );
 }
 
-/** Etiqueta chica arriba y el valor debajo: para los datos de referencia de n8n. */
-function Campo({
-  etiqueta,
-  children,
-  tecnico = false,
-}: {
-  etiqueta: string;
-  children: ReactNode;
-  /** Identificadores: tipografía de datos, para leerlos y copiarlos sin confundir caracteres. */
-  tecnico?: boolean;
-}) {
+/** Cuándo entró el correo al sistema: lo único que el usuario necesita de su registro interno. */
+export function RegistroDelCorreo({ fila }: { fila: CorreoFila }) {
+  if (!fila.registradoEn) return null;
   return (
-    <div className="min-w-0">
-      <dt className="polaria-text-caption text-polaria-w-50">{etiqueta}</dt>
-      <dd
-        className={cn(
-          "mt-0.5 break-all",
-          tecnico ? "font-mono text-xs tabular-nums" : "polaria-text-body-sm",
-        )}
-      >
-        {children}
-      </dd>
-    </div>
-  );
-}
-
-/** Los datos de referencia que guarda la data table de n8n, en pequeño y al final. */
-export function DatosDeN8n({ fila }: { fila: CorreoFila }) {
-  return (
-    <section className="border-t border-polaria-w-08 pt-4">
-      <h3 className="polaria-text-body-sm font-semibold text-polaria-w-50">Datos de n8n</h3>
-      <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-        <Campo etiqueta="ID del mensaje" tecnico>
-          {fila.messageId}
-        </Campo>
-        <Campo etiqueta="ID del hilo" tecnico>
-          {dato(fila.hilo)}
-        </Campo>
-        <Campo etiqueta="Registro en n8n" tecnico>
-          {dato(fila.idRegistro)}
-        </Campo>
-        <Campo etiqueta="Registrado en n8n">
-          {formatearFechaCompleta(fila.registradoEn)}
-        </Campo>
-        <Campo etiqueta="Última actualización">
-          {formatearFechaCompleta(fila.actualizadoEn)}
-        </Campo>
-      </dl>
-    </section>
+    <p className="polaria-text-caption border-t border-polaria-w-08 pt-4 text-polaria-w-50">
+      Registrado el {formatearFechaCompleta(fila.registradoEn)}
+    </p>
   );
 }

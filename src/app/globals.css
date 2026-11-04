@@ -945,7 +945,9 @@ body::-webkit-scrollbar-corner,
   padding: 12px 14px;
   border-radius: 8px;
   border: 1px solid var(--t20);
+  /* Base opaca + tinte encima: el toast flota sobre la página y un fondo translúcido deja ver lo de atrás. */
   background-color: var(--bg);
+  background-image: linear-gradient(var(--t08), var(--t08));
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   transform: translate(0, -150%);
   opacity: 0;
@@ -998,7 +1000,6 @@ body::-webkit-scrollbar-corner,
 
 .polaria-toast--success {
   border-left: 4px solid var(--teal);
-  background-color: var(--bg);
 }
 
 .polaria-toast--success .polaria-toast__header {
@@ -1011,7 +1012,7 @@ body::-webkit-scrollbar-corner,
 
 .polaria-toast--error {
   border-left: 4px solid var(--danger);
-  background-color: var(--danger-bg);
+  background-image: linear-gradient(var(--danger-bg), var(--danger-bg));
 }
 
 .polaria-toast--error .polaria-toast__header,
@@ -1021,7 +1022,6 @@ body::-webkit-scrollbar-corner,
 
 .polaria-toast--info {
   border-left: 4px solid var(--teal);
-  background-color: var(--bg);
 }
 
 .polaria-toast--info .polaria-toast__header {
@@ -1029,7 +1029,6 @@ body::-webkit-scrollbar-corner,
 }
 
 .polaria-toast--dark {
-  background-color: var(--bg);
   border-color: var(--t20);
 }
 

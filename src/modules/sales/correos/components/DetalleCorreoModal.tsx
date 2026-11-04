@@ -8,8 +8,8 @@ import type { CorreoFila } from "../types/correos.types";
 import { formatearFechaCompleta } from "../utils/correos-formato";
 import { AccionIngreso, BOTON_SECUNDARIO, puedeIngresarAMano } from "./AccionIngreso";
 import {
-  DatosDeN8n,
   ParticipantesDelCorreo,
+  RegistroDelCorreo,
   VeredictoFlujo,
 } from "./DetalleCorreoPartes";
 
@@ -25,9 +25,10 @@ function descripcionDeRecepcion(recibidoEn: string | null): string {
     : "Sin fecha de recepción";
 }
 
+/** Qué hace «Ingresar como OV»: va en el cuerpo, donde el texto tiene ancho para leerse completo. */
 function AvisoDelBoton() {
   return (
-    <p className="polaria-text-caption max-w-xs text-center text-polaria-w-50">
+    <p className="polaria-text-caption text-polaria-w-50">
       Crea una orden de venta por confirmar leyendo el correo y su adjunto.
     </p>
   );
@@ -45,8 +46,8 @@ function EnlaceCorreoCompleto({ messageId }: { messageId: string }) {
 
 /**
  * Detalle del correo (REQ-104). Primero lo que decide si es un pedido: qué dijo el flujo y por
- * qué; luego quién lo mandó y a quién, como en un cliente de correo; al final, en pequeño, los
- * datos de referencia de n8n.
+ * qué; luego quién lo mandó y a quién, como en un cliente de correo; al final, en pequeño, cuándo
+ * quedó registrado. Si el ingreso falla, el motivo sale como alerta del cuerpo del modal.
  */
 export function DetalleCorreoModal({
   fila,
@@ -66,13 +67,14 @@ export function DetalleCorreoModal({
       hideHeaderClose
       cancelLabel="Cerrar"
       footerLeading={<EnlaceCorreoCompleto messageId={fila.messageId} />}
-      footerCenter={puedeIngresarAMano(fila) ? <AvisoDelBoton /> : undefined}
+      error={fila.ingreso?.estado === "error" ? fila.ingreso.error : null}
       footerAction={<AccionIngreso fila={fila} onIngresar={onIngresar} />}
     >
       <div className="space-y-5">
         <VeredictoFlujo fila={fila} />
+        {puedeIngresarAMano(fila) ? <AvisoDelBoton /> : null}
         <ParticipantesDelCorreo fila={fila} />
-        <DatosDeN8n fila={fila} />
+        <RegistroDelCorreo fila={fila} />
       </div>
     </PolariaFormModal>
   );
