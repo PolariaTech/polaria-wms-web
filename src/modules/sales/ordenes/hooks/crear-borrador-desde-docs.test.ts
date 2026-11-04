@@ -46,9 +46,9 @@ describe("crearBorradorDesdeDocs (REQ-199)", () => {
 
   it("crea la OV como borrador con el origen y avisa su id para poder abrir Cypher", async () => {
     vi.mocked(createOrdenVenta).mockResolvedValue({ idOrdenVenta: "ov-7" } as never);
-    const { estado: e, acciones } = estado();
+    const { estado: estadoOv, acciones } = estado();
 
-    const aviso = await crearBorradorDesdeDocs(e, params);
+    const aviso = await crearBorradorDesdeDocs(estadoOv, params);
 
     expect(aviso).toBeNull();
     expect(createOrdenVenta).toHaveBeenCalledWith({
@@ -73,9 +73,9 @@ describe("crearBorradorDesdeDocs (REQ-199)", () => {
     const adjuntos = [{ nombre: "pedido.pdf" }];
     vi.mocked(uploadOvAdjuntosClient).mockResolvedValue(adjuntos as never);
     vi.mocked(createOrdenVenta).mockResolvedValue({ idOrdenVenta: "ov-8" } as never);
-    const { estado: e, acciones } = estado({ origenArchivoFiles: [archivo] });
+    const { estado: estadoOv, acciones } = estado({ origenArchivoFiles: [archivo] });
 
-    await crearBorradorDesdeDocs(e, params);
+    await crearBorradorDesdeDocs(estadoOv, params);
 
     expect(uploadOvAdjuntosClient).toHaveBeenCalledWith([archivo], "demo");
     expect(acciones.setOrigenAdjuntos).toHaveBeenCalledWith(adjuntos);
@@ -85,9 +85,9 @@ describe("crearBorradorDesdeDocs (REQ-199)", () => {
 
   it("sin cliente identificado ni renglones, crea el borrador igual (sin esos campos)", async () => {
     vi.mocked(createOrdenVenta).mockResolvedValue({ idOrdenVenta: "ov-9" } as never);
-    const { estado: e } = estado();
+    const { estado: estadoOv } = estado();
 
-    await crearBorradorDesdeDocs(e, { origenRows: [], textoOrigen: "", idComprador: "" });
+    await crearBorradorDesdeDocs(estadoOv, { origenRows: [], textoOrigen: "", idComprador: "" });
 
     expect(createOrdenVenta).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -110,9 +110,9 @@ describe("crearBorradorDesdeDocs (REQ-199)", () => {
 
   it("si falla, devuelve un aviso y no deja una orden a medias en el formulario", async () => {
     vi.mocked(createOrdenVenta).mockRejectedValue(new Error("sin conexión"));
-    const { estado: e, acciones } = estado();
+    const { estado: estadoOv, acciones } = estado();
 
-    const aviso = await crearBorradorDesdeDocs(e, params);
+    const aviso = await crearBorradorDesdeDocs(estadoOv, params);
 
     expect(aviso).toBe("No se pudo preparar Cypher: sin conexión");
     expect(acciones.setPendingEmitId).not.toHaveBeenCalled();
@@ -122,9 +122,9 @@ describe("crearBorradorDesdeDocs (REQ-199)", () => {
 
   it("si lo que falla no es un Error, usa un aviso genérico", async () => {
     vi.mocked(createOrdenVenta).mockRejectedValue("raro");
-    const { estado: e } = estado();
+    const { estado: estadoOv } = estado();
 
-    expect(await crearBorradorDesdeDocs(e, params)).toBe(
+    expect(await crearBorradorDesdeDocs(estadoOv, params)).toBe(
       "No se pudo preparar Cypher con el archivo leído.",
     );
   });

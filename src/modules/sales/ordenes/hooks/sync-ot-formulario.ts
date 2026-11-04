@@ -286,8 +286,8 @@ export function useTotalesVentaOv(estado: OrdenVentaFormEstado) {
   const totalOvCompleta = useMemo(() => {
     if (!mostrarTotalOv) return 0;
     return lineas.reduce((sum: number, linea) => {
-      const a = lineAmounts(linea);
-      return sum + Math.max(0, a.bruto - a.descuento + a.iva);
+      const importesLinea = lineAmounts(linea);
+      return sum + Math.max(0, importesLinea.bruto - importesLinea.descuento + importesLinea.iva);
     }, 0);
   }, [lineas, mostrarTotalOv]);
   return {
