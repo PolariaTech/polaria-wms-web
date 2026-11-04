@@ -82,6 +82,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
+  // Caché de build de Turbopack en .next/cache: desde Next 16.3.0 viene activa por defecto; en 16.2.x hay que pedirla.
+  experimental: {
+    turbopackFileSystemCacheForBuild: true,
+  },
   serverExternalPackages: [
     "unpdf",
     "file-type",
