@@ -35,6 +35,7 @@
 - `src/modules/sales/shared/services/sales.service.ts`
 - `src/modules/sales/shared/services/sales-api.service.ts`
 - `src/components/shared/form/PolariaFormModal.tsx` — autorizada por el usuario el 2026-11-04
+- `src/app/(shell)/dashboard/operational-pages.test.tsx` — autorizada por el usuario el 2026-11-04
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
