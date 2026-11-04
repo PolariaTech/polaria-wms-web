@@ -1,4 +1,3 @@
-import { Trash2 } from "lucide-react";
 import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 import { PolariaFormField, PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { formatDateTime } from "@/components/shared/utils/formatters";
@@ -11,33 +10,12 @@ import { OrdenVentaCaptureFormLineas } from "./OrdenVentaCaptureFormLineas";
 import { OrdenVentaCaptureFormPedido } from "./OrdenVentaCaptureFormPedido";
 
 export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
-  const { ordenesTrabajoForm, hijaFormActiva, setConfirmRemoveOtId, isEditing, setStep, setStartMode, setError, afterCutoff, successMessage, hasProductos, emptyCatalogMessage, startMode, origenTexto, origenArchivosNombres, vendedorNombre, idComprador, compradorLabel, compradorNombreIa, compradorSugerencias, missingFields, setPicker, codigoClienteCatalogo, denominacionComercialCatalogo, fechaCreacion, paginarPorOt, folioFactura, ordenCompraHotel, setOrdenCompraHotel, exigeOc, centroConsumo, setCentroConsumo, fechaEntrega, setFechaEntrega, esPorConfirmar, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, observaciones, setObservaciones, clearFieldMarks, autoFields, warnFields, direccion, setDireccion, setAvisoVerificarDireccion, avisoVerificarDireccion, contacto, setContacto, telefono, setTelefono, correo, setCorreo, lineasConIndice, subtotalVenta, ivaVenta, totalVenta, totalOvCompleta, mostrarTotalOv, puedeAgregarProducto, setReplaceLineaIndex, handleOpenReplaceProducto, handleLineaFieldChange, handleCantidadChange, handleCantidadBlur, handlePrecioChange, handlePrecioBlur, handleRemoveLinea, lineas, setLineas, aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote, registrarTemperatura, setRegistrarTemperatura } = input;
+  const { ordenesTrabajoForm, hijaFormActiva, isEditing, setStep, setStartMode, setError, afterCutoff, successMessage, hasProductos, emptyCatalogMessage, startMode, origenTexto, origenArchivosNombres, vendedorNombre, idComprador, compradorLabel, compradorNombreIa, compradorSugerencias, missingFields, setPicker, codigoClienteCatalogo, denominacionComercialCatalogo, fechaCreacion, paginarPorOt, folioFactura, ordenCompraHotel, setOrdenCompraHotel, exigeOc, centroConsumo, setCentroConsumo, fechaEntrega, setFechaEntrega, esPorConfirmar, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, observaciones, setObservaciones, clearFieldMarks, autoFields, warnFields, direccion, setDireccion, setAvisoVerificarDireccion, avisoVerificarDireccion, contacto, setContacto, telefono, setTelefono, correo, setCorreo, lineasConIndice, subtotalVenta, ivaVenta, totalVenta, totalOvCompleta, mostrarTotalOv, puedeAgregarProducto, setReplaceLineaIndex, handleOpenReplaceProducto, handleLineaFieldChange, handleCantidadChange, handleCantidadBlur, handlePrecioChange, handlePrecioBlur, handleRemoveLinea, lineas, setLineas, aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote, registrarTemperatura, setRegistrarTemperatura } = input;
   return (
     <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              {ordenesTrabajoForm.length > 1 ? (
-                hijaFormActiva ? (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmRemoveOtId(hijaFormActiva.id)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-2.5 py-1.5 polaria-text-caption font-semibold text-polaria-danger transition hover:opacity-90"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                    Eliminar esta tarea
-                  </button>
-                ) : (
-                  <span />
-                )
-              ) : ordenesTrabajoForm.length === 1 && hijaFormActiva ? (
-                <button
-                  type="button"
-                  onClick={() => setConfirmRemoveOtId(hijaFormActiva.id)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-2.5 py-1.5 polaria-text-caption font-semibold text-polaria-danger transition hover:opacity-90"
-                >
-                  <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                  Eliminar tarea de almacén
-                </button>
-              ) : !isEditing ? (
+              {/* Eliminar tarea / guardar avance pasaron al pie del modal (REQ-232). */}
+              {!isEditing && !hijaFormActiva ? (
                 <button
                   type="button"
                   onClick={() => {

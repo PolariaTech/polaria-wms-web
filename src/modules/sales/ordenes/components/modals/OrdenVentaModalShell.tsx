@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Plus, Save } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import type { FormEvent } from "react";
 import { cn } from "@/lib/utils/cn";
 import { formatPrecioEs } from "@/lib/utils/decimal-es";
@@ -9,6 +9,11 @@ import { MateoIaLoadingScreen } from "@/components/mateo/MateoIaLoadingScreen";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
 import { ovTieneIdParaCypher, puedeMostrarBotonCypher } from "../../utils/pedido/cypher-ov";
 import { OrdenVentaFormFooterCenter } from "./OrdenVentaFormFooterCenter";
+import { OrdenVentaFormFooterIconActions } from "./OrdenVentaFormFooterIconActions";
+import {
+  descriptionCreateModalOv,
+  tituloCreateModalOv,
+} from "./orden-venta-create-modal-cabecera";
 import { OrdenVentaModalCuerpo, OrdenVentaModalOverlays, type OrdenVentaFormEstado } from "./OrdenVentaDiscrepanciasDialog";
 
 export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado }) {
@@ -22,36 +27,8 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
         open={estado.open && !estado.showMateoLoading}
         onClose={estado.requestClose}
         scrollRegionRef={estado.formScrollRef}
-        title={
-          estado.isEditing && estado.step === "pickOt"
-            ? "Órdenes de trabajo"
-            : estado.isEditing
-              ? estado.folioVisible
-                ? `Editar · ${estado.folioVisible}`
-                : "Editar pedido"
-              : estado.step === "form"
-                ? estado.folioVisible
-                  ? `Pedido · ${estado.folioVisible}`
-                  : "Pedido"
-                : estado.step === "preview"
-                  ? "Órdenes de trabajo detectadas"
-                  : "Nuevo pedido"
-        }
-        description={
-          estado.isEditing && estado.step === "pickOt"
-            ? "Elige qué orden de trabajo quieres editar"
-            : estado.isEditing
-              ? estado.folioVisible
-                ? `Folio ${estado.folioVisible} — actualiza los datos del pedido`
-                : "Actualiza los datos del pedido"
-              : estado.step === "form"
-                ? estado.formDescription
-                : estado.step === "preview"
-                  ? "Previsualización antes de confirmar el formulario"
-                  : estado.startMode === "docs"
-                    ? "Mateo lee el mensaje o los archivos del pedido"
-                    : "¿Cómo quieres empezar?"
-        }
+        title={tituloCreateModalOv(estado)}
+        description={descriptionCreateModalOv(estado)}
         onSubmit={(event) => {
           estado.submitIntentRef.current = "emit";
           void estado.handleSubmit(event);
@@ -99,60 +76,7 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
           ) : undefined
         }
         headerTrailing={
-          estado.step === "form" ? (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                title="Guardar avance (sigue Por confirmar; no confirma el pedido)"
-                aria-label="Guardar avance"
-                disabled={
-                  estado.isSaving ||
-                  estado.isLoading ||
-                  // Alta nueva: hace falta cliente o al menos un producto de catálogo.
-                  // OV existente: siempre se puede guardar avance (REQ-134).
-                  (!(estado.isEditing || estado.pendingEmitId) &&
-                    !estado.idComprador &&
-                    !estado.lineas.some(
-                      (linea: { catalogPending?: boolean; idProducto?: string }) =>
-                        !linea.catalogPending && Boolean(linea.idProducto),
-                    ))
-                }
-                onClick={() => {
-                  estado.submitIntentRef.current = "draft";
-                  void estado.handleSubmit({
-                    preventDefault() {},
-                  } as FormEvent<HTMLFormElement>);
-                }}
-                className={cn(
-                  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
-                  "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
-                  "disabled:cursor-not-allowed disabled:opacity-40",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                )}
-              >
-                {estado.isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                ) : (
-                  <Save className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-                )}
-              </button>
-              {!estado.cypherOpen && puedeMostrarBotonCypher(estado) && estado.onToggleCypher ? (
-                <button
-                  type="button"
-                  title="Ver detalle Cypher"
-                  aria-label="Abrir detalle Cypher"
-                  onClick={() => estado.onToggleCypher()}
-                  className={cn(
-                    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
-                    "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                  )}
-                >
-                  <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-                </button>
-              ) : null}
-            </div>
-          ) : !estado.cypherOpen && puedeMostrarBotonCypher(estado) && estado.onToggleCypher ? (
+          !estado.cypherOpen && puedeMostrarBotonCypher(estado) && estado.onToggleCypher ? (
             <button
               type="button"
               title="Ver detalle Cypher"
@@ -220,6 +144,36 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
               estado.revisionFocusRequestRef.current = null;
             }}
           />
+        }
+        footerBeforeCancel={
+          estado.step === "form" ? (
+            <OrdenVentaFormFooterIconActions
+              showEliminar={Boolean(estado.hijaFormActiva)}
+              indiceOt1Based={estado.formOtSafePage + 1}
+              onEliminar={() => {
+                if (estado.hijaFormActiva) estado.setConfirmRemoveOtId(estado.hijaFormActiva.id);
+              }}
+              onGuardarAvance={() => {
+                estado.submitIntentRef.current = "draft";
+                void estado.handleSubmit({
+                  preventDefault() {},
+                } as FormEvent<HTMLFormElement>);
+              }}
+              guardarDisabled={
+                estado.isSaving ||
+                estado.isLoading ||
+                // Alta nueva: hace falta cliente o al menos un producto de catálogo.
+                // OV existente: siempre se puede guardar avance (REQ-134).
+                (!(estado.isEditing || estado.pendingEmitId) &&
+                  !estado.idComprador &&
+                  !estado.lineas.some(
+                    (linea: { catalogPending?: boolean; idProducto?: string }) =>
+                      !linea.catalogPending && Boolean(linea.idProducto),
+                  ))
+              }
+              isSaving={estado.isSaving}
+            />
+          ) : undefined
         }
         footerAction={
           estado.step === "pickOt" ? (
