@@ -1420,16 +1420,14 @@ export function OperadorOrdenesVentaPageContent({
         onReagruparAlCargarAtendido={limpiarReagruparAlAbrir}
         operadorRowsForDuplicado={rows}
         onClose={() => {
-          // Cypher abierto desde el formulario del pedido se cierra al salir.
+          // REQ-221: tras editar, volver al detalle de esa OV (no al listado).
           const closingId = editingId;
           setIsCreateOpen(false);
           setEditingId(null);
           setReagruparAlAbrirId(null);
           setCompanionOtPicker(null);
           setCompanionIdComprador(null);
-          setCypherId((prev) =>
-            prev && closingId && prev === closingId ? null : prev,
-          );
+          if (closingId) setDetalleId(closingId);
         }}
         onCreated={() => {
           void reload();

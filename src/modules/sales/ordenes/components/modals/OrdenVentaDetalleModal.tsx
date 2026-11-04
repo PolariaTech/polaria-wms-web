@@ -38,7 +38,6 @@ import {
   parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
 } from "../../utils/pedido/build-orden-venta-captura-observaciones";
-import { sanitizeTelefonoContacto } from "../../utils/pedido/sanitize-telefono-contacto";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
@@ -53,9 +52,11 @@ import {
 } from "../../utils/origen/origen-correo-ordenes-trabajo";
 import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
 import {
+  buildCapturaDetalleVista,
   leerFolioFacturaVista,
   montoDeNota,
   textoConteoOrdenesTrabajo,
+  tituloDetalleOvConOt,
   totalLineaConIva,
 } from "./detalle-venta-presentacion";
 import { useRecargaFolioFactura } from "../../surtido/folio-factura-captura";
@@ -174,12 +175,14 @@ function DetalleContent({
   codigoCuenta,
   idOrdenVenta,
   mostrarTotalOv,
+  tareaTotal = 1,
 }: {
   orden: OrdenVentaDetalleRow;
   hija?: OrdenTrabajoHija | null;
   codigoCuenta: string | null;
   idOrdenVenta: string;
   mostrarTotalOv: boolean;
+  tareaTotal?: number;
 }) {
   const allLineItems = orden.lineas ?? [];
   const lineItems: OrdenVentaLineaRow[] = useMemo(() => {
@@ -214,47 +217,13 @@ function DetalleContent({
     orden.ventana_desde?.trim() || orden.ventana_hasta?.trim()
       ? `${orden.ventana_desde?.trim() || "—"} – ${orden.ventana_hasta?.trim() || "—"}`
       : "";
-  const captura = {
-    ...fromObs,
-    prioridad: orden.prioridad?.trim() || fromObs.prioridad,
-    ordenCompraHotel:
-      hija?.numeroPedido ||
-      orden.orden_compra_hotel?.trim() ||
-      fromObs.ordenCompraHotel,
-    centroConsumo:
-      hija?.almacen ||
-      orden.centro_consumo?.trim() ||
-      fromObs.centroConsumo,
-    moneda: orden.moneda?.trim() || fromObs.moneda,
-    bodegaDestino:
-      orden.bodega_destino_label?.trim() || fromObs.bodegaDestino,
-    direccion: orden.direccion_entrega?.trim() || fromObs.direccion,
-    anden: orden.anden?.trim() || fromObs.anden,
-    contacto:
-      hija?.responsableExterno ||
-      orden.contacto_entrega?.trim() ||
-      fromObs.contacto,
-    telefono:
-      sanitizeTelefonoContacto(orden.telefono_contacto) ||
-      sanitizeTelefonoContacto(fromObs.telefono),
-    correo: orden.correo_contacto?.trim() || fromObs.correo,
-    turno: orden.turno?.trim() || fromObs.turno,
-    horaSalida: orden.hora_salida?.trim() || fromObs.horaSalida,
-    chofer: orden.chofer?.trim() || fromObs.chofer,
-    unidad: orden.unidad?.trim() || fromObs.unidad,
-    aceptaSustituciones:
-      orden.acepta_sustituciones?.trim() || fromObs.aceptaSustituciones,
-    requiereLote: orden.requiere_lote?.trim() || fromObs.requiereLote,
-    registrarTemperatura:
-      orden.registrar_temperatura?.trim() || fromObs.registrarTemperatura,
-    fechaEntrega:
-      hija?.fecha ||
-      orden.fecha_entrega?.trim() ||
-      fromObs.fechaEntrega,
-    ventanaEntrega: ventanaFlat || fromObs.ventanaEntrega,
-    notasLineas: orden.notas_lineas?.trim() || fromObs.notasLineas,
-    origenTexto: orden.origen_texto?.trim() || fromObs.origenTexto,
-  };
+  const captura = buildCapturaDetalleVista(
+    orden,
+    hija,
+    fromObs,
+    tareaTotal,
+    ventanaFlat,
+  );
   const [folioFactura, setFolioFactura] = useState("");
   const recargaFolio = useRecargaFolioFactura(idOrdenVenta);
 
@@ -787,9 +756,9 @@ export function OrdenVentaDetalleModal({
       onClose={onClose}
       sectionLabel="Detalle de venta"
       title={
-        hijaActiva
-          ? `${orden?.codigo ?? "OV"} · ${hijaActiva.label}`
-          : (orden?.codigo ?? "Orden de venta")
+        orden
+          ? tituloDetalleOvConOt(orden.codigo, indiceOt + 1, ordenesTrabajo.length)
+          : "Orden de venta"
       }
       description={
         orden ? formatCompradorOrdenVenta(orden) : "Ficha de captura del pedido."
@@ -884,6 +853,7 @@ export function OrdenVentaDetalleModal({
             codigoCuenta={codigoCuenta}
             idOrdenVenta={idOrdenVenta}
             mostrarTotalOv={ordenesTrabajo.length > 1}
+            tareaTotal={Math.max(1, ordenesTrabajo.length)}
           />
           <OrdenTrabajoPager
             page={indiceOt}

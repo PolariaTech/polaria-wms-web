@@ -53,6 +53,20 @@ export function textoConteoOrdenesTrabajo(cantidad: number): string {
   return `${cantidad} órdenes de trabajo`;
 }
 
+/**
+ * Título del detalle multi-OT: folio OV + guión + # de OT (1…N).
+ * REQ-229 — ej. OV-00001047-2. Con una sola OT (o sin índice) solo el folio.
+ */
+export function tituloDetalleOvConOt(
+  codigoOv: string | null | undefined,
+  indiceOt1Based: number,
+  totalOt: number,
+): string {
+  const codigo = (codigoOv ?? "").trim() || "OV";
+  if (totalOt <= 1 || indiceOt1Based < 1) return codigo;
+  return `${codigo}-${indiceOt1Based}`;
+}
+
 export type MontoLineaVista = {
   descuentoPct: number;
   ivaPct: number;
@@ -92,4 +106,61 @@ export function totalLineaConIva(
 ): number {
   const monto = montoDeNota(nota, cantidad, precio);
   return monto.importe + monto.iva;
+}
+
+import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
+import type { OrdenVentaCapturaParsed } from "../../utils/pedido/build-orden-venta-captura-observaciones";
+import { sanitizeTelefonoContacto } from "../../utils/pedido/sanitize-telefono-contacto";
+import type { OrdenTrabajoHija } from "../../utils/origen/origen-correo-ordenes-trabajo";
+import { resolveNumeroOrdenClientePrint } from "../../utils/ot/filter-lineas-by-orden-trabajo";
+
+export { resolveNumeroOrdenClientePrint };
+
+/** Campos de captura del detalle (REQ-176 OCC alineada al PDF). */
+export function buildCapturaDetalleVista(
+  orden: OrdenVentaDetalleRow,
+  hija: OrdenTrabajoHija | null | undefined,
+  fromObs: OrdenVentaCapturaParsed,
+  tareaTotal: number,
+  ventanaFlat: string,
+): OrdenVentaCapturaParsed {
+  return {
+    ...fromObs,
+    prioridad: orden.prioridad?.trim() || fromObs.prioridad,
+    ordenCompraHotel: resolveNumeroOrdenClientePrint({
+      ordenCompraHotel: orden.orden_compra_hotel,
+      hijaNumeroPedido: hija?.numeroPedido,
+      capturaOrdenCompra: fromObs.ordenCompraHotel,
+      tareaTotal,
+    }),
+    centroConsumo:
+      hija?.almacen || orden.centro_consumo?.trim() || fromObs.centroConsumo,
+    moneda: orden.moneda?.trim() || fromObs.moneda,
+    bodegaDestino:
+      orden.bodega_destino_label?.trim() || fromObs.bodegaDestino,
+    direccion: orden.direccion_entrega?.trim() || fromObs.direccion,
+    anden: orden.anden?.trim() || fromObs.anden,
+    contacto:
+      hija?.responsableExterno ||
+      orden.contacto_entrega?.trim() ||
+      fromObs.contacto,
+    telefono:
+      sanitizeTelefonoContacto(orden.telefono_contacto) ||
+      sanitizeTelefonoContacto(fromObs.telefono),
+    correo: orden.correo_contacto?.trim() || fromObs.correo,
+    turno: orden.turno?.trim() || fromObs.turno,
+    horaSalida: orden.hora_salida?.trim() || fromObs.horaSalida,
+    chofer: orden.chofer?.trim() || fromObs.chofer,
+    unidad: orden.unidad?.trim() || fromObs.unidad,
+    aceptaSustituciones:
+      orden.acepta_sustituciones?.trim() || fromObs.aceptaSustituciones,
+    requiereLote: orden.requiere_lote?.trim() || fromObs.requiereLote,
+    registrarTemperatura:
+      orden.registrar_temperatura?.trim() || fromObs.registrarTemperatura,
+    fechaEntrega:
+      hija?.fecha || orden.fecha_entrega?.trim() || fromObs.fechaEntrega,
+    ventanaEntrega: ventanaFlat || fromObs.ventanaEntrega,
+    notasLineas: orden.notas_lineas?.trim() || fromObs.notasLineas,
+    origenTexto: orden.origen_texto?.trim() || fromObs.origenTexto,
+  };
 }

@@ -15,7 +15,7 @@ import {
   parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
 } from "../utils/pedido/build-orden-venta-captura-observaciones";
-import { filterLineasByOrdenTrabajoHija } from "../utils/ot/filter-lineas-by-orden-trabajo";
+import { filterLineasByOrdenTrabajoHija, resolveNumeroOrdenClientePrint } from "../utils/ot/filter-lineas-by-orden-trabajo";
 import {
   groupOrigenCorreoToOrdenesTrabajo,
   parseOrigenCorreoJson,
@@ -296,7 +296,7 @@ function buildBaseSheet(input: {
       zonaImpresionLabel,
       cliente: listRow.comprador,
       centroConsumo: hija?.almacen ?? "",
-      numeroOrdenCliente: hija?.numeroPedido || listRow.venta,
+      numeroOrdenCliente: resolveNumeroOrdenClientePrint({ hijaNumeroPedido: hija?.numeroPedido, tareaTotal }),
       ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
       fechaEntrega: (() => {
         const f = hija?.fecha
@@ -346,10 +346,7 @@ function buildBaseSheet(input: {
       captura.centroConsumo ||
       detalle.centro_consumo?.trim() ||
       "",
-    numeroOrdenCliente:
-      hija?.numeroPedido ||
-      captura.ordenCompraHotel.trim() ||
-      detalle.codigo,
+    numeroOrdenCliente: resolveNumeroOrdenClientePrint({ ordenCompraHotel: detalle.orden_compra_hotel, hijaNumeroPedido: hija?.numeroPedido, capturaOrdenCompra: captura.ordenCompraHotel, tareaTotal }),
     ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
     fechaEntrega: (() => {
       const f = hija?.fecha

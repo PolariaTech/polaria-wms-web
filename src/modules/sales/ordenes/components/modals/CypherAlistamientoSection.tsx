@@ -18,6 +18,10 @@ import {
 } from "../../utils/origen/origen-correo-ordenes-trabajo";
 import { resolveOrdenVentaLineaTitulo } from "../../utils/display/orden-venta-display";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
+import {
+  AlistoIncompletoAviso,
+  CheckinDespachoAviso,
+} from "../orden-trabajo/OrdenTrabajoChipSelector";
 
 function CheckMark({ ok }: { ok: boolean }) {
   if (!ok) {
@@ -206,16 +210,12 @@ export function CypherAlistamientoSection({
         ) : null}
       </p>
 
-      {lineasProductoTotal > 0 &&
-      lineasAlistoTotal < lineasProductoTotal &&
-      [...capturaByOt.values()].some(
-        (c) => (c.payload?.precisionEstimada ?? 0) >= 60,
-      ) ? (
-        <p className="rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-3 py-2 polaria-text-caption text-polaria-warning">
-          La lectura parece confiable, pero faltan chulos Alistó en algunas
-          filas. Revisa la foto o vuelve a capturar esa OT.
-        </p>
-      ) : null}
+      <AlistoIncompletoAviso
+        lineasProductoTotal={lineasProductoTotal}
+        lineasAlistoTotal={lineasAlistoTotal}
+        capturaByOt={capturaByOt}
+      />
+      <CheckinDespachoAviso ots={ots} capturaByOt={capturaByOt} />
 
       {ots.map((hija, index) => {
         const otKey = normalizeIdOrdenTrabajo(hija.id);
