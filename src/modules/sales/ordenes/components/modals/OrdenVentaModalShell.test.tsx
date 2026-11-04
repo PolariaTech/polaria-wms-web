@@ -10,9 +10,6 @@ vi.mock("./OrdenVentaDiscrepanciasDialog", () => ({
   OrdenVentaModalCuerpo: () => <p>cuerpo del modal</p>,
   OrdenVentaModalOverlays: () => null,
 }));
-vi.mock("@/components/mateo/MateoIaLoadingScreen", () => ({
-  MateoIaLoadingScreen: () => null,
-}));
 vi.mock("./OrdenVentaFormFooterCenter", () => ({
   OrdenVentaFormFooterCenter: () => null,
 }));
@@ -151,6 +148,50 @@ describe("OrdenVentaModalShell — pie y encabezado (REQ-199 / REQ-232)", () => 
 
     expect(screen.getByRole("heading", { name: "Pedido" })).toBeInTheDocument();
     expect(screen.getByText("Captura el pedido")).toBeInTheDocument();
+  });
+});
+
+describe("OrdenVentaModalShell — espera con Polo", () => {
+  it("al leer con IA muestra a Polo con lo que hace y cuánto suele tardar", () => {
+    const { estado } = estadoShell({
+      open: true,
+      showMateoLoading: true,
+      isReadingIa: true,
+      mateoBusyMessage: undefined,
+    });
+    render(<OrdenVentaModalShell estado={estado} />);
+
+    const capa = screen.getByRole("dialog", { name: "Leyendo el pedido…" });
+    expect(within(capa).getByText(/puede tardar entre 1 y 3 minutos/i)).toBeInTheDocument();
+    expect(screen.queryByText("cuerpo del modal")).not.toBeInTheDocument();
+  });
+
+  it("al guardar muestra «Guardando el pedido…» y, si hay mensaje de envío, ese", () => {
+    const guardando = estadoShell({
+      open: true,
+      showMateoLoading: true,
+      isReadingIa: false,
+      mateoBusyMessage: undefined,
+    });
+    const { unmount } = render(<OrdenVentaModalShell estado={guardando.estado} />);
+    expect(screen.getByRole("dialog", { name: "Guardando el pedido…" })).toBeInTheDocument();
+    unmount();
+
+    const imprimiendo = estadoShell({
+      open: true,
+      showMateoLoading: true,
+      isReadingIa: false,
+      mateoBusyMessage: "Imprimiendo…",
+    });
+    render(<OrdenVentaModalShell estado={imprimiendo.estado} />);
+    expect(screen.getByRole("dialog", { name: "Imprimiendo…" })).toBeInTheDocument();
+  });
+
+  it("sin espera no hay capa de Polo", () => {
+    const { estado } = estadoShell();
+    render(<OrdenVentaModalShell estado={estado} />);
+
+    expect(screen.queryByRole("dialog", { name: /pedido…|imprimiendo/i })).not.toBeInTheDocument();
   });
 });
 

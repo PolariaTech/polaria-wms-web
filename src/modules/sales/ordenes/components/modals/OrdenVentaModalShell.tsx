@@ -5,9 +5,10 @@ import type { FormEvent } from "react";
 import { cn } from "@/lib/utils/cn";
 import { formatPrecioEs } from "@/lib/utils/decimal-es";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
-import { MateoIaLoadingScreen } from "@/components/mateo/MateoIaLoadingScreen";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
 import { ovTieneIdParaCypher, puedeMostrarBotonCypher } from "../../utils/pedido/cypher-ov";
+import { esperaDeOv } from "../../utils/pedido/espera-ov";
+import { CargaConPolo } from "./OrdenVentaCorreccionCorreoPanel";
 import { OrdenVentaFormFooterCenter } from "./OrdenVentaFormFooterCenter";
 import { OrdenVentaFormFooterIconActions } from "./OrdenVentaFormFooterIconActions";
 import {
@@ -20,7 +21,7 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
   return (
     <>
       {estado.showMateoLoading ? (
-        <MateoIaLoadingScreen message={estado.mateoBusyMessage} />
+        <CargaConPolo {...esperaDeOv(estado)} />
       ) : null}
 
       <PolariaFormModal
