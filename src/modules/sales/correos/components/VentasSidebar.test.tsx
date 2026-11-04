@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTES } from "@/config/routes";
@@ -94,6 +94,25 @@ describe("VentasSidebar (REQ-104)", () => {
     expect(container.querySelector("nav")).not.toHaveAttribute("inert");
   });
 
+  it("abierto, trae su propia «×» a la altura del primer enlace (solo en la columna, desde `lg`) que lo oculta", async () => {
+    const user = userEvent.setup();
+    render(<VentasSidebar />);
+
+    const nav = screen.getByRole("navigation", { name: MENU });
+    const boton = within(nav).getByRole("button", { name: "Ocultar menú de Ventas" });
+    expect(boton).toHaveAttribute("aria-expanded", "true");
+    expect(boton).toHaveAttribute("aria-controls", VENTAS_MENU_ID);
+    expect(boton).toHaveClass("hidden", "lg:inline-flex");
+    expect(boton.querySelector("svg.lucide-x")).not.toBeNull();
+    // misma fila que «Órdenes de venta», el primer enlace del menú
+    const primero = within(nav).getByRole("link", { name: "Órdenes de venta" });
+    expect(boton.parentElement).toBe(primero.parentElement);
+    expect(primero.compareDocumentPosition(boton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.click(boton);
+    expect(useVentasMenuStore.getState().abierto).toBe(false);
+  });
+
   it("también muestra a los administradores de cuenta", () => {
     estado.idRol = "administrador_cuenta";
     render(<VentasSidebar />);
@@ -137,10 +156,24 @@ describe("BotonMenuVentas (REQ-104)", () => {
     expect(useVentasMenuStore.getState().abierto).toBe(true);
   });
 
-  it("se muestra solo desde `lg`: debajo el menú es una tira arriba y no un panel izquierdo", () => {
+  it("en el encabezado el icono dice el estado: «−» con el menú abierto (cierra) y «+» cerrado (abre)", () => {
+    const { container, rerender } = render(<BotonMenuVentas />);
+    expect(container.querySelector("svg.lucide-minus")).not.toBeNull();
+
+    act(() => useVentasMenuStore.getState().alternar());
+    rerender(<BotonMenuVentas />);
+    expect(container.querySelector("svg.lucide-plus")).not.toBeNull();
+    expect(container.querySelector("svg.lucide-minus")).toBeNull();
+  });
+
+  it("se ve en todos los anchos y se puede tocar: cerrado es el único modo de abrir el menú", () => {
+    useVentasMenuStore.setState({ abierto: false });
     render(<BotonMenuVentas />);
-    const boton = screen.getByRole("button", { name: OCULTAR });
-    expect(boton).toHaveClass("hidden", "lg:inline-flex");
+
+    const boton = screen.getByRole("button", { name: MOSTRAR });
+    expect(boton).not.toHaveClass("hidden");
+    // 44 px: el alto de la línea del título baja de eso en pantallas angostas
+    expect(boton).toHaveClass("min-h-11", "min-w-11");
   });
 
   it("no aparece fuera de Ventas", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Plus, Printer, XCircle } from "lucide-react";
+import { CheckCircle2, Printer, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
@@ -8,6 +8,7 @@ import {
   PolariaTableBadge,
   PolariaTableCode,
 } from "@/components/shared/table/PolariaTableCells";
+import { BotonDetalleOrden } from "./BotonDetalleOrden";
 import { textoFechaEntregaListado } from "./texto-fecha-entrega-listado";
 import { renderClienteListadoCell } from "./cliente-listado-cell";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
@@ -1060,34 +1061,15 @@ export function OperadorOrdenesVentaPageContent({
                     onClick={(event) => event.stopPropagation()}
                     onKeyDown={(event) => event.stopPropagation()}
                   >
-                    <button
-                      type="button"
-                      title={open ? "Cerrar detalle" : "Ver detalle"}
-                      aria-label={
-                        open
-                          ? `Cerrar detalle de ${row.venta}`
-                          : `Ver detalle de ${row.venta}`
-                      }
-                      aria-pressed={open}
-                      onClick={() => {
+                    <BotonDetalleOrden
+                      abierto={open}
+                      venta={row.venta}
+                      onAlternar={() => {
                         setCypherId((prev) =>
                           prev === row.idOrdenVenta ? null : row.idOrdenVenta,
                         );
                       }}
-                      className={cn(
-                        "inline-flex h-8 w-8 items-center justify-center rounded-lg border transition",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                        open
-                          ? "border-polaria-teal bg-polaria-teal text-polaria-on-teal"
-                          : "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
-                      )}
-                    >
-                      <Plus
-                        className="h-4 w-4"
-                        strokeWidth={2.25}
-                        aria-hidden
-                      />
-                    </button>
+                    />
                     {idsCorreoNoEnviado.has(row.idOrdenVenta) ? (
                       <span
                         title="Esta orden no se imprimió"
