@@ -33,7 +33,7 @@ describe("origen-adjuntos", () => {
     expect(parseOrigenArchivos(raw)).toEqual(items);
   });
 
-  it("marca PDF e imagen como previsualizables", () => {
+  it("marca PDF, imagen, HTML y EML como previsualizables (REQ-159)", () => {
     expect(
       canPreviewOrigenAdjunto({
         nombre: "x.pdf",
@@ -43,9 +43,29 @@ describe("origen-adjuntos", () => {
     ).toBe(true);
     expect(
       canPreviewOrigenAdjunto({
+        nombre: "po.html",
+        path: "cuenta/uuid-po.html",
+        mime: "application/octet-stream",
+      }),
+    ).toBe(true);
+    expect(
+      canPreviewOrigenAdjunto({
+        nombre: "correo.eml",
+        path: "cuenta/uuid-correo.eml",
+        mime: "application/octet-stream",
+      }),
+    ).toBe(true);
+    expect(
+      canPreviewOrigenAdjunto({
         nombre: "doc.docx",
         url: "https://example.com/doc.docx",
         mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      }),
+    ).toBe(false);
+    expect(
+      canPreviewOrigenAdjunto({
+        nombre: "hoja.xlsx",
+        path: "cuenta/uuid-hoja.xlsx",
       }),
     ).toBe(false);
   });

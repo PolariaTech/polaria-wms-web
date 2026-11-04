@@ -3,6 +3,10 @@ import {
   resolveCabeceraGuardada,
   resolveNotasGuardadas,
   resolveOccGuardada,
+  resolveCompradorParaListado,
+  resolvePropuestaClienteMateoAlReabrir,
+  resolvePropuestaClienteMateoParaGuardar,
+  sellarNombreClienteMateoEnOrigen,
   usuarioBorroNotas,
 } from "./resolve-cabecera-guardada";
 
@@ -233,5 +237,80 @@ describe("resolveNotasGuardadas (REQ-230)", () => {
         borradas: false,
       }),
     ).toBe("Notas generales del correo");
+  });
+});
+
+describe("propuesta cliente Mateo (REQ-166)", () => {
+  it("para guardar prioriza el nombre de Mateo si no hay id", () => {
+    expect(
+      resolvePropuestaClienteMateoParaGuardar({
+        idComprador: "",
+        nombreIa: "Propuesta Mateo",
+        label: "Label",
+        nombreEnOrigen: "Correo",
+      }),
+    ).toBe("Propuesta Mateo");
+  });
+
+  it("no sella tentativo si ya hay comprador de catálogo", () => {
+    expect(
+      resolvePropuestaClienteMateoParaGuardar({
+        idComprador: "c1",
+        nombreIa: "Propuesta Mateo",
+      }),
+    ).toBe("");
+  });
+
+  it("al reabrir usa la propuesta del pedido antes que el origen", () => {
+    expect(
+      resolvePropuestaClienteMateoAlReabrir({
+        nombrePedidoMateo: "Mateo",
+        nombreEnOrigen: "Correo",
+      }),
+    ).toBe("Mateo");
+  });
+
+  it("sella Nombre cliente en origen sin pisar uno ya guardado", () => {
+    expect(
+      sellarNombreClienteMateoEnOrigen(
+        [
+          { Producto: "A", "Nombre cliente": "Ya estaba" },
+          { Producto: "B" },
+        ],
+        "Propuesta Mateo",
+      ),
+    ).toEqual([
+      { Producto: "A", "Nombre cliente": "Ya estaba" },
+      { Producto: "B", "Nombre cliente": "Propuesta Mateo" },
+    ]);
+  });
+});
+
+describe("resolveCompradorParaListado (REQ-169)", () => {
+  it("prioriza el comprador de catálogo", () => {
+    expect(
+      resolveCompradorParaListado({
+        compradorCatalogo: "Cliente Catálogo",
+        origenCorreo: [{ "Nombre cliente": "Tentativo Mateo" }],
+      }),
+    ).toBe("Cliente Catálogo");
+  });
+
+  it("sin catálogo muestra el nombre tentativo del origen", () => {
+    expect(
+      resolveCompradorParaListado({
+        compradorCatalogo: "—",
+        origenCorreo: [{ "Nombre cliente": "Kimpton Tres Rios Riviera Maya" }],
+      }),
+    ).toBe("Kimpton Tres Rios Riviera Maya");
+  });
+
+  it("sin catálogo ni origen queda —", () => {
+    expect(
+      resolveCompradorParaListado({
+        compradorCatalogo: "",
+        origenCorreo: [],
+      }),
+    ).toBe("—");
   });
 });

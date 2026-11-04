@@ -9,6 +9,7 @@ import {
   PolariaTableCode,
 } from "@/components/shared/table/PolariaTableCells";
 import { textoFechaEntregaListado } from "./texto-fecha-entrega-listado";
+import { renderClienteListadoCell } from "./cliente-listado-cell";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useVisibleInterval } from "@/hooks/shared/useVisibleInterval";
@@ -1020,11 +1021,7 @@ export function OperadorOrdenesVentaPageContent({
         header: "Cliente",
         headerClassName: ordenVentaTableColumnClass("comprador", "header"),
         cellClassName: ordenVentaTableColumnClass("comprador"),
-        cell: (row: OrdenVentaOperadorRow) => (
-          <span className="block max-w-[12.5rem] truncate" title={row.comprador}>
-            {row.comprador}
-          </span>
-        ),
+        cell: (row: OrdenVentaOperadorRow) => renderClienteListadoCell(row),
       },
       {
         id: "estado",

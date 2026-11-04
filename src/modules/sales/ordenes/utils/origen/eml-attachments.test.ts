@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { listEmlAttachmentParts } from "./eml-attachments";
+import {
+  buildEmlInlineHtml,
+  listEmlAttachmentParts,
+} from "./eml-attachments";
 
 function buildMimeWithPdf(): Buffer {
   const boundary = "BOUND123";
@@ -37,5 +40,17 @@ describe("listEmlAttachmentParts", () => {
     expect(parts[0]?.nombre).toBe("OC-255370.pdf");
     expect(parts[0]?.mime).toContain("pdf");
     expect(parts[0]?.bytes).toBeGreaterThan(10);
+  });
+});
+
+describe("buildEmlInlineHtml (REQ-159)", () => {
+  it("arma HTML legible con asunto, de/para y cuerpo", async () => {
+    const html = await buildEmlInlineHtml(buildMimeWithPdf());
+    expect(html).toContain("<!DOCTYPE html>");
+    expect(html).toContain("Pedido de prueba");
+    expect(html).toContain("hotel@example.com");
+    expect(html).toContain("pedidos@polaria.co");
+    expect(html).toContain("Hola, adjunto la OC.");
+    expect(html).toContain('charset="utf-8"');
   });
 });

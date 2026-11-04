@@ -1,3 +1,8 @@
+import {
+  isEmlOrigenAdjunto,
+  isHtmlOrigenAdjunto,
+} from "./origen-adjunto-content-type";
+
 /** Adjunto de origen de pedido (Supabase Storage / legado Cloudinary). */
 export type OrigenAdjunto = {
   nombre: string;
@@ -183,15 +188,8 @@ export function canPreviewOrigenAdjunto(item: OrigenAdjunto): boolean {
   if (url && isBrokenCloudinaryPdfUrl(url) && !item.path?.trim()) return false;
   if (mime.startsWith("image/") && !name.endsWith(".pdf")) return true;
   if (mime === "application/pdf" || name.endsWith(".pdf")) return true;
-  // REQ-103: HTML igual que PDF (ojo → nueva pestaña).
-  if (
-    mime === "text/html" ||
-    mime === "application/xhtml+xml" ||
-    name.endsWith(".html") ||
-    name.endsWith(".htm")
-  ) {
-    return true;
-  }
+  // REQ-103 / REQ-159: HTML y EML → ojo abre en nueva pestaña.
+  if (isHtmlOrigenAdjunto(item) || isEmlOrigenAdjunto(item)) return true;
   return false;
 }
 
