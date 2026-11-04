@@ -3,9 +3,11 @@ import {
   especificacionVisible,
   leerFolioFacturaVista,
   montoDeNota,
+  notasVanTrasCentroConsumo,
   porcentajeDeNota,
   resolveNumeroOrdenClientePrint,
   textoConteoOrdenesTrabajo,
+  textoConteoProductos,
   tituloDetalleOvConOt,
   totalLineaConIva,
 } from "./detalle-venta-presentacion";
@@ -42,6 +44,11 @@ describe("detalle de venta", () => {
     expect(textoConteoOrdenesTrabajo(3)).toBe("3 órdenes de trabajo");
   });
 
+  it("cuenta productos sin unidad (REQ-224)", () => {
+    expect(textoConteoProductos(1)).toBe("1 producto");
+    expect(textoConteoProductos(10)).toBe("10 productos");
+  });
+
   it("arma el título OV-#OT en multi-OT (REQ-229)", () => {
     expect(tituloDetalleOvConOt("OV-00001047", 1, 2)).toBe("OV-00001047-1");
     expect(tituloDetalleOvConOt("OV-00001047", 2, 2)).toBe("OV-00001047-2");
@@ -76,4 +83,22 @@ describe("detalle de venta", () => {
       }),
     ).not.toBe("OV-001");
   });
+
+  it("Notas generales van justo después de Centro de consumo (REQ-215)", () => {
+    expect(
+      notasVanTrasCentroConsumo([
+        "Centro de consumo",
+        "Notas generales",
+        "Fecha de entrega",
+      ]),
+    ).toBe(true);
+    expect(
+      notasVanTrasCentroConsumo([
+        "Centro de consumo",
+        "Fecha de entrega",
+        "Notas generales",
+      ]),
+    ).toBe(false);
+  });
 });
+

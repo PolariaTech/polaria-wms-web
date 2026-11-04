@@ -25,12 +25,7 @@ import {
 } from "../../ordenes/utils/display/orden-venta-tabla-meta";
 import { buildNotasLineasText } from "../../ordenes/utils/pedido/build-orden-venta-captura-observaciones";
 import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/origen/materialize-ov-desde-origen";
-import {
-  serializeOrigenArchivos,
-  type OrigenAdjunto,
-} from "../../ordenes/utils/origen/origen-adjuntos";
 import { parseOrigenCorreoJson } from "../../ordenes/utils/origen/origen-correo-ordenes-trabajo";
-import { sanitizeTelefonoContacto } from "../../ordenes/utils/pedido/sanitize-telefono-contacto";
 import {
   isCatalogoTipoProductoMercancia,
   parseCatalogoMetadatos,
@@ -57,6 +52,13 @@ import {
   type OvSlaConfig,
 } from "../utils/ov-sla";
 import { annotatePotencialDuplicadoOv } from "../../ordenes/utils/match/find-potencial-duplicado-ov";
+import { resolveClienteCuentaDefault } from "./sales-resolve-cliente-cuenta-default";
+import {
+  insertOrdenVentaOrigenOnlyDraft,
+  isOrigenOnlyFirstDraft,
+} from "./create-orden-venta-origen-only-draft";
+import { ordenVentaCaptureFields } from "./orden-venta-capture-fields";
+export { fetchUltimaDireccionEntregaPorComprador } from "./sales-ultima-direccion-entrega";
 
 /** PostgREST GET `.in()` explota la URL con ~1000 UUIDs; tandas cortas evitan 400. */
 const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
@@ -391,32 +393,7 @@ async function resolveClienteVenta(
     return producto.id_cliente.trim();
   }
 
-  const clienteRows = await runDomainQuery<{ id_cliente: string }[]>(
-    (client) => {
-      const query = client
-        .from("cliente")
-        .select("id_cliente")
-        .eq("codigo_cuenta", codigoCuenta)
-        .eq("esta_activo", true)
-        .order("nombre", { ascending: true })
-        .limit(1);
-
-      return query as unknown as Promise<{
-        data: { id_cliente: string }[] | null;
-        error: { message: string } | null;
-      }>;
-    },
-  );
-
-  const idCliente = clienteRows[0]?.id_cliente?.trim();
-  if (!idCliente) {
-    throw new DomainServiceError(
-      "No hay cliente activo asociado al catálogo de la cuenta.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  return idCliente;
+  return resolveClienteCuentaDefault(codigoCuenta);
 }
 
 async function assertCompradorDeCuenta(
@@ -1139,66 +1116,6 @@ export async function listProductosVentaCatalogo(
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
-function normalizeOrigenAdjuntosInput(
-  raw: CreateOrdenVentaInput["origenArchivos"],
-): OrigenAdjunto[] {
-  if (!raw || raw.length === 0) return [];
-  return raw
-    .map((item) =>
-      typeof item === "string"
-        ? { nombre: item.trim() }
-        : {
-            nombre: item.nombre.trim(),
-            url: item.url ?? null,
-            path: item.path ?? null,
-            mime: item.mime ?? null,
-            bytes: item.bytes ?? null,
-            resourceType: item.resourceType ?? null,
-          },
-    )
-    .filter((item) => item.nombre);
-}
-
-function ordenVentaCaptureFields(
-  input: CreateOrdenVentaInput,
-): Record<string, string | null | unknown> {
-  const origenArchivos = serializeOrigenArchivos(
-    normalizeOrigenAdjuntosInput(input.origenArchivos),
-  );
-
-  return {
-    fecha_entrega: input.fechaEntrega?.trim() || null,
-    ventana_desde: input.ventanaDesde?.trim() || null,
-    ventana_hasta: input.ventanaHasta?.trim() || null,
-    prioridad: input.prioridad?.trim() || null,
-    orden_compra_hotel: input.ordenCompraHotel?.trim() || null,
-    centro_consumo: input.centroConsumo?.trim() || null,
-    vendedor: input.vendedor?.trim() || null,
-    moneda: input.moneda?.trim() || null,
-    bodega_destino_label: input.bodegaDestinoLabel?.trim() || null,
-    direccion_entrega: input.direccionEntrega?.trim() || null,
-    anden: input.anden?.trim() || null,
-    contacto_entrega: input.contacto?.trim() || null,
-    telefono_contacto: sanitizeTelefonoContacto(input.telefono) || null,
-    correo_contacto: input.correo?.trim() || null,
-    turno: input.turno?.trim() || null,
-    hora_salida: input.horaSalida?.trim() || null,
-    chofer: input.chofer?.trim() || null,
-    unidad: input.unidad?.trim() || null,
-    acepta_sustituciones: input.aceptaSustituciones?.trim() || null,
-    requiere_lote: input.requiereLote?.trim() || null,
-    registrar_temperatura: input.registrarTemperatura?.trim() || null,
-    origen_texto: input.origenTexto?.trim() || null,
-    origen_archivos: origenArchivos,
-    origen_correo:
-      input.origenCorreo && input.origenCorreo.length > 0
-        ? input.origenCorreo
-        : null,
-    notas_lineas: input.notasLineas?.trim() || null,
-    notas_almacen: input.notasAlmacen?.trim() || null,
-  };
-}
-
 /** Crea una OV en por_confirmar con una o más líneas (scope tenant, Supabase directo). */
 export async function createOrdenVenta(
   input: CreateOrdenVentaInput & { idOrdenVenta?: string },
@@ -1227,6 +1144,16 @@ export async function createOrdenVenta(
           ]
         : [];
 
+  const tieneOrigenCaptura =
+    Boolean(input.origenTexto?.trim()) ||
+    Boolean(input.origenCorreo && input.origenCorreo.length > 0) ||
+    Boolean(input.origenArchivos && input.origenArchivos.length > 0);
+  const origenOnlyFirstDraft = isOrigenOnlyFirstDraft({
+    guardarAvance,
+    idOrdenVentaExistente,
+    tieneOrigenCaptura,
+  });
+
   if (!idComprador) {
     if (guardarAvance && idOrdenVentaExistente) {
       const existingComprador = await runDomainQuery<{
@@ -1246,7 +1173,11 @@ export async function createOrdenVenta(
       });
       idComprador = existingComprador?.id_comprador?.trim() || "";
     }
-    if (!idComprador && !(guardarAvance && idOrdenVentaExistente)) {
+    if (
+      !idComprador &&
+      !(guardarAvance && idOrdenVentaExistente) &&
+      !origenOnlyFirstDraft
+    ) {
       throw new DomainServiceError(
         "Selecciona un comprador.",
         "INVALID_ARGUMENT",
@@ -1258,7 +1189,7 @@ export async function createOrdenVenta(
   const headerOnlyDraft =
     guardarAvance && Boolean(idOrdenVentaExistente) && lineas.length === 0;
 
-  if (lineas.length === 0 && !headerOnlyDraft) {
+  if (lineas.length === 0 && !headerOnlyDraft && !origenOnlyFirstDraft) {
     throw new DomainServiceError(
       "Agrega al menos un producto a la venta.",
       "INVALID_ARGUMENT",
@@ -1392,6 +1323,34 @@ export async function createOrdenVenta(
     );
   }
 
+  if (origenOnlyFirstDraft && lineas.length === 0) {
+    const [idBodega, idCliente] = await Promise.all([
+      resolveBodegaVenta(codigoCuenta, input.idBodega),
+      resolveClienteCuentaDefault(codigoCuenta),
+    ]);
+    orden = await insertOrdenVentaOrigenOnlyDraft({
+      codigoCuenta,
+      idBodega,
+      idCliente,
+      idComprador,
+      idCreador,
+      idBodegaDestino,
+      capture,
+      observaciones,
+    });
+    const compradorLabels = await fetchCompradorLabels(
+      idComprador ? [idComprador] : [],
+    );
+    const slaByCuenta = await fetchCuentaOvSlaByCodigo([orden.codigo_cuenta]);
+    return mapOrdenVentaOperadorRow(
+      orden,
+      compradorLabels,
+      new Map(),
+      new Map(),
+      slaByCuenta,
+    );
+  }
+
   const primeraLinea = lineas[0]!;
   const productoIds = lineas.map((linea) => linea.idProducto.trim());
   const [idBodega, idCliente, preciosFetched] = await Promise.all([
@@ -1488,7 +1447,7 @@ export async function createOrdenVenta(
           codigo_cuenta: codigoCuenta,
           id_bodega: idBodega,
           id_cliente: idCliente,
-          id_comprador: idComprador,
+          id_comprador: idComprador || null,
           id_creador: idCreador,
           id_bodega_destino: idBodegaDestino,
           ...capture,
@@ -1506,36 +1465,40 @@ export async function createOrdenVenta(
     });
   }
 
-  await runDomainMutation((client) => {
-    const query = client.from("orden_venta_linea").insert(
-      lineas.map((linea) => {
-        const idProducto = linea.idProducto.trim();
-        const catalogPrecio = preciosUnitarios.get(idProducto) ?? 0;
-        const precioUnitario =
-          linea.precioUnitario != null && Number.isFinite(linea.precioUnitario)
-            ? linea.precioUnitario
-            : catalogPrecio;
+  if (lineas.length > 0) {
+    await runDomainMutation((client) => {
+      const query = client.from("orden_venta_linea").insert(
+        lineas.map((linea) => {
+          const idProducto = linea.idProducto.trim();
+          const catalogPrecio = preciosUnitarios.get(idProducto) ?? 0;
+          const precioUnitario =
+            linea.precioUnitario != null && Number.isFinite(linea.precioUnitario)
+              ? linea.precioUnitario
+              : catalogPrecio;
 
-        return {
-          id_orden_venta: orden.id_orden_venta,
-          id_producto: idProducto,
-          cantidad_pedida: linea.cantidadPedida,
-          precio_unitario: precioUnitario,
-          cajas: linea.cajas ?? null,
-          presentacion: linea.presentacion?.trim() || null,
-          unidad_medida: linea.unidadMedida?.trim() || null,
-          match_producto: linea.matchProducto ?? null,
-        };
-      }),
-    );
+          return {
+            id_orden_venta: orden.id_orden_venta,
+            id_producto: idProducto,
+            cantidad_pedida: linea.cantidadPedida,
+            precio_unitario: precioUnitario,
+            cajas: linea.cajas ?? null,
+            presentacion: linea.presentacion?.trim() || null,
+            unidad_medida: linea.unidadMedida?.trim() || null,
+            match_producto: linea.matchProducto ?? null,
+          };
+        }),
+      );
 
-    return query as unknown as Promise<{
-      data: unknown;
-      error: { message: string } | null;
-    }>;
-  });
+      return query as unknown as Promise<{
+        data: unknown;
+        error: { message: string } | null;
+      }>;
+    });
+  }
 
-  const compradorLabels = await fetchCompradorLabels([idComprador]);
+  const compradorLabels = await fetchCompradorLabels(
+    idComprador ? [idComprador] : [],
+  );
   const lineasResumen = new Map<string, OrdenVentaLineasResumen>([
     [
       orden.id_orden_venta,

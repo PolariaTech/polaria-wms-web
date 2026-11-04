@@ -49,6 +49,11 @@ export interface OrigenCorreoRenglon {
    * Si está presente, agrupa por este valor en vez de pedido+almacén.
    */
   _otId?: string;
+  /**
+   * REQ-201: producto de catálogo ya verificado al guardar avance (sin confirmar).
+   * Al reabrir se restaura sin volver a pedir verificación.
+   */
+  _idProducto?: string;
 }
 
 export interface OrdenTrabajoHija {
@@ -230,66 +235,12 @@ export function flattenOrdenesTrabajoToOrigenCorreo(
   return out;
 }
 
-export type LineaOrigenOtSync = {
-  otId?: string;
-  nombre: string;
-  codigo: string;
-  cantidad: number;
-  unidadMedida: string;
-  precioUnitario: number;
-  aliasCliente?: string;
-};
+export {
+  buildOrigenCorreoFromOrdenesYLineas,
+  type LineaOrigenOtSync,
+} from "./origen-correo-build-from-form";
 
-/**
- * Arma origen_correo desde las OTs editadas + líneas del formulario.
- * Prioriza productos del form por otId; si una OT no tiene líneas, conserva sus renglones.
- */
-export function buildOrigenCorreoFromOrdenesYLineas(params: {
-  hijas: readonly OrdenTrabajoHija[];
-  lineas: readonly LineaOrigenOtSync[];
-}): OrigenCorreoRenglon[] {
-  const out: OrigenCorreoRenglon[] = [];
-  for (const hija of params.hijas) {
-    const lineasOt = params.lineas.filter((linea) => linea.otId === hija.id);
-    if (lineasOt.length > 0) {
-      for (const linea of lineasOt) {
-        out.push({
-          _otId: hija.id,
-          Almacen: hija.almacen,
-          "Numero pedido": hija.numeroPedido,
-          Fecha: hija.fecha,
-          "Referencia pedido": hija.referenciaPedido,
-          "Responsable externo": hija.responsableExterno,
-          Producto: linea.aliasCliente?.trim() || linea.nombre,
-          "Codigo producto": linea.codigo,
-          Cantidad: linea.cantidad,
-          Unidad: linea.unidadMedida,
-          Precio: linea.precioUnitario,
-        });
-      }
-      continue;
-    }
-
-    const rows =
-      hija.renglones.length > 0
-        ? hija.renglones
-        : [{ Producto: "", Cantidad: 0 }];
-    for (const row of rows) {
-      out.push({
-        ...row,
-        _otId: hija.id,
-        Almacen: hija.almacen || row.Almacen,
-        "Numero pedido": hija.numeroPedido || row["Numero pedido"],
-        Fecha: hija.fecha || row.Fecha,
-        "Referencia pedido":
-          hija.referenciaPedido || row["Referencia pedido"],
-        "Responsable externo":
-          hija.responsableExterno || row["Responsable externo"],
-      });
-    }
-  }
-  return out;
-}
+export { indexIdProductoVerificadoOrigen } from "./origen-correo-id-producto-verificado";
 
 export function isOrigenCorreoArray(value: unknown): value is OrigenCorreoRenglon[] {
   return Array.isArray(value);

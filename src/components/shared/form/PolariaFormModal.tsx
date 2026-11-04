@@ -1,13 +1,9 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import {
   useEffect,
   useId,
-  type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
-  type Ref,
 } from "react";
 import { cn } from "@/lib/utils/cn";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
@@ -16,82 +12,18 @@ import {
   cypherDockRightClass,
 } from "@/modules/sales/ordenes/constants/cypher-layout";
 import { useShellOverlayStore } from "@/stores/shell-overlay.store";
+import {
+  MODAL_SIZE_CLASS,
+  MODAL_STACK_CLASS,
+} from "./polaria-form-modal-layout";
+import type { PolariaFormModalProps } from "./polaria-form-modal-props";
+import { PolariaFormModalFooter } from "./PolariaFormModalFooter";
 
-export interface PolariaFormModalProps {
-  open: boolean;
-  onClose: () => void;
-  sectionLabel?: string;
-  title: string;
-  description?: string;
-  children: ReactNode;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  error?: string | null;
-  isSubmitting?: boolean;
-  /** Icono/slot de carga en el botón enviar (por defecto spinner). */
-  submittingIndicator?: ReactNode;
-  /** Deshabilita solo el botón de envío (sin bloquear cerrar/cancelar). */
-  submitDisabled?: boolean;
-  submitLabel?: string;
-  cancelLabel?: string;
-  closeLabel?: string;
-  className?: string;
-  /** Formularios largos: menos padding y cabecera compacta. */
-  compact?: boolean;
-  /** Ancho máximo del panel; por defecto según `compact`. */
-  size?: "sm" | "md" | "lg" | "xl" | "2xl";
-  /** Altura máxima del cuerpo con scroll; por defecto según `size`. */
-  scrollClassName?: string;
-  /** Reemplaza el botón principal del pie (p. ej. acción de detalle). */
-  footerAction?: ReactNode;
-  /** Contenido a la izquierda del pie (p. ej. paginación), siempre visible fuera del scroll. */
-  footerLeading?: ReactNode;
-  /** Zona central del pie (p. ej. alerta de revisión), entre leading y Cancelar/Guardar. */
-  footerCenter?: ReactNode;
-  /** Oculta por completo la barra de acciones del pie (p. ej. modales de solo lectura). */
-  hideFooter?: boolean;
-  /** Oculta el botón Cerrar de la cabecera (deja el del pie). */
-  hideHeaderClose?: boolean;
-  /** Sustituye el cierre de cabecera (p. ej. botón «+» de Acciones OV). */
-  headerTrailing?: ReactNode;
-  /** Zona central de la cabecera (p. ej. OT activa), entre título y trailing. */
-  headerCenter?: ReactNode;
-  /**
-   * `dock-left`: panel a la izquierda (p. ej. junto a Cypher a la derecha).
-   * Por defecto centrado.
-   */
-  layout?: "center" | "dock-left";
-  /** false = panel sin <form> (p. ej. picker anidado dentro de otro modal). */
-  asForm?: boolean;
-  /** Capa de apilamiento cuando el modal se abre sobre otro modal. */
-  stackLevel?: "base" | "elevated" | "nested";
-  /** Permite desactivar cierre con Escape (p. ej. si hay un picker hijo abierto). */
-  closeOnEscape?: boolean;
-  /** false = el clic en el fondo no cierra; solo Cancelar / Cerrar. */
-  closeOnBackdrop?: boolean;
-  /** false = Enter en un campo no envía; solo el botón de submit. */
-  submitOnEnter?: boolean;
-  /** Ref al contenedor con overflow-y (p. ej. conservar scroll al re-render). */
-  scrollRegionRef?: Ref<HTMLDivElement | null>;
-}
+export type { PolariaFormModalProps } from "./polaria-form-modal-props";
 
 /**
- * Apilamiento. Con Cypher abierto los pickers deben usar `layout="dock-left"`
- * (no subir z-index encima del panel).
+ * Apilamiento. Con Cypher abierto los pickers deben usar `layout="dock-left"`.
  */
-const MODAL_STACK_CLASS = {
-  base: "z-[100]",
-  elevated: "z-[110]",
-  nested: "z-[120]",
-} as const;
-
-const MODAL_SIZE_CLASS = {
-  sm: "max-w-md",
-  md: "max-w-lg",
-  lg: "max-w-2xl",
-  xl: "max-w-4xl",
-  "2xl": "max-w-5xl",
-} as const;
-
 export function PolariaFormModal({
   open,
   onClose,
@@ -114,6 +46,7 @@ export function PolariaFormModal({
   footerAction,
   footerLeading,
   footerCenter,
+  footerBeforeCancel,
   hideFooter = false,
   hideHeaderClose = false,
   headerTrailing,
@@ -144,7 +77,6 @@ export function PolariaFormModal({
 
     const useCapture = stackLevel !== "base";
     document.addEventListener("keydown", handleKeyDown, useCapture);
-
     return () => {
       document.removeEventListener("keydown", handleKeyDown, useCapture);
     };
@@ -153,21 +85,21 @@ export function PolariaFormModal({
   useBodyScrollLock(open);
 
   const handleFormKeyDown = (event: ReactKeyboardEvent<HTMLFormElement>) => {
-    if (submitOnEnter || event.key !== "Enter" || event.nativeEvent.isComposing) {
+    if (
+      submitOnEnter ||
+      event.key !== "Enter" ||
+      event.nativeEvent.isComposing
+    ) {
       return;
     }
-
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (target.tagName === "TEXTAREA") return;
     if (target instanceof HTMLButtonElement && target.type === "submit") return;
-
     event.preventDefault();
   };
 
-  if (!open) {
-    return null;
-  }
+  if (!open) return null;
 
   const widthClass =
     size != null
@@ -175,24 +107,17 @@ export function PolariaFormModal({
       : compact
         ? MODAL_SIZE_CLASS.sm
         : MODAL_SIZE_CLASS.md;
-
   const bodyClassName = cn("flex min-h-0 flex-1 flex-col overflow-hidden");
   const scrollClassName = cn(
     "polaria-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1",
     compact ? "space-y-3" : "space-y-5",
     scrollClassNameProp,
   );
-  const footerClassName = cn(
-    "flex shrink-0 flex-wrap items-center gap-3 border-t border-polaria-w-08",
-    footerLeading || footerCenter ? "justify-between" : "justify-end",
-    compact ? "mt-3 pt-3" : "mt-4 pt-4",
-  );
 
   const bodyContent = (
     <>
       <div ref={scrollRegionRef} className={scrollClassName}>
         {children}
-
         {error ? (
           <p
             role="alert"
@@ -202,72 +127,27 @@ export function PolariaFormModal({
           </p>
         ) : null}
       </div>
-
       {hideFooter ? null : (
-        <div className={footerClassName}>
-          {footerLeading ? (
-            <div className="flex min-w-0 flex-wrap items-center gap-3">
-              {footerLeading}
-            </div>
-          ) : null}
-
-          {footerCenter ? (
-            <div className="flex min-w-0 flex-1 items-center justify-center px-1">
-              {footerCenter}
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className={cn(
-                "rounded-xl border border-polaria-w-08 px-4 py-2.5",
-                "polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-              )}
-            >
-              {cancelLabel}
-            </button>
-
-            {footerAction ?? (
-              <button
-                type={asForm ? "submit" : "button"}
-                disabled={isSubmitting || submitDisabled}
-                onClick={
-                  asForm
-                    ? undefined
-                    : (event) => {
-                        onSubmit(
-                          event as unknown as FormEvent<HTMLFormElement>,
-                        );
-                      }
-                }
-                className={cn(
-                  "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
-                  "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
-                  "disabled:cursor-not-allowed disabled:opacity-60",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                )}
-              >
-                {isSubmitting ? (
-                  submittingIndicator ?? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  )
-                ) : null}
-                {submitLabel}
-              </button>
-            )}
-          </div>
-        </div>
+        <PolariaFormModalFooter
+          compact={compact}
+          footerLeading={footerLeading}
+          footerCenter={footerCenter}
+          footerBeforeCancel={footerBeforeCancel}
+          footerAction={footerAction}
+          cancelLabel={cancelLabel}
+          submitLabel={submitLabel}
+          onClose={onClose}
+          onSubmit={onSubmit}
+          isSubmitting={isSubmitting}
+          submitDisabled={submitDisabled}
+          submittingIndicator={submittingIndicator}
+          asForm={asForm}
+        />
       )}
     </>
   );
 
   const dockLeft = layout === "dock-left";
-  /** Debe coincidir con Cypher (REQ-121/150: tramos + modo compact/normal/wide). */
   const dockRightReserve = cypherDockReserveClass(cypherWidthMode);
   const dockBackdropRight = cypherDockRightClass(cypherWidthMode);
 
@@ -277,7 +157,6 @@ export function PolariaFormModal({
         "fixed inset-0 flex overflow-hidden transition-[padding] duration-[320ms] ease-out",
         dockLeft
           ? cn(
-              /* Alineado con Cypher: a tope bajo el topbar, sin márgenes ni redondeo. */
               "items-stretch justify-start pt-[var(--polaria-shell-top,4.75rem)]",
               dockRightReserve,
             )
@@ -292,10 +171,7 @@ export function PolariaFormModal({
           className={cn(
             "absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm transition-[top,right] duration-[320ms] ease-out",
             dockLeft &&
-              cn(
-                dockBackdropRight,
-                "top-[var(--polaria-shell-top,4.75rem)]",
-              ),
+              cn(dockBackdropRight, "top-[var(--polaria-shell-top,4.75rem)]"),
           )}
           onClick={() => {
             if (!isSubmitting) onClose();
@@ -307,10 +183,7 @@ export function PolariaFormModal({
           className={cn(
             "absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm transition-[top,right] duration-[320ms] ease-out",
             dockLeft &&
-              cn(
-                dockBackdropRight,
-                "top-[var(--polaria-shell-top,4.75rem)]",
-              ),
+              cn(dockBackdropRight, "top-[var(--polaria-shell-top,4.75rem)]"),
           )}
         />
       )}
@@ -372,7 +245,12 @@ export function PolariaFormModal({
           ) : null}
 
           {headerTrailing != null ? (
-            <div className={cn("shrink-0", headerCenter && "flex-1 flex justify-end")}>
+            <div
+              className={cn(
+                "shrink-0",
+                headerCenter && "flex flex-1 justify-end",
+              )}
+            >
               {headerTrailing}
             </div>
           ) : hideHeaderClose ? (

@@ -5,7 +5,7 @@
 | Formulario | Editar pedido |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Folio de factura; Fecha de creación |
+| Campos nuevos o modificados | Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); Notas generales del pedido (layout); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher) |
 | ¿Vive en un modal? | Sí |
 | ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | Sí |
 | Responsable (Desarrollador) | Desarrollador frontend |
@@ -17,6 +17,8 @@
 |---|---|---|---|---|---|---|---|---|---|
 | Folio de factura | Texto | No | — | — | No | — | — | Sin mensaje de error: el vacío y cualquier texto se guardan. | Front |
 | Fecha de creación | Texto | No | — | — | No | — | — | Sin mensaje de error: no se edita ni se guarda desde este campo. | Front |
+| Dirección de entrega | Texto | No | — | Última OV confirmada del comprador, o dirección de ficha | No | Razón social (comprador) | Al elegir razón social se prellena; si el usuario ya escribió y onlyEmpty, no se pisa | Sin mensaje de bloqueo al confirmar: vacío se guarda; puede marcarse en missingFields si el origen no la trajo. | Front |
+| Notas generales del pedido | Texto | No | — | — | No | — | — | Sin mensaje de error: vacío se guarda. | Front |
 
 ### Tabla 2 — Interacción (Nivel 2)
 
@@ -24,6 +26,8 @@
 |---|---|---|---|
 | Folio de factura | — | No | — |
 | Fecha de creación | — | No | — |
+| Notas generales del pedido | Primer campo del bloque Entrega, después de Datos del pedido (REQ-216/254) | No | — |
+| Dirección de entrega | Dentro del bloque Entrega, después de la ventana de entrega y antes de contacto, teléfono y correo (REQ-217) | No | — |
 
 ### Tabla 3 — Pre-llenado
 
@@ -31,6 +35,8 @@
 |---|---|---|---|
 | Folio de factura | Sí | Información de BD | Sí |
 | Fecha de creación | Sí | Información de BD | No |
+| Dirección de entrega | Sí | Información de BD | Sí |
+| Notas generales del pedido | Sí | Extracción IA / Información de BD | Sí |
 
 ### Tabla 4 — Prueba automatizada (Nivel 2)
 
@@ -55,26 +61,30 @@
 |---|---|---|
 | Folio de factura | textbox "Folio de factura" | FAC-1001 |
 | Fecha de creación | textbox "Fecha de creación" | La fecha con la que se creó el pedido |
+| Dirección de entrega | textbox / textarea de dirección de entrega | Av. Prueba 100 |
+| Notas generales del pedido | textbox / textarea de notas generales | Entregar en andén 2 |
 
 ### Notas y justificaciones
 
-Esta versión del schema documenta Folio de factura y Fecha de creación. El resto de Editar pedido ya existía y no cambia en este requerimiento.
+Esta versión del schema documenta Folio de factura, Fecha de creación y los cambios de layout/prefill del lote En Revisión OV (REQ-215/216/217/220/224/232/252/254). Las reglas de validación de Dirección y Notas no cambian respecto al formulario ya existente; solo se reubicaron en el layout y Dirección gana prefill desde la última OV confirmada del comprador (REQ-252). Confirmar no exige dirección no vacía (no hay `setError` ni return en `handleSubmit` por ese campo); la obligatoriedad visual vía `missingFields` es orientativa desde el origen IA.
+
+Orden de los campos (REQ-216/254): Datos del pedido lleva cliente, código y denominación comercial, fecha de creación y folio (solo al editar), orden de compra y centro de consumo. Entrega lleva, en este orden, notas generales, prioridad, moneda, fecha de entrega, ventana desde y hasta, dirección de entrega (a ancho completo) y debajo contacto, teléfono y correo. Las notas dejaron de ir antes de Entrega: la versión 1.2 del schema las ubicaba ahí y no coincidía con el código del lote En Revisión OV (REQ-254 las bajó a Entrega).
 
 Fecha de creación solo aparece al editar un pedido. El input es de solo lectura: muestra formatDateTime de created_at, y si no hay, de fecha_pedido. No se envía al guardar.
 
-El campo es opcional: el input muestra el placeholder "Opcional" y el hint "Opcional. Se muestra en el detalle de la orden de trabajo." Vacío se guarda. No hay máximo de longitud en el input. Al guardar se recorta el texto con trim.
+El campo Folio es opcional: el input muestra el placeholder "Opcional" y el hint "Opcional. Se muestra en el detalle de la orden de trabajo." Vacío se guarda. No hay máximo de longitud en el input. Al guardar se recorta el texto con trim.
 
-No hay capa Back ni BD para el texto del folio. No se agregó columna ni restricción. El valor vive en orden_venta_surtido_captura.payload, clave facturaOkFolio. Al escribir se borran los alias facturaAsociada, "Folio factura asociada", "Factura (OK) folio", "Documentación folio" y "Folio". El pre-llenado lee la primera de esas claves que tenga texto. Cada orden de trabajo guarda el suyo.
+No hay capa Back ni BD nueva para el texto del folio. El valor vive en orden_venta_surtido_captura.payload, clave facturaOkFolio.
 
-El modal no se cierra al tocar el fondo (closeOnBackdrop es false). Si hay progreso sin guardar, Cancelar abre el diálogo "¿Salir del pedido?" con "Salir" y "Seguir editando". El folio no tiene advertencia de dos fuentes: solo viene de la captura, y el usuario puede cambiarlo. Por eso el botón de advertencia no-saltable no aplica.
+El modal no se cierra al tocar el fondo (closeOnBackdrop es false). Si hay progreso sin guardar, Cancelar abre el diálogo "¿Salir del pedido?" con "Salir" y "Seguir editando".
 
-En edición de un pedido que ya no está por confirmar, el botón de guardar dice "Actualizar". Si todavía está por confirmar, dice "Confirmar".
+En edición de un pedido que ya no está por confirmar, el botón de guardar dice "Actualizar". Si todavía está por confirmar, dice "Confirmar". Título y descripción del modal se resuelven con `tituloCreateModalOv` / `descriptionCreateModalOv`: en edición no hay subtítulo (REQ-220), el título identifica el pedido. Eliminar tarea y Guardar avance van como iconos en el pie, junto a Cancelar (REQ-232); el encabezado conserva solo el botón de Cypher.
 
 ### Versión y revisión (del schema de ese formulario, no de esta plantilla)
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.1 |
-| Fecha de aprobación | 02/11/2026 |
+| Versión del schema | v1.3 |
+| Fecha de aprobación | 04/11/2026 |
 | Aprobado por | Desarrollador frontend |
 | Próxima revisión | Cuando el formulario cambie de campos o de reglas |

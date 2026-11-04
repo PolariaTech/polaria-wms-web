@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { MateoIaLoadingMark } from "@/components/mateo/MateoIaLoadingMark";
+import { PoloWorking } from "@/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel";
+import { describirEspera } from "@/modules/sales/ordenes/utils/ot/aplicar-correccion-correo";
 import { CapturaOrdenUploadForm } from "./CapturaOrdenUploadForm";
 import type { CapturaOrdenMetaView } from "./captura-orden.types";
 import {
@@ -9,6 +10,7 @@ import {
   CAPTURA_BUSY_PHRASE_MS,
   CAPTURA_DONE_PHRASE,
   CAPTURA_DONE_PHRASE_MS,
+  ESPERA_LEER_HOJA,
 } from "./captura-busy-phrases";
 
 interface CapturaOrdenCardProps {
@@ -76,7 +78,7 @@ function CapturaListoMark() {
   );
 }
 
-function CapturaMateoBusy({ message }: { message: string }) {
+function CapturaMateoBusy({ message, conEspera = false }: { message: string; conEspera?: boolean }) {
   return (
     <div
       role="status"
@@ -85,10 +87,15 @@ function CapturaMateoBusy({ message }: { message: string }) {
       className="flex flex-col items-center justify-center py-6 text-center"
     >
       <div className="flex flex-col items-center rounded-3xl border border-polaria-t-20 bg-polaria-t-08 px-8 py-10">
-        <MateoIaLoadingMark size="xl" tone="teal" showLabel />
+        <PoloWorking />
         <p className="polaria-text-body mt-6 max-w-xs text-polaria-w-50">
           {message}
         </p>
+        {conEspera ? (
+          <p className="polaria-text-body mt-2 max-w-xs text-polaria-w-50">
+            {describirEspera(ESPERA_LEER_HOJA)}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -165,7 +172,10 @@ export function CapturaOrdenCard({
 
   if (uploading) {
     return (
-      <CapturaMateoBusy message={CAPTURA_BUSY_PHRASES[phraseIndex] ?? CAPTURA_BUSY_PHRASES[0]} />
+      <CapturaMateoBusy
+        message={CAPTURA_BUSY_PHRASES[phraseIndex] ?? CAPTURA_BUSY_PHRASES[0]}
+        conEspera
+      />
     );
   }
 

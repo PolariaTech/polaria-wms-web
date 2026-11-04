@@ -188,7 +188,8 @@ export interface CreateOrdenVentaInput {
   codigoCuenta: string;
   idBodega?: string | null;
   idBodegaDestino?: string | null;
-  idComprador: string;
+  /** Opcional en avance/origen-only (REQ-199: borrador tras leer archivo). */
+  idComprador?: string;
   lineas?: OrdenVentaLineaInput[];
   /** @deprecated Usar `lineas`. Se mantiene por compatibilidad. */
   idProducto?: string;
