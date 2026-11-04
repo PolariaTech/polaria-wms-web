@@ -153,4 +153,94 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
 
     expect(within(seccion("Productos")).getByText("0 productos")).toBeInTheDocument();
   });
+  describe("Folio de factura y Fecha de creación (solo al editar)", () => {
+    const ot = (id: string, label: string) => ({ id, label });
+
+    it("al editar, «Fecha de creación» se ve y es de solo lectura", async () => {
+      const user = userEvent.setup();
+      const { estado } = estadoCompleto({
+        isEditing: true,
+        fechaCreacion: "2026-11-03T15:00:00Z",
+        folioFactura: { valores: {}, setValor: vi.fn() },
+      });
+      render(<OrdenVentaFormStep {...estado} />);
+
+      const fecha = screen.getByLabelText(/Fecha de creación/);
+      expect(fecha).toHaveAttribute("readonly");
+      expect((fecha as HTMLInputElement).value).not.toBe("");
+      const antes = (fecha as HTMLInputElement).value;
+      await user.type(fecha, "x");
+      expect((fecha as HTMLInputElement).value).toBe(antes);
+    });
+
+    it("sin fecha de creación muestra el valor vacío en lugar de romper", () => {
+      const { estado } = estadoCompleto({
+        isEditing: true,
+        fechaCreacion: null,
+        folioFactura: { valores: {}, setValor: vi.fn() },
+      });
+      render(<OrdenVentaFormStep {...estado} />);
+
+      expect(screen.getByLabelText(/Fecha de creación/)).toBeInTheDocument();
+    });
+
+    it("al crear un pedido nuevo no aparecen ni la fecha de creación ni el folio", () => {
+      const { estado } = estadoCompleto({ isEditing: false });
+      render(<OrdenVentaFormStep {...estado} />);
+
+      expect(screen.queryByLabelText(/Fecha de creación/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Folio de factura/)).not.toBeInTheDocument();
+    });
+
+    it("«Folio de factura» es opcional: acepta texto libre, no marca error y se guarda por orden de trabajo", async () => {
+      const user = userEvent.setup();
+      const setValor = vi.fn();
+      const { estado } = estadoCompleto({
+        isEditing: true,
+        paginarPorOt: false,
+        hijaFormActiva: ot("ot-1", "OT 1"),
+        ordenesTrabajoForm: [ot("ot-1", "OT 1")],
+        folioFactura: { valores: {}, setValor },
+      });
+      render(<OrdenVentaFormStep {...estado} />);
+
+      const folio = screen.getByLabelText("Folio de factura");
+      expect(folio).toHaveAttribute("placeholder", "Opcional");
+      expect(screen.getByText(/Opcional\. Se muestra en el detalle de la orden de trabajo\./)).toBeInTheDocument();
+      expect(folio).not.toBeRequired();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+      await user.type(folio, "F");
+
+      expect(setValor).toHaveBeenCalledWith("ot-1", "F");
+    });
+
+    it("con varias órdenes de trabajo hay un folio por cada una, con su nombre", () => {
+      const { estado } = estadoCompleto({
+        isEditing: true,
+        paginarPorOt: false,
+        hijaFormActiva: ot("ot-1", "OT 1"),
+        ordenesTrabajoForm: [ot("ot-1", "OT 1"), ot("ot-2", "OT 2")],
+        folioFactura: { valores: { "ot-1": "FAC-1001" }, setValor: vi.fn() },
+      });
+      render(<OrdenVentaFormStep {...estado} />);
+
+      expect(screen.getByLabelText("Folio de factura · OT 1")).toHaveValue("FAC-1001");
+      expect(screen.getByLabelText("Folio de factura · OT 2")).toHaveValue("");
+    });
+
+    it("paginando por orden de trabajo solo se ve el folio de la activa", () => {
+      const { estado } = estadoCompleto({
+        isEditing: true,
+        paginarPorOt: true,
+        hijaFormActiva: ot("ot-2", "OT 2"),
+        ordenesTrabajoForm: [ot("ot-1", "OT 1"), ot("ot-2", "OT 2")],
+        folioFactura: { valores: {}, setValor: vi.fn() },
+      });
+      render(<OrdenVentaFormStep {...estado} />);
+
+      expect(screen.getAllByLabelText(/Folio de factura/)).toHaveLength(1);
+      expect(screen.getByLabelText("Folio de factura")).toBeInTheDocument();
+    });
+  });
 });
