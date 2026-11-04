@@ -13,6 +13,7 @@ import {
   getSessionRolNombre,
 } from "@/lib/auth/auth-session";
 import { cn } from "@/lib/utils/cn";
+import { BotonMenuVentas } from "@/modules/sales/correos/components/VentasSidebar";
 import { TenantBodegaSelector } from "@/providers/tenant/CompanyProvider";
 import { useAuthStore } from "@/stores/auth.store";
 import { useOvFechaFiltroStore } from "@/stores/ov-fecha-filtro.store";
@@ -168,6 +169,8 @@ export function AppTopbar({
 
           <div className="polaria-topbar__end">
             <TenantBodegaSelector className="hidden sm:inline-flex" />
+
+            <BotonMenuVentas />
 
             {showMateoIa ? (
             <button
