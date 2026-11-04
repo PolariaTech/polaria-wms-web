@@ -91,10 +91,18 @@ export function mapDetalleLineasAForm(params: {
       precioManual: true as const,
       aliasCliente,
       // REQ-201: línea ya en BD = producto verificado (no volver a pedir match).
-      catalogPending: false as const,
-      catalogAmbiguo: false as const,
+      catalogPending: false,
+      catalogAmbiguo: false,
       sugerencia: null,
-      sugerenciasAlternativas: [] as const,
+      sugerenciasAlternativas: [] as Array<{
+        idProducto: string;
+        nombre: string;
+        codigo: string;
+        idBodega: string;
+        kgDisponible: number;
+        unidadMedida: string;
+        precioUnitario: number;
+      }>,
     };
   });
 

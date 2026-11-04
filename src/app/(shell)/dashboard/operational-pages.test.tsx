@@ -541,15 +541,8 @@ describe("vistas operativas dashboard", () => {
     expect(
       screen.getByRole("heading", { name: "Órdenes venta" }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Órdenes de venta" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Órdenes de venta manuales de la cuenta."),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Venta, cliente y estado."),
-    ).not.toBeInTheDocument();
+    // REQ-226: sin título/subtítulo duplicados del DataTable ni descripción del shell.
+    expect(screen.queryByText("Venta, cliente y estado.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nueva venta" })).toBeInTheDocument();
     expect(screen.getByLabelText("Actualizar tabla")).toBeInTheDocument();
 

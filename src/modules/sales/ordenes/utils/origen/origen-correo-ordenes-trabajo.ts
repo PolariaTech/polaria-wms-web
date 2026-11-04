@@ -235,94 +235,10 @@ export function flattenOrdenesTrabajoToOrigenCorreo(
   return out;
 }
 
-export type LineaOrigenOtSync = {
-  otId?: string;
-  /** REQ-201: id de catálogo si el operador ya verificó la línea. */
-  idProducto?: string;
-  nombre: string;
-  codigo: string;
-  cantidad: number;
-  unidadMedida: string;
-  precioUnitario: number;
-  aliasCliente?: string;
-};
-
-/**
- * Arma origen_correo desde las OTs editadas + líneas del formulario.
- * Prioriza productos del form por otId; si una OT no tiene líneas, conserva sus renglones.
- */
-export function buildOrigenCorreoFromOrdenesYLineas(params: {
-  hijas: readonly OrdenTrabajoHija[];
-  lineas: readonly LineaOrigenOtSync[];
-}): OrigenCorreoRenglon[] {
-  const out: OrigenCorreoRenglon[] = [];
-  for (const hija of params.hijas) {
-    const lineasOt = params.lineas.filter((linea) => linea.otId === hija.id);
-    if (lineasOt.length > 0) {
-      for (const linea of lineasOt) {
-        const idProducto = linea.idProducto?.trim() || "";
-        out.push({
-          _otId: hija.id,
-          Almacen: hija.almacen,
-          "Numero pedido": hija.numeroPedido,
-          Fecha: hija.fecha,
-          "Referencia pedido": hija.referenciaPedido,
-          "Responsable externo": hija.responsableExterno,
-          Producto: linea.aliasCliente?.trim() || linea.nombre,
-          "Codigo producto": linea.codigo,
-          Cantidad: linea.cantidad,
-          Unidad: linea.unidadMedida,
-          Precio: linea.precioUnitario,
-          ...(idProducto ? { _idProducto: idProducto } : {}),
-        });
-      }
-      continue;
-    }
-
-    const rows =
-      hija.renglones.length > 0
-        ? hija.renglones
-        : [{ Producto: "", Cantidad: 0 }];
-    for (const row of rows) {
-      out.push({
-        ...row,
-        _otId: hija.id,
-        Almacen: hija.almacen || row.Almacen,
-        "Numero pedido": hija.numeroPedido || row["Numero pedido"],
-        Fecha: hija.fecha || row.Fecha,
-        "Referencia pedido":
-          hija.referenciaPedido || row["Referencia pedido"],
-        "Responsable externo":
-          hija.responsableExterno || row["Responsable externo"],
-      });
-    }
-  }
-  return out;
-}
-
-/**
- * REQ-201: mapa otId|índice → idProducto ya verificado en origen_correo.
- * Sirve para reaplicar la verificación al rearmar el formulario desde el origen.
- */
-export function indexIdProductoVerificadoOrigen(
-  rows: readonly OrigenCorreoRenglon[],
-): Map<string, string> {
-  const out = new Map<string, string>();
-  const perOt = new Map<string, number>();
-  for (const row of rows) {
-    const idProducto = norm(row._idProducto);
-    if (!idProducto) continue;
-    const otKey = groupKeyOrigenCorreo(row);
-    const idx = perOt.get(otKey) ?? 0;
-    perOt.set(otKey, idx + 1);
-    out.set(`${otKey}#${idx}`, idProducto);
-    // También por id suelto (una sola verificación por producto en la OT).
-    if (!out.has(`${otKey}#id:${idProducto}`)) {
-      out.set(`${otKey}#id:${idProducto}`, idProducto);
-    }
-  }
-  return out;
-}
+export {
+  buildOrigenCorreoFromOrdenesYLineas,
+  type LineaOrigenOtSync,
+} from "./origen-correo-build-from-form";
 
 export function isOrigenCorreoArray(value: unknown): value is OrigenCorreoRenglon[] {
   return Array.isArray(value);

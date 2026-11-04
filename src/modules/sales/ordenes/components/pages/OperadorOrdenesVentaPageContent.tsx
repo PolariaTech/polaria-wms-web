@@ -10,6 +10,15 @@ import {
 } from "@/components/shared/table/PolariaTableCells";
 import { textoFechaEntregaListado } from "./texto-fecha-entrega-listado";
 import { renderClienteListadoCell } from "./cliente-listado-cell";
+import {
+  cypherMatchesCreateDraft,
+  OV_LISTADO_DATATABLE_CHROME_CLASS,
+} from "./ov-listado-chrome";
+import {
+  resolveCreateCypherTarget,
+  shouldClearCypherOnCreateClose,
+} from "./ov-create-draft-session";
+import { OvEstadoFiltroBar } from "./OvEstadoFiltroBar";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useVisibleInterval } from "@/hooks/shared/useVisibleInterval";
@@ -150,7 +159,6 @@ export function OperadorOrdenesVentaPageContent({
   ); // null = Todos
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  /** REQ-199: id del borrador tras leer archivo (sin pasar a modo edición). */
   const [createDraftId, setCreateDraftId] = useState<string | null>(null);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [cypherId, setCypherId] = useState<string | null>(null);
@@ -1114,73 +1122,19 @@ export function OperadorOrdenesVentaPageContent({
 
   const companionWithCypher = Boolean(
     !inspect &&
-      cypherId &&
       ((isCreateOpen &&
-        (editingId === cypherId || createDraftId === cypherId)) ||
-        Boolean(detalleId && detalleId === cypherId)),
+        cypherMatchesCreateDraft({ cypherId, editingId, createDraftId })) ||
+        Boolean(cypherId && detalleId && detalleId === cypherId)),
   );
 
   const body = (
     <>
-      <div
-        role="group"
-        aria-label="Filtrar por estado"
-        className="mb-4 flex w-full gap-2 sm:mb-5"
-      >
-        <button
-          type="button"
-          aria-pressed={estadoFiltro === null}
-          onClick={() => setEstadoFiltro(null)}
-          className={cn(
-            "flex flex-1 items-center justify-center whitespace-nowrap rounded-xl border px-2.5 py-2 text-sm font-semibold transition",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-            estadoFiltro === null
-              ? "border-polaria-teal bg-polaria-teal text-polaria-on-teal"
-              : "border-polaria-t-20 bg-polaria-t-08 text-polaria-w hover:border-polaria-teal hover:bg-polaria-t-20",
-          )}
-        >
-          Todos
-          <span
-            className={cn(
-              "ml-1.5 tabular-nums",
-              estadoFiltro === null
-                ? "text-polaria-on-teal/80"
-                : "text-polaria-w-50",
-            )}
-          >
-            {rowsDelDia.length}
-          </span>
-        </button>
-        {ESTADOS_ORDEN_VENTA.map((estado) => {
-          const selected = estadoFiltro === estado;
-          const count = countsByEstado[estado];
-          return (
-            <button
-              key={estado}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => setEstadoFiltro(estado)}
-              className={cn(
-                "flex flex-1 items-center justify-center whitespace-nowrap rounded-xl border px-2.5 py-2 text-sm font-semibold transition",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                selected
-                  ? "border-polaria-teal bg-polaria-teal text-polaria-on-teal"
-                  : "border-polaria-t-20 bg-polaria-t-08 text-polaria-w hover:border-polaria-teal hover:bg-polaria-t-20",
-              )}
-            >
-              {ESTADO_ORDEN_VENTA_LABELS[estado]}
-              <span
-                className={cn(
-                  "ml-1.5 tabular-nums",
-                  selected ? "text-polaria-on-teal/80" : "text-polaria-w-50",
-                )}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <OvEstadoFiltroBar
+        estadoFiltro={estadoFiltro}
+        onChange={setEstadoFiltro}
+        totalDelDia={rowsDelDia.length}
+        countsByEstado={countsByEstado}
+      />
 
       <PolariaDataTable
         title=""
@@ -1235,7 +1189,7 @@ export function OperadorOrdenesVentaPageContent({
             ? `Revisar pedido ${row.venta} con Cypher`
             : `Ver detalle de venta ${row.venta}`
         }
-        className="[&>header>div:first-child]:hidden [&>header]:justify-end"
+        className={OV_LISTADO_DATATABLE_CHROME_CLASS}
         tableClassName={ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS}
       />
 
@@ -1405,20 +1359,22 @@ export function OperadorOrdenesVentaPageContent({
             ? (rows.find((r) => r.idOrdenVenta === editingId)?.venta ?? null)
             : null
         }
-        cypherOpen={Boolean(
-          cypherId &&
-            ((editingId && editingId === cypherId) ||
-              (createDraftId && createDraftId === cypherId)),
-        )}
+        cypherOpen={cypherMatchesCreateDraft({
+          cypherId,
+          editingId,
+          createDraftId,
+        })}
         onOrdenIdReady={(id) => {
-          // REQ-199: no setear editingId (eso reinicia el form); solo Cypher.
           setCreateDraftId(id);
           setCypherId(id);
         }}
         onToggleCypher={
-          editingId || createDraftId
+          resolveCreateCypherTarget(editingId, createDraftId)
             ? () => {
-                const target = editingId ?? createDraftId;
+                const target = resolveCreateCypherTarget(
+                  editingId,
+                  createDraftId,
+                );
                 if (!target) return;
                 setCypherId((prev) => (prev === target ? null : target));
               }
@@ -1432,18 +1388,18 @@ export function OperadorOrdenesVentaPageContent({
         onReagruparAlCargarAtendido={limpiarReagruparAlAbrir}
         operadorRowsForDuplicado={rows}
         onClose={() => {
-          // REQ-221: tras editar, volver al detalle de esa OV (no al listado).
-          const closingId = editingId ?? createDraftId;
+          const closingId = resolveCreateCypherTarget(editingId, createDraftId);
+          const editedId = editingId;
           setIsCreateOpen(false);
           setEditingId(null);
           setCreateDraftId(null);
           setReagruparAlAbrirId(null);
           setCompanionOtPicker(null);
           setCompanionIdComprador(null);
-          if (cypherId && closingId && cypherId === closingId) {
+          if (shouldClearCypherOnCreateClose({ cypherId, closingId })) {
             setCypherId(null);
           }
-          if (editingId) setDetalleId(editingId);
+          if (editedId) setDetalleId(editedId);
         }}
         onCreated={() => {
           void reload();

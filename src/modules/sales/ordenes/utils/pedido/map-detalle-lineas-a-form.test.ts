@@ -3,11 +3,9 @@ import {
   mapDetalleLineasAForm,
   ovTieneLineasMaterializadas,
 } from "./map-detalle-lineas-a-form";
-import {
-  buildOrigenCorreoFromOrdenesYLineas,
-  createEmptyOrdenTrabajoHija,
-  indexIdProductoVerificadoOrigen,
-} from "../origen/origen-correo-ordenes-trabajo";
+import { createEmptyOrdenTrabajoHija } from "../origen/origen-correo-ordenes-trabajo";
+import { buildOrigenCorreoFromOrdenesYLineas } from "../origen/origen-correo-build-from-form";
+import { indexIdProductoVerificadoOrigen } from "../origen/origen-correo-id-producto-verificado";
 
 describe("ovTieneLineasMaterializadas (REQ-195)", () => {
   it("true solo si hay id_producto", () => {

@@ -162,7 +162,6 @@ import {
 import { filterLineasByOrdenTrabajoHija } from "../../utils/ot/filter-lineas-by-orden-trabajo";
 import {
   buildOrigenCorreoFromOrdenesYLineas,
-  indexIdProductoVerificadoOrigen,
   createEmptyOrdenTrabajoHija,
   flattenOrdenesTrabajoToOrigenCorreo,
   groupOrigenCorreoToOrdenesTrabajo,
@@ -170,6 +169,19 @@ import {
   type OrigenCorreoRenglon,
   type OrdenTrabajoHija,
 } from "../../utils/origen/origen-correo-ordenes-trabajo";
+import { applyVerificacionesOrigenALineas } from "../../utils/pedido/apply-verificaciones-origen-lineas";
+import {
+  OrdenVentaCaptureSection as CaptureSection,
+  toDateInputValue,
+} from "./orden-venta-capture-section";
+import {
+  collectSugerenciasLinea,
+  formatProductoNombreConSku,
+  lineaFormDesdeIa,
+  parseCantidadReagrupacion,
+  type LineaSugerenciaCatalogo,
+  type LineaVentaForm,
+} from "./orden-venta-create-modal-lineas-helpers";
 import { withNotasGeneralesOnHijas } from "../../utils/ot/notas-generales-ot";
 import {
   isGarbageOcValue,
@@ -287,116 +299,18 @@ type PickerKind =
   | "bodega"
   | null;
 
-function formatProductoNombreConSku(nombre: string, codigo: string): string {
-  const name = nombre.trim();
-  const sku = codigo.trim();
-  if (!name) return sku && sku !== "—" ? `(${sku})` : "";
-  if (!sku || sku === "—") return name;
-  if (name.toLowerCase().includes(`(${sku.toLowerCase()})`)) return name;
-  return `${name} (${sku})`;
-}
-
-function collectSugerenciasLinea(
-  linea: LineaVentaForm,
-): LineaSugerenciaCatalogo[] {
-  const out: LineaSugerenciaCatalogo[] = [];
-  const seen = new Set<string>();
-  for (const sug of [
-    linea.sugerencia,
-    ...(linea.sugerenciasAlternativas ?? []),
-  ]) {
-    if (!sug?.idProducto || seen.has(sug.idProducto)) continue;
-    seen.add(sug.idProducto);
-    out.push(sug);
-  }
-  return out;
-}
-
-interface LineaSugerenciaCatalogo {
-  idProducto: string;
-  nombre: string;
-  codigo: string;
-  idBodega: string;
-  kgDisponible: number;
-  unidadMedida: string;
-  precioUnitario: number;
-}
-
-interface LineaVentaForm {
-  idProducto: string;
-  nombre: string;
-  codigo: string;
-  idBodega: string;
-  cantidadInput: string;
-  cajasInput: string;
-  presentacion: string;
-  especificacion: string;
-  descuentoPctInput: string;
-  ivaPct: string;
-  kgDisponible: number;
-  unidadMedida: string;
-  precioUnitario: number;
-  precioInput: string;
-  precioManual?: boolean;
-  aliasCliente?: string;
-  filledByIa?: boolean;
-  /** Clave de orden de trabajo para paginar el formulario docs. */
-  otId?: string;
-  /** Sin producto de catálogo asignado (flujo Mateo / docs). */
-  catalogPending?: boolean;
-  /** Varios productos del catálogo se parecen. */
-  catalogAmbiguo?: boolean;
-  sugerencia?: LineaSugerenciaCatalogo | null;
-  sugerenciasAlternativas?: LineaSugerenciaCatalogo[];
-}
-
 /** Reagrupación de OT con IA aplicada al formulario y aún sin guardar (REQ-125). */
 interface ReagrupacionAplicada {
-  /** Estado previo, para Deshacer. */
   snapshot: { hijas: OrdenTrabajoHija[]; lineas: LineaVentaForm[] };
   instruccion: string;
   resumen: ResumenReagrupacion;
   movimientos: MovimientoAplicado[];
   otNuevas: Array<{ id: string; label: string }>;
-  /** REQ-187: la aplicó «Corregir con el correo» (no el chat); cambia el texto y la bitácora. */
   correccion?: {
     resumen: ResumenCorreccionApi;
     documentos: DocumentoCorreccionApi[];
   };
 }
-
-/** Línea del formulario a partir de la que arma `mapPedidoExtraidoToForm`. */
-function lineaFormDesdeIa(
-  linea: ReturnType<typeof mapPedidoExtraidoToForm>["lineas"][number],
-): LineaVentaForm {
-  return {
-    idProducto: linea.idProducto,
-    nombre: linea.nombre,
-    codigo: linea.codigo,
-    idBodega: linea.idBodega,
-    cantidadInput: linea.cantidadInput,
-    cajasInput: linea.cajasInput,
-    presentacion: linea.presentacion,
-    especificacion: linea.especificacion,
-    descuentoPctInput: linea.descuentoPctInput,
-    ivaPct: "0",
-    kgDisponible: linea.kgDisponible,
-    unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
-    precioUnitario: linea.precioUnitario,
-    precioInput: formatPrecioInput(linea.precioUnitario),
-    precioManual: linea.precioManual,
-    aliasCliente: linea.aliasCliente,
-    filledByIa: linea.filledByIa,
-    otId: linea.otId,
-    catalogPending: linea.catalogPending,
-    catalogAmbiguo: linea.catalogAmbiguo,
-    sugerencia: linea.sugerencia ?? null,
-    sugerenciasAlternativas: linea.sugerenciasAlternativas ?? [],
-  };
-}
-
-const parseCantidadReagrupacion = (raw: string): number =>
-  parseDecimalEs(raw) ?? 0;
 
 function fieldControlClass(params: {
   field?: string;
@@ -600,85 +514,10 @@ function applyProductoToLinea(
   };
 }
 
-/** REQ-201: reaplica verificaciones guardadas en origen_correo._idProducto. */
-function applyVerificacionesOrigenALineas(
-  lineas: LineaVentaForm[],
-  origenRows: readonly OrigenCorreoRenglon[],
-  productos: ProductoVentaOption[],
-): LineaVentaForm[] {
-  const verified = indexIdProductoVerificadoOrigen(origenRows);
-  if (verified.size === 0) return lineas;
-  const perOt = new Map<string, number>();
-  return lineas.map((linea) => {
-    if (linea.idProducto && !linea.catalogPending) return linea;
-    const otKey = linea.otId?.trim() || "default";
-    const idx = perOt.get(otKey) ?? 0;
-    perOt.set(otKey, idx + 1);
-    const idProducto =
-      verified.get(`${otKey}#${idx}`) ||
-      (linea.idProducto
-        ? verified.get(`${otKey}#id:${linea.idProducto}`)
-        : undefined);
-    if (!idProducto) return linea;
-    const catalogo = productos.find((p) => p.idProducto === idProducto);
-    if (!catalogo) {
-      return {
-        ...linea,
-        idProducto,
-        catalogPending: false,
-        catalogAmbiguo: false,
-        sugerencia: null,
-        sugerenciasAlternativas: [],
-        filledByIa: false,
-      };
-    }
-    return applyProductoToLinea(
-      { ...linea, aliasCliente: linea.aliasCliente || linea.nombre },
-      catalogo,
-    );
-  });
-}
-
 function formatPrecioInput(value: number): string {
   if (!Number.isFinite(value) || value === 0) return "";
   return formatPrecioInputMx(value);
 }
-
-function CaptureSection({
-  title,
-  optional,
-  children,
-  footer,
-}: {
-  title: string;
-  optional?: string;
-  children: ReactNode;
-  footer?: ReactNode;
-}) {
-  return (
-    <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
-      <h3 className="flex items-center justify-between gap-3 border-b border-polaria-w-08 px-4 py-2.5 polaria-text-label uppercase tracking-wide text-polaria-teal">
-        <span>{title}</span>
-        {optional ? (
-          <span className="normal-case tracking-normal text-polaria-w-50">
-            {optional}
-          </span>
-        ) : null}
-      </h3>
-      <div className="p-4">{children}</div>
-      {footer}
-    </section>
-  );
-}
-
-function toDateInputValue(value: string | null | undefined): string {
-  const raw = value?.trim() ?? "";
-  if (!raw) return "";
-  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-  // BirchStreet / origen: "10/26/2026" → ISO (REQ-098 / REQ-110).
-  return parseFechaOrigen(raw) ?? "";
-}
-
 
 export function OrdenVentaCreateModal({
   open,
