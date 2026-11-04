@@ -26,8 +26,8 @@
 |---|---|---|---|
 | Folio de factura | — | No | — |
 | Fecha de creación | — | No | — |
-| Notas generales del pedido | Tras datos del pedido, antes del bloque Entrega | No | — |
-| Dirección de entrega | Dentro del bloque Entrega | No | — |
+| Notas generales del pedido | Primer campo del bloque Entrega, después de Datos del pedido (REQ-216/254) | No | — |
+| Dirección de entrega | Dentro del bloque Entrega, después de la ventana de entrega y antes de contacto, teléfono y correo (REQ-217) | No | — |
 
 ### Tabla 3 — Pre-llenado
 
@@ -68,6 +68,8 @@
 
 Esta versión del schema documenta Folio de factura, Fecha de creación y los cambios de layout/prefill del lote En Revisión OV (REQ-215/216/217/220/224/232/252/254). Las reglas de validación de Dirección y Notas no cambian respecto al formulario ya existente; solo se reubicaron en el layout y Dirección gana prefill desde la última OV confirmada del comprador (REQ-252). Confirmar no exige dirección no vacía (no hay `setError` ni return en `handleSubmit` por ese campo); la obligatoriedad visual vía `missingFields` es orientativa desde el origen IA.
 
+Orden de los campos (REQ-216/254): Datos del pedido lleva cliente, código y denominación comercial, fecha de creación y folio (solo al editar), orden de compra y centro de consumo. Entrega lleva, en este orden, notas generales, prioridad, moneda, fecha de entrega, ventana desde y hasta, dirección de entrega (a ancho completo) y debajo contacto, teléfono y correo. Las notas dejaron de ir antes de Entrega: la versión 1.2 del schema las ubicaba ahí y no coincidía con el código del lote En Revisión OV (REQ-254 las bajó a Entrega).
+
 Fecha de creación solo aparece al editar un pedido. El input es de solo lectura: muestra formatDateTime de created_at, y si no hay, de fecha_pedido. No se envía al guardar.
 
 El campo Folio es opcional: el input muestra el placeholder "Opcional" y el hint "Opcional. Se muestra en el detalle de la orden de trabajo." Vacío se guarda. No hay máximo de longitud en el input. Al guardar se recorta el texto con trim.
@@ -76,13 +78,13 @@ No hay capa Back ni BD nueva para el texto del folio. El valor vive en orden_ven
 
 El modal no se cierra al tocar el fondo (closeOnBackdrop es false). Si hay progreso sin guardar, Cancelar abre el diálogo "¿Salir del pedido?" con "Salir" y "Seguir editando".
 
-En edición de un pedido que ya no está por confirmar, el botón de guardar dice "Actualizar". Si todavía está por confirmar, dice "Confirmar". Título y descripción del modal se resuelven con `tituloCreateModalOv` / `descriptionCreateModalOv` (sin instrucción sobrante en cabecera).
+En edición de un pedido que ya no está por confirmar, el botón de guardar dice "Actualizar". Si todavía está por confirmar, dice "Confirmar". Título y descripción del modal se resuelven con `tituloCreateModalOv` / `descriptionCreateModalOv`: en edición no hay subtítulo (REQ-220), el título identifica el pedido. Eliminar tarea y Guardar avance van como iconos en el pie, junto a Cancelar (REQ-232); el encabezado conserva solo el botón de Cypher.
 
 ### Versión y revisión (del schema de ese formulario, no de esta plantilla)
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.2 |
+| Versión del schema | v1.3 |
 | Fecha de aprobación | 04/11/2026 |
 | Aprobado por | Desarrollador frontend |
 | Próxima revisión | Cuando el formulario cambie de campos o de reglas |
