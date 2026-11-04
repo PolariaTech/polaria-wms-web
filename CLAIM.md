@@ -19,6 +19,7 @@
 - `src/modules/sales/correos/components/CorreosTable.paginacion.test.tsx`
 - `src/components/layouts/shell/AppTopbar.test.tsx`
 - `src/app/globals.css` — autorizada por el usuario el 2026-11-04
+- `src/modules/sales/correos/components/DetalleCorreoModal.tsx` — autorizada por el usuario el 2026-11-04
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
