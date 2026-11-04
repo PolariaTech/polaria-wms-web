@@ -150,7 +150,7 @@ export function OrdenVentaCapturePickOt({
 }
 
 
-export function OrdenVentaModalPickers(p: OrdenVentaModalPickersProps) {
+export function OrdenVentaModalPickers(props: OrdenVentaModalPickersProps) {
   const {
     picker, setPicker, compradores, compradorPickerPriorityIds, idComprador,
     handleSelectComprador, compradorNombreIa, compradorSugerencias, cypherOpen,
@@ -159,7 +159,7 @@ export function OrdenVentaModalPickers(p: OrdenVentaModalPickersProps) {
     handleOpenReplaceProducto, moneda, setMoneda, bodegasDestino, idBodegaDestino,
     setIdBodegaDestino, isCompradorCreateOpen, setIsCompradorCreateOpen, startMode,
     step, setStartMode, handleCompradorCreatedForSale,
-  } = p;
+  } = props;
   // REQ-199: con id de OV (aunque no se abriera para editar) los selectores se acoplan junto a Cypher.
   const dockConCypher = cypherOpen && ovTieneIdParaCypher({ isEditing, pendingEmitId });
   return (

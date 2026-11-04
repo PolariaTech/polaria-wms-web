@@ -69,8 +69,8 @@ export function useLeerOcDesdeAdjuntos(estado: OrdenVentaFormEstado) {
           for (const [dep, req] of Object.entries(data.byAlmacen ?? {})) {
             if (dep && req && !isGarbageOcValue(req)) byAlmacen[dep] = req;
           }
-          for (const v of data.occs ?? []) {
-            if (v && !isGarbageOcValue(v)) occs.push(v);
+          for (const numeroOc of data.occs ?? []) {
+            if (numeroOc && !isGarbageOcValue(numeroOc)) occs.push(numeroOc);
           }
           const single = (data.occ ?? "").trim();
           if (single && !isGarbageOcValue(single)) occs.push(single);
