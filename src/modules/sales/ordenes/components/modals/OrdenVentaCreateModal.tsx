@@ -1,4 +1,4 @@
-import {useMemo, useRef, useState} from "react";
+import {useMemo, useState} from "react";
 import {usePolariaToast} from "@/components/shared/toast/PolariaToastProvider";
 import {useFolioFacturaEdicion} from "../../surtido/guardar-folio-factura-captura.client";
 import {type CompradorListRow} from "@/modules/admin-panel";
@@ -10,13 +10,13 @@ import {type OrigenAdjunto} from "../../utils/origen/origen-adjuntos";
 import {isAfterWarehouseCutoff, todayIsoDate} from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import {groupOrigenCorreoToOrdenesTrabajo, type OrigenCorreoRenglon, type OrdenTrabajoHija} from "../../utils/origen/origen-correo-ordenes-trabajo";
 import {isFechaEntregaAtrasada} from "../../utils/pedido/pedido-form-validation";
-import {type RevisionPendiente} from "../../utils/ot/por-confirmar-revision-alert";
 import {type CampoDiscrepancia} from "../../utils/pedido/map-pedido-extraido-to-form";
 import type {BodegaDestinoOption, CaptureStep, LineaVentaForm, OrdenVentaCreateModalProps, PickerKind, ReagrupacionAplicada, StartMode} from "../../types/orden-venta-create-modal.types";
 import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 import {OrdenVentaModalShell} from "./OrdenVentaModalShell";
 import {useContarProductosOt, useHandleSubmitOv} from "../../hooks/confirmar-envio-ov";
 import {useEditarLineasOv} from "../../hooks/editar-lineas-ov";
+import {useRefsOv} from "../../hooks/useRefsOv";
 import {useAperturaDesdeDocsOv, useForzarFormularioAlEditar, useResetFormularioOv} from "../../hooks/reset-formulario-ov";
 import {useCatalogoPickerOv, useEfectosCompaneroOv, useSembrarLineasDesdeOrigen} from "../../hooks/sembrar-lineas-desde-origen";
 import {useAplicarCorreccionCorreoOv, useDeshacerReagrupacionOv} from "../../hooks/aplicar-correccion-correo-ov";
@@ -36,13 +36,14 @@ export function OrdenVentaCreateModal({
   codigoVenta = null,
   cypherOpen = false,
   onToggleCypher,
+  onOrdenIdReady,
   abrirReagruparAlCargar = false,
   onReagruparAlCargarAtendido,
   onCompanionOtPickerChange,
   operadorRowsForDuplicado = [],
   onCompanionIdCompradorChange,
 }: OrdenVentaCreateModalProps) {
-  const { codigoCuenta } = useCompany();
+  const { codigoCuenta, activeBodegaId } = useCompany();
   const { showToast } = usePolariaToast();
   const session = useAuthStore((state) => state.session);
   const idCreador = session?.idUsuario ?? "";
@@ -176,26 +177,13 @@ export function OrdenVentaCreateModal({
   const [addOtOpen, setAddOtOpen] = useState(false);
   const [addOtAlmacen, setAddOtAlmacen] = useState("");
   const [addOtNumeroPedido, setAddOtNumeroPedido] = useState("");
-  const selectedCompradorIdRef = useRef("");
-  const skipDiscrepanciaConfirmRef = useRef(false);
-  const skipSaveConfirmRef = useRef(false);
-  /** `draft` = icono disco (sigue Por confirmar); `emit` = Confirmar → Confirmada (REQ-133). */
-  const submitIntentRef = useRef<"emit" | "draft">("emit");
-  const docsFileInputRef = useRef<HTMLInputElement | null>(null);
-  const bootstrapPromiseRef = useRef<Promise<void> | null>(null);
-  const seededOtIdsRef = useRef<Set<string>>(new Set());
-  /** REQ-195: no re-sembrar catalogPending desde origen si ya hay líneas BD. */
-  const skipOtSeedFromOrigenRef = useRef(false);
-  /** Tras Mateo/organizador: un Guardar avance (OV existente). */
-  const pendingDraftSaveAfterReorgRef = useRef(false);
-  const formScrollRef = useRef<HTMLDivElement | null>(null);
-  const formScrollTopRef = useRef<number | null>(null);
-  const revisionFocusRequestRef = useRef<RevisionPendiente | null>(null);
+  // Las refs compartidas con los hooks viven en useRefsOv (ver su nota sobre react-hooks/refs).
+  const refs = useRefsOv();
   const [cantidadFocusId, setCantidadFocusId] = useState<string | null>(null);
 
   const bolsa = {
     open, onClose, onCreated, onEmitSuccess, onAutoPrintResult, idOrdenVenta, codigoVenta,
-    cypherOpen, onToggleCypher, abrirReagruparAlCargar, onReagruparAlCargarAtendido,
+    cypherOpen, onToggleCypher, onOrdenIdReady, activeBodegaId, abrirReagruparAlCargar, onReagruparAlCargarAtendido,
     onCompanionOtPickerChange, operadorRowsForDuplicado, onCompanionIdCompradorChange,
     codigoCuenta, showToast, session, idCreador, vendedorNombre, editingId, isEditing, folioFactura,
     step, setStep, startMode, setStartMode, idComprador, setIdComprador, compradorLabel, setCompradorLabel,
@@ -226,9 +214,7 @@ export function OrdenVentaCreateModal({
     confirmSaveOpen, setConfirmSaveOpen, confirmDiscardOpen, setConfirmDiscardOpen,
     confirmRemoveOtId, setConfirmRemoveOtId, addOtOpen, setAddOtOpen,
     addOtAlmacen, setAddOtAlmacen, addOtNumeroPedido, setAddOtNumeroPedido,
-    selectedCompradorIdRef, skipDiscrepanciaConfirmRef, skipSaveConfirmRef, submitIntentRef,
-    docsFileInputRef, bootstrapPromiseRef, seededOtIdsRef, skipOtSeedFromOrigenRef,
-    pendingDraftSaveAfterReorgRef, formScrollRef, formScrollTopRef, revisionFocusRequestRef,
+    ...refs,
     cantidadFocusId, setCantidadFocusId,
   } as unknown as OrdenVentaFormEstado;
   Object.assign(bolsa, useScrollFormularioOv(bolsa));

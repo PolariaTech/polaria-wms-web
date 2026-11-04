@@ -52,7 +52,7 @@ export function OrdenVentaCapturePreview({
 }
 
 
-export function OrdenVentaModalDialogs(p: OrdenVentaModalDialogsProps) {
+export function OrdenVentaModalDialogs(props: OrdenVentaModalDialogsProps) {
   const {
     confirmDiscrepanciasOpen, setConfirmDiscrepanciasOpen, skipDiscrepanciaConfirmRef,
     skipSaveConfirmRef, handleSubmit, avisosValidacion, canReemplazarDiscrepancia,
@@ -65,7 +65,7 @@ export function OrdenVentaModalDialogs(p: OrdenVentaModalDialogsProps) {
     handleAddOrdenTrabajo, reagruparOpen, cypherOpen,
     editingId, folioVisible, setReagruparOpen, obtenerSolicitudReagrupacion,
     handleAplicarReagrupacion, handleAplicarCorreccionCorreo,
-  } = p;
+  } = props;
   return (
     <>
       <PolariaConfirmDialog

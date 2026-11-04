@@ -17,6 +17,7 @@ import {
   resolveCabeceraGuardada,
   resolvePropuestaClienteMateoAlReabrir,
 } from "../utils/pedido/resolve-cabecera-guardada";
+import { applyVerificacionesOrigenALineas } from "../utils/pedido/apply-verificaciones-origen-lineas";
 import { lineaFormDesdeIa, toDateInputValue } from "../utils/pedido/orden-venta-create-helpers";
 import {
   rankCompradoresFromNombre,
@@ -275,7 +276,14 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
             setLineas(lineasDesdeDetalle());
           } else {
             skipOtSeedFromOrigenRef.current = false;
-            setLineas(mapped.lineas.map(lineaFormDesdeIa));
+            // REQ-201: restaurar productos ya verificados al grabar avance.
+            setLineas(
+              applyVerificacionesOrigenALineas(
+                mapped.lineas.map(lineaFormDesdeIa),
+                origenCorreoRows,
+                productoRows,
+              ),
+            );
           }
           setStartMode("docs");
           setFormOtPage(0);

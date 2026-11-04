@@ -69,8 +69,8 @@ export function useLeerOcDesdeAdjuntos(estado: OrdenVentaFormEstado) {
           for (const [dep, req] of Object.entries(data.byAlmacen ?? {})) {
             if (dep && req && !isGarbageOcValue(req)) byAlmacen[dep] = req;
           }
-          for (const v of data.occs ?? []) {
-            if (v && !isGarbageOcValue(v)) occs.push(v);
+          for (const numeroOc of data.occs ?? []) {
+            if (numeroOc && !isGarbageOcValue(numeroOc)) occs.push(numeroOc);
           }
           const single = (data.occ ?? "").trim();
           if (single && !isGarbageOcValue(single)) occs.push(single);
@@ -122,15 +122,15 @@ export function useLeerOcDesdeAdjuntos(estado: OrdenVentaFormEstado) {
           if (!alm) return hija;
           let matched = "";
           for (const [dep, req] of Object.entries(byAlmacen)) {
-            const d = dep.trim().toLowerCase();
-            if (!d || !req) continue;
-            if (alm.includes(d) || d.includes(alm) || alm === d) {
+            const depNormalizado = dep.trim().toLowerCase();
+            if (!depNormalizado || !req) continue;
+            if (alm.includes(depNormalizado) || depNormalizado.includes(alm) || alm === depNormalizado) {
               matched = req;
               break;
             }
             // Match por código corto (CBEEFB vs CBEEFE BEEF BAR).
             const code = alm.split(/\s+/)[0] ?? "";
-            const depCode = d.split(/\s+/)[0] ?? "";
+            const depCode = depNormalizado.split(/\s+/)[0] ?? "";
             if (
               code &&
               depCode &&

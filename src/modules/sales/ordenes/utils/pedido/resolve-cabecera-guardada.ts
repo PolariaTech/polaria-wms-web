@@ -173,3 +173,5 @@ export function resolveCompradorParaListado(params: {
       .find((value): value is string => Boolean(value)) || "";
   return textoClienteLimpio(tentativo) || "—";
 }
+
+export { resolveDireccionDesdeUltimaConfirmada } from "./resolve-direccion-ultima-confirmada";

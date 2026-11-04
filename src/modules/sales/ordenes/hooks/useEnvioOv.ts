@@ -19,7 +19,7 @@ import {
 } from "../print/auto-print-ov-tras-emitir";
 
 export async function ejecutarPersistenciaEnvio(input: OrdenVentaFormEstado) {
-  const { isDraft, codigoCuenta, hasProductos, step, isEditing, pendingEmitId, idComprador, setError, showToast, startMode, avisosCatalogoValidacion, skipDiscrepanciaConfirmRef, setConfirmDiscrepanciasOpen, exigeOc, ordenCompraHotel, syncActiveOtFromForm, ordenesTrabajoForm, applyOrdenesTrabajo, lineas, fechaEntrega, origenCorreoDraft, setFechaEntrega, setMissingFields, ventanaDesde, ventanaHasta, formScrollRef, bodegasDestino, idBodegaDestino, skipSaveConfirmRef, setConfirmSaveOpen, setIsSaving, setMateoBusyMessage, origenTexto, origenAdjuntos, origenArchivoFiles, setOrigenAdjuntos, compradorNombreIa, compradorLabel, prioridad, moneda, centroConsumo, vendedorNombre, direccion, anden, contacto, telefono, correo, turno, horaSalida, chofer, unidad, aceptaSustituciones, requiereLote, registrarTemperatura, observaciones, idCreador, editingId, editingEstado, session, setPendingEmitId, setEditingEstado, reagruparAplicada, setReagruparAplicada, folioFactura, onEmitSuccess, onAutoPrintResult, onCreated, onClose } = input;
+  const { onOrdenIdReady, isDraft, codigoCuenta, hasProductos, step, isEditing, pendingEmitId, idComprador, setError, showToast, startMode, avisosCatalogoValidacion, skipDiscrepanciaConfirmRef, setConfirmDiscrepanciasOpen, exigeOc, ordenCompraHotel, syncActiveOtFromForm, ordenesTrabajoForm, applyOrdenesTrabajo, lineas, fechaEntrega, origenCorreoDraft, setFechaEntrega, setMissingFields, ventanaDesde, ventanaHasta, formScrollRef, bodegasDestino, idBodegaDestino, skipSaveConfirmRef, setConfirmSaveOpen, setIsSaving, setMateoBusyMessage, origenTexto, origenAdjuntos, origenArchivoFiles, setOrigenAdjuntos, compradorNombreIa, compradorLabel, prioridad, moneda, centroConsumo, vendedorNombre, direccion, anden, contacto, telefono, correo, turno, horaSalida, chofer, unidad, aceptaSustituciones, requiereLote, registrarTemperatura, observaciones, idCreador, editingId, editingEstado, session, setPendingEmitId, setEditingEstado, reagruparAplicada, setReagruparAplicada, folioFactura, onEmitSuccess, onAutoPrintResult, onCreated, onClose } = input;
   const { payload, fechaEntregaPersist } = input;
 let idOrdenVenta = isEditing ? editingId : pendingEmitId;
       // Solo el botón principal (no el icono de avance) puede pasar a Confirmada.
@@ -79,6 +79,8 @@ let idOrdenVenta = isEditing ? editingId : pendingEmitId;
           listRowForPrint = await createOrdenVenta(payload);
           idOrdenVenta = listRowForPrint.idOrdenVenta;
           setPendingEmitId(idOrdenVenta);
+          // REQ-199: el listado fija editingId y puede abrir Cypher con este id.
+          onOrdenIdReady?.(idOrdenVenta);
           setEditingEstado("por_confirmar");
           void postOrdenVentaLogForOts({
             idOrdenVenta,

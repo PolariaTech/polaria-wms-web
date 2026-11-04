@@ -14,6 +14,7 @@ import {
   tomorrowIsoDate,
 } from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import { buildOrdenVentaPrefillFromComprador } from "../../utils/pedido/prefill-orden-venta-from-comprador";
+import { resolveDireccionDesdeUltimaConfirmada } from "../../utils/pedido/resolve-direccion-ultima-confirmada";
 import {
   FECHA_ENTREGA_ATRASADA_WARNING,
   FECHA_ENTREGA_DEFAULT_WARNING,
@@ -35,6 +36,8 @@ export function usePrefillYDiscrepanciasOv(estado: OrdenVentaFormEstado) {
          * ventana, entrega, etc. si el pedido/OT ya los tiene.
          */
         onlyEmpty?: boolean;
+        /** REQ-252: última dirección de OV confirmada de esta razón social. */
+        ultimaDireccionConfirmada?: string | null;
       },
     ) => {
       const prefill = buildOrdenVentaPrefillFromComprador({
@@ -44,6 +47,10 @@ export function usePrefillYDiscrepanciasOv(estado: OrdenVentaFormEstado) {
       const onlyEmpty = Boolean(options?.onlyEmpty);
       const take = (prev: string, next: string) =>
         onlyEmpty && prev.trim() ? prev : next;
+      const direccionPrefill = resolveDireccionDesdeUltimaConfirmada({
+        ultimaConfirmada: options?.ultimaDireccionConfirmada,
+        fichaDireccion: prefill.direccion,
+      });
 
       setFichaComprador(ficha);
       setExigeOc(prefill.exigeOc);
@@ -51,7 +58,7 @@ export function usePrefillYDiscrepanciasOv(estado: OrdenVentaFormEstado) {
       setCentroConsumo((prev) => take(prev, prefill.centroConsumo));
       setVentanaDesde((prev) => take(prev, prefill.ventanaDesde));
       setVentanaHasta((prev) => take(prev, prefill.ventanaHasta));
-      setDireccion((prev) => take(prev, prefill.direccion));
+      setDireccion((prev) => take(prev, direccionPrefill));
       setAnden((prev) => take(prev, prefill.anden));
       setContacto((prev) => take(prev, prefill.contacto));
       setTelefono((prev) => take(prev, prefill.telefono));

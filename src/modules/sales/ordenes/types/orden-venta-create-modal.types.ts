@@ -34,6 +34,11 @@ export interface OrdenVentaCreateModalProps {
   /** Abre/cierra Cypher de esta OV (botón +). */
   onToggleCypher?: () => void;
   /**
+   * REQ-199: la OV ya tiene id (borrador tras archivo/mensaje o primer Guardar).
+   * El listado fija editingId + puede abrir Cypher.
+   */
+  onOrdenIdReady?: (idOrdenVenta: string) => void;
+  /**
    * Publica el selector de OT al Cypher compañero (por confirmar, varias OT).
    */
   onCompanionOtPickerChange?: (
@@ -226,6 +231,7 @@ export interface OrdenVentaModalPickersProps {
   compradorSugerencias: unknown[];
   cypherOpen: boolean;
   isEditing: boolean;
+  pendingEmitId: string | null;
   productosParaPicker: ProductoVentaOption[];
   productoPickerPriorityIds: string[];
   replaceLineaIndex: number | null;

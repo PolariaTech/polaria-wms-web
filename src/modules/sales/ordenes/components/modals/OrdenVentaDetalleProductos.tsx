@@ -6,6 +6,7 @@ import {
   resolveOrdenVentaLineaUnidad,
 } from "../../utils/display/orden-venta-display";
 import type { OrdenTrabajoHija } from "../../utils/origen/origen-correo-ordenes-trabajo";
+import { textoConteoProductos } from "./detalle-venta-presentacion";
 
 export type FilaProductoDetalle = {
   linea: OrdenVentaLineaRow;
@@ -19,7 +20,6 @@ export type FilaProductoDetalle = {
 export function OrdenVentaDetalleProductos({
   filas,
   hija,
-  cantidadTexto,
   subtotal,
   descuentos,
   iva,
@@ -29,7 +29,6 @@ export function OrdenVentaDetalleProductos({
 }: {
   filas: FilaProductoDetalle[];
   hija: OrdenTrabajoHija | null;
-  cantidadTexto: string;
   subtotal: number;
   descuentos: number;
   iva: number;
@@ -127,9 +126,9 @@ export function OrdenVentaDetalleProductos({
         </tbody>
       </table>
       <div className="flex items-start justify-between gap-4 border-t border-polaria-t-20 bg-polaria-w-08 px-3 py-2">
+        {/* REQ-224: solo conteo de productos, sin unidad/kg */}
         <p className="polaria-text-caption text-polaria-w-50">
-          {filas.length === 1 ? "1 producto" : `${filas.length} productos`} ·{" "}
-          {cantidadTexto}
+          {textoConteoProductos(filas.length)}
         </p>
         <table className="text-right">
           <tbody>

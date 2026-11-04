@@ -165,6 +165,11 @@ describe("toDateInputValue", () => {
     expect(toDateInputValue("10/26/2026")).toBe("2026-10-26");
     expect(toDateInputValue("")).toBe("");
   });
+
+  it("recorta un ISO con hora y zona, y deja vacío un valor en blanco", () => {
+    expect(toDateInputValue("2026-11-04T12:00:00.000Z")).toBe("2026-11-04");
+    expect(toDateInputValue("  ")).toBe("");
+  });
 });
 
 describe("applyProductoToLinea", () => {

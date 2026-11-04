@@ -127,6 +127,9 @@ export function origenCorreoParaEnvio(params: {
           hijas: params.hijas,
           lineas: params.lineas.map((linea) => ({
             otId: linea.otId,
+            // REQ-201: guarda el producto ya verificado para restaurarlo al reabrir.
+            idProducto:
+              !linea.catalogPending && linea.idProducto ? linea.idProducto : undefined,
             nombre: linea.nombre,
             codigo: linea.codigo,
             cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
