@@ -8,6 +8,7 @@ import { OrdenVentaCaptureFormEntrega } from "./OrdenVentaCaptureFormEntrega";
 import { OrdenVentaCaptureFormCliente, OrdenVentaCaptureFormOcultos } from "./OrdenVentaCaptureForm";
 import { OrdenVentaCaptureFormLineas } from "./OrdenVentaCaptureFormLineas";
 import { OrdenVentaCaptureFormPedido } from "./OrdenVentaCaptureFormPedido";
+import { OrdenVentaCaptureFormProgramacion } from "./OrdenVentaCaptureFormProgramacion";
 
 export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
   const { ordenesTrabajoForm, hijaFormActiva, isEditing, setStep, setStartMode, setError, afterCutoff, successMessage, hasProductos, emptyCatalogMessage, startMode, origenTexto, origenArchivosNombres, vendedorNombre, idComprador, compradorLabel, compradorNombreIa, compradorSugerencias, missingFields, setPicker, codigoClienteCatalogo, denominacionComercialCatalogo, fechaCreacion, paginarPorOt, folioFactura, ordenCompraHotel, setOrdenCompraHotel, exigeOc, centroConsumo, setCentroConsumo, fechaEntrega, setFechaEntrega, esPorConfirmar, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, observaciones, setObservaciones, clearFieldMarks, autoFields, warnFields, direccion, setDireccion, setAvisoVerificarDireccion, avisoVerificarDireccion, contacto, setContacto, telefono, setTelefono, correo, setCorreo, lineasConIndice, subtotalVenta, ivaVenta, totalVenta, totalOvCompleta, mostrarTotalOv, puedeAgregarProducto, setReplaceLineaIndex, handleOpenReplaceProducto, handleLineaFieldChange, handleCantidadChange, handleCantidadBlur, handlePrecioChange, handlePrecioBlur, handleRemoveLinea, lineas, setLineas, aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote, registrarTemperatura, setRegistrarTemperatura } = input;
@@ -147,20 +148,6 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                       exigeOc={exigeOc}
                       centroConsumo={centroConsumo}
                       onCentroConsumo={setCentroConsumo}
-                      fechaEntrega={fechaEntrega}
-                      onFechaEntrega={setFechaEntrega}
-                      onClearFechaError={() => setError(null)}
-                      esPorConfirmar={esPorConfirmar}
-                      ventanaDesde={ventanaDesde}
-                      onVentanaDesde={setVentanaDesde}
-                      ventanaHasta={ventanaHasta}
-                      onVentanaHasta={setVentanaHasta}
-                      prioridad={prioridad}
-                      onPrioridad={setPrioridad}
-                      moneda={moneda}
-                      onBuscarMoneda={() => setPicker("moneda")}
-                      observaciones={observaciones}
-                      onObservaciones={setObservaciones}
                       onClearField={clearFieldMarks}
                       marks={{ autoFields, warnFields, missingFields }}
                     />
@@ -184,7 +171,26 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                   autoFields={autoFields}
                   warnFields={warnFields}
                   missingFields={missingFields}
-                />
+                >
+                  <OrdenVentaCaptureFormProgramacion
+                    fechaEntrega={fechaEntrega}
+                    onFechaEntrega={setFechaEntrega}
+                    onClearFechaError={() => setError(null)}
+                    esPorConfirmar={esPorConfirmar}
+                    ventanaDesde={ventanaDesde}
+                    onVentanaDesde={setVentanaDesde}
+                    ventanaHasta={ventanaHasta}
+                    onVentanaHasta={setVentanaHasta}
+                    prioridad={prioridad}
+                    onPrioridad={setPrioridad}
+                    moneda={moneda}
+                    onBuscarMoneda={() => setPicker("moneda")}
+                    observaciones={observaciones}
+                    onObservaciones={setObservaciones}
+                    onClearField={clearFieldMarks}
+                    marks={{ autoFields, warnFields, missingFields }}
+                  />
+                </OrdenVentaCaptureFormEntrega>
                 <OrdenVentaCaptureFormLineas
                   lineas={lineasConIndice}
                   subtotal={subtotalVenta}

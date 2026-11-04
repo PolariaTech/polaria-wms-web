@@ -6,7 +6,8 @@ import {
   POLARIA_FORM_INPUT_CLASS_COMPACT,
   POLARIA_FORM_SELECT_CLASS_COMPACT,
 } from "@/components/shared/form/PolariaFormField";
-import { formatPrecioEs, parseDecimalEs } from "@/lib/utils/decimal-es";
+import { formatPrecioEs, parseDecimalEs } from "@/lib/utils/decimal-es";
+import { textoConteoProductos } from "./detalle-venta-presentacion";
 import { cn } from "@/lib/utils/cn";
 import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../../shared/types/sales.types";
 import { IVA_PCT_OPTIONS } from "../../types/orden-venta-create-modal.types";
@@ -51,7 +52,10 @@ export function OrdenVentaCaptureFormLineas(props: {
 } & LineaHandlers) {
   return (
     <div data-ov-revision="productos">
-      <CaptureSection title="Productos" footer={<Totales {...props} />}>
+      <CaptureSection
+        title="Productos"
+        footer={<Totales {...props} cantidadProductos={props.lineas.length} />}
+      >
         <div className="overflow-x-hidden">
           <table className="w-full table-fixed border-collapse text-left">
             <Colgroup />
@@ -125,9 +129,14 @@ function Totales(props: {
   totalOv: number;
   mostrarTotalOv: boolean;
   otCount: number;
+  cantidadProductos: number;
 }) {
   return (
-    <div className="flex justify-end border-t border-polaria-t-20 bg-polaria-w-08 px-4 py-3">
+    <div className="flex items-start justify-between gap-4 border-t border-polaria-t-20 bg-polaria-w-08 px-4 py-3">
+      {/* REQ-224: conteo de productos a la izquierda, sin unidad. */}
+      <p className="polaria-text-caption text-polaria-w-50">
+        {textoConteoProductos(props.cantidadProductos)}
+      </p>
       <table className="text-right">
         <tbody>
           <tr>

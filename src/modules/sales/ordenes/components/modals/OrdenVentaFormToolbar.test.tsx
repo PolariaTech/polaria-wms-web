@@ -1,10 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 import { OrdenVentaFormStep } from "./OrdenVentaFormToolbar";
 
-// Con catálogo vacío solo se pinta la franja superior: las secciones del formulario tienen sus pruebas.
+// Primer bloque: con catálogo vacío solo se pinta la franja superior. Segundo bloque: con catálogo, las tres secciones.
 function estadoToolbar(parcial: Record<string, unknown> = {}) {
   const espias: Record<string, ReturnType<typeof vi.fn>> = {};
   const datos: Record<string, unknown> = {
@@ -66,5 +66,91 @@ describe("OrdenVentaFormStep — franja superior (REQ-232)", () => {
 
     expect(screen.getByText("No hay catálogo")).toBeInTheDocument();
     expect(screen.getByText(/Después del corte de las 17:00/)).toBeInTheDocument();
+  });
+});
+
+describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () => {
+  /** Estado con lo que consultan las tres secciones del formulario. */
+  function estadoCompleto(parcial: Record<string, unknown> = {}) {
+    return estadoToolbar({
+      hasProductos: true,
+      idComprador: "",
+      compradorLabel: "",
+      compradorNombreIa: null,
+      compradorSugerencias: [],
+      missingFields: new Set<string>(),
+      autoFields: new Set<string>(),
+      warnFields: new Set<string>(),
+      codigoClienteCatalogo: "",
+      denominacionComercialCatalogo: "",
+      ordenCompraHotel: "",
+      exigeOc: false,
+      centroConsumo: "",
+      fechaEntrega: "2099-01-15",
+      esPorConfirmar: true,
+      ventanaDesde: "",
+      ventanaHasta: "",
+      prioridad: "Normal",
+      moneda: "MXN",
+      observaciones: "",
+      direccion: "",
+      avisoVerificarDireccion: false,
+      contacto: "",
+      telefono: "",
+      correo: "",
+      lineasConIndice: [],
+      lineas: [],
+      subtotalVenta: 0,
+      ivaVenta: 0,
+      totalVenta: 0,
+      totalOvCompleta: 0,
+      mostrarTotalOv: false,
+      puedeAgregarProducto: true,
+      aceptaSustituciones: "",
+      requiereLote: "",
+      registrarTemperatura: "",
+      ...parcial,
+    });
+  }
+
+  const seccion = (titulo: string) => {
+    const encabezado = screen.getByRole("heading", { name: titulo });
+    return encabezado.closest("section") as HTMLElement;
+  };
+
+  it("«Datos del pedido» queda con el cliente, la orden de compra y el centro de consumo", () => {
+    render(<OrdenVentaFormStep {...estadoCompleto().estado} />);
+
+    const datos = within(seccion("Datos del pedido"));
+    expect(datos.getByLabelText(/Orden de compra del cliente/)).toBeInTheDocument();
+    expect(datos.getByLabelText(/Centro de consumo/)).toBeInTheDocument();
+    for (const etiqueta of [/Notas generales/, /Prioridad/, /Fecha de entrega/, /Ventana de entrega — desde/, /Dirección de entrega/]) {
+      expect(datos.queryByLabelText(etiqueta)).not.toBeInTheDocument();
+    }
+  });
+
+  it("«Entrega» recibe notas, prioridad, moneda, fecha, ventana y la dirección a todo el ancho", () => {
+    render(<OrdenVentaFormStep {...estadoCompleto().estado} />);
+
+    const entrega = within(seccion("Entrega"));
+    for (const etiqueta of [
+      /Notas generales/,
+      /Prioridad/,
+      /Fecha de entrega/,
+      /Ventana de entrega — desde/,
+      /Ventana de entrega — hasta/,
+      /Dirección de entrega/,
+      /Contacto del cliente/,
+      /Teléfono del contacto/,
+      /Correo del contacto/,
+    ]) {
+      expect(entrega.getByLabelText(etiqueta), String(etiqueta)).toBeInTheDocument();
+    }
+  });
+
+  it("«Productos» muestra el conteo en su pie", () => {
+    render(<OrdenVentaFormStep {...estadoCompleto().estado} />);
+
+    expect(within(seccion("Productos")).getByText("0 productos")).toBeInTheDocument();
   });
 });
