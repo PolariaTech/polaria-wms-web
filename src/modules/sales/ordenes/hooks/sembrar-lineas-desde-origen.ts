@@ -10,7 +10,6 @@ import {
   type FormEvent,
 } from "react";
 import {
-  formatDecimalInputEs,
   formatPrecioEs,
   formatPrecioInputMx,
   parseDecimalEs,
@@ -18,6 +17,7 @@ import {
   sanitizePrecioInputMx,
 } from "@/lib/utils/decimal-es";
 import { filterLineasByOrdenTrabajoHija } from "../utils/ot/filter-lineas-by-orden-trabajo";
+import { lineaSembradaDesdeRenglon } from "../utils/pedido/linea-sembrada-desde-origen";
 import type {
   BodegaDestinoOption,
   CaptureStep,
@@ -40,12 +40,10 @@ import {
   lineAmounts,
   parseCantidadReagrupacion,
   resolveBodegaDestinoInicial,
-  suggestFromCatalogo,
   sugerenciaToOption,
   toDateInputValue,
 } from "../utils/pedido/orden-venta-create-helpers";
 import {
-  UNIDAD_MEDIDA_VENTA_DEFAULT,
   type OrdenVentaOperadorRow,
   type ProductoVentaOption,
 } from "../../shared/types/sales.types";
@@ -129,42 +127,10 @@ export function useSembrarLineasDesdeOrigen(estado: OrdenVentaFormEstado) {
       return;
     }
 
-    const seeded: LineaVentaForm[] = hijaFormActiva.renglones.map((row) => {
-      const qty = parseDecimalEs(String(row.Cantidad ?? "")) ?? 0;
-      const precio =
-        typeof row.Precio === "number"
-          ? row.Precio
-          : (parseDecimalEs(String(row.Precio ?? "")) ?? 0);
-      const nombre = row.Producto?.trim() || "Producto del correo";
-      const codigo = row["Codigo producto"]?.trim() || "—";
-      const query = [nombre, codigo !== "—" ? codigo : ""].filter(Boolean).join(" ");
-      const suggested = suggestFromCatalogo(query, productos);
-      return {
-        idProducto: "",
-        nombre,
-        codigo,
-        idBodega: suggested.sugerencia?.idBodega ?? "",
-        cantidadInput: qty > 0 ? formatDecimalInputEs(qty) : "",
-        cajasInput: "",
-        presentacion: "",
-        especificacion: "",
-        descuentoPctInput: "",
-        ivaPct: "0",
-        kgDisponible: suggested.sugerencia?.kgDisponible ?? 0,
-        unidadMedida:
-          suggested.sugerencia?.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
-        precioUnitario: precio,
-        precioInput: formatPrecioInput(precio),
-        precioManual: precio > 0,
-        aliasCliente: nombre,
-        filledByIa: true,
-        otId: hijaFormActiva.id,
-        catalogPending: true,
-        catalogAmbiguo: suggested.catalogAmbiguo,
-        sugerencia: suggested.sugerencia,
-        sugerenciasAlternativas: suggested.sugerenciasAlternativas,
-      };
-    });
+    // REQ-201: un renglón ya verificado al grabar avance nace con su producto de catálogo.
+    const seeded: LineaVentaForm[] = hijaFormActiva.renglones.map((row) =>
+      lineaSembradaDesdeRenglon({ row, productos, otId: hijaFormActiva.id }),
+    );
 
     seededOtIdsRef.current.add(hijaFormActiva.id);
     setLineas((prev) => [...prev, ...seeded]);
