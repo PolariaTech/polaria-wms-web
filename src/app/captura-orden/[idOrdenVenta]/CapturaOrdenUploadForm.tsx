@@ -8,100 +8,61 @@ import {
   type ChangeEvent,
 } from "react";
 import { flushSync } from "react-dom";
-import { compressImageFile } from "@/lib/images/compress-image-file";
 import { ROUTES } from "@/config/routes";
 import {
   CapturaOrdenCamera,
   requestSurtidoCameraStream,
 } from "./CapturaOrdenCamera";
+import { IconoCamara, IconoReintentar } from "./CapturaEstadoIcono";
+import {
+  MAX_SELECT_BYTES,
+  MENSAJE_FOTO_PESADA,
+  clearCapturaQueryFromUrl,
+  enviarFoto,
+  fileKey,
+  mensajeErrorCamara,
+  mensajeErrorRespuesta,
+  prepararFoto,
+  readFirstFile,
+} from "./captura-upload-utils";
 
 interface CapturaOrdenUploadFormProps {
   idOrdenVenta: string;
   idOrdenTrabajo?: string;
   onFilePicked?: () => void;
+  /** El servidor recibió la foto y la procesa en segundo plano; `idIntento` permite seguirla. */
+  onReceived?: (idIntento: string) => void;
+  /** Respuesta síncrona (servidor antiguo): la foto ya quedó procesada. */
   onUploadOk?: () => void;
-  /** Error levantado al padre: el form se desmonta durante el loading. */
+  /** Quien nos usa muestra el error: la subida no bloquea la pantalla. */
   onUploadError?: (message: string) => void;
-  /** El padre muestra el loading Polaria mientras sube. */
+  /** Avisa cuando empieza o termina el envío (1 a 3 s; la lectura con IA va aparte). */
   onUploadingChange?: (uploading: boolean) => void;
+  /** Foto que el servidor ya tiene y falló al procesar: se reintenta sin volver a enviarla. */
+  idIntentoReintento?: string | null;
 }
 
-const MAX_SELECT_BYTES = 10 * 1024 * 1024;
-const MAX_UPLOAD_BYTES = 3.5 * 1024 * 1024;
-
-function formatSize(file: File): string {
-  return `${file.name || "foto.jpg"} · ${(file.size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function fileKey(file: File): string {
-  return `${file.name}:${file.size}:${file.lastModified}`;
-}
-
-function clearCapturaQueryFromUrl(): void {
-  try {
-    const url = new URL(window.location.href);
-    let changed = false;
-    for (const key of ["captura", "msg", "precision"]) {
-      if (url.searchParams.has(key)) {
-        url.searchParams.delete(key);
-        changed = true;
-      }
-    }
-    if (changed) {
-      window.history.replaceState(
-        {},
-        "",
-        url.pathname + (url.search ? url.search : ""),
-      );
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
-function readFirstFile(
-  ...inputs: Array<HTMLInputElement | null>
-): File | null {
-  for (const input of inputs) {
-    const file = input?.files?.[0] ?? input?.files?.item?.(0) ?? null;
-    if (file) return file;
-  }
-  return null;
-}
-
-function mensajeErrorRespuesta(
-  data: { error?: string; codigo?: string },
-  status: number,
-): string {
-  if (typeof data.error === "string" && data.error.trim()) {
-    return data.error.trim();
-  }
-  if (status === 422) {
-    return "La foto fue tomada mal. Intenta de nuevo: la hoja debe verse clara dentro del marco.";
-  }
-  if (status === 413 || status === 400) {
-    return "La foto no se pudo enviar. Tómala de nuevo más liviana o con mejor encuadre.";
-  }
-  if (status >= 500) {
-    return "Mateo no pudo analizar la foto ahora. Espera un momento e intenta de nuevo.";
-  }
-  if (status === 0) {
-    return "Error de red al subir. Revisa la conexión e inténtalo de nuevo.";
-  }
-  return `No se pudo procesar la foto (${status}). Intenta de nuevo.`;
-}
+const BOTON_PRINCIPAL =
+  "flex h-14 w-full items-center justify-center gap-3 rounded-full bg-polaria-teal px-6 font-semibold text-polaria-on-teal hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-polaria-teal disabled:opacity-60";
+/** Utilidades directas: `polaria-text-caption` fija su color y taparía el teal. */
+const BOTON_TEXTO =
+  "flex min-h-11 w-full items-center justify-center text-center text-sm font-semibold text-polaria-teal underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-polaria-teal";
 
 /**
  * Cámara in-app con marco (getUserMedia en el tap).
  * Sin `capture` nativo: en iPhone abre la cámara del sistema y no hay overlay.
+ * El envío dura 1 a 3 s: el servidor responde «recibida» y lee la hoja aparte, así que
+ * se puede seguir tomando fotos sin esperar. El estado lo pinta el padre.
  */
 export function CapturaOrdenUploadForm({
   idOrdenVenta,
   idOrdenTrabajo = "",
   onFilePicked,
+  onReceived,
   onUploadOk,
   onUploadError,
   onUploadingChange,
+  idIntentoReintento = null,
 }: CapturaOrdenUploadFormProps) {
   const galleryRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<File | null>(null);
@@ -109,36 +70,35 @@ export function CapturaOrdenUploadForm({
   const uploadingRef = useRef(false);
   const uploadFnRef = useRef<(picked?: File) => void>(() => {});
   const openingRef = useRef(false);
-  const onUploadOkRef = useRef(onUploadOk);
-  onUploadOkRef.current = onUploadOk;
-  const onUploadErrorRef = useRef(onUploadError);
-  onUploadErrorRef.current = onUploadError;
-  const onUploadingChangeRef = useRef(onUploadingChange);
-  onUploadingChangeRef.current = onUploadingChange;
+  /** Los avisos al padre cambian en cada render: se leen desde aquí, ya actualizados, al enviar. */
+  const avisos = useRef({ onReceived, onUploadOk, onUploadError, onUploadingChange });
 
-  const [fileLabel, setFileLabel] = useState<string | null>(null);
   const [hasFile, setHasFile] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  /** El último envío falló y la foto sigue guardada para reenviarla. */
+  const [failed, setFailed] = useState(false);
+  /** Errores de cámara o de selección; los de envío los muestra el padre. */
   const [error, setError] = useState<string | null>(null);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [openingCamera, setOpeningCamera] = useState(false);
   /** Solo tras montar: evita hydration mismatch (SSR ≠ cliente en HTTP). */
   const [insecureHttp, setInsecureHttp] = useState(false);
 
-  const actionUrl = ROUTES.capturaOrdenApi(
-    idOrdenVenta,
-    idOrdenTrabajo || undefined,
-  );
+  const actionUrl = ROUTES.capturaOrdenApi(idOrdenVenta, idOrdenTrabajo || undefined);
 
   useEffect(() => {
     setInsecureHttp(window.isSecureContext === false);
   }, []);
 
+  useEffect(() => {
+    avisos.current = { onReceived, onUploadOk, onUploadError, onUploadingChange };
+  });
+
   const acceptFile = useCallback(
     (picked: File) => {
       const key = fileKey(picked);
-      if (key === lastKeyRef.current && hasFile) return;
+      if (key === lastKeyRef.current && hasFile && !failed) return;
       lastKeyRef.current = key;
 
       clearCapturaQueryFromUrl();
@@ -146,23 +106,23 @@ export function CapturaOrdenUploadForm({
 
       fileRef.current = picked;
       flushSync(() => {
-        setFileLabel(formatSize(picked));
         setHasFile(true);
         setError(null);
         setDone(false);
+        setFailed(false);
         setLiveStream(null);
       });
       window.setTimeout(() => uploadFnRef.current(picked), 0);
     },
-    [hasFile, onFilePicked],
+    [failed, hasFile, onFilePicked],
   );
 
   const ingestFromInput = useCallback(() => {
-    if (submitting || done) return;
+    if (submitting) return;
     const file = readFirstFile(galleryRef.current);
     if (!file) return;
     acceptFile(file);
-  }, [acceptFile, done, submitting]);
+  }, [acceptFile, submitting]);
 
   useEffect(() => {
     const gallery = galleryRef.current;
@@ -181,7 +141,7 @@ export function CapturaOrdenUploadForm({
   };
 
   const openLiveCamera = () => {
-    if (submitting || done || openingRef.current || liveStream) return;
+    if (submitting || openingRef.current || liveStream) return;
     setError(null);
 
     // iOS/Safari solo expone mediaDevices en HTTPS o localhost.
@@ -200,122 +160,96 @@ export function CapturaOrdenUploadForm({
 
     // Crítico en iOS/Android: getUserMedia en el mismo gesto del tap.
     void requestSurtidoCameraStream()
-      .then((stream) => {
-        setLiveStream(stream);
-      })
-      .catch((err: unknown) => {
-        const name = err instanceof DOMException ? err.name : "";
-        const msg =
-          name === "NotAllowedError" || name === "PermissionDeniedError"
-            ? "Permiso de cámara denegado. Actívalo en Ajustes (Safari/Chrome) o elige una foto de la galería."
-            : name === "NotFoundError" || name === "DevicesNotFoundError"
-              ? "No se encontró cámara trasera. Prueba de nuevo o elige una foto de la galería."
-              : "No se pudo abrir la cámara con marco. Elige una foto de la galería.";
-        setError(msg);
-      })
+      .then((stream) => setLiveStream(stream))
+      .catch((err: unknown) => setError(mensajeErrorCamara(err)))
       .finally(() => {
         openingRef.current = false;
         setOpeningCamera(false);
       });
   };
 
+  const reportFail = (message: string) => {
+    setFailed(true);
+    if (avisos.current.onUploadError) avisos.current.onUploadError(message);
+    else setError(message);
+  };
+
+  const iniciarEnvio = () => {
+    uploadingRef.current = true;
+    setSubmitting(true);
+    setFailed(false);
+    setError(null);
+    avisos.current.onUploadingChange?.(true);
+  };
+
+  const terminarEnvio = () => {
+    uploadingRef.current = false;
+    setSubmitting(false);
+    avisos.current.onUploadingChange?.(false);
+  };
+
+  const enviar = async (url: string, body?: FormData) => {
+    try {
+      const respuesta = await enviarFoto(url, body);
+      if (respuesta.ok && respuesta.data.ok) {
+        setDone(true);
+        if (respuesta.data.idIntento) avisos.current.onReceived?.(respuesta.data.idIntento);
+        else avisos.current.onUploadOk?.();
+        return;
+      }
+      reportFail(mensajeErrorRespuesta(respuesta.data, respuesta.status));
+    } catch {
+      reportFail(mensajeErrorRespuesta({}, 0));
+    } finally {
+      terminarEnvio();
+    }
+  };
+
   const upload = (picked?: File) => {
     if (submitting || done || uploadingRef.current) return;
 
-    const original =
-      picked ??
-      fileRef.current ??
-      readFirstFile(galleryRef.current);
+    const original = picked ?? fileRef.current ?? readFirstFile(galleryRef.current);
     if (!original) {
       setError("Selecciona una foto de la hoja llenada.");
       return;
     }
 
-    uploadingRef.current = true;
-    setSubmitting(true);
-    onUploadingChangeRef.current?.(true);
-    setError(null);
-
+    iniciarEnvio();
     void (async () => {
-      let toSend = original;
-      try {
-        toSend = await Promise.race([
-          compressImageFile(original, {
-            maxBytes: MAX_UPLOAD_BYTES,
-            maxEdge: 2400,
-            quality: 0.88,
-          }),
-          new Promise<File>((resolve) => {
-            window.setTimeout(() => resolve(original), 10_000);
-          }),
-        ]);
-      } catch {
-        toSend = original;
-      }
-
+      const toSend = await prepararFoto(original);
       if (toSend.size > MAX_SELECT_BYTES) {
-        const msg =
-          "La foto supera 10 MB y no se pudo comprimir lo suficiente. Tómala de nuevo más cerca o con menos resolución.";
-        uploadingRef.current = false;
-        setSubmitting(false);
-        onUploadingChangeRef.current?.(false);
-        setError(msg);
-        onUploadErrorRef.current?.(msg);
+        reportFail(MENSAJE_FOTO_PESADA);
+        terminarEnvio();
         return;
       }
 
       fileRef.current = toSend;
       const body = new FormData();
       body.append("foto", toSend, toSend.name || "hoja-surtido.jpg");
-      if (idOrdenTrabajo.trim()) {
-        body.append("ot", idOrdenTrabajo.trim());
-      }
-
-      const fail = (msg: string) => {
-        setError(msg);
-        onUploadErrorRef.current?.(msg);
-      };
-
-      try {
-        const response = await fetch(actionUrl, {
-          method: "POST",
-          headers: { Accept: "application/json" },
-          body,
-        });
-        let data: {
-          ok?: boolean;
-          error?: string;
-          codigo?: string;
-        } = {};
-        try {
-          data = (await response.json()) as typeof data;
-        } catch {
-          data = {};
-        }
-
-        if (response.ok && data.ok) {
-          setDone(true);
-          onUploadOkRef.current?.();
-          return;
-        }
-
-        fail(mensajeErrorRespuesta(data, response.status));
-      } catch {
-        fail("Error de red al subir. Revisa la conexión e inténtalo de nuevo.");
-      } finally {
-        uploadingRef.current = false;
-        setSubmitting(false);
-        onUploadingChangeRef.current?.(false);
-      }
+      if (idOrdenTrabajo.trim()) body.append("ot", idOrdenTrabajo.trim());
+      await enviar(actionUrl, body);
     })();
   };
 
-  uploadFnRef.current = upload;
+  useEffect(() => {
+    uploadFnRef.current = upload;
+  });
 
-  if (done || submitting) return null;
+  /** El servidor ya tiene la foto: solo se le pide procesarla de nuevo. */
+  const reintentarEnServidor = (idIntento: string) => {
+    if (submitting || uploadingRef.current) return;
+    iniciarEnvio();
+    const separador = actionUrl.includes("?") ? "&" : "?";
+    void enviar(`${actionUrl}${separador}reintentar=${encodeURIComponent(idIntento)}`);
+  };
 
-  const pillClass =
-    "relative flex h-14 w-full items-center justify-center overflow-hidden rounded-full bg-polaria-teal px-6 font-semibold text-polaria-on-teal hover:opacity-90 disabled:opacity-60";
+  const reintentar = Boolean(idIntentoReintento) || (failed && hasFile);
+  const etiqueta = reintentar ? "Reintentar" : done ? "Nueva foto" : "Tomar foto";
+  const alPulsarPrincipal = () => {
+    if (idIntentoReintento) reintentarEnServidor(idIntentoReintento);
+    else if (reintentar) upload();
+    else openLiveCamera();
+  };
 
   return (
     <div className="space-y-4">
@@ -330,26 +264,11 @@ export function CapturaOrdenUploadForm({
         />
       ) : null}
 
-      {fileLabel ? (
-        <p className="text-center polaria-text-caption text-polaria-w-50">
-          {fileLabel}
-        </p>
-      ) : null}
-
       {error ? (
-        <p
-          role="alert"
-          className="text-center polaria-text-caption text-polaria-w-50"
-        >
+        <p role="alert" className="text-center polaria-text-caption text-polaria-w-50">
           {error}
         </p>
       ) : null}
-
-      <p className="text-center polaria-text-caption text-polaria-w-50">
-        {insecureHttp
-          ? "Estás en HTTP local: iPhone bloquea la cámara con marco. Prueba el QR en HTTPS (preview/prod) o elige de galería."
-          : "Encaja la hoja impresa dentro del marco. Debe verse clara la hora impresa."}
-      </p>
 
       {/* Sin capture: evita la cámara nativa de iOS (sin marco). */}
       <input
@@ -362,35 +281,42 @@ export function CapturaOrdenUploadForm({
         aria-label="Elegir de galería"
       />
 
-      <button
-        type="button"
-        onClick={openLiveCamera}
-        disabled={openingCamera}
-        className={pillClass}
-        aria-label="Tomar foto"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className="pointer-events-none relative z-0 h-6 w-6"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          <path d="M4.5 8.5h2.2l1.1-2h6.4l1.1 2H19.5A1.5 1.5 0 0 1 21 10v7.5A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5V10A1.5 1.5 0 0 1 4.5 8.5Z" />
-          <circle cx="12" cy="13.5" r="3.1" />
-        </svg>
-      </button>
+      {submitting ? null : (
+        <>
+          {insecureHttp || !(done || reintentar) ? (
+            <p className="text-center polaria-text-caption text-polaria-w-50">
+              {insecureHttp
+                ? "Estás en HTTP local: iPhone bloquea la cámara con marco. Prueba el QR en HTTPS (preview/prod) o elige de galería."
+                : "Encaja la hoja impresa dentro del marco. Debe verse clara la hora impresa."}
+            </p>
+          ) : null}
 
-      <button
-        type="button"
-        onClick={() => galleryRef.current?.click()}
-        className="w-full text-center polaria-text-caption font-medium text-polaria-teal underline-offset-2 hover:underline"
-      >
-        Elegir de galería
-      </button>
+          <button
+            type="button"
+            onClick={alPulsarPrincipal}
+            disabled={openingCamera}
+            className={BOTON_PRINCIPAL}
+            aria-label={etiqueta}
+          >
+            {reintentar ? <IconoReintentar /> : <IconoCamara />}
+            <span>{etiqueta}</span>
+          </button>
+
+          {reintentar ? (
+            <button type="button" onClick={openLiveCamera} className={BOTON_TEXTO}>
+              Tomar otra foto
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => galleryRef.current?.click()}
+            className={BOTON_TEXTO}
+          >
+            Elegir de galería
+          </button>
+        </>
+      )}
     </div>
   );
 }
