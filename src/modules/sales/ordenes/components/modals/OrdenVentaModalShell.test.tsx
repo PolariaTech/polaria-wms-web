@@ -157,6 +157,8 @@ describe("OrdenVentaModalShell — espera con Polo", () => {
       open: true,
       showMateoLoading: true,
       isReadingIa: true,
+      isEditing: false,
+      isLoading: false,
       mateoBusyMessage: undefined,
     });
     render(<OrdenVentaModalShell estado={estado} />);
@@ -166,11 +168,28 @@ describe("OrdenVentaModalShell — espera con Polo", () => {
     expect(screen.queryByText("cuerpo del modal")).not.toBeInTheDocument();
   });
 
+  it("al abrir una OV guardada dice «Abriendo el pedido…» con una espera de segundos", () => {
+    const { estado } = estadoShell({
+      open: true,
+      showMateoLoading: true,
+      isReadingIa: true,
+      isEditing: true,
+      isLoading: true,
+      mateoBusyMessage: undefined,
+    });
+    render(<OrdenVentaModalShell estado={estado} />);
+
+    const capa = screen.getByRole("dialog", { name: "Abriendo el pedido…" });
+    expect(within(capa).getByText(/puede tardar entre 2 y 10 segundos/i)).toBeInTheDocument();
+  });
+
   it("al guardar muestra «Guardando el pedido…» y, si hay mensaje de envío, ese", () => {
     const guardando = estadoShell({
       open: true,
       showMateoLoading: true,
       isReadingIa: false,
+      isEditing: false,
+      isLoading: false,
       mateoBusyMessage: undefined,
     });
     const { unmount } = render(<OrdenVentaModalShell estado={guardando.estado} />);
@@ -181,6 +200,8 @@ describe("OrdenVentaModalShell — espera con Polo", () => {
       open: true,
       showMateoLoading: true,
       isReadingIa: false,
+      isEditing: false,
+      isLoading: false,
       mateoBusyMessage: "Imprimiendo…",
     });
     render(<OrdenVentaModalShell estado={imprimiendo.estado} />);
