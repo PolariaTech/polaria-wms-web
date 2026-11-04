@@ -19,6 +19,7 @@
 - `src/app/captura-orden/[idOrdenVenta]/api/route.ts`
 - `src/modules/sales/ordenes/surtido/orden-surtido.service.ts`
 - `src/modules/sales/ordenes/surtido/orden-surtido.types.ts`
+- `src/app/captura-orden/[idOrdenVenta]/page.tsx` — autorizada por el usuario el 2026-11-04
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
