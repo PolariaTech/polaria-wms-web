@@ -231,6 +231,7 @@ export interface OrdenVentaModalPickersProps {
   compradorSugerencias: unknown[];
   cypherOpen: boolean;
   isEditing: boolean;
+  pendingEmitId: string | null;
   productosParaPicker: ProductoVentaOption[];
   productoPickerPriorityIds: string[];
   replaceLineaIndex: number | null;

@@ -7,6 +7,7 @@ import { OrdenVentaProductoPickerModal } from "../pickers/OrdenVentaProductoPick
 import { OrdenVentaSugerenciasPickerModal } from "../pickers/OrdenVentaSugerenciasPickerModal";
 import { OrdenVentaTablePickerModal } from "../pickers/OrdenVentaTablePickerModal";
 import type { OrdenVentaModalPickersProps } from "../../types/orden-venta-create-modal.types";
+import { ovTieneIdParaCypher } from "../../utils/pedido/cypher-ov";
 import { collectSugerenciasLinea } from "../../utils/pedido/orden-venta-create-helpers";
 import { MONEDA_OPTIONS } from "../../types/orden-venta-create-modal.types";
 
@@ -153,12 +154,14 @@ export function OrdenVentaModalPickers(p: OrdenVentaModalPickersProps) {
   const {
     picker, setPicker, compradores, compradorPickerPriorityIds, idComprador,
     handleSelectComprador, compradorNombreIa, compradorSugerencias, cypherOpen,
-    isEditing, productosParaPicker, productoPickerPriorityIds, replaceLineaIndex,
+    isEditing, pendingEmitId, productosParaPicker, productoPickerPriorityIds, replaceLineaIndex,
     setReplaceLineaIndex, lineas, handleSelectProducto, handleAcceptSugerencia,
     handleOpenReplaceProducto, moneda, setMoneda, bodegasDestino, idBodegaDestino,
     setIdBodegaDestino, isCompradorCreateOpen, setIsCompradorCreateOpen, startMode,
     step, setStartMode, handleCompradorCreatedForSale,
   } = p;
+  // REQ-199: con id de OV (aunque no se abriera para editar) los selectores se acoplan junto a Cypher.
+  const dockConCypher = cypherOpen && ovTieneIdParaCypher({ isEditing, pendingEmitId });
   return (
     <>
       <OrdenVentaCompradorPickerModal
@@ -189,7 +192,7 @@ export function OrdenVentaModalPickers(p: OrdenVentaModalPickersProps) {
               : "Catálogo completo. Arriba van primero las opciones más parecidas a lo del pedido."
             : "Catálogo completo de clientes de la cuenta."
         }
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={dockConCypher}
       />
 
       <OrdenVentaProductoPickerModal
@@ -224,7 +227,7 @@ export function OrdenVentaModalPickers(p: OrdenVentaModalPickersProps) {
               ? "Elige el producto del catálogo para esta línea del pedido."
               : "Catálogo completo de productos de la cuenta."
         }
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={dockConCypher}
       />
 
       <OrdenVentaSugerenciasPickerModal
@@ -253,7 +256,7 @@ export function OrdenVentaModalPickers(p: OrdenVentaModalPickersProps) {
           if (idx == null) return;
           handleOpenReplaceProducto(idx);
         }}
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={dockConCypher}
       />
 
       <OrdenVentaTablePickerModal
@@ -270,7 +273,7 @@ export function OrdenVentaModalPickers(p: OrdenVentaModalPickersProps) {
         searchPlaceholder="Buscar moneda"
         emptyLabel="No hay monedas disponibles."
         onSelect={(row) => setMoneda(row.id)}
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={dockConCypher}
       />
 
       <OrdenVentaTablePickerModal
@@ -287,13 +290,13 @@ export function OrdenVentaModalPickers(p: OrdenVentaModalPickersProps) {
         searchPlaceholder="Buscar bodega"
         emptyLabel="No hay bodegas registradas."
         onSelect={(row) => setIdBodegaDestino(row.id)}
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={dockConCypher}
       />
 
       <CompradorCreateModal
         open={isCompradorCreateOpen}
         stackLevel="nested"
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={dockConCypher}
         onClose={() => {
           setIsCompradorCreateOpen(false);
           if (startMode === "first_time" && step === "start") {

@@ -23,6 +23,8 @@ export type AccionModal = (...argumentos: readonly unknown[]) => unknown;
 /** Estado vivo del modal de orden de venta, compartido por los hooks y la pantalla. */
 export interface OrdenVentaFormEstado {
   aceptaSustituciones: string;
+  /** Bodega activa de la sesión: la OV borrador se crea en ella (REQ-199). */
+  activeBodegaId: string | null;
   addOtAlmacen: string;
   addOtNumeroPedido: string;
   addOtOpen: boolean;
@@ -235,6 +237,8 @@ export interface OrdenVentaFormEstado {
   onCompanionOtPickerChange: AccionModal;
   onCreated: AccionModal;
   onEmitSuccess: AccionModal;
+  /** REQ-199: avisa al listado que la OV ya tiene id (borrador al leer archivo o primer Guardar). */
+  onOrdenIdReady?: (idOrdenVenta: string) => void;
   onReagruparAlCargarAtendido: AccionModal;
   operadorRowsForDuplicado: readonly OrdenVentaOperadorRow[];
   ordenCargadaId: string | null;

@@ -7,6 +7,7 @@ import { formatPrecioEs } from "@/lib/utils/decimal-es";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { MateoIaLoadingScreen } from "@/components/mateo/MateoIaLoadingScreen";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
+import { ovTieneIdParaCypher, puedeMostrarBotonCypher } from "../../utils/pedido/cypher-ov";
 import { OrdenVentaFormFooterCenter } from "./OrdenVentaFormFooterCenter";
 import { OrdenVentaModalCuerpo, OrdenVentaModalOverlays, type OrdenVentaFormEstado } from "./OrdenVentaDiscrepanciasDialog";
 
@@ -75,7 +76,7 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
         }
         compact
         size={estado.step === "start" ? "lg" : "2xl"}
-        layout={estado.cypherOpen && estado.isEditing ? "dock-left" : "center"}
+        layout={estado.cypherOpen && ovTieneIdParaCypher(estado) ? "dock-left" : "center"}
         closeOnBackdrop={false}
         hideHeaderClose
         headerCenter={
@@ -135,7 +136,7 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
                   <Save className="h-4 w-4" strokeWidth={2.25} aria-hidden />
                 )}
               </button>
-              {!estado.cypherOpen && estado.isEditing && estado.onToggleCypher ? (
+              {!estado.cypherOpen && puedeMostrarBotonCypher(estado) && estado.onToggleCypher ? (
                 <button
                   type="button"
                   title="Ver detalle Cypher"
@@ -151,7 +152,7 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
                 </button>
               ) : null}
             </div>
-          ) : !estado.cypherOpen && estado.isEditing && estado.onToggleCypher ? (
+          ) : !estado.cypherOpen && puedeMostrarBotonCypher(estado) && estado.onToggleCypher ? (
             <button
               type="button"
               title="Ver detalle Cypher"

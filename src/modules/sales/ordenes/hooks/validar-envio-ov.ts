@@ -11,7 +11,8 @@ export function validarEnvioOv(input: OrdenVentaFormEstado) {
       }
 
       const puedeGuardarSinCliente =
-        isDraft && (isEditing || Boolean(pendingEmitId));
+        isDraft &&
+        (isEditing || Boolean(pendingEmitId) || startMode === "docs");
 
       if (!idComprador && !puedeGuardarSinCliente) {
         const msg = "Selecciona un cliente.";
@@ -74,10 +75,11 @@ export function validarEnvioOv(input: OrdenVentaFormEstado) {
         return null;
       }
 
-      // REQ-134/166: avance en OV existente puede ir sin líneas de catálogo
-      // (cabecera + origen con pendientes de Mateo).
+      // REQ-134/166/199: avance con origen (docs o OV existente) puede ir sin
+      // líneas de catálogo (cabecera + interpretación de Mateo).
       const puedeAvanceSinLineas =
-        isDraft && (isEditing || Boolean(pendingEmitId));
+        isDraft &&
+        (isEditing || Boolean(pendingEmitId) || startMode === "docs");
 
       if (lineasParaPersistir.length === 0 && !puedeAvanceSinLineas) {
         setError(

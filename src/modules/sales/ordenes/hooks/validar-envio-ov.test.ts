@@ -89,6 +89,31 @@ describe("validarEnvioOv", () => {
     expect(preparado?.lineasParsed).toEqual([]);
   });
 
+  it("REQ-199: un avance desde documentos puede seguir sin cliente (Mateo aún no lo identificó)", () => {
+    const input = entrada({ isDraft: true, startMode: "docs", idComprador: "", lineas: [] });
+    const preparado = validarEnvioOv(input);
+    expect(input.setError).not.toHaveBeenCalled();
+    expect(preparado?.lineasParsed).toEqual([]);
+  });
+
+  it("REQ-199: un avance desde documentos puede ir sin líneas de catálogo", () => {
+    const input = entrada({
+      isDraft: true,
+      startMode: "docs",
+      lineas: [linea({ catalogPending: true, idProducto: "" })],
+    });
+    expect(validarEnvioOv(input)).not.toBeNull();
+    expect(input.setError).not.toHaveBeenCalledWith(
+      "Identifica al menos un producto del catálogo para guardar el avance.",
+    );
+  });
+
+  it("REQ-199: confirmar desde documentos sin cliente sigue exigiéndolo", () => {
+    const input = entrada({ isDraft: false, startMode: "docs", idComprador: "" });
+    expect(validarEnvioOv(input)).toBeNull();
+    expect(input.setError).toHaveBeenCalledWith("Selecciona un cliente.");
+  });
+
   it("confirmar desde documentos con avisos abre el diálogo y se detiene", () => {
     const input = entrada({
       startMode: "docs",

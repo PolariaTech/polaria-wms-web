@@ -2,6 +2,7 @@ import { getCompradorAdmin } from "@/modules/admin-panel";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../shared/types/sales.types";
 import { leerPedidoConIaApi } from "../services/sales-ai.api";
+import { crearBorradorDesdeDocs } from "./crear-borrador-desde-docs";
 import { extractCorreoContactoDesdeTexto } from "../utils/origen/correo-chrome";
 import { groupOrigenCorreoToOrdenesTrabajo } from "../utils/origen/origen-correo-ordenes-trabajo";
 import { cleanCorreoBodyForNotas, isCuerpoMensajeFormato } from "../utils/origen/texto-origen-pedido";
@@ -249,15 +250,23 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
       setOrdenesTrabajoPreview(groupOrigenCorreoToOrdenesTrabajo(origenRows));
       setFormOtPage(0);
       // Persistir body del correo / mensaje para notas generales del PDF.
-      if (pedido.textoOrigen?.trim()) {
-        setOrigenTexto(pedido.textoOrigen.trim());
-      } else if (origenTexto.trim()) {
-        setOrigenTexto(
-          isCuerpoMensajeFormato(origenTexto)
-            ? origenTexto
-            : cleanCorreoBodyForNotas(origenTexto),
-        );
-      }
+      const textoOrigenPersist =
+        pedido.textoOrigen?.trim() ||
+        (origenTexto.trim()
+          ? isCuerpoMensajeFormato(origenTexto)
+            ? origenTexto.trim()
+            : cleanCorreoBodyForNotas(origenTexto)
+          : "");
+      if (textoOrigenPersist) setOrigenTexto(textoOrigenPersist);
+
+      // REQ-199: crear borrador ya (origen + adjuntos) para el «+» de Cypher y Guardar.
+      const avisoBorrador = await crearBorradorDesdeDocs(input, {
+        origenRows,
+        textoOrigen: textoOrigenPersist,
+        idComprador: idCompradorForMap,
+      });
+      if (avisoBorrador) avisos.push(avisoBorrador);
+
       setStep(origenRows.length > 0 ? "preview" : "form");
       setError(avisos.length > 0 ? avisos.join(" ") : null);
     } catch (err) {

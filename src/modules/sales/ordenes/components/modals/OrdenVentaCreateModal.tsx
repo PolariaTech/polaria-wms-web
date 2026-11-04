@@ -36,13 +36,14 @@ export function OrdenVentaCreateModal({
   codigoVenta = null,
   cypherOpen = false,
   onToggleCypher,
+  onOrdenIdReady,
   abrirReagruparAlCargar = false,
   onReagruparAlCargarAtendido,
   onCompanionOtPickerChange,
   operadorRowsForDuplicado = [],
   onCompanionIdCompradorChange,
 }: OrdenVentaCreateModalProps) {
-  const { codigoCuenta } = useCompany();
+  const { codigoCuenta, activeBodegaId } = useCompany();
   const { showToast } = usePolariaToast();
   const session = useAuthStore((state) => state.session);
   const idCreador = session?.idUsuario ?? "";
@@ -195,7 +196,7 @@ export function OrdenVentaCreateModal({
 
   const bolsa = {
     open, onClose, onCreated, onEmitSuccess, onAutoPrintResult, idOrdenVenta, codigoVenta,
-    cypherOpen, onToggleCypher, abrirReagruparAlCargar, onReagruparAlCargarAtendido,
+    cypherOpen, onToggleCypher, onOrdenIdReady, activeBodegaId, abrirReagruparAlCargar, onReagruparAlCargarAtendido,
     onCompanionOtPickerChange, operadorRowsForDuplicado, onCompanionIdCompradorChange,
     codigoCuenta, showToast, session, idCreador, vendedorNombre, editingId, isEditing, folioFactura,
     step, setStep, startMode, setStartMode, idComprador, setIdComprador, compradorLabel, setCompradorLabel,
