@@ -53,6 +53,22 @@ export function textoConteoOrdenesTrabajo(cantidad: number): string {
   return `${cantidad} órdenes de trabajo`;
 }
 
+/** Conteo de renglones de producto, sin unidad/kg (REQ-224). */
+export function textoConteoProductos(cantidad: number): string {
+  if (cantidad === 1) return "1 producto";
+  return `${cantidad} productos`;
+}
+
+/** REQ-215: Notas generales van justo después de Centro de consumo. */
+export function notasVanTrasCentroConsumo(
+  labelsEnOrden: readonly string[],
+): boolean {
+  const indiceCentro = labelsEnOrden.indexOf("Centro de consumo");
+  const indiceNotas = labelsEnOrden.indexOf("Notas generales");
+  if (indiceCentro < 0 || indiceNotas < 0) return false;
+  return indiceNotas === indiceCentro + 1;
+}
+
 /**
  * Título del detalle multi-OT: folio OV + guión + # de OT (1…N).
  * REQ-229 — ej. OV-00001047-2. Con una sola OT (o sin índice) solo el folio.

@@ -52,6 +52,14 @@ import { formatDateTime } from "@/components/shared/utils/formatters";
 import { resolverFechaCreacionEdicion } from "../../utils/pedido/resolver-fecha-creacion-edicion";
 import { CatalogStatusHint } from "./catalog-status-hint";
 import {
+  descriptionCreateModalOv,
+  tituloCreateModalOv,
+} from "./orden-venta-create-modal-cabecera";
+import { NotasGeneralesPedidoField } from "./NotasGeneralesPedidoField";
+import { DireccionEntregaField } from "./DireccionEntregaField";
+import { OrdenVentaFormFooterIconActions } from "./OrdenVentaFormFooterIconActions";
+import { textoConteoProductos } from "./detalle-venta-presentacion";
+import {
   FolioFacturaCampos,
   useFolioFacturaEdicion,
 } from "../../surtido/guardar-folio-factura-captura.client";
@@ -105,6 +113,7 @@ import {
 import { OrdenVentaReagruparOtModal } from "./OrdenVentaReagruparOtModal";
 import {
   createOrdenVenta,
+  fetchUltimaDireccionEntregaPorComprador,
   fetchUltimosPreciosPorComprador,
   getCuentaIdBodegaDefault,
   getOrdenVentaDetalle,
@@ -153,6 +162,7 @@ import {
 import { filterLineasByOrdenTrabajoHija } from "../../utils/ot/filter-lineas-by-orden-trabajo";
 import {
   buildOrigenCorreoFromOrdenesYLineas,
+  indexIdProductoVerificadoOrigen,
   createEmptyOrdenTrabajoHija,
   flattenOrdenesTrabajoToOrigenCorreo,
   groupOrigenCorreoToOrdenesTrabajo,
@@ -168,6 +178,7 @@ import {
 } from "../../utils/pedido/normalize-numero-pedido";
 import {
   resolveCabeceraGuardada,
+  resolveDireccionDesdeUltimaConfirmada,
   resolvePropuestaClienteMateoAlReabrir,
   resolvePropuestaClienteMateoParaGuardar,
   sellarNombreClienteMateoEnOrigen,
@@ -242,6 +253,11 @@ interface OrdenVentaCreateModalProps {
   cypherOpen?: boolean;
   /** Abre/cierra Cypher de esta OV (botón +). */
   onToggleCypher?: () => void;
+  /**
+   * REQ-199: la OV ya tiene id (borrador tras archivo/mensaje o primer Guardar).
+   * El listado fija editingId + puede abrir Cypher.
+   */
+  onOrdenIdReady?: (idOrdenVenta: string) => void;
   /**
    * Publica el selector de OT al Cypher compañero (por confirmar, varias OT).
    */
@@ -584,6 +600,45 @@ function applyProductoToLinea(
   };
 }
 
+/** REQ-201: reaplica verificaciones guardadas en origen_correo._idProducto. */
+function applyVerificacionesOrigenALineas(
+  lineas: LineaVentaForm[],
+  origenRows: readonly OrigenCorreoRenglon[],
+  productos: ProductoVentaOption[],
+): LineaVentaForm[] {
+  const verified = indexIdProductoVerificadoOrigen(origenRows);
+  if (verified.size === 0) return lineas;
+  const perOt = new Map<string, number>();
+  return lineas.map((linea) => {
+    if (linea.idProducto && !linea.catalogPending) return linea;
+    const otKey = linea.otId?.trim() || "default";
+    const idx = perOt.get(otKey) ?? 0;
+    perOt.set(otKey, idx + 1);
+    const idProducto =
+      verified.get(`${otKey}#${idx}`) ||
+      (linea.idProducto
+        ? verified.get(`${otKey}#id:${linea.idProducto}`)
+        : undefined);
+    if (!idProducto) return linea;
+    const catalogo = productos.find((p) => p.idProducto === idProducto);
+    if (!catalogo) {
+      return {
+        ...linea,
+        idProducto,
+        catalogPending: false,
+        catalogAmbiguo: false,
+        sugerencia: null,
+        sugerenciasAlternativas: [],
+        filledByIa: false,
+      };
+    }
+    return applyProductoToLinea(
+      { ...linea, aliasCliente: linea.aliasCliente || linea.nombre },
+      catalogo,
+    );
+  });
+}
+
 function formatPrecioInput(value: number): string {
   if (!Number.isFinite(value) || value === 0) return "";
   return formatPrecioInputMx(value);
@@ -635,13 +690,14 @@ export function OrdenVentaCreateModal({
   codigoVenta = null,
   cypherOpen = false,
   onToggleCypher,
+  onOrdenIdReady,
   abrirReagruparAlCargar = false,
   onReagruparAlCargarAtendido,
   onCompanionOtPickerChange,
   operadorRowsForDuplicado = [],
   onCompanionIdCompradorChange,
 }: OrdenVentaCreateModalProps) {
-  const { codigoCuenta } = useCompany();
+  const { codigoCuenta, activeBodegaId } = useCompany();
   const { showToast } = usePolariaToast();
   const session = useAuthStore((state) => state.session);
   const idCreador = session?.idUsuario ?? "";
@@ -1661,6 +1717,43 @@ export function OrdenVentaCreateModal({
           : (parseDecimalEs(String(row.Precio ?? "")) ?? 0);
       const nombre = row.Producto?.trim() || "Producto del correo";
       const codigo = row["Codigo producto"]?.trim() || "—";
+      // REQ-201: si ya se verificó al grabar avance, no volver a pedir match.
+      const idVerificado = row._idProducto?.trim() || "";
+      const catalogoVerificado = idVerificado
+        ? productos.find((p) => p.idProducto === idVerificado)
+        : undefined;
+      if (catalogoVerificado) {
+        return {
+          idProducto: catalogoVerificado.idProducto,
+          nombre: stripLeadingProductoCodigo(
+            catalogoVerificado.nombre,
+            catalogoVerificado.codigo,
+          ),
+          codigo: catalogoVerificado.codigo,
+          idBodega: catalogoVerificado.idBodega,
+          cantidadInput: qty > 0 ? formatDecimalInputEs(qty) : "",
+          cajasInput: "",
+          presentacion: "",
+          especificacion: "",
+          descuentoPctInput: "",
+          ivaPct: "0",
+          kgDisponible: catalogoVerificado.kgDisponible,
+          unidadMedida:
+            catalogoVerificado.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+          precioUnitario: precio > 0 ? precio : catalogoVerificado.precioUnitario,
+          precioInput: formatPrecioInput(
+            precio > 0 ? precio : catalogoVerificado.precioUnitario,
+          ),
+          precioManual: precio > 0,
+          aliasCliente: nombre,
+          filledByIa: false,
+          otId: hijaFormActiva.id,
+          catalogPending: false,
+          catalogAmbiguo: false,
+          sugerencia: null,
+          sugerenciasAlternativas: [],
+        };
+      }
       const query = [nombre, codigo !== "—" ? codigo : ""].filter(Boolean).join(" ");
       const suggested = suggestFromCatalogo(query, productos);
       return {
@@ -2323,7 +2416,14 @@ export function OrdenVentaCreateModal({
             setLineas(lineasDesdeDetalle());
           } else {
             skipOtSeedFromOrigenRef.current = false;
-            setLineas(mapped.lineas.map(lineaFormDesdeIa));
+            // REQ-201: restaurar productos ya verificados al grabar avance.
+            setLineas(
+              applyVerificacionesOrigenALineas(
+                mapped.lineas.map(lineaFormDesdeIa),
+                origenCorreoRows,
+                productoRows,
+              ),
+            );
           }
           setStartMode("docs");
           setFormOtPage(0);
@@ -2464,6 +2564,8 @@ export function OrdenVentaCreateModal({
          * ventana, entrega, etc. si el pedido/OT ya los tiene.
          */
         onlyEmpty?: boolean;
+        /** REQ-252: última dirección de OV confirmada de esta razón social. */
+        ultimaDireccionConfirmada?: string | null;
       },
     ) => {
       const prefill = buildOrdenVentaPrefillFromComprador({
@@ -2473,6 +2575,10 @@ export function OrdenVentaCreateModal({
       const onlyEmpty = Boolean(options?.onlyEmpty);
       const take = (prev: string, next: string) =>
         onlyEmpty && prev.trim() ? prev : next;
+      const direccionPrefill = resolveDireccionDesdeUltimaConfirmada({
+        ultimaConfirmada: options?.ultimaDireccionConfirmada,
+        fichaDireccion: prefill.direccion,
+      });
 
       setFichaComprador(ficha);
       setExigeOc(prefill.exigeOc);
@@ -2480,7 +2586,7 @@ export function OrdenVentaCreateModal({
       setCentroConsumo((prev) => take(prev, prefill.centroConsumo));
       setVentanaDesde((prev) => take(prev, prefill.ventanaDesde));
       setVentanaHasta((prev) => take(prev, prefill.ventanaHasta));
-      setDireccion((prev) => take(prev, prefill.direccion));
+      setDireccion((prev) => take(prev, direccionPrefill));
       setAnden((prev) => take(prev, prefill.anden));
       setContacto((prev) => take(prev, prefill.contacto));
       setTelefono((prev) => take(prev, prefill.telefono));
@@ -2659,14 +2765,24 @@ export function OrdenVentaCreateModal({
 
       if (!codigoCuenta) return;
 
-      void getCompradorAdmin({
-        codigoCuenta,
-        idComprador: row.idComprador,
-      })
-        .then((detalle) => {
+      void Promise.all([
+        getCompradorAdmin({
+          codigoCuenta,
+          idComprador: row.idComprador,
+        }),
+        fetchUltimaDireccionEntregaPorComprador({
+          codigoCuenta,
+          idComprador: row.idComprador,
+        }).catch(() => null),
+      ])
+        .then(([detalle, ultimaDireccion]) => {
           if (selectedCompradorIdRef.current !== row.idComprador) return;
           // REQ-069: manual y docs — no pisar centro/ventana/entrega ya puestos.
-          applyCompradorPrefill(row, detalle.ficha, { onlyEmpty: true });
+          // REQ-252: si no hay dirección del pedido, usar la última confirmada.
+          applyCompradorPrefill(row, detalle.ficha, {
+            onlyEmpty: true,
+            ultimaDireccionConfirmada: ultimaDireccion,
+          });
         })
         .catch(() => {
           if (selectedCompradorIdRef.current !== row.idComprador) return;
@@ -3443,15 +3559,53 @@ export function OrdenVentaCreateModal({
       setOrdenesTrabajoPreview(groupOrigenCorreoToOrdenesTrabajo(origenRows));
       setFormOtPage(0);
       // Persistir body del correo / mensaje para notas generales del PDF.
-      if (pedido.textoOrigen?.trim()) {
-        setOrigenTexto(pedido.textoOrigen.trim());
-      } else if (origenTexto.trim()) {
-        setOrigenTexto(
-          isCuerpoMensajeFormato(origenTexto)
-            ? origenTexto
-            : cleanCorreoBodyForNotas(origenTexto),
-        );
+      const textoOrigenPersist =
+        pedido.textoOrigen?.trim() ||
+        (origenTexto.trim()
+          ? isCuerpoMensajeFormato(origenTexto)
+            ? origenTexto.trim()
+            : cleanCorreoBodyForNotas(origenTexto)
+          : "");
+      if (textoOrigenPersist) {
+        setOrigenTexto(textoOrigenPersist);
       }
+
+      // REQ-199: crear borrador ya (origen + adjuntos) para (+) Cypher y Guardar.
+      if (!editingId && !pendingEmitId) {
+        try {
+          let persistAdjuntos: OrigenAdjunto[] = origenAdjuntos;
+          if (origenArchivoFiles.length > 0) {
+            persistAdjuntos = await uploadOvAdjuntosClient(
+              origenArchivoFiles,
+              codigoCuenta,
+            );
+            setOrigenAdjuntos(persistAdjuntos);
+            setOrigenArchivoFiles([]);
+          }
+          const row = await createOrdenVenta({
+            codigoCuenta,
+            idBodega: activeBodegaId,
+            idComprador: idCompradorForMap || undefined,
+            lineas: [],
+            origenTexto: textoOrigenPersist || undefined,
+            origenArchivos: persistAdjuntos,
+            origenCorreo: origenRows.length > 0 ? origenRows : undefined,
+            guardarAvance: true,
+            idCreador: idCreador || null,
+          });
+          setPendingEmitId(row.idOrdenVenta);
+          setEditingEstado("por_confirmar");
+          onOrdenIdReady?.(row.idOrdenVenta);
+          onCreated();
+        } catch (draftErr) {
+          avisos.push(
+            draftErr instanceof Error
+              ? `No se pudo preparar Cypher: ${draftErr.message}`
+              : "No se pudo preparar Cypher con el archivo leído.",
+          );
+        }
+      }
+
       setStep(origenRows.length > 0 ? "preview" : "form");
       setError(avisos.length > 0 ? avisos.join(" ") : null);
     } catch (err) {
@@ -3464,6 +3618,7 @@ export function OrdenVentaCreateModal({
       setIsReadingIa(false);
     }
   }, [
+    activeBodegaId,
     anden,
     applyCompradorPrefill,
     centroConsumo,
@@ -3473,13 +3628,19 @@ export function OrdenVentaCreateModal({
     contacto,
     correo,
     direccion,
+    editingId,
     ensureFormDataReady,
     fichaComprador,
     handleSelectComprador,
     idComprador,
+    idCreador,
     observaciones,
+    onCreated,
+    onOrdenIdReady,
+    origenAdjuntos,
     origenArchivoFiles,
     origenTexto,
+    pendingEmitId,
     productos,
     telefono,
     ventanaDesde,
@@ -3500,7 +3661,8 @@ export function OrdenVentaCreateModal({
       }
 
       const puedeGuardarSinCliente =
-        isDraft && (isEditing || Boolean(pendingEmitId));
+        isDraft &&
+        (isEditing || Boolean(pendingEmitId) || startMode === "docs");
 
       if (!idComprador && !puedeGuardarSinCliente) {
         const msg = "Selecciona un cliente.";
@@ -3563,10 +3725,11 @@ export function OrdenVentaCreateModal({
         return;
       }
 
-      // REQ-134/166: avance en OV existente puede ir sin líneas de catálogo
-      // (cabecera + origen con pendientes de Mateo).
+      // REQ-134/166/199: avance con origen (docs o OV existente) puede ir sin
+      // líneas de catálogo (cabecera + interpretación de Mateo).
       const puedeAvanceSinLineas =
-        isDraft && (isEditing || Boolean(pendingEmitId));
+        isDraft &&
+        (isEditing || Boolean(pendingEmitId) || startMode === "docs");
 
       if (lineasParaPersistir.length === 0 && !puedeAvanceSinLineas) {
         setError(
@@ -3790,6 +3953,10 @@ export function OrdenVentaCreateModal({
                   hijas: hijasSynced,
                   lineas: lineas.map((linea) => ({
                     otId: linea.otId,
+                    idProducto:
+                      !linea.catalogPending && linea.idProducto
+                        ? linea.idProducto
+                        : undefined,
                     nombre: linea.nombre,
                     codigo: linea.codigo,
                     cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
@@ -3894,6 +4061,7 @@ export function OrdenVentaCreateModal({
           idOrdenVenta = listRowForPrint.idOrdenVenta;
           setPendingEmitId(idOrdenVenta);
           setEditingEstado("por_confirmar");
+          onOrdenIdReady?.(idOrdenVenta);
           void postOrdenVentaLogForOts({
             idOrdenVenta,
             codigoCuenta,
@@ -4100,6 +4268,7 @@ export function OrdenVentaCreateModal({
       onClose,
       onCreated,
       onEmitSuccess,
+      onOrdenIdReady,
       reagruparAplicada,
       showToast,
       ordenCompraHotel,
@@ -4271,36 +4440,13 @@ export function OrdenVentaCreateModal({
         open={open && !showMateoLoading}
         onClose={requestClose}
         scrollRegionRef={formScrollRef}
-        title={
-          isEditing && step === "pickOt"
-            ? "Órdenes de trabajo"
-            : isEditing
-              ? folioVisible
-                ? `Editar · ${folioVisible}`
-                : "Editar pedido"
-              : step === "form"
-                ? folioVisible
-                  ? `Pedido · ${folioVisible}`
-                  : "Pedido"
-                : step === "preview"
-                  ? "Órdenes de trabajo detectadas"
-                  : "Nuevo pedido"
-        }
-        description={
-          isEditing && step === "pickOt"
-            ? "Elige qué orden de trabajo quieres editar"
-            : isEditing
-              ? folioVisible
-                ? `Folio ${folioVisible} — actualiza los datos del pedido`
-                : "Actualiza los datos del pedido"
-              : step === "form"
-                ? formDescription
-                : step === "preview"
-                  ? "Previsualización antes de confirmar el formulario"
-                  : startMode === "docs"
-                    ? "Mateo lee el mensaje o los archivos del pedido"
-                    : "¿Cómo quieres empezar?"
-        }
+        title={tituloCreateModalOv({ isEditing, step, folioVisible })}
+        description={descriptionCreateModalOv({
+          isEditing,
+          step,
+          formDescription,
+          startMode,
+        })}
         onSubmit={(event) => {
           submitIntentRef.current = "emit";
           void handleSubmit(event);
@@ -4325,7 +4471,11 @@ export function OrdenVentaCreateModal({
         }
         compact
         size={step === "start" ? "lg" : "2xl"}
-        layout={cypherOpen && isEditing ? "dock-left" : "center"}
+        layout={
+          cypherOpen && (isEditing || Boolean(pendingEmitId))
+            ? "dock-left"
+            : "center"
+        }
         closeOnBackdrop={false}
         hideHeaderClose
         headerCenter={
@@ -4348,60 +4498,11 @@ export function OrdenVentaCreateModal({
           ) : undefined
         }
         headerTrailing={
-          step === "form" ? (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                title="Guardar avance (sigue Por confirmar; no confirma el pedido)"
-                aria-label="Guardar avance"
-                disabled={
-                  isSaving ||
-                  isLoading ||
-                  // Alta nueva: hace falta cliente o al menos un producto de catálogo.
-                  // OV existente: siempre se puede guardar avance (REQ-134).
-                  (!(isEditing || pendingEmitId) &&
-                    !idComprador &&
-                    !lineas.some(
-                      (linea) =>
-                        !linea.catalogPending && Boolean(linea.idProducto),
-                    ))
-                }
-                onClick={() => {
-                  submitIntentRef.current = "draft";
-                  void handleSubmit({
-                    preventDefault() {},
-                  } as FormEvent<HTMLFormElement>);
-                }}
-                className={cn(
-                  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
-                  "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
-                  "disabled:cursor-not-allowed disabled:opacity-40",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                )}
-              >
-                {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                ) : (
-                  <Save className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-                )}
-              </button>
-              {!cypherOpen && isEditing && onToggleCypher ? (
-                <button
-                  type="button"
-                  title="Ver detalle Cypher"
-                  aria-label="Abrir detalle Cypher"
-                  onClick={() => onToggleCypher()}
-                  className={cn(
-                    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
-                    "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-                  )}
-                >
-                  <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-                </button>
-              ) : null}
-            </div>
-          ) : !cypherOpen && isEditing && onToggleCypher ? (
+          !cypherOpen &&
+          onToggleCypher &&
+          (isEditing ||
+            Boolean(pendingEmitId) ||
+            (startMode === "docs" && step !== "start")) ? (
             <button
               type="button"
               title="Ver detalle Cypher"
@@ -4470,6 +4571,34 @@ export function OrdenVentaCreateModal({
             }}
           />
         }
+        footerBeforeCancel={
+          step === "form" ? (
+            <OrdenVentaFormFooterIconActions
+              showEliminar={Boolean(hijaFormActiva)}
+              indiceOt1Based={formOtSafePage + 1}
+              onEliminar={() => {
+                if (hijaFormActiva) setConfirmRemoveOtId(hijaFormActiva.id);
+              }}
+              onGuardarAvance={() => {
+                submitIntentRef.current = "draft";
+                void handleSubmit({
+                  preventDefault() {},
+                } as FormEvent<HTMLFormElement>);
+              }}
+              guardarDisabled={
+                isSaving ||
+                isLoading ||
+                (!(isEditing || pendingEmitId) &&
+                  !idComprador &&
+                  !lineas.some(
+                    (linea) =>
+                      !linea.catalogPending && Boolean(linea.idProducto),
+                  ))
+              }
+              isSaving={isSaving}
+            />
+          ) : undefined
+        }
         footerAction={
           step === "pickOt" ? (
             <></>
@@ -4514,7 +4643,8 @@ export function OrdenVentaCreateModal({
               disabled={confirmSubmitDisabled}
               title={
                 confirmSubmitDisabled
-                  ? (confirmBloqueoReason ?? "Completa lo pendiente para confirmar")
+                  ? (confirmBloqueoReason ??
+                    "Completa lo pendiente para confirmar")
                   : undefined
               }
               aria-disabled={confirmSubmitDisabled}
@@ -4957,29 +5087,7 @@ export function OrdenVentaCreateModal({
         {step === "form" && !isLoading ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              {ordenesTrabajoForm.length > 1 ? (
-                hijaFormActiva ? (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmRemoveOtId(hijaFormActiva.id)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-2.5 py-1.5 polaria-text-caption font-semibold text-polaria-danger transition hover:opacity-90"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                    Eliminar esta tarea
-                  </button>
-                ) : (
-                  <span />
-                )
-              ) : ordenesTrabajoForm.length === 1 && hijaFormActiva ? (
-                <button
-                  type="button"
-                  onClick={() => setConfirmRemoveOtId(hijaFormActiva.id)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-2.5 py-1.5 polaria-text-caption font-semibold text-polaria-danger transition hover:opacity-90"
-                >
-                  <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                  Eliminar tarea de almacén
-                </button>
-              ) : !isEditing ? (
+              {!isEditing && !hijaFormActiva ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -5292,38 +5400,83 @@ export function OrdenVentaCreateModal({
                       compact
                     />
 
-                    <div data-ov-revision="fechaEntrega">
-                    <PolariaDateInputDdMm
-                      id="orden-venta-fecha-entrega"
-                      label="Fecha de entrega"
-                      value={fechaEntrega}
-                      required={esPorConfirmar}
-                      onChange={(iso) => {
-                        setFechaEntrega(iso);
-                        clearFieldMarks("fechaEntrega");
-                        if (iso.trim()) setError(null);
+                  </div>
+                </CaptureSection>
+
+                <CaptureSection title="Entrega">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {/* REQ-254: Notas + logística bajados a Entrega; orden REQ-216 */}
+                    <NotasGeneralesPedidoField
+                      id="orden-venta-observaciones"
+                      value={observaciones}
+                      onChange={(event) => {
+                        setObservaciones(event.target.value);
+                        clearFieldMarks("observaciones");
                       }}
-                      hint={
-                        isFechaEntregaAtrasada(fechaEntrega, todayIsoDate())
-                          ? FECHA_ENTREGA_ATRASADA_WARNING
-                          : missingFields.has("fechaEntrega")
-                            ? "Obligatoria para confirmar"
-                            : "Formato DD/MM/AAAA"
-                      }
                       controlClassName={fieldControlClass({
-                        field: "fechaEntrega",
+                        field: "observaciones",
                         autoFields,
-                        warnFields: isFechaEntregaAtrasada(
-                          fechaEntrega,
-                          todayIsoDate(),
-                        )
-                          ? new Set([...warnFields, "fechaEntrega"])
-                          : warnFields,
+                        warnFields,
                         missingFields,
-                        missing: !isFechaEntregaIsoValida(fechaEntrega),
                       })}
+                    />
+
+                    <PolariaFormSelect
+                      id="orden-venta-prioridad"
+                      label="Prioridad"
+                      value={prioridad}
+                      onChange={(event) => setPrioridad(event.target.value)}
+                      options={PRIORIDAD_OPTIONS}
                       compact
                     />
+
+                    <PolariaFormField
+                      id="orden-venta-moneda"
+                      label="Moneda"
+                      compact
+                    >
+                      <JefeBodegaModalSearchField
+                        id="orden-venta-moneda"
+                        value={moneda}
+                        placeholder="Selecciona una moneda"
+                        ariaLabel="Moneda"
+                        compact
+                        onSearchClick={() => setPicker("moneda")}
+                      />
+                    </PolariaFormField>
+
+                    <div data-ov-revision="fechaEntrega">
+                      <PolariaDateInputDdMm
+                        id="orden-venta-fecha-entrega"
+                        label="Fecha de entrega"
+                        value={fechaEntrega}
+                        required={esPorConfirmar}
+                        onChange={(iso) => {
+                          setFechaEntrega(iso);
+                          clearFieldMarks("fechaEntrega");
+                          if (iso.trim()) setError(null);
+                        }}
+                        hint={
+                          isFechaEntregaAtrasada(fechaEntrega, todayIsoDate())
+                            ? FECHA_ENTREGA_ATRASADA_WARNING
+                            : missingFields.has("fechaEntrega")
+                              ? "Obligatoria para confirmar"
+                              : "Formato DD/MM/AAAA"
+                        }
+                        controlClassName={fieldControlClass({
+                          field: "fechaEntrega",
+                          autoFields,
+                          warnFields: isFechaEntregaAtrasada(
+                            fechaEntrega,
+                            todayIsoDate(),
+                          )
+                            ? new Set([...warnFields, "fechaEntrega"])
+                            : warnFields,
+                          missingFields,
+                          missing: !isFechaEntregaIsoValida(fechaEntrega),
+                        })}
+                        compact
+                      />
                     </div>
 
                     <PolariaFormInput
@@ -5391,80 +5544,32 @@ export function OrdenVentaCreateModal({
                       compact
                     />
 
-                    <PolariaFormSelect
-                      id="orden-venta-prioridad"
-                      label="Prioridad"
-                      value={prioridad}
-                      onChange={(event) => setPrioridad(event.target.value)}
-                      options={PRIORIDAD_OPTIONS}
-                      compact
-                    />
-
-                    <PolariaFormField
-                      id="orden-venta-moneda"
-                      label="Moneda"
-                      compact
-                    >
-                      <JefeBodegaModalSearchField
-                        id="orden-venta-moneda"
-                        value={moneda}
-                        placeholder="Selecciona una moneda"
-                        ariaLabel="Moneda"
-                        compact
-                        onSearchClick={() => setPicker("moneda")}
-                      />
-                    </PolariaFormField>
-
-                    <PolariaFormInput
-                      id="orden-venta-observaciones"
-                      label="Notas generales"
-                      value={observaciones}
-                      placeholder="Notas generales para almacén"
+                    {/* REQ-217: dirección full-width; Contacto/tel/correo debajo */}
+                    <DireccionEntregaField
+                      id="orden-venta-direccion"
+                      value={direccion}
                       onChange={(event) => {
-                        setObservaciones(event.target.value);
-                        clearFieldMarks("observaciones");
+                        setDireccion(event.target.value);
+                        setAvisoVerificarDireccion(false);
+                        clearFieldMarks("direccion");
                       }}
                       controlClassName={fieldControlClass({
-                        field: "observaciones",
+                        field: "direccion",
                         autoFields,
                         warnFields,
                         missingFields,
                       })}
-                      compact
-                      fieldClassName="sm:col-span-3"
+                      footer={
+                        avisoVerificarDireccion ? (
+                          <p className="mt-1.5 rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-3 py-2 polaria-text-caption text-polaria-warning">
+                            Cambiaste el cliente. Revisa que la dirección de
+                            entrega (la del correo o PDF) sea la correcta para
+                            este pedido. Si no, corrígela aquí; se enviará la
+                            que dejes en este campo.
+                          </p>
+                        ) : null
+                      }
                     />
-                  </div>
-                </CaptureSection>
-
-                <CaptureSection title="Entrega">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="sm:col-span-2">
-                      <PolariaFormInput
-                        id="orden-venta-direccion"
-                        label="Dirección de entrega"
-                        value={direccion}
-                        onChange={(event) => {
-                          setDireccion(event.target.value);
-                          setAvisoVerificarDireccion(false);
-                          clearFieldMarks("direccion");
-                        }}
-                        controlClassName={fieldControlClass({
-                          field: "direccion",
-                          autoFields,
-                          warnFields,
-                          missingFields,
-                        })}
-                        compact
-                      />
-                      {avisoVerificarDireccion ? (
-                        <p className="mt-1.5 rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-3 py-2 polaria-text-caption text-polaria-warning">
-                          Cambiaste el cliente. Revisa que la dirección de
-                          entrega (la del correo o PDF) sea la correcta para este
-                          pedido. Si no, corrígela aquí; se enviará la que
-                          dejes en este campo.
-                        </p>
-                      ) : null}
-                    </div>
                     <PolariaFormInput
                       id="orden-venta-contacto"
                       label="Contacto del cliente"
@@ -5515,14 +5620,18 @@ export function OrdenVentaCreateModal({
                       })}
                       compact
                     />
-                </div>
+                  </div>
                 </CaptureSection>
 
                 <div data-ov-revision="productos">
                 <CaptureSection
                   title="Productos"
                   footer={
-                    <div className="flex justify-end border-t border-polaria-t-20 bg-polaria-w-08 px-4 py-3">
+                    <div className="flex items-start justify-between gap-4 border-t border-polaria-t-20 bg-polaria-w-08 px-4 py-3">
+                      {/* REQ-224: conteo de productos a la izquierda, sin unidad */}
+                      <p className="polaria-text-caption text-polaria-w-50">
+                        {textoConteoProductos(lineasConIndice.length)}
+                      </p>
                       <table className="text-right">
                         <tbody>
                           <tr>
@@ -6037,7 +6146,7 @@ export function OrdenVentaCreateModal({
               : "Catálogo completo. Arriba van primero las opciones más parecidas a lo del pedido."
             : "Catálogo completo de clientes de la cuenta."
         }
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={cypherOpen && (isEditing || Boolean(pendingEmitId))}
       />
 
       <OrdenVentaProductoPickerModal
@@ -6072,7 +6181,7 @@ export function OrdenVentaCreateModal({
               ? "Elige el producto del catálogo para esta línea del pedido."
               : "Catálogo completo de productos de la cuenta."
         }
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={cypherOpen && (isEditing || Boolean(pendingEmitId))}
       />
 
       <OrdenVentaSugerenciasPickerModal
@@ -6101,7 +6210,7 @@ export function OrdenVentaCreateModal({
           if (idx == null) return;
           handleOpenReplaceProducto(idx);
         }}
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={cypherOpen && (isEditing || Boolean(pendingEmitId))}
       />
 
       <OrdenVentaTablePickerModal
@@ -6118,7 +6227,7 @@ export function OrdenVentaCreateModal({
         searchPlaceholder="Buscar moneda"
         emptyLabel="No hay monedas disponibles."
         onSelect={(row) => setMoneda(row.id)}
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={cypherOpen && (isEditing || Boolean(pendingEmitId))}
       />
 
       <OrdenVentaTablePickerModal
@@ -6135,13 +6244,13 @@ export function OrdenVentaCreateModal({
         searchPlaceholder="Buscar bodega"
         emptyLabel="No hay bodegas registradas."
         onSelect={(row) => setIdBodegaDestino(row.id)}
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={cypherOpen && (isEditing || Boolean(pendingEmitId))}
       />
 
       <CompradorCreateModal
         open={isCompradorCreateOpen}
         stackLevel="nested"
-        dockWithCypher={cypherOpen && isEditing}
+        dockWithCypher={cypherOpen && (isEditing || Boolean(pendingEmitId))}
         onClose={() => {
           setIsCompradorCreateOpen(false);
           if (startMode === "first_time" && step === "start") {

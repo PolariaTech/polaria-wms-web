@@ -49,6 +49,11 @@ export interface OrigenCorreoRenglon {
    * Si está presente, agrupa por este valor en vez de pedido+almacén.
    */
   _otId?: string;
+  /**
+   * REQ-201: producto de catálogo ya verificado al guardar avance (sin confirmar).
+   * Al reabrir se restaura sin volver a pedir verificación.
+   */
+  _idProducto?: string;
 }
 
 export interface OrdenTrabajoHija {
@@ -232,6 +237,8 @@ export function flattenOrdenesTrabajoToOrigenCorreo(
 
 export type LineaOrigenOtSync = {
   otId?: string;
+  /** REQ-201: id de catálogo si el operador ya verificó la línea. */
+  idProducto?: string;
   nombre: string;
   codigo: string;
   cantidad: number;
@@ -253,6 +260,7 @@ export function buildOrigenCorreoFromOrdenesYLineas(params: {
     const lineasOt = params.lineas.filter((linea) => linea.otId === hija.id);
     if (lineasOt.length > 0) {
       for (const linea of lineasOt) {
+        const idProducto = linea.idProducto?.trim() || "";
         out.push({
           _otId: hija.id,
           Almacen: hija.almacen,
@@ -265,6 +273,7 @@ export function buildOrigenCorreoFromOrdenesYLineas(params: {
           Cantidad: linea.cantidad,
           Unidad: linea.unidadMedida,
           Precio: linea.precioUnitario,
+          ...(idProducto ? { _idProducto: idProducto } : {}),
         });
       }
       continue;
@@ -286,6 +295,30 @@ export function buildOrigenCorreoFromOrdenesYLineas(params: {
         "Responsable externo":
           hija.responsableExterno || row["Responsable externo"],
       });
+    }
+  }
+  return out;
+}
+
+/**
+ * REQ-201: mapa otId|índice → idProducto ya verificado en origen_correo.
+ * Sirve para reaplicar la verificación al rearmar el formulario desde el origen.
+ */
+export function indexIdProductoVerificadoOrigen(
+  rows: readonly OrigenCorreoRenglon[],
+): Map<string, string> {
+  const out = new Map<string, string>();
+  const perOt = new Map<string, number>();
+  for (const row of rows) {
+    const idProducto = norm(row._idProducto);
+    if (!idProducto) continue;
+    const otKey = groupKeyOrigenCorreo(row);
+    const idx = perOt.get(otKey) ?? 0;
+    perOt.set(otKey, idx + 1);
+    out.set(`${otKey}#${idx}`, idProducto);
+    // También por id suelto (una sola verificación por producto en la OT).
+    if (!out.has(`${otKey}#id:${idProducto}`)) {
+      out.set(`${otKey}#id:${idProducto}`, idProducto);
     }
   }
   return out;

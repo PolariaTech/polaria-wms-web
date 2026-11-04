@@ -90,6 +90,11 @@ export function mapDetalleLineasAForm(params: {
       precioInput: formatPrecioInputMx(linea.precio_unitario),
       precioManual: true as const,
       aliasCliente,
+      // REQ-201: línea ya en BD = producto verificado (no volver a pedir match).
+      catalogPending: false as const,
+      catalogAmbiguo: false as const,
+      sugerencia: null,
+      sugerenciasAlternativas: [] as const,
     };
   });
 

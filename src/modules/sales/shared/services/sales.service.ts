@@ -359,6 +359,35 @@ async function resolveBodegaVenta(
   return resolved;
 }
 
+async function resolveClienteCuentaDefault(codigoCuenta: string): Promise<string> {
+  const clienteRows = await runDomainQuery<{ id_cliente: string }[]>(
+    (client) => {
+      const query = client
+        .from("cliente")
+        .select("id_cliente")
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("esta_activo", true)
+        .order("nombre", { ascending: true })
+        .limit(1);
+
+      return query as unknown as Promise<{
+        data: { id_cliente: string }[] | null;
+        error: { message: string } | null;
+      }>;
+    },
+  );
+
+  const idCliente = clienteRows[0]?.id_cliente?.trim();
+  if (!idCliente) {
+    throw new DomainServiceError(
+      "No hay cliente activo asociado al catálogo de la cuenta.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  return idCliente;
+}
+
 async function resolveClienteVenta(
   codigoCuenta: string,
   idProducto: string,
@@ -391,32 +420,7 @@ async function resolveClienteVenta(
     return producto.id_cliente.trim();
   }
 
-  const clienteRows = await runDomainQuery<{ id_cliente: string }[]>(
-    (client) => {
-      const query = client
-        .from("cliente")
-        .select("id_cliente")
-        .eq("codigo_cuenta", codigoCuenta)
-        .eq("esta_activo", true)
-        .order("nombre", { ascending: true })
-        .limit(1);
-
-      return query as unknown as Promise<{
-        data: { id_cliente: string }[] | null;
-        error: { message: string } | null;
-      }>;
-    },
-  );
-
-  const idCliente = clienteRows[0]?.id_cliente?.trim();
-  if (!idCliente) {
-    throw new DomainServiceError(
-      "No hay cliente activo asociado al catálogo de la cuenta.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  return idCliente;
+  return resolveClienteCuentaDefault(codigoCuenta);
 }
 
 async function assertCompradorDeCuenta(
@@ -554,6 +558,45 @@ async function fetchLineasResumenByOrden(
  * REQ-135: último precio unitario vendido a este cliente por producto
  * (órdenes no canceladas, más reciente primero).
  */
+/**
+ * REQ-252: última dirección de entrega de una OV ya confirmada (no por_confirmar)
+ * del comprador / razón social. Sirve de default al armar un pedido nuevo.
+ */
+export async function fetchUltimaDireccionEntregaPorComprador(input: {
+  codigoCuenta: string;
+  idComprador: string;
+}): Promise<string | null> {
+  const cuenta = requireCodigoCuenta(input.codigoCuenta);
+  const idComprador = input.idComprador.trim();
+  if (!idComprador) return null;
+
+  const rows = await runDomainQuery<
+    { direccion_entrega: string | null }[]
+  >((client) => {
+    const query = client
+      .from("orden_venta")
+      .select("direccion_entrega")
+      .eq("codigo_cuenta", cuenta)
+      .eq("id_comprador", idComprador)
+      .neq("estado", "por_confirmar")
+      .neq("estado", "cancelada")
+      .not("direccion_entrega", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(20);
+
+    return query as unknown as Promise<{
+      data: { direccion_entrega: string | null }[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  for (const row of rows) {
+    const direccion = row.direccion_entrega?.trim() || "";
+    if (direccion) return direccion;
+  }
+  return null;
+}
+
 export async function fetchUltimosPreciosPorComprador(input: {
   codigoCuenta: string;
   idComprador: string;
@@ -1227,6 +1270,14 @@ export async function createOrdenVenta(
           ]
         : [];
 
+  const tieneOrigenCaptura =
+    Boolean(input.origenTexto?.trim()) ||
+    Boolean(input.origenCorreo && input.origenCorreo.length > 0) ||
+    Boolean(input.origenArchivos && input.origenArchivos.length > 0);
+  /** REQ-199: primer avance tras leer archivo/mensaje, aún sin cliente ni líneas. */
+  const origenOnlyFirstDraft =
+    guardarAvance && !idOrdenVentaExistente && tieneOrigenCaptura;
+
   if (!idComprador) {
     if (guardarAvance && idOrdenVentaExistente) {
       const existingComprador = await runDomainQuery<{
@@ -1246,7 +1297,11 @@ export async function createOrdenVenta(
       });
       idComprador = existingComprador?.id_comprador?.trim() || "";
     }
-    if (!idComprador && !(guardarAvance && idOrdenVentaExistente)) {
+    if (
+      !idComprador &&
+      !(guardarAvance && idOrdenVentaExistente) &&
+      !origenOnlyFirstDraft
+    ) {
       throw new DomainServiceError(
         "Selecciona un comprador.",
         "INVALID_ARGUMENT",
@@ -1258,7 +1313,7 @@ export async function createOrdenVenta(
   const headerOnlyDraft =
     guardarAvance && Boolean(idOrdenVentaExistente) && lineas.length === 0;
 
-  if (lineas.length === 0 && !headerOnlyDraft) {
+  if (lineas.length === 0 && !headerOnlyDraft && !origenOnlyFirstDraft) {
     throw new DomainServiceError(
       "Agrega al menos un producto a la venta.",
       "INVALID_ARGUMENT",
@@ -1392,6 +1447,49 @@ export async function createOrdenVenta(
     );
   }
 
+  if (origenOnlyFirstDraft && lineas.length === 0) {
+    const [idBodega, idCliente] = await Promise.all([
+      resolveBodegaVenta(codigoCuenta, input.idBodega),
+      resolveClienteCuentaDefault(codigoCuenta),
+    ]);
+
+    orden = await runDomainMutation<OrdenVentaRow>((client) => {
+      const query = client
+        .from("orden_venta")
+        .insert({
+          codigo_cuenta: codigoCuenta,
+          id_bodega: idBodega,
+          id_cliente: idCliente,
+          id_comprador: idComprador || null,
+          id_creador: idCreador,
+          id_bodega_destino: idBodegaDestino,
+          ...capture,
+          codigo: "",
+          estado: "por_confirmar",
+          observaciones,
+        })
+        .select(ORDEN_VENTA_COLUMNS)
+        .single();
+
+      return query as unknown as Promise<{
+        data: OrdenVentaRow | null;
+        error: { message: string } | null;
+      }>;
+    });
+
+    const compradorLabels = await fetchCompradorLabels(
+      idComprador ? [idComprador] : [],
+    );
+    const slaByCuenta = await fetchCuentaOvSlaByCodigo([orden.codigo_cuenta]);
+    return mapOrdenVentaOperadorRow(
+      orden,
+      compradorLabels,
+      new Map(),
+      new Map(),
+      slaByCuenta,
+    );
+  }
+
   const primeraLinea = lineas[0]!;
   const productoIds = lineas.map((linea) => linea.idProducto.trim());
   const [idBodega, idCliente, preciosFetched] = await Promise.all([
@@ -1488,7 +1586,7 @@ export async function createOrdenVenta(
           codigo_cuenta: codigoCuenta,
           id_bodega: idBodega,
           id_cliente: idCliente,
-          id_comprador: idComprador,
+          id_comprador: idComprador || null,
           id_creador: idCreador,
           id_bodega_destino: idBodegaDestino,
           ...capture,
@@ -1506,36 +1604,40 @@ export async function createOrdenVenta(
     });
   }
 
-  await runDomainMutation((client) => {
-    const query = client.from("orden_venta_linea").insert(
-      lineas.map((linea) => {
-        const idProducto = linea.idProducto.trim();
-        const catalogPrecio = preciosUnitarios.get(idProducto) ?? 0;
-        const precioUnitario =
-          linea.precioUnitario != null && Number.isFinite(linea.precioUnitario)
-            ? linea.precioUnitario
-            : catalogPrecio;
+  if (lineas.length > 0) {
+    await runDomainMutation((client) => {
+      const query = client.from("orden_venta_linea").insert(
+        lineas.map((linea) => {
+          const idProducto = linea.idProducto.trim();
+          const catalogPrecio = preciosUnitarios.get(idProducto) ?? 0;
+          const precioUnitario =
+            linea.precioUnitario != null && Number.isFinite(linea.precioUnitario)
+              ? linea.precioUnitario
+              : catalogPrecio;
 
-        return {
-          id_orden_venta: orden.id_orden_venta,
-          id_producto: idProducto,
-          cantidad_pedida: linea.cantidadPedida,
-          precio_unitario: precioUnitario,
-          cajas: linea.cajas ?? null,
-          presentacion: linea.presentacion?.trim() || null,
-          unidad_medida: linea.unidadMedida?.trim() || null,
-          match_producto: linea.matchProducto ?? null,
-        };
-      }),
-    );
+          return {
+            id_orden_venta: orden.id_orden_venta,
+            id_producto: idProducto,
+            cantidad_pedida: linea.cantidadPedida,
+            precio_unitario: precioUnitario,
+            cajas: linea.cajas ?? null,
+            presentacion: linea.presentacion?.trim() || null,
+            unidad_medida: linea.unidadMedida?.trim() || null,
+            match_producto: linea.matchProducto ?? null,
+          };
+        }),
+      );
 
-    return query as unknown as Promise<{
-      data: unknown;
-      error: { message: string } | null;
-    }>;
-  });
+      return query as unknown as Promise<{
+        data: unknown;
+        error: { message: string } | null;
+      }>;
+    });
+  }
 
-  const compradorLabels = await fetchCompradorLabels([idComprador]);
+  const compradorLabels = await fetchCompradorLabels(
+    idComprador ? [idComprador] : [],
+  );
   const lineasResumen = new Map<string, OrdenVentaLineasResumen>([
     [
       orden.id_orden_venta,

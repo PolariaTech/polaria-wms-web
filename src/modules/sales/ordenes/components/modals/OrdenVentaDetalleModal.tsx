@@ -66,8 +66,6 @@ import {
   formatCompradorOrdenVenta,
   formatOrdenVentaCantidadConUnidad,
   resolveOrdenVentaLineaTitulo,
-  resolveUnidadComunLineas,
-  sumOrdenVentaCantidadKg,
 } from "../../utils/display/orden-venta-display";
 import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../../shared/types/sales.types";
 import type { CypherCompanionOtPicker } from "./OrdenVentaCypherDrawer";
@@ -279,7 +277,6 @@ function DetalleContent({
         : captura.observaciones.trim()),
     cuerpoMensaje,
   );
-  const pesoHija = lineItems.reduce((s, l) => s + l.cantidad_pedida, 0);
   const montosLinea = lineItems.map((linea) => {
     const titulo = resolveOrdenVentaLineaTitulo(linea);
     const nota = notaCapturaForLinea(captura.notasLineas, {
@@ -337,6 +334,34 @@ function DetalleContent({
           <MetaField label="Fecha de creación">
             {formatDateTime(orden.created_at || orden.fecha_pedido)}
           </MetaField>
+          <MetaField label="Estado">{renderEstadoBadge(orden.estado)}</MetaField>
+        </div>
+      </CaptureSection>
+
+      <CaptureSection title="Entrega">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {/* REQ-254: Notas + logística en Entrega */}
+          <div className="sm:col-span-3">
+            <MetaField label="Notas generales">
+              <p className="whitespace-pre-wrap">
+                {notasGenerales.trim() || "—"}
+              </p>
+            </MetaField>
+          </div>
+          <MetaField label="Prioridad">
+            {prioridad ? (
+              <PolariaTableBadge
+                variant={prioridad.toLowerCase() === "urgente" ? "warning" : "neutral"}
+              >
+                {prioridad}
+              </PolariaTableBadge>
+            ) : (
+              "—"
+            )}
+          </MetaField>
+          <MetaField label="Moneda">
+            <TextValue value={captura.moneda || "MXN"} />
+          </MetaField>
           <MetaField label="Fecha de entrega">
             <TextValue
               value={
@@ -349,37 +374,14 @@ function DetalleContent({
           <MetaField label="Ventana de entrega">
             <TextValue value={captura.ventanaEntrega} />
           </MetaField>
-          <MetaField label="Prioridad">
-            {prioridad ? (
-              <PolariaTableBadge
-                variant={prioridad.toLowerCase() === "urgente" ? "warning" : "neutral"}
-              >
-                {prioridad}
-              </PolariaTableBadge>
-            ) : (
-              "—"
-            )}
-          </MetaField>
-          <MetaField label="Estado">{renderEstadoBadge(orden.estado)}</MetaField>
-          <MetaField label="Moneda">
-            <TextValue value={captura.moneda || "MXN"} />
-          </MetaField>
+          {/* REQ-217: dirección full-width; Andén oculto */}
           <div className="sm:col-span-3">
-            <MetaField label="Notas generales">
-              <TextValue value={notasGenerales} />
+            <MetaField label="Dirección de entrega">
+              <p className="whitespace-pre-wrap">
+                {captura.direccion.trim() || "—"}
+              </p>
             </MetaField>
           </div>
-        </div>
-      </CaptureSection>
-
-      <CaptureSection title="Entrega">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <MetaField label="Dirección de entrega">
-            <TextValue value={captura.direccion} />
-          </MetaField>
-          <MetaField label="Andén / punto de recepción">
-            <TextValue value={captura.anden} />
-          </MetaField>
           <MetaField label="Contacto del cliente">
             <TextValue value={captura.contacto} />
           </MetaField>
@@ -468,10 +470,6 @@ function DetalleContent({
           <OrdenVentaDetalleProductos
             filas={montosLinea}
             hija={hija}
-            cantidadTexto={formatOrdenVentaCantidadConUnidad(
-              hija ? pesoHija : sumOrdenVentaCantidadKg(orden),
-              resolveUnidadComunLineas(lineItems) ?? UNIDAD_MEDIDA_VENTA_DEFAULT,
-            )}
             subtotal={subtotalOt}
             descuentos={descuentosOt}
             iva={ivaOt}

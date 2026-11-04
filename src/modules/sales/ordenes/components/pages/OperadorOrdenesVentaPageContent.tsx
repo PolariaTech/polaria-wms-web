@@ -150,6 +150,8 @@ export function OperadorOrdenesVentaPageContent({
   ); // null = Todos
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** REQ-199: id del borrador tras leer archivo (sin pasar a modo edición). */
+  const [createDraftId, setCreateDraftId] = useState<string | null>(null);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [cypherId, setCypherId] = useState<string | null>(null);
   const setCypherOpen = useShellOverlayStore((s) => s.setCypherOpen);
@@ -1113,7 +1115,8 @@ export function OperadorOrdenesVentaPageContent({
   const companionWithCypher = Boolean(
     !inspect &&
       cypherId &&
-      ((isCreateOpen && editingId === cypherId) ||
+      ((isCreateOpen &&
+        (editingId === cypherId || createDraftId === cypherId)) ||
         Boolean(detalleId && detalleId === cypherId)),
   );
 
@@ -1180,8 +1183,7 @@ export function OperadorOrdenesVentaPageContent({
       </div>
 
       <PolariaDataTable
-        title="Órdenes de venta"
-        subtitle="Venta, cliente y estado."
+        title=""
         isLoading={isLoading}
         error={
           error ??
@@ -1209,6 +1211,7 @@ export function OperadorOrdenesVentaPageContent({
                 onClick: () => {
                   if (!codigoCuenta) return;
                   setEditingId(null);
+                  setCreateDraftId(null);
                   setIsCreateOpen(true);
                 },
               }
@@ -1219,6 +1222,7 @@ export function OperadorOrdenesVentaPageContent({
             const id = row.idOrdenVenta;
             setDetalleId(null);
             setEditingId(id);
+            setCreateDraftId(null);
             setIsCreateOpen(true);
             setCypherId(id);
             return;
@@ -1231,6 +1235,7 @@ export function OperadorOrdenesVentaPageContent({
             ? `Revisar pedido ${row.venta} con Cypher`
             : `Ver detalle de venta ${row.venta}`
         }
+        className="[&>header>div:first-child]:hidden [&>header]:justify-end"
         tableClassName={ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS}
       />
 
@@ -1401,14 +1406,21 @@ export function OperadorOrdenesVentaPageContent({
             : null
         }
         cypherOpen={Boolean(
-          editingId && cypherId && editingId === cypherId,
+          cypherId &&
+            ((editingId && editingId === cypherId) ||
+              (createDraftId && createDraftId === cypherId)),
         )}
+        onOrdenIdReady={(id) => {
+          // REQ-199: no setear editingId (eso reinicia el form); solo Cypher.
+          setCreateDraftId(id);
+          setCypherId(id);
+        }}
         onToggleCypher={
-          editingId
+          editingId || createDraftId
             ? () => {
-                setCypherId((prev) =>
-                  prev === editingId ? null : editingId,
-                );
+                const target = editingId ?? createDraftId;
+                if (!target) return;
+                setCypherId((prev) => (prev === target ? null : target));
               }
             : undefined
         }
@@ -1421,13 +1433,17 @@ export function OperadorOrdenesVentaPageContent({
         operadorRowsForDuplicado={rows}
         onClose={() => {
           // REQ-221: tras editar, volver al detalle de esa OV (no al listado).
-          const closingId = editingId;
+          const closingId = editingId ?? createDraftId;
           setIsCreateOpen(false);
           setEditingId(null);
+          setCreateDraftId(null);
           setReagruparAlAbrirId(null);
           setCompanionOtPicker(null);
           setCompanionIdComprador(null);
-          if (closingId) setDetalleId(closingId);
+          if (cypherId && closingId && cypherId === closingId) {
+            setCypherId(null);
+          }
+          if (editingId) setDetalleId(editingId);
         }}
         onCreated={() => {
           void reload();
@@ -1591,7 +1607,6 @@ export function OperadorOrdenesVentaPageContent({
   return (
     <OperationalModuleShell
       title="Órdenes venta"
-      description="Órdenes de venta manuales de la cuenta."
       gate={{ roles: ROLES_NIVEL_CUENTA }}
       dockForCypher={Boolean(cypherId)}
     >
