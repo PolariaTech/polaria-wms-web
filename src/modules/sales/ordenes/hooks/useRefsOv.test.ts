@@ -5,9 +5,9 @@ import { useRefsOv } from "./useRefsOv";
 describe("useRefsOv", () => {
   it("entrega las 12 refs del modal con los mismos valores iniciales de antes", () => {
     const { result } = renderHook(() => useRefsOv());
-    const r = result.current;
+    const refs = result.current;
 
-    expect(Object.keys(r).sort()).toEqual(
+    expect(Object.keys(refs).sort()).toEqual(
       [
         "bootstrapPromiseRef",
         "docsFileInputRef",
@@ -23,18 +23,18 @@ describe("useRefsOv", () => {
         "submitIntentRef",
       ].sort(),
     );
-    expect(r.selectedCompradorIdRef.current).toBe("");
-    expect(r.skipDiscrepanciaConfirmRef.current).toBe(false);
-    expect(r.skipSaveConfirmRef.current).toBe(false);
-    expect(r.submitIntentRef.current).toBe("emit");
-    expect(r.docsFileInputRef.current).toBeNull();
-    expect(r.bootstrapPromiseRef.current).toBeNull();
-    expect(r.seededOtIdsRef.current).toEqual(new Set());
-    expect(r.skipOtSeedFromOrigenRef.current).toBe(false);
-    expect(r.pendingDraftSaveAfterReorgRef.current).toBe(false);
-    expect(r.formScrollRef.current).toBeNull();
-    expect(r.formScrollTopRef.current).toBeNull();
-    expect(r.revisionFocusRequestRef.current).toBeNull();
+    expect(refs.selectedCompradorIdRef.current).toBe("");
+    expect(refs.skipDiscrepanciaConfirmRef.current).toBe(false);
+    expect(refs.skipSaveConfirmRef.current).toBe(false);
+    expect(refs.submitIntentRef.current).toBe("emit");
+    expect(refs.docsFileInputRef.current).toBeNull();
+    expect(refs.bootstrapPromiseRef.current).toBeNull();
+    expect(refs.seededOtIdsRef.current).toEqual(new Set());
+    expect(refs.skipOtSeedFromOrigenRef.current).toBe(false);
+    expect(refs.pendingDraftSaveAfterReorgRef.current).toBe(false);
+    expect(refs.formScrollRef.current).toBeNull();
+    expect(refs.formScrollTopRef.current).toBeNull();
+    expect(refs.revisionFocusRequestRef.current).toBeNull();
   });
 
   it("las refs son las mismas entre renders y conservan lo que se les escribe", () => {
@@ -52,12 +52,14 @@ describe("useRefsOv", () => {
   });
 
   it("cada instancia del modal tiene sus propias refs", () => {
-    const a = renderHook(() => useRefsOv());
-    const b = renderHook(() => useRefsOv());
+    const primeraInstancia = renderHook(() => useRefsOv());
+    const segundaInstancia = renderHook(() => useRefsOv());
 
-    a.result.current.submitIntentRef.current = "draft";
+    primeraInstancia.result.current.submitIntentRef.current = "draft";
 
-    expect(b.result.current.submitIntentRef.current).toBe("emit");
-    expect(b.result.current.seededOtIdsRef).not.toBe(a.result.current.seededOtIdsRef);
+    expect(segundaInstancia.result.current.submitIntentRef.current).toBe("emit");
+    expect(segundaInstancia.result.current.seededOtIdsRef).not.toBe(
+      primeraInstancia.result.current.seededOtIdsRef,
+    );
   });
 });

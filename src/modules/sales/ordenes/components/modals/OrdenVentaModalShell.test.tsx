@@ -142,6 +142,13 @@ describe("OrdenVentaModalShell — pie y encabezado (REQ-199 / REQ-232)", () => 
     expect(screen.queryByText(/actualiza los datos del pedido/i)).not.toBeInTheDocument();
   });
 
+  it("el fondo del modal no lo cierra: no hay botón de cerrar al tocar afuera (no se pierde lo escrito)", () => {
+    const { estado } = estadoShell();
+    render(<OrdenVentaModalShell estado={estado} />);
+
+    expect(screen.queryByRole("button", { name: "Cerrar modal" })).not.toBeInTheDocument();
+  });
+
   it("en una alta nueva el subtítulo es la descripción del formulario", () => {
     const { estado } = estadoShell();
     render(<OrdenVentaModalShell estado={estado} />);
