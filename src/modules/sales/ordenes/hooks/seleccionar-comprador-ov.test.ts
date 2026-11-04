@@ -4,7 +4,10 @@ import {
   listCompradorProductoAliasAdmin,
   type CompradorListRow,
 } from "@/modules/admin-panel";
-import { fetchUltimosPreciosPorComprador } from "../../shared/services/sales.service";
+import {
+  fetchUltimaDireccionEntregaPorComprador,
+  fetchUltimosPreciosPorComprador,
+} from "../../shared/services/sales.service";
 import { seleccionarCompradorOv } from "./seleccionar-comprador-ov";
 
 vi.mock("@/modules/admin-panel", () => ({
@@ -13,6 +16,7 @@ vi.mock("@/modules/admin-panel", () => ({
 }));
 
 vi.mock("../../shared/services/sales.service", () => ({
+  fetchUltimaDireccionEntregaPorComprador: vi.fn(),
   fetchUltimosPreciosPorComprador: vi.fn(),
 }));
 
@@ -50,6 +54,9 @@ describe("seleccionarCompradorOv", () => {
     vi.mocked(getCompradorAdmin).mockReset();
     vi.mocked(listCompradorProductoAliasAdmin).mockReset();
     vi.mocked(fetchUltimosPreciosPorComprador).mockReset();
+    vi.mocked(fetchUltimaDireccionEntregaPorComprador).mockReset();
+    // REQ-252: por defecto no hay una última dirección confirmada.
+    vi.mocked(fetchUltimaDireccionEntregaPorComprador).mockResolvedValue(null);
   });
 
   it("sin cuenta deja el cliente elegido y no pide la ficha", () => {
@@ -104,10 +111,63 @@ describe("seleccionarCompradorOv", () => {
       ...ui,
     });
     await vi.waitFor(() =>
-      expect(ui.applyCompradorPrefill).toHaveBeenCalledWith(hotel, { centros: [], contactos: [] }, { onlyEmpty: true }),
+      expect(ui.applyCompradorPrefill).toHaveBeenCalledWith(
+        hotel,
+        { centros: [], contactos: [] },
+        { onlyEmpty: true, ultimaDireccionConfirmada: null },
+      ),
     );
     expect(ui.setPrecioOverrideByProducto).toHaveBeenCalledWith({ p1: 12 });
     expect(ui.setEquivalenciaByProducto).toHaveBeenCalledWith({ p1: "Palta" });
+  });
+
+  it("REQ-252: pasa al prefill la última dirección confirmada de ese cliente", async () => {
+    vi.mocked(getCompradorAdmin).mockResolvedValue({ ficha: { centros: [], contactos: [] } } as never);
+    vi.mocked(listCompradorProductoAliasAdmin).mockResolvedValue([] as never);
+    vi.mocked(fetchUltimosPreciosPorComprador).mockResolvedValue({});
+    vi.mocked(fetchUltimaDireccionEntregaPorComprador).mockResolvedValue("Blvd. Kukulcán km 9");
+    const ui = acciones();
+    seleccionarCompradorOv({
+      row: hotel,
+      codigoCuenta: "demo",
+      selectedCompradorIdRef: { current: "" },
+      ...ui,
+    });
+    await vi.waitFor(() =>
+      expect(ui.applyCompradorPrefill).toHaveBeenCalledWith(
+        hotel,
+        { centros: [], contactos: [] },
+        { onlyEmpty: true, ultimaDireccionConfirmada: "Blvd. Kukulcán km 9" },
+      ),
+    );
+    expect(fetchUltimaDireccionEntregaPorComprador).toHaveBeenCalledWith({
+      codigoCuenta: "demo",
+      idComprador: "c2",
+    });
+  });
+
+  it("REQ-252: si no se puede traer la última dirección, igual aplica la ficha y no avisa error", async () => {
+    vi.mocked(getCompradorAdmin).mockResolvedValue({ ficha: { centros: [], contactos: [] } } as never);
+    vi.mocked(listCompradorProductoAliasAdmin).mockResolvedValue([] as never);
+    vi.mocked(fetchUltimosPreciosPorComprador).mockResolvedValue({});
+    vi.mocked(fetchUltimaDireccionEntregaPorComprador).mockRejectedValue(new Error("sin red"));
+    const ui = acciones();
+    seleccionarCompradorOv({
+      row: hotel,
+      codigoCuenta: "demo",
+      selectedCompradorIdRef: { current: "" },
+      ...ui,
+    });
+    await vi.waitFor(() =>
+      expect(ui.applyCompradorPrefill).toHaveBeenCalledWith(
+        hotel,
+        { centros: [], contactos: [] },
+        { onlyEmpty: true, ultimaDireccionConfirmada: null },
+      ),
+    );
+    expect(ui.setError).not.toHaveBeenCalledWith(
+      "Se seleccionó el cliente, pero no se pudieron cargar sus datos de alta.",
+    );
   });
 
   it("si la ficha falla avisa y no deshace la selección", async () => {

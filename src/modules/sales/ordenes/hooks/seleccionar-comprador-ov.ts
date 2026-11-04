@@ -6,7 +6,10 @@ import {
   type CompradorListRow,
 } from "@/modules/admin-panel";
 import type { CompradorAltaFicha } from "@/modules/admin-panel/compradores/utils/comprador-alta";
-import { fetchUltimosPreciosPorComprador } from "../../shared/services/sales.service";
+import {
+  fetchUltimaDireccionEntregaPorComprador,
+  fetchUltimosPreciosPorComprador,
+} from "../../shared/services/sales.service";
 import { debeAvisarVerificarDireccion } from "../utils/pedido/debe-avisar-direccion";
 import { formatCompradorLabel } from "../utils/pedido/orden-venta-create-helpers";
 import { preciosYEquivalenciasDeComprador } from "./useClienteOv";
@@ -35,7 +38,7 @@ export function seleccionarCompradorOv(input: {
   applyCompradorPrefill: (
     row: CompradorListRow,
     ficha: CompradorAltaFicha,
-    options?: { onlyEmpty?: boolean },
+    options?: { onlyEmpty?: boolean; ultimaDireccionConfirmada?: string | null },
   ) => void;
   setPrecioOverrideByProducto: (value: Record<string, number>) => void;
   setEquivalenciaByProducto: (value: Record<string, string>) => void;
@@ -98,13 +101,23 @@ export function seleccionarCompradorOv(input: {
 
   if (!codigoCuenta) return;
 
-  void getCompradorAdmin({
-    codigoCuenta,
-    idComprador: row.idComprador,
-  })
-    .then((detalle) => {
+  void Promise.all([
+    getCompradorAdmin({
+      codigoCuenta,
+      idComprador: row.idComprador,
+    }),
+    // REQ-252: si falla (o no hay), se usa la dirección de la ficha como antes.
+    fetchUltimaDireccionEntregaPorComprador({
+      codigoCuenta,
+      idComprador: row.idComprador,
+    }).catch(() => null),
+  ])
+    .then(([detalle, ultimaDireccion]) => {
       if (selectedCompradorIdRef.current !== row.idComprador) return;
-      applyCompradorPrefill(row, detalle.ficha, { onlyEmpty: true });
+      applyCompradorPrefill(row, detalle.ficha, {
+        onlyEmpty: true,
+        ultimaDireccionConfirmada: ultimaDireccion,
+      });
     })
     .catch(() => {
       if (selectedCompradorIdRef.current !== row.idComprador) return;
