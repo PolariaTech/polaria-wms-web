@@ -240,6 +240,8 @@ export {
   type LineaOrigenOtSync,
 } from "./origen-correo-build-from-form";
 
+export { indexIdProductoVerificadoOrigen } from "./origen-correo-id-producto-verificado";
+
 export function isOrigenCorreoArray(value: unknown): value is OrigenCorreoRenglon[] {
   return Array.isArray(value);
 }

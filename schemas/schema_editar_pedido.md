@@ -17,7 +17,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | Folio de factura | Texto | No | — | — | No | — | — | Sin mensaje de error: el vacío y cualquier texto se guardan. | Front |
 | Fecha de creación | Texto | No | — | — | No | — | — | Sin mensaje de error: no se edita ni se guarda desde este campo. | Front |
-| Dirección de entrega | Texto | No en avance; Sí al confirmar | — | Última OV confirmada del comprador, o dirección de ficha | No | Razón social (comprador) | Al elegir razón social se prellena; si el usuario ya escribió y onlyEmpty, no se pisa | Completa la dirección de entrega. | Front |
+| Dirección de entrega | Texto | No | — | Última OV confirmada del comprador, o dirección de ficha | No | Razón social (comprador) | Al elegir razón social se prellena; si el usuario ya escribió y onlyEmpty, no se pisa | Sin mensaje de bloqueo al confirmar: vacío se guarda; puede marcarse en missingFields si el origen no la trajo. | Front |
 | Notas generales del pedido | Texto | No | — | — | No | — | — | Sin mensaje de error: vacío se guarda. | Front |
 
 ### Tabla 2 — Interacción (Nivel 2)
@@ -66,7 +66,7 @@
 
 ### Notas y justificaciones
 
-Esta versión del schema documenta Folio de factura, Fecha de creación y los cambios de layout/prefill del lote En Revisión OV (REQ-215/216/217/220/224/232/252/254). Las reglas de validación de Dirección y Notas no cambian respecto al formulario ya existente; solo se reubicaron en el layout y Dirección gana prefill desde la última OV confirmada del comprador (REQ-252).
+Esta versión del schema documenta Folio de factura, Fecha de creación y los cambios de layout/prefill del lote En Revisión OV (REQ-215/216/217/220/224/232/252/254). Las reglas de validación de Dirección y Notas no cambian respecto al formulario ya existente; solo se reubicaron en el layout y Dirección gana prefill desde la última OV confirmada del comprador (REQ-252). Confirmar no exige dirección no vacía (no hay `setError` ni return en `handleSubmit` por ese campo); la obligatoriedad visual vía `missingFields` es orientativa desde el origen IA.
 
 Fecha de creación solo aparece al editar un pedido. El input es de solo lectura: muestra formatDateTime de created_at, y si no hay, de fecha_pedido. No se envía al guardar.
 
