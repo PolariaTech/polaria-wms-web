@@ -37,6 +37,7 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.tsx` — autorizada por el usuario el 2026-11-05
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.test.tsx` — autorizada por el usuario el 2026-11-05
 - `src/modules/sales/ordenes/utils/ot/aplicar-correccion-correo.ts` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/utils/ot/aplicar-correccion-correo.test.ts` — autorizada por el usuario el 2026-11-05
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/config/routes.ts`
