@@ -93,7 +93,7 @@ export function OrdenTrabajoChipSelector({
             role="option"
             aria-selected={selected}
             aria-label={`Orden de trabajo ${n}${item.label ? `: ${item.label}` : ""}`}
-            title={item.label || `OT ${n}`}
+            title={item.label || `TAREA ${n}`}
             onClick={() => onSelect(item.id)}
             className={cn(
               "inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-2.5",

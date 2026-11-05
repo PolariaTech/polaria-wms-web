@@ -13,66 +13,22 @@ import {
 import { mapPedidoExtraidoToForm } from "../utils/pedido/map-pedido-extraido-to-form";
 import { isFechaEntregaIsoValida } from "../utils/pedido/pedido-form-validation";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/pedido/prefill-orden-venta-from-comprador";
+import { resolveOccCampoFormulario } from "../utils/pedido/occ-alineada-listado-ov";
 import {
   resolveCabeceraGuardada,
   resolvePropuestaClienteMateoAlReabrir,
 } from "../utils/pedido/resolve-cabecera-guardada";
 import { applyVerificacionesOrigenALineas } from "../utils/pedido/apply-verificaciones-origen-lineas";
+import { mergeLineasBdConOrigenPendiente } from "../utils/pedido/merge-lineas-bd-y-origen";
 import { lineaFormDesdeIa, toDateInputValue } from "../utils/pedido/orden-venta-create-helpers";
 import {
   rankCompradoresFromNombre,
   shouldAutoAssignComprador,
 } from "../utils/match/match-comprador-from-nombre";
-import type { LineaVentaForm } from "../types/orden-venta-create-modal.types";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
-import type { OrdenTrabajoHija } from "../utils/origen/origen-correo-ordenes-trabajo";
 import { preciosYEquivalenciasDeComprador } from "./useClienteOv";
 
-export function aplicarDetalleSinMateo(input: {
-  ovMaterializada: boolean;
-  lineasDesdeDetalle: () => LineaVentaForm[];
-  hijasEdit: OrdenTrabajoHija[];
-  idCompradorDetalle: string;
-  nombreEscritoOrigen: string | null;
-  compradorRows: CompradorListRow[];
-  skipOtSeedFromOrigenRef: { current: boolean };
-  setLineas: (value: LineaVentaForm[]) => void;
-  setStartMode: (value: "docs") => void;
-  setFormOtPage: (value: number) => void;
-  setStep: (value: "form") => void;
-  setCompradorNombreIa: (value: string | null) => void;
-  setCompradorLabel: (value: string) => void;
-  setCompradorSugerencias: (value: CompradorListRow[]) => void;
-  setMissingFields: (value: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
-}) {
-  const {
-    ovMaterializada, lineasDesdeDetalle, hijasEdit, idCompradorDetalle,
-    nombreEscritoOrigen, compradorRows, skipOtSeedFromOrigenRef, setLineas,
-    setStartMode, setFormOtPage, setStep, setCompradorNombreIa, setCompradorLabel,
-    setCompradorSugerencias, setMissingFields,
-  } = input;
-  skipOtSeedFromOrigenRef.current = ovMaterializada;
-  setLineas(lineasDesdeDetalle());
-  if (hijasEdit.length > 0) {
-    setStartMode("docs");
-    setFormOtPage(0);
-    setStep("form");
-  }
-  const propuestaMateo = resolvePropuestaClienteMateoAlReabrir({
-    idComprador: idCompradorDetalle,
-    nombreEnOrigen: nombreEscritoOrigen,
-  });
-  if (!propuestaMateo) return;
-  setCompradorNombreIa(propuestaMateo);
-  setCompradorLabel(propuestaMateo);
-  const compradorRank = rankCompradoresFromNombre(propuestaMateo, compradorRows);
-  setCompradorSugerencias(compradorRank.candidates.map((c) => c.comprador).slice(0, 4));
-  setMissingFields((prev) => {
-    const next = new Set(prev);
-    next.add("cliente");
-    return next;
-  });
-}
+export { aplicarDetalleSinMateo } from "./aplicar-detalle-sin-mateo";
 
 export function cargarFichaYPreciosDeComprador(input: {
   idCompradorDetalle: string;
@@ -240,7 +196,16 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
             propuesta: mapped,
           });
           setObservaciones(cabecera.observaciones);
-          setOrdenCompraHotel(cabecera.ordenCompraHotel);
+          // REQ-170: misma OCC que la tabla (hotel + origen_correo), sin flash vacío.
+          setOrdenCompraHotel(
+            resolveOccCampoFormulario({
+              ordenCompraHotelGuardada:
+                cabecera.ordenCompraHotel || detalle.orden_compra_hotel,
+              propuestaMateo: mapped.ordenCompraHotel,
+              origenTexto: detalle.origen_texto,
+              origenCorreo: detalle.origen_correo ?? origenCorreoRows,
+            }),
+          );
           setDireccion(mapped.direccion);
           setAnden(mapped.anden);
           setContacto(mapped.contacto);
@@ -272,8 +237,16 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
           setMissingFields(nextMissing);
           setDiscrepancias(mapped.discrepancias);
           if (ovMaterializada) {
+            // REQ-236: BD + renglones origen pendientes + _idProducto del avance.
             skipOtSeedFromOrigenRef.current = true;
-            setLineas(lineasDesdeDetalle());
+            setLineas(
+              mergeLineasBdConOrigenPendiente({
+                lineasBd: lineasDesdeDetalle(),
+                hijas: hijasEdit,
+                origenRows: origenCorreoRows,
+                productos: productoRows,
+              }),
+            );
           } else {
             skipOtSeedFromOrigenRef.current = false;
             // REQ-201: restaurar productos ya verificados al grabar avance.

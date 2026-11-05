@@ -32,44 +32,11 @@ import {
   getCuentaZonaHorariaOption,
   resolveCuentaZonaHorariaId,
 } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
+import { diaSemanaEntregaEs } from "../utils/pedido/dia-semana-entrega";
 
 export const PRODUCTOS_POR_HOJA_TAREA = 49;
 
-const DIAS_SEMANA_ES = [
-  "DOMINGO",
-  "LUNES",
-  "MARTES",
-  "MIÉRCOLES",
-  "JUEVES",
-  "VIERNES",
-  "SÁBADO",
-] as const;
-
-/** REQ-143: día de entrega en mayúsculas a partir de DD/MM/AAAA o ISO. */
-export function diaSemanaEntregaEs(fecha: string): string {
-  const raw = fecha.trim();
-  if (!raw) return "";
-  let y = 0;
-  let m = 0;
-  let d = 0;
-  const dmY = raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
-  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (dmY) {
-    d = Number(dmY[1]);
-    m = Number(dmY[2]);
-    y = Number(dmY[3]);
-  } else if (iso) {
-    y = Number(iso[1]);
-    m = Number(iso[2]);
-    d = Number(iso[3]);
-  } else {
-    return "";
-  }
-  if (!y || !m || !d) return "";
-  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  if (Number.isNaN(date.getTime())) return "";
-  return DIAS_SEMANA_ES[date.getUTCDay()] ?? "";
-}
+export { diaSemanaEntregaEs };
 
 /**
  * Formato meta del PDF: dd/mm/aaaa HH:mm en zona de la cuenta (default Cancún).

@@ -38,6 +38,7 @@ import {
   parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
 } from "../../utils/pedido/build-orden-venta-captura-observaciones";
+import { diaSemanaEntregaEsTitulo } from "../../utils/pedido/dia-semana-entrega";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
@@ -61,6 +62,7 @@ import {
 } from "./detalle-venta-presentacion";
 import { useRecargaFolioFactura } from "../../surtido/folio-factura-captura";
 import { OrdenVentaDetalleProductos } from "./OrdenVentaDetalleProductos";
+import { OrdenVentaDetalleIdentidadCliente } from "./OrdenVentaDetalleIdentidadCliente";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
 import {
   formatCompradorOrdenVenta,
@@ -310,15 +312,10 @@ function DetalleContent({
     <>
       <CaptureSection title="Datos del pedido">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <MetaField label="Cliente">
-            <TextValue value={clienteOrigenFallback} />
-          </MetaField>
-          <MetaField label="Código de cliente">
-            <TextValue value={orden.comprador_codigo ?? ""} />
-          </MetaField>
-          <MetaField label="Denominación comercial">
-            <TextValue value={orden.comprador_apodo ?? ""} />
-          </MetaField>
+          <OrdenVentaDetalleIdentidadCliente
+            orden={orden}
+            clienteNombre={clienteOrigenFallback}
+          />
           <MetaField label="Orden de compra del cliente">
             <TextValue value={captura.ordenCompraHotel} />
           </MetaField>
@@ -367,6 +364,16 @@ function DetalleContent({
               value={
                 captura.fechaEntrega
                   ? formatCapturaFecha(captura.fechaEntrega)
+                  : ""
+              }
+            />
+          </MetaField>
+          {/* REQ-257 */}
+          <MetaField label="Día de la semana">
+            <TextValue
+              value={
+                captura.fechaEntrega
+                  ? diaSemanaEntregaEsTitulo(captura.fechaEntrega)
                   : ""
               }
             />

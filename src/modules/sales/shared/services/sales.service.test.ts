@@ -1243,7 +1243,12 @@ describe("sales.service", () => {
         observaciones: "Nota",
         created_at: "2026-06-28T12:00:00.000Z",
         updated_at: "2026-06-28T12:00:00.000Z",
-        comprador: { nombre: "Edgar Escobar", codigo: "3Q12U" },
+        comprador: {
+          nombre: "Edgar Escobar",
+          codigo: "3Q12U",
+          apodo: "Edgar",
+          rfc: "EESC800101ABC",
+        },
         orden_venta_linea: [
           {
             id_linea_orden_venta: "line-1",
@@ -1288,6 +1293,7 @@ describe("sales.service", () => {
 
     expect(detalle.codigo).toBe("OV-001");
     expect(detalle.comprador_nombre).toBe("Edgar Escobar");
+    expect(detalle.comprador_rfc).toBe("EESC800101ABC");
     expect(detalle.lineas).toHaveLength(1);
     expect(detalle.lineas[0]?.cantidad_pedida).toBe(10);
     expect(detalle.lineas[0]?.precio_unitario).toBe(1000);

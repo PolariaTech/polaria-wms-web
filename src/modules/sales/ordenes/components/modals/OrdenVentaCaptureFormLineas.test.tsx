@@ -89,8 +89,8 @@ describe("OrdenVentaCaptureFormLineas — pie de Productos (REQ-224)", () => {
       />,
     );
 
-    expect(screen.getByText("Total OT")).toBeInTheDocument();
-    expect(screen.getByText("Total OV (3 OT)")).toBeInTheDocument();
+    expect(screen.getByText("Total TAREA")).toBeInTheDocument();
+    expect(screen.getByText("Total OV (3 TAREA)")).toBeInTheDocument();
   });
 
   it("agregar producto y quitar una línea avisan al formulario", async () => {

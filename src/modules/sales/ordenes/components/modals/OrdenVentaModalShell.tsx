@@ -16,8 +16,21 @@ import {
   tituloCreateModalOv,
 } from "./orden-venta-create-modal-cabecera";
 import { OrdenVentaModalCuerpo, OrdenVentaModalOverlays, type OrdenVentaFormEstado } from "./OrdenVentaDiscrepanciasDialog";
+import { revisionPendienteVisible } from "../../utils/pedido/occ-alineada-listado-ov";
+import { ETIQUETA_TAREA, etiquetaTareaIndice } from "./etiqueta-tarea-ot";
 
 export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado }) {
+  // REQ-170: no mostrar chips de revisión (p. ej. «Sin productos») mientras hidrata.
+  const revisionLista = revisionPendienteVisible({
+    formDataReady: estado.formDataReady,
+    isLoading: estado.isLoading,
+    isReadingIa: estado.isReadingIa,
+  });
+  const revisionPendiente = revisionLista ? estado.revisionPendiente : null;
+  const confirmBloqueoReason = revisionLista
+    ? estado.confirmBloqueoReason
+    : null;
+
   return (
     <>
       {estado.showMateoLoading ? (
@@ -62,7 +75,10 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
             <div className="min-w-0 max-w-full text-center">
               <p className="truncate polaria-text-body-sm font-semibold text-polaria-w">
                 <span className="text-polaria-teal">
-                  OT {estado.formOtSafePage + 1}/{estado.ordenesTrabajoForm.length}
+                  {etiquetaTareaIndice(
+                    estado.formOtSafePage + 1,
+                    estado.ordenesTrabajoForm.length,
+                  )}
                 </span>
                 <span className="mx-1.5 text-polaria-w-20">·</span>
                 {estado.hijaFormActiva.almacen?.trim() || estado.hijaFormActiva.label}
@@ -112,7 +128,7 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
             <OrdenTrabajoPager
               page={estado.formOtSafePage}
               total={estado.ordenesTrabajoForm.length}
-              label="Pedido OT"
+              label={ETIQUETA_TAREA}
               nextDisabled={estado.otPagerNextBlocked}
               nextDisabledHint="Completa los campos obligatorios (*) para continuar"
               onPrev={() => estado.goToOtPage(Math.max(0, estado.formOtSafePage - 1))}
@@ -130,8 +146,8 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
             reagruparAplicada={estado.reagruparAplicada}
             onDeshacerReagrupacion={estado.handleDeshacerReagrupacion}
             error={estado.error}
-            revisionPendiente={estado.revisionPendiente}
-            confirmBloqueoReason={estado.confirmBloqueoReason}
+            revisionPendiente={revisionPendiente}
+            confirmBloqueoReason={confirmBloqueoReason}
             confirmSubmitDisabled={estado.confirmSubmitDisabled}
             paginarPorOt={estado.paginarPorOt}
             ordenesTrabajoCount={estado.ordenesTrabajoForm.length}

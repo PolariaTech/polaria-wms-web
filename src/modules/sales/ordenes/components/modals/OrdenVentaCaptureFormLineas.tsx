@@ -6,7 +6,7 @@ import {
   POLARIA_FORM_INPUT_CLASS_COMPACT,
   POLARIA_FORM_SELECT_CLASS_COMPACT,
 } from "@/components/shared/form/PolariaFormField";
-import { formatPrecioEs, parseDecimalEs } from "@/lib/utils/decimal-es";
+import { formatPrecioEs, parseDecimalEs } from "@/lib/utils/decimal-es";
 import { textoConteoProductos } from "./detalle-venta-presentacion";
 import { cn } from "@/lib/utils/cn";
 import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../../shared/types/sales.types";
@@ -20,6 +20,7 @@ import {
 } from "../../utils/pedido/orden-venta-create-helpers";
 import { CaptureSection } from "./CaptureSection";
 import { CatalogStatusHint } from "./catalog-status-hint";
+import { ETIQUETA_TAREA } from "./etiqueta-tarea-ot";
 import {
   CeldaCantidad,
   CeldaEspecificacion,
@@ -149,7 +150,7 @@ function Totales(props: {
           </tr>
           <tr>
             <td className="pt-2 pr-8 polaria-text-body-sm font-semibold text-polaria-w">
-              {props.mostrarTotalOv ? "Total OT" : "Total"}
+              {props.mostrarTotalOv ? `Total ${ETIQUETA_TAREA}` : "Total"}
             </td>
             <td className="pt-2 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
               ${formatPrecioEs(props.total)}
@@ -158,7 +159,7 @@ function Totales(props: {
           {props.mostrarTotalOv ? (
             <tr>
               <td className="pt-1 pr-8 polaria-text-body-sm font-semibold text-polaria-w">
-                Total OV ({props.otCount} OT)
+                Total OV ({props.otCount} {ETIQUETA_TAREA})
               </td>
               <td className="pt-1 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
                 ${formatPrecioEs(props.totalOv)}

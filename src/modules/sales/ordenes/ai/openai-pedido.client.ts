@@ -32,6 +32,7 @@ import {
   serializeCuerpoMensaje,
   type CuerpoMensajeBloque,
 } from "../utils/origen/texto-origen-pedido";
+import { filtrarLineasExtraidasPedibles } from "../utils/origen/renglon-origen-pedible";
 
 export { calcularCantidadDesdeCajas, pesoPorCajaKg };
 
@@ -952,7 +953,9 @@ export async function extraerPedido({
     parsed.notasGeneralesAlmacen?.trim() ||
     parsed.observaciones?.trim() ||
     "";
-  const origenCorreo = lineas.map((l, index) => ({
+  // REQ-234: no armar origen_correo / form con SKUs cantidad <= 0.
+  const lineasPedibles = filtrarLineasExtraidasPedibles(lineas);
+  const origenCorreo = lineasPedibles.map((l, index) => ({
     // ISO primero: al reabrir OV, parseFechaOrigen no debe romper MM/DD BirchStreet.
     Fecha: fechaEntrega || fechaLabel || "",
     Unidad: l.unidad === "KGM" ? "KGS" : l.unidad || "",
@@ -1020,7 +1023,7 @@ export async function extraerPedido({
 
   const nombreCliente = parsed.nombreCliente?.trim() || null;
   const centroDesdeLineas =
-    lineas.find((l) => l.almacen?.trim())?.almacen?.trim() || null;
+    lineasPedibles.find((l) => l.almacen?.trim())?.almacen?.trim() || null;
   const pedido: PedidoExtraido = {
     fechaEntrega,
     centroConsumo: resolveCentroConsumoSinConfundirConCliente(
@@ -1047,7 +1050,7 @@ export async function extraerPedido({
     sustituciones: parsed.sustituciones,
     lote: parsed.lote,
     temperatura: parsed.temperatura,
-    lineas,
+    lineas: lineasPedibles,
     origenCorreo,
     advertencia: parsed.advertencia,
     archivosNoLegibles,

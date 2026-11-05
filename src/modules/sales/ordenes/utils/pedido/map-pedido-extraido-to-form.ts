@@ -34,6 +34,7 @@ import {
 } from "./resolve-cantidad-envase";
 import { sanitizeNotasGeneralesPedido } from "../origen/texto-origen-pedido";
 import { resolveOrdenCompraLimpia } from "./normalize-numero-pedido";
+import { esLineaExtraidaPedible } from "../origen/renglon-origen-pedible";
 
 export interface SugerenciaProductoCatalogo {
   idProducto: string;
@@ -769,6 +770,8 @@ export function mapPedidoExtraidoToForm(params: {
   const lineas: LineaVentaFromIa[] = [];
 
   for (const linea of pedido.lineas) {
+    // REQ-234: no sembrar en form SKUs con cantidad <= 0.
+    if (!esLineaExtraidaPedible(linea)) continue;
     const match = resolveProductoMatch(linea, byKey, byCodigo, byKeyNorm);
     const textoOriginal = linea.textoOriginal?.trim() || "";
 

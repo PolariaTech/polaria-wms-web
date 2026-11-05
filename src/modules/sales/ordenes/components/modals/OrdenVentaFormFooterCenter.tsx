@@ -55,7 +55,7 @@ export function OrdenVentaFormFooterCenter(props: {
       {reagruparAplicada ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-polaria-t-20 bg-polaria-t-08 px-2.5 py-1.5">
           <span className="polaria-text-caption text-polaria-w">
-            {`${reagruparAplicada.correccion ? "Corregido con el correo" : "Reorganizado con IA"} (${reagruparAplicada.resumen.antes} → ${reagruparAplicada.resumen.despues} OT). Guarda para conservarlo.`}
+            {`${reagruparAplicada.correccion ? "Corregido con el correo" : "Reorganizado con IA"} (${reagruparAplicada.resumen.antes} → ${reagruparAplicada.resumen.despues} TAREA). Guarda para conservarlo.`}
           </span>
           <button
             type="button"

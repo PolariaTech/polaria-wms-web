@@ -17,7 +17,8 @@ import {
   stripSurtidoFotoQrFromNotas,
 } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { mapDetalleLineasAForm, ovTieneLineasMaterializadas } from "../utils/pedido/map-detalle-lineas-a-form";
-import { resolveOrdenCompraLimpia, sanitizeOrigenCorreoNumeroPedido } from "../utils/pedido/normalize-numero-pedido";
+import { resolveOccCampoFormulario } from "../utils/pedido/occ-alineada-listado-ov";
+import { sanitizeOrigenCorreoNumeroPedido } from "../utils/pedido/normalize-numero-pedido";
 import { resolverFechaCreacionEdicion } from "../utils/pedido/resolver-fecha-creacion-edicion";
 import { sanitizeTelefonoContacto } from "../utils/pedido/sanitize-telefono-contacto";
 import { withNotasGeneralesOnHijas } from "../utils/ot/notas-generales-ot";
@@ -87,11 +88,15 @@ export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
           if (!raw) return "";
           return isCuerpoMensajeFormato(raw) ? raw : cleanCorreoBodyForNotas(raw);
         })();
-        const occLimpia = resolveOrdenCompraLimpia(
-          detalle.orden_compra_hotel,
-          origenTextoLoad,
+        // REQ-170: alinear OCC del formulario con la columna OCC del listado.
+        setOrdenCompraHotel(
+          resolveOccCampoFormulario({
+            ordenCompraHotelGuardada: detalle.orden_compra_hotel,
+            propuestaMateo: "",
+            origenTexto: origenTextoLoad,
+            origenCorreo: detalle.origen_correo,
+          }),
         );
-        setOrdenCompraHotel(occLimpia);
         setCentroConsumo(detalle.centro_consumo?.trim() || "");
         const notasCanon = sanitizeNotasGeneralesPedido(
           stripSurtidoFotoQrFromNotas(detalle.notas_almacen ?? "") ||
@@ -217,6 +222,8 @@ export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
             setCompradorLabel,
             setCompradorSugerencias,
             setMissingFields,
+            origenCorreoRows,
+            productoRows,
           });
         }
 

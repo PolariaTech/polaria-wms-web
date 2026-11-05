@@ -358,7 +358,7 @@ function buildOtRows(
       usuario: usuarioDestino,
       mateoSinPropuesta: true,
     }),
-    group: `OT ${otIndex + 1}`,
+    group: `TAREA ${otIndex + 1}`,
   });
 
   hija.renglones.forEach((renglon: OrigenCorreoRenglon, lineIndex) => {

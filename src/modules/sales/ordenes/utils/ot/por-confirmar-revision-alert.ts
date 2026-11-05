@@ -39,7 +39,8 @@ export interface RevisionPendiente {
 }
 
 function otShortLabel(index: number, total: number): string | null {
-  return total > 1 ? `OT ${index + 1}` : null;
+  // REQ-225: etiqueta visible «TAREA» (antes «OT»).
+  return total > 1 ? `TAREA ${index + 1}` : null;
 }
 
 function withOtSuffix(message: string, otLabel: string | null): string {

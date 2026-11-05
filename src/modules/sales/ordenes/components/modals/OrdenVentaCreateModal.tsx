@@ -21,6 +21,7 @@ import {useAperturaDesdeDocsOv, useForzarFormularioAlEditar, useResetFormularioO
 import {useCatalogoPickerOv, useEfectosCompaneroOv, useSembrarLineasDesdeOrigen} from "../../hooks/sembrar-lineas-desde-origen";
 import {useAplicarCorreccionCorreoOv, useDeshacerReagrupacionOv} from "../../hooks/aplicar-correccion-correo-ov";
 import {useAplicarReagrupacionOv, useCamposDeLaOtActiva, useEfectosFormularioOt} from "../../hooks/aplicar-reagrupacion-ov";
+import {useBloqueoPaintEdicionOv} from "../../hooks/bloqueo-paint-edicion-ov";
 import {useAbrirCapturaOv, useAvisosValidacionOv, usePrefillYDiscrepanciasOv} from "../../utils/pedido/campos-faltantes-ov";
 import {useCierreCapturaOv, useFolioDesdeLista} from "../../utils/pedido/aviso-direccion-ov";
 import {useSyncOtFormulario, useTotalesVentaOv} from "../../hooks/sync-ot-formulario";
@@ -241,6 +242,8 @@ export function OrdenVentaCreateModal({
   useFolioDesdeLista(bolsa);
   Object.assign(bolsa, usePrefillYDiscrepanciasOv(bolsa));
   Object.assign(bolsa, useSeleccionarCompradorModal(bolsa));
+  // REQ-170: tapar paint antes del bootstrap (layout) para no mostrar OCC/productos a medias.
+  useBloqueoPaintEdicionOv(bolsa);
   Object.assign(bolsa, useResetFormularioOv(bolsa));
   Object.assign(bolsa, useEditarLineasOv(bolsa));
   Object.assign(bolsa, useAbrirCapturaOv(bolsa));
