@@ -28,6 +28,8 @@
 - `src/modules/sales/ordenes/constants/ordenes-venta-table-layout.ts` — autorizada por el usuario el 2026-11-05
 - `src/modules/sales/ordenes/components/pages/ov-listado-chrome.ts` — autorizada por el usuario el 2026-11-05
 - `src/modules/sales/ordenes/components/pages/ov-listado-chrome.test.ts` — autorizada por el usuario el 2026-11-05
+- `package.json` — autorizada por el usuario el 2026-11-05
+- `package-lock.json` — autorizada por el usuario el 2026-11-05
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/config/routes.ts`
