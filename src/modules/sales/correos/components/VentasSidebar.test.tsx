@@ -38,6 +38,15 @@ describe("VentasSidebar (REQ-104)", () => {
     expect(useVentasMenuStore.getInitialState().abierto).toBe(false);
   });
 
+  it("«Estado de fotos» aparece apagado con «Próximamente»: sin enlace ni botón", () => {
+    render(<VentasSidebar />);
+
+    const fotos = screen.getByText("Estado de fotos").closest("[aria-disabled='true']");
+    expect(fotos).not.toBeNull();
+    expect(screen.queryByRole("link", { name: /fotos/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /fotos/i })).not.toBeInTheDocument();
+  });
+
   it("ofrece volver a las órdenes y las dos opciones de correos, con su ruta", () => {
     render(<VentasSidebar />);
 
@@ -45,6 +54,11 @@ describe("VentasSidebar (REQ-104)", () => {
     expect(screen.getByRole("link", { name: "Órdenes de venta" })).toHaveAttribute(
       "href",
       ROUTES.dashboardVentasOrdenes,
+    );
+    // «Impresión en batch» es un desplegable: las formas de imprimir aparecen al abrirlo.
+    expect(screen.getByRole("button", { name: "Impresión en batch" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
     );
     expect(screen.getByRole("link", { name: "Correos recibidos" })).toHaveAttribute(
       "href",
@@ -66,6 +80,7 @@ describe("VentasSidebar (REQ-104)", () => {
 
   it.each([
     [ROUTES.dashboardVentasOrdenes, "Órdenes de venta"],
+    [ROUTES.dashboardVentasImpresionBatch, "Impresión detallada"],
     [ROUTES.dashboardVentasCorreosMateo, "Correos recibidos"],
     [ROUTES.dashboardVentasCorreosDescartados, "Correos descartados"],
   ])("en %s marca como actual solo «%s»", (ruta, nombre) => {
@@ -172,8 +187,19 @@ describe("BotonMenuVentas (REQ-104)", () => {
 
     const boton = screen.getByRole("button", { name: MOSTRAR });
     expect(boton).not.toHaveClass("hidden");
-    // 44 px: el alto de la línea del título baja de eso en pantallas angostas
-    expect(boton).toHaveClass("min-h-11", "min-w-11");
+    // 0,875 em del título (≈ 42 px con el título de 48 px) y escala con él.
+    expect(boton).toHaveClass("h-[0.875em]", "w-[0.875em]");
+    expect(boton).not.toHaveClass("min-h-11");
+    // El área tocable sigue llegando a 44 px, con un pseudo-elemento invisible.
+    expect(boton.className).toContain("after:h-11");
+    expect(boton.className).toContain("after:w-11");
+  });
+
+  it("el icono y la esquina escalan con el botón; el de la columna conserva su tamaño fijo", () => {
+    useVentasMenuStore.setState({ abierto: false });
+    const { container } = render(<BotonMenuVentas />);
+    expect(container.querySelector("svg")).toHaveClass("h-[0.5em]", "w-[0.5em]");
+    expect(screen.getByRole("button", { name: MOSTRAR })).toHaveClass("rounded-[0.2em]");
   });
 
   it("no aparece fuera de Ventas", () => {
