@@ -69,6 +69,13 @@
 - `src/modules/sales/ordenes/utils/origen/pedido-from-origen-correo.ts` — autorizada por el usuario el 2026-11-05
 - `src/modules/sales/ordenes/utils/pedido/persist-linea-avance.ts` — autorizada por el usuario el 2026-11-05
 - `src/modules/sales/ordenes/utils/pedido/persist-linea-avance.test.ts` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/components/modals/orden-venta-footer-icon-tooltips.ts` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/components/modals/orden-venta-footer-icon-tooltips.test.ts` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/utils/ot/por-confirmar-revision-alert.ts` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/utils/ot/por-confirmar-revision-alert.test.ts` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/components/modals/OrdenVentaFormFooterCenter.tsx` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/components/modals/OrdenVentaFotosCapturaModal.tsx` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.test.tsx` — autorizada por el usuario el 2026-11-05
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/index.ts`
