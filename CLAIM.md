@@ -76,6 +76,8 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaFormFooterCenter.tsx` — autorizada por el usuario el 2026-11-05
 - `src/modules/sales/ordenes/components/modals/OrdenVentaFotosCapturaModal.tsx` — autorizada por el usuario el 2026-11-05
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.test.tsx` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/components/modals/OrdenVentaModalShell.test.tsx` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/components/modals/OrdenVentaFormFooterIconActions.test.tsx` — autorizada por el usuario el 2026-11-05
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/index.ts`
