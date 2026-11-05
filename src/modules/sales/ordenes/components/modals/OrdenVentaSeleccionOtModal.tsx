@@ -36,6 +36,9 @@ export interface OrdenVentaSeleccionOtModalProps {
   onConfirmar: (ots: number[]) => void;
 }
 
+/** Cajas que se reparten el ancho: más columnas en pantalla grande, sin dejar un hueco a la derecha. */
+const CUADRICULA = "grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3";
+
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 /**
@@ -156,10 +159,9 @@ export function OrdenVentaSeleccionOtModal({
         </p>
       }
     >
-      {/* px-1: el contenedor con scroll recorta el anillo de foco en el borde. max-w-3xl: en pantalla
-          grande el nombre de la OT y sus renglones quedarían a 1200 px y la fila no se seguiría con la vista. */}
-      <div className="flex max-w-3xl flex-col gap-4 px-1" aria-busy={carga.estado === "cargando"}>
-        {/* Arriba de la lista: con muchas OT quedaría bajo el scroll y nadie lo vería antes de imprimir. */}
+      {/* px-1: el contenedor con scroll recorta el anillo de foco en el borde. */}
+      <div className="flex flex-col gap-4 px-1" aria-busy={carga.estado === "cargando"}>
+        {/* Arriba de las cajas: con muchas OT quedaría bajo el scroll y nadie lo vería antes de imprimir. */}
         {imprimir && yaImpresa ? (
           <p
             role="status"
@@ -171,14 +173,11 @@ export function OrdenVentaSeleccionOtModal({
         ) : null}
 
         {carga.estado === "cargando" ? (
-          <div aria-hidden className="overflow-hidden rounded-xl border border-polaria-w-08">
-            {[0, 1, 2, 3].map((fila) => (
-              <div
-                key={fila}
-                className="flex h-14 items-center gap-4 border-b border-polaria-w-08 px-4 last:border-b-0"
-              >
-                <div className="h-4 w-4 rounded bg-polaria-w-08" />
-                <div className="h-3 w-40 animate-pulse rounded bg-polaria-w-08 motion-reduce:animate-none" />
+          <div aria-hidden className={CUADRICULA}>
+            {[0, 1, 2, 3, 4, 5].map((caja) => (
+              <div key={caja} className="flex h-28 flex-col gap-3 rounded-xl border border-polaria-w-08 p-4">
+                <div className="h-4 w-20 animate-pulse rounded bg-polaria-w-08 motion-reduce:animate-none" />
+                <div className="h-3 w-32 animate-pulse rounded bg-polaria-w-08 motion-reduce:animate-none" />
               </div>
             ))}
           </div>
@@ -209,55 +208,54 @@ export function OrdenVentaSeleccionOtModal({
         ) : null}
 
         {ots.length > 0 ? (
-          <fieldset disabled={ocupado} className="min-w-0">
+          <fieldset disabled={ocupado} className="flex min-w-0 flex-col gap-3">
             <legend className="sr-only">Órdenes de trabajo</legend>
-            <ul className="overflow-hidden rounded-xl border border-polaria-w-20">
-              {ots.length > 1 ? (
-                <li className="border-b border-polaria-w-20 bg-polaria-w-08">
-                  <label className="flex min-h-14 cursor-pointer items-center gap-4 px-4 py-3">
-                    <input
-                      ref={maestra}
-                      type="checkbox"
-                      checked={todas}
-                      onChange={alternarTodas}
-                      className={CHECK_CLASS}
-                    />
-                    <span className="min-w-0 flex-1 font-semibold text-polaria-w">
-                      Todas las órdenes de trabajo
-                    </span>
-                    <span className="shrink-0 text-sm tabular-nums text-polaria-w">
-                      {elegidas.size} de {ots.length}
-                    </span>
-                  </label>
-                </li>
-              ) : null}
+            {ots.length > 1 ? (
+              <label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 rounded-xl border border-polaria-w-20 bg-polaria-w-08 px-4 py-2">
+                <input
+                  ref={maestra}
+                  type="checkbox"
+                  checked={todas}
+                  onChange={alternarTodas}
+                  className={CHECK_CLASS}
+                />
+                <span className="font-semibold text-polaria-w">Todas las órdenes de trabajo</span>
+                <span className="text-sm tabular-nums text-polaria-w">
+                  {elegidas.size} de {ots.length}
+                </span>
+              </label>
+            ) : null}
+            <ul className={CUADRICULA}>
               {ots.map((ot) => {
                 const marcada = elegidas.has(ot.numero);
                 return (
-                  <li key={ot.numero} className="border-b border-polaria-w-08 last:border-b-0">
+                  <li key={ot.numero} className="flex">
                     <label
                       className={cn(
-                        "flex min-h-14 cursor-pointer items-center gap-4 px-4 py-3 transition-colors motion-reduce:transition-none",
-                        marcada ? "bg-polaria-t-20" : "hover:bg-polaria-w-08",
+                        "flex w-full cursor-pointer flex-col gap-2 rounded-xl border p-4 transition-colors motion-reduce:transition-none",
+                        "focus-within:ring-2 focus-within:ring-polaria-teal",
+                        marcada
+                          ? "border-polaria-teal bg-polaria-t-08"
+                          : "border-polaria-w-20 hover:bg-polaria-w-08",
                       )}
                     >
-                      <input
-                        ref={ots.length === 1 ? maestra : undefined}
-                        type="checkbox"
-                        checked={marcada}
-                        onChange={() => alternar(ot.numero)}
-                        className={CHECK_CLASS}
-                      />
-                      <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                      <span className="flex items-start justify-between gap-3">
                         <span className="font-semibold tabular-nums text-polaria-w">
                           OT {ot.numero} <span className="font-normal">de {ot.total}</span>
                         </span>
-                        <span className="truncate text-sm text-polaria-w" title={ot.centro}>
-                          {ot.centro || "Sin centro de consumo"}
-                        </span>
+                        <input
+                          ref={ots.length === 1 ? maestra : undefined}
+                          type="checkbox"
+                          checked={marcada}
+                          onChange={() => alternar(ot.numero)}
+                          className={CHECK_CLASS}
+                        />
                       </span>
-                      <span className="shrink-0 text-right text-sm tabular-nums text-polaria-w">
-                        {plural(ot.renglones, "renglón", "renglones")}, {plural(ot.hojas, "hoja", "hojas")}
+                      <span className="line-clamp-2 text-sm leading-snug text-polaria-w" title={ot.centro}>
+                        {ot.centro || "Sin centro de consumo"}
+                      </span>
+                      <span className="mt-auto text-sm tabular-nums text-polaria-w">
+                        {plural(ot.renglones, "producto", "productos")} · {plural(ot.hojas, "hoja", "hojas")}
                       </span>
                     </label>
                   </li>
@@ -266,7 +264,6 @@ export function OrdenVentaSeleccionOtModal({
             </ul>
           </fieldset>
         ) : null}
-
       </div>
     </PolariaFormModal>
   );

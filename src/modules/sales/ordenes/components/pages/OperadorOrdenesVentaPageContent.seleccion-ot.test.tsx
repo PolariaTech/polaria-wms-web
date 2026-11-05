@@ -29,11 +29,12 @@ vi.mock("../modals/OrdenVentaCreateModal", () => ({ OrdenVentaCreateModal: () =>
 vi.mock("../modals/OrdenVentaDetalleModal", () => ({ OrdenVentaDetalleModal: () => null }));
 // El Cypher real es enorme: se sustituye por los dos botones que importan aquí.
 vi.mock("../modals/OrdenVentaCypherDrawer", () => ({
-  OrdenVentaCypherDrawer: (props: { idOrdenVenta: string | null; onPrint: () => void; onPreview: () => void }) =>
+  OrdenVentaCypherDrawer: (props: { idOrdenVenta: string | null; onPrint: () => void; onPreview: () => void; onClose: () => void }) =>
     props.idOrdenVenta ? (
       <div>
         <button type="button" onClick={props.onPrint}>Imprimir desde Cypher</button>
         <button type="button" onClick={props.onPreview}>Descarga desde Cypher</button>
+        <button type="button" onClick={props.onClose}>Cerrar Cypher</button>
       </div>
     ) : null,
 }));
@@ -160,6 +161,17 @@ describe("Cypher: elegir qué OT salen (OV confirmada)", () => {
     await screen.findByRole("checkbox", { name: /OT 1 de 2/ });
 
     await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(screen.queryByRole("heading", { name: "Imprimir OV-0001" })).not.toBeInTheDocument();
+    expect(imprimirPdf).not.toHaveBeenCalled();
+  });
+
+  it("si se cierra el Cypher, el modal de OT que abrió se cierra con él", async () => {
+    await abrirCypher();
+    await userEvent.click(screen.getByRole("button", { name: "Imprimir desde Cypher" }));
+    await screen.findByRole("checkbox", { name: /OT 1 de 2/ });
+
+    await userEvent.click(screen.getByRole("button", { name: "Cerrar Cypher" }));
 
     expect(screen.queryByRole("heading", { name: "Imprimir OV-0001" })).not.toBeInTheDocument();
     expect(imprimirPdf).not.toHaveBeenCalled();

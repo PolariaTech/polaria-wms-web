@@ -201,6 +201,8 @@ export function OperadorOrdenesVentaPageContent({
   }, [isCreateOpen, inspect, setOvEditOpen]);
   const printingLockRef = useRef(false);
   const fotosOrdenIdRef = useRef<string | null>(null);
+  /** El formulario lo abrió el Cypher («Editar» o «Modificar con IA»): si el Cypher se cierra, se cierra con él. */
+  const formularioDelCypherRef = useRef(false);
   /**
    * «Imprimir» y «Descarga» del Cypher abren primero este modal para elegir qué OT salen.
    * `yaImpresa` avisa dentro del modal (REQ-137) en vez de pedir otra confirmación.
@@ -1127,6 +1129,23 @@ export function OperadorOrdenesVentaPageContent({
         Boolean(cypherId && detalleId && detalleId === cypherId)),
   );
 
+  /** Cierra el formulario; `volverAlDetalle` reabre el detalle de la OV editada (no si se cierra con el Cypher). */
+  const cerrarFormulario = (volverAlDetalle: boolean) => {
+    const closingId = resolveCreateCypherTarget(editingId, createDraftId);
+    const editedId = editingId;
+    formularioDelCypherRef.current = false;
+    setIsCreateOpen(false);
+    setEditingId(null);
+    setCreateDraftId(null);
+    setReagruparAlAbrirId(null);
+    setCompanionOtPicker(null);
+    setCompanionIdComprador(null);
+    if (shouldClearCypherOnCreateClose({ cypherId, closingId })) {
+      setCypherId(null);
+    }
+    if (volverAlDetalle && editedId) setDetalleId(editedId);
+  };
+
   const body = (
     <>
       <OvEstadoFiltroBar
@@ -1249,6 +1268,7 @@ export function OperadorOrdenesVentaPageContent({
               ?.estado,
           })
             ? () => {
+                formularioDelCypherRef.current = true;
                 setEditingId(cypherId);
                 setIsCreateOpen(true);
                 setReagruparAlAbrirId(cypherId);
@@ -1263,9 +1283,14 @@ export function OperadorOrdenesVentaPageContent({
         onClose={() => {
           setCypherId(null);
           setCompanionOtPicker(null);
+          // Todo lo que se abrió desde el Cypher se cierra con él.
+          setSeleccionOt(null);
+          setPdfPreview(null);
+          if (formularioDelCypherRef.current) cerrarFormulario(false);
         }}
         onEdit={() => {
           if (!cypherId) return;
+          formularioDelCypherRef.current = true;
           setDetalleId(null);
           setEditingId(cypherId);
           setIsCreateOpen(true);
@@ -1385,20 +1410,7 @@ export function OperadorOrdenesVentaPageContent({
         )}
         onReagruparAlCargarAtendido={limpiarReagruparAlAbrir}
         operadorRowsForDuplicado={rows}
-        onClose={() => {
-          const closingId = resolveCreateCypherTarget(editingId, createDraftId);
-          const editedId = editingId;
-          setIsCreateOpen(false);
-          setEditingId(null);
-          setCreateDraftId(null);
-          setReagruparAlAbrirId(null);
-          setCompanionOtPicker(null);
-          setCompanionIdComprador(null);
-          if (shouldClearCypherOnCreateClose({ cypherId, closingId })) {
-            setCypherId(null);
-          }
-          if (editedId) setDetalleId(editedId);
-        }}
+        onClose={() => cerrarFormulario(true)}
         onCreated={() => {
           void reload();
         }}

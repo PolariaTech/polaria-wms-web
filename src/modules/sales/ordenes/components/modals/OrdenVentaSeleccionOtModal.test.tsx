@@ -16,7 +16,7 @@ function hoja(tareaIndex: number, centro: string, renglones = 3): OrdenTareaAlma
   } as unknown as OrdenTareaAlmacenPrintData;
 }
 
-// OT 1 ocupa dos hojas (muchos renglones); OT 2 y OT 3, una cada una: 4 hojas en total.
+// OT 1 ocupa dos hojas (muchos productos); OT 2 y OT 3, una cada una: 4 hojas en total.
 const HOJAS = [hoja(1, "Cocina central", 49), hoja(1, "Cocina central", 5), hoja(2, "Bar"), hoja(3, "")];
 
 function montar(extra: Partial<OrdenVentaSeleccionOtModalProps> = {}) {
@@ -44,7 +44,7 @@ describe("OrdenVentaSeleccionOtModal", () => {
     expect(accion(/^Imprimir$/)).toBeDisabled();
   });
 
-  it("lista una fila por OT con su centro, renglones y hojas, todas marcadas de entrada", async () => {
+  it("muestra una caja por OT con su centro, productos y hojas, todas marcadas de entrada", async () => {
     montar();
 
     await screen.findByText("Todas las órdenes de trabajo");
@@ -52,9 +52,9 @@ describe("OrdenVentaSeleccionOtModal", () => {
     expect(casilla(/OT 2 de 3/)).toBeChecked();
     expect(casilla(/OT 3 de 3/)).toBeChecked();
     expect(screen.getByText("Cocina central")).toBeInTheDocument();
-    expect(screen.getByText("54 renglones, 2 hojas")).toBeInTheDocument();
-    // Las OT 2 y 3 tienen 3 renglones y una hoja cada una.
-    expect(screen.getAllByText("3 renglones, 1 hoja")).toHaveLength(2);
+    expect(screen.getByText("54 productos · 2 hojas")).toBeInTheDocument();
+    // Las OT 2 y 3 tienen 3 productos y una hoja cada una.
+    expect(screen.getAllByText("3 productos · 1 hoja")).toHaveLength(2);
     expect(screen.getByText("Sin centro de consumo")).toBeInTheDocument();
   });
 
