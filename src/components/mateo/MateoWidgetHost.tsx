@@ -9,6 +9,7 @@ import { apiRequest } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import { loadMateoWidgetApi } from "./load-mateo-widget";
+import { aplicarPoloAlLanzador } from "./mateo-polo-lanzador";
 import { MateoLauncherTab } from "./MateoLauncherTab";
 import { useMateoLanzadorOculto } from "./useMateoLanzadorOculto";
 import type {
@@ -42,6 +43,7 @@ export function MateoWidgetHost() {
 
     let cancelled = false;
     let mountedHost: HTMLDivElement | null = null;
+    let quitarPolo: (() => void) | null = null;
     const wmsToken = accessToken;
 
     const fetchWidgetToken = () =>
@@ -92,7 +94,11 @@ export function MateoWidgetHost() {
           onAuthError: handleAuthError,
         });
 
-        if (!cancelled) setReady(true);
+        if (!cancelled) {
+          // El botón flotante lleva a Polo en «calma» en vez del copo del bundle.
+          quitarPolo = aplicarPoloAlLanzador(hostEl);
+          setReady(true);
+        }
       } catch (err) {
         console.error("[MateoWidgetHost] no se pudo cargar el widget:", err);
         if (!cancelled) {
@@ -111,6 +117,7 @@ export function MateoWidgetHost() {
 
     return () => {
       cancelled = true;
+      quitarPolo?.();
       const api = apiRef.current;
       if (api) {
         api.close?.();

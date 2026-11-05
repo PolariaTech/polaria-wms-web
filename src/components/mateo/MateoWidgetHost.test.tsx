@@ -65,6 +65,8 @@ function mockSession(accessToken: string | null, isHydrated = true) {
 describe("MateoWidgetHost", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks no quita las implementaciones: la prueba del shadow root no debe filtrarse a las demás.
+    mockMount.mockReset();
     useShellOverlayStore.getState().setCypherOpen(false);
     mockLoadMateoWidgetApi.mockResolvedValue({
       configureTokenFetcher: mockConfigureTokenFetcher,
@@ -115,6 +117,36 @@ describe("MateoWidgetHost", () => {
       token: "access-token",
       expiresIn: SESSION_MAX_AGE_MS / 1000,
     });
+  });
+
+  it("al montar el widget le pone Polo «calma» al botón flotante y lo quita al desmontar", async () => {
+    mockSession("access-token");
+    // El bundle real abre un shadow root en el contenedor; se simula igual.
+    mockMount.mockImplementation((target: HTMLElement) => {
+      target.attachShadow({ mode: "open" });
+    });
+
+    const { unmount } = render(<MateoWidgetHost />);
+    const host = screen.getByTestId("mateo-widget-host");
+
+    await waitFor(() => {
+      expect(host.shadowRoot?.querySelector("style[data-polaria-polo]")).toBeTruthy();
+    });
+    expect(host.shadowRoot?.querySelector("style[data-polaria-polo]")?.textContent).toContain(
+      "/assets/polo-calma-teal.svg",
+    );
+
+    unmount();
+    expect(host.shadowRoot?.querySelector("style[data-polaria-polo]")).toBeFalsy();
+  });
+
+  it("si el widget no abre shadow root no pasa nada: el botón conserva su icono", async () => {
+    mockSession("access-token");
+
+    render(<MateoWidgetHost />);
+
+    await waitFor(() => expect(mockMount).toHaveBeenCalled());
+    expect(screen.getByTestId("mateo-widget-host").shadowRoot).toBeNull();
   });
 
   it("muestra toast si falla la carga del script del widget", async () => {
