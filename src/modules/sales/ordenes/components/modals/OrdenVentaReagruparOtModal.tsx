@@ -108,8 +108,8 @@ function describirCambioDeOt(nuevas: number, vacias: number): string {
   if (vacias > 0) {
     partes.push(
       vacias === 1
-        ? "Se une 1 OT que queda sin renglones."
-        : `Se unen ${vacias} OT que quedan sin renglones.`,
+        ? "Se une 1 OT que queda sin productos."
+        : `Se unen ${vacias} OT que quedan sin productos.`,
     );
   }
   return partes.length > 0 ? `${partes.join(" ")} ` : "";
@@ -413,8 +413,8 @@ export function OrdenVentaReagruparOtModal({
         propuestaCorreccion
           ? "Comparé la orden con el correo y los archivos originales. Revisa la corrección antes de aplicarla."
           : onAplicarCorreccion
-            ? "Escribe qué quieres cambiar. Puedo mover renglones entre órdenes de trabajo, crear nuevas o dejar vacías las que sobren. Si la orden quedó mal leída del correo (faltan renglones u órdenes de compra, o el total no coincide), releo el correo y los archivos para corregirla."
-            : "Escribe qué quieres cambiar. Puedo crear, modificar o eliminar órdenes de trabajo (mover renglones entre ellas, crear nuevas o dejar vacías las que sobren); no cambio cantidades ni datos del pedido."
+            ? "Escribe qué quieres cambiar. Puedo mover productos entre órdenes de trabajo, crear nuevas o dejar vacías las que sobren. Si la orden quedó mal leída del correo (faltan productos u órdenes de compra, o el total no coincide), releo el correo y los archivos para corregirla."
+            : "Escribe qué quieres cambiar. Puedo crear, modificar o eliminar órdenes de trabajo (mover productos entre ellas, crear nuevas o dejar vacías las que sobren); no cambio cantidades ni datos del pedido."
       }
       layout="dock-left"
       stackLevel="base"
@@ -469,7 +469,7 @@ export function OrdenVentaReagruparOtModal({
             rows={6}
             placeholder={
               onAplicarCorreccion
-                ? "Ejemplos: Junta las órdenes de comedor y de bares en una sola. · Faltan renglones: el total de la factura es 27,905.25."
+                ? "Ejemplos: Junta las órdenes de comedor y de bares en una sola. · Faltan productos: el total de la factura es 27,905.25."
                 : "Ejemplo: Junta las órdenes de comedor y de bares en una sola."
             }
             onChange={(evento) =>

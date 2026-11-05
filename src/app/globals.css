@@ -262,6 +262,12 @@ button:disabled,
   color: var(--bg);
 }
 
+/* Texto oscuro sobre fondo teal: las clases `polaria-text-*` fijan su propio color y, al ir fuera de
+   las capas de Tailwind, le ganaban a `text-polaria-on-teal` (el texto salía blanco). */
+.bg-polaria-teal.text-polaria-on-teal {
+  color: var(--on-teal);
+}
+
 /* ── Topbar ────────────────────────────────────────────────────────────────── */
 .polaria-topbar {
   position: sticky;

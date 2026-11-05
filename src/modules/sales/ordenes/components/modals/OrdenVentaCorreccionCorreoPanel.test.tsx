@@ -234,7 +234,7 @@ describe("OrdenVentaCorreccionCorreoPanel", () => {
 
     expect(screen.getByText("6 OT → 12 OT")).toBeTruthy();
     expect(screen.getByText("Pide verificar contra la factura.")).toBeTruthy();
-    expect(screen.getByText(/60 → 82 renglones/)).toBeTruthy();
+    expect(screen.getByText(/60 → 82 productos/)).toBeTruthy();
     expect(screen.getByText("AGUACATES_4502987208.pdf")).toBeTruthy();
     expect(screen.getByText(/Cuadra con el total del documento/)).toBeTruthy();
     expect(screen.getByText("Adjunto leído una sola vez.")).toBeTruthy();
@@ -272,7 +272,7 @@ describe("OrdenVentaCorreccionCorreoPanel", () => {
     expect(aviso.textContent).toBe("Adjunto leído una sola vez.");
   });
 
-  it("respeta el singular de «renglón» en lo que se quita, en lo que se agrega y en cada documento", () => {
+  it("respeta el singular de «producto» en lo que se quita, en lo que se agrega y en cada documento", () => {
     montar({
       propuesta: propuesta({
         diff: { otNuevas: ["a"], otEliminadas: [], renglonesAgregados: 1, renglonesQuitados: 1 },
@@ -289,9 +289,9 @@ describe("OrdenVentaCorreccionCorreoPanel", () => {
       }),
     });
 
-    expect(screen.getByText(/1 renglón agregados\./)).toBeTruthy();
-    expect(screen.getByText(/1 renglón que no está en los documentos se quita\./)).toBeTruthy();
-    expect(screen.getByText(/^· 1 renglón$/)).toBeTruthy();
+    expect(screen.getByText(/1 producto agregados\./)).toBeTruthy();
+    expect(screen.getByText(/1 producto que no está en los documentos se quita\./)).toBeTruthy();
+    expect(screen.getByText(/^· 1 producto$/)).toBeTruthy();
   });
 
   it("aplicar entrega la propuesta y descartar avisa", async () => {

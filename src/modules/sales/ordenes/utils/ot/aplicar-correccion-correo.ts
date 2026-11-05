@@ -122,7 +122,7 @@ export function describirCorreccionParaBitacora(params: {
 }): { mensaje: string; payloadExtra: Record<string, unknown> } {
   const { resumen } = params;
   return {
-    mensaje: `Órdenes de trabajo corregidas contra el correo por ${params.autor}: ${resumen.otAntes} → ${resumen.otDespues} OT, ${resumen.renglonesAntes} → ${resumen.renglonesDespues} renglones.`,
+    mensaje: `Órdenes de trabajo corregidas contra el correo por ${params.autor}: ${resumen.otAntes} → ${resumen.otDespues} OT, ${resumen.renglonesAntes} → ${resumen.renglonesDespues} productos.`,
     payloadExtra: {
       correccionCorreoIa: {
         resumen,
