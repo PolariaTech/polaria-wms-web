@@ -81,4 +81,41 @@ describe("OperationalModuleShell — botón del menú de Ventas (REQ-104)", () =
 
     expect(screen.queryByRole("button", { name: BOTON })).not.toBeInTheDocument();
   });
+
+  it("sin fitViewport el módulo crece con su contenido (como siempre)", () => {
+    const { container } = renderizar();
+
+    expect(container.querySelector("[data-fit-viewport]")).toBeNull();
+    expect(container.innerHTML).not.toContain("100dvh");
+  });
+
+  it("con fitViewport mide el alto de la ventana y deja el título fijo", () => {
+    const { container } = render(
+      <OperationalModuleShell title="Correos recibidos" gate={{ roles: [] }} fitViewport>
+        <p>contenido</p>
+      </OperationalModuleShell>,
+    );
+
+    const modulo = container.querySelector("[data-fit-viewport]");
+    expect(modulo).not.toBeNull();
+    expect(modulo?.className).toContain("lg:h-[calc(100dvh-var(--polaria-shell-top))]");
+    // `flex-1` ganaría al alto fijo (su base es 0 %): sin `flex-none` la página vuelve a desplazarse.
+    expect(modulo?.className).toContain("lg:flex-none");
+    expect(screen.getByText("contenido").parentElement?.className).toContain("min-h-0");
+    // El alto fijo y la densidad son opciones separadas: sola, no compacta el título.
+    expect(screen.getByRole("heading", { level: 1 }).className).not.toContain("text-[1.75rem]!");
+  });
+
+  it("con compactoEnPantallaBaja achica título y espacios en pantallas bajas, sin fijar el alto", () => {
+    const { container } = render(
+      <OperationalModuleShell title="Correos recibidos" gate={{ roles: [] }} compactoEnPantallaBaja>
+        <p>contenido</p>
+      </OperationalModuleShell>,
+    );
+
+    expect(screen.getByRole("heading", { level: 1 }).className).toContain("[@media(max-height:50rem)]:text-[1.75rem]!");
+    expect(container.innerHTML).toContain("[@media(max-height:50rem)]:py-4");
+    expect(container.innerHTML).not.toContain("100dvh");
+    expect(container.querySelector("[data-fit-viewport]")).toBeNull();
+  });
 });

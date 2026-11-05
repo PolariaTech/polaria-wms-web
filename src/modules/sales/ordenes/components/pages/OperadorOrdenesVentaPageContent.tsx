@@ -20,6 +20,7 @@ import {
   shouldClearCypherOnCreateClose,
 } from "./ov-create-draft-session";
 import { OvEstadoFiltroBar } from "./OvEstadoFiltroBar";
+import { TABLA_COMPACTA_PANTALLA_BAJA } from "@/components/shared/table/tabla-compacta";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { useVisibleInterval } from "@/hooks/shared/useVisibleInterval";
@@ -1171,7 +1172,7 @@ export function OperadorOrdenesVentaPageContent({
             ? `Revisar pedido ${row.venta} con Cypher`
             : `Ver detalle de venta ${row.venta}`
         }
-        className={OV_LISTADO_DATATABLE_CHROME_CLASS}
+        className={cn(OV_LISTADO_DATATABLE_CHROME_CLASS, TABLA_COMPACTA_PANTALLA_BAJA)}
         tableClassName={ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS}
       />
 
@@ -1547,6 +1548,7 @@ export function OperadorOrdenesVentaPageContent({
       title="Órdenes venta"
       gate={{ roles: ROLES_NIVEL_CUENTA }}
       dockForCypher={Boolean(cypherId)}
+      compactoEnPantallaBaja
     >
       {body}
     </OperationalModuleShell>

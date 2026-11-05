@@ -12,6 +12,7 @@ import { BOTON_SECUNDARIO } from "./AccionIngreso";
 import { CorreosCuerpoTabla } from "./CorreosCuerpoTabla";
 import { CorreosFiltros } from "./CorreosFiltros";
 import { DetalleCorreoModal } from "./DetalleCorreoModal";
+import { TABLA_COMPACTA_PANTALLA_BAJA } from "@/components/shared/table/tabla-compacta";
 
 const TEXTOS_VACIO: Record<ModoCorreos, { sinFiltros: string; conFiltros: string }> = {
   todos: {
@@ -146,7 +147,12 @@ export function CorreosTable({ modo }: { modo: ModoCorreos }) {
 
   return (
     <>
-      <section className="overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-sm">
+      <section
+        className={cn(
+          "overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-sm",
+          TABLA_COMPACTA_PANTALLA_BAJA,
+        )}
+      >
         <EncabezadoLista
           total={primeraCarga ? null : correos.total}
           cargando={correos.cargando}
