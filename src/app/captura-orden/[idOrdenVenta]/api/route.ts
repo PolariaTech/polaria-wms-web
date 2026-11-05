@@ -1,164 +1,59 @@
-import { NextResponse } from "next/server";
-import { extractFiles } from "@/modules/sales/ordenes/ai/file-extractors";
-import { uploadEvidenciaImage } from "@/lib/cloudinary/upload-evidencia";
-import { ROUTES } from "@/config/routes";
-import { extraerSurtidoDesdeFoto } from "@/modules/sales/ordenes/surtido/openai-surtido.client";
-import { estimateSurtidoPrecision } from "@/modules/sales/ordenes/surtido/estimate-surtido-precision";
+import { after, NextResponse } from "next/server";
 import {
-  applySurtidoCapturaToOrdenVenta,
-  buildPrintDataAdmin,
-  getOrdenMetaPublica,
-  getOrdenSurtidoCaptura,
-  listOrdenSurtidoCapturaFotos,
-  listOrdenSurtidoCapturaOtsConFotos,
-  listOrdenSurtidoCapturas,
-  syncOrdenVentaEstadoAlistamiento,
-  upsertOrdenSurtidoCaptura,
-} from "@/modules/sales/ordenes/surtido/orden-surtido.service";
-import { evaluarCalidadFotoSurtido } from "@/modules/sales/ordenes/surtido/validate-surtido-foto-calidad";
-import { normalizeIdOrdenTrabajo } from "@/modules/sales/ordenes/utils/origen/origen-correo-ordenes-trabajo";
-
-/** Errores de proceso → mensaje claro para el celular (sin “error de servidor”). */
-function mensajeErrorCaptura(error: unknown): string {
-  const raw =
-    error instanceof Error ? error.message : String(error ?? "");
-  const lower = raw.toLowerCase();
-  if (!raw.trim()) {
-    return "No se pudo leer la foto. Intenta de nuevo con mejor luz.";
-  }
-  if (
-    lower.includes("openai") ||
-    lower.includes("api key") ||
-    lower.includes("rate limit") ||
-    lower.includes("timeout") ||
-    lower.includes("etimedout") ||
-    lower.includes("fetch failed")
-  ) {
-    return "Mateo no pudo analizar la foto ahora. Espera unos segundos e intenta de nuevo.";
-  }
-  if (lower.includes("json") || lower.includes("contenido")) {
-    return "No se entendió la foto. Encaja la hoja en el marco e intenta de nuevo.";
-  }
-  if (raw.length <= 160 && !lower.includes("internal") && !lower.includes("500")) {
-    return raw;
-  }
-  return "No se pudo procesar la foto. Revisa el encuadre (hoja clara en el marco) e intenta de nuevo.";
-}
+  cargarIntento,
+  crearIntento,
+  leerIntentos,
+  prepararReintento,
+} from "@/modules/sales/ordenes/surtido/captura-intento.service";
+import { getOrdenMetaPublica } from "@/modules/sales/ordenes/surtido/orden-surtido.service";
+import {
+  mensajeErrorCaptura,
+  procesarFotoSurtido,
+  procesarIntento,
+  type EntradaFoto,
+} from "@/modules/sales/ordenes/surtido/procesar-captura-foto";
+import { responderLectura } from "./captura-lecturas";
+import {
+  jsonOrRedirect,
+  noCache,
+  readFotoFromForm,
+  readOtFromRequest,
+  wantsDocumentResponse,
+} from "./captura-respuestas";
 
 /**
  * Fuera de `/api/*` para no pasar por el rewrite hacia Nest.
  * Ruta pública sin login (QR). Acepta FormData (fetch/XHR o form nativo).
  *
- * OpenAI vision + DB suele pasar de 10s; el default de Vercel (~15s) corta
- * a mitad y el celular ve un 500 / “reinicio” de la captura (REQ-087).
+ * La foto se recibe y se responde 202 en cuanto queda reservada (REQ-247); la IA, el
+ * guardado y el avance de la OV siguen en `after()` hasta `maxDuration`. Cada foto es su
+ * propia invocación, así que varias fotos se procesan en paralelo sin esperarse.
+ * El estado de cada una se lee con `GET ?intentos=id1,id2`.
+ * Sin JavaScript (formulario nativo) se procesa en la misma petición y se redirige.
  */
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type RouteContext = { params: Promise<{ idOrdenVenta: string }> };
+type DatosOv = { codigoCuenta: string; folio: string };
 
-async function extraerSurtidoConReintento(input: {
-  original: NonNullable<Awaited<ReturnType<typeof buildPrintDataAdmin>>>;
-  mime: string;
-  base64: string;
-}): Promise<Awaited<ReturnType<typeof extraerSurtidoDesdeFoto>>> {
-  try {
-    return await extraerSurtidoDesdeFoto(input);
-  } catch (firstError) {
-    console.warn(
-      "[captura-orden] OpenAI surtido falló, reintento 1×:",
-      firstError instanceof Error ? firstError.message : firstError,
-    );
-    return extraerSurtidoDesdeFoto(input);
-  }
+const MAX_BYTES_FOTO = 10 * 1024 * 1024;
+const MENSAJE_FOTO_NO_GUARDADA = "La foto no se guardó. Tómala de nuevo.";
+
+/** Una OV no cambia de cuenta: evita volver a buscarla en cada foto y en cada consulta de estado. */
+const datosPorOv = new Map<string, DatosOv>();
+
+async function resolverOv(idOrdenVenta: string, ot: string): Promise<DatosOv | null> {
+  const guardado = datosPorOv.get(idOrdenVenta);
+  if (guardado) return guardado;
+  const meta = await getOrdenMetaPublica(idOrdenVenta, ot || null);
+  if (!meta) return null;
+  const datos = { codigoCuenta: meta.codigoCuenta, folio: meta.folio };
+  datosPorOv.set(idOrdenVenta, datos);
+  return datos;
 }
 
-function wantsDocumentResponse(request: Request): boolean {
-  const mode = request.headers.get("sec-fetch-mode");
-  if (mode === "navigate" || mode === "nested-navigate") return true;
-  const accept = request.headers.get("accept") ?? "";
-  return accept.includes("text/html") && !accept.includes("application/json");
-}
-
-function readOtFromRequest(request: Request, form?: FormData): string {
-  const urlOt = normalizeIdOrdenTrabajo(
-    new URL(request.url).searchParams.get("ot"),
-  );
-  if (urlOt) return urlOt;
-  if (!form) return "";
-  const raw = form.get("ot") ?? form.get("idOrdenTrabajo");
-  return typeof raw === "string" ? normalizeIdOrdenTrabajo(raw) : "";
-}
-
-function redirectCaptura(
-  request: Request,
-  idOrdenVenta: string,
-  idOrdenTrabajo: string,
-  result: { ok: true; precision?: number } | { ok: false; error: string },
-): NextResponse {
-  const url = new URL(
-    ROUTES.capturaOrden(idOrdenVenta, idOrdenTrabajo || undefined),
-    request.url,
-  );
-  if (result.ok) {
-    url.searchParams.set("captura", "ok");
-    if (typeof result.precision === "number") {
-      url.searchParams.set("precision", String(result.precision));
-    }
-  } else {
-    url.searchParams.set("captura", "error");
-    url.searchParams.set("msg", result.error.slice(0, 180));
-  }
-  return NextResponse.redirect(url, 303);
-}
-
-function jsonOrRedirect(
-  request: Request,
-  idOrdenVenta: string,
-  idOrdenTrabajo: string,
-  payload: Record<string, unknown>,
-  status: number,
-): NextResponse {
-  if (wantsDocumentResponse(request)) {
-    const error =
-      typeof payload.error === "string"
-        ? payload.error
-        : status >= 400
-          ? "No se pudo procesar la foto."
-          : "";
-    if (status >= 400) {
-      return redirectCaptura(request, idOrdenVenta, idOrdenTrabajo, {
-        ok: false,
-        error: error || "No se pudo procesar la foto.",
-      });
-    }
-    return redirectCaptura(request, idOrdenVenta, idOrdenTrabajo, {
-      ok: true,
-      precision:
-        typeof payload.precisionEstimada === "number"
-          ? payload.precisionEstimada
-          : undefined,
-    });
-  }
-  return NextResponse.json(payload, { status });
-}
-
-function readFotoFromForm(form: FormData): File | null {
-  const raw = form.get("foto") ?? form.get("file") ?? form.get("image");
-  if (raw instanceof File && raw.size > 0) return raw;
-  if (raw instanceof Blob && raw.size > 0) {
-    return new File([raw], "hoja-surtido.jpg", {
-      type: raw.type || "image/jpeg",
-      lastModified: Date.now(),
-    });
-  }
-  return null;
-}
-
-export async function GET(
-  request: Request,
-  context: RouteContext,
-): Promise<NextResponse> {
+export async function GET(request: Request, context: RouteContext): Promise<NextResponse> {
   const { idOrdenVenta: rawId } = await context.params;
   const idOrdenVenta = rawId?.trim() ?? "";
   if (!idOrdenVenta) {
@@ -167,114 +62,125 @@ export async function GET(
 
   const idOrdenTrabajo = readOtFromRequest(request);
   const searchParams = new URL(request.url).searchParams;
-  const wantAll =
-    searchParams.get("all") === "1" || searchParams.get("all") === "true";
-  const wantHistorial =
-    searchParams.get("historial") === "1" ||
-    searchParams.get("historial") === "true";
+  const idsIntentos = (searchParams.get("intentos") ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
 
   try {
-    const meta = await getOrdenMetaPublica(idOrdenVenta, idOrdenTrabajo || null);
-    if (!meta) {
-      return NextResponse.json({ error: "Orden no encontrada." }, { status: 404 });
-    }
-
-    if (wantHistorial) {
-      if (searchParams.has("ot") || idOrdenTrabajo) {
-        const fotos = await listOrdenSurtidoCapturaFotos(
-          idOrdenVenta,
-          idOrdenTrabajo || "",
-        );
-        return NextResponse.json({
-          idOrdenVenta: meta.idOrdenVenta,
-          folio: meta.folio,
-          idOrdenTrabajo: idOrdenTrabajo || "",
-          fotos: fotos.map((foto) => ({
-            idFoto: foto.idFoto,
-            idOrdenTrabajo: foto.idOrdenTrabajo,
-            urlFoto: foto.urlFoto,
-            createdAt: foto.createdAt,
-          })),
-        });
-      }
-
-      const ordenesTrabajo = await listOrdenSurtidoCapturaOtsConFotos(
+    if (idsIntentos.length > 0) {
+      const datos = await resolverOv(idOrdenVenta, idOrdenTrabajo);
+      if (!datos) return NextResponse.json({ error: "Orden no encontrada." }, { status: 404 });
+      const intentos = await leerIntentos({
+        ids: idsIntentos,
         idOrdenVenta,
-      );
-      return NextResponse.json({
-        idOrdenVenta: meta.idOrdenVenta,
-        folio: meta.folio,
-        ordenesTrabajo: ordenesTrabajo.map((ot) => ({
-          idOrdenTrabajo: ot.idOrdenTrabajo,
-          totalFotos: ot.totalFotos,
-          ultimaAt: ot.ultimaAt,
-          previewUrl: ot.previewUrl,
-          label: ot.label,
-          numeroPedido: ot.numeroPedido,
-          centroConsumo: ot.centroConsumo,
-        })),
+        codigoCuenta: datos.codigoCuenta,
       });
+      return noCache(NextResponse.json({ intentos }));
     }
 
-    if (wantAll) {
-      const capturas = await listOrdenSurtidoCapturas(idOrdenVenta);
-      return NextResponse.json({
-        idOrdenVenta: meta.idOrdenVenta,
-        folio: meta.folio,
-        tieneCaptura: capturas.length > 0,
-        capturas: capturas.map((captura) => ({
-          idOrdenTrabajo: captura.idOrdenTrabajo,
-          payload: captura.payload,
-          urlFoto: captura.urlFoto,
-          modelo: captura.modelo,
-          updatedAt: captura.updatedAt,
-          precisionEstimada: captura.payload.precisionEstimada ?? null,
-        })),
-      });
-    }
-
-    const captura = await getOrdenSurtidoCaptura(
-      idOrdenVenta,
-      idOrdenTrabajo || null,
-    );
-    return NextResponse.json({
-      idOrdenVenta: meta.idOrdenVenta,
-      folio: meta.folio,
-      idOrdenTrabajo: idOrdenTrabajo || "",
-      tieneCaptura: Boolean(captura),
-      capturaActualizadaEn: captura?.updatedAt ?? null,
-      captura: captura
-        ? {
-            idOrdenTrabajo: captura.idOrdenTrabajo,
-            payload: captura.payload,
-            urlFoto: captura.urlFoto,
-            modelo: captura.modelo,
-            updatedAt: captura.updatedAt,
-            precisionEstimada: captura.payload.precisionEstimada ?? null,
-          }
-        : null,
-    });
+    const meta = await getOrdenMetaPublica(idOrdenVenta, idOrdenTrabajo || null);
+    if (!meta) return NextResponse.json({ error: "Orden no encontrada." }, { status: 404 });
+    return await responderLectura({ meta, idOrdenVenta, idOrdenTrabajo, searchParams });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "No se pudo cargar la orden.";
+    const message = error instanceof Error ? error.message : "No se pudo cargar la orden.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
-export async function POST(
+/** Sin JavaScript: se procesa en la misma petición y se redirige con el resultado. */
+async function responderSincrono(
   request: Request,
-  context: RouteContext,
+  folio: string,
+  entrada: EntradaFoto,
 ): Promise<NextResponse> {
+  const resultado = await procesarFotoSurtido(entrada);
+  if (!resultado.ok) {
+    return jsonOrRedirect(
+      request,
+      entrada.idOrdenVenta,
+      resultado.idOrdenTrabajo,
+      {
+        error: resultado.error,
+        codigo: resultado.codigo,
+        detail: resultado.detalle,
+        motivoIa: resultado.motivoIa ?? null,
+        precisionEstimada: resultado.precisionEstimada,
+      },
+      resultado.status,
+    );
+  }
+  return jsonOrRedirect(
+    request,
+    entrada.idOrdenVenta,
+    resultado.idOrdenTrabajo,
+    {
+      ok: true,
+      folio,
+      idOrdenTrabajo: resultado.idOrdenTrabajo,
+      precisionEstimada: resultado.precisionEstimada,
+      captura: resultado.captura,
+      estadoAlistamiento: resultado.estadoAlistamiento,
+      ovSync: resultado.ovSync,
+    },
+    200,
+  );
+}
+
+/** Reprocesa la foto ya guardada de un intento que falló, sin volver a tomarla. */
+async function reintentarIntento(
+  request: Request,
+  idOrdenVenta: string,
+  idIntento: string,
+): Promise<NextResponse> {
+  const idOrdenTrabajo = readOtFromRequest(request);
+  const datos = await resolverOv(idOrdenVenta, idOrdenTrabajo);
+  if (!datos) return NextResponse.json({ error: "Orden no encontrada." }, { status: 404 });
+
+  const cargado = await cargarIntento({
+    idIntento,
+    idOrdenVenta,
+    codigoCuenta: datos.codigoCuenta,
+  });
+  if (!cargado) return NextResponse.json({ error: "No se encontró esa foto." }, { status: 404 });
+
+  const { ref, intento } = cargado;
+  if (intento.estado !== "fallo") {
+    const error =
+      intento.estado === "lista" ? "Esa foto ya se procesó." : "Esa foto todavía se está procesando.";
+    return NextResponse.json({ error, codigo: "no_reintentable" }, { status: 409 });
+  }
+
+  const sinFoto = () =>
+    NextResponse.json({ error: MENSAJE_FOTO_NO_GUARDADA, codigo: "sin_foto" }, { status: 409 });
+  if (!intento.urlFoto) return sinFoto();
+  const foto = await fetch(intento.urlFoto).catch(() => null);
+  if (!foto?.ok) return sinFoto();
+
+  const buffer = Buffer.from(await foto.arrayBuffer());
+  const numeroIntento = intento.numeroIntento + 1;
+  await prepararReintento(ref, numeroIntento);
+
+  after(async () => {
+    await procesarIntento(ref, {
+      idOrdenVenta,
+      idOrdenTrabajo,
+      codigoCuenta: datos.codigoCuenta,
+      buffer,
+      nombre: "hoja-surtido.jpg",
+      mime: foto.headers.get("content-type") || "image/jpeg",
+      urlFotoGuardada: intento.urlFoto,
+    });
+  });
+
+  return NextResponse.json({ ok: true, estado: "recibida", idIntento, numeroIntento }, { status: 202 });
+}
+
+export async function POST(request: Request, context: RouteContext): Promise<NextResponse> {
   const { idOrdenVenta: rawId } = await context.params;
   const idOrdenVenta = rawId?.trim() ?? "";
   if (!idOrdenVenta) {
-    return jsonOrRedirect(
-      request,
-      idOrdenVenta || "invalid",
-      "",
-      { error: "Falta id de orden." },
-      400,
-    );
+    return jsonOrRedirect(request, idOrdenVenta || "invalid", "", { error: "Falta id de orden." }, 400);
   }
 
   if (!process.env.OPENAI_API_KEY?.trim()) {
@@ -289,18 +195,15 @@ export async function POST(
 
   let idOrdenTrabajo = "";
   try {
+    const idReintento = new URL(request.url).searchParams.get("reintentar")?.trim();
+    if (idReintento) return await reintentarIntento(request, idOrdenVenta, idReintento);
+
     const form = await request.formData();
     idOrdenTrabajo = readOtFromRequest(request, form);
 
-    const meta = await getOrdenMetaPublica(idOrdenVenta, idOrdenTrabajo || null);
-    if (!meta) {
-      return jsonOrRedirect(
-        request,
-        idOrdenVenta,
-        idOrdenTrabajo,
-        { error: "Orden no encontrada." },
-        404,
-      );
+    const datos = await resolverOv(idOrdenVenta, idOrdenTrabajo);
+    if (!datos) {
+      return jsonOrRedirect(request, idOrdenVenta, idOrdenTrabajo, { error: "Orden no encontrada." }, 404);
     }
 
     const file = readFotoFromForm(form);
@@ -313,8 +216,7 @@ export async function POST(
         400,
       );
     }
-
-    if (file.size <= 0 || file.size > 10 * 1024 * 1024) {
+    if (file.size <= 0 || file.size > MAX_BYTES_FOTO) {
       return jsonOrRedirect(
         request,
         idOrdenVenta,
@@ -327,164 +229,40 @@ export async function POST(
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const mime = file.type || "image/jpeg";
-    const extracted = await extractFiles([
-      {
-        originalname: file.name || "hoja-surtido.jpg",
-        mimetype: mime,
-        buffer,
-      },
-    ]);
-    const imagen = extracted.find((item) => item.tipo === "imagen");
-    if (!imagen || imagen.tipo !== "imagen") {
-      return jsonOrRedirect(
-        request,
-        idOrdenVenta,
-        idOrdenTrabajo,
-        {
-          error:
-            "No se pudo leer la imagen. Prueba JPG desde la galería (no HEIC).",
-        },
-        400,
-      );
-    }
-
-    const original = await buildPrintDataAdmin(
+    const entrada: EntradaFoto = {
       idOrdenVenta,
-      idOrdenTrabajo || null,
-    );
-    if (!original) {
-      return jsonOrRedirect(
-        request,
-        idOrdenVenta,
-        idOrdenTrabajo,
-        { error: "Orden no encontrada." },
-        404,
-      );
+      idOrdenTrabajo,
+      codigoCuenta: datos.codigoCuenta,
+      buffer: Buffer.from(await file.arrayBuffer()),
+      nombre: file.name || "hoja-surtido.jpg",
+      mime: file.type || "image/jpeg",
+    };
+
+    if (wantsDocumentResponse(request)) {
+      return await responderSincrono(request, datos.folio, entrada);
     }
 
-    const resolvedOt =
-      normalizeIdOrdenTrabajo(original.idOrdenTrabajo) || idOrdenTrabajo;
-    idOrdenTrabajo = resolvedOt;
-
-    const { payload: rawPayload, modelo } = await extraerSurtidoConReintento({
-      original,
-      mime: imagen.mime,
-      base64: imagen.base64,
+    const ref = await crearIntento({
+      idOrdenVenta,
+      idOrdenTrabajo,
+      codigoCuenta: datos.codigoCuenta,
+    });
+    after(async () => {
+      await procesarIntento(ref, entrada);
     });
 
-    const precisionEstimada = estimateSurtidoPrecision(
-      rawPayload,
-      original.lineas.length,
+    return NextResponse.json(
+      { ok: true, estado: "recibida", idIntento: ref.idIntento, folio: datos.folio },
+      { status: 202 },
     );
-    const payload = { ...rawPayload, precisionEstimada };
-
-    const calidad = evaluarCalidadFotoSurtido(payload);
-    if (!calidad.ok) {
-      return jsonOrRedirect(
-        request,
-        idOrdenVenta,
-        resolvedOt,
-        {
-          error: calidad.error,
-          codigo: calidad.codigo,
-          motivoIa: payload.calidadFoto?.motivo || null,
-          precisionEstimada,
-        },
-        422,
-      );
-    }
-
-    let urlFoto: string | null = null;
-    try {
-      const blobFile = new File([buffer], file.name || "hoja-surtido.jpg", {
-        type: imagen.mime,
-      });
-      const uploaded = await uploadEvidenciaImage(blobFile);
-      if (uploaded.ok) urlFoto = uploaded.url;
-    } catch {
-      urlFoto = null;
-    }
-
-    const captura = await upsertOrdenSurtidoCaptura({
-      idOrdenVenta,
-      idOrdenTrabajo: resolvedOt,
-      codigoCuenta: meta.codigoCuenta,
-      urlFoto,
-      payload,
-      modelo,
-    });
-
-    let estadoAlistamiento: string | null = null;
-    try {
-      const alistamiento = await syncOrdenVentaEstadoAlistamiento({
-        idOrdenVenta,
-        idOrdenTrabajo: resolvedOt,
-      });
-      estadoAlistamiento = alistamiento.estado;
-    } catch (estadoError) {
-      console.error(
-        "[captura-orden] sync estado alistamiento falló:",
-        estadoError instanceof Error ? estadoError.message : estadoError,
-      );
-    }
-
-    try {
-      const sync = await applySurtidoCapturaToOrdenVenta({
-        idOrdenVenta,
-        idOrdenTrabajo: resolvedOt,
-        payload,
-      });
-      return jsonOrRedirect(
-        request,
-        idOrdenVenta,
-        resolvedOt,
-        {
-          ok: true,
-          folio: meta.folio,
-          idOrdenTrabajo: resolvedOt,
-          precisionEstimada,
-          captura,
-          estadoAlistamiento,
-          ovSync: sync,
-        },
-        200,
-      );
-    } catch (syncError) {
-      const syncMessage =
-        syncError instanceof Error ? syncError.message : String(syncError);
-      console.error("[captura-orden] sync OV desde surtido falló:", syncMessage);
-      return jsonOrRedirect(
-        request,
-        idOrdenVenta,
-        resolvedOt,
-        {
-          ok: true,
-          folio: meta.folio,
-          idOrdenTrabajo: resolvedOt,
-          precisionEstimada,
-          captura,
-          estadoAlistamiento,
-          ovSync: { updatedHeader: false, updatedLineas: 0, error: syncMessage },
-        },
-        200,
-      );
-    }
   } catch (error) {
-    const detail =
-      error instanceof Error
-        ? error.message
-        : "No se pudo procesar la foto de la orden.";
+    const detail = error instanceof Error ? error.message : "No se pudo procesar la foto de la orden.";
     console.error("[captura-orden] POST falló:", detail, error);
     return jsonOrRedirect(
       request,
       idOrdenVenta,
       idOrdenTrabajo,
-      {
-        error: mensajeErrorCaptura(error),
-        detail,
-      },
+      { error: mensajeErrorCaptura(error), detail },
       500,
     );
   }

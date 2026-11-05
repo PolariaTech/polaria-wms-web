@@ -224,4 +224,97 @@ describe("CapturaOrdenUploadForm", () => {
       ),
     );
   });
+
+  it("tras subir bien, el botón pasa a «Nueva foto» para repetir la misma hoja", async () => {
+    const user = userEvent.setup();
+    stubFetchOk();
+    const onUploadOk = vi.fn();
+    render(<CapturaOrdenUploadForm idOrdenVenta="ov-1" onUploadOk={onUploadOk} />);
+
+    await user.upload(galleryInput(), subirFoto("hoja-1.jpg"));
+    await vi.waitFor(() => expect(onUploadOk).toHaveBeenCalled());
+
+    expect(await screen.findByLabelText("Nueva foto")).toBeTruthy();
+    expect(screen.queryByLabelText("Tomar foto")).toBeNull();
+  });
+
+  it("mientras sube no ofrece tomar otra foto (una subida por hoja a la vez)", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    const onUploadingChange = vi.fn();
+    render(
+      <CapturaOrdenUploadForm
+        idOrdenVenta="ov-1"
+        onUploadingChange={onUploadingChange}
+      />,
+    );
+
+    await user.upload(galleryInput(), subirFoto("hoja-2.jpg"));
+    await vi.waitFor(() => expect(onUploadingChange).toHaveBeenCalledWith(true));
+
+    expect(screen.queryByLabelText("Tomar foto")).toBeNull();
+    expect(screen.queryByLabelText("Nueva foto")).toBeNull();
+    expect(screen.queryByText("Elegir de galería", { selector: "button" })).toBeNull();
+  });
+
+  it("si falla, ofrece «Reintentar» con la misma foto sin volver a tomarla", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: "Mateo no pudo analizar la foto ahora." }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const onUploadError = vi.fn();
+    const onUploadOk = vi.fn();
+    render(
+      <CapturaOrdenUploadForm
+        idOrdenVenta="ov-1"
+        onUploadError={onUploadError}
+        onUploadOk={onUploadOk}
+      />,
+    );
+
+    await user.upload(galleryInput(), subirFoto("hoja-3.jpg"));
+    await vi.waitFor(() => expect(onUploadError).toHaveBeenCalled());
+
+    await user.click(await screen.findByLabelText("Reintentar"));
+
+    await vi.waitFor(() => expect(onUploadOk).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [, segundoEnvio] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect((segundoEnvio.body as FormData).get("foto")).toBeInstanceOf(File);
+    expect(await screen.findByLabelText("Nueva foto")).toBeTruthy();
+  });
+
+  it("sin padre que atienda el error, lo muestra en el propio formulario", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      }),
+    );
+    render(<CapturaOrdenUploadForm idOrdenVenta="ov-1" />);
+
+    await user.upload(galleryInput(), subirFoto("hoja-4.jpg"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /mateo no pudo analizar/i,
+    );
+  });
 });
+
+function subirFoto(nombre: string): File {
+  return new File([new Uint8Array([1, 2, 3, 4])], nombre, {
+    type: "image/jpeg",
+  });
+}

@@ -1,4 +1,5 @@
 import {
+  buildPrintDataAdmin,
   getOrdenMetaPublica,
   getOrdenSurtidoCaptura,
 } from "@/modules/sales/ordenes/surtido/orden-surtido.service";
@@ -69,16 +70,27 @@ export default async function CapturaOrdenPublicPage({
     if (!orden) {
       error = "Orden no encontrada.";
     } else {
-      const captura = await getOrdenSurtidoCaptura(
-        idOrdenVenta,
-        idOrdenTrabajo || null,
-      );
+      // La hoja se arma con la misma función que la imprime: el «2/9» coincide con el papel.
+      // Si no se puede resolver, la pantalla se ve igual, solo con el folio.
+      const [captura, hoja] = await Promise.all([
+        getOrdenSurtidoCaptura(idOrdenVenta, idOrdenTrabajo || null),
+        buildPrintDataAdmin(idOrdenVenta, idOrdenTrabajo || null).catch(
+          () => null,
+        ),
+      ]);
       meta = {
         idOrdenVenta: orden.idOrdenVenta,
         folio: orden.folio,
         idOrdenTrabajo,
         tieneCaptura: Boolean(captura) || flashOk,
         capturaActualizadaEn: captura?.updatedAt ?? null,
+        ordenTrabajo: hoja
+          ? {
+              indice: hoja.tareaIndex ?? 1,
+              total: hoja.tareaTotal ?? 1,
+              centroConsumo: hoja.centroConsumo,
+            }
+          : null,
       };
     }
   } catch (err: unknown) {
