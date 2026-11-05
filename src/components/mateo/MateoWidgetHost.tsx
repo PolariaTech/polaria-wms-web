@@ -9,6 +9,8 @@ import { apiRequest } from "@/services/api/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import { loadMateoWidgetApi } from "./load-mateo-widget";
+import { MateoLauncherTab } from "./MateoLauncherTab";
+import { useMateoLanzadorOculto } from "./useMateoLanzadorOculto";
 import type {
   MateoWidgetApi,
   MateoWidgetTokenResponse,
@@ -24,6 +26,9 @@ export function MateoWidgetHost() {
   const cypherOpen = useShellOverlayStore((s) => s.cypherOpen);
   const ovEditOpen = useShellOverlayStore((s) => s.ovEditOpen);
   const hideLauncher = cypherOpen || ovEditOpen;
+  // La persona puede esconder el botón flotante en el borde (pestaña con flecha).
+  const { oculto: lanzadorOculto, alternar: alternarLanzador } = useMateoLanzadorOculto();
+  const widgetOculto = hideLauncher || lanzadorOculto;
   const { showToast } = usePolariaToast();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<MateoWidgetApi | null>(null);
@@ -126,20 +131,31 @@ export function MateoWidgetHost() {
   // No poner el host en `fixed` con tamaño 0: puede ocultar el botón.
   // Con Cypher abierto se oculta (fade) para no tapar acciones (p. ej. Borrar).
   return (
-    <div
-      ref={hostRef}
-      data-testid="mateo-widget-host"
-      data-ready={ready ? "true" : "false"}
-      data-cypher-open={cypherOpen ? "true" : "false"}
-      data-ov-edit-open={ovEditOpen ? "true" : "false"}
-      className={cn(
-        "relative z-[100] transition-opacity duration-300 ease-out",
-        hideLauncher
-          ? "pointer-events-none opacity-0"
-          : "opacity-100",
-      )}
-      aria-hidden={hideLauncher}
-      aria-live="polite"
-    />
+    <>
+      <div
+        ref={hostRef}
+        data-testid="mateo-widget-host"
+        data-ready={ready ? "true" : "false"}
+        data-cypher-open={cypherOpen ? "true" : "false"}
+        data-ov-edit-open={ovEditOpen ? "true" : "false"}
+        data-launcher-hidden={lanzadorOculto ? "true" : "false"}
+        className={cn(
+          "relative z-[100] transition-opacity duration-300 ease-out motion-reduce:transition-none",
+          widgetOculto ? "pointer-events-none opacity-0" : "opacity-100",
+        )}
+        aria-hidden={widgetOculto}
+        aria-live="polite"
+      />
+      {/* Con Cypher abierto el borde derecho es del panel: la pestaña se esconde con el botón. */}
+      {ready && !hideLauncher ? (
+        <MateoLauncherTab
+          oculto={lanzadorOculto}
+          onAlternar={() => {
+            // Al esconderlo, el chat abierto también se cierra.
+            if (alternarLanzador()) apiRef.current?.close?.();
+          }}
+        />
+      ) : null}
+    </>
   );
 }
