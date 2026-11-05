@@ -56,44 +56,44 @@ function dibujarHoja(doc: jsPDF, nombre: string, tabla: Tabla, recortada: boolea
   const anchoUtil = PAGE_W - MARGIN * 2;
   const anchos = anchosDeColumnas(tabla, anchoUtil);
   const tamano = anchos.length > 12 ? 5 : anchos.length > 8 ? 6 : 7;
-  let y = MARGIN;
+  let cursorY = MARGIN;
 
   const titulo = () => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(0);
-    doc.text(nombre, MARGIN, y + 3, { baseline: "top" });
-    y += TITULO_H;
+    doc.text(nombre, MARGIN, cursorY + 3, { baseline: "top" });
+    cursorY += TITULO_H;
   };
   titulo();
 
   tabla.forEach((fila, indice) => {
-    if (y + FILA_H > PAGE_H - MARGIN) {
+    if (cursorY + FILA_H > PAGE_H - MARGIN) {
       doc.addPage([PAGE_W, PAGE_H], "landscape");
-      y = MARGIN;
+      cursorY = MARGIN;
       titulo();
     }
     if (indice % 2 === 1) {
       doc.setFillColor(238, 238, 238);
-      doc.rect(MARGIN, y, anchoUtil, FILA_H, "F");
+      doc.rect(MARGIN, cursorY, anchoUtil, FILA_H, "F");
     }
     doc.setFont("helvetica", "normal");
     doc.setFontSize(tamano);
-    let x = MARGIN;
+    let cursorX = MARGIN;
     fila.forEach((celda, c) => {
       const ancho = anchos[c] ?? 0;
       // Lo que no cabe en su columna se recorta: así una celda larga no pisa a la siguiente.
       const [linea] = doc.splitTextToSize(celda, Math.max(ancho - 1.2, 2)) as string[];
-      if (linea) doc.text(linea, x + 0.6, y + FILA_H / 2, { baseline: "middle" });
-      x += ancho;
+      if (linea) doc.text(linea, cursorX + 0.6, cursorY + FILA_H / 2, { baseline: "middle" });
+      cursorX += ancho;
     });
-    y += FILA_H;
+    cursorY += FILA_H;
   });
 
   if (recortada) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(6);
-    doc.text(`Solo se imprimen las primeras ${MAX_FILAS_POR_HOJA} filas de esta hoja.`, MARGIN, y + 2, {
+    doc.text(`Solo se imprimen las primeras ${MAX_FILAS_POR_HOJA} filas de esta hoja.`, MARGIN, cursorY + 2, {
       baseline: "top",
     });
   }

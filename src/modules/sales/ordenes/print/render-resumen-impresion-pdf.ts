@@ -188,19 +188,19 @@ function dibujarPagina(
     { baseline: "top" },
   );
 
-  let y = MARGIN + 27;
+  let cursorY = MARGIN + 27;
   doc.setDrawColor(0);
   doc.setLineWidth(0.35);
   doc.setFillColor(225, 225, 225);
-  doc.rect(MARGIN, y, CONTENT_W, ENCABEZADO_H, "FD");
+  doc.rect(MARGIN, cursorY, CONTENT_W, ENCABEZADO_H, "FD");
   doc.setFontSize(6.5);
-  let x = MARGIN;
+  let cursorX = MARGIN;
   for (const col of columnas) {
-    const cx = col.alinea === "center" ? x + col.ancho / 2 : x + 1.2;
-    doc.text(col.clave, cx, y + ENCABEZADO_H / 2, { align: col.alinea, baseline: "middle" });
-    x += col.ancho;
+    const cx = col.alinea === "center" ? cursorX + col.ancho / 2 : cursorX + 1.2;
+    doc.text(col.clave, cx, cursorY + ENCABEZADO_H / 2, { align: col.alinea, baseline: "middle" });
+    cursorX += col.ancho;
   }
-  y += ENCABEZADO_H;
+  cursorY += ENCABEZADO_H;
 
   const desde = (pagina - 1) * FILAS_POR_PAGINA_RESUMEN;
   const visibles = resumen.filas.slice(desde, desde + FILAS_POR_PAGINA_RESUMEN);
@@ -208,9 +208,9 @@ function dibujarPagina(
   visibles.forEach((fila, indice) => {
     if (indice % 2 === 1) {
       doc.setFillColor(238, 238, 238);
-      doc.rect(MARGIN, y, CONTENT_W, FILA_H, "F");
+      doc.rect(MARGIN, cursorY, CONTENT_W, FILA_H, "F");
     }
-    doc.rect(MARGIN, y, CONTENT_W, FILA_H, "S");
+    doc.rect(MARGIN, cursorY, CONTENT_W, FILA_H, "S");
     const valores = [
       String(desde + indice + 1),
       fila.venta,
@@ -228,11 +228,11 @@ function dibujarPagina(
       doc.setFontSize(7.5);
       const texto = textoQueCabe(doc, valores[i]!, col.ancho);
       const tx = col.alinea === "center" ? cx + col.ancho / 2 : cx + 1.2;
-      doc.text(texto, tx, y + FILA_H / 2, { align: col.alinea, baseline: "middle" });
+      doc.text(texto, tx, cursorY + FILA_H / 2, { align: col.alinea, baseline: "middle" });
       cx += col.ancho;
-      if (i < columnas.length - 1) doc.line(cx, y, cx, y + FILA_H);
+      if (i < columnas.length - 1) doc.line(cx, cursorY, cx, cursorY + FILA_H);
     });
-    y += FILA_H;
+    cursorY += FILA_H;
   });
 }
 
