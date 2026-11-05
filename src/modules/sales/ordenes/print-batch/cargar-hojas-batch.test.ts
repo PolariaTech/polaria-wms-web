@@ -115,6 +115,52 @@ describe("cargarHojasBatch", () => {
     expect(hojas.map((h) => h.folio)).toEqual(["OV-ayer", "OV-manana", "OV-tarde"]);
   });
 
+  it("con orden «resumen» conserva el orden recibido (el que impone la impresión rápida)", async () => {
+    const entregas: Record<string, [string, string]> = {
+      "OV-tarde": ["06/11/2026", "14:00 – 16:00"],
+      "OV-ayer": ["05/11/2026", ""],
+    };
+    mapSheets.mockImplementation(({ listRow }: { listRow: OrdenVentaOperadorRow }) => {
+      const [fechaEntrega, horaEntrega] = entregas[listRow.venta]!;
+      return [{ ...hoja(listRow.venta, 1), fechaEntrega, horaEntrega }];
+    });
+    const hojas = await cargarHojasBatch({
+      codigoCuenta: "JBR",
+      zonaHoraria: "America/Bogota",
+      runScoped,
+      orden: "resumen",
+      resumen: [
+        { row: { ...row("t"), venta: "OV-tarde" }, ots: [1] },
+        { row: { ...row("y"), venta: "OV-ayer" }, ots: [1] },
+      ],
+    });
+    expect(hojas.map((h) => h.folio)).toEqual(["OV-tarde", "OV-ayer"]);
+  });
+
+  it("entrega el `origen_archivos` de cada OV al leer su detalle, sin pedirlo dos veces", async () => {
+    getOrdenVentaDetalle.mockImplementation(async ({ idOrdenVenta }: { idOrdenVenta: string }) => ({
+      origen_archivos: idOrdenVenta === "a" ? '[{"nombre":"pedido.pdf"}]' : null,
+    }));
+    const vistos: Array<[string, string | null | undefined]> = [];
+
+    await cargarHojasBatch({
+      codigoCuenta: "JBR",
+      zonaHoraria: "America/Bogota",
+      runScoped,
+      resumen: [
+        { row: row("a"), ots: [1] },
+        { row: row("b"), ots: [1] },
+      ],
+      alLeerDetalle: (id, origen) => vistos.push([id, origen]),
+    });
+
+    expect(vistos.sort()).toEqual([
+      ["a", '[{"nombre":"pedido.pdf"}]'],
+      ["b", null],
+    ]);
+    expect(getOrdenVentaDetalle).toHaveBeenCalledTimes(2);
+  });
+
   it("avisa el progreso por cada OV leída", async () => {
     const onProgreso = vi.fn();
     await cargarHojasBatch({

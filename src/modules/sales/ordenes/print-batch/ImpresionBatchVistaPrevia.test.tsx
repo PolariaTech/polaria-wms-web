@@ -62,6 +62,14 @@ describe("ImpresionBatchVistaPrevia", () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:batch");
   });
 
+  it("la impresión rápida cambia cómo describe el orden y el texto de volver", () => {
+    montar({ descripcionOrden: "ordenadas por fecha, cantidad de OT y cliente", etiquetaVolver: "Cambiar la fecha" });
+
+    expect(screen.getByText(/ordenadas por fecha, cantidad de OT y cliente/)).toBeInTheDocument();
+    expect(screen.queryByText(/hora de entrega/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cambiar la fecha" })).toBeInTheDocument();
+  });
+
   it("una sola hoja va en singular", () => {
     montar({ hojas: 1, ot: 1, ov: 1 });
     expect(screen.getByText("1 OT de 1 OV · 1 hoja · ordenadas por fecha y hora de entrega")).toBeInTheDocument();

@@ -60,6 +60,8 @@ export const ROUTES = {
   dashboardVentasOrdenes: "/dashboard/ventas/ordenes",
   /** REQ-264: imprimir en un solo PDF las OT elegidas de varias OV. */
   dashboardVentasImpresionBatch: "/dashboard/ventas/impresion-batch",
+  /** REQ-264: imprimir por fecha lo confirmado que aún no se ha impreso. */
+  dashboardVentasImpresionRapida: "/dashboard/ventas/impresion-rapida",
   /** REQ-104: correos de pedidos que registra n8n (todos). */
   dashboardVentasCorreosMateo: "/dashboard/ventas/correos-mateo",
   /** REQ-104: correos que el flujo descartó, para ingresarlos a mano como OV. */

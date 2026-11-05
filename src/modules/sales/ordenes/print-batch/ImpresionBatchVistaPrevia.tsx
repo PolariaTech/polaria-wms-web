@@ -12,6 +12,10 @@ interface ImpresionBatchVistaPreviaProps {
   imprimiendo: boolean;
   /** Nombre del archivo al descargar. */
   nombreArchivo: string;
+  /** Cómo se ordenó el PDF; la impresión rápida tiene su propia regla. */
+  descripcionOrden?: string;
+  /** Texto del botón para regresar a la pantalla anterior. */
+  etiquetaVolver?: string;
   onVolver: () => void;
   onImprimir: () => void;
 }
@@ -26,6 +30,8 @@ export function ImpresionBatchVistaPrevia({
   ov,
   imprimiendo,
   nombreArchivo,
+  descripcionOrden = "ordenadas por fecha y hora de entrega",
+  etiquetaVolver = "Volver a la selección",
   onVolver,
   onImprimir,
 }: ImpresionBatchVistaPreviaProps) {
@@ -56,7 +62,7 @@ export function ImpresionBatchVistaPrevia({
             Vista previa
           </h2>
           <p className="polaria-text-body-sm tabular-nums text-polaria-w">
-            {ot} OT de {ov} OV · {hojas} {hojas === 1 ? "hoja" : "hojas"} · ordenadas por fecha y hora de entrega
+            {ot} OT de {ov} OV · {hojas} {hojas === 1 ? "hoja" : "hojas"} · {descripcionOrden}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -70,7 +76,7 @@ export function ImpresionBatchVistaPrevia({
             )}
           >
             <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            Volver a la selección
+            {etiquetaVolver}
           </button>
           {url ? (
             <a

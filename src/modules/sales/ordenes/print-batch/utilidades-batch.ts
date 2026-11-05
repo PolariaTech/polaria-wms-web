@@ -1,5 +1,10 @@
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
+import {
+  paginasDeResumen,
+  type ResumenImpresionPdf,
+} from "../print/render-resumen-impresion-pdf";
 import type { ResumenOvBatch } from "./batch-seleccion";
+import type { ParteEnvio } from "./partir-paquete";
 
 /** Lo que se muestra en la vista previa: el PDF ya armado y de qué sale. */
 export interface PreviaBatch {
@@ -7,6 +12,21 @@ export interface PreviaBatch {
   hojas: OrdenTareaAlmacenPrintData[];
   resumen: ResumenOvBatch[];
   nombreArchivo: string;
+  /** Hoja de resumen que abre el PDF; solo la impresión rápida la lleva. */
+  resumenPdf?: ResumenImpresionPdf;
+  /** Cómo se manda cuando pesa más del límite de un correo; sin esto va todo en un solo envío. */
+  partes?: ParteEnvio[];
+}
+
+/** Páginas del resumen, contando la hoja de notas si la lleva. */
+export function paginasDelResumen(resumenPdf: ResumenImpresionPdf | undefined): number {
+  return resumenPdf ? paginasDeResumen(resumenPdf.filas.length, resumenPdf.notas?.length ?? 0) : 0;
+}
+
+/** Hojas físicas que salen de la impresora: las de OT, las del resumen y las páginas de OC. */
+export function hojasDelPaquete(previa: Pick<PreviaBatch, "hojas" | "resumenPdf" | "partes">): number {
+  const deOc = (previa.partes ?? []).reduce((suma, parte) => suma + (parte.paginasExtra ?? 0), 0);
+  return previa.hojas.length + paginasDelResumen(previa.resumenPdf) + deOc;
 }
 
 export function nombreArchivoBatch(ahora = new Date()): string {
@@ -21,6 +41,15 @@ export function horaEnCuenta(zonaHoraria: string, ahora = new Date()): string {
     return ahora.toLocaleTimeString("es-CO", { ...formato, timeZone: zonaHoraria });
   } catch {
     return ahora.toLocaleTimeString("es-CO", formato);
+  }
+}
+
+/** Día de hoy `YYYY-MM-DD` en la zona de la cuenta (la fecha que propone la impresión rápida). */
+export function hoyEnCuenta(zonaHoraria: string, ahora = new Date()): string {
+  try {
+    return ahora.toLocaleDateString("en-CA", { timeZone: zonaHoraria });
+  } catch {
+    return ahora.toLocaleDateString("en-CA");
   }
 }
 

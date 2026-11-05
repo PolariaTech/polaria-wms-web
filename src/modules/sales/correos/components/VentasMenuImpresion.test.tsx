@@ -30,14 +30,28 @@ describe("VentasMenuImpresion", () => {
     );
   });
 
-  it("la impresión rápida aparece apagada, sin enlace, y avisa «Próximamente»", async () => {
+  it("la impresión rápida es un enlace a su pantalla y ya no dice «Próximamente»", async () => {
     render(<VentasMenuImpresion pathname={ROUTES.dashboardVentasOrdenes} />);
     await userEvent.click(screen.getByRole("button", GRUPO));
 
-    const rapida = screen.getByText("Impresión rápida");
-    expect(rapida.closest("[aria-disabled='true']")).not.toBeNull();
-    expect(screen.queryByRole("link", { name: /rápida/i })).not.toBeInTheDocument();
-    expect(screen.getByText("Próximamente")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Impresión rápida" })).toHaveAttribute(
+      "href",
+      ROUTES.dashboardVentasImpresionRapida,
+    );
+    expect(screen.queryByText("Próximamente")).not.toBeInTheDocument();
+  });
+
+  it("dentro de la impresión rápida arranca abierto y marca solo esa opción como actual", () => {
+    render(<VentasMenuImpresion pathname={ROUTES.dashboardVentasImpresionRapida} />);
+
+    expect(screen.getByRole("button", GRUPO)).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Impresión rápida" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Impresión detallada" })).not.toHaveAttribute(
+      "aria-current",
+    );
   });
 
   it("dentro de la impresión detallada arranca abierto y la marca como la página actual", () => {

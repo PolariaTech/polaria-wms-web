@@ -81,6 +81,7 @@ describe("VentasSidebar (REQ-104)", () => {
   it.each([
     [ROUTES.dashboardVentasOrdenes, "Órdenes de venta"],
     [ROUTES.dashboardVentasImpresionBatch, "Impresión detallada"],
+    [ROUTES.dashboardVentasImpresionRapida, "Impresión rápida"],
     [ROUTES.dashboardVentasCorreosMateo, "Correos recibidos"],
     [ROUTES.dashboardVentasCorreosDescartados, "Correos descartados"],
   ])("en %s marca como actual solo «%s»", (ruta, nombre) => {

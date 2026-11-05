@@ -11,6 +11,8 @@ interface ImpresionBatchConfirmacionProps {
   /** Nombre de la impresora de la cuenta; vacío mientras se consulta. */
   impresora: string | null;
   imprimiendo: boolean;
+  /** Frase extra al final de la descripción (la impresión rápida avisa aquí que va en partes). */
+  detalle?: string;
   onClose: () => void;
   onConfirm: () => void;
 }
@@ -22,6 +24,7 @@ export function ImpresionBatchConfirmacion({
   orden,
   impresora,
   imprimiendo,
+  detalle,
   onClose,
   onConfirm,
 }: ImpresionBatchConfirmacionProps) {
@@ -31,7 +34,7 @@ export function ImpresionBatchConfirmacion({
       onClose={onClose}
       onConfirm={onConfirm}
       title="¿Imprimir esta selección?"
-      description={`Se enviarán ${hojas} ${hojas === 1 ? "hoja" : "hojas"} de ${orden.length} OV a ${impresora ?? "la impresora de la cuenta"}, en este orden.`}
+      description={`Se enviarán ${hojas} ${hojas === 1 ? "hoja" : "hojas"} de ${orden.length} OV a ${impresora ?? "la impresora de la cuenta"}, en este orden.${detalle ? ` ${detalle}` : ""}`}
       confirmLabel="Imprimir"
       isSubmitting={imprimiendo}
       size="lg"

@@ -19,6 +19,16 @@ export interface CargarHojasBatchInput {
   runScoped: EjecutarEnCuenta;
   /** Se llama cada vez que termina de leerse una OV. */
   onProgreso?: (leidas: number, total: number) => void;
+  /**
+   * `entrega` (por defecto): fecha y hora de entrega, como la impresión detallada.
+   * `resumen`: el orden de `resumen` tal cual, que es el que impone la impresión rápida.
+   */
+  orden?: "entrega" | "resumen";
+  /**
+   * Se llama con el `origen_archivos` de cada OV en cuanto se lee su detalle: de ahí salen las OC
+   * (REQ-260) sin tener que pedir el detalle una segunda vez.
+   */
+  alLeerDetalle?: (idOrdenVenta: string, origenArchivos: string | null | undefined) => void;
 }
 
 /**
@@ -62,6 +72,7 @@ async function hojasDeOv(
     // Sin el detalle la hoja saldría sin productos: no se imprime a medias.
     throw new Error(`No se pudo leer ${row.venta}. Inténtalo de nuevo.`);
   }
+  input.alLeerDetalle?.(row.idOrdenVenta, detalle?.origen_archivos);
 
   const hojas = mapOrdenVentaToAlmacenPrintSheets({
     listRow: row,
@@ -109,5 +120,5 @@ export async function cargarHojasBatch(
   await Promise.all(
     Array.from({ length: Math.min(OV_EN_PARALELO, resumen.length) }, trabajador),
   );
-  return ordenarHojasPorEntrega(porOv.flat());
+  return input.orden === "resumen" ? porOv.flat() : ordenarHojasPorEntrega(porOv.flat());
 }

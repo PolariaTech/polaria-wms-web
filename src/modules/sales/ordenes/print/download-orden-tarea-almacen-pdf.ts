@@ -7,6 +7,7 @@ import { stampOrdenTareaImpresaNow } from "./map-orden-tarea-almacen";
 import { resolveCapturaOrdenOrigin } from "./resolve-captura-orden-origin";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 import type { SilentPrintResult } from "./print-silent-cuenta";
+import { anadirResumenAlPdf, type ResumenImpresionPdf } from "./render-resumen-impresion-pdf";
 
 function stampWithCuentaZone(
   sheets: readonly OrdenTareaAlmacenPrintData[],
@@ -166,7 +167,12 @@ export async function downloadOrdenTareaAlmacenLandscapePdfs(
 /** Blob + nombre para vista previa en la app (sin forzar descarga). */
 export async function buildOrdenTareaAlmacenLandscapePdfBlob(
   sheets: readonly OrdenTareaAlmacenPrintData[],
-  options?: { filenameSuffix?: string; codigoCuenta?: string },
+  options?: {
+    filenameSuffix?: string;
+    codigoCuenta?: string;
+    /** Hoja de resumen que abre el PDF (impresión rápida). */
+    resumen?: ResumenImpresionPdf;
+  },
 ): Promise<{ blob: Blob; filename: string }> {
   if (sheets.length === 0) {
     throw new Error("No hay órdenes de trabajo para previsualizar.");
@@ -177,6 +183,7 @@ export async function buildOrdenTareaAlmacenLandscapePdfBlob(
   const stamped = stampWithCuentaZone(sheets, options?.codigoCuenta);
   const withQr = await Promise.all(stamped.map((sheet) => withQrDataUrl(sheet)));
   const pdf = buildOrdenTareaAlmacenLandscapePdfMulti(withQr);
+  if (options?.resumen) anadirResumenAlPdf(pdf, options.resumen);
   return {
     blob: pdf.output("blob"),
     filename: multiFilename(withQr, options),
@@ -189,7 +196,12 @@ export async function buildOrdenTareaAlmacenLandscapePdfBlob(
  */
 export async function printOrdenTareaAlmacenLandscape(
   sheets: readonly OrdenTareaAlmacenPrintData[],
-  options?: { codigoCuenta?: string },
+  options?: {
+    codigoCuenta?: string;
+    resumen?: ResumenImpresionPdf;
+    /** Cuando el paquete se manda en varias partes: «2/5», para el nombre del trabajo. */
+    etiquetaParte?: string;
+  },
 ): Promise<SilentPrintResult> {
   if (sheets.length === 0) {
     throw new Error("No hay datos para generar el PDF.");
@@ -207,6 +219,7 @@ export async function printOrdenTareaAlmacenLandscape(
   const stamped = stampWithCuentaZone(sheets, codigoCuenta);
   const withQr = await Promise.all(stamped.map((sheet) => withQrDataUrl(sheet)));
   const pdf = buildOrdenTareaAlmacenLandscapePdfMulti(withQr);
+  if (options?.resumen) anadirResumenAlPdf(pdf, options.resumen);
   const pdfBase64 = pdf.output("datauristring").split(",")[1] ?? "";
   if (!pdfBase64) {
     throw new Error("No se pudo generar el PDF para imprimir.");
@@ -216,6 +229,6 @@ export async function printOrdenTareaAlmacenLandscape(
   return printPdfSilentToCuenta({
     codigoCuenta,
     pdfBase64,
-    jobName: `OV ${sheets[0]?.folio || "Polaria"}`,
+    jobName: `OV ${sheets[0]?.folio || "Polaria"}${options?.etiquetaParte ? ` (${options.etiquetaParte})` : ""}`,
   });
 }
