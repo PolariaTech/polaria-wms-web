@@ -14,6 +14,13 @@
 - `src/modules/sales/ordenes/print/download-orden-tarea-almacen-pdf.ts`
 - `src/modules/sales/ordenes/print/map-orden-tarea-almacen.ts`
 - `src/modules/sales/ordenes/surtido/captura-intento.service.ts`
+- `src/components/shared/module/OperationalModuleShell.tsx` — autorizada por el usuario el 2026-11-05
+- `src/components/shared/module/OperationalModuleShell.test.tsx` — autorizada por el usuario el 2026-11-05
+- `src/components/shared/table/PolariaDataTable.tsx` — autorizada por el usuario el 2026-11-05
+- `src/components/shared/table/PolariaDataTable.test.tsx` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/correos/components/CorreosTable.tsx` — autorizada por el usuario el 2026-11-05
+- `src/app/(shell)/dashboard/(operacion-cuenta)/ventas/correos-mateo/page.tsx` — autorizada por el usuario el 2026-11-05
+- `src/app/(shell)/dashboard/(operacion-cuenta)/ventas/correos-descartados/page.tsx` — autorizada por el usuario el 2026-11-05
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/config/routes.ts`
