@@ -7,8 +7,19 @@ function fechaCorta(dia: string): string {
   return dia ? `${dia.slice(8, 10)}/${dia.slice(5, 7)}/${dia.slice(0, 4)}` : "";
 }
 
-/**
- * Datos de la hoja de resumen que abre el PDF: una fila por OV, en el orden en que salen sus
+/** `[1,2,3,5]` → «1-3, 5»: las OT de una OV agrupadas en rangos. */
+export function rangosDeOt(ots: readonly number[]): string {
+  const partes: string[] = [];
+  for (let i = 0; i < ots.length; ) {
+    let j = i;
+    while (j + 1 < ots.length && ots[j + 1] === ots[j]! + 1) j += 1;
+    partes.push(j - i >= 2 ? `${ots[i]}-${ots[j]}` : ots.slice(i, j + 1).join(", "));
+    i = j + 1;
+  }
+  return partes.join(", ");
+}
+
+/** de resumen que abre el PDF: una fila por OV, en el orden en que salen sus
  * hojas, con cuántas OT y cuántas hojas lleva cada una (una OT con muchos renglones usa varias).
  */
 export function armarResumenImpresion(input: {
@@ -45,6 +56,7 @@ export function armarResumenImpresion(input: {
       cliente: row.comprador,
       entrega: fechaCorta(diaEntregaDeOv(row)),
       ot: ots.length,
+      otLista: rangosDeOt(ots),
       hojas: hojasPorOv.get(row.idOrdenVenta) ?? ots.length,
       ...(oc && oc.paginas > 0 ? { oc: oc.paginas } : {}),
       ...(parteDeOv?.has(row.idOrdenVenta) ? { parte: parteDeOv.get(row.idOrdenVenta) } : {}),

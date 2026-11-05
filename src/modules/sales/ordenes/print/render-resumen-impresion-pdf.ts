@@ -8,6 +8,8 @@ export interface FilaResumenImpresion {
   entrega: string;
   /** Cuántas OT de la OV van en el paquete. */
   ot: number;
+  /** Cuáles OT van, ya escritas (ej. «1-3, 5»); si falta, la columna muestra solo la cantidad. */
+  otLista?: string;
   /** Cuántas hojas ocupan esas OT (una OT con muchos renglones usa varias). */
   hojas: number;
   /** Páginas de OC (adjuntos HTML, PDF o Excel) que van detrás de las hojas de OT de la OV. */
@@ -55,7 +57,7 @@ const COL_NUMERO: Columna = { clave: "#", ancho: 10, alinea: "center" };
 const COL_OV: Columna = { clave: "Orden de venta", ancho: 30, alinea: "left" };
 const COL_CLIENTE: Columna = { clave: "Cliente", ancho: 76, alinea: "left" };
 const COL_ENTREGA: Columna = { clave: "Entrega", ancho: 24, alinea: "center" };
-const COL_OT: Columna = { clave: "OT", ancho: 12, alinea: "center" };
+const COL_OT: Columna = { clave: "OT", ancho: 26, alinea: "center" };
 const COL_HOJAS: Columna = { clave: "Hojas", ancho: 14, alinea: "center" };
 const COL_OC: Columna = { clave: "OC", ancho: 12, alinea: "center" };
 const COL_PARTE: Columna = { clave: "Parte", ancho: 12, alinea: "center" };
@@ -214,7 +216,7 @@ function dibujarPagina(
       fila.venta,
       fila.cliente,
       fila.entrega,
-      String(fila.ot),
+      fila.otLista ?? String(fila.ot),
       String(fila.hojas),
       ...(conOc ? [fila.oc ? String(fila.oc) : "—"] : []),
       ...(conParte ? [String(fila.parte ?? 1)] : []),

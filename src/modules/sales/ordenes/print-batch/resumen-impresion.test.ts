@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OrdenVentaOperadorRow } from "../../shared/types/sales.types";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
-import { armarResumenImpresion } from "./resumen-impresion";
+import { armarResumenImpresion, rangosDeOt } from "./resumen-impresion";
 
 function item(id: string, extra: Partial<OrdenVentaOperadorRow>, ots: number[]) {
   return {
@@ -24,8 +24,8 @@ describe("armarResumenImpresion", () => {
     expect(resumen.titulo).toBe("Resumen de impresión");
     expect(resumen.subtitulo).toContain("entrega hasta 05/11/2026");
     expect(resumen.filas).toEqual([
-      { venta: "OV-b", cliente: "Hotel Luna", entrega: "05/11/2026", ot: 2, hojas: 3 },
-      { venta: "OV-a", cliente: "Hotel Sol", entrega: "05/11/2026", ot: 1, hojas: 1 },
+      { venta: "OV-b", cliente: "Hotel Luna", entrega: "05/11/2026", ot: 2, otLista: "1, 2", hojas: 3 },
+      { venta: "OV-a", cliente: "Hotel Sol", entrega: "05/11/2026", ot: 1, otLista: "1", hojas: 1 },
     ]);
   });
 
@@ -98,5 +98,14 @@ describe("armarResumenImpresion", () => {
     });
 
     expect(resumen.filas[0]?.hojas).toBe(3);
+  });
+});
+
+describe("rangosDeOt", () => {
+  it("agrupa las OT seguidas en rangos y deja sueltas las demás", () => {
+    expect(rangosDeOt([1, 2, 3, 5])).toBe("1-3, 5");
+    expect(rangosDeOt([2, 4, 5, 8, 9, 10, 11])).toBe("2, 4, 5, 8-11");
+    expect(rangosDeOt([7])).toBe("7");
+    expect(rangosDeOt([])).toBe("");
   });
 });

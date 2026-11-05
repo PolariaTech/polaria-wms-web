@@ -36,6 +36,17 @@ function pdfConDosHojas(): jsPDF {
 const contenido = (pdf: jsPDF, pagina: number): string =>
   (pdf.internal as unknown as { pages: string[][] }).pages[pagina]!.join("\n");
 
+describe("columna OT del resumen", () => {
+  it("escribe cuáles OT van de cada OV cuando la fila las trae, y solo la cantidad si no", () => {
+    const pdf = pdfConDosHojas();
+    anadirResumenAlPdf(pdf, resumen([fila(1, { ot: 4, otLista: "1-3, 5", hojas: 4 }), fila(2, { ot: 2 })]));
+
+    const texto = contenido(pdf, 1);
+    expect(texto).toContain("(1-3, 5) Tj");
+    expect(texto).toContain("(2) Tj");
+  });
+});
+
 describe("paginasDeResumen", () => {
   it("siempre ocupa al menos una hoja y suma otra por cada 36 OV", () => {
     expect(paginasDeResumen(0)).toBe(1);
