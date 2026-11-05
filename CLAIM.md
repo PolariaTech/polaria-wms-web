@@ -21,6 +21,8 @@
 - `src/modules/sales/correos/components/CorreosTable.tsx` — autorizada por el usuario el 2026-11-05
 - `src/app/(shell)/dashboard/(operacion-cuenta)/ventas/correos-mateo/page.tsx` — autorizada por el usuario el 2026-11-05
 - `src/app/(shell)/dashboard/(operacion-cuenta)/ventas/correos-descartados/page.tsx` — autorizada por el usuario el 2026-11-05
+- `src/components/mateo/MateoWidgetHost.tsx` — autorizada por el usuario el 2026-11-05
+- `src/components/mateo/MateoWidgetHost.test.tsx` — autorizada por el usuario el 2026-11-05
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/config/routes.ts`
