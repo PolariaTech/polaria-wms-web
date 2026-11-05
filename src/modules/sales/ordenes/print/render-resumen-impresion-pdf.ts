@@ -196,8 +196,8 @@ function dibujarPagina(
   doc.setFontSize(6.5);
   let cursorX = MARGIN;
   for (const col of columnas) {
-    const cx = col.alinea === "center" ? cursorX + col.ancho / 2 : cursorX + 1.2;
-    doc.text(col.clave, cx, cursorY + ENCABEZADO_H / 2, { align: col.alinea, baseline: "middle" });
+    const columnaX = col.alinea === "center" ? cursorX + col.ancho / 2 : cursorX + 1.2;
+    doc.text(col.clave, columnaX, cursorY + ENCABEZADO_H / 2, { align: col.alinea, baseline: "middle" });
     cursorX += col.ancho;
   }
   cursorY += ENCABEZADO_H;
@@ -222,15 +222,15 @@ function dibujarPagina(
       ...(conParte ? [String(fila.parte ?? 1)] : []),
       String(inicios[desde + indice]),
     ];
-    let cx = MARGIN;
+    let columnaX = MARGIN;
     columnas.forEach((col, i) => {
       doc.setFont("helvetica", i === 1 ? "bold" : "normal");
       doc.setFontSize(7.5);
       const texto = textoQueCabe(doc, valores[i]!, col.ancho);
-      const tx = col.alinea === "center" ? cx + col.ancho / 2 : cx + 1.2;
-      doc.text(texto, tx, cursorY + FILA_H / 2, { align: col.alinea, baseline: "middle" });
-      cx += col.ancho;
-      if (i < columnas.length - 1) doc.line(cx, cursorY, cx, cursorY + FILA_H);
+      const posicionTexto = col.alinea === "center" ? columnaX + col.ancho / 2 : columnaX + 1.2;
+      doc.text(texto, posicionTexto, cursorY + FILA_H / 2, { align: col.alinea, baseline: "middle" });
+      columnaX += col.ancho;
+      if (i < columnas.length - 1) doc.line(columnaX, cursorY, columnaX, cursorY + FILA_H);
     });
     cursorY += FILA_H;
   });
