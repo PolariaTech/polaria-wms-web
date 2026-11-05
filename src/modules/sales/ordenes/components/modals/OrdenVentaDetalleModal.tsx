@@ -38,7 +38,6 @@ import {
   parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
 } from "../../utils/pedido/build-orden-venta-captura-observaciones";
-import { diaSemanaEntregaEsTitulo } from "../../utils/pedido/dia-semana-entrega";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
@@ -62,7 +61,10 @@ import {
 } from "./detalle-venta-presentacion";
 import { useRecargaFolioFactura } from "../../surtido/folio-factura-captura";
 import { OrdenVentaDetalleProductos } from "./OrdenVentaDetalleProductos";
-import { OrdenVentaDetalleIdentidadCliente } from "./OrdenVentaDetalleIdentidadCliente";
+import {
+  OrdenVentaDetalleDiaSemana,
+  OrdenVentaDetalleIdentidadCliente,
+} from "./OrdenVentaDetalleIdentidadCliente";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
 import {
   formatCompradorOrdenVenta,
@@ -368,16 +370,7 @@ function DetalleContent({
               }
             />
           </MetaField>
-          {/* REQ-257 */}
-          <MetaField label="Día de la semana">
-            <TextValue
-              value={
-                captura.fechaEntrega
-                  ? diaSemanaEntregaEsTitulo(captura.fechaEntrega)
-                  : ""
-              }
-            />
-          </MetaField>
+          <OrdenVentaDetalleDiaSemana fechaEntrega={captura.fechaEntrega} />
           <MetaField label="Ventana de entrega">
             <TextValue value={captura.ventanaEntrega} />
           </MetaField>

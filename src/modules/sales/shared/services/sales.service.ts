@@ -115,8 +115,7 @@ interface CompradorDetalleDbRel {
   nombre: string | null;
   codigo: string | null;
   razon_social?: string | null;
-  apodo?: string | null;
-  rfc?: string | null;
+  apodo?: string | null; rfc?: string | null;
 }
 
 interface OrdenVentaDetalleDbRow extends OrdenVentaRow {
@@ -1751,8 +1750,7 @@ function mapOrdenVentaDetalleRow(
     comprador_nombre: compradorRel?.nombre?.trim() || null,
     comprador_codigo: compradorRel?.codigo?.trim() || null,
     comprador_razon_social: compradorRel?.razon_social?.trim() || null,
-    comprador_apodo: compradorRel?.apodo?.trim() || null,
-    comprador_rfc: compradorRel?.rfc?.trim() || null,
+    comprador_apodo: compradorRel?.apodo?.trim() || null, comprador_rfc: compradorRel?.rfc?.trim() || null,
     bodega_nombre: bodegaLabels.get(orden.id_bodega) ?? null,
     bodega_destino_nombre: orden.id_bodega_destino
       ? (bodegaLabels.get(orden.id_bodega_destino) ?? null)

@@ -34,8 +34,6 @@ import {
 } from "../utils/origen/texto-origen-pedido";
 import { filtrarLineasExtraidasPedibles } from "../utils/origen/renglon-origen-pedible";
 
-export { calcularCantidadDesdeCajas, pesoPorCajaKg };
-
 export interface LineaExtraida {
   textoOriginal: string;
   productoCatalogo: string | null;
@@ -899,10 +897,11 @@ export async function extraerPedido({
   });
   const ordenCompraHotelNormalizado = normalizedPedidos.ordenCompraHotel;
 
+  // REQ-234: excluir SKUs con cantidad <= 0 antes de armar origen_correo.
   const lineas: LineaExtraida[] = aplicarPiezasAproxKg(
     aplicarMadurezDesdeTexto(
       enrichLineasAlmacenConCodigoDesdeTexto(
-        normalizedPedidos.lineas,
+        filtrarLineasExtraidasPedibles(normalizedPedidos.lineas),
         sourceForEntrega,
       ),
       sourceForEntrega,
@@ -953,9 +952,7 @@ export async function extraerPedido({
     parsed.notasGeneralesAlmacen?.trim() ||
     parsed.observaciones?.trim() ||
     "";
-  // REQ-234: no armar origen_correo / form con SKUs cantidad <= 0.
-  const lineasPedibles = filtrarLineasExtraidasPedibles(lineas);
-  const origenCorreo = lineasPedibles.map((l, index) => ({
+  const origenCorreo = lineas.map((l, index) => ({
     // ISO primero: al reabrir OV, parseFechaOrigen no debe romper MM/DD BirchStreet.
     Fecha: fechaEntrega || fechaLabel || "",
     Unidad: l.unidad === "KGM" ? "KGS" : l.unidad || "",
@@ -1023,7 +1020,7 @@ export async function extraerPedido({
 
   const nombreCliente = parsed.nombreCliente?.trim() || null;
   const centroDesdeLineas =
-    lineasPedibles.find((l) => l.almacen?.trim())?.almacen?.trim() || null;
+    lineas.find((l) => l.almacen?.trim())?.almacen?.trim() || null;
   const pedido: PedidoExtraido = {
     fechaEntrega,
     centroConsumo: resolveCentroConsumoSinConfundirConCliente(
@@ -1050,7 +1047,7 @@ export async function extraerPedido({
     sustituciones: parsed.sustituciones,
     lote: parsed.lote,
     temperatura: parsed.temperatura,
-    lineas: lineasPedibles,
+    lineas,
     origenCorreo,
     advertencia: parsed.advertencia,
     archivosNoLegibles,
