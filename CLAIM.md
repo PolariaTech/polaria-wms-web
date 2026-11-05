@@ -67,6 +67,8 @@
 - `src/modules/sales/shared/types/sales.types.ts`
 - `src/modules/sales/shared/constants/sales-status.ts`
 - `src/modules/sales/ordenes/utils/origen/pedido-from-origen-correo.ts` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/utils/pedido/persist-linea-avance.ts` — autorizada por el usuario el 2026-11-05
+- `src/modules/sales/ordenes/utils/pedido/persist-linea-avance.test.ts` — autorizada por el usuario el 2026-11-05
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/index.ts`
