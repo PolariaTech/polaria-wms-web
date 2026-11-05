@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Printer, XCircle } from "lucide-react";
+import { Printer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
@@ -51,7 +51,6 @@ import {
   type AutoPrintOvResult,
 } from "../../print/auto-print-ov-tras-emitir";
 import {
-  ETIQUETA_RECARGAR_PAGINA,
   MENSAJE_CORREO_MAS_TARDE,
   MENSAJE_CORREO_NO_ENVIADO,
   MENSAJE_VERSION_NUEVA,
@@ -73,7 +72,6 @@ import {
   getOrdenVentaDetalle,
   listOrdenesVentaOperador,
 } from "../../../shared/services/sales.service";
-import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import {
   fetchOrdenVentaLog,
   postOrdenVentaLog,
@@ -105,6 +103,13 @@ import {
   type OrdenVentaOtConFotosItem,
 } from "../modals/OrdenVentaFotosCapturaModal";
 import { OrdenVentaPdfPreviewModal } from "../modals/OrdenVentaPdfPreviewModal";
+import {
+  OrdenVentaSeleccionOtModal,
+  type AccionSobreOt,
+} from "../modals/OrdenVentaSeleccionOtModal";
+import { filtrarHojasElegidas } from "../../print-batch/batch-seleccion";
+import { logTieneImpresion } from "../../print-batch/ya-impresas";
+import { OvImpresionResultadoModal } from "./OvImpresionResultadoModal";
 
 interface OrdenesVentaPageData {
   rows: OrdenVentaOperadorRow[];
@@ -116,6 +121,8 @@ type PrintRetryTarget = {
   idOrdenVenta: string;
   venta: string;
   idBodega: string | null;
+  /** OT elegidas en el modal; al reintentar salen solo esas. Vacío = toda la OV. */
+  ots?: readonly number[];
 };
 
 type OvFeedback = {
@@ -194,9 +201,15 @@ export function OperadorOrdenesVentaPageContent({
   }, [isCreateOpen, inspect, setOvEditOpen]);
   const printingLockRef = useRef(false);
   const fotosOrdenIdRef = useRef<string | null>(null);
-  /** REQ-137: confirmar reimpresión si ya hubo PDF a impresora. */
-  const [reprintConfirmRow, setReprintConfirmRow] =
-    useState<OrdenVentaOperadorRow | null>(null);
+  /**
+   * «Imprimir» y «Descarga» del Cypher abren primero este modal para elegir qué OT salen.
+   * `yaImpresa` avisa dentro del modal (REQ-137) en vez de pedir otra confirmación.
+   */
+  const [seleccionOt, setSeleccionOt] = useState<{
+    row: OrdenVentaOperadorRow;
+    accion: AccionSobreOt;
+    yaImpresa: boolean;
+  } | null>(null);
   /** Un solo modal: orden confirmada + impresión (REQ-039). */
   const [feedback, setFeedback] = useState<OvFeedback | null>(null);
   const showFeedback = useCallback(
@@ -508,13 +521,16 @@ export function OperadorOrdenesVentaPageContent({
     async (
       row: OrdenVentaOperadorRow,
       modo: "inicial" | "reintento" = "inicial",
+      ots?: readonly number[],
     ) => {
       if (!codigoCuenta || printingLockRef.current) return;
       printingLockRef.current = true;
       setBusyAction({ id: row.idOrdenVenta, kind: "print" });
 
       try {
-        const sheets = await loadPrintSheets(row);
+        const sheets = ots?.length
+          ? filtrarHojasElegidas(await loadPrintSheets(row), ots)
+          : await loadPrintSheets(row);
         if (sheets.length === 0) {
           throw new Error("No hay datos para generar el PDF.");
         }
@@ -601,6 +617,7 @@ export function OperadorOrdenesVentaPageContent({
               idOrdenVenta: row.idOrdenVenta,
               venta: row.venta,
               idBodega: row.idBodega ?? null,
+              ots,
             },
           });
         }
@@ -618,7 +635,7 @@ export function OperadorOrdenesVentaPageContent({
         (item) => item.idOrdenVenta === target.idOrdenVenta,
       );
       if (row) {
-        void executePrint(row, "reintento");
+        void executePrint(row, "reintento", target.ots);
         return;
       }
       if (!codigoCuenta || printingLockRef.current) return;
@@ -686,35 +703,33 @@ export function OperadorOrdenesVentaPageContent({
     [codigoCuenta, executePrint, marcarCorreoNoEnviado, quitarCorreoNoEnviado, showFeedback],
   );
 
-  const runPrint = useCallback(
-    async (row: OrdenVentaOperadorRow) => {
-      if (!codigoCuenta || printingLockRef.current) return;
-      // REQ-137: si ya se imprimió antes, pedir confirmación.
-      try {
-        const log = await runScoped(() =>
-          fetchOrdenVentaLog({
-            codigoCuenta,
-            idOrdenVenta: row.idOrdenVenta,
-          }),
-        );
-        const yaImpresa = log.some((entry) => {
-          const tipo = (entry.payloadTipo ?? "").trim();
-          return tipo === "impresion_pdf" || tipo === "impresion_pdf_auto";
-        });
-        if (yaImpresa) {
-          setReprintConfirmRow(row);
-          return;
-        }
-      } catch {
-        // Si el log falla, no bloqueamos la impresión.
-      }
-      await executePrint(row);
+  /**
+   * «Imprimir» y «Descarga» del Cypher (activos desde que la OV está confirmada) preguntan primero
+   * qué OT salen. Sustituye al diálogo «¿Imprimir de nuevo?» (REQ-137): el aviso va en el modal.
+   */
+  const abrirSeleccionOt = useCallback(
+    (row: OrdenVentaOperadorRow, accion: AccionSobreOt) => {
+      if (printingLockRef.current) return;
+      setSeleccionOt({ row, accion, yaImpresa: false });
+      if (accion !== "imprimir" || !codigoCuenta) return;
+      // REQ-137: si ya se imprimió, el modal lo avisa. Si el log falla, no se bloquea nada.
+      void runScoped(() =>
+        fetchOrdenVentaLog({ codigoCuenta, idOrdenVenta: row.idOrdenVenta }),
+      ).then(
+        (log) => {
+          if (!logTieneImpresion(log)) return;
+          setSeleccionOt((actual) =>
+            actual?.row.idOrdenVenta === row.idOrdenVenta ? { ...actual, yaImpresa: true } : actual,
+          );
+        },
+        () => undefined,
+      );
     },
-    [codigoCuenta, executePrint, runScoped],
+    [codigoCuenta, runScoped],
   );
 
   const openPdfPreview = useCallback(
-    async (row: OrdenVentaOperadorRow) => {
+    async (row: OrdenVentaOperadorRow, ots?: readonly number[]) => {
       if (!codigoCuenta || printingLockRef.current) return;
       printingLockRef.current = true;
       setBusyAction({ id: row.idOrdenVenta, kind: "preview" });
@@ -725,7 +740,9 @@ export function OperadorOrdenesVentaPageContent({
       });
 
       try {
-        const sheets = await loadPrintSheets(row);
+        const sheets = ots?.length
+          ? filtrarHojasElegidas(await loadPrintSheets(row), ots)
+          : await loadPrintSheets(row);
         if (sheets.length === 0) {
           throw new Error("No hay datos para generar el PDF.");
         }
@@ -1257,15 +1274,13 @@ export function OperadorOrdenesVentaPageContent({
           const target = cypherId
             ? rows.find((fila) => fila.idOrdenVenta === cypherId)
             : null;
-          if (!target) return;
-          void runPrint(target);
+          if (target) abrirSeleccionOt(target, "imprimir");
         }}
         onPreview={() => {
           const target = cypherId
             ? rows.find((fila) => fila.idOrdenVenta === cypherId)
             : null;
-          if (!target) return;
-          void openPdfPreview(target);
+          if (target) abrirSeleccionOt(target, "descargar");
         }}
         onFotos={(idOrdenTrabajo) => {
           const target = cypherId
@@ -1391,103 +1406,33 @@ export function OperadorOrdenesVentaPageContent({
         onAutoPrintResult={handleAutoPrintResult}
       />
 
-      {feedback ? (
-        <div
-          className="fixed inset-0 z-[130] flex items-center justify-center overflow-hidden p-3 sm:p-6"
-          role="presentation"
-        >
-          <button
-            type="button"
-            aria-label="Cerrar"
-            onClick={() => setFeedback(null)}
-            className="absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm"
-          />
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="ov-feedback-title"
-            aria-describedby="ov-feedback-detail"
-            className="polaria-card-glow relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl"
-          >
-            <div className="px-5 pb-3 pt-6 sm:px-6">
-              <div className="flex flex-col items-center text-center">
-                {feedback.ok ? (
-                  <CheckCircle2
-                    className="h-12 w-12 text-polaria-teal"
-                    strokeWidth={1.75}
-                    aria-hidden
-                  />
-                ) : (
-                  <XCircle
-                    className="h-12 w-12 text-polaria-danger"
-                    strokeWidth={1.75}
-                    aria-hidden
-                  />
-                )}
-                <h2
-                  id="ov-feedback-title"
-                  className="mt-4 polaria-text-title font-semibold text-polaria-w"
-                >
-                  {feedback.title}
-                </h2>
-                <div
-                  id="ov-feedback-detail"
-                  className="mt-2 space-y-2 polaria-text-body-sm text-polaria-w-50"
-                >
-                  {feedback.lines.map((line) => (
-                    <p key={line}>{line}</p>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="border-t border-polaria-w-08 px-5 py-4 sm:px-6">
-              {feedback.recargar ? (
-                <button
-                  type="button"
-                  onClick={() => window.location.reload()}
-                  className="w-full rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
-                >
-                  {ETIQUETA_RECARGAR_PAGINA}
-                </button>
-              ) : feedback.retry ? (
-                <button
-                  type="button"
-                  disabled={Boolean(busyAction)}
-                  onClick={() => {
-                    const target = feedback.retry;
-                    if (!target) return;
-                    reintentarEnvio(target);
-                  }}
-                  className="w-full rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {busyAction?.kind === "print" ? "Reintentando…" : "Reintentar"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setFeedback(null)}
-                  className="w-full rounded-xl bg-polaria-teal px-4 py-2.5 polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
-                >
-                  Entendido
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <PolariaConfirmDialog
-        open={Boolean(reprintConfirmRow)}
-        onClose={() => setReprintConfirmRow(null)}
-        onConfirm={() => {
-          const row = reprintConfirmRow;
-          setReprintConfirmRow(null);
-          if (row) void executePrint(row);
+      <OrdenVentaSeleccionOtModal
+        open={Boolean(seleccionOt)}
+        accion={seleccionOt?.accion ?? "imprimir"}
+        folio={seleccionOt?.row.venta}
+        yaImpresa={seleccionOt?.yaImpresa}
+        ocupado={Boolean(busyAction)}
+        onClose={() => setSeleccionOt(null)}
+        cargarHojas={() =>
+          seleccionOt ? loadPrintSheets(seleccionOt.row) : Promise.resolve([])
+        }
+        onConfirmar={(ots) => {
+          const actual = seleccionOt;
+          setSeleccionOt(null);
+          if (!actual) return;
+          if (actual.accion === "imprimir") void executePrint(actual.row, "inicial", ots);
+          else void openPdfPreview(actual.row, ots);
         }}
-        title="¿Imprimir de nuevo?"
-        description="Esta OV ya ha sido impresa para alistamiento. Si vas a imprimirla nuevamente, asegúrate de que no se duplique el alistamiento en el almacén."
-        confirmLabel="Imprimir de nuevo"
-        cancelLabel="Cancelar"
+      />
+
+      <OvImpresionResultadoModal
+        resultado={feedback}
+        ocupado={Boolean(busyAction)}
+        reintentando={busyAction?.kind === "print"}
+        onReintentar={() => {
+          if (feedback?.retry) reintentarEnvio(feedback.retry);
+        }}
+        onClose={() => setFeedback(null)}
       />
 
       <OrdenVentaPdfPreviewModal
