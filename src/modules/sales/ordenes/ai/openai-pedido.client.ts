@@ -32,8 +32,7 @@ import {
   serializeCuerpoMensaje,
   type CuerpoMensajeBloque,
 } from "../utils/origen/texto-origen-pedido";
-
-export { calcularCantidadDesdeCajas, pesoPorCajaKg };
+import { filtrarLineasExtraidasPedibles } from "../utils/origen/renglon-origen-pedible";
 
 export interface LineaExtraida {
   textoOriginal: string;
@@ -898,10 +897,11 @@ export async function extraerPedido({
   });
   const ordenCompraHotelNormalizado = normalizedPedidos.ordenCompraHotel;
 
+  // REQ-234: excluir SKUs con cantidad <= 0 antes de armar origen_correo.
   const lineas: LineaExtraida[] = aplicarPiezasAproxKg(
     aplicarMadurezDesdeTexto(
       enrichLineasAlmacenConCodigoDesdeTexto(
-        normalizedPedidos.lineas,
+        filtrarLineasExtraidasPedibles(normalizedPedidos.lineas),
         sourceForEntrega,
       ),
       sourceForEntrega,

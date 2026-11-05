@@ -7,6 +7,7 @@ import {
 } from "../../utils/display/orden-venta-display";
 import type { OrdenTrabajoHija } from "../../utils/origen/origen-correo-ordenes-trabajo";
 import { textoConteoProductos } from "./detalle-venta-presentacion";
+import { ETIQUETA_TAREA } from "./etiqueta-tarea-ot";
 
 export type FilaProductoDetalle = {
   linea: OrdenVentaLineaRow;
@@ -156,7 +157,7 @@ export function OrdenVentaDetalleProductos({
             </tr>
             <tr>
               <td className="pt-1 pr-6 polaria-text-body-sm font-semibold text-polaria-w">
-                {mostrarTotalOv ? "Total OT" : "Total"}
+                {mostrarTotalOv ? `Total ${ETIQUETA_TAREA}` : "Total"}
               </td>
               <td className="pt-1 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
                 ${formatPrecioEs(total)}

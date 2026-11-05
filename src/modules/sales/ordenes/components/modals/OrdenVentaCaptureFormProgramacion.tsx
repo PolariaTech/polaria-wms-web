@@ -16,6 +16,7 @@ import {
 import { fieldControlClass } from "../../utils/pedido/orden-venta-create-helpers";
 import { salirDeHoraConTab } from "../../utils/pedido/resolve-cabecera-guardada";
 import { todayIsoDate } from "../../utils/pedido/build-orden-venta-captura-observaciones";
+import { diaSemanaEntregaEsTitulo } from "../../utils/pedido/dia-semana-entrega";
 import { PRIORIDAD_OPTIONS } from "../../types/orden-venta-create-modal.types";
 import { NotasGeneralesPedidoField } from "./NotasGeneralesPedidoField";
 
@@ -94,8 +95,12 @@ function FechaEntregaCampo(props: {
   marks: Marks;
 }) {
   const atrasada = isFechaEntregaAtrasada(props.fechaEntrega, todayIsoDate());
+  const diaSemana = diaSemanaEntregaEsTitulo(props.fechaEntrega);
   return (
-    <div data-ov-revision="fechaEntrega">
+    <div
+      data-ov-revision="fechaEntrega"
+      className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,0.75fr)]"
+    >
       <PolariaDateInputDdMm
         id="orden-venta-fecha-entrega"
         label="Fecha de entrega"
@@ -122,6 +127,17 @@ function FechaEntregaCampo(props: {
           missingFields: props.marks.missingFields,
           missing: !isFechaEntregaIsoValida(props.fechaEntrega),
         })}
+        compact
+      />
+      {/* REQ-257: día de la semana derivado; no editable. */}
+      <PolariaFormInput
+        id="orden-venta-dia-semana-entrega"
+        label="Día de la semana"
+        value={diaSemana}
+        readOnly
+        tabIndex={-1}
+        placeholder="—"
+        aria-live="polite"
         compact
       />
     </div>

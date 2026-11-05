@@ -57,6 +57,49 @@ describe("REQ-201 verificaciones al grabar avance", () => {
     expect(lineas[0]?.idProducto).toBe("prod-1");
   });
 
+  it("REQ-170: con una sola OT asigna otId a líneas que quedaron sin match", () => {
+    const hija = createEmptyOrdenTrabajoHija({
+      id: "ot-sola",
+      almacen: "Cocina",
+      numeroPedido: "000000000028590",
+    });
+    const lineas = mapDetalleLineasAForm({
+      detalleLineas: [
+        {
+          id_linea_orden_venta: "l1",
+          id_orden_venta: "ov-1",
+          id_producto: "prod-1",
+          cantidad_pedida: 1,
+          precio_unitario: 5,
+          cajas: null,
+          presentacion: null,
+          unidad_medida: "KGM",
+          match_producto: null,
+          producto: {
+            sku: "999",
+            descripcion: "Producto sin renglón OT",
+            metadatos_catalogo: null,
+          },
+        },
+      ],
+      productoRows: [
+        {
+          idProducto: "prod-1",
+          codigo: "999",
+          nombre: "Producto sin renglón OT",
+          idBodega: "bod-1",
+          kgDisponible: 10,
+          unidadMedida: "KGM",
+        },
+      ],
+      origenCorreoRows: [],
+      idBodegaDetalle: "bod-1",
+      notasLineas: "",
+      hijas: [hija],
+    });
+    expect(lineas[0]?.otId).toBe("ot-sola");
+  });
+
   it("persiste y reindexa _idProducto verificado en origen", () => {
     const hija = createEmptyOrdenTrabajoHija({
       id: "manual:ot-1",

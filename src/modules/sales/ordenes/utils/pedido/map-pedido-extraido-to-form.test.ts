@@ -1114,4 +1114,5 @@ describe("mapPedidoExtraidoToForm", () => {
     expect(mapped.warnFields.has("fechaEntrega")).toBe(false);
     expect(mapped.autoFields.has("fechaEntrega")).toBe(true);
   });
+
 });

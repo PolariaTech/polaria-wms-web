@@ -2,6 +2,8 @@ import type {
   OrdenTrabajoHija,
   OrigenCorreoRenglon,
 } from "./origen-correo-ordenes-trabajo";
+import { sellarIdProductoEnRenglonesOrigen } from "./sellar-id-producto-origen";
+import { esRenglonOrigenPedible } from "./renglon-origen-pedible";
 
 export type LineaOrigenOtSync = {
   otId?: string;
@@ -24,10 +26,24 @@ export function buildOrigenCorreoFromOrdenesYLineas(params: {
   lineas: readonly LineaOrigenOtSync[];
 }): OrigenCorreoRenglon[] {
   const out: OrigenCorreoRenglon[] = [];
+  const verificadas = params.lineas.filter((linea) =>
+    Boolean(linea.idProducto?.trim()),
+  );
   for (const hija of params.hijas) {
     const lineasOt = params.lineas.filter((linea) => linea.otId === hija.id);
     if (lineasOt.length > 0) {
       for (const linea of lineasOt) {
+        const producto = linea.aliasCliente?.trim() || linea.nombre;
+        // REQ-234: no persistir en origen_correo SKUs con cantidad <= 0.
+        if (
+          !esRenglonOrigenPedible({
+            Producto: producto,
+            "Codigo producto": linea.codigo,
+            Cantidad: linea.cantidad,
+          })
+        ) {
+          continue;
+        }
         const idProducto = linea.idProducto?.trim() || "";
         out.push({
           _otId: hija.id,
@@ -36,7 +52,7 @@ export function buildOrigenCorreoFromOrdenesYLineas(params: {
           Fecha: hija.fecha,
           "Referencia pedido": hija.referenciaPedido,
           "Responsable externo": hija.responsableExterno,
-          Producto: linea.aliasCliente?.trim() || linea.nombre,
+          Producto: producto,
           "Codigo producto": linea.codigo,
           Cantidad: linea.cantidad,
           Unidad: linea.unidadMedida,
@@ -51,7 +67,13 @@ export function buildOrigenCorreoFromOrdenesYLineas(params: {
       hija.renglones.length > 0
         ? hija.renglones
         : [{ Producto: "", Cantidad: 0 }];
-    for (const row of rows) {
+    // REQ-236: sellar verificaciones aunque el otId del form no haya matcheado.
+    const selladas = sellarIdProductoEnRenglonesOrigen({
+      renglones: rows,
+      lineasVerificadas: verificadas,
+    });
+    for (const row of selladas) {
+      if (!esRenglonOrigenPedible(row)) continue;
       out.push({
         ...row,
         _otId: hija.id,

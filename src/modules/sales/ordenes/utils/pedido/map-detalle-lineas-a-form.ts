@@ -106,11 +106,18 @@ export function mapDetalleLineasAForm(params: {
     };
   });
 
-  const lineasConOt = assignOtIdsToFormLineas(
+  let lineasConOt = assignOtIdsToFormLineas(
     lineasEditBase,
     hijas,
     (raw) => parseDecimalEs(raw) ?? 0,
   );
+  // REQ-170: con una sola OT, líneas sin otId cuentan como de esa OT (evita «Sin productos»).
+  if (hijas.length === 1) {
+    const otUnicaId = hijas[0]!.id;
+    lineasConOt = lineasConOt.map((linea) =>
+      linea.otId ? linea : { ...linea, otId: otUnicaId },
+    );
+  }
 
   return lineasConOt.map((linea) => ({
     ...linea,

@@ -106,6 +106,7 @@ import { CypherReagruparOtButton } from "./CypherReagruparOtButton";
 import { CypherAlistamientoSection } from "./CypherAlistamientoSection";
 import { CypherClienteVsMateoSection } from "./CypherClienteVsMateoSection";
 import { CypherDatosFiscalesSection } from "./CypherDatosFiscalesSection";
+import { CYPHER_ETAPA_ORDENES_TRABAJO_LABEL } from "./cypher-etapa-ordenes-trabajo";
 
 type CypherStageId =
   | "fiscales"
@@ -136,8 +137,8 @@ const CYPHER_STAGES: ReadonlyArray<{
   {
     id: "confirmacion",
     num: "02",
-    label: "Confirmación",
-    title: "Confirmación del pedido",
+    label: CYPHER_ETAPA_ORDENES_TRABAJO_LABEL,
+    title: CYPHER_ETAPA_ORDENES_TRABAJO_LABEL,
   },
   {
     id: "cliente-vs-mateo",
@@ -1082,9 +1083,7 @@ export function OrdenVentaCypherDrawer({
                   <MetaRow label="REMITENTE">
                     {correoChrome.from || "—"}
                   </MetaRow>
-                  <MetaRow label="DESTINATARIO">
-                    {correoChrome.to || "—"}
-                  </MetaRow>
+                  {/* REQ-248: sin DESTINATARIO — ocupaba mucho y aporta poco. */}
                   <MetaRow label="LLEGADA">{recibida}</MetaRow>
                   <MetaRow label="ASUNTO">
                     <span className="font-semibold">
@@ -1150,11 +1149,7 @@ export function OrdenVentaCypherDrawer({
               <StageAccordion
                 stageId="confirmacion"
                 num="02"
-                title={
-                  activeOtPicker && activeOtPicker.hijas.length > 0
-                    ? "Órdenes de trabajo"
-                    : "Confirmación del pedido"
-                }
+                title={CYPHER_ETAPA_ORDENES_TRABAJO_LABEL}
                 open={openStages.has("confirmacion")}
                 muted={
                   !(activeOtPicker && activeOtPicker.hijas.length > 0) &&

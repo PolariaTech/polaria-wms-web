@@ -28,17 +28,26 @@ describe("resolveCantidadPrecioParaPersistir (REQ-138)", () => {
     ).toEqual({ ok: true, cantidadPedida: 10, precioUnitario: 0 });
   });
 
-  it("confirmar: bloquea precio vacío", () => {
-    const result = resolveCantidadPrecioParaPersistir({
-      isDraft: false,
-      cantidadInput: "10",
-      precioInput: "",
-      nombreProducto: "JUGO",
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toMatch(/precio/i);
-    }
+  it("REQ-235: confirmar con precio vacío → 0", () => {
+    expect(
+      resolveCantidadPrecioParaPersistir({
+        isDraft: false,
+        cantidadInput: "10",
+        precioInput: "",
+        nombreProducto: "JUGO",
+      }),
+    ).toEqual({ ok: true, cantidadPedida: 10, precioUnitario: 0 });
+  });
+
+  it("REQ-235: confirmar con precio 0", () => {
+    expect(
+      resolveCantidadPrecioParaPersistir({
+        isDraft: false,
+        cantidadInput: "10",
+        precioInput: "0",
+        nombreProducto: "JUGO",
+      }),
+    ).toEqual({ ok: true, cantidadPedida: 10, precioUnitario: 0 });
   });
 
   it("confirmar: bloquea cantidad vacía", () => {

@@ -15,7 +15,7 @@ describe("OrdenVentaFormFooterIconActions", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: /Eliminar esta tarea · OT 2/i }),
+      screen.getByRole("button", { name: /Eliminar esta tarea · TAREA 2/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Guardar avance de toda esta venta/i }),

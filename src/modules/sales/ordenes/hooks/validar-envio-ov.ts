@@ -160,7 +160,7 @@ export function validarEnvioOv(input: OrdenVentaFormEstado) {
 if (lineasParsed.length === 0 && !puedeAvanceSinLineas) {
         setError(
           isDraft
-            ? "Identifica al menos un producto con cantidad y precio para guardar el avance."
+            ? "Identifica al menos un producto para guardar el avance."
             : "Agrega al menos un producto a la venta.",
         );
         return null;

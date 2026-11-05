@@ -5,8 +5,8 @@ export type LineaAvanceParseResult =
   | { ok: false; error: string };
 
 /**
- * REQ-138: al guardar avance, cantidad/precio vacíos → 0 (no bloquea).
- * Al confirmar, exige cantidad > 0 y precio informado (≥ 0).
+ * REQ-138 / REQ-235: precio vacío o 0 permitido al guardar avance y al confirmar.
+ * Al confirmar sigue exigiendo cantidad > 0; precio vacío → 0.
  */
 export function resolveCantidadPrecioParaPersistir(params: {
   isDraft: boolean;
@@ -18,28 +18,6 @@ export function resolveCantidadPrecioParaPersistir(params: {
   const cantidadKg = parseDecimalEs(params.cantidadInput);
   const precio = parseDecimalEs(params.precioInput);
 
-  if (!params.isDraft) {
-    if (cantidadKg === null || cantidadKg <= 0) {
-      return {
-        ok: false,
-        error: `Ingresa una cantidad válida para ${nombre}.`,
-      };
-    }
-    if (precio === null) {
-      return {
-        ok: false,
-        error: `Ingresa un precio (0 o mayor) para ${nombre}.`,
-      };
-    }
-    if (precio < 0) {
-      return {
-        ok: false,
-        error: `El precio no puede ser negativo en ${nombre}.`,
-      };
-    }
-    return { ok: true, cantidadPedida: cantidadKg, precioUnitario: precio };
-  }
-
   if (precio != null && precio < 0) {
     return {
       ok: false,
@@ -47,12 +25,23 @@ export function resolveCantidadPrecioParaPersistir(params: {
     };
   }
 
+  const precioUnitario =
+    precio != null && Number.isFinite(precio) ? precio : 0;
+
+  if (!params.isDraft) {
+    if (cantidadKg === null || cantidadKg <= 0) {
+      return {
+        ok: false,
+        error: `Ingresa una cantidad válida para ${nombre}.`,
+      };
+    }
+    return { ok: true, cantidadPedida: cantidadKg, precioUnitario };
+  }
+
   const cantidadPedida =
     cantidadKg != null && Number.isFinite(cantidadKg) && cantidadKg >= 0
       ? cantidadKg
       : 0;
-  const precioUnitario =
-    precio != null && Number.isFinite(precio) ? precio : 0;
 
   return { ok: true, cantidadPedida, precioUnitario };
 }

@@ -61,6 +61,10 @@ import {
 } from "./detalle-venta-presentacion";
 import { useRecargaFolioFactura } from "../../surtido/folio-factura-captura";
 import { OrdenVentaDetalleProductos } from "./OrdenVentaDetalleProductos";
+import {
+  OrdenVentaDetalleDiaSemana,
+  OrdenVentaDetalleIdentidadCliente,
+} from "./OrdenVentaDetalleIdentidadCliente";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
 import {
   formatCompradorOrdenVenta,
@@ -310,15 +314,10 @@ function DetalleContent({
     <>
       <CaptureSection title="Datos del pedido">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <MetaField label="Cliente">
-            <TextValue value={clienteOrigenFallback} />
-          </MetaField>
-          <MetaField label="Código de cliente">
-            <TextValue value={orden.comprador_codigo ?? ""} />
-          </MetaField>
-          <MetaField label="Denominación comercial">
-            <TextValue value={orden.comprador_apodo ?? ""} />
-          </MetaField>
+          <OrdenVentaDetalleIdentidadCliente
+            orden={orden}
+            clienteNombre={clienteOrigenFallback}
+          />
           <MetaField label="Orden de compra del cliente">
             <TextValue value={captura.ordenCompraHotel} />
           </MetaField>
@@ -371,6 +370,7 @@ function DetalleContent({
               }
             />
           </MetaField>
+          <OrdenVentaDetalleDiaSemana fechaEntrega={captura.fechaEntrega} />
           <MetaField label="Ventana de entrega">
             <TextValue value={captura.ventanaEntrega} />
           </MetaField>

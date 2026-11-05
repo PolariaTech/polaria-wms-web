@@ -1,3 +1,5 @@
+import { filtrarRenglonesOrigenPedibles } from "./renglon-origen-pedible";
+
 /**
  * Agrupa renglones de origen_correo en órdenes de trabajo (hijas) de una OV.
  *
@@ -128,8 +130,12 @@ export function groupOrigenCorreoToOrdenesTrabajo(
 ): OrdenTrabajoHija[] {
   if (!renglones || renglones.length === 0) return [];
 
+  // REQ-234: no mostrar en OT hijas productos con cantidad 0.
+  const pedibles = filtrarRenglonesOrigenPedibles(renglones);
+  if (pedibles.length === 0) return [];
+
   const buckets = new Map<string, OrigenCorreoRenglon[]>();
-  for (const row of renglones) {
+  for (const row of pedibles) {
     const key = groupKeyOrigenCorreo(row);
     const list = buckets.get(key);
     if (list) list.push(row);

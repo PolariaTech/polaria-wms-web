@@ -19,6 +19,7 @@ import {
   normalizeNumeroPedidoFields,
   sanitizeOrigenCorreoNumeroPedido,
 } from "../pedido/normalize-numero-pedido";
+import { filtrarRenglonesOrigenPedibles } from "./renglon-origen-pedible";
 
 function mostFrequent(values: string[]): string | null {
   const counts = new Map<string, number>();
@@ -77,9 +78,9 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
 }): PedidoExtraido {
   const origenTexto = params.origenTexto?.trim() || null;
   const rowsRaw = parseOrigenCorreoJson(params.origenCorreo);
-  const rows = sanitizeOrigenCorreoNumeroPedido(
-    rowsRaw,
-    origenTexto ?? "",
+  // REQ-234: omitir SKUs con cantidad <= 0 al armar Mateo / form.
+  const rows = filtrarRenglonesOrigenPedibles(
+    sanitizeOrigenCorreoNumeroPedido(rowsRaw, origenTexto ?? ""),
   );
   const textos = rows.map(
     (row) => row.Producto?.trim() || row["Codigo producto"]?.trim() || "",

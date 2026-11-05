@@ -114,7 +114,7 @@ describe("OrdenVentaModalShell — pie y encabezado (REQ-199 / REQ-232)", () => 
     });
     render(<OrdenVentaModalShell estado={estado} />);
 
-    await user.click(screen.getByRole("button", { name: /Eliminar esta tarea · OT 3/ }));
+    await user.click(screen.getByRole("button", { name: /Eliminar esta tarea · TAREA 3/ }));
 
     expect(setConfirmRemoveOtId).toHaveBeenCalledWith("ot-7");
   });

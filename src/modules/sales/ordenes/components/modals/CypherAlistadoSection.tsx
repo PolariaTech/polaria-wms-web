@@ -124,7 +124,7 @@ export function CypherAlistadoSection({
       );
       return {
         key: hija.id || `ot-${index}`,
-        otLabel: `OT ${index + 1}`,
+        otLabel: `TAREA ${index + 1}`,
         destino,
         despacho: despacho || "—",
         fecha: captura?.updatedAt ?? null,

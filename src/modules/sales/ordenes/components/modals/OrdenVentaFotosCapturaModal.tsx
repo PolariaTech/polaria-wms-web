@@ -240,7 +240,7 @@ export function OrdenVentaFotosCapturaModal({
   const description = showingFotos
     ? selectedDisplay?.centroConsumo
       ? `Historial · Pedido ${selectedDisplay.numeroPedido || "—"} · Centro ${selectedDisplay.centroConsumo}`
-      : `Historial · ${selectedDisplay?.label ?? "OT"}`
+      : `Historial · ${selectedDisplay?.label ?? "TAREA"}`
     : "Elige la orden de trabajo para ver su historial de fotos.";
 
   const active = fotos[index] ?? null;
@@ -275,7 +275,7 @@ export function OrdenVentaFotosCapturaModal({
               onClick={onBackToOts}
               className="rounded-lg border border-polaria-t-20 px-3 py-1.5 text-polaria-teal transition hover:bg-polaria-t-08 polaria-text-body-sm"
             >
-              ← Órdenes de trabajo
+              ← Órdenes de tarea
             </button>
           ) : null}
 

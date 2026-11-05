@@ -62,7 +62,7 @@ describe("findPrimeraRevisionPendiente", () => {
     expect(r?.otIndex).toBe(1);
     expect(r?.lineaIndex).toBe(1);
     expect(r?.focusKind).toBe("producto");
-    expect(r?.message).toBe("Producto sin validar (Aguacate) · OT 2");
+    expect(r?.message).toBe("Producto sin validar (Aguacate) · TAREA 2");
     expect(r?.message).not.toContain("Bar");
     expect(revisionFocusSelector(r!)).toBe('[data-ov-revision="producto-1"]');
   });
@@ -81,7 +81,7 @@ describe("findPrimeraRevisionPendiente", () => {
       ],
     });
     expect(r?.otIndex).toBe(0);
-    expect(r?.message).toBe("Falta cantidad · OT 1");
+    expect(r?.message).toBe("Falta cantidad · TAREA 1");
     expect(r?.focusKind).toBe("cantidad");
     expect(revisionFocusSelector(r!)).toBe('[data-ov-revision="cantidad-0"]');
   });

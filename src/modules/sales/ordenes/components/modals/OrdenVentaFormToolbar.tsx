@@ -9,9 +9,17 @@ import { OrdenVentaCaptureFormCliente, OrdenVentaCaptureFormOcultos } from "./Or
 import { OrdenVentaCaptureFormLineas } from "./OrdenVentaCaptureFormLineas";
 import { OrdenVentaCaptureFormPedido } from "./OrdenVentaCaptureFormPedido";
 import { OrdenVentaCaptureFormProgramacion } from "./OrdenVentaCaptureFormProgramacion";
+import { resolveRfcClienteCatalogo } from "../../utils/pedido/rfc-cliente-ov";
 
 export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
-  const { ordenesTrabajoForm, hijaFormActiva, isEditing, setStep, setStartMode, setError, afterCutoff, successMessage, hasProductos, emptyCatalogMessage, startMode, origenTexto, origenArchivosNombres, vendedorNombre, idComprador, compradorLabel, compradorNombreIa, compradorSugerencias, missingFields, setPicker, codigoClienteCatalogo, denominacionComercialCatalogo, fechaCreacion, paginarPorOt, folioFactura, ordenCompraHotel, setOrdenCompraHotel, exigeOc, centroConsumo, setCentroConsumo, fechaEntrega, setFechaEntrega, esPorConfirmar, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, observaciones, setObservaciones, clearFieldMarks, autoFields, warnFields, direccion, setDireccion, setAvisoVerificarDireccion, avisoVerificarDireccion, contacto, setContacto, telefono, setTelefono, correo, setCorreo, lineasConIndice, subtotalVenta, ivaVenta, totalVenta, totalOvCompleta, mostrarTotalOv, puedeAgregarProducto, setReplaceLineaIndex, handleOpenReplaceProducto, handleLineaFieldChange, handleCantidadChange, handleCantidadBlur, handlePrecioChange, handlePrecioBlur, handleRemoveLinea, lineas, setLineas, aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote, registrarTemperatura, setRegistrarTemperatura } = input;
+  const { ordenesTrabajoForm, hijaFormActiva, isEditing, setStep, setStartMode, setError, afterCutoff, successMessage, hasProductos, emptyCatalogMessage, startMode, origenTexto, origenArchivosNombres, vendedorNombre, idComprador, compradorLabel, compradorNombreIa, compradorSugerencias, missingFields, setPicker, codigoClienteCatalogo, denominacionComercialCatalogo, fechaCreacion, paginarPorOt, folioFactura, ordenCompraHotel, setOrdenCompraHotel, exigeOc, centroConsumo, setCentroConsumo, fechaEntrega, setFechaEntrega, esPorConfirmar, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, observaciones, setObservaciones, clearFieldMarks, autoFields, warnFields, direccion, setDireccion, setAvisoVerificarDireccion, avisoVerificarDireccion, contacto, setContacto, telefono, setTelefono, correo, setCorreo, lineasConIndice, subtotalVenta, ivaVenta, totalVenta, totalOvCompleta, mostrarTotalOv, puedeAgregarProducto, setReplaceLineaIndex, handleOpenReplaceProducto, handleLineaFieldChange, handleCantidadChange, handleCantidadBlur, handlePrecioChange, handlePrecioBlur, handleRemoveLinea, lineas, setLineas, aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote, registrarTemperatura, setRegistrarTemperatura, compradores, fichaComprador } = input;
+  // REQ-259: RFC en el recuadro (sin abrir Cypher).
+  const rfcClienteCatalogo = resolveRfcClienteCatalogo({
+    fichaRfc: fichaComprador?.rfc,
+    catalogoRfc: Array.isArray(compradores)
+      ? compradores.find((row) => row.idComprador === idComprador)?.rfc
+      : undefined,
+  });
   return (
     <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -118,6 +126,15 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                       readOnly
                       placeholder="—"
                       fieldClassName="sm:col-span-2"
+                      compact
+                    />
+
+                    <PolariaFormInput
+                      id="orden-venta-rfc-cliente"
+                      label="RFC"
+                      value={rfcClienteCatalogo}
+                      readOnly
+                      placeholder="—"
                       compact
                     />
 
