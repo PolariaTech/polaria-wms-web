@@ -4,9 +4,7 @@ import type {
   OrdenSurtidoCapturaPayload,
   OrdenSurtidoChecks,
 } from "./orden-surtido.types";
-
-/** Visión de alta calidad para manuscrito en hoja impresa. */
-export const OPENAI_SURTIDO_VISION_MODEL = "gpt-4o";
+import { configModeloSurtido } from "./surtido-modelo";
 
 const NULLABLE_STRING = { type: ["string", "null"] as const };
 const NULLABLE_BOOL = { type: ["boolean", "null"] as const };
@@ -810,14 +808,13 @@ export async function extraerSurtidoDesdeFoto(input: {
     throw new Error("Falta OPENAI_API_KEY en el entorno del servidor.");
   }
 
-  const modelo =
-    process.env.OPENAI_SURTIDO_MODEL?.trim() || OPENAI_SURTIDO_VISION_MODEL;
+  const { modelo, parametros } = configModeloSurtido();
   const client = new OpenAI({ apiKey });
   const snapshot = buildOriginalSnapshot(input.original);
 
   const completion = await client.chat.completions.create({
     model: modelo,
-    temperature: 0,
+    ...parametros,
     response_format: {
       type: "json_schema",
       json_schema: {
