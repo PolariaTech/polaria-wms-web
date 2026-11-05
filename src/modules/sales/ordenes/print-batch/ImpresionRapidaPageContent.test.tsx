@@ -205,7 +205,12 @@ describe("ImpresionRapidaPageContent", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Preparar impresión" }));
 
-    expect(await screen.findByText("Nada por imprimir.")).toBeInTheDocument();
+    const aviso = await screen.findByText("Nada por imprimir.");
+    expect(aviso).toBeInTheDocument();
+    // Va debajo del botón y no arriba: así el botón que se acaba de pulsar no se mueve de lugar.
+    const boton = screen.getByRole("button", { name: "Preparar impresión" });
+    expect(boton.compareDocumentPosition(aviso) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText(/Prueba con una fecha posterior/)).toBeInTheDocument();
     expect(cargarHojas).not.toHaveBeenCalled();
     expect(buildBlob).not.toHaveBeenCalled();
   });

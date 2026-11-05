@@ -103,7 +103,7 @@ export function ImpresionRapidaPageContent() {
         setAviso({
           tipo: "aviso",
           title: "Nada por imprimir.",
-          detail: "No hay órdenes confirmadas sin imprimir con entrega hasta esa fecha.",
+          detail: "No hay órdenes confirmadas sin imprimir con entrega hasta esa fecha. Prueba con una fecha posterior.",
         });
         return;
       }
@@ -197,20 +197,28 @@ export function ImpresionRapidaPageContent() {
     setPrevia(null);
   };
 
+  // Los avisos van donde está la atención: con la vista previa, arriba de ella; en el formulario,
+  // debajo del botón. Arriba del formulario empujaban los controles justo después de pulsarlo.
+  const mensajes = (
+    <>
+      {aviso ? (
+        <ImpresionBatchMensaje tipo={aviso.tipo}>
+          <strong className="font-semibold">{aviso.title}</strong> {aviso.detail}
+        </ImpresionBatchMensaje>
+      ) : null}
+      {error ? <ImpresionBatchMensaje tipo="error">{error}</ImpresionBatchMensaje> : null}
+      {progresoEnvio ? (
+        <ImpresionBatchMensaje tipo="aviso">
+          {progresoEnvio} No cierres esta pestaña hasta que termine.
+        </ImpresionBatchMensaje>
+      ) : null}
+    </>
+  );
+
   return (
     <OperationalModuleShell title="Impresión rápida" gate={{ roles: ROLES_NIVEL_CUENTA }} fitViewport compactoEnPantallaBaja>
       <div className="flex min-h-0 flex-col gap-4 [@media(max-height:50rem)]:gap-2 lg:flex-1">
-        {aviso ? (
-          <ImpresionBatchMensaje tipo={aviso.tipo}>
-            <strong className="font-semibold">{aviso.title}</strong> {aviso.detail}
-          </ImpresionBatchMensaje>
-        ) : null}
-        {error ? <ImpresionBatchMensaje tipo="error">{error}</ImpresionBatchMensaje> : null}
-        {progresoEnvio ? (
-          <ImpresionBatchMensaje tipo="aviso">
-            {progresoEnvio} No cierres esta pestaña hasta que termine.
-          </ImpresionBatchMensaje>
-        ) : null}
+        {previa ? mensajes : null}
 
         {previa ? (
           <ImpresionBatchVistaPrevia
@@ -275,6 +283,7 @@ export function ImpresionRapidaPageContent() {
                 {progreso}
               </p>
             </div>
+            {mensajes}
           </form>
         )}
       </div>
