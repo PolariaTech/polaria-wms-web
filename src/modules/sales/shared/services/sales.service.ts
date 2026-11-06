@@ -58,6 +58,7 @@ import {
   isOrigenOnlyFirstDraft,
 } from "./create-orden-venta-origen-only-draft";
 import { ordenVentaCaptureFields } from "./orden-venta-capture-fields";
+import { mapDenominacionDetalleFields as mapDenominacion } from "./map-denominacion-detalle";
 export { fetchUltimaDireccionEntregaPorComprador } from "./sales-ultima-direccion-entrega";
 
 /** PostgREST GET `.in()` explota la URL con ~1000 UUIDs; tandas cortas evitan 400. */
@@ -115,9 +116,7 @@ interface CompradorDetalleDbRel {
   nombre: string | null;
   codigo: string | null;
   razon_social?: string | null;
-  apodo?: string | null;
-  rfc?: string | null;
-  denominacion_comercial_override?: string | null;
+  apodo?: string | null; rfc?: string | null; denominacion_comercial_override?: string | null;
 }
 
 interface OrdenVentaDetalleDbRow extends OrdenVentaRow {
@@ -125,8 +124,7 @@ interface OrdenVentaDetalleDbRow extends OrdenVentaRow {
   orden_venta_linea: OrdenVentaLineaDetalleDbRow[] | null;
   origen_texto?: string | null;
   origen_archivos?: string | null;
-  origen_correo?: unknown;
-  denominacion_comercial_override?: string | null;
+  origen_correo?: unknown; denominacion_comercial_override?: string | null;
 }
 
 const WAREHOUSE_STOCK_VENTA_SELECT =
@@ -1240,13 +1238,6 @@ export async function createOrdenVenta(
   }
 
   const capture = ordenVentaCaptureFields(input);
-  const denominacionOverridePersist =
-    input.denominacionComercialOverride === undefined
-      ? undefined
-      : input.denominacionComercialOverride?.trim() || null;
-  if (denominacionOverridePersist !== undefined) {
-    capture.denominacion_comercial_override = denominacionOverridePersist;
-  }
 
   if (idOrdenVentaExistente) {
     if (!input.origenTexto?.trim()) {
@@ -1753,9 +1744,7 @@ function mapOrdenVentaDetalleRow(
 ): OrdenVentaDetalleRow {
   const { comprador, orden_venta_linea, ...orden } = row;
   const compradorRel = resolveCompradorRel(comprador);
-  const compradorApodoSync = compradorRel?.apodo?.trim() || null;
-  const compradorOverride = compradorRel?.denominacion_comercial_override?.trim() || null;
-  const ovOverride = orden.denominacion_comercial_override?.trim() || null;
+  const denominacion = mapDenominacion({ compradorApodo: compradorRel?.apodo, compradorOverride: compradorRel?.denominacion_comercial_override, ordenOverride: orden.denominacion_comercial_override });
 
   return {
     ...orden,
@@ -1763,10 +1752,7 @@ function mapOrdenVentaDetalleRow(
     comprador_nombre: compradorRel?.nombre?.trim() || null,
     comprador_codigo: compradorRel?.codigo?.trim() || null,
     comprador_razon_social: compradorRel?.razon_social?.trim() || null,
-    comprador_apodo: compradorApodoSync,
-    comprador_denominacion_comercial_override: compradorOverride,
-    denominacion_comercial_override: ovOverride || null,
-    comprador_rfc: compradorRel?.rfc?.trim() || null,
+    ...denominacion, comprador_rfc: compradorRel?.rfc?.trim() || null,
     bodega_nombre: bodegaLabels.get(orden.id_bodega) ?? null,
     bodega_destino_nombre: orden.id_bodega_destino
       ? (bodegaLabels.get(orden.id_bodega_destino) ?? null)

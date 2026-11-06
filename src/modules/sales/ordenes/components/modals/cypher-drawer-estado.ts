@@ -70,7 +70,7 @@ export function useCypherDrawerEstado({
               estadoAnterior: estado,
               estadoNuevo: destino,
             },
-          });
+          }).catch(() => undefined);
           onEstadoCambiado?.();
         })
         .catch((err: unknown) => {

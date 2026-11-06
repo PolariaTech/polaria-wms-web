@@ -11,7 +11,6 @@ describe("ordenVentaCaptureFields", () => {
     expect(fields.direccion_entrega).toBe("Calle 1");
     expect(fields.origen_correo).toBeNull();
   });
-});
 
   it("REQ-241: persiste denominacion_comercial_override", () => {
     const fields = ordenVentaCaptureFields({
@@ -28,3 +27,4 @@ describe("ordenVentaCaptureFields", () => {
     });
     expect(fields.denominacion_comercial_override).toBeNull();
   });
+});

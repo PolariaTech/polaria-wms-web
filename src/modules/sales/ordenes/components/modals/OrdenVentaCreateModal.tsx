@@ -199,22 +199,27 @@ export function OrdenVentaCreateModal({
     void getOrdenVentaDetalle({
       codigoCuenta,
       idOrdenVenta: editingId,
-    }).then((detalle) => {
-      if (cancelled) return;
-      const compradorRow = compradores.find(
-        (row) => row.idComprador === (detalle.id_comprador ?? "").trim(),
-      );
-      const overrideComprador =
-        (compradorRow as { denominacionComercialOverride?: string } | undefined)
-          ?.denominacionComercialOverride?.trim() || "";
-      setDenominacionComercial(
-        resolveDenominacionComercial({
-          override:
-            detalle.denominacion_comercial_override?.trim() || overrideComprador || null,
-          apodoSincronizado: detalle.comprador_apodo,
-        }),
-      );
-    });
+    })
+      .then((detalle) => {
+        if (cancelled) return;
+        const compradorRow = compradores.find(
+          (row) => row.idComprador === (detalle.id_comprador ?? "").trim(),
+        );
+        const overrideComprador =
+          compradorRow?.denominacionComercialOverride?.trim() || "";
+        setDenominacionComercial(
+          resolveDenominacionComercial({
+            override:
+              detalle.denominacion_comercial_override?.trim() ||
+              overrideComprador ||
+              null,
+            apodoSincronizado: detalle.comprador_apodo,
+          }),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+      });
     return () => {
       cancelled = true;
     };

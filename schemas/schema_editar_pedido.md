@@ -73,6 +73,7 @@
 |---|---|---|
 | Folio de factura | textbox "Folio de factura" | FAC-1001 |
 | Fecha de creación | textbox "Fecha de creación" | La fecha con la que se creó el pedido |
+| Denominación comercial | textbox "Denominación comercial" | Luis (override WMS; vacío vuelve al apodo sync) |
 | RFC | textbox "RFC" | RFC del comprador (solo lectura) |
 | Día de la semana | textbox "Día de la semana" | Día derivado de la fecha de entrega (solo lectura) |
 | Precio unitario (línea) | spinbutton / textbox de precio en línea | vacío o 0 al confirmar |
@@ -81,7 +82,7 @@
 
 ### Notas y justificaciones
 
-Esta versión del schema documenta Folio de factura, Fecha de creación, RFC (REQ-259), Día de la semana (REQ-257), precio vacío/0 al confirmar (REQ-235) y los cambios de layout/prefill del lote En Revisión OV (REQ-215/216/217/220/224/232/252/254). Las reglas de validación de Dirección y Notas no cambian respecto al formulario ya existente; solo se reubicaron en el layout y Dirección gana prefill desde la última OV confirmada del comprador (REQ-252). Confirmar no exige dirección no vacía (no hay `setError` ni return en `handleSubmit` por ese campo); la obligatoriedad visual vía `missingFields` es orientativa desde el origen IA.
+Esta versión del schema documenta Denominación comercial editable con override (REQ-241), Folio de factura, Fecha de creación, RFC (REQ-259), Día de la semana (REQ-257), precio vacío/0 al confirmar (REQ-235) y los cambios de layout/prefill del lote En Revisión OV (REQ-215/216/217/220/224/232/252/254). Denominación: si el valor difiere del apodo sync se persiste en `denominacion_comercial_override` (OV + ficha comprador); el sync no pisa el override. Contrato Front↔Back cubierto por `map-denominacion-detalle.test.ts` y `orden-venta-capture-fields.test.ts`. Las reglas de validación de Dirección y Notas no cambian respecto al formulario ya existente; solo se reubicaron en el layout y Dirección gana prefill desde la última OV confirmada del comprador (REQ-252). Confirmar no exige dirección no vacía (no hay `setError` ni return en `handleSubmit` por ese campo); la obligatoriedad visual vía `missingFields` es orientativa desde el origen IA.
 
 Orden de los campos (REQ-216/254/257/259): Datos del pedido lleva cliente, código, denominación comercial, RFC (solo lectura), fecha de creación y folio (solo al editar), orden de compra y centro de consumo. Entrega / Programación lleva, en este orden, notas generales, prioridad, moneda, fecha de entrega, día de la semana (derivado, solo lectura), ventana desde y hasta, dirección de entrega (a ancho completo) y debajo contacto, teléfono y correo. Las notas dejaron de ir antes de Entrega: la versión 1.2 del schema las ubicaba ahí y no coincidía con el código del lote En Revisión OV (REQ-254 las bajó a Entrega).
 
@@ -105,7 +106,7 @@ En edición de un pedido que ya no está por confirmar, el botón de guardar dic
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.4 |
-| Fecha de aprobación | 04/11/2026 |
+| Versión del schema | v1.5 |
+| Fecha de aprobación | 06/11/2026 |
 | Aprobado por | Desarrollador frontend |
 | Próxima revisión | Cuando el formulario cambie de campos o de reglas |

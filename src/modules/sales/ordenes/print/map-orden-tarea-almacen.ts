@@ -33,10 +33,8 @@ import {
   resolveCuentaZonaHorariaId,
 } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 import { diaSemanaEntregaEs } from "../utils/pedido/dia-semana-entrega";
-import { resolveDenominacionComercial } from "../utils/pedido/resolve-denominacion-comercial";
 
-/** REQ-269 / REQ-246: 20 filas más altas; deja margen para QR de respaldo. */
-export const PRODUCTOS_POR_HOJA_TAREA = 20;
+export const PRODUCTOS_POR_HOJA_TAREA = 20; // REQ-269/246: filas altas + margen QR
 
 export { diaSemanaEntregaEs };
 
@@ -309,12 +307,7 @@ function buildBaseSheet(input: {
     cliente:
       detalle.comprador_razon_social?.trim() ||
       formatCompradorNombreOrdenVenta(detalle),
-    clienteDenominacionComercial: resolveDenominacionComercial({
-      override:
-        detalle.denominacion_comercial_override ??
-        detalle.comprador_denominacion_comercial_override,
-      apodoSincronizado: detalle.comprador_apodo,
-    }),
+    clienteDenominacionComercial: (detalle.denominacion_comercial_override ?? detalle.comprador_denominacion_comercial_override)?.trim() || detalle.comprador_apodo?.trim() || "",
     centroConsumo:
       hija?.almacen ||
       captura.centroConsumo ||

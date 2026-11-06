@@ -87,6 +87,7 @@ import { OvAlertaDot } from "../shared/OvAlertaDot";
 import { applySurtidoCapturasToPrintSheets } from "../../surtido/apply-surtido-to-print";
 import { listOrdenIdsConSurtidoCaptura } from "../../surtido/list-orden-ids-con-surtido-captura";
 import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
+import { registrarLogCancelacionOv } from "./registrar-log-cancelacion-ov";
 import { useAuthStore } from "@/stores/auth.store";
 import { useOvFechaFiltroStore } from "@/stores/ov-fecha-filtro.store";
 import { ordenPasaFiltroFechaEntrega } from "./filtrar-por-fecha-entrega";
@@ -1304,18 +1305,13 @@ export function OperadorOrdenesVentaPageContent({
                       idOrdenVenta: cypherId,
                     }),
                   );
-                  const autor =
-                    useAuthStore.getState().session?.nombre?.trim() ||
-                    "usuario";
-                  void postOrdenVentaLog({
+                  const session = useAuthStore.getState().session;
+                  registrarLogCancelacionOv({
                     idOrdenVenta: cypherId,
                     codigoCuenta,
-                    accion: "actualizacion",
-                    mensaje: `Orden cancelada por ${autor}.`,
-                    idUsuario:
-                      useAuthStore.getState().session?.idUsuario ?? null,
-                    autorNombre:
-                      useAuthStore.getState().session?.nombre ?? null,
+                    autor: session?.nombre?.trim() || "usuario",
+                    idUsuario: session?.idUsuario ?? null,
+                    autorNombre: session?.nombre ?? null,
                     idBodega: target.idBodega ?? null,
                   });
                   // REQ-255: permanece en listado como Cancelada; cerrar paneles de esa OV.
