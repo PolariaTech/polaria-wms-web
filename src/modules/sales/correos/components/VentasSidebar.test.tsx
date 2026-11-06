@@ -38,13 +38,35 @@ describe("VentasSidebar (REQ-104)", () => {
     expect(useVentasMenuStore.getInitialState().abierto).toBe(false);
   });
 
-  it("«Estado de fotos» aparece apagado con «Próximamente»: sin enlace ni botón", () => {
+  it.each(["administrador_cuenta", "operador_cuenta"])(
+    "«Estado de fotos» es un enlace activo para el rol %s (POL-406)",
+    (idRol) => {
+      estado.idRol = idRol;
+      render(<VentasSidebar />);
+
+      expect(screen.getByRole("link", { name: "Estado de fotos" })).toHaveAttribute(
+        "href",
+        ROUTES.dashboardVentasEstadoFotos,
+      );
+      expect(screen.getByText("Estado de fotos").closest("[aria-disabled='true']")).toBeNull();
+    },
+  );
+
+  it("«Estado de fotos» queda marcado como la página actual al estar dentro de ella", () => {
+    estado.pathname = ROUTES.dashboardVentasEstadoFotos;
     render(<VentasSidebar />);
 
-    const fotos = screen.getByText("Estado de fotos").closest("[aria-disabled='true']");
-    expect(fotos).not.toBeNull();
-    expect(screen.queryByRole("link", { name: /fotos/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /fotos/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Estado de fotos" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("un rol que no es de cuenta no ve el menú, así que tampoco «Estado de fotos»", () => {
+    estado.idRol = "operario";
+    render(<VentasSidebar />);
+
+    expect(screen.queryByRole("link", { name: "Estado de fotos" })).not.toBeInTheDocument();
   });
 
   it("ofrece volver a las órdenes y las dos opciones de correos, con su ruta", () => {
