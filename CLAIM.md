@@ -112,6 +112,23 @@
 - `src/modules/sales/shared/types/sales.types.ts`
 - `next.config.ts` — autorizada por el usuario el 2026-11-06
 - `next.config.test.ts` — autorizada por el usuario el 2026-11-06
+- `schemas/schema_editar_pedido.md` — autorizada por el usuario el 2026-11-06
+- `src/modules/admin-panel/compradores/components/CompradoresListView.test.tsx` — autorizada por el usuario el 2026-11-06
+- `src/modules/admin-panel/compradores/services/compradores.service.test.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/admin-panel/compradores/services/compradores.service.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/admin-panel/index.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleIdentidadCliente.tsx` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/hooks/cargar-orden-al-abrir.test.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/hooks/confirmar-envio-ov.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/hooks/reset-formulario-ov.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/hooks/seleccionar-comprador-ov.test.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/hooks/seleccionar-comprador-ov.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/hooks/useEnvioOv.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/utils/match/match-comprador-from-nombre.test.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/utils/pedido/campos-faltantes-ov.test.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/utils/pedido/payload-envio-ov.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/shared/services/orden-venta-capture-fields.test.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/shared/services/orden-venta-capture-fields.ts` — autorizada por el usuario el 2026-11-06
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
