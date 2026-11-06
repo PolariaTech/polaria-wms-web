@@ -15,6 +15,10 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaReagruparOtModal.tsx`
 - `src/modules/sales/ordenes/components/modals/OrdenVentaReagruparOtModal.test.tsx`
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCapturePreview.tsx`
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCreateModal.tsx` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/components/modals/OrdenVentaDiscrepanciasDialog.tsx` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/types/orden-venta-form-estado.ts` — autorizada por el usuario el 2026-11-06
+- `src/modules/sales/ordenes/types/orden-venta-create-modal.types.ts` — autorizada por el usuario el 2026-11-06
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
