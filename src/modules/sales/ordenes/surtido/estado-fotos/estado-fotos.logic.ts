@@ -144,8 +144,8 @@ export function partesDeOt(clave: string): PartesOt | null {
   const partes = /^pedido:([\s\S]*)\|almacen:([\s\S]*)$/.exec(limpia);
   if (!partes) return { pedido: null, almacen: aTitulo(limpia) };
   const valor = (texto: string): string | null => {
-    const t = texto.trim();
-    return t === "" || t === "_" ? null : t;
+    const textoLimpio = texto.trim();
+    return textoLimpio === "" || textoLimpio === "_" ? null : textoLimpio;
   };
   const almacen = valor(partes[2]);
   return { pedido: valor(partes[1]), almacen: almacen ? aTitulo(almacen) : null };
