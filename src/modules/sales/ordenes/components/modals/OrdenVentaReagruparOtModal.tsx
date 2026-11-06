@@ -579,9 +579,7 @@ export function OrdenVentaReagruparOtModal({
                 disabled={dividiendo || (enDivision && !onDividir)}
                 onClick={() => void handleConfirmar()}
               >
-                {dividiendo ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                ) : null}
+                {dividiendo && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
                 {dividiendo ? "Dividiendo…" : "Confirmar"}
               </button>
             </>
