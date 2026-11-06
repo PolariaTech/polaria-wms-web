@@ -19,10 +19,13 @@ vi.mock("jspdf", async (importarOriginal) => {
   return { ...original, jsPDF: JsPdfSinImagenes };
 });
 
-const lienzo = (width: number, height: number): LienzoRenderizado => ({
+/** Cada recorte queda anotado (`desde-hasta`) en la imagen que se le pasa a `addImage`. */
+const lienzo = (width: number, height: number, extra: Partial<LienzoRenderizado> = {}): LienzoRenderizado => ({
   width,
   height,
   toDataURL: () => "data:image/jpeg;base64,AAAA",
+  recortar: (desde, hasta) => `data:image/jpeg;base64,${Math.round(desde)}-${Math.round(hasta)}`,
+  ...extra,
 });
 
 beforeEach(() => {
@@ -87,6 +90,18 @@ describe("sanitizarHtmlOc", () => {
     expect(html).toContain("default-src 'none'");
   });
 
+  it("agrega estilos de papel después de los del cliente: un solo filo, aire en las celdas y líneas que se parten", () => {
+    const html = limpio("<head><style>td{color:blue}</style></head><body><table border=1><tr><td>a</td></tr></table></body>");
+
+    expect(html).toContain("border-collapse:collapse");
+    expect(html).toContain("padding:6px 8px");
+    // La fila que cierra el marco lleva más aire abajo.
+    expect(html).toContain("tr:last-child>td{padding-bottom:16px}");
+    expect(html).toContain("overflow-wrap:anywhere");
+    // Van al final del head para ganar sobre lo del cliente.
+    expect(html.indexOf("color:blue")).toBeLessThan(html.indexOf("border-collapse:collapse"));
+  });
+
   it("quita una política propia del documento y deja solo la suya", () => {
     const html = limpio('<head><meta http-equiv="Content-Security-Policy" content="default-src *"></head><body>x</body>');
 
@@ -105,14 +120,35 @@ describe("pdfDeHtml", () => {
     expect(new TextDecoder().decode(pdf.slice(0, 5))).toBe("%PDF-");
   });
 
-  it("reparte la imagen en tantas páginas carta como haga falta", async () => {
-    // Ancho 816 px = una carta; alto 2400 px ≈ 821 mm ≈ 3 páginas de 279,4 mm.
+  it("reparte la imagen en tantas páginas carta como haga falta, cada una con su tramo y margen", async () => {
+    // Ancho 816 px = una carta (3,78 px/mm); cada hoja útil mide 259,4 mm ≈ 980 px: 2400 px son 3 hojas.
     const pdf = await pdfDeHtml("<body>largo</body>", "po.html", async () => lienzo(816, 2400));
 
     expect((await PDFDocument.load(pdf)).getPageCount()).toBe(3);
     expect(llamadasAddImage).toHaveLength(3);
-    // Cada página sube la imagen lo que ya mostró la anterior.
-    expect(llamadasAddImage.map((c) => Math.round(Number(c[3])))).toEqual([0, -279, -559]);
+    // Cada hoja recibe solo su tramo, no la imagen entera desplazada.
+    expect(llamadasAddImage.map((c) => String(c[0]).split(",")[1])).toEqual(["0-980", "980-1960", "1960-2400"]);
+    // Y se pone bajo un margen de 10 mm, para que el marco no toque el borde del papel.
+    expect(llamadasAddImage.map((c) => Number(c[3]))).toEqual([10, 10, 10]);
+  });
+
+  it("corta en una franja en blanco y no por la mitad de un renglón", async () => {
+    // Lienzo de 1500 px (a 1,5 de escala); la hoja útil mide ≈ 1470 px. Hay texto en todo el
+    // lienzo salvo un hueco entre las filas 700 y 760: ahí se corta, no en el límite de la hoja.
+    const tinta = Array.from({ length: 1500 }, (_, y) => (y >= 700 && y < 760 ? 0 : 0.3));
+    const pdf = await pdfDeHtml("<body>largo</body>", "po.html", async () => lienzo(1224, 1500, { tinta }));
+
+    expect((await PDFDocument.load(pdf)).getPageCount()).toBe(2);
+    expect(llamadasAddImage.map((c) => String(c[0]).split(",")[1])).toEqual(["0-747", "747-1500"]);
+  });
+
+  it("no pasa del tope de hojas ni deja una hoja más alta que el papel", async () => {
+    await pdfDeHtml("<body>x</body>", "po.html", async () => lienzo(816, 90_000));
+
+    expect(llamadasAddImage).toHaveLength(MAX_PAGINAS_HTML);
+    for (const llamada of llamadasAddImage) {
+      expect(Number(llamada[5])).toBeLessThanOrEqual(259.4 + 0.01);
+    }
   });
 
   it("una OC corta cabe en una sola página", async () => {

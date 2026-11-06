@@ -1,20 +1,51 @@
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
+import { calcularCortes } from "./cortes-de-pagina";
 
 /** Carta vertical. El HTML se dibuja a 816 px de ancho (la carta a 96 dpi): una pantalla de papel. */
 const PAGE_W = 215.9;
 const PAGE_H = 279.4;
+/** Aire arriba y abajo de cada hoja: la impresora no llega al borde y el marco no debe pegarse a él. */
+const MARGEN_VERTICAL_MM = 10;
+const ESCALA_RENDER = 1.5;
 export const ANCHO_PAGINA_PX = 816;
 /** Un HTML que pase de esto se corta: es una OC, no un libro, y cada página pesa en el paquete. */
 export const MAX_PAGINAS_HTML = 10;
 const ESPERA_MAXIMA_MS = 10_000;
 
-/** Lo mínimo que se necesita de lo que dibuja `html2canvas`. */
+/**
+ * Lo mínimo que se necesita de lo que dibuja `html2canvas`. `tinta` dice cuánto hay dibujado en
+ * cada fila (para partir en hojas sin cortar un renglón) y `recortar` devuelve un tramo como imagen.
+ */
 export interface LienzoRenderizado {
   width: number;
   height: number;
   toDataURL: (tipo: string, calidad?: number) => string;
+  recortar: (desdePx: number, hastaPx: number) => string;
+  tinta?: readonly number[];
 }
+
+/** Columnas que no se miran a cada lado: ahí caen los filos verticales del marco, que son tinta en todas las filas. */
+const COLUMNAS_DE_MARCO = 64;
+/** Un píxel más oscuro que esto (suma de R+G+B) cuenta como tinta. */
+const UMBRAL_TINTA = 600;
+
+/**
+ * Estilos de papel para una OC de cliente. Un `border="1"` pinta dos filos (el de la tabla y,
+ * a 2 px, el de cada celda): se funden en uno. Las celdas respiran para que el texto no toque
+ * el marco, y una línea sin espacios (una lista de correos) se parte en vez de ensanchar su
+ * columna y aplastar la de al lado, que es lo que dejaba la hoja medio vacía.
+ */
+export const ESTILOS_PAPEL = [
+  "html,body{margin:0;background:#fff}",
+  "body{padding:24px}",
+  'table[border]:not([border="0"]){border-collapse:collapse}',
+  'table[border]:not([border="0"])>tbody>tr>td,table[border]:not([border="0"])>tbody>tr>th{padding:6px 8px}',
+  // La última fila es la que cierra el marco: más aire para que el borde no roce el último renglón.
+  'table[border]:not([border="0"])>tbody>tr:last-child>td{padding-bottom:16px}',
+  "td,th{overflow-wrap:anywhere}",
+].join("");
+
 export type Renderizador = (htmlSeguro: string) => Promise<LienzoRenderizado>;
 
 /** Las etiquetas que cargan, ejecutan o envían algo: una OC solo se necesita para leerla. */
@@ -55,7 +86,42 @@ export function sanitizarHtmlOc(html: string): string {
   politica.setAttribute("http-equiv", "Content-Security-Policy");
   politica.setAttribute("content", POLITICA);
   doc.head.prepend(politica);
+  // Al final del `head`, después de lo del cliente, para que sus reglas de papel ganen.
+  const papel = doc.createElement("style");
+  papel.textContent = ESTILOS_PAPEL;
+  doc.head.append(papel);
   return `<!doctype html>${doc.documentElement.outerHTML}`;
+}
+
+/** Cuánta tinta tiene cada fila del lienzo (0 a 1), sin contar los filos verticales del marco. */
+function medirTinta(lienzo: HTMLCanvasElement): number[] {
+  const contexto = lienzo.getContext("2d");
+  const ancho = lienzo.width - 2 * COLUMNAS_DE_MARCO;
+  if (!contexto || ancho <= 0 || lienzo.height <= 0) return [];
+  const { data } = contexto.getImageData(COLUMNAS_DE_MARCO, 0, ancho, lienzo.height);
+  const filas = new Array<number>(lienzo.height);
+  for (let y = 0; y < lienzo.height; y += 1) {
+    let oscuros = 0;
+    for (let x = 0; x < ancho; x += 1) {
+      const i = (y * ancho + x) * 4;
+      if (data[i]! + data[i + 1]! + data[i + 2]! < UMBRAL_TINTA) oscuros += 1;
+    }
+    filas[y] = oscuros / ancho;
+  }
+  return filas;
+}
+
+/** Un tramo del lienzo como JPEG, sobre fondo blanco. */
+function recortarLienzo(lienzo: HTMLCanvasElement, desdePx: number, hastaPx: number): string {
+  const tramo = document.createElement("canvas");
+  tramo.width = lienzo.width;
+  tramo.height = Math.max(1, Math.round(hastaPx - desdePx));
+  const contexto = tramo.getContext("2d");
+  if (!contexto) throw new Error("No se pudo recortar la hoja.");
+  contexto.fillStyle = "#ffffff";
+  contexto.fillRect(0, 0, tramo.width, tramo.height);
+  contexto.drawImage(lienzo, 0, desdePx, lienzo.width, tramo.height, 0, 0, lienzo.width, tramo.height);
+  return tramo.toDataURL("image/jpeg", 0.8);
 }
 
 /** Dibuja el HTML ya limpio en un iframe fuera de pantalla, sin scripts, y lo fotografía. */
@@ -78,12 +144,19 @@ export async function renderizarEnIframe(htmlSeguro: string): Promise<LienzoRend
     const documento = marco.contentDocument;
     if (!documento?.body) throw new Error("No se pudo abrir el HTML.");
     marco.style.height = `${documento.documentElement.scrollHeight}px`;
-    return await html2canvas(documento.body, {
-      scale: 1.5,
+    const lienzo = await html2canvas(documento.body, {
+      scale: ESCALA_RENDER,
       backgroundColor: "#ffffff",
       logging: false,
       windowWidth: ANCHO_PAGINA_PX,
     });
+    return {
+      width: lienzo.width,
+      height: lienzo.height,
+      toDataURL: (tipo, calidad) => lienzo.toDataURL(tipo, calidad),
+      recortar: (desdePx, hastaPx) => recortarLienzo(lienzo, desdePx, hastaPx),
+      tinta: medirTinta(lienzo),
+    };
   } finally {
     marco.remove();
   }
@@ -104,14 +177,25 @@ export async function pdfDeHtml(
     throw new Error(`${nombreArchivo} quedó en blanco al convertirlo.`);
   }
 
-  const imagen = lienzo.toDataURL("image/jpeg", 0.8);
-  const altoMm = lienzo.height * (PAGE_W / lienzo.width);
-  const paginas = Math.min(MAX_PAGINAS_HTML, Math.max(1, Math.ceil(altoMm / PAGE_H)));
+  const pxPorMm = lienzo.width / PAGE_W;
+  const altoUtilMm = PAGE_H - 2 * MARGEN_VERTICAL_MM;
+  const cortes = calcularCortes({
+    alto: lienzo.height,
+    altoPagina: altoUtilMm * pxPorMm,
+    tinta: lienzo.tinta ?? [],
+    maxPaginas: MAX_PAGINAS_HTML,
+  });
+  // Cada hoja lleva su propio tramo de imagen, con margen arriba y abajo; lo que sobra del
+  // documento (si pasa del tope de hojas) se descarta.
+  const ultimoCorte = cortes.at(-1) ?? 0;
+  const final = Math.min(lienzo.height, ultimoCorte + altoUtilMm * pxPorMm);
+  const limites = [0, ...cortes, cortes.length + 1 >= MAX_PAGINAS_HTML ? final : lienzo.height];
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: [PAGE_W, PAGE_H], compress: true });
-  for (let pagina = 0; pagina < paginas; pagina += 1) {
+  for (let pagina = 0; pagina < limites.length - 1; pagina += 1) {
     if (pagina > 0) doc.addPage([PAGE_W, PAGE_H], "portrait");
-    // La misma imagen en cada página, subida lo que ya se vio: la hoja solo muestra su tramo.
-    doc.addImage(imagen, "JPEG", 0, 0 - pagina * PAGE_H, PAGE_W, altoMm);
+    const desde = limites[pagina]!;
+    const hasta = Math.min(lienzo.height, limites[pagina + 1]!);
+    doc.addImage(lienzo.recortar(desde, hasta), "JPEG", 0, MARGEN_VERTICAL_MM, PAGE_W, (hasta - desde) / pxPorMm);
   }
   return new Uint8Array(doc.output("arraybuffer"));
 }
