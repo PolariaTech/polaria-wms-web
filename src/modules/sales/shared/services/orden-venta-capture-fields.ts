@@ -32,7 +32,7 @@ export function ordenVentaCaptureFields(
     normalizeOrigenAdjuntosInput(input.origenArchivos),
   );
 
-  return {
+  const fields: Record<string, string | null | unknown> = {
     fecha_entrega: input.fechaEntrega?.trim() || null,
     ventana_desde: input.ventanaDesde?.trim() || null,
     ventana_hasta: input.ventanaHasta?.trim() || null,
@@ -63,4 +63,9 @@ export function ordenVentaCaptureFields(
     notas_lineas: input.notasLineas?.trim() || null,
     notas_almacen: input.notasAlmacen?.trim() || null,
   };
+  if (input.denominacionComercialOverride !== undefined) {
+    fields.denominacion_comercial_override =
+      input.denominacionComercialOverride?.trim() || null;
+  }
+  return fields;
 }

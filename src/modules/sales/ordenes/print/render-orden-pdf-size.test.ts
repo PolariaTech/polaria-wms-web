@@ -35,7 +35,7 @@ async function buildSheet(
     horaEntrega: "08:00-10:00",
     direccionEntrega: "Calle 1, Centro",
     notasGenerales: "Entregar por muelle 2.",
-    lineas: Array.from({ length: 49 }, (_, k) => ({
+    lineas: Array.from({ length: 20 }, (_, k) => ({
       producto: `Producto de prueba ${k + 1}`,
       especificacion: "Caja 12 pzas",
       cantidadSolicitada: `${k + 1} cajas`,

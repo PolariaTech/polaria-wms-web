@@ -24,11 +24,14 @@ function estadoConRfc(parcial: Record<string, unknown> = {}) {
     warnFields: new Set(),
     codigoClienteCatalogo: "105",
     denominacionComercialCatalogo: "SLS",
+    denominacionComercial: "SLS",
+    setDenominacionComercial: vi.fn(),
     compradores: [
       {
         idComprador: "c1",
         codigo: "105",
         apodo: "SLS",
+        denominacionComercialOverride: "",
         rfc: "CPM850101ABC",
       },
     ],

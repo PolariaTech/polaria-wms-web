@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ESTADOS_ORDEN_VENTA,
   estadosSuperioresOrdenVenta,
   formatEstadoOrdenVenta,
   normalizeEstadoOrdenVenta,
@@ -124,7 +125,16 @@ describe("formatEstadoOrdenVenta", () => {
     expect(formatEstadoOrdenVenta("cerrada")).toBe("Despachado");
   });
 
-  it("etiqueta cancelada como Borrada", () => {
-    expect(formatEstadoOrdenVenta("cancelada")).toBe("Borrada");
+  it("etiqueta cancelada como Cancelada (REQ-255)", () => {
+    expect(formatEstadoOrdenVenta("cancelada")).toBe("Cancelada");
+  });
+});
+
+
+describe("ESTADOS_ORDEN_VENTA (REQ-255)", () => {
+  it("incluye Cancelada al final, después de Facturado", () => {
+    expect(ESTADOS_ORDEN_VENTA.at(-1)).toBe("cancelada");
+    expect(ESTADOS_ORDEN_VENTA.at(-2)).toBe("facturada");
+    expect(formatEstadoOrdenVenta("cancelada")).toBe("Cancelada");
   });
 });

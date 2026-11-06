@@ -175,6 +175,7 @@ export function buildPayloadEnvioOv(params: {
   observaciones: string;
   idCreador: string;
   isDraft: boolean;
+  denominacionComercialOverride?: string | null;
 }) {
   return {
     codigoCuenta: params.codigoCuenta,
@@ -236,6 +237,7 @@ export function buildPayloadEnvioOv(params: {
       notasLineas: params.notasLineas,
     }),
     idCreador: params.idCreador || null,
+    denominacionComercialOverride: params.denominacionComercialOverride,
     guardarAvance: params.isDraft,
   };
 }

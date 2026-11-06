@@ -54,6 +54,8 @@ export interface OrdenVentaFormEstado {
   correo: string;
   cypherOpen: boolean;
   denominacionComercialCatalogo: string;
+  /** REQ-241: valor editable; persistir vía override (OV + comprador). */
+  denominacionComercial: string;
   direccion: string;
   docsFileInputRef: { current: HTMLInputElement | null };
   docsHasContent: boolean;
@@ -153,6 +155,7 @@ export interface OrdenVentaFormEstado {
   setConfirmSaveOpen: Dispatch<SetStateAction<boolean>>;
   setContacto: Dispatch<SetStateAction<string>>;
   setCorreo: Dispatch<SetStateAction<string>>;
+  setDenominacionComercial: Dispatch<SetStateAction<string>>;
   setDireccion: Dispatch<SetStateAction<string>>;
   setError: Dispatch<SetStateAction<string | null>>;
   setFechaEntrega: Dispatch<SetStateAction<string>>;

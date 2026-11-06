@@ -1,5 +1,7 @@
 import { jsPDF } from "jspdf";
 import { campoSurtido, campoSurtidoExact } from "../surtido/apply-surtido-to-print";
+import { drawPrintQr } from "./draw-print-qr";
+import { paintPrintCellText } from "./paint-print-cell-text";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 import { PRODUCTOS_POR_HOJA_TAREA } from "./map-orden-tarea-almacen";
 
@@ -16,7 +18,7 @@ const GAP = 3;
 const LEFT_W = 78;
 const RIGHT_W = CONTENT_W - LEFT_W - GAP;
 const PRODUCT_BODY_MIN_H = 5;
-const PRODUCT_BODY_MAX_H = 6.2;
+const QR_SIZE = 26;
 
 function box(
   doc: jsPDF,
@@ -224,28 +226,10 @@ export function drawOrdenTareaAlmacenLandscapePage(
 
   let y = MARGIN + 5;
 
-  // ——— Izquierda: QR + mismos campos que la vertical ———
-  const QR_SIZE = 26;
-  const qrX = leftX + (LEFT_W - QR_SIZE) / 2;
-  if (data.qrDataUrl) {
-    try {
-      doc.addImage(data.qrDataUrl, "PNG", qrX, y, QR_SIZE, QR_SIZE);
-    } catch {
-      box(doc, qrX, y, QR_SIZE, QR_SIZE, 0.5);
-      doc.setFontSize(6);
-      doc.text("QR", qrX + QR_SIZE / 2, y + QR_SIZE / 2, {
-        align: "center",
-        baseline: "middle",
-      });
-    }
-  } else {
-    box(doc, qrX, y, QR_SIZE, QR_SIZE, 0.5);
-    doc.setFontSize(6);
-    doc.text("QR", qrX + QR_SIZE / 2, y + QR_SIZE / 2, {
-      align: "center",
-      baseline: "middle",
-    });
-  }
+  // ——— Izquierda: QR (esquina superior / columna izq) ———
+  const qrTopX = leftX + (LEFT_W - QR_SIZE) / 2;
+  const qrTopY = y;
+  drawPrintQr(doc, data.qrDataUrl, qrTopX, qrTopY, QR_SIZE);
   y += QR_SIZE + 2;
 
   // REQ-143: día de entrega bien visible para bodega (HOY / MAÑANA visual).
@@ -441,14 +425,14 @@ export function drawOrdenTareaAlmacenLandscapePage(
     true,
   );
 
-  // ——— Derecha: productos hasta el margen inferior ———
+  // ——— Derecha: productos (REQ-269/282: filas altas, specs sin cortar) ———
   const cols = [
     { key: "#", w: 6 },
-    { key: "Producto", w: 40 },
-    { key: "Especificación", w: 28 },
-    { key: "Cant.\nsolicitada", w: 16 },
-    { key: "Alistó", w: 12 },
-    { key: "Revisó", w: 12 },
+    { key: "Producto", w: 34 },
+    { key: "Especificación", w: 38 },
+    { key: "Cant.\nsolicitada", w: 14 },
+    { key: "Alistó", w: 11 },
+    { key: "Revisó", w: 11 },
   ] as const;
   const baseW = cols.reduce((sum, col) => sum + col.w, 0);
   const scale = RIGHT_W / baseW;
@@ -459,12 +443,14 @@ export function drawOrdenTareaAlmacenLandscapePage(
 
   let py = MARGIN + 5;
   const headerH = 6.5;
-  const availableForRows = PAGE_BOTTOM - py - headerH;
+  const qrFooterReserve = QR_SIZE + 3;
+  const availableForRows = PAGE_BOTTOM - py - headerH - qrFooterReserve;
   const productRows = Math.min(
     PRODUCTOS_POR_HOJA_TAREA,
     Math.max(1, Math.floor(availableForRows / PRODUCT_BODY_MIN_H)),
   );
-  const bodyH = Math.min(PRODUCT_BODY_MAX_H, availableForRows / productRows);
+  // Sin tope artificial: reparte el alto libre entre las ≤20 filas.
+  const bodyH = availableForRows / productRows;
 
   box(doc, rightX, py, RIGHT_W, headerH);
   doc.setFont("helvetica", "bold");
@@ -494,7 +480,6 @@ export function drawOrdenTareaAlmacenLandscapePage(
     }
     box(doc, rightX, py, RIGHT_W, bodyH);
     let cursorX = rightX;
-    const mid = py + bodyH / 2;
     const values = [
       String((data.lineaInicio ?? 1) + index),
       linea?.producto ?? "",
@@ -515,23 +500,10 @@ export function drawOrdenTareaAlmacenLandscapePage(
           colIndex === 4 ? Boolean(linea?.alisto) : Boolean(linea?.reviso),
         );
       } else if (values[colIndex]) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(colIndex === 1 || colIndex === 2 ? 5.5 : 6.2);
-        const wrapped = doc.splitTextToSize(values[colIndex]!, col.w - 1.2);
-        const shown = (Array.isArray(wrapped) ? wrapped : [wrapped]).slice(
-          0,
-          1,
-        );
-        const align = colIndex === 0 || colIndex === 3 ? "center" : "left";
-        doc.text(
-          shown,
-          align === "center" ? cursorX + col.w / 2 : cursorX + 0.7,
-          mid,
-          {
-            align,
-            baseline: "middle",
-          },
-        );
+        paintPrintCellText(doc, values[colIndex]!, cursorX, py, col.w, bodyH, {
+          align: colIndex === 0 || colIndex === 3 ? "center" : "left",
+          preferSize: colIndex === 1 || colIndex === 2 ? 6.2 : 6.5,
+        });
       }
       cursorX += col.w;
       if (colIndex < scaledCols.length - 1) {
@@ -540,6 +512,15 @@ export function drawOrdenTareaAlmacenLandscapePage(
     }
     py += bodyH;
   }
+
+  // REQ-246: mismo QR, centrado bajo la columna Especificación.
+  let specColX = rightX;
+  for (let i = 0; i < 2; i += 1) specColX += scaledCols[i]!.w;
+  const specColW = scaledCols[2]!.w;
+  const qrBottomX = specColX + (specColW - QR_SIZE) / 2;
+  const footerBand = Math.max(QR_SIZE, PAGE_BOTTOM - py);
+  const qrBottomY = py + (footerBand - QR_SIZE) / 2;
+  drawPrintQr(doc, data.qrDataUrl, qrBottomX, qrBottomY, QR_SIZE);
 }
 
 export function buildOrdenTareaAlmacenLandscapePdf(

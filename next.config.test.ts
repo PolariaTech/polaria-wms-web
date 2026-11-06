@@ -21,5 +21,27 @@ describe("next.config", () => {
       }),
     ]);
   });
+
+  it("permite embeber adjuntos OV en iframe same-origin (REQ-266)", async () => {
+    const headers = await nextConfig.headers!();
+    const file = headers.find((rule) => rule.source === "/api/ov-adjuntos/file");
+    const emlParts = headers.find(
+      (rule) => rule.source === "/api/ov-adjuntos/eml-parts/file",
+    );
+
+    expect(file?.headers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "X-Frame-Options",
+          value: "SAMEORIGIN",
+        }),
+        expect.objectContaining({
+          key: "Content-Security-Policy",
+          value: "frame-ancestors 'self'",
+        }),
+      ]),
+    );
+    expect(emlParts?.headers).toEqual(file?.headers);
+  });
 });
 

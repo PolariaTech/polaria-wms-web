@@ -22,9 +22,12 @@ function formatBytes(bytes: number | null | undefined): string {
 export function OrigenAdjuntosCards({
   adjuntos,
   className,
+  /** REQ-266: si hay callback, el ojo previsualiza dockeado (no abre pestaña). */
+  onPreviewAdjunto,
 }: {
   adjuntos: readonly OrigenAdjunto[];
   className?: string;
+  onPreviewAdjunto?: (item: OrigenAdjunto, viewUrl: string) => void;
 }) {
   const unique = dedupeOrigenAdjuntos(adjuntos);
   if (unique.length === 0) return null;
@@ -36,8 +39,8 @@ export function OrigenAdjuntosCards({
           ? "1 archivo adjunto"
           : `${unique.length} archivos adjuntos`}
       </p>
-      {/* REQ-102: ~50% del tamaño anterior para navegar varios adjuntos. */}
-      <ul className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+      {/* REQ-102: 2 cols en Cypher (estrecho); más cols en viewports anchos. */}
+      <ul className="grid grid-cols-2 items-stretch gap-1.5 min-[420px]:grid-cols-3">
         {unique.map((item, index) => {
           const url = item.url?.trim() || "";
           const path = item.path?.trim() || "";
@@ -51,9 +54,9 @@ export function OrigenAdjuntosCards({
           return (
             <li
               key={`${item.nombre}-${index}`}
-              className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-polaria-t-20 bg-polaria-bg/40"
+              className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-polaria-t-20 bg-polaria-bg/40"
             >
-              <div className="flex aspect-[4/3] items-center justify-center bg-polaria-t-08">
+              <div className="flex aspect-[4/3] shrink-0 items-center justify-center bg-polaria-t-08">
                 {previewable && url && tipo === "IMG" ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -70,8 +73,8 @@ export function OrigenAdjuntosCards({
                   </div>
                 )}
               </div>
-              <div className="flex items-start gap-1 border-t border-polaria-w-08 bg-polaria-w-08 px-1.5 py-1">
-                <span className="mt-0.5 shrink-0 rounded bg-polaria-teal/20 px-0.5 py-px text-[0.6rem] font-bold leading-none text-polaria-teal">
+              <div className="mt-auto flex min-h-[2.75rem] items-center gap-1 border-t border-polaria-w-08 bg-polaria-w-08 px-1.5 py-1">
+                <span className="shrink-0 rounded bg-polaria-teal/20 px-0.5 py-px text-[0.6rem] font-bold leading-none text-polaria-teal">
                   {tipo}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -81,26 +84,42 @@ export function OrigenAdjuntosCards({
                   >
                     {item.nombre}
                   </p>
-                  {size ? (
-                    <p className="text-[0.6rem] leading-tight text-polaria-w-50">
-                      {size}
-                    </p>
-                  ) : null}
+                  <p
+                    className={cn(
+                      "truncate whitespace-nowrap text-[0.6rem] leading-tight",
+                      size ? "text-polaria-w-50" : "invisible",
+                    )}
+                    aria-hidden={!size}
+                  >
+                    {size || "0 KB"}
+                  </p>
                 </div>
-                <div className="flex shrink-0 items-center">
+                <div className="flex shrink-0 items-center self-center">
                   {hasFile && (viewUrl || downloadUrl) ? (
                     <>
                       {previewable && viewUrl ? (
-                        <a
-                          href={viewUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded p-0.5 text-polaria-teal transition hover:bg-polaria-t-08"
-                          title="Ver"
-                          aria-label={`Ver ${item.nombre}`}
-                        >
-                          <Eye className="h-3 w-3" aria-hidden />
-                        </a>
+                        onPreviewAdjunto ? (
+                          <button
+                            type="button"
+                            className="rounded p-0.5 text-polaria-teal transition hover:bg-polaria-t-08"
+                            title="Ver"
+                            aria-label={`Ver ${item.nombre}`}
+                            onClick={() => onPreviewAdjunto(item, viewUrl)}
+                          >
+                            <Eye className="h-3 w-3" aria-hidden />
+                          </button>
+                        ) : (
+                          <a
+                            href={viewUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded p-0.5 text-polaria-teal transition hover:bg-polaria-t-08"
+                            title="Ver"
+                            aria-label={`Ver ${item.nombre}`}
+                          >
+                            <Eye className="h-3 w-3" aria-hidden />
+                          </a>
+                        )
                       ) : null}
                       {downloadUrl ? (
                         <a

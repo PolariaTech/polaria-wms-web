@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { cn } from "@/lib/utils/cn";
 import type { CompradorListRow } from "@/modules/admin-panel";
@@ -36,7 +36,18 @@ export function OrdenVentaCompradorPickerModal({
   dockWithCypher = false,
 }: OrdenVentaCompradorPickerModalProps) {
   const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const prioritySet = useMemo(() => new Set(priorityIds), [priorityIds]);
+
+  // REQ-228: al abrir el catálogo (lupa), foco en buscar — mismo patrón REQ-129.
+  useEffect(() => {
+    if (!open) return;
+    const id = window.setTimeout(() => {
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    }, 40);
+    return () => window.clearTimeout(id);
+  }, [open]);
 
   const filtered = useMemo(() => {
     const needle = normalizeSearch(query);
@@ -93,11 +104,13 @@ export function OrdenVentaCompradorPickerModal({
             aria-hidden
           />
           <input
+            ref={searchRef}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Buscar por código, cliente, D. Comercial o RFC"
             aria-label="Buscar cliente"
+            autoFocus
             className={cn(
               "w-full rounded-xl border border-polaria-w-08 bg-polaria-w-08 py-2.5 pl-10 pr-4",
               "polaria-text-body-sm text-polaria-w placeholder:text-polaria-w-20 outline-none",

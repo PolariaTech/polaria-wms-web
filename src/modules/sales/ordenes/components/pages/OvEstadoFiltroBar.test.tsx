@@ -17,5 +17,8 @@ describe("OvEstadoFiltroBar", () => {
       />,
     );
     expect(screen.getByRole("button", { name: /Todos/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Cancelada/ }),
+    ).toBeInTheDocument();
   });
 });

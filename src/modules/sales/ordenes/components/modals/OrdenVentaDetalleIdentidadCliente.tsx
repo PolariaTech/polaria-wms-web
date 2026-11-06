@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 import { diaSemanaEntregaEsTitulo } from "../../utils/pedido/dia-semana-entrega";
+import { resolveDenominacionComercial } from "../../utils/pedido/resolve-denominacion-comercial";
 
 function MetaField({
   label,
@@ -43,7 +44,14 @@ export function OrdenVentaDetalleIdentidadCliente({
         <TextValue value={orden.comprador_codigo ?? ""} />
       </MetaField>
       <MetaField label="Denominación comercial">
-        <TextValue value={orden.comprador_apodo ?? ""} />
+        <TextValue
+          value={resolveDenominacionComercial({
+            override:
+              orden.denominacion_comercial_override ||
+              orden.comprador_denominacion_comercial_override,
+            apodoSincronizado: orden.comprador_apodo,
+          })}
+        />
       </MetaField>
       <MetaField label="RFC">
         <TextValue value={orden.comprador_rfc ?? ""} />

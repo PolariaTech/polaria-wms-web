@@ -131,6 +131,12 @@ const nextConfig: NextConfig = {
     return [
       { source: "/reportes-embed", headers: EMBED_FRAME_HEADERS },
       { source: "/reportes-embed/:path*", headers: EMBED_FRAME_HEADERS },
+      // REQ-266: preview dockeado (iframe same-origin) de adjuntos OV.
+      { source: "/api/ov-adjuntos/file", headers: EMBED_FRAME_HEADERS },
+      {
+        source: "/api/ov-adjuntos/eml-parts/file",
+        headers: EMBED_FRAME_HEADERS,
+      },
       { source: "/logo.png", headers: CAPTURA_PUBLIC_HEADERS },
       { source: "/captura-orden", headers: CAPTURA_PUBLIC_HEADERS },
       { source: "/captura-orden/:path*", headers: CAPTURA_PUBLIC_HEADERS },

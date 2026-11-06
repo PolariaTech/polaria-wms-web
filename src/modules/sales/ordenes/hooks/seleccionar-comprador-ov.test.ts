@@ -25,6 +25,7 @@ const hotel: CompradorListRow = {
   codigo: "HS",
   comprador: "Hotel Sur",
   apodo: "",
+  denominacionComercialOverride: "",
   telefono: "555",
   rfc: "",
   grupo: "",
@@ -46,6 +47,7 @@ function acciones() {
     applyCompradorPrefill: vi.fn(),
     setPrecioOverrideByProducto: vi.fn(),
     setEquivalenciaByProducto: vi.fn(),
+    setDenominacionComercial: vi.fn(),
   };
 }
 
@@ -70,6 +72,7 @@ describe("seleccionarCompradorOv", () => {
     });
     expect(selectedCompradorIdRef.current).toBe("c2");
     expect(ui.setCompradorLabel).toHaveBeenCalledWith("Hotel Sur");
+    expect(ui.setDenominacionComercial).toHaveBeenCalledWith("");
     expect(ui.setExigeOc).toHaveBeenCalledWith(false);
     expect(ui.setCompradorNombreIa).toHaveBeenCalledWith(null);
     expect(getCompradorAdmin).not.toHaveBeenCalled();
