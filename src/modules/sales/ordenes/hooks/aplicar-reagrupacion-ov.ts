@@ -35,11 +35,7 @@ import {
   sugerenciaToOption,
   toDateInputValue,
 } from "../utils/pedido/orden-venta-create-helpers";
-import {
-  decidirAperturaReagruparAlCargar,
-  reagruparAbiertoSegunCypher,
-  reagruparModalAbierto,
-} from "../utils/ot/reagrupacion-modal-estado";
+import { decidirAperturaReagruparAlCargar, reagruparAbiertoSegunCypher, reagruparModalAbierto } from "../utils/ot/reagrupacion-modal-estado";
 import {
   isGarbageOcValue,
   resolveOrdenCompraLimpia,
