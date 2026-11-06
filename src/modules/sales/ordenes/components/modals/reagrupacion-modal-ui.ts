@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils/cn";
+import type { PropuestaCorreccionCorreoApi } from "../../utils/ot/aplicar-correccion-correo";
 
 /** Presentación compartida del modal de reorganizar: botones y textos del resumen. */
 
@@ -51,4 +52,17 @@ export function describirOrdenesNuevas(cantidad: number): string {
   return cantidad === 1
     ? "Pasa a una orden de venta nueva"
     : "Pasan a órdenes de venta nuevas, una por cada orden de compra";
+}
+
+export const MENSAJE_FORMULARIO_CAMBIO =
+  "El formulario cambió mientras se generaba la propuesta. Vuelve a generarla.";
+
+/** Corrección contra el correo (REQ-187): leyendo los archivos o con la propuesta lista. */
+export interface EstadoCorreccion {
+  fase: "leyendo" | "propuesta";
+  /** Lo que el servidor entendió de la instrucción. */
+  motivo: string;
+  /** Firma del formulario al pedirla; si cambia, la propuesta ya no aplica. */
+  firmaBase: string;
+  propuesta?: PropuestaCorreccionCorreoApi;
 }

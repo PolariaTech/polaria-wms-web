@@ -15,6 +15,8 @@ import {
   BOTON_SECUNDARIO,
   describirCambioDeOt,
   formatearCantidad,
+  MENSAJE_FORMULARIO_CAMBIO,
+  type EstadoCorreccion,
 } from "./reagrupacion-modal-ui";
 import { ReagrupacionDivisionPlan } from "./ReagrupacionDivisionPlan";
 import {
@@ -46,19 +48,6 @@ import {
   CargaConPolo,
   OrdenVentaCorreccionCorreoPanel,
 } from "./OrdenVentaCorreccionCorreoPanel";
-
-const MENSAJE_FORMULARIO_CAMBIO =
-  "El formulario cambió mientras se generaba la propuesta. Vuelve a generarla.";
-
-/** Corrección contra el correo (REQ-187): leyendo los archivos o con la propuesta lista. */
-interface EstadoCorreccion {
-  fase: "leyendo" | "propuesta";
-  /** Lo que el servidor entendió de la instrucción. */
-  motivo: string;
-  /** Firma del formulario al pedirla; si cambia, la propuesta ya no aplica. */
-  firmaBase: string;
-  propuesta?: PropuestaCorreccionCorreoApi;
-}
 
 export interface SolicitudReagrupacion {
   estadoBase: EstadoBaseApi;
