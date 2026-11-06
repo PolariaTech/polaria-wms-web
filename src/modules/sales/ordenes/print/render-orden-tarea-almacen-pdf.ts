@@ -5,6 +5,10 @@ import {
   checkSurtido,
 } from "../surtido/apply-surtido-to-print";
 import { drawPrintQr } from "./draw-print-qr";
+import {
+  drawPrintQrCaptioned,
+  printQrCaptionedHeight,
+} from "./draw-print-qr-captioned";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
 /** Carta: coincide con el destino típico del diálogo de impresión. */
@@ -641,17 +645,23 @@ export function buildOrdenTareaAlmacenPdf(
   drawNotesLines(doc, y, "Incidencias", incidenciasTexto, 9, 4.8, true, false);
 
   writePageNumbers(doc, data.creada, data.impresa);
-  // REQ-246: mismo QR abajo-derecha en cada página.
+  // REQ-246: QR abajo-derecha con Creada/Impresa + día (como el de arriba).
+  const qrFooterH = printQrCaptionedHeight(QR_SIZE, data.diaEntrega);
+  const qrCenterX = PAGE_W - MARGIN - QR_SIZE / 2;
+  const qrTopY = PAGE_H - MARGIN - qrFooterH;
   const totalPages = doc.getNumberOfPages();
   for (let page = 1; page <= totalPages; page += 1) {
     doc.setPage(page);
-    drawPrintQr(
-      doc,
-      data.qrDataUrl,
-      PAGE_W - MARGIN - QR_SIZE,
-      PAGE_H - MARGIN - QR_SIZE,
-      QR_SIZE,
-    );
+    drawPrintQrCaptioned(doc, {
+      qrDataUrl: data.qrDataUrl,
+      creada: data.creada,
+      impresa: data.impresa,
+      diaEntrega: data.diaEntrega,
+      centerX: qrCenterX,
+      topY: qrTopY,
+      size: QR_SIZE,
+      metaRightX: PAGE_W - MARGIN,
+    });
   }
   return doc;
 }

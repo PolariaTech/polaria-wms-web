@@ -1,6 +1,10 @@
 import { jsPDF } from "jspdf";
 import { campoSurtido, campoSurtidoExact } from "../surtido/apply-surtido-to-print";
 import { drawPrintQr } from "./draw-print-qr";
+import {
+  drawPrintQrCaptioned,
+  printQrCaptionedHeight,
+} from "./draw-print-qr-captioned";
 import { paintPrintCellText } from "./paint-print-cell-text";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 import { PRODUCTOS_POR_HOJA_TAREA } from "./map-orden-tarea-almacen";
@@ -443,7 +447,10 @@ export function drawOrdenTareaAlmacenLandscapePage(
 
   let py = MARGIN + 5;
   const headerH = 6.5;
-  const qrFooterReserve = QR_SIZE + 3;
+  // Holgura entre el borde inferior de la tabla y el QR (evita que choquen).
+  const QR_TABLE_GAP = 3;
+  const qrBlockH = printQrCaptionedHeight(QR_SIZE, data.diaEntrega);
+  const qrFooterReserve = QR_TABLE_GAP + qrBlockH;
   const availableForRows = PAGE_BOTTOM - py - headerH - qrFooterReserve;
   const productRows = Math.min(
     PRODUCTOS_POR_HOJA_TAREA,
@@ -513,14 +520,24 @@ export function drawOrdenTareaAlmacenLandscapePage(
     py += bodyH;
   }
 
-  // REQ-246: mismo QR, centrado bajo la columna Especificación.
+  // REQ-246: QR bajo Especificación con Creada/Impresa + día (como el de la izq).
   let specColX = rightX;
   for (let i = 0; i < 2; i += 1) specColX += scaledCols[i]!.w;
   const specColW = scaledCols[2]!.w;
-  const qrBottomX = specColX + (specColW - QR_SIZE) / 2;
-  const footerBand = Math.max(QR_SIZE, PAGE_BOTTOM - py);
-  const qrBottomY = py + (footerBand - QR_SIZE) / 2;
-  drawPrintQr(doc, data.qrDataUrl, qrBottomX, qrBottomY, QR_SIZE);
+  const spaceBelow = Math.max(0, PAGE_BOTTOM - py - QR_TABLE_GAP);
+  const topY =
+    py + QR_TABLE_GAP + Math.max(0, (spaceBelow - qrBlockH) / 2);
+  drawPrintQrCaptioned(doc, {
+    qrDataUrl: data.qrDataUrl,
+    creada: data.creada,
+    impresa: data.impresa,
+    diaEntrega: data.diaEntrega,
+    centerX: specColX + specColW / 2,
+    topY,
+    size: QR_SIZE,
+    // Meta abajo a la derecha de la hoja (no centrada bajo el QR).
+    metaRightX: PAGE_W - MARGIN,
+  });
 }
 
 export function buildOrdenTareaAlmacenLandscapePdf(
