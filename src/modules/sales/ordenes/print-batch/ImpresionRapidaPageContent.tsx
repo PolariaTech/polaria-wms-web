@@ -16,6 +16,7 @@ import { contarSeleccion } from "./batch-seleccion";
 import { cargarHojasBatch } from "./cargar-hojas-batch";
 import { enviarPaquete, esperaEntrePartes, mensajeDeFallo, partesDe } from "./enviar-paquete";
 import { ImpresionBatchMensaje, type TipoMensajeBatch } from "./ImpresionBatchMensaje";
+import { ImpresionRapidaAvisoOc } from "./ImpresionRapidaAvisoOc";
 import { ImpresionBatchVistaPrevia } from "./ImpresionBatchVistaPrevia";
 import { ImpresionRapidaConfirmacion } from "./ImpresionRapidaConfirmacion";
 import {
@@ -207,6 +208,7 @@ export function ImpresionRapidaPageContent() {
         </ImpresionBatchMensaje>
       ) : null}
       {error ? <ImpresionBatchMensaje tipo="error">{error}</ImpresionBatchMensaje> : null}
+      {previa ? <ImpresionRapidaAvisoOc previa={previa} /> : null}
       {progresoEnvio ? (
         <ImpresionBatchMensaje tipo="aviso">
           {progresoEnvio} No cierres esta pestaña hasta que termine.
