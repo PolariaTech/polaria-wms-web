@@ -7,8 +7,9 @@ import { errorDeRespuesta, ReagrupacionApiError } from "./reagrupar-ot.client";
  * Cliente del endpoint `POST /ventas/ordenes/:id/ordenes-trabajo/dividir` (REQ-262 / REQ-273).
  *
  * Crea una orden de venta por cada orden de compra que sale y deja en la actual las demás.
- * El servidor parte lo que está GUARDADO, no lo que hay en pantalla: quien llama guarda
- * el avance antes de pedir la división.
+ * El servidor parte lo que está GUARDADO, no lo que hay en pantalla. Las ediciones sin
+ * guardar en las tareas que salen no pasan a la orden nueva: el panel del plan avisa
+ * al operador de que las guarde antes de confirmar.
  */
 
 export interface OrdenVentaNuevaApi {

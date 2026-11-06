@@ -26,6 +26,35 @@ describe("ReagrupacionDivisionPlan (REQ-262)", () => {
     expect(within(pasan).getByText("Orden de compra 4502990001")).toBeInTheDocument();
   });
 
+  it("si se quedan varias OC siguen juntas: no cuentan como órdenes de venta distintas", () => {
+    render(
+      <ReagrupacionDivisionPlan
+        division={{
+          ocSalen: ["C"],
+          ocQuedan: ["A", "B"],
+          otIdsQueSalen: ["ot-3"],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "La orden se divide en 2 órdenes de venta" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Las que se quedan siguen juntas en esta orden/)).toBeInTheDocument();
+    expect(screen.getByText("Orden de compra A")).toBeInTheDocument();
+    expect(screen.getByText("Orden de compra B")).toBeInTheDocument();
+  });
+
+  it("avisa de que se divide lo guardado y que conviene guardar antes de confirmar", () => {
+    render(
+      <ReagrupacionDivisionPlan
+        division={{ ocSalen: ["B"], ocQuedan: ["A"], otIdsQueSalen: [] }}
+      />,
+    );
+
+    expect(screen.getByText(/Se divide lo que ya está guardado/)).toBeInTheDocument();
+  });
+
   it("no muestra identificadores internos de las tareas", () => {
     render(
       <ReagrupacionDivisionPlan

@@ -23,11 +23,16 @@ export function ReagrupacionDivisionPlan({
       className="flex flex-col gap-4 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-5 py-5 lg:px-6 lg:py-6"
     >
       <h3 className="text-xl leading-tight font-semibold text-polaria-w lg:text-2xl">
-        {tituloDeLaDivision(ocSalen.length, ocQuedan.length)}
+        {tituloDeLaDivision(ocSalen.length)}
       </h3>
       <p className="text-sm leading-relaxed text-polaria-w-50 lg:text-base">
-        Cada orden de compra queda en su propia orden de venta, con los mismos
-        datos de entrega. Los productos y las cantidades no cambian.
+        Cada orden de compra que sale pasa a su propia orden de venta, con los
+        mismos datos de entrega. Las que se quedan siguen juntas en esta orden.
+        Los productos y las cantidades no cambian.
+      </p>
+      <p className="text-sm leading-relaxed text-polaria-w-50 lg:text-base">
+        Se divide lo que ya está guardado. Si cambiaste algo en las órdenes de
+        compra que salen, guárdalo antes de confirmar.
       </p>
       <dl className="flex flex-col gap-4 text-base leading-relaxed lg:text-lg">
         <div>

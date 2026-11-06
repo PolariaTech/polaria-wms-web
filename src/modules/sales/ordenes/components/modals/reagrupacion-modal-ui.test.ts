@@ -22,9 +22,9 @@ describe("reagrupacion-modal-ui", () => {
     expect(formatearCantidad("abc")).toBe("abc");
   });
 
-  it("el título de la división cuenta todas las órdenes de venta resultantes", () => {
-    expect(tituloDeLaDivision(1, 1)).toBe("La orden se divide en 2 órdenes de venta");
-    expect(tituloDeLaDivision(2, 1)).toBe("La orden se divide en 3 órdenes de venta");
+  it("el título cuenta una orden nueva por cada OC que sale, más la actual", () => {
+    expect(tituloDeLaDivision(1)).toBe("La orden se divide en 2 órdenes de venta");
+    expect(tituloDeLaDivision(2)).toBe("La orden se divide en 3 órdenes de venta");
   });
 
   it("describe las órdenes nuevas en singular y en plural", () => {

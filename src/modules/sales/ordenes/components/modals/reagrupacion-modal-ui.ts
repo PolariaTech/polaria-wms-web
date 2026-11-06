@@ -42,10 +42,12 @@ export function formatearCantidad(cantidad: number | string): string {
     : String(cantidad);
 }
 
-/** Título del plan de división: cuántas órdenes de venta quedan en total. */
-export function tituloDeLaDivision(ocSalen: number, ocQuedan: number): string {
-  const total = ocSalen + ocQuedan;
-  return `La orden se divide en ${total} órdenes de venta`;
+/**
+ * Título del plan de división. Cada orden de compra que sale es una orden de venta
+ * nueva; las que se quedan siguen juntas en la actual, que cuenta como una sola.
+ */
+export function tituloDeLaDivision(ocSalen: number): string {
+  return `La orden se divide en ${ocSalen + 1} órdenes de venta`;
 }
 
 export function describirOrdenesNuevas(cantidad: number): string {
