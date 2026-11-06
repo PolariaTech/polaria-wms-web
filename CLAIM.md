@@ -111,6 +111,7 @@
 - `src/modules/sales/shared/services/sales.service.ts`
 - `src/modules/sales/shared/types/sales.types.ts`
 - `next.config.ts` — autorizada por el usuario el 2026-11-06
+- `next.config.test.ts` — autorizada por el usuario el 2026-11-06
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
