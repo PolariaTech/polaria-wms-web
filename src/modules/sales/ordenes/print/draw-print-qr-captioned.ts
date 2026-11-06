@@ -70,3 +70,37 @@ export function drawPrintQrCaptioned(
 
   return y - topY;
 }
+
+/** QR captioned en esquina inferior derecha de cada página del PDF. */
+export function drawPrintQrCaptionedOnPages(
+  doc: jsPDF,
+  opts: {
+    qrDataUrl: string | null | undefined;
+    creada: string;
+    impresa: string;
+    diaEntrega?: string | null;
+    pageW: number;
+    pageH: number;
+    margin: number;
+    size: number;
+  },
+): void {
+  const { pageW, pageH, margin, size } = opts;
+  const blockH = printQrCaptionedHeight(size, opts.diaEntrega);
+  const centerX = pageW - margin - size / 2;
+  const topY = pageH - margin - blockH;
+  const total = doc.getNumberOfPages();
+  for (let page = 1; page <= total; page += 1) {
+    doc.setPage(page);
+    drawPrintQrCaptioned(doc, {
+      qrDataUrl: opts.qrDataUrl,
+      creada: opts.creada,
+      impresa: opts.impresa,
+      diaEntrega: opts.diaEntrega,
+      centerX,
+      topY,
+      size,
+      metaRightX: pageW - margin,
+    });
+  }
+}

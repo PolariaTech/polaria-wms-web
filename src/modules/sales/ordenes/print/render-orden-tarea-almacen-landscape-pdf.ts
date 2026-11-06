@@ -2,9 +2,10 @@ import { jsPDF } from "jspdf";
 import { campoSurtido, campoSurtidoExact } from "../surtido/apply-surtido-to-print";
 import { drawPrintQr } from "./draw-print-qr";
 import {
-  drawPrintQrCaptioned,
-  printQrCaptionedHeight,
-} from "./draw-print-qr-captioned";
+  drawLandscapeQrFooter,
+  landscapeQrFooterReserve,
+} from "./draw-landscape-qr-footer";
+import { markPrintTickCell } from "./mark-print-tick-cell";
 import { paintPrintCellText } from "./paint-print-cell-text";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 import { PRODUCTOS_POR_HOJA_TAREA } from "./map-orden-tarea-almacen";
@@ -36,31 +37,6 @@ function box(
   doc.setFillColor(255, 255, 255);
   doc.setLineWidth(lineWidth);
   doc.rect(x, y, w, h, "S");
-}
-
-/** Casilla Alistó/Revisó: casi todo el ancho/alto de la celda, sin pegarse al borde. */
-function markTickCell(
-  doc: jsPDF,
-  cellX: number,
-  cellY: number,
-  cellW: number,
-  cellH: number,
-  checked: boolean,
-) {
-  const padX = 2.1;
-  const padY = 0.85;
-  const w = Math.max(2.2, cellW - padX * 2);
-  const h = Math.max(2.2, cellH - padY * 2);
-  const x = cellX + (cellW - w) / 2;
-  const y = cellY + (cellH - h) / 2;
-  box(doc, x, y, w, h, 0.4);
-  if (!checked) return;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(Math.min(8, Math.max(6, h * 1.15)));
-  doc.text("X", x + w / 2, y + h / 2, {
-    align: "center",
-    baseline: "middle",
-  });
 }
 
 function field(
@@ -447,10 +423,7 @@ export function drawOrdenTareaAlmacenLandscapePage(
 
   let py = MARGIN + 5;
   const headerH = 6.5;
-  // Holgura entre el borde inferior de la tabla y el QR (evita que choquen).
-  const QR_TABLE_GAP = 3;
-  const qrBlockH = printQrCaptionedHeight(QR_SIZE, data.diaEntrega);
-  const qrFooterReserve = QR_TABLE_GAP + qrBlockH;
+  const qrFooterReserve = landscapeQrFooterReserve(QR_SIZE, data.diaEntrega);
   const availableForRows = PAGE_BOTTOM - py - headerH - qrFooterReserve;
   const productRows = Math.min(
     PRODUCTOS_POR_HOJA_TAREA,
@@ -498,13 +471,14 @@ export function drawOrdenTareaAlmacenLandscapePage(
     for (let colIndex = 0; colIndex < scaledCols.length; colIndex += 1) {
       const col = scaledCols[colIndex]!;
       if (colIndex === 4 || colIndex === 5) {
-        markTickCell(
+        markPrintTickCell(
           doc,
           cursorX,
           py,
           col.w,
           bodyH,
           colIndex === 4 ? Boolean(linea?.alisto) : Boolean(linea?.reviso),
+          box,
         );
       } else if (values[colIndex]) {
         paintPrintCellText(doc, values[colIndex]!, cursorX, py, col.w, bodyH, {
@@ -520,23 +494,15 @@ export function drawOrdenTareaAlmacenLandscapePage(
     py += bodyH;
   }
 
-  // REQ-246: QR bajo Especificación con Creada/Impresa + día (como el de la izq).
-  let specColX = rightX;
-  for (let i = 0; i < 2; i += 1) specColX += scaledCols[i]!.w;
-  const specColW = scaledCols[2]!.w;
-  const spaceBelow = Math.max(0, PAGE_BOTTOM - py - QR_TABLE_GAP);
-  const topY =
-    py + QR_TABLE_GAP + Math.max(0, (spaceBelow - qrBlockH) / 2);
-  drawPrintQrCaptioned(doc, {
-    qrDataUrl: data.qrDataUrl,
-    creada: data.creada,
-    impresa: data.impresa,
-    diaEntrega: data.diaEntrega,
-    centerX: specColX + specColW / 2,
-    topY,
-    size: QR_SIZE,
-    // Meta abajo a la derecha de la hoja (no centrada bajo el QR).
-    metaRightX: PAGE_W - MARGIN,
+  drawLandscapeQrFooter(doc, {
+    data,
+    rightX,
+    colWidths: scaledCols.map((c) => c.w),
+    py,
+    pageBottom: PAGE_BOTTOM,
+    pageW: PAGE_W,
+    margin: MARGIN,
+    qrSize: QR_SIZE,
   });
 }
 
