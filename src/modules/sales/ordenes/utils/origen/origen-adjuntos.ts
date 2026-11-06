@@ -180,17 +180,13 @@ export function isBrokenCloudinaryPdfUrl(url: string): boolean {
   );
 }
 
+/**
+ * REQ-266: el ojo aplica a todo adjunto con URL/path usable (PDF, imagen,
+ * HTML, EML, Office, etc.). La previsualización es dockeada, no nueva pestaña.
+ */
 export function canPreviewOrigenAdjunto(item: OrigenAdjunto): boolean {
-  const mime = (item.mime ?? "").toLowerCase();
-  const name = item.nombre.toLowerCase();
   if (!hasAdjuntoFile(item)) return false;
-  const url = item.url?.trim() || "";
-  if (url && isBrokenCloudinaryPdfUrl(url) && !item.path?.trim()) return false;
-  if (mime.startsWith("image/") && !name.endsWith(".pdf")) return true;
-  if (mime === "application/pdf" || name.endsWith(".pdf")) return true;
-  // REQ-103 / REQ-159: HTML y EML → ojo abre en nueva pestaña.
-  if (isHtmlOrigenAdjunto(item) || isEmlOrigenAdjunto(item)) return true;
-  return false;
+  return Boolean(origenAdjuntoViewUrl(item));
 }
 
 function buildStorageProxyUrl(

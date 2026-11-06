@@ -174,10 +174,7 @@ export function OperadorOrdenesVentaPageContent({
   const [reagruparAlAbrirId, setReagruparAlAbrirId] = useState<string | null>(
     null,
   );
-  /** Soft-delete: ocultar de la tabla al instante (fila sigue en BD como cancelada). */
-  const [idsOcultosBorrados, setIdsOcultosBorrados] = useState<Set<string>>(
-    () => new Set(),
-  );
+  /** REQ-255: soft-delete deja la fila visible como Cancelada (ya no se oculta). */
 
   // Mateo oculta el launcher flotante mientras Cypher está abierto.
   useEffect(() => {
@@ -391,13 +388,7 @@ export function OperadorOrdenesVentaPageContent({
   }, []);
 
   const fechaFiltroDia = useOvFechaFiltroStore((s) => s.dia);
-  const rows = useMemo(() => {
-    const base = data?.rows ?? [];
-    return base.filter(
-      (row) =>
-        row.estado !== "cancelada" && !idsOcultosBorrados.has(row.idOrdenVenta),
-    );
-  }, [data?.rows, idsOcultosBorrados]);
+  const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
   const rowsDelDia = useMemo(() => {
     if (!fechaFiltroDia) return rows;
     return rows.filter((row) =>
@@ -1075,6 +1066,16 @@ export function OperadorOrdenesVentaPageContent({
                       abierto={open}
                       venta={row.venta}
                       onAlternar={() => {
+                        if (row.estado === "cancelada") {
+                          // REQ-255: Cypher solo lectura; abrir detalle, no edición.
+                          setDetalleId(row.idOrdenVenta);
+                          setCypherId((prev) =>
+                            prev === row.idOrdenVenta
+                              ? null
+                              : row.idOrdenVenta,
+                          );
+                          return;
+                        }
                         setCypherId((prev) =>
                           prev === row.idOrdenVenta ? null : row.idOrdenVenta,
                         );
@@ -1153,6 +1154,12 @@ export function OperadorOrdenesVentaPageContent({
               }
         }
         onRowClick={(row) => {
+          // REQ-255: cancelada → solo detalle (lectura).
+          if (row.estado === "cancelada") {
+            setCypherId(null);
+            setDetalleId(row.idOrdenVenta);
+            return;
+          }
           // OV por_confirmar: formulario + Cypher juntos.
           if (!inspect && row.estado === "por_confirmar") {
             const id = row.idOrdenVenta;
@@ -1248,6 +1255,8 @@ export function OperadorOrdenesVentaPageContent({
         }}
         onEdit={() => {
           if (!cypherId) return;
+          const target = rows.find((r) => r.idOrdenVenta === cypherId);
+          if (!target || target.estado === "cancelada") return;
           setDetalleId(null);
           setEditingId(cypherId);
           setIsCreateOpen(true);
@@ -1256,21 +1265,21 @@ export function OperadorOrdenesVentaPageContent({
           const target = cypherId
             ? rows.find((fila) => fila.idOrdenVenta === cypherId)
             : null;
-          if (!target) return;
+          if (!target || target.estado === "cancelada") return;
           void runPrint(target);
         }}
         onPreview={() => {
           const target = cypherId
             ? rows.find((fila) => fila.idOrdenVenta === cypherId)
             : null;
-          if (!target) return;
+          if (!target || target.estado === "cancelada") return;
           void openPdfPreview(target);
         }}
         onFotos={(idOrdenTrabajo) => {
           const target = cypherId
             ? rows.find((fila) => fila.idOrdenVenta === cypherId)
             : null;
-          if (!target) return;
+          if (!target || target.estado === "cancelada") return;
           void openFotosCaptura(target, idOrdenTrabajo);
         }}
         onEstadoCambiado={() => {
@@ -1302,19 +1311,14 @@ export function OperadorOrdenesVentaPageContent({
                     idOrdenVenta: cypherId,
                     codigoCuenta,
                     accion: "actualizacion",
-                    mensaje: `Orden borrada (desactivada) por ${autor}.`,
+                    mensaje: `Orden cancelada por ${autor}.`,
                     idUsuario:
                       useAuthStore.getState().session?.idUsuario ?? null,
                     autorNombre:
                       useAuthStore.getState().session?.nombre ?? null,
                     idBodega: target.idBodega ?? null,
                   });
-                  setIdsOcultosBorrados((prev) => {
-                    const next = new Set(prev);
-                    next.add(cypherId);
-                    return next;
-                  });
-                  // Cerrar Cypher + formulario/detalle de esa OV (no dejar Editar pedido huérfano).
+                  // REQ-255: permanece en listado como Cancelada; cerrar paneles de esa OV.
                   const borradaId = cypherId;
                   setCypherId(null);
                   setCompanionOtPicker(null);

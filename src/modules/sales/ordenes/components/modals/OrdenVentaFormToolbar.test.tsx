@@ -18,6 +18,8 @@ function estadoToolbar(parcial: Record<string, unknown> = {}) {
     startMode: "scratch",
     origenTexto: "",
     origenArchivosNombres: [],
+    denominacionComercial: "",
+    setDenominacionComercial: vi.fn(),
     setStep: vi.fn(),
     setStartMode: vi.fn(),
     setError: vi.fn(),
@@ -83,6 +85,8 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
       warnFields: new Set<string>(),
       codigoClienteCatalogo: "",
       denominacionComercialCatalogo: "",
+      denominacionComercial: "",
+      setDenominacionComercial: vi.fn(),
       ordenCompraHotel: "",
       exigeOc: false,
       centroConsumo: "",
@@ -152,6 +156,12 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
     render(<OrdenVentaFormStep {...estadoCompleto().estado} />);
 
     expect(within(seccion("Productos")).getByText("0 productos")).toBeInTheDocument();
+  });
+
+  it("REQ-241: denominación comercial es editable (no readOnly)", () => {
+    render(<OrdenVentaFormStep {...estadoCompleto().estado} />);
+    const campo = screen.getByLabelText(/^Denominación comercial$/);
+    expect(campo).not.toHaveAttribute("readonly");
   });
   describe("Folio de factura y Fecha de creación (solo al editar)", () => {
     const ot = (id: string, label: string) => ({ id, label });

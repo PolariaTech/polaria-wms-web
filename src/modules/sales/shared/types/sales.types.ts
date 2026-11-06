@@ -150,8 +150,12 @@ export interface OrdenVentaDetalleRow extends OrdenVentaRow {
   comprador_codigo: string | null;
   /** Razón social fiscal del comprador (hoja de la OT, REQ-178). */
   comprador_razon_social?: string | null;
-  /** Denominación comercial del comprador, columna `apodo` (hoja de la OT, REQ-178). */
+  /** Denominación comercial del comprador, columna `apodo` (sync tercero; REQ-178). */
   comprador_apodo?: string | null;
+  /** REQ-241: override WMS en comprador (no pisa apodo). */
+  comprador_denominacion_comercial_override?: string | null;
+  /** REQ-241: override por OV (gana sobre el del comprador al mostrar/persistir). */
+  denominacion_comercial_override?: string | null;
   /** RFC fiscal del comprador (REQ-259). */
   comprador_rfc?: string | null;
   bodega_nombre: string | null;
@@ -229,6 +233,8 @@ export interface CreateOrdenVentaInput {
   origenCorreo?: readonly OrigenCorreoRenglon[];
   notasLineas?: string;
   notasAlmacen?: string;
+  /** REQ-241: valor a persistir en `orden_venta.denominacion_comercial_override`. */
+  denominacionComercialOverride?: string | null;
   /**
    * Guardar avance: validación relajada (p. ej. sin cliente aún en OV existente).
    */

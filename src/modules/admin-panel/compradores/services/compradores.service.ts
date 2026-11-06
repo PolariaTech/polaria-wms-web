@@ -24,6 +24,8 @@ export interface CompradorListRow {
   comprador: string;
   /** Nombre comercial corto (columna BD `apodo`). */
   apodo: string;
+  /** Override WMS (REQ-241); no lo pisa el sync de `apodo`. */
+  denominacionComercialOverride?: string;
   telefono: string | null;
   /** RFC fiscal (puede ir vacío). */
   rfc: string;
@@ -53,6 +55,7 @@ interface CompradorDbRow {
   constancia_nombre?: string | null;
   constancia_fecha?: string | null;
   apodo?: string | null;
+  denominacion_comercial_override?: string | null;
   grupo?: string | null;
   vendedor?: string | null;
   estado?: string | null;
@@ -100,7 +103,7 @@ interface CompradorDbRow {
 }
 
 const COMPRADOR_LIST_COLUMNS =
-  "id_comprador,codigo,nombre,apodo,telefono,rfc,grupo,esta_activo";
+  "id_comprador,codigo,nombre,apodo,denominacion_comercial_override,telefono,rfc,grupo,esta_activo";
 const COMPRADOR_DETALLE_COLUMNS = [
   COMPRADOR_LIST_COLUMNS,
   // Campos fiscales/comerciales.
@@ -162,6 +165,7 @@ function mapCompradorRow(row: CompradorDbRow): CompradorListRow {
     codigo: row.codigo,
     comprador: row.nombre,
     apodo: valueOrEmpty(row.apodo),
+    denominacionComercialOverride: valueOrEmpty(row.denominacion_comercial_override),
     telefono: row.telefono,
     rfc: valueOrEmpty(row.rfc),
     grupo: valueOrEmpty(row.grupo),

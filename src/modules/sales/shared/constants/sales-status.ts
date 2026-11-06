@@ -8,10 +8,10 @@ export const ESTADO_ORDEN_VENTA_LABELS: Record<EstadoOrdenVenta, string> = {
   revisada: "Revisado",
   despachada: "Despachado",
   facturada: "Facturado",
-  cancelada: "Borrada",
+  cancelada: "Cancelada",
 };
 
-/** Orden de los estados operativos en filtros de UI (sin cancelada). */
+/** Orden de los estados en filtros de UI (REQ-255: Cancelada al final). */
 export const ESTADOS_ORDEN_VENTA: readonly EstadoOrdenVenta[] = [
   "por_confirmar",
   "confirmada",
@@ -20,6 +20,7 @@ export const ESTADOS_ORDEN_VENTA: readonly EstadoOrdenVenta[] = [
   "revisada",
   "despachada",
   "facturada",
+  "cancelada",
 ] as const;
 
 /** Estados a los que se puede avanzar a mano desde Cypher. */

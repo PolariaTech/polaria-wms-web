@@ -89,11 +89,11 @@ function sortOrdenesVentaPorCreacionDesc(rows: OrdenVentaRow[]): OrdenVentaRow[]
 const COMPRADOR_COLUMNS = "id_comprador,nombre";
 
 const ORDEN_VENTA_DETALLE_FLAT_COLUMNS =
-  "prioridad,orden_compra_hotel,centro_consumo,vendedor,moneda,bodega_destino_label,direccion_entrega,anden,contacto_entrega,telefono_contacto,correo_contacto,turno,hora_salida,chofer,unidad,notas_lineas,notas_almacen,fecha_entrega,ventana_desde,ventana_hasta,acepta_sustituciones,requiere_lote,registrar_temperatura,origen_texto,origen_archivos,origen_correo";
+  "prioridad,orden_compra_hotel,centro_consumo,vendedor,moneda,bodega_destino_label,direccion_entrega,anden,contacto_entrega,telefono_contacto,correo_contacto,turno,hora_salida,chofer,unidad,notas_lineas,notas_almacen,fecha_entrega,ventana_desde,ventana_hasta,acepta_sustituciones,requiere_lote,registrar_temperatura,origen_texto,origen_archivos,origen_correo,denominacion_comercial_override";
 
 const ORDEN_VENTA_DETALLE_SELECT =
   `${ORDEN_VENTA_COLUMNS},${ORDEN_VENTA_DETALLE_FLAT_COLUMNS},` +
-  "comprador:comprador(nombre,codigo,razon_social,apodo,rfc)," +
+  "comprador:comprador(nombre,codigo,razon_social,apodo,rfc,denominacion_comercial_override)," +
   "orden_venta_linea(id_linea_orden_venta,id_producto,cantidad_pedida,precio_unitario,cajas,presentacion,unidad_medida,match_producto,producto(sku,descripcion,metadatos_catalogo))";
 
 interface OrdenVentaLineaDetalleDbRow {
@@ -115,7 +115,9 @@ interface CompradorDetalleDbRel {
   nombre: string | null;
   codigo: string | null;
   razon_social?: string | null;
-  apodo?: string | null; rfc?: string | null;
+  apodo?: string | null;
+  rfc?: string | null;
+  denominacion_comercial_override?: string | null;
 }
 
 interface OrdenVentaDetalleDbRow extends OrdenVentaRow {
@@ -124,6 +126,7 @@ interface OrdenVentaDetalleDbRow extends OrdenVentaRow {
   origen_texto?: string | null;
   origen_archivos?: string | null;
   origen_correo?: unknown;
+  denominacion_comercial_override?: string | null;
 }
 
 const WAREHOUSE_STOCK_VENTA_SELECT =
@@ -839,8 +842,8 @@ export async function listOrdenesVentaOperador(
       applyTenantFilters(
         client
           .from("orden_venta")
-          .select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS)
-          .neq("estado", "cancelada"),
+          .select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS),
+        // REQ-255: incluir cancelada (solo lectura en UI).
         params,
       ),
       "created_at",
@@ -879,8 +882,8 @@ export async function listOrdenesVentaOperadorParaJefe(params: {
         .from("orden_venta")
         .select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS)
         .eq("codigo_cuenta", codigoCuenta)
-        .or(`id_bodega.eq.${idBodega},id_bodega_destino.eq.${idBodega}`)
-        .neq("estado", "cancelada"),
+        .or(`id_bodega.eq.${idBodega},id_bodega_destino.eq.${idBodega}`),
+      // REQ-255: incluir cancelada.
       "created_at",
     )
       .order("created_at", { ascending: false })
@@ -1237,6 +1240,13 @@ export async function createOrdenVenta(
   }
 
   const capture = ordenVentaCaptureFields(input);
+  const denominacionOverridePersist =
+    input.denominacionComercialOverride === undefined
+      ? undefined
+      : input.denominacionComercialOverride?.trim() || null;
+  if (denominacionOverridePersist !== undefined) {
+    capture.denominacion_comercial_override = denominacionOverridePersist;
+  }
 
   if (idOrdenVentaExistente) {
     if (!input.origenTexto?.trim()) {
@@ -1743,6 +1753,9 @@ function mapOrdenVentaDetalleRow(
 ): OrdenVentaDetalleRow {
   const { comprador, orden_venta_linea, ...orden } = row;
   const compradorRel = resolveCompradorRel(comprador);
+  const compradorApodoSync = compradorRel?.apodo?.trim() || null;
+  const compradorOverride = compradorRel?.denominacion_comercial_override?.trim() || null;
+  const ovOverride = orden.denominacion_comercial_override?.trim() || null;
 
   return {
     ...orden,
@@ -1750,7 +1763,10 @@ function mapOrdenVentaDetalleRow(
     comprador_nombre: compradorRel?.nombre?.trim() || null,
     comprador_codigo: compradorRel?.codigo?.trim() || null,
     comprador_razon_social: compradorRel?.razon_social?.trim() || null,
-    comprador_apodo: compradorRel?.apodo?.trim() || null, comprador_rfc: compradorRel?.rfc?.trim() || null,
+    comprador_apodo: compradorApodoSync,
+    comprador_denominacion_comercial_override: compradorOverride,
+    denominacion_comercial_override: ovOverride || null,
+    comprador_rfc: compradorRel?.rfc?.trim() || null,
     bodega_nombre: bodegaLabels.get(orden.id_bodega) ?? null,
     bodega_destino_nombre: orden.id_bodega_destino
       ? (bodegaLabels.get(orden.id_bodega_destino) ?? null)

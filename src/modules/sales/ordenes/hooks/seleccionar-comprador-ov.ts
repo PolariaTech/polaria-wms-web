@@ -12,6 +12,7 @@ import {
 } from "../../shared/services/sales.service";
 import { debeAvisarVerificarDireccion } from "../utils/pedido/debe-avisar-direccion";
 import { formatCompradorLabel } from "../utils/pedido/orden-venta-create-helpers";
+import { resolveDenominacionComercial } from "../utils/pedido/resolve-denominacion-comercial";
 import { preciosYEquivalenciasDeComprador } from "./useClienteOv";
 
 type SeleccionOptions = {
@@ -42,6 +43,7 @@ export function seleccionarCompradorOv(input: {
   ) => void;
   setPrecioOverrideByProducto: (value: Record<string, number>) => void;
   setEquivalenciaByProducto: (value: Record<string, string>) => void;
+  setDenominacionComercial: (value: string) => void;
 }) {
   const {
     row,
@@ -61,12 +63,19 @@ export function seleccionarCompradorOv(input: {
     applyCompradorPrefill,
     setPrecioOverrideByProducto,
     setEquivalenciaByProducto,
+    setDenominacionComercial,
   } = input;
   const previousId = selectedCompradorIdRef.current;
 
   selectedCompradorIdRef.current = row.idComprador;
   setIdComprador(row.idComprador);
   setCompradorLabel(formatCompradorLabel(row));
+  setDenominacionComercial(
+    resolveDenominacionComercial({
+      override: row.denominacionComercialOverride,
+      apodoSincronizado: row.apodo,
+    }),
+  );
   // REQ-117: no dejar OCC obligatorio del cliente anterior mientras carga la ficha.
   setExigeOc(false);
   if (!options?.keepNombreIa) {
@@ -157,7 +166,7 @@ export function useSeleccionarCompradorModal(estado: OrdenVentaFormEstado) {
     codigoCuenta, selectedCompradorIdRef, setIdComprador, setCompradorLabel, setExigeOc,
     setCompradorNombreIa, setCompradorSugerencias, setError, setMissingFields,
     setAvisoVerificarDireccion, setWarnFields, setTelefono, applyCompradorPrefill,
-    setPrecioOverrideByProducto, setEquivalenciaByProducto,
+    setPrecioOverrideByProducto, setEquivalenciaByProducto, setDenominacionComercial,
   } = estado;
   const handleSelectComprador = useCallback(
     (
@@ -186,9 +195,10 @@ export function useSeleccionarCompradorModal(estado: OrdenVentaFormEstado) {
         applyCompradorPrefill,
         setPrecioOverrideByProducto,
         setEquivalenciaByProducto,
+        setDenominacionComercial,
       });
     },
-    [applyCompradorPrefill, codigoCuenta],
+    [applyCompradorPrefill, codigoCuenta, setDenominacionComercial],
   );
   return { handleSelectComprador };
 }

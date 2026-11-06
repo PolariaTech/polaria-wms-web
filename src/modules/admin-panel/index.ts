@@ -108,6 +108,7 @@ export {
   listCompradoresAdmin,
   updateCompradorAdmin,
 } from "./compradores/services/compradores.service";
+export { patchCompradorDenominacionOverride } from "./compradores/services/patch-comprador-denominacion-override";
 export type {
   CompradorPreciosImportResult,
   CompradorProductoAliasCuentaRow,

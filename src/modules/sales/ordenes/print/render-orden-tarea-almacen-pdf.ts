@@ -4,6 +4,7 @@ import {
   campoSurtidoExact,
   checkSurtido,
 } from "../surtido/apply-surtido-to-print";
+import { drawPrintQr } from "./draw-print-qr";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 
 /** Carta: coincide con el destino típico del diálogo de impresión. */
@@ -401,27 +402,7 @@ export function buildOrdenTareaAlmacenPdf(
 
   const qrX = MARGIN + gridW + QR_GAP;
   const qrY = y;
-  if (data.qrDataUrl) {
-    try {
-      doc.addImage(data.qrDataUrl, "PNG", qrX, qrY, QR_SIZE, QR_SIZE);
-    } catch {
-      box(doc, qrX, qrY, QR_SIZE, QR_SIZE, 0.5);
-      doc.setFontSize(5.5);
-      doc.setFont("helvetica", "normal");
-      doc.text("QR", qrX + QR_SIZE / 2, qrY + QR_SIZE / 2, {
-        align: "center",
-        baseline: "middle",
-      });
-    }
-  } else {
-    box(doc, qrX, qrY, QR_SIZE, QR_SIZE, 0.5);
-    doc.setFontSize(5.5);
-    doc.setFont("helvetica", "normal");
-    doc.text("QR", qrX + QR_SIZE / 2, qrY + QR_SIZE / 2, {
-      align: "center",
-      baseline: "middle",
-    });
-  }
+  drawPrintQr(doc, data.qrDataUrl, qrX, qrY, QR_SIZE);
   y += rowH;
   // Fila 2: # de orden del cliente (2 cols) · vacío alineado con Factura
   field(
@@ -660,5 +641,17 @@ export function buildOrdenTareaAlmacenPdf(
   drawNotesLines(doc, y, "Incidencias", incidenciasTexto, 9, 4.8, true, false);
 
   writePageNumbers(doc, data.creada, data.impresa);
+  // REQ-246: mismo QR abajo-derecha en cada página.
+  const totalPages = doc.getNumberOfPages();
+  for (let page = 1; page <= totalPages; page += 1) {
+    doc.setPage(page);
+    drawPrintQr(
+      doc,
+      data.qrDataUrl,
+      PAGE_W - MARGIN - QR_SIZE,
+      PAGE_H - MARGIN - QR_SIZE,
+      QR_SIZE,
+    );
+  }
   return doc;
 }
