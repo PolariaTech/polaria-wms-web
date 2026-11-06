@@ -103,8 +103,9 @@ describe("solicitarPropuestaReagrupacion", () => {
 
   it("devuelve la división en otra orden de venta (REQ-262)", async () => {
     const division = {
-      ocSalen: ["4502988746"],
-      ocQuedan: ["4502988065"],
+      criterio: "oc",
+      valoresSalen: ["4502988746"],
+      valoresQuedan: ["4502988065"],
       otIdsQueSalen: ["ot-2"],
     };
     fetchMock.mockResolvedValue(
@@ -121,7 +122,7 @@ describe("solicitarPropuestaReagrupacion", () => {
     fetchMock.mockResolvedValue(
       respuesta(200, {
         requestId: REQUEST_ID,
-        division: { ocSalen: ["1"], ocQuedan: [], otIdsQueSalen: ["ot-1"] },
+        division: { criterio: "oc", valoresSalen: ["1"], valoresQuedan: [], otIdsQueSalen: ["ot-1"] },
       }),
     );
 

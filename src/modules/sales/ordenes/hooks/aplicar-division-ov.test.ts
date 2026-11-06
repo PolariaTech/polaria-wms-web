@@ -28,7 +28,12 @@ const lineas = [
   { nombre: "AGUACATE", codigo: "A", cantidadInput: "5", otId: "ot-1" },
   { nombre: "LIMON", codigo: "L", cantidadInput: "5", otId: "ot-2" },
 ];
-const division = { ocSalen: ["OC-2"], ocQuedan: ["OC-1"], otIdsQueSalen: ["ot-2"] };
+const division = {
+  criterio: "oc" as const,
+  valoresSalen: ["OC-2"],
+  valoresQuedan: ["OC-1"],
+  otIdsQueSalen: ["ot-2"],
+};
 
 function armarEstado() {
   const pendingDraftSaveAfterReorgRef = { current: false };
@@ -54,15 +59,19 @@ describe("useAplicarDivisionOv (REQ-262)", () => {
 
   it("divide en el servidor, quita del formulario lo que se fue y pide guardar el avance", async () => {
     dividirOrdenVenta.mockResolvedValue({
-      ordenesNuevas: [{ idOrdenVenta: "n-1", codigo: "OV-00000009", ordenCompra: "OC-2" }],
-      ocQuedan: ["OC-1"],
+      ordenesNuevas: [{ idOrdenVenta: "n-1", codigo: "OV-00000009", valor: "OC-2" }],
+      valoresQuedan: ["OC-1"],
     });
     const estado = armarEstado();
     const { result } = renderHook(() => useAplicarDivisionOv(estado));
 
     await act(() => result.current.handleDividirOrden(division));
 
-    expect(dividirOrdenVenta).toHaveBeenCalledWith({ idOrdenVenta: "ov-1", ocSalen: ["OC-2"] });
+    expect(dividirOrdenVenta).toHaveBeenCalledWith({
+      idOrdenVenta: "ov-1",
+      criterio: "oc",
+      valoresSalen: ["OC-2"],
+    });
     expect(estado.applyOrdenesTrabajo).toHaveBeenCalledWith([hijas[0]]);
     expect(estado.setLineas).toHaveBeenCalledWith([lineas[0]]);
     expect(estado.setReagruparOpen).toHaveBeenCalledWith(false);

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils/cn";
+import type { CriterioDivision } from "../../services/reagrupar-ot.client";
 import type { PropuestaCorreccionCorreoApi } from "../../utils/ot/aplicar-correccion-correo";
 
 /** Presentación compartida del modal de reorganizar: botones y textos del resumen. */
@@ -42,18 +43,44 @@ export function formatearCantidad(cantidad: number | string): string {
     : String(cantidad);
 }
 
-/**
- * Título del plan de división. Cada orden de compra que sale es una orden de venta
- * nueva; las que se quedan siguen juntas en la actual, que cuenta como una sola.
- */
-export function tituloDeLaDivision(ocSalen: number): string {
-  return `La orden se divide en ${ocSalen + 1} órdenes de venta`;
+const NOMBRE_DEL_CRITERIO: Record<CriterioDivision, string> = {
+  oc: "orden de compra",
+  dia: "día de entrega",
+  horario: "horario de entrega",
+};
+
+export function nombreDelCriterio(criterio: CriterioDivision): string {
+  return NOMBRE_DEL_CRITERIO[criterio];
 }
 
-export function describirOrdenesNuevas(cantidad: number): string {
+/**
+ * Título del plan de división. Cada valor que sale es una orden de venta nueva; lo que se
+ * queda sigue junto en la actual, que cuenta como una sola.
+ */
+export function tituloDeLaDivision(valoresSalen: number): string {
+  return `La orden se divide en ${valoresSalen + 1} órdenes de venta`;
+}
+
+export function describirOrdenesNuevas(
+  criterio: CriterioDivision,
+  cantidad: number,
+): string {
   return cantidad === 1
     ? "Pasa a una orden de venta nueva"
-    : "Pasan a órdenes de venta nuevas, una por cada orden de compra";
+    : `Pasan a órdenes de venta nuevas, una por cada ${nombreDelCriterio(criterio)}`;
+}
+
+/** Un día `AAAA-MM-DD` se muestra como `DD-MM-AAAA`; cualquier otro texto se deja igual. */
+function formatearDia(valor: string): string {
+  const [, anio, mes, dia] = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor) ?? [];
+  return anio ? `${dia}-${mes}-${anio}` : valor;
+}
+
+/** Cómo se lee un valor del criterio en el plan (sin identificadores internos). */
+export function etiquetaDeValor(criterio: CriterioDivision, valor: string): string {
+  if (criterio === "oc") return `Orden de compra ${valor}`;
+  if (criterio === "dia") return `Entrega del ${formatearDia(valor)}`;
+  return `Entrega en el horario ${valor}`;
 }
 
 export const MENSAJE_FORMULARIO_CAMBIO =

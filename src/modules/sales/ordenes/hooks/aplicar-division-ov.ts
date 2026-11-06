@@ -33,7 +33,8 @@ export function useAplicarDivisionOv(estado: OrdenVentaFormEstado) {
     async (division: DivisionReagrupacionApi) => {
       const resultado = await dividirOrdenVenta({
         idOrdenVenta: editingId,
-        ocSalen: division.ocSalen,
+        criterio: division.criterio,
+        valoresSalen: division.valoresSalen,
       });
 
       const hijas = syncActiveOtFromForm();

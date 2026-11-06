@@ -10,6 +10,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { conDiaYHorario } from "../utils/ot/estado-base-con-dia-y-horario";
 import {
   aplicarReagrupacion,
   construirEstadoBaseApi,
@@ -71,7 +72,7 @@ export function useAplicarReagrupacionOv(estado: OrdenVentaFormEstado) {
       lineas,
       parseCantidadReagrupacion,
     );
-    return { estadoBase, firma: firmaEstadoReagrupacion(hijas, lineas) };
+    return { estadoBase: conDiaYHorario(estadoBase, hijas), firma: firmaEstadoReagrupacion(hijas, lineas) };
   }, [lineas, syncActiveOtFromForm]);
 
   /**

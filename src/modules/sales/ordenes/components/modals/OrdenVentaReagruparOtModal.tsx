@@ -402,8 +402,8 @@ export function OrdenVentaReagruparOtModal({
         propuestaCorreccion
           ? "Comparé la orden con el correo y los archivos originales. Revisa la corrección antes de aplicarla."
           : onAplicarCorreccion
-            ? "Escribe qué quieres cambiar. Puedo mover productos entre órdenes de trabajo, crear nuevas o dejar vacías las que sobren. Si la orden quedó mal leída del correo (faltan productos u órdenes de compra, o el total no coincide), releo el correo y los archivos para corregirla."
-            : "Escribe qué quieres cambiar. Puedo crear, modificar o eliminar órdenes de trabajo (mover productos entre ellas, crear nuevas o dejar vacías las que sobren); no cambio cantidades ni datos del pedido."
+            ? "Escribe qué quieres cambiar. Puedo mover productos entre órdenes de trabajo, crear nuevas o dejar vacías las que sobren, y dividir la orden de venta por orden de compra, día u horario de entrega. Si la orden quedó mal leída del correo (faltan productos u órdenes de compra, o el total no coincide), releo el correo y los archivos para corregirla."
+            : "Escribe qué quieres cambiar. Puedo crear, modificar o eliminar órdenes de trabajo (mover productos entre ellas, crear nuevas o dejar vacías las que sobren) y dividir la orden de venta por orden de compra, día u horario de entrega; no cambio cantidades ni datos del pedido."
       }
       layout="dock-left"
       stackLevel="base"

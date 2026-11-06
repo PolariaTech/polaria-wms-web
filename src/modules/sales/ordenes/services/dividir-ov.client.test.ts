@@ -23,8 +23,8 @@ function respuesta(status: number, cuerpo: unknown): Response {
 
 const ok = {
   idOrdenVenta: ID_OV,
-  ordenesNuevas: [{ idOrdenVenta: "nueva-1", codigo: "OV-2", ordenCompra: "4502988746" }],
-  ocQuedan: ["4502988065"],
+  ordenesNuevas: [{ idOrdenVenta: "nueva-1", codigo: "OV-2", valor: "4502988746" }],
+  valoresQuedan: ["4502988065"],
 };
 
 describe("dividirOrdenVenta", () => {
@@ -39,20 +39,30 @@ describe("dividirOrdenVenta", () => {
   it("hace POST a dividir con JWT, tenant y solo las órdenes de compra que salen", async () => {
     fetchMock.mockResolvedValue(respuesta(200, ok));
 
-    const res = await dividirOrdenVenta({ idOrdenVenta: ID_OV, ocSalen: ["4502988746"] });
+    const res = await dividirOrdenVenta({
+      idOrdenVenta: ID_OV,
+      criterio: "dia",
+      valoresSalen: ["4502988746"],
+    });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`/api/ventas/ordenes/${ID_OV}/ordenes-trabajo/dividir`);
     expect(init.method).toBe("POST");
     expect((init.headers as Headers).get("Authorization")).toBe("Bearer sesion-simulada");
-    expect(JSON.parse(init.body as string)).toEqual({ ocSalen: ["4502988746"] });
-    expect(res).toEqual({ ordenesNuevas: ok.ordenesNuevas, ocQuedan: ["4502988065"] });
+    expect(JSON.parse(init.body as string)).toEqual({
+      criterio: "dia",
+      valoresSalen: ["4502988746"],
+    });
+    expect(res).toEqual({
+      ordenesNuevas: ok.ordenesNuevas,
+      valoresQuedan: ["4502988065"],
+    });
   });
 
   it("traduce los errores del servidor a mensajes en lenguaje claro", async () => {
     fetchMock.mockResolvedValueOnce(respuesta(409, { error: "OV_ESTADO_CAMBIO" }));
     await expect(
-      dividirOrdenVenta({ idOrdenVenta: ID_OV, ocSalen: ["1"] }),
+      dividirOrdenVenta({ idOrdenVenta: ID_OV, criterio: "oc", valoresSalen: ["1"] }),
     ).rejects.toMatchObject({
       codigo: "OV_ESTADO_CAMBIO",
       message: "Esta orden ya no está por confirmar.",
@@ -60,7 +70,7 @@ describe("dividirOrdenVenta", () => {
 
     fetchMock.mockResolvedValueOnce(respuesta(404, {}));
     await expect(
-      dividirOrdenVenta({ idOrdenVenta: ID_OV, ocSalen: ["1"] }),
+      dividirOrdenVenta({ idOrdenVenta: ID_OV, criterio: "oc", valoresSalen: ["1"] }),
     ).rejects.toMatchObject({ codigo: "NO_ENCONTRADA" });
   });
 
@@ -68,15 +78,15 @@ describe("dividirOrdenVenta", () => {
     fetchMock.mockRejectedValue(new TypeError("fetch failed"));
 
     await expect(
-      dividirOrdenVenta({ idOrdenVenta: ID_OV, ocSalen: ["1"] }),
+      dividirOrdenVenta({ idOrdenVenta: ID_OV, criterio: "oc", valoresSalen: ["1"] }),
     ).rejects.toMatchObject({ codigo: "RED" });
   });
 
   it("una respuesta con otro formato se rechaza", async () => {
-    fetchMock.mockResolvedValue(respuesta(200, { ordenesNuevas: [{}], ocQuedan: [] }));
+    fetchMock.mockResolvedValue(respuesta(200, { ordenesNuevas: [{}], valoresQuedan: [] }));
 
     await expect(
-      dividirOrdenVenta({ idOrdenVenta: ID_OV, ocSalen: ["1"] }),
+      dividirOrdenVenta({ idOrdenVenta: ID_OV, criterio: "oc", valoresSalen: ["1"] }),
     ).rejects.toMatchObject({ codigo: "RESPUESTA_INESPERADA" });
   });
 });

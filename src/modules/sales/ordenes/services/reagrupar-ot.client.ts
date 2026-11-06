@@ -39,13 +39,17 @@ export class ReagrupacionApiError extends Error {
   }
 }
 
-/** REQ-262 / REQ-273: la instrucción pide otra orden de venta por orden de compra. */
+/** Por qué se divide una orden de venta: orden de compra, día u horario de entrega. */
+export type CriterioDivision = "oc" | "dia" | "horario";
+
+/** REQ-262 / REQ-273: la instrucción pide otra orden de venta por ese criterio. */
 export interface DivisionReagrupacionApi {
-  /** Órdenes de compra que salen a una orden de venta nueva cada una. */
-  ocSalen: string[];
-  /** Órdenes de compra que se quedan en la orden actual. */
-  ocQuedan: string[];
-  /** Tareas (OT) del formulario que se van con las órdenes de compra que salen. */
+  criterio: CriterioDivision;
+  /** Valores del criterio que salen a una orden de venta nueva cada uno. */
+  valoresSalen: string[];
+  /** Valores que se quedan juntos en la orden actual. */
+  valoresQuedan: string[];
+  /** Tareas (OT) del formulario que se van con los valores que salen. */
   otIdsQueSalen: string[];
 }
 
@@ -152,11 +156,14 @@ function esDivision(valor: unknown): valor is DivisionReagrupacionApi {
   if (typeof valor !== "object" || valor === null) return false;
   const division = valor as Record<string, unknown>;
   return (
-    listaDeTextos(division.ocSalen) &&
-    listaDeTextos(division.ocQuedan) &&
+    (division.criterio === "oc" ||
+      division.criterio === "dia" ||
+      division.criterio === "horario") &&
+    listaDeTextos(division.valoresSalen) &&
+    listaDeTextos(division.valoresQuedan) &&
     listaDeTextos(division.otIdsQueSalen) &&
-    division.ocSalen.length > 0 &&
-    division.ocQuedan.length > 0
+    division.valoresSalen.length > 0 &&
+    division.valoresQuedan.length > 0
   );
 }
 

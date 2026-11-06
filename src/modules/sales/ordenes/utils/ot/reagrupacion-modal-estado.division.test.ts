@@ -7,8 +7,9 @@ import {
 } from "./reagrupacion-modal-estado";
 
 const division: DivisionReagrupacionApi = {
-  ocSalen: ["4502988746"],
-  ocQuedan: ["4502988065"],
+  criterio: "oc",
+  valoresSalen: ["4502988746"],
+  valoresQuedan: ["4502988065"],
   otIdsQueSalen: ["ot-2"],
 };
 
