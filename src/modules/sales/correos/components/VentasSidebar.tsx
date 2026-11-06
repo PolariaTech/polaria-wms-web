@@ -17,7 +17,6 @@ import { ROUTES } from "@/config/routes";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/stores/auth.store";
-import { VentasItemProximamente } from "./VentasItemProximamente";
 import { VentasMenuImpresion } from "./VentasMenuImpresion";
 
 /** Id del menú: lo usa el botón de la barra superior en `aria-controls`. */
@@ -60,6 +59,13 @@ const ITEMS: readonly ItemMenu[] = [
     icon: MailX,
   },
 ];
+
+/** Va tras la impresión en batch, por eso no está en `ITEMS` (que se recorre en orden). */
+const ITEM_ESTADO_FOTOS: ItemMenu = {
+  href: ROUTES.dashboardVentasEstadoFotos,
+  label: "Estado de fotos",
+  icon: Camera,
+};
 
 /** Solo los roles de nivel cuenta usan el menú de Ventas con correos. */
 function useEsRolDeCuenta(): boolean {
@@ -146,8 +152,14 @@ export function VentasSidebar() {
               {indice === 1 ? (
                 <>
                   <VentasMenuImpresion pathname={pathname} />
-                  {/* Estado de las fotos de captura por OV y OT: se define en un próximo paso. */}
-                  <VentasItemProximamente icono={Camera} etiqueta="Estado de fotos" />
+                  {/* POL-406: estado de las fotos de captura por OV y OT. */}
+                  <EnlaceMenu
+                    item={ITEM_ESTADO_FOTOS}
+                    activo={
+                      pathname === ITEM_ESTADO_FOTOS.href ||
+                      pathname.startsWith(`${ITEM_ESTADO_FOTOS.href}/`)
+                    }
+                  />
                 </>
               ) : null}
               {item.separadorAntes ? (
