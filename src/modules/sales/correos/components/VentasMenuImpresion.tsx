@@ -26,7 +26,7 @@ function enRuta(pathname: string, ruta: string): boolean {
  * pantallas angostas se acomodan en la misma fila.
  */
 export function VentasMenuImpresion({ pathname }: { pathname: string }) {
-  const rutaDetallada = ROUTES.dashboardVentasImpresionBatch;
+  const rutaDetallada = ROUTES.dashboardVentasImpresionDetallada;
   const rutaRapida = ROUTES.dashboardVentasImpresionRapida;
   const enDetallada = enRuta(pathname, rutaDetallada);
   const enRapida = enRuta(pathname, rutaRapida);

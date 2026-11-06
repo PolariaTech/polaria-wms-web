@@ -23,7 +23,7 @@ describe("VentasMenuImpresion", () => {
     expect(screen.getByRole("button", GRUPO)).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("link", { name: "Impresión detallada" })).toHaveAttribute(
       "href",
-      ROUTES.dashboardVentasImpresionBatch,
+      ROUTES.dashboardVentasImpresionDetallada,
     );
     expect(screen.getByRole("link", { name: "Impresión detallada" })).not.toHaveAttribute(
       "aria-current",
@@ -55,7 +55,7 @@ describe("VentasMenuImpresion", () => {
   });
 
   it("dentro de la impresión detallada arranca abierto y la marca como la página actual", () => {
-    render(<VentasMenuImpresion pathname={ROUTES.dashboardVentasImpresionBatch} />);
+    render(<VentasMenuImpresion pathname={ROUTES.dashboardVentasImpresionDetallada} />);
 
     expect(screen.getByRole("button", GRUPO)).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("link", { name: "Impresión detallada" })).toHaveAttribute(
@@ -68,13 +68,13 @@ describe("VentasMenuImpresion", () => {
     const { rerender } = render(<VentasMenuImpresion pathname={ROUTES.dashboardVentasOrdenes} />);
     expect(screen.getByRole("button", GRUPO)).toHaveAttribute("aria-expanded", "false");
 
-    rerender(<VentasMenuImpresion pathname={ROUTES.dashboardVentasImpresionBatch} />);
+    rerender(<VentasMenuImpresion pathname={ROUTES.dashboardVentasImpresionDetallada} />);
 
     expect(screen.getByRole("button", GRUPO)).toHaveAttribute("aria-expanded", "true");
   });
 
   it("se puede cerrar de nuevo, y el control siempre apunta a una lista que existe", async () => {
-    render(<VentasMenuImpresion pathname={ROUTES.dashboardVentasImpresionBatch} />);
+    render(<VentasMenuImpresion pathname={ROUTES.dashboardVentasImpresionDetallada} />);
     const boton = screen.getByRole("button", GRUPO);
 
     await userEvent.click(boton);

@@ -175,7 +175,7 @@ export function ImpresionBatchPageContent() {
   };
 
   return (
-    <OperationalModuleShell title="Impresión en batch" gate={{ roles: ROLES_NIVEL_CUENTA }} fitViewport compactoEnPantallaBaja>
+    <OperationalModuleShell title="Impresión detallada" gate={{ roles: ROLES_NIVEL_CUENTA }} fitViewport compactoEnPantallaBaja>
       {previa ? (
         <div className={cn("flex flex-col gap-4 [@media(max-height:50rem)]:gap-2", AREA_FIJA)}>
           {error ? <ImpresionBatchMensaje tipo="error">{error}</ImpresionBatchMensaje> : null}

@@ -99,6 +99,13 @@ beforeEach(() => {
 });
 
 describe("ImpresionBatchPageContent", () => {
+  it("el título de la pantalla es «Impresión detallada», como la opción del sidebar", () => {
+    render(<ImpresionBatchPageContent />);
+
+    expect(screen.getByRole("heading", { name: "Impresión detallada" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Impresión en batch" })).not.toBeInTheDocument();
+  });
+
   it("lista solo las OV confirmadas o en alistamiento", async () => {
     render(<ImpresionBatchPageContent />);
     expect(await screen.findByText("OV-a")).toBeInTheDocument();
