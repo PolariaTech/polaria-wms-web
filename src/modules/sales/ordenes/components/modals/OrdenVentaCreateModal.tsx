@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {usePolariaToast} from "@/components/shared/toast/PolariaToastProvider";
 import {useFolioFacturaEdicion} from "../../surtido/guardar-folio-factura-captura.client";
 import {type CompradorListRow} from "@/modules/admin-panel";
@@ -6,6 +6,8 @@ import type {CompradorAltaFicha} from "@/modules/admin-panel/compradores/utils/c
 import {useCompany} from "@/providers/tenant/CompanyProvider";
 import {useAuthStore} from "@/stores/auth.store";
 import {type ProductoVentaOption} from "../../../shared/types/sales.types";
+import { getOrdenVentaDetalle } from "../../../shared/services/sales.service";
+import { resolveDenominacionComercial } from "../../utils/pedido/resolve-denominacion-comercial";
 import {type OrigenAdjunto} from "../../utils/origen/origen-adjuntos";
 import {isAfterWarehouseCutoff, todayIsoDate} from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import {groupOrigenCorreoToOrdenesTrabajo, type OrigenCorreoRenglon, type OrdenTrabajoHija} from "../../utils/origen/origen-correo-ordenes-trabajo";
@@ -74,6 +76,7 @@ export function OrdenVentaCreateModal({
   const [contacto, setContacto] = useState("");
   const [telefono, setTelefono] = useState("");
   const [correo, setCorreo] = useState("");
+  const [denominacionComercial, setDenominacionComercial] = useState("");
   const [turno, setTurno] = useState("");
   const [horaSalida, setHoraSalida] = useState("");
   const [chofer, setChofer] = useState("");
@@ -182,6 +185,46 @@ export function OrdenVentaCreateModal({
   const refs = useRefsOv();
   const [cantidadFocusId, setCantidadFocusId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!open) {
+      setDenominacionComercial("");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !formDataReady || !isEditing || !editingId || !codigoCuenta) {
+      return;
+    }
+    let cancelled = false;
+    void getOrdenVentaDetalle({
+      codigoCuenta,
+      idOrdenVenta: editingId,
+    })
+      .then((detalle) => {
+        if (cancelled) return;
+        const compradorRow = compradores.find(
+          (row) => row.idComprador === (detalle.id_comprador ?? "").trim(),
+        );
+        const overrideComprador =
+          compradorRow?.denominacionComercialOverride?.trim() || "";
+        setDenominacionComercial(
+          resolveDenominacionComercial({
+            override:
+              detalle.denominacion_comercial_override?.trim() ||
+              overrideComprador ||
+              null,
+            apodoSincronizado: detalle.comprador_apodo,
+          }),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, formDataReady, isEditing, editingId, codigoCuenta, compradores]);
+
   const bolsa = {
     open, onClose, onCreated, onEmitSuccess, onAutoPrintResult, idOrdenVenta, codigoVenta,
     cypherOpen, onToggleCypher, onOrdenIdReady, activeBodegaId, abrirReagruparAlCargar, onReagruparAlCargarAtendido,
@@ -192,6 +235,7 @@ export function OrdenVentaCreateModal({
     prioridad, setPrioridad, moneda, setMoneda, ordenCompraHotel, setOrdenCompraHotel,
     centroConsumo, setCentroConsumo, observaciones, setObservaciones, direccion, setDireccion,
     anden, setAnden, contacto, setContacto, telefono, setTelefono, correo, setCorreo,
+    denominacionComercial, setDenominacionComercial,
     turno, setTurno, horaSalida, setHoraSalida, chofer, setChofer, unidad, setUnidad,
     aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote,
     registrarTemperatura, setRegistrarTemperatura, origenTexto, setOrigenTexto,

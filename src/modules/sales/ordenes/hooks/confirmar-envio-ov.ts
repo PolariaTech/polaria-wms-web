@@ -7,6 +7,7 @@ import {
   origenCorreoParaEnvio,
   textoOrigenParaPersistir,
 } from "../utils/pedido/payload-envio-ov";
+import { overrideDenominacionParaPersistir } from "../utils/pedido/resolve-denominacion-comercial";
 import { ejecutarPersistenciaEnvio } from "./useEnvioOv";
 import { validarEnvioOv } from "./validar-envio-ov";
 import { useCallback, type FormEvent } from "react";
@@ -21,6 +22,7 @@ export async function confirmarEnvioOv(input: OrdenVentaFormEstado) {
     telefono, correo, turno, horaSalida, chofer, unidad, aceptaSustituciones,
     requiereLote, registrarTemperatura, origenCorreoDraft, compradorNombreIa,
     compradorLabel, observaciones, idCreador,
+    denominacionComercial, denominacionComercialCatalogo,
   } = input;
 
   setIsSaving(true);
@@ -94,6 +96,10 @@ export async function confirmarEnvioOv(input: OrdenVentaFormEstado) {
     observaciones,
     idCreador,
     isDraft,
+    denominacionComercialOverride: overrideDenominacionParaPersistir({
+      valorFormulario: denominacionComercial ?? "",
+      apodoSincronizado: denominacionComercialCatalogo ?? "",
+    }),
   });
 
   await ejecutarPersistenciaEnvio({

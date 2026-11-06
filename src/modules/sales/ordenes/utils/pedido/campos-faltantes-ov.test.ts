@@ -75,6 +75,7 @@ const hotel: CompradorListRow = {
   codigo: "HS",
   comprador: "Hotel Sur",
   apodo: "",
+  denominacionComercialOverride: "",
   telefono: "555",
   rfc: "",
   grupo: "",

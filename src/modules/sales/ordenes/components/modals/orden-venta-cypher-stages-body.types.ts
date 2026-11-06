@@ -1,0 +1,40 @@
+import type { EstadoOrdenVenta, OrdenVentaDetalleRow, OrdenVentaLineaRow } from "../../../shared/types/sales.types";
+import type { CorreoChrome } from "../../utils/origen/correo-chrome";
+import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
+import type { OrdenTrabajoHija } from "../../utils/origen/origen-correo-ordenes-trabajo";
+import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
+import type { CypherCompanionOtPicker } from "./cypher-companion-ot.types";
+import type { CypherStageId } from "./cypher-stages";
+
+export interface OrdenVentaCypherStagesBodyProps {
+  orden: OrdenVentaDetalleRow;
+  codigoCuenta: string;
+  companionIdComprador: string | null | undefined;
+  openStages: ReadonlySet<CypherStageId>;
+  toggleAccordionStage: (stageId: CypherStageId) => void;
+  correoChrome: CorreoChrome & { from?: string; to?: string; subject?: string; body?: string };
+  origenNombres: string[];
+  recibida: string;
+  cuerpoCompleto: string;
+  cuerpoMensaje: string;
+  origenAdjuntosStored: OrigenAdjunto[];
+  emlInnerAdjuntos: OrigenAdjunto[];
+  emlInnerLoading: boolean;
+  origenAdjuntos: OrigenAdjunto[];
+  activeOtPicker: CypherCompanionOtPicker | null;
+  estado: EstadoOrdenVenta;
+  comprador: string;
+  occ: string;
+  zonaHoraria: string;
+  lineas: OrdenVentaLineaRow[];
+  hijasFromOrden: readonly OrdenTrabajoHija[];
+  puedeAlmacen: boolean;
+  onFotos: (idOrdenTrabajo: string) => void;
+  estadosSuperiores: readonly EstadoOrdenVenta[];
+  estadoCambiando: EstadoOrdenVenta | null;
+  setCambioEstadoError: (value: string | null) => void;
+  setEstadoPendiente: (value: EstadoOrdenVenta | null) => void;
+  logLoading: boolean;
+  logEntries: OrdenVentaLogEntry[];
+  idOrdenTrabajoBitacora: string | null;
+}

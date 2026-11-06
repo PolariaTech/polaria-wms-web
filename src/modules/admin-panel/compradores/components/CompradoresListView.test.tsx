@@ -95,6 +95,7 @@ describe("CompradoresListView", () => {
         codigo: "WAL01",
         comprador: "Walmart",
         apodo: "Wally",
+  denominacionComercialOverride: "",
         telefono: null,
         rfc: "",
         grupo: "Grupo A",

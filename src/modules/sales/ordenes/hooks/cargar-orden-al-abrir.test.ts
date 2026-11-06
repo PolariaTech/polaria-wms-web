@@ -122,6 +122,7 @@ describe("cargarFichaYPreciosDeComprador", () => {
         politicaDevolucion: "",
         razonSocial: "",
         apodo: "",
+        denominacionComercialOverride: "",
         grupo: "",
         sustituciones: "",
         requiereLote: "",
