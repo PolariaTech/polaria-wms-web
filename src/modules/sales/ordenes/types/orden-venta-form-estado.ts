@@ -8,6 +8,7 @@ import type { OrdenTrabajoHija, OrigenCorreoRenglon } from "../utils/origen/orig
 import type { CampoDiscrepancia } from "../utils/pedido/map-pedido-extraido-to-form";
 import type { RevisionPendiente } from "../utils/ot/por-confirmar-revision-alert";
 import type { SolicitudReagrupacion } from "../components/modals/OrdenVentaReagruparOtModal";
+import type { DivisionReagrupacionApi } from "../services/reagrupar-ot.client";
 import type {
   BodegaDestinoOption,
   CaptureStep,
@@ -86,6 +87,7 @@ export interface OrdenVentaFormEstado {
   handleCompradorCreatedForSale: AccionModal;
   handleConfirmRemoveOrdenTrabajo: AccionModal;
   handleDeshacerReagrupacion: AccionModal;
+  handleDividirOrden: (division: DivisionReagrupacionApi) => Promise<void>;
   handleLineaFieldChange: AccionModal;
   handleOpenReplaceProducto: AccionModal;
   handlePrecioBlur: AccionModal;

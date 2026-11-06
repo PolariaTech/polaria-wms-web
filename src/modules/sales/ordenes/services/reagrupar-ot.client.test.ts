@@ -101,6 +101,35 @@ describe("solicitarPropuestaReagrupacion", () => {
     }
   });
 
+  it("devuelve la división en otra orden de venta (REQ-262)", async () => {
+    const division = {
+      ocSalen: ["4502988746"],
+      ocQuedan: ["4502988065"],
+      otIdsQueSalen: ["ot-2"],
+    };
+    fetchMock.mockResolvedValue(
+      respuesta(200, { requestId: REQUEST_ID, propuestaId: "p", baseHash: "h", division }),
+    );
+
+    expect(await solicitarPropuestaReagrupacion(parametros())).toEqual({
+      tipo: "division",
+      division,
+    });
+  });
+
+  it("una división sin órdenes de compra que se queden no es válida", async () => {
+    fetchMock.mockResolvedValue(
+      respuesta(200, {
+        requestId: REQUEST_ID,
+        division: { ocSalen: ["1"], ocQuedan: [], otIdsQueSalen: ["ot-1"] },
+      }),
+    );
+
+    await expect(solicitarPropuestaReagrupacion(parametros())).rejects.toMatchObject({
+      codigo: "RESPUESTA_INESPERADA",
+    });
+  });
+
   it("devuelve aclaración y rechazo", async () => {
     fetchMock.mockResolvedValueOnce(
       respuesta(200, { requestId: REQUEST_ID, aclaracion: "No quedó claro." }),

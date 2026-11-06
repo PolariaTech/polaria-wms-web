@@ -39,8 +39,19 @@ export class ReagrupacionApiError extends Error {
   }
 }
 
+/** REQ-262 / REQ-273: la instrucción pide otra orden de venta por orden de compra. */
+export interface DivisionReagrupacionApi {
+  /** Órdenes de compra que salen a una orden de venta nueva cada una. */
+  ocSalen: string[];
+  /** Órdenes de compra que se quedan en la orden actual. */
+  ocQuedan: string[];
+  /** Tareas (OT) del formulario que se van con las órdenes de compra que salen. */
+  otIdsQueSalen: string[];
+}
+
 export type RespuestaReagrupacion =
   | { tipo: "propuesta"; propuesta: PropuestaReagrupacionApi }
+  | { tipo: "division"; division: DivisionReagrupacionApi }
   | { tipo: "aclaracion"; mensaje: string }
   | { tipo: "rechazo" };
 
@@ -51,13 +62,14 @@ interface CuerpoRespuesta {
   ots?: unknown;
   resumen?: unknown;
   movimientos?: unknown;
+  division?: unknown;
   aclaracion?: unknown;
   rechazo?: unknown;
   error?: unknown;
   message?: unknown;
 }
 
-function errorDeRespuesta(
+export function errorDeRespuesta(
   status: number,
   cuerpo: CuerpoRespuesta,
 ): ReagrupacionApiError {
@@ -132,6 +144,22 @@ function errorDeRespuesta(
   );
 }
 
+function listaDeTextos(valor: unknown): valor is string[] {
+  return Array.isArray(valor) && valor.every((item) => typeof item === "string");
+}
+
+function esDivision(valor: unknown): valor is DivisionReagrupacionApi {
+  if (typeof valor !== "object" || valor === null) return false;
+  const division = valor as Record<string, unknown>;
+  return (
+    listaDeTextos(division.ocSalen) &&
+    listaDeTextos(division.ocQuedan) &&
+    listaDeTextos(division.otIdsQueSalen) &&
+    division.ocSalen.length > 0 &&
+    division.ocQuedan.length > 0
+  );
+}
+
 function esPropuesta(cuerpo: CuerpoRespuesta): boolean {
   return (
     typeof cuerpo.propuestaId === "string" &&
@@ -201,6 +229,9 @@ export async function solicitarPropuestaReagrupacion(params: {
     return { tipo: "aclaracion", mensaje: cuerpo.aclaracion };
   }
   if (cuerpo.rechazo === "FUERA_DE_ALCANCE") return { tipo: "rechazo" };
+  if (esDivision(cuerpo.division)) {
+    return { tipo: "division", division: cuerpo.division };
+  }
   if (esPropuesta(cuerpo)) {
     return {
       tipo: "propuesta",

@@ -64,7 +64,7 @@ export function OrdenVentaModalDialogs(props: OrdenVentaModalDialogsProps) {
     addOtAlmacen, setAddOtAlmacen, addOtNumeroPedido, setAddOtNumeroPedido,
     handleAddOrdenTrabajo, reagruparOpen, cypherOpen,
     editingId, folioVisible, setReagruparOpen, obtenerSolicitudReagrupacion,
-    handleAplicarReagrupacion, handleAplicarCorreccionCorreo,
+    handleAplicarReagrupacion, handleAplicarCorreccionCorreo, handleDividirOrden,
   } = props;
   return (
     <>
@@ -295,6 +295,7 @@ export function OrdenVentaModalDialogs(props: OrdenVentaModalDialogsProps) {
         obtenerSolicitud={obtenerSolicitudReagrupacion}
         onAplicar={handleAplicarReagrupacion}
         onAplicarCorreccion={handleAplicarCorreccionCorreo}
+        onDividir={handleDividirOrden}
       />
         </>
   );

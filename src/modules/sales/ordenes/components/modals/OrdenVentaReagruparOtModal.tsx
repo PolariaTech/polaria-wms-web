@@ -8,7 +8,15 @@ import { cn } from "@/lib/utils/cn";
 import {
   ReagrupacionApiError,
   solicitarPropuestaReagrupacion,
+  type DivisionReagrupacionApi,
 } from "../../services/reagrupar-ot.client";
+import {
+  BOTON_PRIMARIO,
+  BOTON_SECUNDARIO,
+  describirCambioDeOt,
+  formatearCantidad,
+} from "./reagrupacion-modal-ui";
+import { ReagrupacionDivisionPlan } from "./ReagrupacionDivisionPlan";
 import {
   ESTADO_INICIAL_REAGRUPACION,
   instruccionExcedeLimite,
@@ -52,20 +60,6 @@ interface EstadoCorreccion {
   propuesta?: PropuestaCorreccionCorreoApi;
 }
 
-const BOTON_SECUNDARIO = cn(
-  "min-h-11 rounded-xl border border-polaria-w-08 px-5 py-2.5",
-  "text-sm font-medium text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal lg:text-base",
-  "disabled:cursor-not-allowed disabled:opacity-50",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-);
-
-const BOTON_PRIMARIO = cn(
-  "inline-flex min-h-11 min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-5 py-2.5",
-  "text-sm font-semibold text-polaria-on-teal transition hover:opacity-90 lg:text-base",
-  "disabled:cursor-not-allowed disabled:opacity-60",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-);
-
 export interface SolicitudReagrupacion {
   estadoBase: EstadoBaseApi;
   /** Firma del estado del formulario; si cambia, la propuesta ya no aplica. */
@@ -90,36 +84,16 @@ export interface OrdenVentaReagruparOtModalProps {
    * el correo y los archivos de la OV. Si no se pasa, «Generar» solo reorganiza.
    */
   onAplicarCorreccion?: (propuesta: PropuestaCorreccionCorreoApi) => void;
+  /**
+   * REQ-262: crea las órdenes de venta nuevas y quita del formulario lo que se fue.
+   * Rechaza con un error si no se pudo dividir. Sin esta función, dividir no se ofrece.
+   */
+  onDividir?: (division: DivisionReagrupacionApi) => Promise<void>;
   /** Inyectables para pruebas. */
   solicitarPropuesta?: typeof solicitarPropuestaReagrupacion;
   interpretar?: typeof interpretarInstruccion;
   solicitarCorreccion?: typeof solicitarCorreccionCorreo;
   generarRequestId?: () => string;
-}
-
-/** Frase del resumen con singular y plural correctos. */
-function describirCambioDeOt(nuevas: number, vacias: number): string {
-  const partes: string[] = [];
-  if (nuevas > 0) {
-    partes.push(
-      nuevas === 1 ? "Se crea 1 OT nueva." : `Se crean ${nuevas} OT nuevas.`,
-    );
-  }
-  if (vacias > 0) {
-    partes.push(
-      vacias === 1
-        ? "Se une 1 OT que queda sin productos."
-        : `Se unen ${vacias} OT que quedan sin productos.`,
-    );
-  }
-  return partes.length > 0 ? `${partes.join(" ")} ` : "";
-}
-
-function formatearCantidad(cantidad: number | string): string {
-  const numero = typeof cantidad === "number" ? cantidad : Number(cantidad);
-  return Number.isFinite(numero)
-    ? numero.toLocaleString("es-MX", { maximumFractionDigits: 3 })
-    : String(cantidad);
 }
 
 /**
@@ -137,6 +111,7 @@ export function OrdenVentaReagruparOtModal({
   obtenerSolicitud,
   onAplicar,
   onAplicarCorreccion,
+  onDividir,
   solicitarPropuesta = solicitarPropuestaReagrupacion,
   interpretar = interpretarInstruccion,
   solicitarCorreccion = solicitarCorreccionCorreo,
@@ -148,6 +123,7 @@ export function OrdenVentaReagruparOtModal({
   );
   /** Un solo botón «Generar»: primero se interpreta lo escrito (unos segundos). */
   const [interpretando, setInterpretando] = useState(false);
+  const [dividiendo, setDividiendo] = useState(false);
   /** Frase corta de lo que el servidor entendió; se muestra como texto. */
   const [motivoActual, setMotivoActual] = useState("");
   const [correccion, setCorreccion] = useState<EstadoCorreccion | null>(null);
@@ -357,14 +333,36 @@ export function OrdenVentaReagruparOtModal({
     [correccion, obtenerSolicitud, onAplicarCorreccion],
   );
 
-  const handleConfirmar = useCallback(() => {
-    if (estado.fase !== "propuesta" || !estado.propuesta) return;
+  const handleConfirmar = useCallback(async () => {
+    if (estado.fase !== "propuesta" || (!estado.propuesta && !estado.division)) {
+      return;
+    }
 
     const actual = obtenerSolicitud();
     if (!actual || actual.firma !== estado.firmaBase) {
       dispatch({ tipo: "INVALIDAR", mensaje: MENSAJE_FORMULARIO_CAMBIO });
       return;
     }
+
+    if (estado.division) {
+      if (!onDividir || dividiendo) return;
+      setDividiendo(true);
+      try {
+        await onDividir(estado.division);
+      } catch (error) {
+        dispatch({
+          tipo: "INVALIDAR",
+          mensaje:
+            error instanceof ReagrupacionApiError
+              ? error.message
+              : "No se pudo dividir la orden. Intenta de nuevo.",
+        });
+      } finally {
+        setDividiendo(false);
+      }
+      return;
+    }
+    if (!estado.propuesta) return;
 
     try {
       onAplicar({
@@ -380,12 +378,14 @@ export function OrdenVentaReagruparOtModal({
             : "No se pudo aplicar la propuesta. Intenta de nuevo.",
       });
     }
-  }, [estado, obtenerSolicitud, onAplicar]);
+  }, [dividiendo, estado, obtenerSolicitud, onAplicar, onDividir]);
 
   const generando = estado.fase === "generando";
   const leyendoCorreo = correccion?.fase === "leyendo";
   const cargando = generando || interpretando || leyendoCorreo;
-  const enPropuesta = estado.fase === "propuesta" && estado.propuesta !== null;
+  const enDivision = estado.fase === "propuesta" && estado.division !== null;
+  const enPropuesta =
+    enDivision || (estado.fase === "propuesta" && estado.propuesta !== null);
   const propuestaCorreccion =
     correccion?.fase === "propuesta" && correccion.propuesta
       ? correccion
@@ -540,7 +540,9 @@ export function OrdenVentaReagruparOtModal({
           )
         ) : null}
 
-        {enPropuesta ? (
+        {enDivision ? (
+          <ReagrupacionDivisionPlan division={estado.division!} />
+        ) : enPropuesta ? (
           <section
             aria-label="Propuesta"
             className="flex flex-col gap-4 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-5 py-5 lg:px-6 lg:py-6"
@@ -577,6 +579,7 @@ export function OrdenVentaReagruparOtModal({
               <button
                 type="button"
                 className={BOTON_SECUNDARIO}
+                disabled={dividiendo}
                 onClick={() => dispatch({ tipo: "RECHAZAR" })}
               >
                 Rechazar
@@ -584,9 +587,13 @@ export function OrdenVentaReagruparOtModal({
               <button
                 type="button"
                 className={BOTON_PRIMARIO}
-                onClick={handleConfirmar}
+                disabled={dividiendo || (enDivision && !onDividir)}
+                onClick={() => void handleConfirmar()}
               >
-                Confirmar
+                {dividiendo ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : null}
+                {dividiendo ? "Dividiendo…" : "Confirmar"}
               </button>
             </>
           ) : (

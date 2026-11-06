@@ -190,6 +190,7 @@ export function OrdenVentaModalOverlays({ estado }: { estado: OrdenVentaFormEsta
         obtenerSolicitudReagrupacion={estado.obtenerSolicitudReagrupacion}
         handleAplicarReagrupacion={estado.handleAplicarReagrupacion}
         handleAplicarCorreccionCorreo={estado.handleAplicarCorreccionCorreo}
+        handleDividirOrden={estado.handleDividirOrden}
       />
     </>
   );
