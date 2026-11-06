@@ -8,6 +8,8 @@ const listOrdenes = vi.fn();
 const cargarHojas = vi.fn();
 const buildBlob = vi.fn();
 const imprimirPdf = vi.fn();
+const imprimirListo = vi.fn();
+const numerar = vi.fn();
 const postLog = vi.fn();
 const yaImpresas = vi.fn();
 
@@ -44,6 +46,12 @@ vi.mock("./ya-impresas", () => ({
 vi.mock("@/modules/configurator/impresoras/services/impresoras.service", () => ({
   // IPP encola por su cuenta: sin pausa entre partes, para no depender de temporizadores en estas pruebas.
   getImpresoraActivaCuenta: () => Promise.resolve({ nombre: "Brother cocina", modoEnvio: "ipp" }),
+}));
+vi.mock("../print/numerar-hojas-pdf", () => ({
+  numerarBlobPdf: (...args: unknown[]) => numerar(...args),
+}));
+vi.mock("./imprimir-pdf-listo", () => ({
+  imprimirPdfListo: (...args: unknown[]) => imprimirListo(...args),
 }));
 vi.mock("../print/download-orden-tarea-almacen-pdf", () => ({
   buildOrdenTareaAlmacenLandscapePdfBlob: (...args: unknown[]) => buildBlob(...args),
@@ -109,6 +117,9 @@ beforeEach(() => {
   cargarHojas.mockResolvedValue(HOJAS);
   buildBlob.mockResolvedValue({ blob: new Blob(["%PDF"]), filename: "x.pdf" });
   imprimirPdf.mockResolvedValue({ queue: { kind: "printing" }, impresora: "Brother" });
+  imprimirListo.mockResolvedValue({ queue: { kind: "printing" }, impresora: "Brother" });
+  // La numeración se prueba aparte; aquí el PDF falso pasa tal cual.
+  numerar.mockImplementation(async (blob: Blob) => blob);
 });
 
 describe("ImpresionRapidaPageContent", () => {
@@ -188,13 +199,15 @@ describe("ImpresionRapidaPageContent", () => {
     await userEvent.click(screen.getAllByRole("button", { name: "Imprimir" }).at(-1)!);
     // 2 hojas de orden de tarea + 1 del resumen que abre el PDF.
     await screen.findByText("¿Seguro que quieres imprimir 3 hojas?");
-    expect(imprimirPdf).not.toHaveBeenCalled();
+    expect(imprimirListo).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: "Sí, imprimir 3 hojas" }));
 
-    await waitFor(() => expect(imprimirPdf).toHaveBeenCalledTimes(1));
-    // Se manda el mismo PDF que se vio en la vista previa: con el resumen.
-    expect(imprimirPdf.mock.calls[0]![1].resumen.filas).toHaveLength(2);
+    await waitFor(() => expect(imprimirListo).toHaveBeenCalledTimes(1));
+    // Se manda el mismo PDF que se vio en la vista previa: con el resumen y con las hojas numeradas.
+    expect(buildBlob.mock.calls.at(-1)![1].resumen.filas).toHaveLength(2);
+    expect(numerar).toHaveBeenCalled();
+    expect(imprimirPdf).not.toHaveBeenCalled();
     expect(postLog).toHaveBeenCalledTimes(2);
     expect(await screen.findByRole("button", { name: "Preparar impresión" })).toBeInTheDocument();
   });
@@ -264,18 +277,19 @@ describe("ImpresionRapidaPageContent: paquete grande, en partes de hasta 3 MB", 
 
     await confirmarEnvio(161);
 
-    await waitFor(() => expect(imprimirPdf).toHaveBeenCalledTimes(2));
-    const [primera, segunda] = imprimirPdf.mock.calls.map((c) => c[1]);
-    expect([primera.etiquetaParte, segunda.etiquetaParte]).toEqual(["1/2", "2/2"]);
-    expect(primera.resumen).toBeDefined();
-    expect(segunda.resumen).toBeUndefined();
-    expect(imprimirPdf.mock.calls.map((c) => c[0].length)).toEqual([80, 80]);
+    await waitFor(() => expect(imprimirListo).toHaveBeenCalledTimes(2));
+    // Las dos últimas armadas son las del envío (antes se armaron la de medir y la vista previa).
+    const [primera, segunda] = buildBlob.mock.calls.slice(-2);
+    expect(numerar.mock.calls.map((c) => c[1])).toEqual(["1/2", "2/2"]);
+    expect(primera![1].resumen).toBeDefined();
+    expect(segunda![1].resumen).toBeUndefined();
+    expect([primera![0].length, segunda![0].length]).toEqual([80, 80]);
     expect(postLog.mock.calls.map((c) => c[0].idOrdenVenta)).toEqual(["viejo", "nuevo"]);
     expect(await screen.findByText(/Se mandó en 2 partes/)).toBeInTheDocument();
   });
 
   it("si la segunda parte falla, dice cuántas salieron y al reintentar manda solo esa", async () => {
-    imprimirPdf
+    imprimirListo
       .mockResolvedValueOnce({ queue: { kind: "unknown" }, impresora: "Brother" })
       .mockRejectedValueOnce(new Error("SMTP caído"));
     render(<ImpresionRapidaPageContent />);
@@ -291,9 +305,9 @@ describe("ImpresionRapidaPageContent: paquete grande, en partes de hasta 3 MB", 
 
     // Retomar: ya no se manda la primera parte ni el resumen, y las hojas que faltan son 80.
     await confirmarEnvio(80);
-    await waitFor(() => expect(imprimirPdf).toHaveBeenCalledTimes(3));
-    expect(imprimirPdf.mock.calls[2]![1].etiquetaParte).toBe("2/2");
-    expect(imprimirPdf.mock.calls[2]![1].resumen).toBeUndefined();
+    await waitFor(() => expect(imprimirListo).toHaveBeenCalledTimes(3));
+    expect(numerar.mock.calls.at(-1)![1]).toBe("2/2");
+    expect(buildBlob.mock.calls.at(-1)![1].resumen).toBeUndefined();
     expect(postLog.mock.calls.map((c) => c[0].idOrdenVenta)).toEqual(["viejo", "nuevo"]);
   });
 

@@ -4,10 +4,16 @@ import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.ty
 import type { ResumenImpresionPdf } from "../print/render-resumen-impresion-pdf";
 
 const imprimirPdf = vi.fn();
+const armarBlob = vi.fn();
+const numerar = vi.fn();
 const registrar = vi.fn();
 
 vi.mock("../print/download-orden-tarea-almacen-pdf", () => ({
   printOrdenTareaAlmacenLandscape: (...args: unknown[]) => imprimirPdf(...args),
+  buildOrdenTareaAlmacenLandscapePdfBlob: (...args: unknown[]) => armarBlob(...args),
+}));
+vi.mock("../print/numerar-hojas-pdf", () => ({
+  numerarBlobPdf: (...args: unknown[]) => numerar(...args),
 }));
 const imprimirListo = vi.fn();
 vi.mock("./imprimir-pdf-listo", () => ({
@@ -45,6 +51,10 @@ function previa(partes?: ParteEnvio[]): PreviaBatch {
 beforeEach(() => {
   vi.clearAllMocks();
   imprimirPdf.mockResolvedValue({ queue: { kind: "unknown" }, impresora: "Brother" });
+  imprimirListo.mockResolvedValue({ queue: { kind: "unknown" }, impresora: "Brother" });
+  armarBlob.mockImplementation(async () => ({ blob: new Blob(["armado"]), filename: "x.pdf" }));
+  // El PDF numerado se reconoce por la etiqueta de parte con la que se numeró.
+  numerar.mockImplementation(async (_blob: Blob, parte?: string) => new Blob([`numerado ${parte ?? "sin parte"}`]));
 });
 
 describe("esperaEntrePartes", () => {
@@ -92,23 +102,46 @@ describe("partesDe", () => {
 });
 
 describe("enviarPaquete", () => {
-  it("un solo envío: lleva el resumen, sin etiqueta de parte, y registra el log", async () => {
+  it("un solo envío: arma el PDF con el resumen, numera sus hojas sin etiqueta de parte y registra el log", async () => {
     const resultado = await enviarPaquete({ previa: previa(), codigoCuenta: "JBR", desde: 0, esperaMs: 0 });
 
-    expect(imprimirPdf).toHaveBeenCalledTimes(1);
-    expect(imprimirPdf.mock.calls[0]![1]).toEqual({ codigoCuenta: "JBR", resumen: RESUMEN, etiquetaParte: undefined });
+    expect(armarBlob).toHaveBeenCalledTimes(1);
+    expect(armarBlob.mock.calls[0]![1]).toEqual({ codigoCuenta: "JBR", resumen: RESUMEN });
+    expect(numerar.mock.calls[0]![1]).toBeUndefined();
+    expect(imprimirListo).toHaveBeenCalledTimes(1);
+    expect(imprimirListo.mock.calls[0]![1]).toEqual({ codigoCuenta: "JBR", nombreTrabajo: "OV OV-a" });
+    expect(imprimirPdf).not.toHaveBeenCalled();
     expect(registrar).toHaveBeenCalledTimes(1);
     expect(resultado.siguiente).toBe(1);
   });
 
-  it("en partes: el resumen va solo en la primera y cada correo se numera", async () => {
+  it("lo que se manda es el PDF ya numerado, no el que armó el generador de hojas", async () => {
+    await enviarPaquete({ previa: previa(), codigoCuenta: "JBR", desde: 0, esperaMs: 0 });
+
+    const mandado = imprimirListo.mock.calls[0]![0] as Blob;
+    expect(await mandado.text()).toBe("numerado sin parte");
+  });
+
+  it("en partes: el resumen va solo en la primera y cada correo numera sus hojas con su parte", async () => {
     const p = previa([parte("a"), parte("b"), parte("c")]);
 
     await enviarPaquete({ previa: p, codigoCuenta: "JBR", desde: 0, esperaMs: 0 });
 
-    const opciones = imprimirPdf.mock.calls.map((c) => c[1]);
-    expect(opciones.map((o) => o.etiquetaParte)).toEqual(["1/3", "2/3", "3/3"]);
-    expect(opciones.map((o) => o.resumen)).toEqual([RESUMEN, undefined, undefined]);
+    expect(armarBlob.mock.calls.map((c) => c[1].resumen)).toEqual([RESUMEN, undefined, undefined]);
+    expect(numerar.mock.calls.map((c) => c[1])).toEqual(["1/3", "2/3", "3/3"]);
+    expect(imprimirListo.mock.calls.map((c) => c[1].nombreTrabajo)).toEqual(["OV OV-a (1/3)", "OV OV-b (2/3)", "OV OV-c (3/3)"]);
+  });
+
+  it("la impresión detallada (sin resumen) sigue por su camino de siempre y no numera las hojas", async () => {
+    const detallada = { ...previa(), resumenPdf: undefined };
+
+    await enviarPaquete({ previa: detallada, codigoCuenta: "JBR", desde: 0, esperaMs: 0 });
+
+    expect(imprimirPdf).toHaveBeenCalledTimes(1);
+    expect(imprimirPdf.mock.calls[0]![1]).toEqual({ codigoCuenta: "JBR", resumen: undefined, etiquetaParte: undefined });
+    expect(armarBlob).not.toHaveBeenCalled();
+    expect(numerar).not.toHaveBeenCalled();
+    expect(imprimirListo).not.toHaveBeenCalled();
   });
 
   it("registra el log de cada parte con sus propias OV, no con las de todo el paquete", async () => {
@@ -120,7 +153,7 @@ describe("enviarPaquete", () => {
   });
 
   it("si una parte falla no registra como impresas las OV de esa parte ni las siguientes", async () => {
-    imprimirPdf.mockResolvedValueOnce({ queue: { kind: "unknown" }, impresora: "B" }).mockRejectedValueOnce(new Error("SMTP caído"));
+    imprimirListo.mockResolvedValueOnce({ queue: { kind: "unknown" }, impresora: "B" }).mockRejectedValueOnce(new Error("SMTP caído"));
     const p = previa([parte("a"), parte("b"), parte("c")]);
 
     const resultado = await enviarPaquete({ previa: p, codigoCuenta: "JBR", desde: 0, esperaMs: 0 });
@@ -158,7 +191,7 @@ describe("enviarPaquete", () => {
 
     await enviarPaquete({ previa: p, codigoCuenta: "JBR", desde: 1, esperaMs: 0 });
 
-    expect(imprimirPdf.mock.calls.map((c) => c[1].etiquetaParte)).toEqual(["2/3", "3/3"]);
-    expect(imprimirPdf.mock.calls.every((c) => c[1].resumen === undefined)).toBe(true);
+    expect(numerar.mock.calls.map((c) => c[1])).toEqual(["2/3", "3/3"]);
+    expect(armarBlob.mock.calls.every((c) => c[1].resumen === undefined)).toBe(true);
   });
 });

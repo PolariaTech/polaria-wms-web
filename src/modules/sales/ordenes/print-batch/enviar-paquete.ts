@@ -1,4 +1,8 @@
-import { printOrdenTareaAlmacenLandscape } from "../print/download-orden-tarea-almacen-pdf";
+import {
+  buildOrdenTareaAlmacenLandscapePdfBlob,
+  printOrdenTareaAlmacenLandscape,
+} from "../print/download-orden-tarea-almacen-pdf";
+import { numerarBlobPdf } from "../print/numerar-hojas-pdf";
 import { MENSAJE_VERSION_NUEVA, esErrorDeVersionVieja } from "../print/print-correo-fallo";
 import type { SilentPrintResult } from "../print/print-silent-cuenta";
 import {
@@ -64,17 +68,23 @@ export function enviarPaquete(input: {
     cancelado,
     enviar: async (parte, indice) => {
       const etiquetaParte = partes.length > 1 ? `${indice + 1}/${partes.length}` : undefined;
-      // Con OC el PDF de la parte ya viene armado (resumen, OT y OC): se manda tal cual.
-      const enviado = parte.pdf
-        ? await imprimirPdfListo(parte.pdf, {
-            codigoCuenta,
-            nombreTrabajo: `OV ${parte.resumen[0]?.row.venta || "Polaria"}${etiquetaParte ? ` (${etiquetaParte})` : ""}`,
-          })
-        : await printOrdenTareaAlmacenLandscape(parte.hojas, {
-            codigoCuenta,
-            resumen: indice === 0 ? previa.resumenPdf : undefined,
-            etiquetaParte,
-          });
+      const nombreTrabajo = `OV ${parte.resumen[0]?.row.venta || "Polaria"}${etiquetaParte ? ` (${etiquetaParte})` : ""}`;
+      let enviado: SilentPrintResult;
+      if (parte.pdf) {
+        // Con OC el PDF de la parte ya viene armado (resumen, OT y OC, numerado): se manda tal cual.
+        enviado = await imprimirPdfListo(parte.pdf, { codigoCuenta, nombreTrabajo });
+      } else if (previa.resumenPdf) {
+        // Impresión rápida sin OC: el PDF se arma aquí para numerar sus hojas («Hoja N de M»), a las
+        // que remite «Desde la hoja» del resumen. El resumen va solo en la primera parte.
+        const { blob } = await buildOrdenTareaAlmacenLandscapePdfBlob(parte.hojas, {
+          codigoCuenta,
+          resumen: indice === 0 ? previa.resumenPdf : undefined,
+        });
+        enviado = await imprimirPdfListo(await numerarBlobPdf(blob, etiquetaParte), { codigoCuenta, nombreTrabajo });
+      } else {
+        // La impresión detallada no lleva resumen ni numera sus hojas.
+        enviado = await printOrdenTareaAlmacenLandscape(parte.hojas, { codigoCuenta, resumen: undefined, etiquetaParte });
+      }
       registrarImpresionBatch({ previa: parte, codigoCuenta, enviado });
       return enviado;
     },

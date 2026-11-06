@@ -9,6 +9,10 @@ const armarConOc = vi.fn();
 vi.mock("../print/download-orden-tarea-almacen-pdf", () => ({
   buildOrdenTareaAlmacenLandscapePdfBlob: (...args: unknown[]) => armarPdf(...args),
 }));
+const numerar = vi.fn();
+vi.mock("../print/numerar-hojas-pdf", () => ({
+  numerarBlobPdf: (...args: unknown[]) => numerar(...args),
+}));
 vi.mock("./armar-paquete-con-oc", async (importarOriginal) => ({
   ...(await importarOriginal<object>()),
   armarPaqueteConOc: (...args: unknown[]) => armarConOc(...args),
@@ -42,6 +46,7 @@ function entrada(extra: Partial<EntradaPreviaRapida> = {}): EntradaPreviaRapida 
 beforeEach(() => {
   vi.clearAllMocks();
   armarPdf.mockResolvedValue({ blob: new Blob(["%PDF"]), filename: "x.pdf" });
+  numerar.mockResolvedValue(new Blob(["numerado"]));
 });
 
 describe("armarPreviaRapida sin OC", () => {
@@ -55,6 +60,14 @@ describe("armarPreviaRapida sin OC", () => {
     expect(armarConOc).not.toHaveBeenCalled();
   });
 
+  it("con un solo envío la vista previa sale numerada («Hoja N de M»)", async () => {
+    const previa = await armarPreviaRapida(entrada());
+
+    expect(numerar).toHaveBeenCalledTimes(1);
+    expect(await (numerar.mock.calls[0]![0] as Blob).text()).toBe("%PDF");
+    expect(await previa.blob.text()).toBe("numerado");
+  });
+
   it("con muchas hojas mide el peso real con un PDF de prueba antes de partir", async () => {
     const hojas = Array.from({ length: 200 }, (_, i) => hoja(`v${i}`));
     const alProgreso = vi.fn();
@@ -64,6 +77,17 @@ describe("armarPreviaRapida sin OC", () => {
     expect(armarPdf).toHaveBeenCalledTimes(2);
     expect(armarPdf.mock.calls[0]![1].resumen).toBeUndefined();
     expect(alProgreso).toHaveBeenCalledWith("Midiendo el tamaño del paquete…");
+  });
+
+  it("si el paquete se parte en envíos la vista previa no se numera: cada envío cuenta desde 1", async () => {
+    const hojas = Array.from({ length: 200 }, (_, i) => hoja(`v${i}`));
+    // 20 MB entre 200 hojas = 100 KB por hoja: caben ~25 por envío de 3 MB, así que se parte.
+    armarPdf.mockResolvedValue({ blob: new Blob([new Uint8Array(20 * 1024 * 1024)]), filename: "x.pdf" });
+
+    const previa = await armarPreviaRapida(entrada({ hojas, resumen: hojas.map((h) => ov(h.idOrdenVenta!)) }));
+
+    expect(previa.partes!.length).toBeGreaterThan(1);
+    expect(numerar).not.toHaveBeenCalled();
   });
 });
 

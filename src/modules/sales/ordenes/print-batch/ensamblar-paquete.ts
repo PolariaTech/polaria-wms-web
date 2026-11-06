@@ -1,4 +1,5 @@
 import { PDFDocument } from "pdf-lib";
+import { numerarHojasPdfLib } from "../print/numerar-hojas-pdf";
 
 /** Lo que va de una OV en el paquete: cuántas hojas de OT le tocan y las OC que se pegan detrás. */
 export interface BloqueOv {
@@ -27,8 +28,10 @@ export async function ensamblarPaquete(input: {
    * y cada parte toma solo las suyas; sin esto se espera que `ot` sea justo lo de estas OV.
    */
   inicioOt?: number;
+  /** «2/3» cuando el paquete se parte en envíos: sale en el número de cada hoja. */
+  etiquetaParte?: string;
 }): Promise<Uint8Array> {
-  const { resumen, ot, ovs, inicioOt = 0 } = input;
+  const { resumen, ot, ovs, inicioOt = 0, etiquetaParte } = input;
   const baseOt = await PDFDocument.load(ot, { updateMetadata: false });
   const esperadas = ovs.reduce((suma, bloque) => suma + bloque.hojasOt, 0);
   const disponibles = baseOt.getPageCount() - inicioOt;
@@ -56,5 +59,7 @@ export async function ensamblarPaquete(input: {
       await copiarPaginas(paquete, origen, origen.getPageIndices());
     }
   }
+  // El número de hoja es el que usa la columna «Desde la hoja» del resumen: sin él no sirve de nada.
+  await numerarHojasPdfLib(paquete, etiquetaParte);
   return paquete.save();
 }

@@ -117,6 +117,7 @@ export async function armarPaqueteConOc(
       ot: baseOt,
       inicioOt,
       ovs: bloques,
+      etiquetaParte: partes.length > 1 ? `${indice + 1}/${partes.length}` : undefined,
     });
     inicioOt += parte.hojas.length;
     conPdf.push({ ...parte, pdf: new Blob([pdf as BlobPart], { type: "application/pdf" }) });

@@ -1,5 +1,5 @@
-import { PDFDocument } from "pdf-lib";
-import { describe, expect, it } from "vitest";
+import { PDFDocument, PDFPage } from "pdf-lib";
+import { describe, expect, it, vi } from "vitest";
 import { ensamblarPaquete } from "./ensamblar-paquete";
 
 /** Cada página se distingue por su ancho: así se ve en qué orden quedaron. */
@@ -39,6 +39,26 @@ describe("ensamblarPaquete", () => {
     });
 
     expect(await anchosDe(resultado)).toEqual([101, 102, 301]);
+  });
+
+  it("numera todas las hojas del paquete, la primera del resumen como la hoja 1", async () => {
+    const texto = vi.spyOn(PDFPage.prototype, "drawText");
+    await ensamblarPaquete({
+      resumen: await pdfConAnchos(901),
+      ot: await pdfConAnchos(101, 102),
+      ovs: [{ hojasOt: 2, oc: [await pdfConAnchos(201)] }],
+    });
+
+    expect(texto.mock.calls.map((c) => c[0])).toEqual(["Hoja 1 de 4", "Hoja 2 de 4", "Hoja 3 de 4", "Hoja 4 de 4"]);
+    texto.mockRestore();
+  });
+
+  it("con el paquete partido cada hoja dice de qué envío es", async () => {
+    const texto = vi.spyOn(PDFPage.prototype, "drawText");
+    await ensamblarPaquete({ resumen: null, ot: await pdfConAnchos(101), ovs: [{ hojasOt: 1, oc: [] }], etiquetaParte: "2/3" });
+
+    expect(texto.mock.calls.map((c) => c[0])).toEqual(["Parte 2/3 · Hoja 1 de 1"]);
+    texto.mockRestore();
   });
 
   it("un resumen de varias páginas entra completo antes de todo lo demás", async () => {

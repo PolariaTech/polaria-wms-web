@@ -1,6 +1,7 @@
 import { formatIsoToDdMmYyyy } from "@/lib/utils/fecha-dd-mm-yyyy";
 import { buildOrdenTareaAlmacenLandscapePdfBlob } from "../print/download-orden-tarea-almacen-pdf";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
+import { numerarBlobPdf } from "../print/numerar-hojas-pdf";
 import type { ResumenOvBatch } from "./batch-seleccion";
 import { armarPaqueteConOc, dependenciasReales } from "./armar-paquete-con-oc";
 import { HOJAS_QUE_SIEMPRE_CABEN, parteDeCadaOv, partirPaquete } from "./partir-paquete";
@@ -69,5 +70,9 @@ export async function armarPreviaRapida(entrada: EntradaPreviaRapida): Promise<P
     parteDeOv: partes.length > 1 ? parteDeCadaOv(partes) : undefined,
   });
   const { blob } = await buildOrdenTareaAlmacenLandscapePdfBlob(hojas, { codigoCuenta, resumen: resumenPdf });
-  return { blob, hojas, resumen, nombreArchivo: nombreArchivoBatch(), resumenPdf, partes };
+  // Con un solo envío la vista previa es lo que sale, y sale numerada («Hoja N de M»: a eso remite
+  // «Desde la hoja»). Si se parte, cada envío cuenta desde 1 y esta vista, que lo junta todo, no
+  // coincidiría con lo impreso: queda sin numerar.
+  const vista = partes.length === 1 ? await numerarBlobPdf(blob) : blob;
+  return { blob: vista, hojas, resumen, nombreArchivo: nombreArchivoBatch(), resumenPdf, partes };
 }

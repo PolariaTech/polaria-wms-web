@@ -39,6 +39,10 @@ vi.mock("./armar-paquete-con-oc", async (importarOriginal) => ({
   ...(await importarOriginal<object>()),
   armarPaqueteConOc: (...args: unknown[]) => armarConOc(...args),
 }));
+vi.mock("../print/numerar-hojas-pdf", () => ({
+  // La numeración se prueba aparte; aquí el PDF falso de la vista previa pasa tal cual.
+  numerarBlobPdf: async (blob: Blob) => blob,
+}));
 vi.mock("./imprimir-pdf-listo", () => ({
   imprimirPdfListo: (...args: unknown[]) => imprimirListo(...args),
 }));
@@ -183,6 +187,37 @@ describe("ImpresionRapidaPageContent: con las órdenes de compra originales (REQ
     expect(imprimirPdf).not.toHaveBeenCalled();
     expect(imprimirListo.mock.calls.map((c) => c[1].nombreTrabajo)).toEqual(["OV OV-viejo (1/2)", "OV OV-nuevo (2/2)"]);
     expect(postLog.mock.calls.map((c) => c[0].idOrdenVenta)).toEqual(["viejo", "nuevo"]);
+  });
+
+  it("avisa arriba de la vista previa qué OV salen sin OC, y sin OC marcadas no avisa", async () => {
+    armarConOc.mockImplementation(async (datos: { hojas: unknown[]; resumen: Array<{ row: unknown }> }) => ({
+      partes: datos.resumen.map((item, i) => ({ hojas: [datos.hojas[i]], resumen: [item], paginasExtra: 0, pdf: new Blob(["x"]) })),
+      resumenPdf: {
+        titulo: "Resumen de impresión",
+        subtitulo: "x",
+        generado: "y",
+        filas: [
+          { venta: "OV-viejo", cliente: "Hotel Sol", entrega: "10/01/2026", ot: 1, hojas: 1, oc: 2 },
+          { venta: "OV-nuevo", cliente: "Hotel Sol", entrega: "12/01/2026", ot: 1, hojas: 1 },
+        ],
+        notas: ["OV-nuevo: no tiene OC para imprimir (adjuntos HTML, PDF o Excel)."],
+      },
+    }));
+    render(<ImpresionRapidaPageContent />);
+    await marcarOc();
+
+    await prepararImpresion();
+
+    expect(screen.getByText("1 de 2 OV no tiene OC para imprimir.")).toBeInTheDocument();
+    expect(screen.getByText(/OV-nuevo\. Sus órdenes de tarea sí salen\./)).toBeInTheDocument();
+  });
+
+  it("sin marcar las OC no hay aviso de OC", async () => {
+    render(<ImpresionRapidaPageContent />);
+
+    await prepararImpresion();
+
+    expect(screen.queryByText(/no tienen? OC para imprimir/)).not.toBeInTheDocument();
   });
 
   it("si falla armar el paquete con OC lo dice y se queda en la pantalla de la fecha", async () => {
