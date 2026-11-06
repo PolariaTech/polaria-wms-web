@@ -22,14 +22,14 @@ export function OvEstadoFiltroBar({
     <div
       role="group"
       aria-label="Filtrar por estado"
-      className="mb-4 flex w-full gap-2 sm:mb-5"
+      className="mb-4 flex w-full gap-2 sm:mb-5 [@media(max-height:50rem)]:mb-2 sm:[@media(max-height:50rem)]:mb-2"
     >
       <button
         type="button"
         aria-pressed={estadoFiltro === null}
         onClick={() => onChange(null)}
         className={cn(
-          "flex flex-1 items-center justify-center whitespace-nowrap rounded-xl border px-2.5 py-2 text-sm font-semibold transition",
+          "flex flex-1 items-center justify-center whitespace-nowrap rounded-xl border px-2.5 py-2 [@media(max-height:50rem)]:py-1 text-sm font-semibold transition",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
           estadoFiltro === null
             ? "border-polaria-teal bg-polaria-teal text-polaria-on-teal"
@@ -57,7 +57,7 @@ export function OvEstadoFiltroBar({
             aria-pressed={selected}
             onClick={() => onChange(estado)}
             className={cn(
-              "flex flex-1 items-center justify-center whitespace-nowrap rounded-xl border px-2.5 py-2 text-sm font-semibold transition",
+              "flex flex-1 items-center justify-center whitespace-nowrap rounded-xl border px-2.5 py-2 [@media(max-height:50rem)]:py-1 text-sm font-semibold transition",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
               selected
                 ? "border-polaria-teal bg-polaria-teal text-polaria-on-teal"

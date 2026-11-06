@@ -8,6 +8,7 @@ export default function DashboardVentasCorreosMateoPage() {
       title="Correos recibidos"
       description="Todos los correos de pedidos que registró el flujo automático."
       gate={{ roles: ROLES_NIVEL_CUENTA }}
+      compactoEnPantallaBaja
     >
       <CorreosTable key="todos" modo="todos" />
     </OperationalModuleShell>

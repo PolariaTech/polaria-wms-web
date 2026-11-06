@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -52,6 +53,7 @@ vi.mock("@/config/env", () => ({
 import { SESSION_MAX_AGE_MS } from "@/lib/auth/auth-session-timeout";
 import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import { MateoWidgetHost } from "./MateoWidgetHost";
+import { CLAVE_MATEO_LANZADOR_OCULTO } from "./useMateoLanzadorOculto";
 
 function mockSession(accessToken: string | null, isHydrated = true) {
   mockUseAuthStore.mockImplementation(
@@ -63,6 +65,8 @@ function mockSession(accessToken: string | null, isHydrated = true) {
 describe("MateoWidgetHost", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks no quita las implementaciones: la prueba del shadow root no debe filtrarse a las demás.
+    mockMount.mockReset();
     useShellOverlayStore.getState().setCypherOpen(false);
     mockLoadMateoWidgetApi.mockResolvedValue({
       configureTokenFetcher: mockConfigureTokenFetcher,
@@ -113,6 +117,36 @@ describe("MateoWidgetHost", () => {
       token: "access-token",
       expiresIn: SESSION_MAX_AGE_MS / 1000,
     });
+  });
+
+  it("al montar el widget le pone Polo «calma» al botón flotante y lo quita al desmontar", async () => {
+    mockSession("access-token");
+    // El bundle real abre un shadow root en el contenedor; se simula igual.
+    mockMount.mockImplementation((target: HTMLElement) => {
+      target.attachShadow({ mode: "open" });
+    });
+
+    const { unmount } = render(<MateoWidgetHost />);
+    const host = screen.getByTestId("mateo-widget-host");
+
+    await waitFor(() => {
+      expect(host.shadowRoot?.querySelector("style[data-polaria-polo]")).toBeTruthy();
+    });
+    expect(host.shadowRoot?.querySelector("style[data-polaria-polo]")?.textContent).toContain(
+      "/assets/polo-calma-teal.svg",
+    );
+
+    unmount();
+    expect(host.shadowRoot?.querySelector("style[data-polaria-polo]")).toBeFalsy();
+  });
+
+  it("si el widget no abre shadow root no pasa nada: el botón conserva su icono", async () => {
+    mockSession("access-token");
+
+    render(<MateoWidgetHost />);
+
+    await waitFor(() => expect(mockMount).toHaveBeenCalled());
+    expect(screen.getByTestId("mateo-widget-host").shadowRoot).toBeNull();
   });
 
   it("muestra toast si falla la carga del script del widget", async () => {
@@ -180,5 +214,64 @@ describe("MateoWidgetHost", () => {
     expect(host).toHaveAttribute("aria-hidden", "true");
     expect(host.className).toMatch(/opacity-0/);
     expect(host.className).toMatch(/transition-opacity/);
+  });
+
+  describe("pestaña para esconder el botón flotante", () => {
+    beforeEach(() => window.localStorage.clear());
+
+    it("aparece cuando el widget cargó, con Mateo visible", async () => {
+      mockSession("access-token");
+      render(<MateoWidgetHost />);
+
+      const pestana = await screen.findByRole("button", { name: "Ocultar Mateo Soporte" });
+      expect(pestana).toBeInTheDocument();
+      expect(screen.getByTestId("mateo-widget-host")).toHaveAttribute("data-launcher-hidden", "false");
+    });
+
+    it("al ocultar, apaga el widget, cierra el chat y recuerda la elección", async () => {
+      mockSession("access-token");
+      render(<MateoWidgetHost />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Ocultar Mateo Soporte" }));
+
+      const host = screen.getByTestId("mateo-widget-host");
+      expect(host).toHaveAttribute("data-launcher-hidden", "true");
+      expect(host).toHaveAttribute("aria-hidden", "true");
+      expect(host.className).toMatch(/opacity-0/);
+      expect(mockClose).toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Mostrar Mateo Soporte" })).toBeInTheDocument();
+      expect(window.localStorage.getItem(CLAVE_MATEO_LANZADOR_OCULTO)).toBe("1");
+    });
+
+    it("al mostrarlo de nuevo vuelve el botón flotante", async () => {
+      mockSession("access-token");
+      render(<MateoWidgetHost />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Ocultar Mateo Soporte" }));
+      await userEvent.click(screen.getByRole("button", { name: "Mostrar Mateo Soporte" }));
+
+      const host = screen.getByTestId("mateo-widget-host");
+      expect(host).toHaveAttribute("data-launcher-hidden", "false");
+      expect(host.className).toMatch(/opacity-100/);
+    });
+
+    it("si ya estaba escondido al entrar, arranca escondido", async () => {
+      window.localStorage.setItem(CLAVE_MATEO_LANZADOR_OCULTO, "1");
+      mockSession("access-token");
+      render(<MateoWidgetHost />);
+
+      expect(await screen.findByRole("button", { name: "Mostrar Mateo Soporte" })).toBeInTheDocument();
+      expect(screen.getByTestId("mateo-widget-host")).toHaveAttribute("data-launcher-hidden", "true");
+    });
+
+    it("con Cypher abierto la pestaña también se esconde para no tapar el panel", async () => {
+      mockSession("access-token");
+      render(<MateoWidgetHost />);
+      await screen.findByRole("button", { name: "Ocultar Mateo Soporte" });
+
+      act(() => useShellOverlayStore.getState().setCypherOpen(true));
+
+      expect(screen.queryByTestId("mateo-launcher-tab")).not.toBeInTheDocument();
+    });
   });
 });

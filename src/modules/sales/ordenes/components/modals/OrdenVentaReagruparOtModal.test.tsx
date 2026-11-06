@@ -178,7 +178,7 @@ describe("OrdenVentaReagruparOtModal", () => {
 
     await escribirYGenerar("Junta las OT");
 
-    expect(await screen.findByText(/Se crea 1 OT nueva\. Se une 1 OT que queda sin renglones\./)).toBeInTheDocument();
+    expect(await screen.findByText(/Se crea 1 OT nueva\. Se une 1 OT que queda sin productos\./)).toBeInTheDocument();
   });
 
   it("CA5: un doble clic en Generar envía una sola petición", async () => {

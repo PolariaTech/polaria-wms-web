@@ -126,7 +126,7 @@ describe("describirCorreccionParaBitacora", () => {
       documentos: p.documentos,
     });
     expect(mensaje).toContain("1 → 2 OT");
-    expect(mensaje).toContain("2 → 3 renglones");
+    expect(mensaje).toContain("2 → 3 productos");
     const json = JSON.stringify(payloadExtra);
     expect(json).toContain("4502987208");
     expect(json).not.toContain('"Producto"');

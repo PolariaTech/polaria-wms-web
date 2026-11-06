@@ -217,7 +217,7 @@ export interface OrdenVentaCorreccionCorreoPanelProps {
 
 /** «1 renglón» / «2 renglones». */
 export function etiquetaRenglones(cantidad: number): string {
-  return `${cantidad} ${cantidad === 1 ? "renglón" : "renglones"}`;
+  return `${cantidad} ${cantidad === 1 ? "producto" : "productos"}`;
 }
 
 /** `correo.eml → PEDIDO.pdf` → `PEDIDO.pdf`: un adjunto incrustado se nombra por su archivo. */
@@ -263,7 +263,7 @@ export function OrdenVentaCorreccionCorreoPanel({
           <p className="break-words text-sm leading-relaxed text-polaria-w-50 lg:text-base">{motivo}</p>
         ) : null}
         <p className="text-base font-medium tabular-nums text-polaria-w lg:text-lg">
-          {`${propuesta.resumen.renglonesAntes} → ${propuesta.resumen.renglonesDespues} renglones · ${formatearImporte(propuesta.resumen.importeAntes)} → ${formatearImporte(propuesta.resumen.importeDespues)}`}
+          {`${propuesta.resumen.renglonesAntes} → ${propuesta.resumen.renglonesDespues} productos · ${formatearImporte(propuesta.resumen.importeAntes)} → ${formatearImporte(propuesta.resumen.importeDespues)}`}
         </p>
         <p className="text-sm leading-relaxed text-polaria-w-50 lg:text-base">
           {`${propuesta.diff.otNuevas.length} OT nuevas, ${etiquetaRenglones(propuesta.diff.renglonesAgregados)} agregados.`}

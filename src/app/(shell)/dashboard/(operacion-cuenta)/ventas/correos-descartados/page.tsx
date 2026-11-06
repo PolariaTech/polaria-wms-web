@@ -8,6 +8,7 @@ export default function DashboardVentasCorreosDescartadosPage() {
       title="Correos descartados"
       description="Correos que el flujo no ingresó. Si alguno sí era un pedido, ingrésalo como OV."
       gate={{ roles: ROLES_NIVEL_CUENTA }}
+      compactoEnPantallaBaja
     >
       <CorreosTable key="descartados" modo="descartados" />
     </OperationalModuleShell>

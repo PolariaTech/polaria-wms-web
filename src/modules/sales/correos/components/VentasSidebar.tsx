@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Camera,
   ClipboardList,
   Inbox,
   MailX,
@@ -16,6 +17,8 @@ import { ROUTES } from "@/config/routes";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/stores/auth.store";
+import { VentasItemProximamente } from "./VentasItemProximamente";
+import { VentasMenuImpresion } from "./VentasMenuImpresion";
 
 /** Id del menú: lo usa el botón de la barra superior en `aria-controls`. */
 export const VENTAS_MENU_ID = "ventas-menu";
@@ -139,6 +142,14 @@ export function VentasSidebar() {
           );
           return (
             <div key={item.href} className="contents">
+              {/* «Impresión en batch» es un desplegable con dos formas de imprimir; va tras las órdenes. */}
+              {indice === 1 ? (
+                <>
+                  <VentasMenuImpresion pathname={pathname} />
+                  {/* Estado de las fotos de captura por OV y OT: se define en un próximo paso. */}
+                  <VentasItemProximamente icono={Camera} etiqueta="Estado de fotos" />
+                </>
+              ) : null}
               {item.separadorAntes ? (
                 <span
                   role="separator"
@@ -174,8 +185,11 @@ export function VentasSidebar() {
 function BotonAlternarMenu({
   className,
   soloCierra = false,
+  escalable = false,
 }: {
   className?: string;
+  /** Mide y se redondea en `em`: crece y baja con el tamaño del título que lo acompaña. */
+  escalable?: boolean;
   /** El de la columna solo existe con el menú abierto: su icono es siempre la «×» de cerrar. */
   soloCierra?: boolean;
 }) {
@@ -192,22 +206,27 @@ function BotonAlternarMenu({
       aria-label={etiqueta}
       title={etiqueta}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-xl border",
+        "inline-flex shrink-0 items-center justify-center border",
+        escalable ? "rounded-[0.2em]" : "rounded-xl",
         "border-polaria-w-08 bg-polaria-w-08 text-polaria-w transition-colors",
         "hover:border-polaria-t-20 hover:bg-polaria-t-08",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
         className,
       )}
     >
-      <Icono className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden />
+      <Icono
+        className={cn("shrink-0", escalable ? "h-[0.5em] w-[0.5em]" : "h-5 w-5")}
+        strokeWidth={1.75}
+        aria-hidden
+      />
     </button>
   );
 }
 
 /**
- * Botón del encabezado de la página, a la izquierda del título. Tiene el alto de la línea del
- * título (unidades `em` bajo su tipografía) para alinearse con él, y nunca baja de 44 px para que
- * se pueda tocar. Se ve en todos los anchos: cerrado, el menú no se muestra y este es el único
+ * Botón del encabezado de la página, a la izquierda del título. Mide 0,875 em de la tipografía
+ * del título (unos 42 px con el título más grande) y se achica y crece con él. El área tocable llega a 44 px con un pseudo-elemento invisible. Se ve en
+ * todos los anchos: cerrado, el menú no se muestra y este es el único
  * modo de abrirlo. Solo existe dentro de Ventas y para los roles de cuenta: en otra pantalla no
  * habría nada que desplegar.
  *
@@ -224,6 +243,13 @@ export function BotonMenuVentas() {
   if (!esRolDeCuenta || !enVentas) return null;
 
   return (
-    <BotonAlternarMenu className="h-[1.1em] min-h-11 w-[1.1em] min-w-11 text-[length:clamp(1.875rem,4vw,3rem)] leading-none" />
+    <BotonAlternarMenu
+      escalable
+      className={cn(
+        "relative h-[0.875em] w-[0.875em] text-[length:clamp(1.875rem,4vw,3rem)] leading-none [@media(max-height:50rem)]:text-[length:1.75rem]",
+        // Área tocable de 44 px sin agrandar el botón.
+        "after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']",
+      )}
+    />
   );
 }
