@@ -17,6 +17,7 @@ import type {
 } from "../utils/ot/reagrupar-ordenes-trabajo";
 import type { CampoDiscrepancia } from "../utils/pedido/map-pedido-extraido-to-form";
 import type { SolicitudReagrupacion } from "../components/modals/OrdenVentaReagruparOtModal";
+import type { DivisionReagrupacionApi } from "../services/reagrupar-ot.client";
 
 export interface OrdenVentaCreateModalProps {
   open: boolean;
@@ -209,6 +210,7 @@ export interface OrdenVentaModalDialogsProps {
   handleAplicarCorreccionCorreo: (
     propuesta: PropuestaCorreccionCorreoApi,
   ) => void;
+  handleDividirOrden: (division: DivisionReagrupacionApi) => Promise<void>;
 }
 
 export interface OrdenVentaModalPickersProps {

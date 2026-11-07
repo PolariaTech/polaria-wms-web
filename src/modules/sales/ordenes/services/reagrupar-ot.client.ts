@@ -39,8 +39,23 @@ export class ReagrupacionApiError extends Error {
   }
 }
 
+/** Por qué se divide una orden de venta: orden de compra, día u horario de entrega. */
+export type CriterioDivision = "oc" | "dia" | "horario";
+
+/** REQ-262 / REQ-273: la instrucción pide otra orden de venta por ese criterio. */
+export interface DivisionReagrupacionApi {
+  criterio: CriterioDivision;
+  /** Valores del criterio que salen a una orden de venta nueva cada uno. */
+  valoresSalen: string[];
+  /** Valores que se quedan juntos en la orden actual. */
+  valoresQuedan: string[];
+  /** Tareas (OT) del formulario que se van con los valores que salen. */
+  otIdsQueSalen: string[];
+}
+
 export type RespuestaReagrupacion =
   | { tipo: "propuesta"; propuesta: PropuestaReagrupacionApi }
+  | { tipo: "division"; division: DivisionReagrupacionApi }
   | { tipo: "aclaracion"; mensaje: string }
   | { tipo: "rechazo" };
 
@@ -51,13 +66,14 @@ interface CuerpoRespuesta {
   ots?: unknown;
   resumen?: unknown;
   movimientos?: unknown;
+  division?: unknown;
   aclaracion?: unknown;
   rechazo?: unknown;
   error?: unknown;
   message?: unknown;
 }
 
-function errorDeRespuesta(
+export function errorDeRespuesta(
   status: number,
   cuerpo: CuerpoRespuesta,
 ): ReagrupacionApiError {
@@ -132,6 +148,25 @@ function errorDeRespuesta(
   );
 }
 
+function listaDeTextos(valor: unknown): valor is string[] {
+  return Array.isArray(valor) && valor.every((item) => typeof item === "string");
+}
+
+function esDivision(valor: unknown): valor is DivisionReagrupacionApi {
+  if (typeof valor !== "object" || valor === null) return false;
+  const division = valor as Record<string, unknown>;
+  return (
+    (division.criterio === "oc" ||
+      division.criterio === "dia" ||
+      division.criterio === "horario") &&
+    listaDeTextos(division.valoresSalen) &&
+    listaDeTextos(division.valoresQuedan) &&
+    listaDeTextos(division.otIdsQueSalen) &&
+    division.valoresSalen.length > 0 &&
+    division.valoresQuedan.length > 0
+  );
+}
+
 function esPropuesta(cuerpo: CuerpoRespuesta): boolean {
   return (
     typeof cuerpo.propuestaId === "string" &&
@@ -201,6 +236,9 @@ export async function solicitarPropuestaReagrupacion(params: {
     return { tipo: "aclaracion", mensaje: cuerpo.aclaracion };
   }
   if (cuerpo.rechazo === "FUERA_DE_ALCANCE") return { tipo: "rechazo" };
+  if (esDivision(cuerpo.division)) {
+    return { tipo: "division", division: cuerpo.division };
+  }
   if (esPropuesta(cuerpo)) {
     return {
       tipo: "propuesta",

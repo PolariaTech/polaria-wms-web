@@ -10,6 +10,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { conDiaYHorario } from "../utils/ot/estado-base-con-dia-y-horario";
 import {
   aplicarReagrupacion,
   construirEstadoBaseApi,
@@ -34,11 +35,7 @@ import {
   sugerenciaToOption,
   toDateInputValue,
 } from "../utils/pedido/orden-venta-create-helpers";
-import {
-  decidirAperturaReagruparAlCargar,
-  reagruparAbiertoSegunCypher,
-  reagruparModalAbierto,
-} from "../utils/ot/reagrupacion-modal-estado";
+import { decidirAperturaReagruparAlCargar, reagruparAbiertoSegunCypher, reagruparModalAbierto } from "../utils/ot/reagrupacion-modal-estado";
 import {
   isGarbageOcValue,
   resolveOrdenCompraLimpia,
@@ -71,7 +68,7 @@ export function useAplicarReagrupacionOv(estado: OrdenVentaFormEstado) {
       lineas,
       parseCantidadReagrupacion,
     );
-    return { estadoBase, firma: firmaEstadoReagrupacion(hijas, lineas) };
+    return { estadoBase: conDiaYHorario(estadoBase, hijas), firma: firmaEstadoReagrupacion(hijas, lineas) };
   }, [lineas, syncActiveOtFromForm]);
 
   /**

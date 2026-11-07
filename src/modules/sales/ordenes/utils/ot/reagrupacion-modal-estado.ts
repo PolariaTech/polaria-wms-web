@@ -1,6 +1,9 @@
 import { normalizeEstadoOrdenVenta } from "../../../shared/constants/sales-status";
 import type { CypherCompanionOtPicker } from "../../components/modals/OrdenVentaCypherDrawer";
-import type { RespuestaReagrupacion } from "../../services/reagrupar-ot.client";
+import type {
+  DivisionReagrupacionApi,
+  RespuestaReagrupacion,
+} from "../../services/reagrupar-ot.client";
 import {
   puedeReagruparOt,
   type MovimientoVista,
@@ -30,6 +33,8 @@ export interface EstadoModalReagrupacion {
   /** Firma del estado del formulario cuando se pidió la propuesta. */
   firmaBase: string | null;
   propuesta: PropuestaReagrupacionApi | null;
+  /** REQ-262: la instrucción pide otra orden de venta por orden de compra. */
+  division: DivisionReagrupacionApi | null;
   /** Movimientos de la propuesta con nombres legibles (para la vista previa). */
   movimientos: MovimientoVista[];
   /** Aclaración o rechazo del modelo (texto fijo del servidor o del cliente). */
@@ -64,6 +69,7 @@ export const ESTADO_INICIAL_REAGRUPACION: EstadoModalReagrupacion = {
   requestId: null,
   firmaBase: null,
   propuesta: null,
+  division: null,
   movimientos: [],
   aviso: null,
   error: null,
@@ -112,6 +118,7 @@ export function reducirModalReagrupacion(
         requestId: accion.requestId,
         firmaBase: accion.firmaBase,
         propuesta: null,
+        division: null,
         movimientos: [],
         aviso: null,
         error: null,
@@ -130,6 +137,14 @@ export function reducirModalReagrupacion(
           requestId: null,
           propuesta: respuesta.propuesta,
           movimientos: accion.movimientos ?? [],
+        };
+      }
+      if (respuesta.tipo === "division") {
+        return {
+          ...estado,
+          fase: "propuesta",
+          requestId: null,
+          division: respuesta.division,
         };
       }
       return {
@@ -168,6 +183,7 @@ export function reducirModalReagrupacion(
         historial: [...estado.historial, estado.instruccion.trim()],
         instruccion: "",
         propuesta: null,
+        division: null,
         movimientos: [],
         firmaBase: null,
         aviso: null,
@@ -181,6 +197,7 @@ export function reducirModalReagrupacion(
         ...estado,
         fase: "error",
         propuesta: null,
+        division: null,
         movimientos: [],
         firmaBase: null,
         error: accion.mensaje,

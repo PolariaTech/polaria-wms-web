@@ -23,6 +23,7 @@ import {useAperturaDesdeDocsOv, useForzarFormularioAlEditar, useResetFormularioO
 import {useCatalogoPickerOv, useEfectosCompaneroOv, useSembrarLineasDesdeOrigen} from "../../hooks/sembrar-lineas-desde-origen";
 import {useAplicarCorreccionCorreoOv, useDeshacerReagrupacionOv} from "../../hooks/aplicar-correccion-correo-ov";
 import {useAplicarReagrupacionOv, useCamposDeLaOtActiva, useEfectosFormularioOt} from "../../hooks/aplicar-reagrupacion-ov";
+import {useAplicarDivisionOv} from "../../hooks/aplicar-division-ov";
 import {useBloqueoPaintEdicionOv} from "../../hooks/bloqueo-paint-edicion-ov";
 import {useAbrirCapturaOv, useAvisosValidacionOv, usePrefillYDiscrepanciasOv} from "../../utils/pedido/campos-faltantes-ov";
 import {useCierreCapturaOv, useFolioDesdeLista} from "../../utils/pedido/aviso-direccion-ov";
@@ -277,6 +278,7 @@ export function OrdenVentaCreateModal({
   useForzarFormularioAlEditar(bolsa);
   Object.assign(bolsa, useSyncOtFormulario(bolsa));
   Object.assign(bolsa, useAplicarReagrupacionOv(bolsa));
+  Object.assign(bolsa, useAplicarDivisionOv(bolsa));
   Object.assign(bolsa, useAplicarCorreccionCorreoOv(bolsa));
   Object.assign(bolsa, useDeshacerReagrupacionOv(bolsa));
   useEfectosCompaneroOv(bolsa);
