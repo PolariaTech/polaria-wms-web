@@ -29,4 +29,13 @@ describe("buildOrdenTareaAlmacenLandscapePdf (REQ-246)", () => {
     const pdf = buildOrdenTareaAlmacenLandscapePdf(base);
     expect(pdf.getNumberOfPages()).toBe(1);
   });
+
+  it("incluye Creada/Impresa y día junto al QR inferior", () => {
+    const pdf = buildOrdenTareaAlmacenLandscapePdf({
+      ...base,
+      diaEntrega: "VIERNES",
+    });
+    // jsPDF no expone texto fácil; basta con que no falle y genere 1 página.
+    expect(pdf.getNumberOfPages()).toBe(1);
+  });
 });

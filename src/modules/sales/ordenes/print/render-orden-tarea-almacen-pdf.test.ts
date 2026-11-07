@@ -20,6 +20,7 @@ describe("buildOrdenTareaAlmacenPdf (REQ-246)", () => {
       notasGenerales: "",
       lineas: [{ producto: "Aguacate", cantidadSolicitada: "2 kg" }],
       qrDataUrl: null,
+      diaEntrega: "VIERNES",
     };
     expect(buildOrdenTareaAlmacenPdf(data).getNumberOfPages()).toBeGreaterThan(0);
   });
