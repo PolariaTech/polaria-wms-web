@@ -4,7 +4,7 @@ import type {
   ResultadoFlujoCorreo,
 } from "../types/correos.types";
 
-/** REQ-275: lectura de lo que el flujo anotó de cada correo (columnas nuevas del data table). */
+/** Lectura de lo que el flujo anotó de cada correo en el data table de n8n (REQ-104 y REQ-275). */
 
 const RESULTADOS: readonly ResultadoFlujoCorreo[] = [
   "recibido",
@@ -25,11 +25,24 @@ const enumONulo = <T extends string>(valor: unknown, validos: readonly T[]): T |
 
 export type CamposDelFlujo = Pick<
   CorreoFila,
-  "resultado" | "confianza" | "tipo" | "codigoOrdenVenta"
+  | "nuevoPedido"
+  | "motivo"
+  | "resultado"
+  | "confianza"
+  | "tipo"
+  | "codigoOrdenVenta"
+  | "idRegistro"
+  | "registradoEn"
+  | "actualizadoEn"
 >;
 
 export function leerCamposDelFlujo(valor: Record<string, unknown>): CamposDelFlujo {
   return {
+    nuevoPedido: typeof valor.nuevoPedido === "boolean" ? valor.nuevoPedido : null,
+    motivo: textoONulo(valor.motivo),
+    idRegistro: textoONulo(valor.idRegistro),
+    registradoEn: textoONulo(valor.registradoEn),
+    actualizadoEn: textoONulo(valor.actualizadoEn),
     resultado: enumONulo(valor.resultado, RESULTADOS),
     confianza: enumONulo(valor.confianza, CONFIANZAS),
     tipo: textoONulo(valor.tipo),

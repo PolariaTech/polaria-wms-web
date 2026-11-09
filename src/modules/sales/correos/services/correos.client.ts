@@ -220,12 +220,7 @@ function leerFila(valor: unknown): CorreoFila | null {
     asunto: textoONulo(valor.asunto),
     hilo: textoONulo(valor.hilo),
     adjunto: textoONulo(valor.adjunto),
-    nuevoPedido: typeof valor.nuevoPedido === "boolean" ? valor.nuevoPedido : null,
-    motivo: textoONulo(valor.motivo),
     ...leerCamposDelFlujo(valor),
-    idRegistro: textoONulo(valor.idRegistro),
-    registradoEn: textoONulo(valor.registradoEn),
-    actualizadoEn: textoONulo(valor.actualizadoEn),
     ingreso: leerIngreso(valor.ingreso),
   };
 }
