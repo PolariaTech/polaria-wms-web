@@ -77,12 +77,14 @@ function IngresadoPorElFlujo() {
  */
 function BotonIngresar({
   fila,
+  reintentar,
   onIngresar,
 }: {
   fila: CorreoFila;
+  reintentar: boolean;
   onIngresar: (messageId: string) => void;
 }) {
-  const fallo = fila.ingreso?.estado === "error";
+  const fallo = reintentar;
   const accion = fallo ? "Reintentar el ingreso" : "Ingresar como OV";
   return (
     <button
@@ -150,6 +152,6 @@ export function AccionIngreso({
     case "porElFlujo":
       return <IngresadoPorElFlujo />;
     case "ingresar":
-      return <BotonIngresar fila={fila} onIngresar={onIngresar} />;
+      return <BotonIngresar fila={fila} reintentar={estado.reintentar} onIngresar={onIngresar} />;
   }
 }
