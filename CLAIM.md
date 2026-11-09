@@ -132,6 +132,7 @@
 - `src/modules/sales/ordenes/print/orden-tarea-almacen.types.ts`
 - `src/modules/sales/ordenes/print/build-orden-tarea-almacen-html.ts`
 - `src/app/api/ov-adjuntos/resolve-occ/route.ts` — autorizada por el usuario el 2026-11-09
+- `src/modules/sales/ordenes/hooks/reset-formulario-ov.ts` — autorizada por el usuario el 2026-11-09
 
 ### Compartidos (cambio mínimo y aviso)
 - `CHANGELOG.md`
