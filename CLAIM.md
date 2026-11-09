@@ -22,6 +22,7 @@
 - `src/modules/sales/correos/testing/correos.fixtures.ts`
 - `src/modules/sales/correos/utils/correos-formato.ts`
 - `src/modules/sales/correos/utils/correos-formato.test.ts`
+- `src/modules/sales/correos/components/AccionIngreso.tsx` — autorizada por el usuario el 2026-11-09
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
