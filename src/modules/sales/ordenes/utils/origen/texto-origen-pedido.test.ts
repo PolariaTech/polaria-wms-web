@@ -7,7 +7,6 @@ import {
   flattenNotasForPdf,
   parseOrigenPedidoBlocks,
   prepareCorreoBodyForCypherDisplay,
-  sanitizeNotasGeneralesPedido,
   serializeCuerpoMensaje,
 } from "./texto-origen-pedido";
 
@@ -196,40 +195,6 @@ describe("fitNotasGeneralesPdf", () => {
   });
 });
 
-describe("sanitizeNotasGeneralesPedido", () => {
-  it("respeta notas cortas capturadas en Polaria", () => {
-    expect(sanitizeNotasGeneralesPedido("Maduro · andén 3")).toBe(
-      "Maduro · andén 3",
-    );
-  });
-
-  it("no deja el hilo aplanado; saca especificaciones del cuerpo origen", () => {
-    const junk =
-      "---------- Forwarded message ----------. De: Daniel Galvis. Date: jue, 1 oct 2026 a la(s) 9:53 a.m.. AGOSTO DE 2026. ---------------------------. *De:*";
-    const origen = [
-      "Buenas tardes,",
-      "Envío adjunto pedido para entregar el 27 DE AGOSTO DE 2026 en Parque Xcaret:",
-      "Hora de entrega 6:00 am",
-      "Favor de confirmar de recibido",
-      "Nancy Guadalupe Pérez Cruz",
-    ].join("\n");
-    const notes = sanitizeNotasGeneralesPedido(junk, origen);
-    expect(notes).not.toContain("Forwarded message");
-    expect(notes).not.toContain("Daniel Galvis");
-    expect(notes).toMatch(/Entrega 27 DE AGOSTO DE 2026/i);
-    expect(notes).toMatch(/Destino:\s*Parque Xcaret/i);
-    expect(notes).toMatch(/6:00\s*am/i);
-  });
-
-  it("si solo hay basura de forward sin cuerpo, deja vacío", () => {
-    expect(
-      sanitizeNotasGeneralesPedido(
-        "---------- Forwarded message ----------. De: Daniel Galvis. Date: jue.",
-      ),
-    ).toBe("");
-  });
-});
-
 describe("extractNotasClaveCorreo", () => {
   it("prioriza el bloque Observaciones del cliente de una cotización", () => {
     const raw = [
@@ -270,7 +235,7 @@ describe("extractNotasClaveCorreo", () => {
     );
   });
 
-  it("saca del correo solo la especificación de entrega, no el cuerpo ni la firma", () => {
+  it("REQ-286: no reescribe fecha/destino/hora en notas (van al formulario)", () => {
     const raw = [
       "Buenas tardes,",
       "Envío adjunto pedido para entregar el 27 DE AGOSTO DE 2026 en Parque Xcaret:",
@@ -283,8 +248,8 @@ describe("extractNotasClaveCorreo", () => {
       "nperezcru@xcaret.com",
     ].join("\n");
     const notes = extractNotasClaveCorreo(raw);
-    expect(notes).toMatch(/Entrega 27 DE AGOSTO DE 2026 a las 6:00 am/i);
-    expect(notes).toMatch(/Destino:\s*Parque Xcaret/i);
+    expect(notes).not.toMatch(/Entrega 27 DE AGOSTO/i);
+    expect(notes).not.toMatch(/Destino:\s*Parque Xcaret/i);
     expect(notes).not.toContain("Buenas tardes");
     expect(notes).not.toContain("Nancy");
     expect(notes).not.toContain("nperezcru");

@@ -16,20 +16,22 @@ function propsBase(parcial: Record<string, unknown> = {}) {
     exigeOc: false,
     centroConsumo: "",
     onCentroConsumo: vi.fn(),
+    moneda: "MXN",
+    onBuscarMoneda: vi.fn(),
     onClearField: vi.fn(),
     marks,
     ...parcial,
   };
 }
 
-describe("OrdenVentaCaptureFormPedido (REQ-216/254)", () => {
-  it("«Datos del pedido» solo lleva la orden de compra y el centro de consumo", () => {
+describe("OrdenVentaCaptureFormPedido (REQ-278)", () => {
+  it("lleva OC, centro y moneda", () => {
     render(<OrdenVentaCaptureFormPedido {...propsBase()} />);
 
     expect(screen.getByLabelText(/Orden de compra del cliente/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Centro de consumo/)).toBeInTheDocument();
-    // lo que pasó a «Entrega»
-    for (const etiqueta of [/Notas generales/, /Prioridad/, /Moneda/, /Fecha de entrega/, /Ventana de entrega/]) {
+    expect(screen.getByLabelText(/^Moneda$/)).toBeInTheDocument();
+    for (const etiqueta of [/Notas generales/, /Prioridad/, /Fecha de entrega/, /Hora desde/]) {
       expect(screen.queryByLabelText(etiqueta)).not.toBeInTheDocument();
     }
   });
@@ -70,5 +72,15 @@ describe("OrdenVentaCaptureFormPedido (REQ-216/254)", () => {
     render(<OrdenVentaCaptureFormPedido {...props} />);
 
     expect(screen.getByText("Registrado en ficha distinto al del pedido")).toBeInTheDocument();
+  });
+
+  it("buscar moneda abre el selector", async () => {
+    const user = userEvent.setup();
+    const props = propsBase();
+    render(<OrdenVentaCaptureFormPedido {...props} />);
+
+    await user.click(screen.getByRole("button", { name: /Moneda|Buscar/i }));
+
+    expect(props.onBuscarMoneda).toHaveBeenCalledOnce();
   });
 });

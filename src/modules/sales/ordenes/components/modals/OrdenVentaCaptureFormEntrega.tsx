@@ -13,6 +13,7 @@ import {
 import { CatalogStatusHint } from "./catalog-status-hint";
 import { CaptureSection } from "./CaptureSection";
 import { DireccionEntregaField } from "./DireccionEntregaField";
+import { NotasGeneralesPedidoField } from "./NotasGeneralesPedidoField";
 import { fieldControlClass } from "../../utils/pedido/orden-venta-create-helpers";
 
 export function OrdenVentaCaptureFormEntrega({
@@ -25,13 +26,15 @@ export function OrdenVentaCaptureFormEntrega({
   onTelefono,
   correo,
   onCorreo,
+  observaciones,
+  onObservaciones,
   onClearField,
   autoFields,
   warnFields,
   missingFields,
   children,
 }: {
-  /** Programación de la entrega (notas, prioridad, moneda, fecha, ventana): va antes de la dirección. */
+  /** REQ-278: fecha/día/horas primero; luego contacto; dirección; notas al final. */
   children?: ReactNode;
   direccion: string;
   onDireccion: (value: string) => void;
@@ -42,6 +45,8 @@ export function OrdenVentaCaptureFormEntrega({
   onTelefono: (value: string) => void;
   correo: string;
   onCorreo: (value: string) => void;
+  observaciones: string;
+  onObservaciones: (value: string) => void;
   onClearField: (field: string) => void;
   autoFields: Set<string>;
   warnFields: Set<string>;
@@ -52,25 +57,6 @@ export function OrdenVentaCaptureFormEntrega({
     <CaptureSection title="Entrega">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {children}
-        {/* REQ-217: dirección a ancho completo; contacto, teléfono y correo debajo. */}
-        <DireccionEntregaField
-          id="orden-venta-direccion"
-          value={direccion}
-          onChange={(event) => {
-            onDireccion(event.target.value);
-            onClearField("direccion");
-          }}
-          controlClassName={fieldControlClass({ field: "direccion", ...marks })}
-          footer={
-            avisoVerificarDireccion ? (
-              <p className="mt-1.5 rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-3 py-2 polaria-text-caption text-polaria-warning">
-                Cambiaste el cliente. Revisa que la dirección de entrega (la del
-                correo o PDF) sea la correcta para este pedido. Si no, corrígela
-                aquí; se enviará la que dejes en este campo.
-              </p>
-            ) : null
-          }
-        />
         <PolariaFormInput
           id="orden-venta-contacto"
           label="Contacto del cliente"
@@ -105,6 +91,36 @@ export function OrdenVentaCaptureFormEntrega({
           }}
           controlClassName={fieldControlClass({ field: "correo", ...marks })}
           compact
+        />
+        <DireccionEntregaField
+          id="orden-venta-direccion"
+          value={direccion}
+          onChange={(event) => {
+            onDireccion(event.target.value);
+            onClearField("direccion");
+          }}
+          controlClassName={fieldControlClass({ field: "direccion", ...marks })}
+          footer={
+            avisoVerificarDireccion ? (
+              <p className="mt-1.5 rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-3 py-2 polaria-text-caption text-polaria-warning">
+                Cambiaste el cliente. Revisa que la dirección de entrega (la del
+                correo o PDF) sea la correcta para este pedido. Si no, corrígela
+                aquí; se enviará la que dejes en este campo.
+              </p>
+            ) : null
+          }
+        />
+        <NotasGeneralesPedidoField
+          id="orden-venta-observaciones"
+          value={observaciones}
+          onChange={(event) => {
+            onObservaciones(event.target.value);
+            onClearField("observaciones");
+          }}
+          controlClassName={fieldControlClass({
+            field: "observaciones",
+            ...marks,
+          })}
         />
       </div>
     </CaptureSection>

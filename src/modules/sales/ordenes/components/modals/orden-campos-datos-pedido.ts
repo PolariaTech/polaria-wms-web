@@ -1,31 +1,32 @@
 /**
- * Bloque de logística en Entrega (REQ-254), orden tras Notas (REQ-216).
- * 1 Prioridad · 2 Moneda · 3 Fecha · 4 Ventana desde · 5 Ventana hasta
+ * Orden visual en Entrega tras REQ-278:
+ * Fecha · Día · Hora desde · Hora hasta · contacto · dirección · notas.
+ * Prioridad oculta; moneda vive en «Datos del pedido».
  */
 export const ORDEN_TRAS_NOTAS_GENERALES = [
-  "Prioridad",
-  "Moneda",
   "Fecha de entrega",
-  "Ventana de entrega — desde",
-  "Ventana de entrega — hasta",
+  "Día de la semana",
+  "Hora desde",
+  "Hora hasta",
 ] as const;
 
-/** En detalle la ventana es un solo MetaField. */
+/** En detalle la ventana sigue siendo un solo MetaField. */
 export const ORDEN_TRAS_NOTAS_GENERALES_DETALLE = [
-  "Prioridad",
-  "Moneda",
   "Fecha de entrega",
   "Ventana de entrega",
 ] as const;
 
-/** Cabecera del bloque Entrega (REQ-254). */
+/** Cabecera del bloque Entrega (formulario edición). */
 export const ORDEN_BLOQUE_ENTREGA_DETALLE = [
-  "Notas generales",
-  ...ORDEN_TRAS_NOTAS_GENERALES_DETALLE,
-  "Dirección de entrega",
+  "Fecha de entrega",
+  "Día de la semana",
+  "Hora desde",
+  "Hora hasta",
   "Contacto del cliente",
   "Teléfono del contacto",
   "Correo del contacto",
+  "Dirección de entrega",
+  "Notas generales",
 ] as const;
 
 export function ordenTrasNotasEsCorrecto(

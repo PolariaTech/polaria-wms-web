@@ -1,12 +1,12 @@
 import OpenAI from "openai";
 import * as chrono from "chrono-node";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
-import preciosOpenAIRaw from "./precios-openai.json";
 import type {
   ArchivoExtraido,
   ArchivoTexto,
   ArchivoImagen,
 } from "./file-extractors";
+import { calcularCostoUSD } from "./openai-costo";
 import {
   calcularCantidadDesdeCajas,
   pesoPorCajaKg,
@@ -33,6 +33,12 @@ import {
   type CuerpoMensajeBloque,
 } from "../utils/origen/texto-origen-pedido";
 import { filtrarLineasExtraidasPedibles } from "../utils/origen/renglon-origen-pedible";
+import {
+  extractTotalSolicitudFromTextos,
+  textosDesdeArchivosExtraidos,
+} from "../utils/pedido/total-solicitud-vs-ov";
+
+export { calcularCostoUSD } from "./openai-costo";
 
 export interface LineaExtraida {
   textoOriginal: string;
@@ -99,6 +105,11 @@ export interface PedidoExtraido {
    * Cuerpo del correo organizado por la IA (texto + tablas) para persistir en origen_texto.
    */
   textoOrigen?: string | null;
+  /**
+   * REQ-279: total explícito del cuerpo o de adjuntos (PDF/EML) ya extraídos.
+   * Lo calcula el backend con regex sobre el texto; no lo inventa la IA.
+   */
+  totalSolicitud?: number | null;
 }
 
 interface ExtraerPedidoInput {
@@ -118,51 +129,6 @@ export interface UsoOpenAI {
   tokensSalida: number;
   tokensTotal: number;
   costoUSD: number | null;
-}
-
-interface PrecioModelo {
-  input: number;
-  cachedInput: number;
-  cacheWrites: number;
-  output: number;
-}
-
-// Precios reales por token, dados por el usuario 2026-09-04 (tier "contexto corto" —
-// ver precios-openai.json). Complementa el hallazgo "sin límite de gasto"
-// (Alto, dominio Integraciones): la decisión fue solo loguear el costo, nunca bloquear
-// — este cálculo es lo que hace que ese log sea un número real en vez de solo tokens.
-const PRECIOS_OPENAI = preciosOpenAIRaw as unknown as Record<
-  string,
-  PrecioModelo
->;
-
-/**
- * costoUSD = null si el modelo configurado no está en la tabla de precios conocida —
- * nunca se inventa un precio para un modelo que no se puede verificar (mismo principio
- * de "no inventes" que rige todo lo demás en este archivo).
- */
-export function calcularCostoUSD(
-  model: string,
-  tokensEntradaTotal: number,
-  tokensCacheados: number,
-  tokensCacheEscritura: number,
-  tokensSalida: number,
-): number | null {
-  const precio = PRECIOS_OPENAI[model];
-  if (!precio) return null;
-
-  const tokensEntradaNormal = Math.max(
-    0,
-    tokensEntradaTotal - tokensCacheados - tokensCacheEscritura,
-  );
-  const costo =
-    (tokensEntradaNormal * precio.input +
-      tokensCacheados * precio.cachedInput +
-      tokensCacheEscritura * precio.cacheWrites +
-      tokensSalida * precio.output) /
-    1_000_000;
-
-  return Math.round(costo * 1_000_000) / 1_000_000; // redondeo a 6 decimales (montos son fracciones de centavo)
 }
 
 export interface ResultadoExtraccion {
@@ -1021,6 +987,16 @@ export async function extraerPedido({
   const nombreCliente = parsed.nombreCliente?.trim() || null;
   const centroDesdeLineas =
     lineas.find((l) => l.almacen?.trim())?.almacen?.trim() || null;
+  const textoOrigen =
+    serializeCuerpoMensaje(normalizeCuerpoMensaje(parsed.cuerpoMensaje)) ||
+    null;
+  // REQ-279: total en cuerpo o en textos ya extraídos de adjuntos (PDF/EML).
+  const totalSolicitud = extractTotalSolicitudFromTextos([
+    input.texto,
+    textoOrigen,
+    ...textosDesdeArchivosExtraidos(input.archivosExtraidos),
+  ]);
+
   const pedido: PedidoExtraido = {
     fechaEntrega,
     centroConsumo: resolveCentroConsumoSinConfundirConCliente(
@@ -1051,7 +1027,8 @@ export async function extraerPedido({
     origenCorreo,
     advertencia: parsed.advertencia,
     archivosNoLegibles,
-    textoOrigen: serializeCuerpoMensaje(normalizeCuerpoMensaje(parsed.cuerpoMensaje)) || null,
+    textoOrigen,
+    totalSolicitud,
   };
 
   return { pedido, uso };

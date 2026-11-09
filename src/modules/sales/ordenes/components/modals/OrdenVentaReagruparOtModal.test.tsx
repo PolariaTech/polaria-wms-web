@@ -548,7 +548,7 @@ describe("OrdenVentaReagruparOtModal — un solo «Generar» que decide la funci
     await escribirYGenerar();
 
     expect(screen.getByText("Entendiendo tu instrucción…")).toBeInTheDocument();
-    expect(screen.getByText("Este proceso puede tardar entre 2 y 10 segundos.")).toBeInTheDocument();
+    expect(screen.getByText("Este proceso puede tardar unos segundos.")).toBeInTheDocument();
     expect(document.querySelector('img[src^="data:image/svg+xml"]')).not.toBeNull();
 
     await act(async () => interpretacion.resolver(releer));
@@ -571,7 +571,7 @@ describe("OrdenVentaReagruparOtModal — un solo «Generar» que decide la funci
     await escribirYGenerar();
 
     expect(await screen.findByText("Reorganizando las órdenes de trabajo…")).toBeInTheDocument();
-    expect(screen.getByText("Este proceso puede tardar entre 5 y 30 segundos.")).toBeInTheDocument();
+    expect(screen.getByText("Este proceso puede tardar unos segundos.")).toBeInTheDocument();
     await act(async () => respuesta.resolver(respuestaPropuesta));
   });
 

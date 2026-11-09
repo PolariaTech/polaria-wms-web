@@ -5,44 +5,8 @@ import { emptyCompradorAltaFicha } from "@/modules/admin-panel/compradores/utils
 import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 import {
   useAbrirCapturaOv,
-  useAvisosValidacionOv,
   usePrefillYDiscrepanciasOv,
 } from "./campos-faltantes-ov";
-
-const avisosBase = {
-  discrepancias: [],
-  fechaEntrega: "2020-01-01",
-  fechaEntregaAtrasada: false,
-  correo: "",
-  warnFields: new Set<string>(),
-  ordenCompraHotel: "",
-  ordenesTrabajoForm: [],
-  compradorLabel: "",
-  editingId: "",
-  operadorRowsForDuplicado: [],
-  idOrdenVenta: null,
-};
-
-describe("useAvisosValidacionOv", () => {
-  it("una fecha de entrega atrasada entra al aviso de revisión", () => {
-    const { result } = renderHook(() =>
-      useAvisosValidacionOv({ ...avisosBase, fechaEntregaAtrasada: true }),
-    );
-    expect(result.current.avisosValidacion).toEqual([
-      expect.objectContaining({
-        fieldKey: "fechaEntrega",
-        db: "Hoy o posterior",
-      }),
-    ]);
-    expect(result.current.avisosCatalogoValidacion).toHaveLength(1);
-  });
-
-  it("sin discrepancias ni orden de compra no hay avisos", () => {
-    const { result } = renderHook(() => useAvisosValidacionOv(avisosBase));
-    expect(result.current.avisosValidacion).toEqual([]);
-    expect(result.current.avisoPotencialDuplicado).toBeNull();
-  });
-});
 
 describe("useAbrirCapturaOv", () => {
   it("captura desde cero entra al formulario cuando el catálogo ya está listo", async () => {

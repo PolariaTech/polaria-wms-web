@@ -12,7 +12,7 @@ import { OrdenVentaCaptureFormProgramacion } from "./OrdenVentaCaptureFormProgra
 import { resolveRfcClienteCatalogo } from "../../utils/pedido/rfc-cliente-ov";
 
 export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
-  const { ordenesTrabajoForm, hijaFormActiva, isEditing, setStep, setStartMode, setError, afterCutoff, successMessage, hasProductos, emptyCatalogMessage, startMode, origenTexto, origenArchivosNombres, vendedorNombre, idComprador, compradorLabel, compradorNombreIa, compradorSugerencias, missingFields, setPicker, codigoClienteCatalogo, denominacionComercialCatalogo, denominacionComercial, setDenominacionComercial, fechaCreacion, paginarPorOt, folioFactura, ordenCompraHotel, setOrdenCompraHotel, exigeOc, centroConsumo, setCentroConsumo, fechaEntrega, setFechaEntrega, esPorConfirmar, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, observaciones, setObservaciones, clearFieldMarks, autoFields, warnFields, direccion, setDireccion, setAvisoVerificarDireccion, avisoVerificarDireccion, contacto, setContacto, telefono, setTelefono, correo, setCorreo, lineasConIndice, subtotalVenta, ivaVenta, totalVenta, totalOvCompleta, mostrarTotalOv, puedeAgregarProducto, setReplaceLineaIndex, handleOpenReplaceProducto, handleLineaFieldChange, handleCantidadChange, handleCantidadBlur, handlePrecioChange, handlePrecioBlur, handleRemoveLinea, lineas, setLineas, aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote, registrarTemperatura, setRegistrarTemperatura, compradores, fichaComprador } = input;
+  const { ordenesTrabajoForm, hijaFormActiva, isEditing, setStep, setStartMode, setError, successMessage, hasProductos, emptyCatalogMessage, startMode, origenTexto, origenArchivosNombres, vendedorNombre, idComprador, compradorLabel, compradorNombreIa, compradorSugerencias, missingFields, setPicker, codigoClienteCatalogo, denominacionComercialCatalogo, denominacionComercial, setDenominacionComercial, fechaCreacion, paginarPorOt, folioFactura, ordenCompraHotel, setOrdenCompraHotel, exigeOc, centroConsumo, setCentroConsumo, fechaEntrega, setFechaEntrega, esPorConfirmar, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, observaciones, setObservaciones, clearFieldMarks, autoFields, warnFields, direccion, setDireccion, setAvisoVerificarDireccion, avisoVerificarDireccion, contacto, setContacto, telefono, setTelefono, correo, setCorreo, lineasConIndice, subtotalVenta, ivaVenta, totalVenta, totalOvCompleta, mostrarTotalOv, puedeAgregarProducto, setReplaceLineaIndex, handleOpenReplaceProducto, handleLineaFieldChange, handleCantidadChange, handleCantidadBlur, handlePrecioChange, handlePrecioBlur, handleRemoveLinea, lineas, setLineas, aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote, registrarTemperatura, setRegistrarTemperatura, compradores, fichaComprador } = input;
   // REQ-259: RFC en el recuadro (sin abrir Cypher).
   const rfcClienteCatalogo = resolveRfcClienteCatalogo({
     fichaRfc: fichaComprador?.rfc,
@@ -39,11 +39,8 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
               ) : (
                 <span />
               )}
-              <p className="polaria-text-caption text-polaria-w-50">
-                {afterCutoff
-                  ? "Después del corte de las 17:00 — el almacén no tendrá a quién preguntarle hasta las 02:00"
-                  : "Captura abierta"}
-              </p>
+              {/* REQ-286: no mostrar el aviso de corte aquí — no viene del correo y confundía. */}
+              <p className="polaria-text-caption text-polaria-w-50">Captura abierta</p>
             </div>
 
             {successMessage ? (
@@ -165,6 +162,8 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                       exigeOc={exigeOc}
                       centroConsumo={centroConsumo}
                       onCentroConsumo={setCentroConsumo}
+                      moneda={moneda}
+                      onBuscarMoneda={() => setPicker("moneda")}
                       onClearField={clearFieldMarks}
                       marks={{ autoFields, warnFields, missingFields }}
                     />
@@ -184,6 +183,8 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                   onTelefono={setTelefono}
                   correo={correo}
                   onCorreo={setCorreo}
+                  observaciones={observaciones}
+                  onObservaciones={setObservaciones}
                   onClearField={clearFieldMarks}
                   autoFields={autoFields}
                   warnFields={warnFields}
@@ -198,12 +199,6 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                     onVentanaDesde={setVentanaDesde}
                     ventanaHasta={ventanaHasta}
                     onVentanaHasta={setVentanaHasta}
-                    prioridad={prioridad}
-                    onPrioridad={setPrioridad}
-                    moneda={moneda}
-                    onBuscarMoneda={() => setPicker("moneda")}
-                    observaciones={observaciones}
-                    onObservaciones={setObservaciones}
                     onClearField={clearFieldMarks}
                     marks={{ autoFields, warnFields, missingFields }}
                   />

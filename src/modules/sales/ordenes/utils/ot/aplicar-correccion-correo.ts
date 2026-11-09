@@ -169,10 +169,16 @@ function conUnidad(cifra: number, base: "segundo" | "minuto"): string {
   return `${cifra} ${base}${cifra === 1 ? "" : "s"}`;
 }
 
-/** «Este proceso puede tardar entre 5 y 30 segundos.» / «…entre 1 y 3 minutos.» */
+/**
+ * Espera en segundos: «unos segundos» (REQ-283: no prometer rangos que no se cumplen).
+ * Espera en minutos: sigue el rango medido («entre 1 y 3 minutos»).
+ */
 export function describirEspera(rango: RangoEspera): string {
   const desde = formatearSegundos(rango.minSeg);
   const hasta = formatearSegundos(rango.maxSeg);
+  if (desde.base === "segundo" && hasta.base === "segundo") {
+    return "Este proceso puede tardar unos segundos.";
+  }
   const primera =
     desde.base === hasta.base ? `${desde.cifra}` : conUnidad(desde.cifra, desde.base);
   return `Este proceso puede tardar entre ${primera} y ${conUnidad(hasta.cifra, hasta.base)}.`;

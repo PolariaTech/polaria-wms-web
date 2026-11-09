@@ -183,7 +183,6 @@ export function FolioFacturaCampos({
         onChange: (event: ChangeEvent<HTMLInputElement>) =>
           onChange(ot.id, event.target.value),
         placeholder: "Opcional",
-        hint: "Opcional. Se muestra en el detalle de la orden de trabajo.",
         compact: true,
       }),
     ),

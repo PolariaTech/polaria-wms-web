@@ -187,7 +187,7 @@ describe("OrdenVentaModalShell — espera con Polo", () => {
     render(<OrdenVentaModalShell estado={estado} />);
 
     const capa = screen.getByRole("dialog", { name: "Abriendo el pedido…" });
-    expect(within(capa).getByText(/puede tardar entre 2 y 10 segundos/i)).toBeInTheDocument();
+    expect(within(capa).getByText(/puede tardar unos segundos/i)).toBeInTheDocument();
   });
 
   it("al guardar muestra «Guardando el pedido…» y, si hay mensaje de envío, ese", () => {

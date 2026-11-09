@@ -5,7 +5,7 @@ import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
 import { OrigenAdjuntosCards } from "../shared/OrigenAdjuntosCards";
 import { OrdenVentaAdjuntoPreviewModal } from "./OrdenVentaAdjuntoPreviewModal";
 
-/** REQ-266: tarjetas de adjuntos + preview dockeado a la izquierda de Cypher. */
+/** REQ-266/293: tarjetas de adjuntos + preview en el panel derecho (Cypher). */
 export function CypherOrigenAdjuntosBlock({
   adjuntos,
 }: {

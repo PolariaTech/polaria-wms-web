@@ -85,6 +85,7 @@ export function OrdenVentaCreateModal({
   const [requiereLote, setRequiereLote] = useState("");
   const [registrarTemperatura, setRegistrarTemperatura] = useState("");
   const [origenTexto, setOrigenTexto] = useState("");
+  const [totalSolicitudDetectado, setTotalSolicitudDetectado] = useState<number | null>(null);
   const [origenArchivoFiles, setOrigenArchivoFiles] = useState<File[]>([]);
   const [origenCorreoDraft, setOrigenCorreoDraft] = useState<
     OrigenCorreoRenglon[]
@@ -239,6 +240,7 @@ export function OrdenVentaCreateModal({
     turno, setTurno, horaSalida, setHoraSalida, chofer, setChofer, unidad, setUnidad,
     aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote,
     registrarTemperatura, setRegistrarTemperatura, origenTexto, setOrigenTexto,
+    totalSolicitudDetectado, setTotalSolicitudDetectado,
     origenArchivoFiles, setOrigenArchivoFiles, origenCorreoDraft, setOrigenCorreoDraft,
     ordenesTrabajoPreview, setOrdenesTrabajoPreview, formOtPage, setFormOtPage, lineas, setLineas,
     reagruparOpen, setReagruparOpen, ordenCargadaId, setOrdenCargadaId, fechaCreacion, setFechaCreacion,
@@ -296,7 +298,5 @@ export function OrdenVentaCreateModal({
   Object.assign(bolsa, useHandleSubmitOv(bolsa));
   Object.assign(bolsa, useCierreCapturaOv(bolsa));
   bolsa.showMateoLoading = open && (isReadingIa || isSaving);
-  return (
-    <OrdenVentaModalShell estado={bolsa} />
-  );
+  return <OrdenVentaModalShell estado={bolsa} />;
 }

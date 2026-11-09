@@ -35,7 +35,7 @@ const BOTON = /menú de Ventas/;
 function renderizar() {
   return render(
     <OperationalModuleShell
-      title="Correos recibidos"
+      title="Correos procesados"
       description="Todos los correos de pedidos."
       gate={{ roles: [] }}
     >
@@ -54,7 +54,7 @@ describe("OperationalModuleShell — botón del menú de Ventas (REQ-104)", () =
     renderizar();
 
     const boton = screen.getByRole("button", { name: BOTON });
-    const titulo = screen.getByRole("heading", { level: 1, name: "Correos recibidos" });
+    const titulo = screen.getByRole("heading", { level: 1, name: "Correos procesados" });
     expect(boton.parentElement).toBe(titulo.parentElement);
     expect(boton.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -72,7 +72,7 @@ describe("OperationalModuleShell — botón del menú de Ventas (REQ-104)", () =
     renderizar();
 
     expect(screen.queryByRole("button", { name: BOTON })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Correos recibidos" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Correos procesados" })).toBeInTheDocument();
   });
 
   it("para un rol que no es de cuenta el título no lleva botón", () => {
@@ -91,7 +91,7 @@ describe("OperationalModuleShell — botón del menú de Ventas (REQ-104)", () =
 
   it("con fitViewport mide el alto de la ventana y deja el título fijo", () => {
     const { container } = render(
-      <OperationalModuleShell title="Correos recibidos" gate={{ roles: [] }} fitViewport>
+      <OperationalModuleShell title="Correos procesados" gate={{ roles: [] }} fitViewport>
         <p>contenido</p>
       </OperationalModuleShell>,
     );
@@ -108,7 +108,7 @@ describe("OperationalModuleShell — botón del menú de Ventas (REQ-104)", () =
 
   it("con compactoEnPantallaBaja achica título y espacios en pantallas bajas, sin fijar el alto", () => {
     const { container } = render(
-      <OperationalModuleShell title="Correos recibidos" gate={{ roles: [] }} compactoEnPantallaBaja>
+      <OperationalModuleShell title="Correos procesados" gate={{ roles: [] }} compactoEnPantallaBaja>
         <p>contenido</p>
       </OperationalModuleShell>,
     );

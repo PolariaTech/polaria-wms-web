@@ -188,9 +188,9 @@ describe("CargaConPolo", () => {
 
   it("cada etapa muestra su propio rango medido", () => {
     const { rerender } = render(<CargaConPolo titulo="a" espera={ESPERA_INTERPRETAR} />);
-    expect(screen.getByText("Este proceso puede tardar entre 2 y 10 segundos.")).toBeTruthy();
+    expect(screen.getByText("Este proceso puede tardar unos segundos.")).toBeTruthy();
     rerender(<CargaConPolo titulo="b" espera={ESPERA_REORGANIZAR} />);
-    expect(screen.getByText("Este proceso puede tardar entre 5 y 30 segundos.")).toBeTruthy();
+    expect(screen.getByText("Este proceso puede tardar unos segundos.")).toBeTruthy();
   });
 
   it("sin detalle no deja un hueco", () => {

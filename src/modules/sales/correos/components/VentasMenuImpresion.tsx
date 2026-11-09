@@ -20,7 +20,7 @@ function enRuta(pathname: string, ruta: string): boolean {
 }
 
 /**
- * Entrada «Impresión en batch» del menú de Ventas: un desplegable con las dos formas de imprimir.
+ * Entrada «Impresión en grupo» del menú de Ventas: un desplegable con las dos formas de imprimir.
  * La detallada elige OV y OT una por una; la rápida imprime por fecha lo confirmado que nunca se
  * imprimió. En la columna las opciones quedan sangradas debajo; en la tira horizontal de
  * pantallas angostas se acomodan en la misma fila.
@@ -49,7 +49,7 @@ export function VentasMenuImpresion({ pathname }: { pathname: string }) {
         className={cn(FILA, "py-2.5", FOCO, enImpresion && !abierto ? ACTIVA : INACTIVA)}
       >
         <Printer className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
-        Impresión en batch
+        Impresión en grupo
         <ChevronDown
           className={cn(
             "ml-auto h-4 w-4 shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none",

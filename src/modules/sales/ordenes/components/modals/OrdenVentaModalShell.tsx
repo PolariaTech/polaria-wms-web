@@ -49,6 +49,14 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
         }}
         error={estado.step === "form" ? null : estado.error}
         isSubmitting={estado.isSaving}
+        // REQ-289: con OV ya confirmada solo se sale de la vista; no se cancela nada.
+        cancelLabel={
+          estado.isEditing &&
+          estado.editingEstado !== "por_confirmar" &&
+          !estado.pendingEmitId
+            ? "Salir"
+            : "Cancelar"
+        }
         submitDisabled={
           estado.step === "preview" ||
           estado.step === "pickOt" ||
