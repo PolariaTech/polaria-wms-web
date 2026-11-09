@@ -122,8 +122,9 @@ describe("mapPedidoExtraidoToForm", () => {
 
     expect(mapped.observaciones).not.toContain("Forwarded message");
     expect(mapped.observaciones).not.toContain("Daniel Galvis");
-    expect(mapped.observaciones).toMatch(/Entrega 27 DE AGOSTO DE 2026/i);
-    expect(mapped.observaciones).toMatch(/Destino:\s*Parque Xcaret/i);
+    // REQ-286: no inventar resumen Entrega/Destino desde el cuerpo del correo.
+    expect(mapped.observaciones).not.toMatch(/Entrega 27 DE AGOSTO DE 2026/i);
+    expect(mapped.observaciones).not.toMatch(/Destino:\s*Parque Xcaret/i);
   });
 
   it("la entrega del documento pisa la ficha; lo que Mateo no trae queda de ficha", () => {

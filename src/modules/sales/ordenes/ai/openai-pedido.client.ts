@@ -992,9 +992,9 @@ export async function extraerPedido({
     null;
   // REQ-279: total en cuerpo o en textos ya extraídos de adjuntos (PDF/EML).
   const totalSolicitud = extractTotalSolicitudFromTextos([
-    input.texto,
+    texto,
     textoOrigen,
-    ...textosDesdeArchivosExtraidos(input.archivosExtraidos),
+    ...textosDesdeArchivosExtraidos(archivosExtraidos),
   ]);
 
   const pedido: PedidoExtraido = {

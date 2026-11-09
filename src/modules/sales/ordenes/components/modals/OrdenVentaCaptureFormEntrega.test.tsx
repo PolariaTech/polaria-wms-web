@@ -36,7 +36,7 @@ describe("OrdenVentaCaptureFormEntrega (REQ-217/254)", () => {
     expect(programacion.compareDocumentPosition(direccion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("la dirección es un párrafo a ancho completo y el contacto, teléfono y correo van debajo", () => {
+  it("contacto, teléfono y correo van antes de la dirección a ancho completo (REQ-278)", () => {
     const { container } = render(<OrdenVentaCaptureFormEntrega {...propsBase()} />);
 
     const direccion = screen.getByLabelText(/Dirección de entrega/);
@@ -45,9 +45,9 @@ describe("OrdenVentaCaptureFormEntrega (REQ-217/254)", () => {
 
     const posicion = (id: string) =>
       Array.from(container.querySelectorAll("*")).indexOf(container.querySelector(`#${id}`) as Element);
-    expect(posicion("orden-venta-direccion")).toBeLessThan(posicion("orden-venta-contacto"));
     expect(posicion("orden-venta-contacto")).toBeLessThan(posicion("orden-venta-telefono"));
     expect(posicion("orden-venta-telefono")).toBeLessThan(posicion("orden-venta-correo"));
+    expect(posicion("orden-venta-correo")).toBeLessThan(posicion("orden-venta-direccion"));
   });
 
   it("escribir la dirección la guarda y quita su marca", async () => {
