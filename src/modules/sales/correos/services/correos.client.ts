@@ -5,15 +5,14 @@ import type {
   AdjuntoCorreo,
   CorreoContenido,
   CorreoFila,
-  ConfianzaCorreo,
   CorreosLista,
   EstadoIngresoCorreo,
   FiltrosCorreos,
   IngresoCorreo,
   ModoCorreos,
-  ResultadoFlujoCorreo,
 } from "../types/correos.types";
 import { finDelDiaColombia, inicioDelDiaColombia } from "../utils/correos-formato";
+import { leerCamposDelFlujo } from "./correos.lectura";
 
 /**
  * Cliente de REQ-104:
@@ -58,25 +57,11 @@ const ESTADOS: readonly EstadoIngresoCorreo[] = [
   "error",
 ];
 
-const RESULTADOS: readonly ResultadoFlujoCorreo[] = [
-  "recibido",
-  "ingresado",
-  "duplicado",
-  "error",
-  "no_es_pedido",
-];
-
-const CONFIANZAS: readonly ConfianzaCorreo[] = ["alta", "media", "baja"];
-
 const esObjeto = (valor: unknown): valor is Record<string, unknown> =>
   typeof valor === "object" && valor !== null && !Array.isArray(valor);
 
 const textoONulo = (valor: unknown): string | null =>
   typeof valor === "string" ? valor : null;
-
-/** Un valor que no está en la lista (el api agregó uno nuevo) se trata como si no viniera. */
-const enumONulo = <T extends string>(valor: unknown, validos: readonly T[]): T | null =>
-  validos.includes(valor as T) ? (valor as T) : null;
 
 interface ReglaError {
   cuando: (estado: number, errorApi: string) => boolean;
@@ -237,10 +222,7 @@ function leerFila(valor: unknown): CorreoFila | null {
     adjunto: textoONulo(valor.adjunto),
     nuevoPedido: typeof valor.nuevoPedido === "boolean" ? valor.nuevoPedido : null,
     motivo: textoONulo(valor.motivo),
-    resultado: enumONulo(valor.resultado, RESULTADOS),
-    confianza: enumONulo(valor.confianza, CONFIANZAS),
-    tipo: textoONulo(valor.tipo),
-    codigoOrdenVenta: textoONulo(valor.codigoOrdenVenta),
+    ...leerCamposDelFlujo(valor),
     idRegistro: textoONulo(valor.idRegistro),
     registradoEn: textoONulo(valor.registradoEn),
     actualizadoEn: textoONulo(valor.actualizadoEn),
