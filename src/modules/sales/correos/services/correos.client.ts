@@ -12,6 +12,7 @@ import type {
   ModoCorreos,
 } from "../types/correos.types";
 import { finDelDiaColombia, inicioDelDiaColombia } from "../utils/correos-formato";
+import { leerCamposDelFlujo } from "./correos.lectura";
 
 /**
  * Cliente de REQ-104:
@@ -219,11 +220,7 @@ function leerFila(valor: unknown): CorreoFila | null {
     asunto: textoONulo(valor.asunto),
     hilo: textoONulo(valor.hilo),
     adjunto: textoONulo(valor.adjunto),
-    nuevoPedido: typeof valor.nuevoPedido === "boolean" ? valor.nuevoPedido : null,
-    motivo: textoONulo(valor.motivo),
-    idRegistro: textoONulo(valor.idRegistro),
-    registradoEn: textoONulo(valor.registradoEn),
-    actualizadoEn: textoONulo(valor.actualizadoEn),
+    ...leerCamposDelFlujo(valor),
     ingreso: leerIngreso(valor.ingreso),
   };
 }

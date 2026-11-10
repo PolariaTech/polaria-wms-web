@@ -4,6 +4,13 @@ import { CheckCircle2, Loader2, RotateCw } from "lucide-react";
 import { PolariaTableCode } from "@/components/shared/table/PolariaTableCells";
 import { cn } from "@/lib/utils/cn";
 import type { CorreoFila } from "../types/correos.types";
+import {
+  estadoDelIngreso,
+  puedeIngresarAMano,
+  type AvisoIngreso,
+} from "../utils/estado-ingreso";
+
+export { puedeIngresarAMano };
 
 export const BOTON_SECUNDARIO = cn(
   "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-polaria-t-20 px-3.5",
@@ -12,17 +19,20 @@ export const BOTON_SECUNDARIO = cn(
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
 );
 
-/** Un correo se puede ingresar a mano si el flujo lo descartó o si un intento anterior falló. */
-export const puedeIngresarAMano = (fila: CorreoFila): boolean =>
-  fila.ingreso?.estado === "error" ||
-  (fila.nuevoPedido === false && !fila.ingreso);
-
-function IngresadoComo({ codigo }: { codigo: string | null }) {
+function IngresadoComo({ codigos }: { codigos: string[] }) {
+  const [primero, ...resto] = codigos;
+  const todos = codigos.join(", ");
   return (
     <span role="status" className="inline-flex items-center gap-2 text-polaria-teal">
       <CheckCircle2 className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden />
-      <span className="polaria-text-body-sm">
-        Ingresado como <PolariaTableCode>{codigo ?? "una OV"}</PolariaTableCode>
+      <span className="polaria-text-body-sm" title={resto.length > 0 ? todos : undefined}>
+        Ingresado como <PolariaTableCode>{primero ?? "una OV"}</PolariaTableCode>
+        {resto.length > 0 ? (
+          <>
+            <span aria-hidden> +{resto.length}</span>
+            <span className="sr-only">, y también {resto.join(", ")}</span>
+          </>
+        ) : null}
       </span>
     </span>
   );
@@ -37,6 +47,16 @@ function Ingresando() {
     >
       <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
       <span className="polaria-text-body-sm">Ingresando pedido…</span>
+    </span>
+  );
+}
+
+/** El flujo lo recibió hace unos minutos y todavía no termina. */
+function Procesando() {
+  return (
+    <span role="status" className="inline-flex items-center gap-2 text-polaria-w-50">
+      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+      <span className="polaria-text-body-sm">Procesando…</span>
     </span>
   );
 }
@@ -57,12 +77,14 @@ function IngresadoPorElFlujo() {
  */
 function BotonIngresar({
   fila,
+  reintentar,
   onIngresar,
 }: {
   fila: CorreoFila;
+  reintentar: boolean;
   onIngresar: (messageId: string) => void;
 }) {
-  const fallo = fila.ingreso?.estado === "error";
+  const fallo = reintentar;
   const accion = fallo ? "Reintentar el ingreso" : "Ingresar como OV";
   return (
     <button
@@ -80,6 +102,37 @@ function BotonIngresar({
   );
 }
 
+const TEXTO_AVISO: Record<AvisoIngreso, string> = {
+  duplicado: "Ya había una orden con ese número",
+  flujoFallo: "El flujo no pudo ingresarlo",
+  sinProcesar: "Sin procesar",
+  revisar: "Revisar",
+};
+
+/** Estado = texto + color: el flujo falló en rojo, el resto pide atención en ámbar. */
+const CLASES_AVISO: Record<AvisoIngreso, string> = {
+  duplicado: "border-polaria-warning-border bg-polaria-warning-bg text-polaria-warning",
+  flujoFallo: "border-polaria-danger-border bg-polaria-danger-bg text-polaria-danger",
+  sinProcesar: "border-polaria-warning-border bg-polaria-warning-bg text-polaria-warning",
+  revisar: "border-polaria-warning-border bg-polaria-warning-bg text-polaria-warning",
+};
+
+/** Lo que le pasó al correo y pide mirarlo; va en la columna «Motivo», junto al botón de ingreso. */
+export function AvisoDelFlujo({ aviso, motivo }: { aviso: AvisoIngreso; motivo?: string | null }) {
+  const texto = aviso === "revisar" && motivo ? `Revisar: ${motivo}` : TEXTO_AVISO[aviso];
+  return (
+    <span
+      title={texto}
+      className={cn(
+        "polaria-text-badge inline-flex max-w-full rounded-lg border px-2.5 py-1",
+        CLASES_AVISO[aviso],
+      )}
+    >
+      <span className="line-clamp-2 break-words">{texto}</span>
+    </span>
+  );
+}
+
 /** Lo que va en la columna «Ingreso»: el botón, el avance o el código de la OV ya creada. */
 export function AccionIngreso({
   fila,
@@ -88,13 +141,17 @@ export function AccionIngreso({
   fila: CorreoFila;
   onIngresar: (messageId: string) => void;
 }) {
-  const estado = fila.ingreso?.estado;
-  if (estado === "ingresado") {
-    return <IngresadoComo codigo={fila.ingreso?.codigoOrdenVenta ?? null} />;
+  const estado = estadoDelIngreso(fila);
+  switch (estado.tipo) {
+    case "ingresado":
+      return <IngresadoComo codigos={estado.codigos} />;
+    case "ingresando":
+      return <Ingresando />;
+    case "procesando":
+      return <Procesando />;
+    case "porElFlujo":
+      return <IngresadoPorElFlujo />;
+    case "ingresar":
+      return <BotonIngresar fila={fila} reintentar={estado.reintentar} onIngresar={onIngresar} />;
   }
-  if (estado === "procesando") return <Ingresando />;
-  if (estado === "error" || fila.nuevoPedido === false) {
-    return <BotonIngresar fila={fila} onIngresar={onIngresar} />;
-  }
-  return <IngresadoPorElFlujo />;
 }

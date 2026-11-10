@@ -6,6 +6,17 @@ export type ModoCorreos = "todos" | "descartados";
 
 export type EstadoIngresoCorreo = "procesando" | "ingresado" | "error";
 
+/** Qué hizo el flujo de n8n con el correo (columna `resultado` del data table). */
+export type ResultadoFlujoCorreo =
+  | "recibido"
+  | "ingresado"
+  | "duplicado"
+  | "error"
+  | "no_es_pedido";
+
+/** Qué tan seguro estaba el clasificador de que el correo era (o no) un pedido. */
+export type ConfianzaCorreo = "alta" | "media" | "baja";
+
 /** Estado del ingreso de un correo como OV en el WMS (tabla `correo_pedido_ingreso`). */
 export interface IngresoCorreo {
   messageId: string;
@@ -26,6 +37,12 @@ export interface CorreoFila {
   /** `false` = el flujo lo descartó; `null` = pasó el filtro y lo ingresa el flujo. */
   nuevoPedido: boolean | null;
   motivo: string | null;
+  /** REQ-275: lo que hizo el flujo; `null` en los correos anteriores a esa columna. */
+  resultado: ResultadoFlujoCorreo | null;
+  confianza: ConfianzaCorreo | null;
+  tipo: string | null;
+  /** OV en la que quedó el correo; si son varias, separadas por coma. */
+  codigoOrdenVenta: string | null;
   /** Columnas de sistema del data table de n8n (id, createdAt, updatedAt). */
   idRegistro: string | null;
   registradoEn: string | null;

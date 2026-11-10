@@ -4,7 +4,8 @@ import { POLARIA_TABLE_ROW_HEIGHT_CLASS } from "@/components/shared/table/polari
 import { cn } from "@/lib/utils/cn";
 import type { CorreoFila } from "../types/correos.types";
 import { formatearRecibido, separarAdjuntos } from "../utils/correos-formato";
-import { AccionIngreso } from "./AccionIngreso";
+import { estadoDelIngreso } from "../utils/estado-ingreso";
+import { AccionIngreso, AvisoDelFlujo } from "./AccionIngreso";
 
 const CELDA = "px-5 py-1 align-middle sm:px-6";
 const SIN_DATO = <span className="polaria-text-body-sm text-polaria-w-50">—</span>;
@@ -57,7 +58,11 @@ function BotonAsunto({
   );
 }
 
-function CeldaMotivo({ motivo }: { motivo: string | null }) {
+function CeldaMotivo({ fila }: { fila: CorreoFila }) {
+  const { motivo } = fila;
+  const estado = estadoDelIngreso(fila);
+  const aviso = estado.tipo === "ingresar" ? estado.aviso : null;
+  if (aviso) return <AvisoDelFlujo aviso={aviso} motivo={motivo} />;
   if (!motivo) return SIN_DATO;
   // El recorte va sobre el texto de adentro: un badge `inline-flex` no recorta a su hijo, y un
   // motivo largo estiraba la fila. Con dos líneas máximo la fila conserva su alto; el motivo
@@ -103,7 +108,7 @@ export function FilaCorreo({ fila, onVerDetalle, onIngresar }: FilaCorreoProps) 
         <AdjuntosResumen valor={fila.adjunto} />
       </td>
       <td className={CELDA}>
-        <CeldaMotivo motivo={fila.motivo} />
+        <CeldaMotivo fila={fila} />
       </td>
       <td className={CELDA} onClick={(evento) => evento.stopPropagation()}>
         <AccionIngreso fila={fila} onIngresar={onIngresar} />
