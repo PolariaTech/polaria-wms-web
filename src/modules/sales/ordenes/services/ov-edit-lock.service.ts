@@ -14,6 +14,8 @@ type LockRow = {
   edit_locked_nombre: string | null;
 };
 
+type LockListRow = LockRow & { id_orden_venta: string };
+
 function mapLockRow(row: LockRow | null | undefined): OvEditLockSnapshot {
   return {
     editLockedBy: row?.edit_locked_by ?? null,
@@ -22,17 +24,29 @@ function mapLockRow(row: LockRow | null | undefined): OvEditLockSnapshot {
   };
 }
 
+function asQueryResult<T>(query: unknown): Promise<{
+  data: T | null;
+  error: { message: string } | null;
+}> {
+  return query as Promise<{
+    data: T | null;
+    error: { message: string } | null;
+  }>;
+}
+
 export async function peekOvEditLock(params: {
   codigoCuenta: string;
   idOrdenVenta: string;
 }): Promise<OvEditLockSnapshot> {
   const rows = await runDomainQuery<LockRow[]>((client) =>
-    client
-      .from("orden_venta")
-      .select("edit_locked_by,edit_locked_at,edit_locked_nombre")
-      .eq("codigo_cuenta", params.codigoCuenta)
-      .eq("id_orden_venta", params.idOrdenVenta)
-      .limit(1),
+    asQueryResult(
+      client
+        .from("orden_venta")
+        .select("edit_locked_by,edit_locked_at,edit_locked_nombre")
+        .eq("codigo_cuenta", params.codigoCuenta)
+        .eq("id_orden_venta", params.idOrdenVenta)
+        .limit(1),
+    ),
   );
   return mapLockRow(rows[0]);
 }
@@ -73,11 +87,12 @@ export async function acquireOvEditLock(params: {
     if (!holderAntes) {
       q = q.is("edit_locked_by", null);
     } else {
-      // Propio o extranjero caducado: solo gana si sigue siendo ese holder.
       q = q.eq("edit_locked_by", holderAntes);
     }
 
-    return q.select("edit_locked_by,edit_locked_at,edit_locked_nombre");
+    return asQueryResult(
+      q.select("edit_locked_by,edit_locked_at,edit_locked_nombre"),
+    );
   });
 
   if (updated && updated.length > 0) {
@@ -103,13 +118,15 @@ export async function heartbeatOvEditLock(params: {
   const nowIso = new Date(params.nowMs ?? Date.now()).toISOString();
   const updated = await runDomainMutation<{ id_orden_venta: string }[] | null>(
     (client) =>
-      client
-        .from("orden_venta")
-        .update({ edit_locked_at: nowIso })
-        .eq("codigo_cuenta", params.codigoCuenta)
-        .eq("id_orden_venta", params.idOrdenVenta)
-        .eq("edit_locked_by", params.idUsuario)
-        .select("id_orden_venta"),
+      asQueryResult(
+        client
+          .from("orden_venta")
+          .update({ edit_locked_at: nowIso })
+          .eq("codigo_cuenta", params.codigoCuenta)
+          .eq("id_orden_venta", params.idOrdenVenta)
+          .eq("edit_locked_by", params.idUsuario)
+          .select("id_orden_venta"),
+      ),
   );
   return Boolean(updated && updated.length > 0);
 }
@@ -120,21 +137,21 @@ export async function releaseOvEditLock(params: {
   idUsuario: string;
 }): Promise<void> {
   await runDomainMutation((client) =>
-    client
-      .from("orden_venta")
-      .update({
-        edit_locked_by: null,
-        edit_locked_at: null,
-        edit_locked_nombre: null,
-      })
-      .eq("codigo_cuenta", params.codigoCuenta)
-      .eq("id_orden_venta", params.idOrdenVenta)
-      .eq("edit_locked_by", params.idUsuario)
-      .select("id_orden_venta"),
+    asQueryResult(
+      client
+        .from("orden_venta")
+        .update({
+          edit_locked_by: null,
+          edit_locked_at: null,
+          edit_locked_nombre: null,
+        })
+        .eq("codigo_cuenta", params.codigoCuenta)
+        .eq("id_orden_venta", params.idOrdenVenta)
+        .eq("edit_locked_by", params.idUsuario)
+        .select("id_orden_venta"),
+    ),
   );
 }
-
-type LockListRow = LockRow & { id_orden_venta: string };
 
 const LOCK_IN_CHUNK = 80;
 
@@ -150,13 +167,15 @@ export async function listOvEditLocks(params: {
   for (let i = 0; i < ids.length; i += LOCK_IN_CHUNK) {
     const chunk = ids.slice(i, i + LOCK_IN_CHUNK);
     const rows = await runDomainQuery<LockListRow[]>((client) =>
-      client
-        .from("orden_venta")
-        .select(
-          "id_orden_venta,edit_locked_by,edit_locked_at,edit_locked_nombre",
-        )
-        .eq("codigo_cuenta", params.codigoCuenta)
-        .in("id_orden_venta", chunk),
+      asQueryResult(
+        client
+          .from("orden_venta")
+          .select(
+            "id_orden_venta,edit_locked_by,edit_locked_at,edit_locked_nombre",
+          )
+          .eq("codigo_cuenta", params.codigoCuenta)
+          .in("id_orden_venta", chunk),
+      ),
     );
     for (const row of rows) {
       out[row.id_orden_venta] = mapLockRow(row);

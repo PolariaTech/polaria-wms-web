@@ -980,16 +980,18 @@ export function OperadorOrdenesVentaPageContent({
     }
   }, []);
 
+  const viewerId = useAuthStore((s) => s.session?.idUsuario) ?? null;
   const columns = useMemo(
     () =>
       buildOperadorOrdenesVentaColumns({
         inspect,
         cypherId,
         idsCorreoNoEnviado,
+        viewerId,
         setDetalleId,
         setCypherId,
       }),
-    [idsCorreoNoEnviado, inspect, cypherId],
+    [idsCorreoNoEnviado, inspect, cypherId, viewerId],
   );
 
   const companionWithCypher = Boolean(

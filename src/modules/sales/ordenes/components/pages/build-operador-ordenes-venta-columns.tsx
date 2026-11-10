@@ -6,7 +6,6 @@ import {
   PolariaTableBadge,
   PolariaTableCode,
 } from "@/components/shared/table/PolariaTableCells";
-import { useAuthStore } from "@/stores/auth.store";
 import {
   formatEstadoOrdenVenta,
   variantEstadoOrdenVenta,
@@ -35,11 +34,18 @@ export function buildOperadorOrdenesVentaColumns(params: {
   inspect: boolean;
   cypherId: string | null;
   idsCorreoNoEnviado: Set<string>;
+  viewerId?: string | null;
   setDetalleId: Dispatch<SetStateAction<string | null>>;
   setCypherId: Dispatch<SetStateAction<string | null>>;
 }) {
-  const { inspect, cypherId, idsCorreoNoEnviado, setDetalleId, setCypherId } =
-    params;
+  const {
+    inspect,
+    cypherId,
+    idsCorreoNoEnviado,
+    viewerId = null,
+    setDetalleId,
+    setCypherId,
+  } = params;
 
   return [
     {
@@ -60,7 +66,7 @@ export function buildOperadorOrdenesVentaColumns(params: {
             editLockedBy={row.editLockedBy}
             editLockedAt={row.editLockedAt}
             editLockedNombre={row.editLockedNombre}
-            viewerId={useAuthStore.getState().session?.idUsuario}
+            viewerId={viewerId}
           />
           {row.potencialDuplicado ? (
             <span
