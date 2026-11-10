@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { inflateSync } from "node:zlib";
 import type {
   OrdenVentaDetalleRow,
   OrdenVentaOperadorRow,
@@ -12,21 +11,7 @@ import {
   mapOrdenVentaToAlmacenPrintData,
   mapOrdenVentaToAlmacenPrintSheets,
 } from "./map-orden-tarea-almacen";
-
-function textoPdf(pdf: { output: (tipo: "arraybuffer") => ArrayBuffer }): string {
-  const crudo = Buffer.from(pdf.output("arraybuffer")).toString("latin1");
-  const partes: string[] = [];
-  const streams = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
-  for (const coincidencia of crudo.matchAll(streams)) {
-    const cuerpo = coincidencia[1] ?? "";
-    try {
-      partes.push(inflateSync(Buffer.from(cuerpo, "latin1")).toString("latin1"));
-    } catch {
-      partes.push(cuerpo);
-    }
-  }
-  return partes.join("\n");
-}
+import { textoPdf } from "./texto-pdf-flate";
 
 const LIST_ROW: OrdenVentaOperadorRow = {
   idOrdenVenta: "ov-1",
