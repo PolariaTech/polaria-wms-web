@@ -8,7 +8,6 @@ type Op = {
 
 const estadoSimulado = vi.hoisted(() => ({
   reservada: false,
-  reservaFalla: false,
   insertFalla: false,
   lineas: [] as Record<string, unknown>[],
   reservasLiberadas: 0,

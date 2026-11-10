@@ -191,10 +191,10 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
   }
   const correoFromOrigen =
     origen
-      .map((r) =>
-        typeof r === "object" && r && "Correo contacto" in r
+      .map((fila) =>
+        typeof fila === "object" && fila && "Correo contacto" in fila
           ? String(
-              (r as { "Correo contacto"?: unknown })["Correo contacto"] ?? "",
+              (fila as { "Correo contacto"?: unknown })["Correo contacto"] ?? "",
             ).trim()
           : "",
       )
