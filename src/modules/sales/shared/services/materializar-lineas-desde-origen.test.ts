@@ -6,7 +6,7 @@ type Op = {
   payload: Record<string, unknown> | Record<string, unknown>[] | null;
 };
 
-const bd = vi.hoisted(() => ({
+const estadoSimulado = vi.hoisted(() => ({
   reservada: false,
   reservaFalla: false,
   insertFalla: false,
@@ -33,25 +33,25 @@ function resolver(op: Op) {
     };
   }
   if (op.table === "orden_venta_linea" && op.kind === "select") {
-    return { data: bd.lineas.slice(0, 1), error: null };
+    return { data: estadoSimulado.lineas.slice(0, 1), error: null };
   }
   if (op.table === "orden_venta" && op.kind === "update") {
     const payload = op.payload as Record<string, unknown>;
     if ("lineas_materializadas_at" in payload) {
       if (payload.lineas_materializadas_at === null) {
-        bd.reservasLiberadas += 1;
-        bd.reservada = false;
+        estadoSimulado.reservasLiberadas += 1;
+        estadoSimulado.reservada = false;
         return { data: null, error: null };
       }
-      if (bd.reservada) return { data: [], error: null };
-      bd.reservada = true;
+      if (estadoSimulado.reservada) return { data: [], error: null };
+      estadoSimulado.reservada = true;
       return { data: [{ id_orden_venta: "ov-1" }], error: null };
     }
     return { data: null, error: null };
   }
   if (op.table === "orden_venta_linea" && op.kind === "insert") {
-    if (bd.insertFalla) return { data: null, error: { message: "falló" } };
-    bd.lineas.push(...(op.payload as Record<string, unknown>[]));
+    if (estadoSimulado.insertFalla) return { data: null, error: { message: "falló" } };
+    estadoSimulado.lineas.push(...(op.payload as Record<string, unknown>[]));
     return { data: null, error: null };
   }
   return { data: null, error: null };
@@ -61,30 +61,30 @@ function crearCliente() {
   return {
     from(table: string) {
       const op: Op = { table, kind: "select", payload: null };
-      const q: Record<string, unknown> = {
-        select: () => q,
+      const consulta: Record<string, unknown> = {
+        select: () => consulta,
         update: (payload: Op["payload"]) => {
           op.kind = "update";
           op.payload = payload;
-          return q;
+          return consulta;
         },
         insert: (payload: Op["payload"]) => {
           op.kind = "insert";
           op.payload = payload;
-          return q;
+          return consulta;
         },
-        eq: () => q,
-        is: () => q,
-        or: () => q,
-        limit: () => q,
-        maybeSingle: () => q,
+        eq: () => consulta,
+        is: () => consulta,
+        or: () => consulta,
+        limit: () => consulta,
+        maybeSingle: () => consulta,
         // Cede el turno para que dos llamadas simultáneas se entrelacen.
         then: (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) =>
           new Promise((r) => setTimeout(r, 0))
             .then(() => resolver(op))
             .then(ok, fail),
       };
-      return q;
+      return consulta;
     },
   };
 }
@@ -149,10 +149,10 @@ const params = {
 
 describe("materializeOrdenVentaDesdeOrigenSiVacia", () => {
   beforeEach(() => {
-    bd.reservada = false;
-    bd.insertFalla = false;
-    bd.lineas = [];
-    bd.reservasLiberadas = 0;
+    estadoSimulado.reservada = false;
+    estadoSimulado.insertFalla = false;
+    estadoSimulado.lineas = [];
+    estadoSimulado.reservasLiberadas = 0;
   });
 
   it("dos aperturas simultáneas insertan las líneas una sola vez", async () => {
@@ -161,29 +161,29 @@ describe("materializeOrdenVentaDesdeOrigenSiVacia", () => {
       materializeOrdenVentaDesdeOrigenSiVacia(params),
     ]);
 
-    expect(bd.lineas).toHaveLength(2);
+    expect(estadoSimulado.lineas).toHaveLength(2);
     expect([a.materializado, b.materializado].filter(Boolean)).toHaveLength(1);
   });
 
   it("la sesión que pierde la reserva no inserta nada", async () => {
-    bd.reservada = true;
+    estadoSimulado.reservada = true;
 
     const resultado = await materializeOrdenVentaDesdeOrigenSiVacia(params);
 
-    expect(bd.lineas).toHaveLength(0);
+    expect(estadoSimulado.lineas).toHaveLength(0);
     expect(resultado.materializado).toBe(false);
   });
 
   it("si el insert falla libera la reserva y deja reintentar", async () => {
-    bd.insertFalla = true;
+    estadoSimulado.insertFalla = true;
 
     await expect(
       materializeOrdenVentaDesdeOrigenSiVacia(params),
     ).rejects.toThrow("falló");
-    expect(bd.reservasLiberadas).toBe(1);
+    expect(estadoSimulado.reservasLiberadas).toBe(1);
 
-    bd.insertFalla = false;
+    estadoSimulado.insertFalla = false;
     await materializeOrdenVentaDesdeOrigenSiVacia(params);
-    expect(bd.lineas).toHaveLength(2);
+    expect(estadoSimulado.lineas).toHaveLength(2);
   });
 });

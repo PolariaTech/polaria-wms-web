@@ -18,14 +18,10 @@ import {
   puedeBorrarOrdenVenta,
   puedeEditarOrdenVenta,
 } from "../constants/sales-status";
-import { listCompradoresAdmin } from "@/modules/admin-panel/compradores/services/compradores.service";
 import {
   collectOrdenesCompraCliente,
   countOrdenesTrabajo,
 } from "../../ordenes/utils/display/orden-venta-tabla-meta";
-import { buildNotasLineasText } from "../../ordenes/utils/pedido/build-orden-venta-captura-observaciones";
-import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/origen/materialize-ov-desde-origen";
-import { parseOrigenCorreoJson } from "../../ordenes/utils/origen/origen-correo-ordenes-trabajo";
 import {
   isCatalogoTipoProductoMercancia,
   parseCatalogoMetadatos,
