@@ -40,13 +40,37 @@ describe("validarConfirmacionDespacho", () => {
     }
   });
 
-  it("rechaza un nombre vacío", () => {
-    expect(
-      validarConfirmacionDespacho({ ...base, despachador: "  " }).ok,
-    ).toBe(false);
-    expect(
-      validarConfirmacionDespacho({ ...base, transportista: "" }).ok,
-    ).toBe(false);
+  it("rechaza un nombre vacío con el mensaje exacto", () => {
+    expect(validarConfirmacionDespacho({ ...base, despachador: "  " })).toEqual({
+      ok: false,
+      error: "Escribe quién despachó la mercancía.",
+    });
+    expect(validarConfirmacionDespacho({ ...base, transportista: "" })).toEqual({
+      ok: false,
+      error: "Escribe quién es el transportista.",
+    });
+  });
+
+  it("acepta 120 caracteres y rechaza 121 con el mensaje exacto", () => {
+    const limite = "a".repeat(120);
+    const deMas = "a".repeat(121);
+    const aceptado = validarConfirmacionDespacho({
+      ...base,
+      despachador: limite,
+      transportista: limite,
+    });
+    expect(aceptado).toEqual({
+      ok: true,
+      value: { ...base, despachador: limite, transportista: limite },
+    });
+    expect(validarConfirmacionDespacho({ ...base, despachador: deMas })).toEqual({
+      ok: false,
+      error: "El nombre de quien despachó es demasiado largo.",
+    });
+    expect(validarConfirmacionDespacho({ ...base, transportista: deMas })).toEqual({
+      ok: false,
+      error: "El nombre del transportista es demasiado largo.",
+    });
   });
 });
 

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   preguntaConfirmacionDespacho,
+  validarConfirmacionDespacho,
   type OrdenDespachoPublico,
 } from "@/modules/sales/ordenes/despacho/despacho-publico";
 
@@ -26,9 +27,6 @@ export function DespachoPublicoLista({
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const puedeConfirmar =
-    despachador.trim().length > 0 && transportista.trim().length > 0 && !enviando;
-
   function abrir(orden: OrdenDespachoPublico) {
     setSeleccion(orden);
     setDespachador("");
@@ -42,20 +40,44 @@ export function DespachoPublicoLista({
     setSeleccion(null);
   }
 
+  function pasarAConfirmacion() {
+    if (!seleccion) return;
+    const validacion = validarConfirmacionDespacho({
+      idOrdenVenta: seleccion.idOrdenVenta,
+      codigoCuenta: seleccion.codigoCuenta,
+      despachador,
+      transportista,
+    });
+    if (!validacion.ok) {
+      setError(validacion.error);
+      return;
+    }
+    setDespachador(validacion.value.despachador);
+    setTransportista(validacion.value.transportista);
+    setError(null);
+    setConfirmando(true);
+  }
+
   async function confirmar() {
-    if (!seleccion || !puedeConfirmar) return;
+    if (!seleccion) return;
+    const validacion = validarConfirmacionDespacho({
+      idOrdenVenta: seleccion.idOrdenVenta,
+      codigoCuenta: seleccion.codigoCuenta,
+      despachador,
+      transportista,
+    });
+    if (!validacion.ok) {
+      setError(validacion.error);
+      setConfirmando(false);
+      return;
+    }
     setEnviando(true);
     setError(null);
     try {
       const respuesta = await fetch("/despacho/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          idOrdenVenta: seleccion.idOrdenVenta,
-          codigoCuenta: seleccion.codigoCuenta,
-          despachador,
-          transportista,
-        }),
+        body: JSON.stringify(validacion.value),
       });
       const cuerpo = (await respuesta.json()) as { ok?: boolean; error?: string };
       if (!respuesta.ok || !cuerpo.ok) {
@@ -138,7 +160,12 @@ export function DespachoPublicoLista({
       </div>
 
       {seleccion ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-polaria-bg/80 px-4 py-6 sm:items-center">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-polaria-bg/80 px-4 py-6 sm:items-center"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) event.preventDefault();
+          }}
+        >
           <div
             role="dialog"
             aria-modal="true"
@@ -185,9 +212,7 @@ export function DespachoPublicoLista({
               className="flex flex-col gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                if (!puedeConfirmar) return;
-                setConfirmando(true);
-                setError(null);
+                pasarAConfirmacion();
               }}
             >
               <label className="flex flex-col gap-1">
@@ -198,7 +223,6 @@ export function DespachoPublicoLista({
                   className="rounded-xl border border-polaria-t-20 bg-polaria-w-08 px-3 py-3 text-polaria-w"
                   value={despachador}
                   onChange={(event) => setDespachador(event.target.value)}
-                  required
                   autoComplete="name"
                 />
               </label>
@@ -208,7 +232,6 @@ export function DespachoPublicoLista({
                   className="rounded-xl border border-polaria-t-20 bg-polaria-w-08 px-3 py-3 text-polaria-w"
                   value={transportista}
                   onChange={(event) => setTransportista(event.target.value)}
-                  required
                   autoComplete="name"
                 />
               </label>
@@ -219,8 +242,7 @@ export function DespachoPublicoLista({
               ) : null}
               <button
                 type="submit"
-                disabled={!puedeConfirmar}
-                className="rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-on-teal hover:opacity-90 disabled:opacity-40"
+                className="rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-on-teal hover:opacity-90"
               >
                 Pasar a despachada
               </button>

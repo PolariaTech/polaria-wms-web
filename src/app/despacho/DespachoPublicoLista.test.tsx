@@ -61,17 +61,45 @@ describe("DespachoPublicoLista", () => {
     fireEvent.click(screen.getByRole("button", { name: /OV-1/ }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Krystal Cancún");
     const confirmar = screen.getByRole("button", { name: "Pasar a despachada" });
-    expect(confirmar).toBeDisabled();
+
+    fireEvent.click(confirmar);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Escribe quién despachó la mercancía.",
+    );
 
     fireEvent.change(screen.getByLabelText("Quién despachó la mercancía"), {
       target: { value: "Ana" },
     });
-    expect(confirmar).toBeDisabled();
+    fireEvent.click(confirmar);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Escribe quién es el transportista.",
+    );
+
+    fireEvent.change(screen.getByLabelText("Quién despachó la mercancía"), {
+      target: { value: "a".repeat(121) },
+    });
+    fireEvent.change(screen.getByLabelText("Transportista"), {
+      target: { value: "Luis" },
+    });
+    fireEvent.click(confirmar);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "El nombre de quien despachó es demasiado largo.",
+    );
+
+    fireEvent.change(screen.getByLabelText("Quién despachó la mercancía"), {
+      target: { value: "Ana" },
+    });
+    fireEvent.change(screen.getByLabelText("Transportista"), {
+      target: { value: "b".repeat(121) },
+    });
+    fireEvent.click(confirmar);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "El nombre del transportista es demasiado largo.",
+    );
 
     fireEvent.change(screen.getByLabelText("Transportista"), {
       target: { value: "Luis" },
     });
-    expect(confirmar).toBeEnabled();
 
     fireEvent.click(confirmar);
 
@@ -102,5 +130,22 @@ describe("DespachoPublicoLista", () => {
       );
     });
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("no cierra el modal al pulsar fuera", () => {
+    render(
+      <DespachoPublicoLista
+        alistada={alistada}
+        alistamiento={[]}
+        errorCarga={null}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /OV-1/ }));
+    const dialogo = screen.getByRole("dialog");
+    fireEvent.click(dialogo.parentElement as HTMLElement);
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByLabelText("Quién despachó la mercancía")).toBeInTheDocument();
   });
 });

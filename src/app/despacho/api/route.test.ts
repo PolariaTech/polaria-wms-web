@@ -31,6 +31,28 @@ describe("POST /despacho/api", () => {
     );
 
     expect(respuesta.status).toBe(400);
+    expect(await respuesta.json()).toEqual({
+      ok: false,
+      error: "Escribe quién es el transportista.",
+    });
+    expect(confirmar).not.toHaveBeenCalled();
+  });
+
+  it("devuelve el mismo mensaje si el nombre pasa de 120", async () => {
+    const respuesta = await POST(
+      pedido({
+        idOrdenVenta: "ov-1",
+        codigoCuenta: "023WA",
+        despachador: "a".repeat(121),
+        transportista: "Luis",
+      }),
+    );
+
+    expect(respuesta.status).toBe(400);
+    expect(await respuesta.json()).toEqual({
+      ok: false,
+      error: "El nombre de quien despachó es demasiado largo.",
+    });
     expect(confirmar).not.toHaveBeenCalled();
   });
 
