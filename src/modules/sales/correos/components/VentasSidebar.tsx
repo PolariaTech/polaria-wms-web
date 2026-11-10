@@ -49,7 +49,7 @@ const ITEMS: readonly ItemMenu[] = [
   },
   {
     href: ROUTES.dashboardVentasCorreosMateo,
-    label: "Correos recibidos",
+    label: "Correos procesados",
     icon: Inbox,
     separadorAntes: true,
   },
@@ -60,7 +60,7 @@ const ITEMS: readonly ItemMenu[] = [
   },
 ];
 
-/** Va tras la impresión en batch, por eso no está en `ITEMS` (que se recorre en orden). */
+/** Va tras la impresión en grupo, por eso no está en `ITEMS` (que se recorre en orden). */
 const ITEM_ESTADO_FOTOS: ItemMenu = {
   href: ROUTES.dashboardVentasEstadoFotos,
   label: "Estado de fotos",
@@ -148,7 +148,7 @@ export function VentasSidebar() {
           );
           return (
             <div key={item.href} className="contents">
-              {/* «Impresión en batch» es un desplegable con dos formas de imprimir; va tras las órdenes. */}
+              {/* «Impresión en grupo» es un desplegable con dos formas de imprimir; va tras las órdenes. */}
               {indice === 1 ? (
                 <>
                   <VentasMenuImpresion pathname={pathname} />

@@ -5,7 +5,7 @@ import { CorreosTable } from "@/modules/sales/correos/components/CorreosTable";
 export default function DashboardVentasCorreosMateoPage() {
   return (
     <OperationalModuleShell
-      title="Correos recibidos"
+      title="Correos procesados"
       description="Todos los correos de pedidos que registró el flujo automático."
       gate={{ roles: ROLES_NIVEL_CUENTA }}
       compactoEnPantallaBaja

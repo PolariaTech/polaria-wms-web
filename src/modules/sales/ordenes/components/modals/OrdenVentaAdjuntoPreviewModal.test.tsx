@@ -61,10 +61,9 @@ describe("OrdenVentaAdjuntoPreviewModal", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTitle("pedido.pdf")).toHaveAttribute(
-        "src",
-        "blob:mock-pdf",
-      );
+      expect(
+        document.querySelector('iframe[title="pedido.pdf"]'),
+      ).toHaveAttribute("src", "blob:mock-pdf");
     });
     expect(fetch).toHaveBeenCalledWith(
       "/api/ov-adjuntos/file?path=cuenta%2Fuuid.pdf",
@@ -87,6 +86,74 @@ describe("OrdenVentaAdjuntoPreviewModal", () => {
     );
 
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "false");
+  });
+
+  it("nombre largo no empuja Cerrar: el título trunca con title completo", () => {
+    const nombreLargo =
+      "PO_300_20973_CUNQR413_1794247743320_arCUNWA0035557_from_email.pdf";
+    render(
+      <OrdenVentaAdjuntoPreviewModal
+        open
+        adjunto={{
+          nombre: nombreLargo,
+          mime: "application/pdf",
+          path: "cuenta/oc.pdf",
+        }}
+        viewUrl="/api/ov-adjuntos/file?path=cuenta%2Foc.pdf"
+        dockWithCypher
+        onClose={vi.fn()}
+      />,
+    );
+
+    const heading = screen.getByRole("heading", { name: nombreLargo });
+    expect(heading).toHaveClass("truncate");
+    expect(heading).toHaveAttribute("title", nombreLargo);
+    expect(screen.getByRole("button", { name: "Cerrar" })).toHaveClass(
+      "shrink-0",
+    );
+  });
+
+  it("muestra controles de zoom +/− junto a Cerrar", () => {
+    render(
+      <OrdenVentaAdjuntoPreviewModal
+        open
+        adjunto={{
+          nombre: "oc.pdf",
+          mime: "application/pdf",
+          path: "cuenta/oc.pdf",
+        }}
+        viewUrl="/api/ov-adjuntos/file?path=cuenta%2Foc.pdf"
+        dockWithCypher
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Acercar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Alejar" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Restablecer zoom" }),
+    ).toHaveTextContent("100%");
+  });
+
+  it("REQ-293: con dock el panel va a la derecha (justify-end), no tapa la edición", () => {
+    render(
+      <OrdenVentaAdjuntoPreviewModal
+        open
+        adjunto={{
+          nombre: "oc.pdf",
+          mime: "application/pdf",
+          path: "cuenta/oc.pdf",
+        }}
+        viewUrl="/api/ov-adjuntos/file?path=cuenta%2Foc.pdf"
+        dockWithCypher
+        onClose={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog");
+    const shell = dialog.parentElement;
+    expect(shell?.className).toMatch(/justify-end/);
+    expect(shell?.className).not.toMatch(/justify-start/);
   });
 
   it("monta el dialog en document.body (fuera del stacking de Cypher)", () => {

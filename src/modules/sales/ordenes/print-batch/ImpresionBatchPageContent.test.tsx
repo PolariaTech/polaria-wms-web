@@ -103,7 +103,7 @@ describe("ImpresionBatchPageContent", () => {
     render(<ImpresionBatchPageContent />);
 
     expect(screen.getByRole("heading", { name: "Impresión detallada" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Impresión en batch" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Impresión en grupo" })).not.toBeInTheDocument();
   });
 
   it("lista solo las OV confirmadas o en alistamiento", async () => {

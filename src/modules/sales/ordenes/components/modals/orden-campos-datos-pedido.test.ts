@@ -7,14 +7,13 @@ import {
   ordenTrasNotasEsCorrecto,
 } from "./orden-campos-datos-pedido";
 
-describe("orden logística OV (REQ-216 / REQ-254)", () => {
-  it("tras Notas: Prioridad → Moneda → Fecha → Ventanas", () => {
+describe("orden logística OV (REQ-278)", () => {
+  it("programación: Fecha → Día → Hora desde → Hora hasta", () => {
     expect([...ORDEN_TRAS_NOTAS_GENERALES]).toEqual([
-      "Prioridad",
-      "Moneda",
       "Fecha de entrega",
-      "Ventana de entrega — desde",
-      "Ventana de entrega — hasta",
+      "Día de la semana",
+      "Hora desde",
+      "Hora hasta",
     ]);
     expect(
       ordenTrasNotasEsCorrecto(
@@ -24,16 +23,14 @@ describe("orden logística OV (REQ-216 / REQ-254)", () => {
     ).toBe(true);
   });
 
-  it("bloque Entrega empieza por Notas y sigue el orden 216 (REQ-254)", () => {
-    expect(ORDEN_BLOQUE_ENTREGA_DETALLE[0]).toBe("Notas generales");
-    expect(
-      ordenTrasNotasEsCorrecto(
-        ORDEN_BLOQUE_ENTREGA_DETALLE.slice(1),
-        ORDEN_TRAS_NOTAS_GENERALES_DETALLE,
-      ),
-    ).toBe(true);
+  it("bloque Entrega: fechas/horas, contacto, dirección y notas al final", () => {
+    expect(ORDEN_BLOQUE_ENTREGA_DETALLE.at(-1)).toBe("Notas generales");
     expect(ordenBloqueEntregaEsCorrecto(ORDEN_BLOQUE_ENTREGA_DETALLE)).toBe(
       true,
     );
+    expect(ORDEN_TRAS_NOTAS_GENERALES_DETALLE).toEqual([
+      "Fecha de entrega",
+      "Ventana de entrega",
+    ]);
   });
 });

@@ -1,28 +1,15 @@
 "use client";
 import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback } from "react";
 import type { CompradorListRow } from "@/modules/admin-panel";
 import type { CompradorAltaFicha } from "@/modules/admin-panel/compradores/utils/comprador-alta";
 import type { CampoDiscrepancia } from "./map-pedido-extraido-to-form";
-import {
-  formatCapturaFecha,
-  isAfterWarehouseCutoff,
-  parseOrdenVentaCapturaObservaciones,
-  stripSurtidoFotoQrFromNotas,
-  todayIsoDate,
-  tomorrowIsoDate,
-} from "../../utils/pedido/build-orden-venta-captura-observaciones";
+import { todayIsoDate } from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import { buildOrdenVentaPrefillFromComprador } from "../../utils/pedido/prefill-orden-venta-from-comprador";
 import { resolveDireccionDesdeUltimaConfirmada } from "../../utils/pedido/resolve-direccion-ultima-confirmada";
-import {
-  FECHA_ENTREGA_ATRASADA_WARNING,
-  FECHA_ENTREGA_DEFAULT_WARNING,
-  isFechaEntregaAtrasada,
-  isFechaEntregaIsoValida,
-  validatePedidoCabecera,
-} from "../../utils/pedido/pedido-form-validation";
-import { findDuplicadosAgainstDraft } from "../../utils/match/find-potencial-duplicado-ov";
+
+export { useAvisosValidacionOv } from "./avisos-validacion-ov";
 
 export function usePrefillYDiscrepanciasOv(estado: OrdenVentaFormEstado) {
   const { telefono, setFichaComprador, setExigeOc, exigeOc, setMoneda, moneda, setCentroConsumo, centroConsumo, setVentanaDesde, ventanaDesde, setVentanaHasta, ventanaHasta, setDireccion, direccion, setAnden, anden, setContacto, contacto, setTelefono, setCorreo, correo, setAceptaSustituciones, aceptaSustituciones, setRequiereLote, requiereLote, setRegistrarTemperatura, registrarTemperatura, setObservaciones, observaciones, fechaEntrega, setFechaEntrega, setDiscrepancias, setWarnFields, setMissingFields, setAutoFields } = estado;
@@ -181,102 +168,6 @@ export function usePrefillYDiscrepanciasOv(estado: OrdenVentaFormEstado) {
     [applyDiscrepanciaFieldValue, canReemplazarDiscrepancia],
   );
   return { applyCompradorPrefill, canReemplazarDiscrepancia, handleReemplazarDiscrepancia };
-}
-
-export function useAvisosValidacionOv(estado: OrdenVentaFormEstado) {
-  const { discrepancias, fechaEntrega, fechaEntregaAtrasada, correo, warnFields, ordenCompraHotel, ordenesTrabajoForm, compradorLabel, editingId, operadorRowsForDuplicado, idOrdenVenta } = estado;
-  const avisosValidacion = useMemo((): CampoDiscrepancia[] => {
-    const sinFecha = discrepancias.filter(
-      (item) => item.fieldKey !== "fechaEntrega",
-    );
-    const avisos: CampoDiscrepancia[] = [...sinFecha];
-    if (fechaEntregaAtrasada && isFechaEntregaIsoValida(fechaEntrega)) {
-      avisos.push({
-        campo: "Fecha de entrega",
-        fieldKey: "fechaEntrega",
-        db: "Hoy o posterior",
-        ia: `${formatCapturaFecha(fechaEntrega)} · ${FECHA_ENTREGA_ATRASADA_WARNING}`,
-      });
-    } else {
-      const fechaDefault = discrepancias.find(
-        (item) =>
-          item.fieldKey === "fechaEntrega" && item.db === "Leída del correo",
-      );
-      if (fechaDefault && warnFields.has("fechaEntrega")) {
-        avisos.push({
-          ...fechaDefault,
-          ia: isFechaEntregaIsoValida(fechaEntrega)
-            ? `${formatCapturaFecha(fechaEntrega)} · ${FECHA_ENTREGA_DEFAULT_WARNING}`
-            : fechaDefault.ia,
-        });
-      }
-    }
-
-    // REQ-151: aviso de posible duplicado (OCC / cliente+día de creación).
-    const occTokens = [
-      ordenCompraHotel,
-      ...ordenesTrabajoForm.map((h) => h.numeroPedido ?? ""),
-    ].filter(Boolean);
-    if (occTokens.length > 0 || compradorLabel.trim()) {
-      const hits = findDuplicadosAgainstDraft({
-        draft: {
-          occTokens,
-          comprador: compradorLabel,
-          // Mismo criterio que el listado (`created_at`), no fecha de entrega.
-          fecha: new Date().toISOString(),
-          idOrdenVentaExcluir: editingId || null,
-        },
-        existentes: operadorRowsForDuplicado.map((row) => ({
-          idOrdenVenta: row.idOrdenVenta,
-          codigo: row.venta,
-          occTodas: row.occTodas,
-          comprador: row.comprador,
-          fecha: row.fecha,
-          estado: row.estado,
-        })),
-      });
-      if (hits.length > 0) {
-        avisos.push({
-          campo: "Posible duplicado",
-          fieldKey: "potencialDuplicado",
-          db: "Revisar antes de confirmar",
-          ia: `Puede ser la misma OV que ${hits
-            .map((h) => h.codigo)
-            .slice(0, 4)
-            .join(", ")} (Mateo aún aprende).`,
-        });
-      }
-    }
-
-    return avisos;
-  }, [
-    compradorLabel,
-    discrepancias,
-    editingId,
-    fechaEntrega,
-    fechaEntregaAtrasada,
-    operadorRowsForDuplicado,
-    ordenCompraHotel,
-    ordenesTrabajoForm,
-    warnFields,
-  ]);
-
-  const avisoPotencialDuplicado = useMemo(
-    () =>
-      avisosValidacion.find((item) => item.fieldKey === "potencialDuplicado") ??
-      null,
-    [avisosValidacion],
-  );
-
-  /** Avisos de catálogo/fecha (sin Dup?): el diálogo de discrepancias Mateo. */
-  const avisosCatalogoValidacion = useMemo(
-    () =>
-      avisosValidacion.filter(
-        (item) => item.fieldKey !== "potencialDuplicado",
-      ),
-    [avisosValidacion],
-  );
-  return { avisosValidacion, avisoPotencialDuplicado, avisosCatalogoValidacion };
 }
 
 export function useAbrirCapturaOv(estado: OrdenVentaFormEstado) {

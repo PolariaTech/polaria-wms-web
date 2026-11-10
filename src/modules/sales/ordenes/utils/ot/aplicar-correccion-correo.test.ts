@@ -231,10 +231,11 @@ describe("aplicar la propuesta al formulario (mismo flujo que abrir una OV exter
 
 describe("describirEspera", () => {
   it.each([
-    [{ minSeg: 5, maxSeg: 30 }, "Este proceso puede tardar entre 5 y 30 segundos."],
+    [{ minSeg: 5, maxSeg: 30 }, "Este proceso puede tardar unos segundos."],
     [{ minSeg: 60, maxSeg: 180 }, "Este proceso puede tardar entre 1 y 3 minutos."],
     [{ minSeg: 40, maxSeg: 120 }, "Este proceso puede tardar entre 40 segundos y 2 minutos."],
-    [{ minSeg: 1, maxSeg: 1 }, "Este proceso puede tardar entre 1 y 1 segundo."],
+    [{ minSeg: 1, maxSeg: 1 }, "Este proceso puede tardar unos segundos."],
+    [{ minSeg: 2, maxSeg: 10 }, "Este proceso puede tardar unos segundos."],
   ])("%j → %s", (rango, texto) => {
     expect(describirEspera(rango)).toBe(texto);
   });

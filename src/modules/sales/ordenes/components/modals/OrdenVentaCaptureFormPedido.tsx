@@ -1,6 +1,7 @@
 "use client";
 
-import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
+import { PolariaFormField, PolariaFormInput } from "@/components/shared/form/PolariaFormField";
+import { JefeBodegaModalSearchField } from "@/modules/jefe-bodega/components/modals/jefe-bodega-modal-ui";
 import { fieldControlClass } from "../../utils/pedido/orden-venta-create-helpers";
 
 type Marks = {
@@ -10,9 +11,7 @@ type Marks = {
 };
 
 /**
- * Datos del pedido: orden de compra del cliente y centro de consumo. La fecha, la ventana, la
- * prioridad, la moneda y las notas pasaron a «Entrega» (REQ-216/254): ver
- * `OrdenVentaCaptureFormProgramacion`.
+ * Datos del pedido: OC, centro y moneda (REQ-278: moneda sube aquí desde Entrega).
  */
 export function OrdenVentaCaptureFormPedido(props: {
   ordenCompraHotel: string;
@@ -20,6 +19,8 @@ export function OrdenVentaCaptureFormPedido(props: {
   exigeOc: boolean;
   centroConsumo: string;
   onCentroConsumo: (value: string) => void;
+  moneda: string;
+  onBuscarMoneda: () => void;
   onClearField: (field: string) => void;
   marks: Marks;
 }) {
@@ -62,6 +63,16 @@ export function OrdenVentaCaptureFormPedido(props: {
         }
         compact
       />
+      <PolariaFormField id="orden-venta-moneda" label="Moneda" compact>
+        <JefeBodegaModalSearchField
+          id="orden-venta-moneda"
+          value={props.moneda}
+          placeholder="Selecciona una moneda"
+          ariaLabel="Moneda"
+          compact
+          onSearchClick={props.onBuscarMoneda}
+        />
+      </PolariaFormField>
     </>
   );
 }

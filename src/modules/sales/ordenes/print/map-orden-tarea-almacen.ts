@@ -34,7 +34,7 @@ import {
 } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 import { diaSemanaEntregaEs } from "../utils/pedido/dia-semana-entrega";
 
-export const PRODUCTOS_POR_HOJA_TAREA = 20; // REQ-269/246: filas altas + margen QR
+export const PRODUCTOS_POR_HOJA_TAREA = 30; // Informe OT: 20 → 30 líneas por hoja
 
 export { diaSemanaEntregaEs };
 

@@ -53,7 +53,7 @@ const DETALLE: OrdenVentaDetalleRow = {
 };
 
 describe("paginación OT almacén (REQ-269)", () => {
-  it("parte una OT en hojas de 20 productos y etiqueta 1-n/N", () => {
+  it("parte una OT en hojas de 30 productos y etiqueta 1-n/N", () => {
     const lineas = Array.from({ length: 50 }, (_, i) => ({
       id_linea_orden_venta: `l-${i + 1}`,
       id_producto: `p-${i + 1}`,
@@ -97,26 +97,23 @@ describe("paginación OT almacén (REQ-269)", () => {
       printedAt: new Date("2026-08-26T17:44:00"),
     });
 
-    expect(sheets).toHaveLength(4);
+    expect(sheets).toHaveLength(3);
     expect(sheets[0]?.ordenTrabajo).toBe("1-1/2");
-    expect(sheets[0]?.lineas).toHaveLength(20);
+    expect(sheets[0]?.lineas).toHaveLength(30);
     expect(sheets[0]?.lineaInicio).toBe(1);
     expect(sheets[1]?.ordenTrabajo).toBe("2-1/2");
     expect(sheets[1]?.lineas).toHaveLength(20);
-    expect(sheets[1]?.lineaInicio).toBe(21);
+    expect(sheets[1]?.lineaInicio).toBe(31);
     expect(sheets[1]?.idOrdenTrabajo).toBe(sheets[0]?.idOrdenTrabajo);
-    expect(sheets[2]?.ordenTrabajo).toBe("3-1/2");
-    expect(sheets[2]?.lineas).toHaveLength(10);
-    expect(sheets[2]?.lineaInicio).toBe(41);
-    expect(sheets[3]?.ordenTrabajo).toBe("2/2");
-    expect(sheets[3]?.lineas).toHaveLength(1);
-    expect(sheets[3]?.idOrdenTrabajo).not.toBe(sheets[0]?.idOrdenTrabajo);
+    expect(sheets[2]?.ordenTrabajo).toBe("2/2");
+    expect(sheets[2]?.lineas).toHaveLength(1);
+    expect(sheets[2]?.idOrdenTrabajo).not.toBe(sheets[0]?.idOrdenTrabajo);
 
-    const html = buildOrdenTareaAlmacenHtml(sheets[2]!);
-    expect(html).toContain("3-1/2");
-    expect(html).toContain(">41<");
+    const html = buildOrdenTareaAlmacenHtml(sheets[1]!);
+    expect(html).toContain("2-1/2");
+    expect(html).toContain(">31<");
 
     const multi = buildOrdenTareaAlmacenLandscapePdfMulti(sheets);
-    expect(multi.getNumberOfPages()).toBe(4);
+    expect(multi.getNumberOfPages()).toBe(3);
   });
 });

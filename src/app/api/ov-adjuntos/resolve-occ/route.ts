@@ -6,6 +6,7 @@ import {
   detectOrdenCompraFromSource,
   isGarbageOcValue,
 } from "@/modules/sales/ordenes/utils/pedido/normalize-numero-pedido";
+import { extractTotalSolicitudFromTexto } from "@/modules/sales/ordenes/utils/pedido/total-solicitud-vs-ov";
 
 export const runtime = "nodejs";
 
@@ -89,15 +90,20 @@ export async function GET(request: Request): Promise<NextResponse> {
       if (dep) byAlmacen[dep] = occ;
     }
 
+    const textoAdjunto = chunks.join("\n\n");
     const occ =
-      detectOrdenCompraFromSource(chunks.join("\n\n"), [baseName]) ||
+      detectOrdenCompraFromSource(textoAdjunto, [baseName]) ||
       occs[0] ||
       null;
+
+    // REQ-279: total declarado en el PDF/EML (misma extracción que OCC).
+    const totalSolicitud = extractTotalSolicitudFromTexto(textoAdjunto);
 
     return NextResponse.json({
       occ: occ && !isGarbageOcValue(occ) ? occ : null,
       byAlmacen,
       occs: [...new Set(occs)],
+      totalSolicitud,
     });
   } catch (err: unknown) {
     return NextResponse.json(

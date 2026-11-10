@@ -5,12 +5,11 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils/cn";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
 import { useShellOverlayStore } from "@/stores/shell-overlay.store";
-import {
-  cypherDockReserveClass,
-  cypherDockRightClass,
-} from "../../constants/cypher-layout";
+import { cypherPanelWidthClass } from "../../constants/cypher-layout";
 import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
 import { labelTipoOrigenAdjunto } from "../../utils/origen/origen-adjuntos";
+import { AdjuntoPreviewZoomControls } from "./AdjuntoPreviewZoomControls";
+import { ADJUNTO_PREVIEW_ZOOM_DEFAULT } from "./adjunto-preview-zoom";
 
 function esAdjuntoImagen(item: OrigenAdjunto): boolean {
   const mime = (item.mime ?? "").toLowerCase();
@@ -24,15 +23,15 @@ export interface OrdenVentaAdjuntoPreviewModalProps {
   adjunto: OrigenAdjunto | null;
   viewUrl: string | null;
   onClose: () => void;
-  /** Con Cypher abierto: panel a la izquierda (no tapa Cypher). */
+  /** Con Cypher abierto: preview en el panel derecho (REQ-293); la edición a la izquierda sigue usable. */
   dockWithCypher?: boolean;
 }
 
 /**
- * REQ-266: preview dockeado sin nueva pestaña.
+ * REQ-266/293: preview dockeado sin nueva pestaña.
  * Usa blob URL (no iframe directo al API) porque next.config manda
  * X-Frame-Options: DENY y el navegador muestra «conexión rechazada».
- * Con dock, Cypher sigue clicable (cambiar de ojo sin cerrar).
+ * Con dock, el formulario de edición (izquierda) sigue editable.
  */
 export function OrdenVentaAdjuntoPreviewModal({
   open,
@@ -51,8 +50,14 @@ export function OrdenVentaAdjuntoPreviewModal({
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(ADJUNTO_PREVIEW_ZOOM_DEFAULT);
 
   useBodyScrollLock(open);
+
+  useEffect(() => {
+    if (!open) return;
+    setZoom(ADJUNTO_PREVIEW_ZOOM_DEFAULT);
+  }, [open, adjunto?.nombre, adjunto?.path, adjunto?.url]);
 
   useEffect(() => {
     if (!open || !viewUrl || esImagen) {
@@ -112,31 +117,24 @@ export function OrdenVentaAdjuntoPreviewModal({
 
   if (!open || typeof document === "undefined") return null;
 
-  const dockReserve = cypherDockReserveClass(cypherWidthMode);
-  const dockRight = cypherDockRightClass(cypherWidthMode);
+  const panelWidth = cypherPanelWidthClass(cypherWidthMode);
+  const zoomStyle = {
+    transform: `scale(${zoom})`,
+    transformOrigin: "top left" as const,
+    width: `${100 / zoom}%`,
+    height: `${100 / zoom}%`,
+  };
 
   return createPortal(
     <div
       className={cn(
         "fixed inset-0 z-[100] flex overflow-hidden",
         dockWithCypher
-          ? cn(
-              "pointer-events-none items-stretch justify-start pt-[var(--polaria-shell-top,4.75rem)]",
-              dockReserve,
-            )
+          ? "pointer-events-none items-stretch justify-end pt-[var(--polaria-shell-top,4.75rem)]"
           : "items-center justify-center px-4 py-6 sm:px-6 sm:py-10",
       )}
     >
-      {dockWithCypher ? (
-        <div
-          aria-hidden
-          className={cn(
-            "absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm",
-            dockRight,
-            "top-[var(--polaria-shell-top,4.75rem)]",
-          )}
-        />
-      ) : (
+      {dockWithCypher ? null : (
         <button
           type="button"
           aria-label="Cerrar modal"
@@ -153,43 +151,55 @@ export function OrdenVentaAdjuntoPreviewModal({
         className={cn(
           "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
           dockWithCypher
-            ? "pointer-events-auto h-full w-full flex-1 rounded-none border-0 border-t border-r border-polaria-t-20 p-6 sm:p-8"
+            ? cn(
+                "pointer-events-auto h-full rounded-none border-0 border-l border-t border-polaria-t-20 p-6 sm:p-8",
+                panelWidth,
+              )
             : "polaria-card-glow w-full max-w-5xl max-h-[min(85dvh,calc(100dvh-5rem))] rounded-2xl border p-6 sm:p-8",
         )}
       >
-        <div className="mb-6 flex shrink-0 items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2 id={titleId} className="polaria-text-card-title mt-1">
+        <div className="mb-6 flex shrink-0 items-start gap-3">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <h2
+              id={titleId}
+              title={title}
+              className="polaria-text-card-title mt-1 truncate"
+            >
               {title}
             </h2>
-            <p id={descriptionId} className="polaria-text-subtitle mt-2">
+            <p id={descriptionId} className="polaria-text-subtitle mt-2 truncate">
               {tipo
                 ? `Vista previa · ${tipo}`
                 : "Vista previa del archivo adjunto."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 rounded-lg border border-polaria-w-08 px-3 py-1.5 polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
-          >
-            Cerrar
-          </button>
+          <div className="relative z-10 flex shrink-0 items-center gap-2">
+            <AdjuntoPreviewZoomControls zoom={zoom} onZoomChange={setZoom} />
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-lg border border-polaria-w-08 px-3 py-1.5 polaria-text-body-sm text-polaria-w transition hover:border-polaria-t-20 hover:text-polaria-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
 
-        <div className="polaria-scrollbar min-h-0 flex-1 overflow-hidden p-0">
+        <div className="polaria-scrollbar min-h-0 flex-1 overflow-auto bg-polaria-bg p-0">
           {!viewUrl ? (
             <div className="flex min-h-[16rem] items-center justify-center px-6 py-10 text-polaria-w-50">
               No hay archivo para mostrar.
             </div>
           ) : esImagen ? (
-            <div className="flex min-h-[16rem] items-center justify-center bg-polaria-bg p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={viewUrl}
-                alt={title}
-                className="max-h-[min(72vh,48rem)] max-w-full object-contain"
-              />
+            <div className="flex min-h-[16rem] items-start justify-center p-4">
+              <div style={zoomStyle}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={viewUrl}
+                  alt={title}
+                  className="max-h-[min(72vh,48rem)] max-w-full object-contain"
+                />
+              </div>
             </div>
           ) : loading ? (
             <div className="flex min-h-[16rem] items-center justify-center px-6 py-10 text-polaria-w-50">
@@ -203,11 +213,13 @@ export function OrdenVentaAdjuntoPreviewModal({
               {error}
             </div>
           ) : objectUrl ? (
-            <iframe
-              title={title}
-              src={objectUrl}
-              className="h-[min(72vh,48rem)] w-full border-0 bg-polaria-bg"
-            />
+            <div style={zoomStyle}>
+              <iframe
+                title={title}
+                src={objectUrl}
+                className="h-[min(72vh,48rem)] w-full border-0 bg-polaria-bg"
+              />
+            </div>
           ) : (
             <div className="flex min-h-[16rem] items-center justify-center px-6 py-10 text-polaria-w-50">
               No hay archivo para mostrar.

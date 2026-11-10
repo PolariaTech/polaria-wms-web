@@ -14,7 +14,7 @@ import { buildOrdenVentaPrefillFromComprador } from "../utils/pedido/prefill-ord
 import { rankCompradoresFromNombre, shouldAutoAssignComprador } from "../utils/match/match-comprador-from-nombre";
 
 export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
-  const { codigoCuenta, origenTexto, origenArchivoFiles, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, fechaEntrega, ordenCompraHotel, aceptaSustituciones, requiereLote, registrarTemperatura, autoFields, warnFields, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields } = input;
+  const { codigoCuenta, origenTexto, origenArchivoFiles, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, fechaEntrega, ordenCompraHotel, aceptaSustituciones, requiereLote, registrarTemperatura, autoFields, warnFields, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields, setTotalSolicitudDetectado } = input;
     if (!codigoCuenta) {
       setError("No hay cuenta activa.");
       return;
@@ -29,6 +29,7 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
 
     setIsReadingIa(true);
     setError(null);
+    setTotalSolicitudDetectado(null);
 
     try {
       const pedido = await leerPedidoConIaApi({
@@ -37,6 +38,14 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
         texto: origenTexto,
         archivos: origenArchivoFiles,
       });
+      // REQ-279: total del cuerpo o de adjuntos extraídos en el BFF.
+      setTotalSolicitudDetectado(
+        typeof pedido.totalSolicitud === "number" &&
+          Number.isFinite(pedido.totalSolicitud) &&
+          pedido.totalSolicitud > 0
+          ? pedido.totalSolicitud
+          : null,
+      );
 
       const compradorRank = rankCompradoresFromNombre(
         pedido.nombreCliente,

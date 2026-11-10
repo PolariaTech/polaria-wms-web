@@ -77,12 +77,12 @@ describe("VentasSidebar (REQ-104)", () => {
       "href",
       ROUTES.dashboardVentasOrdenes,
     );
-    // «Impresión en batch» es un desplegable: las formas de imprimir aparecen al abrirlo.
-    expect(screen.getByRole("button", { name: "Impresión en batch" })).toHaveAttribute(
+    // «Impresión en grupo» es un desplegable: las formas de imprimir aparecen al abrirlo.
+    expect(screen.getByRole("button", { name: "Impresión en grupo" })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
-    expect(screen.getByRole("link", { name: "Correos recibidos" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Correos procesados" })).toHaveAttribute(
       "href",
       ROUTES.dashboardVentasCorreosMateo,
     );
@@ -104,7 +104,7 @@ describe("VentasSidebar (REQ-104)", () => {
     [ROUTES.dashboardVentasOrdenes, "Órdenes de venta"],
     [ROUTES.dashboardVentasImpresionDetallada, "Impresión detallada"],
     [ROUTES.dashboardVentasImpresionRapida, "Impresión rápida"],
-    [ROUTES.dashboardVentasCorreosMateo, "Correos recibidos"],
+    [ROUTES.dashboardVentasCorreosMateo, "Correos procesados"],
     [ROUTES.dashboardVentasCorreosDescartados, "Correos descartados"],
   ])("en %s marca como actual solo «%s»", (ruta, nombre) => {
     estado.pathname = ruta;

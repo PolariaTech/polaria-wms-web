@@ -128,6 +128,8 @@ export interface OrdenVentaFormEstado {
   origenArchivoFiles: File[];
   origenArchivosNombres: string[];
   origenTexto: string;
+  /** REQ-279: total leído del cuerpo o adjuntos (null = aún no detectado). */
+  totalSolicitudDetectado: number | null;
   otPagerNextBlocked: boolean;
   paginarPorOt: boolean;
   pendingEmitId: string | null;
@@ -172,6 +174,7 @@ export interface OrdenVentaFormEstado {
   setOrdenCompraHotel: Dispatch<SetStateAction<string>>;
   setOrigenArchivoFiles: Dispatch<SetStateAction<File[]>>;
   setOrigenTexto: Dispatch<SetStateAction<string>>;
+  setTotalSolicitudDetectado: Dispatch<SetStateAction<number | null>>;
   setPicker: Dispatch<SetStateAction<PickerKind>>;
   setPrioridad: Dispatch<SetStateAction<string>>;
   setReagruparOpen: Dispatch<SetStateAction<boolean>>;

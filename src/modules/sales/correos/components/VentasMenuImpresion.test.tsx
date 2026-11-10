@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { ROUTES } from "@/config/routes";
 import { VentasMenuImpresion } from "./VentasMenuImpresion";
 
-const GRUPO = { name: "Impresión en batch" };
+const GRUPO = { name: "Impresión en grupo" };
 
 describe("VentasMenuImpresion", () => {
   it("arranca cerrado cuando no se está en una pantalla de impresión", () => {

@@ -5,7 +5,7 @@
 | Formulario | Editar pedido |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Denominación comercial editable + override (REQ-241); RFC (REQ-259); Día de la semana (REQ-257); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); Notas generales del pedido (layout); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225) |
+| Campos nuevos o modificados | Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/día/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Día de la semana (REQ-257); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); Notas generales del pedido (layout + sanitize REQ-286/277); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225) |
 | ¿Vive en un modal? | Sí |
 | ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | Sí |
 | Responsable (Desarrollador) | Desarrollador frontend |
@@ -19,10 +19,14 @@
 | Fecha de creación | Texto | No | — | — | No | — | — | Sin mensaje de error: no se edita ni se guarda desde este campo. | Front |
 | Denominación comercial | Texto | No | — | Override WMS del comprador, o apodo sync | No | Razón social (comprador) | REQ-241: editable; si difiere del apodo sync se guarda en denominacion_comercial_override (OV + ficha); el sync no pisa el override | Sin mensaje de error: vacío se guarda (vuelve al apodo sync). | Front / Back / BD |
 | RFC | Texto | No | — | RFC del comprador en catálogo | No | Razón social (comprador) | Al elegir comprador se muestra su RFC; solo lectura en el formulario | Sin mensaje de error: no se edita ni se guarda desde este campo. | Front |
+| Moneda | Texto | No | — | MXN | No | — | REQ-278: vive en «Datos del pedido» (ya no en Entrega) | Sin mensaje de error: vacío se trata como MXN al guardar. | Front |
 | Día de la semana | Texto | No | — | Derivado de Fecha de entrega | No | Fecha de entrega | Se recalcula al cambiar la fecha de entrega; solo lectura | Sin mensaje de error: no se edita ni se guarda desde este campo. | Front |
+| Hora desde | Texto (hora) | No | — | — | No | — | REQ-278: etiqueta «Hora desde» (antes ventana desde) | Sin mensaje de bloqueo al confirmar. | Front |
+| Hora hasta | Texto (hora) | No | — | — | No | — | REQ-278: etiqueta «Hora hasta» (antes ventana hasta) | Sin mensaje de bloqueo al confirmar. | Front |
 | Precio unitario (línea) | Número | No | ≥ 0; vacío se trata como 0 | — | No | — | REQ-235: al confirmar y en avance, precio vacío o 0 se persiste como 0; no bloquea confirmación | Sin mensaje de bloqueo por precio vacío/0 al confirmar. | Front / Back |
 | Dirección de entrega | Texto | No | — | Última OV confirmada del comprador, o dirección de ficha | No | Razón social (comprador) | Al elegir razón social se prellena; si el usuario ya escribió y onlyEmpty, no se pisa | Sin mensaje de bloqueo al confirmar: vacío se guarda; puede marcarse en missingFields si el origen no la trajo. | Front |
-| Notas generales del pedido | Texto | No | — | — | No | — | — | Sin mensaje de error: vacío se guarda. | Front |
+| Notas generales del pedido | Texto | No | — | — | No | — | REQ-286/277: no inventar Entrega/Destino ni duplicar campos parametrizados | Sin mensaje de error: vacío se guarda. | Front |
+| Aviso total solicitud vs OV | Número (solo lectura / banner) | No | > 0 para mostrar | Extracción IA o resolve-occ de adjuntos PDF/EML | No | Líneas del pedido | REQ-279: si `totalSolicitudDetectado` > 0 y difiere del total OV, muestra aviso; no bloquea confirmar | Sin mensaje de bloqueo: es informativo. | Front |
 
 ### Tabla 2 — Interacción (Nivel 2)
 
@@ -32,10 +36,18 @@
 | Fecha de creación | — | Sí (solo lectura) | — |
 | Denominación comercial | En Datos del pedido, después de código de cliente (REQ-241) | No | — |
 | RFC | En Datos del pedido, después de denominación comercial (REQ-259) | Sí (solo lectura) | — |
-| Día de la semana | En Programación / Entrega, junto a Fecha de entrega (REQ-257) | Sí (solo lectura) | — |
+| Moneda | En Datos del pedido, junto a centro de consumo / OC (REQ-278) | No | — |
+| Día de la semana | En Entrega, junto a Fecha de entrega (REQ-257) | Sí (solo lectura) | — |
+| Hora desde | En Entrega, después de Día de la semana (REQ-278) | No | — |
+| Hora hasta | En Entrega, después de Hora desde (REQ-278) | No | — |
 | Precio unitario (línea) | Dentro de la grilla de líneas del pedido | No | — |
-| Notas generales del pedido | Primer campo del bloque Entrega, después de Datos del pedido (REQ-216/254) | No | — |
-| Dirección de entrega | Dentro del bloque Entrega, después de la ventana de entrega y antes de contacto, teléfono y correo (REQ-217) | No | — |
+| Contacto del cliente | En Entrega, después de Hora hasta y antes de teléfono (REQ-278) | No | — |
+| Teléfono del contacto | En Entrega, después de contacto (REQ-278) | No | — |
+| Correo del contacto | En Entrega, después de teléfono y antes de dirección (REQ-278) | No | — |
+| Dirección de entrega | En Entrega, a ancho completo, después de correo y antes de notas (REQ-278) | No | — |
+| Notas generales del pedido | Último campo del bloque Entrega (REQ-278; deja de ir arriba) | No | — |
+| Prioridad | Oculta en UI (REQ-278); valor por defecto «Normal» se mantiene en estado | Sí (no visible) | — |
+| Aviso total solicitud vs OV | Banner encima del formulario cuando aplica (REQ-279) | Sí (solo lectura) | — |
 
 ### Tabla 3 — Pre-llenado
 
@@ -45,10 +57,14 @@
 | Fecha de creación | Sí | Información de BD | No |
 | Denominación comercial | Sí | Información de BD (override ?? apodo sync) | Sí |
 | RFC | Sí | Información de BD | No |
+| Moneda | Sí | Extracción IA / Información de BD | Sí |
 | Día de la semana | Sí | Derivado de Fecha de entrega (Front) | No |
+| Hora desde | Sí | Extracción IA / Información de BD | Sí |
+| Hora hasta | Sí | Extracción IA / Información de BD | Sí |
 | Precio unitario (línea) | Sí | Extracción IA / Información de BD | Sí |
 | Dirección de entrega | Sí | Información de BD | Sí |
 | Notas generales del pedido | Sí | Extracción IA / Información de BD | Sí |
+| Aviso total solicitud vs OV | Sí | Extracción IA / adjuntos vía resolve-occ (Front) | No |
 
 ### Tabla 4 — Prueba automatizada (Nivel 2)
 
@@ -75,16 +91,26 @@
 | Fecha de creación | textbox "Fecha de creación" | La fecha con la que se creó el pedido |
 | Denominación comercial | textbox "Denominación comercial" | Luis (override WMS; vacío vuelve al apodo sync) |
 | RFC | textbox "RFC" | RFC del comprador (solo lectura) |
+| Moneda | combobox / textbox Moneda en Datos del pedido | MXN |
 | Día de la semana | textbox "Día de la semana" | Día derivado de la fecha de entrega (solo lectura) |
+| Hora desde | textbox / time "Hora desde" | 06:00 |
+| Hora hasta | textbox / time "Hora hasta" | 08:00 |
 | Precio unitario (línea) | spinbutton / textbox de precio en línea | vacío o 0 al confirmar |
+| Contacto del cliente | textbox "Contacto del cliente" | Ana Pérez |
 | Dirección de entrega | textbox / textarea de dirección de entrega | Av. Prueba 100 |
 | Notas generales del pedido | textbox / textarea de notas generales | Entregar en andén 2 |
 
 ### Notas y justificaciones
 
-Esta versión del schema documenta Denominación comercial editable con override (REQ-241), Folio de factura, Fecha de creación, RFC (REQ-259), Día de la semana (REQ-257), precio vacío/0 al confirmar (REQ-235) y los cambios de layout/prefill del lote En Revisión OV (REQ-215/216/217/220/224/232/252/254). Denominación: si el valor difiere del apodo sync se persiste en `denominacion_comercial_override` (OV + ficha comprador); el sync no pisa el override. Contrato Front↔Back cubierto por `map-denominacion-detalle.test.ts` y `orden-venta-capture-fields.test.ts`. Las reglas de validación de Dirección y Notas no cambian respecto al formulario ya existente; solo se reubicaron en el layout y Dirección gana prefill desde la última OV confirmada del comprador (REQ-252). Confirmar no exige dirección no vacía (no hay `setError` ni return en `handleSubmit` por ese campo); la obligatoriedad visual vía `missingFields` es orientativa desde el origen IA.
+Esta versión del schema documenta el lote UI OV/correo Cypher (REQ-276…294) sobre el schema previo (REQ-241/252/254/257/259/235). Contrato Front↔Back de denominación cubierto por `map-denominacion-detalle.test.ts` y `orden-venta-capture-fields.test.ts`. Layout Entrega y orden de campos: `orden-campos-datos-pedido.ts`, `OrdenVentaCaptureFormEntrega.tsx`, `OrdenVentaCaptureFormPedido.tsx`, `OrdenVentaCaptureFormProgramacion.tsx`.
 
-Orden de los campos (REQ-216/254/257/259): Datos del pedido lleva cliente, código, denominación comercial, RFC (solo lectura), fecha de creación y folio (solo al editar), orden de compra y centro de consumo. Entrega / Programación lleva, en este orden, notas generales, prioridad, moneda, fecha de entrega, día de la semana (derivado, solo lectura), ventana desde y hasta, dirección de entrega (a ancho completo) y debajo contacto, teléfono y correo. Las notas dejaron de ir antes de Entrega: la versión 1.2 del schema las ubicaba ahí y no coincidía con el código del lote En Revisión OV (REQ-254 las bajó a Entrega).
+Orden de los campos (REQ-278): Datos del pedido lleva cliente, código, denominación comercial, RFC (solo lectura), fecha de creación y folio (solo al editar), orden de compra, centro de consumo y **moneda**. Entrega lleva, en este orden: fecha de entrega, día de la semana (derivado, solo lectura), Hora desde, Hora hasta, contacto, teléfono, correo, dirección de entrega (a ancho completo) y **notas generales al final**. Prioridad queda oculta (estado interno «Normal»). La versión 1.5 ubicaba notas/prioridad/moneda arriba en Entrega y dirección antes de contacto; ya no coincide con el código.
+
+REQ-279: el aviso de total de solicitud vs total OV es informativo (`avisos-validacion-ov.ts`). El total puede venir del cuerpo/adjuntos en extracción IA o, al reabrir, de `useLeerTotalDesdeAdjuntos` → `GET /api/ov-adjuntos/resolve-occ?path=…` (`totalSolicitud`). No bloquea confirmar ni exige capa Back/BD nueva en este formulario.
+
+REQ-286/277: `sanitizeNotasGeneralesPedido` evita inventar «Entrega … / Destino:» y quita líneas que solo duplican campos parametrizados.
+
+Confirmar no exige dirección no vacía; la obligatoriedad visual vía `missingFields` es orientativa desde el origen IA.
 
 Fecha de creación solo aparece al editar un pedido. El input es de solo lectura: muestra formatDateTime de created_at, y si no hay, de fecha_pedido. No se envía al guardar.
 
@@ -106,7 +132,7 @@ En edición de un pedido que ya no está por confirmar, el botón de guardar dic
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.5 |
-| Fecha de aprobación | 06/11/2026 |
+| Versión del schema | v1.6 |
+| Fecha de aprobación | 09/11/2026 |
 | Aprobado por | Desarrollador frontend |
 | Próxima revisión | Cuando el formulario cambie de campos o de reglas |

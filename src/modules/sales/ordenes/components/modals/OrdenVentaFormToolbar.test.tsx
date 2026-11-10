@@ -62,12 +62,15 @@ describe("OrdenVentaFormStep — franja superior (REQ-232)", () => {
     expect(screen.queryByRole("button", { name: /Eliminar/ })).not.toBeInTheDocument();
   });
 
-  it("avisa que no hay catálogo y el horario de captura", () => {
+  it("avisa que no hay catálogo; REQ-286: sin mensaje de corte de almacén", () => {
     const { estado } = estadoToolbar({ afterCutoff: true });
     render(<OrdenVentaFormStep {...estado} />);
 
     expect(screen.getByText("No hay catálogo")).toBeInTheDocument();
-    expect(screen.getByText(/Después del corte de las 17:00/)).toBeInTheDocument();
+    expect(screen.getByText("Captura abierta")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Después del corte de las 17:00/),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -122,27 +125,27 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
     return encabezado.closest("section") as HTMLElement;
   };
 
-  it("«Datos del pedido» queda con el cliente, la orden de compra y el centro de consumo", () => {
+  it("«Datos del pedido» incluye OC, centro y moneda (REQ-278)", () => {
     render(<OrdenVentaFormStep {...estadoCompleto().estado} />);
 
     const datos = within(seccion("Datos del pedido"));
     expect(datos.getByLabelText(/Orden de compra del cliente/)).toBeInTheDocument();
     expect(datos.getByLabelText(/Centro de consumo/)).toBeInTheDocument();
-    for (const etiqueta of [/Notas generales/, /Prioridad/, /Fecha de entrega/, /Ventana de entrega — desde/, /Dirección de entrega/]) {
+    expect(datos.getByLabelText(/^Moneda$/)).toBeInTheDocument();
+    for (const etiqueta of [/Notas generales/, /Prioridad/, /Fecha de entrega/, /Hora desde/, /Dirección de entrega/]) {
       expect(datos.queryByLabelText(etiqueta)).not.toBeInTheDocument();
     }
   });
 
-  it("«Entrega» recibe notas, prioridad, moneda, fecha, ventana y la dirección a todo el ancho", () => {
+  it("«Entrega» tiene fecha/horas, contacto, dirección y notas; sin prioridad ni moneda (REQ-278)", () => {
     render(<OrdenVentaFormStep {...estadoCompleto().estado} />);
 
     const entrega = within(seccion("Entrega"));
     for (const etiqueta of [
       /Notas generales/,
-      /Prioridad/,
       /Fecha de entrega/,
-      /Ventana de entrega — desde/,
-      /Ventana de entrega — hasta/,
+      /Hora desde/,
+      /Hora hasta/,
       /Dirección de entrega/,
       /Contacto del cliente/,
       /Teléfono del contacto/,
@@ -150,6 +153,9 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
     ]) {
       expect(entrega.getByLabelText(etiqueta), String(etiqueta)).toBeInTheDocument();
     }
+    expect(entrega.queryByLabelText(/Prioridad/)).not.toBeInTheDocument();
+    expect(entrega.queryByLabelText(/^Moneda$/)).not.toBeInTheDocument();
+    expect(entrega.queryByLabelText(/Ventana de entrega/)).not.toBeInTheDocument();
   });
 
   it("«Productos» muestra el conteo en su pie", () => {
@@ -216,7 +222,9 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
 
       const folio = screen.getByLabelText("Folio de factura");
       expect(folio).toHaveAttribute("placeholder", "Opcional");
-      expect(screen.getByText(/Opcional\. Se muestra en el detalle de la orden de trabajo\./)).toBeInTheDocument();
+      expect(
+        screen.queryByText(/Opcional\. Se muestra en el detalle de la orden de trabajo\./),
+      ).not.toBeInTheDocument();
       expect(folio).not.toBeRequired();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 

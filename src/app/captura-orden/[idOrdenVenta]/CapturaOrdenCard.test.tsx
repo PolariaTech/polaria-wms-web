@@ -130,7 +130,7 @@ describe("CapturaOrdenCard — estado de la foto", () => {
     const estado = screen.getByRole("status");
     expect(estado).toHaveTextContent("Foto recibida");
     expect(estado).toHaveTextContent(CAPTURA_BUSY_PHRASES[0]);
-    expect(estado).toHaveTextContent("Este proceso puede tardar entre 5 y 30 segundos.");
+    expect(estado).toHaveTextContent("Este proceso puede tardar unos segundos.");
     expect(estado).toHaveTextContent(/ya puedes tomar otra foto o escanear la siguiente hoja/i);
     expect(screen.queryByText("Mateo IA")).not.toBeInTheDocument();
   });
