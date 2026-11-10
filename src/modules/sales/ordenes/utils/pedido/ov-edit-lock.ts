@@ -18,6 +18,22 @@ export type OvEditLockSnapshot = {
   editLockedNombre: string | null;
 };
 
+/** Fragmento SELECT + mapeo UI del soft-lock (REQ-180). */
+export const ORDEN_VENTA_EDIT_LOCK_SELECT =
+  "edit_locked_by,edit_locked_at,edit_locked_nombre";
+
+export function mapOvEditLockFields(row: {
+  edit_locked_by?: string | null;
+  edit_locked_at?: string | null;
+  edit_locked_nombre?: string | null;
+}): OvEditLockSnapshot {
+  return {
+    editLockedBy: row.edit_locked_by ?? null,
+    editLockedAt: row.edit_locked_at ?? null,
+    editLockedNombre: row.edit_locked_nombre ?? null,
+  };
+}
+
 export type OvEditLockMode = "edit" | "soloLectura";
 
 export type OvEditLockDecision = {

@@ -76,9 +76,6 @@ type OrdenVentaOperadorListRow = OrdenVentaRow & {
   orden_compra_hotel?: string | null;
   origen_correo?: unknown;
   fecha_entrega?: string | null;
-  edit_locked_by?: string | null;
-  edit_locked_at?: string | null;
-  edit_locked_nombre?: string | null;
 };
 
 /** Más reciente primero (fecha de creación); id como desempate estable. */
@@ -712,11 +709,8 @@ function mapOrdenVentaOperadorRow(
     minutosEnEstado: sla.minutosEnEstado,
     slaMinutos: slaConfig.slaMinutos,
     alertaMinutos: slaConfig.alertaMinutos,
-    potencialDuplicado: false,
-    potencialDuplicadoDe: [],
-    editLockedBy: row.edit_locked_by ?? null,
-    editLockedAt: row.edit_locked_at ?? null,
-    editLockedNombre: row.edit_locked_nombre ?? null,
+    potencialDuplicado: false, potencialDuplicadoDe: [],
+    editLockedBy: row.edit_locked_by ?? null, editLockedAt: row.edit_locked_at ?? null, editLockedNombre: row.edit_locked_nombre ?? null,
   };
 }
 
@@ -1848,43 +1842,22 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
 
   const headerLineasCount = lineasExistentes.length;
   const needsLines = headerLineasCount === 0;
-  const sinSello = !leerCabeceraUsuarioSello(origen); // REQ-281
-  const needsHeader =
-    !header.id_comprador?.trim() ||
-    (sinSello &&
-      (!header.orden_compra_hotel?.trim() ||
-        !header.centro_consumo?.trim() ||
-        !header.contacto_entrega?.trim() ||
-        !header.fecha_entrega?.trim()));
-  if (!needsLines && !needsHeader) {
-    return { materializado: false, lineas: headerLineasCount };
-  }
+  const sinSello = !leerCabeceraUsuarioSello(origen);
+  const needsHeader = !header.id_comprador?.trim() || (sinSello && (!header.orden_compra_hotel?.trim() || !header.centro_consumo?.trim() || !header.contacto_entrega?.trim() || !header.fecha_entrega?.trim()));
+  if (!needsLines && !needsHeader) return { materializado: false, lineas: headerLineasCount };
   const [productos, compradores] = await Promise.all([
     listProductosVentaCatalogo({ codigoCuenta }),
     listCompradoresAdmin({ codigoCuenta, limit: 5000 }),
   ]);
   const plan = buildMaterializeOvDesdeOrigenPlan({
-    origenCorreo: origen,
-    productos,
-    compradores,
-    origenTexto: header.origen_texto,
+    origenCorreo: origen, productos, compradores, origenTexto: header.origen_texto,
   });
   const patch: Record<string, unknown> = {};
-  if (!header.id_comprador?.trim() && plan.idComprador) {
-    patch.id_comprador = plan.idComprador;
-  }
-  if (sinSello && !header.orden_compra_hotel?.trim() && plan.ordenCompraHotel) {
-    patch.orden_compra_hotel = plan.ordenCompraHotel;
-  }
-  if (sinSello && !header.centro_consumo?.trim() && plan.centroConsumo) {
-    patch.centro_consumo = plan.centroConsumo;
-  }
-  if (sinSello && !header.contacto_entrega?.trim() && plan.contactoEntrega) {
-    patch.contacto_entrega = plan.contactoEntrega;
-  }
-  if (sinSello && !header.fecha_entrega?.trim() && plan.fechaEntrega) {
-    patch.fecha_entrega = plan.fechaEntrega;
-  }
+  if (!header.id_comprador?.trim() && plan.idComprador) patch.id_comprador = plan.idComprador;
+  if (sinSello && !header.orden_compra_hotel?.trim() && plan.ordenCompraHotel) patch.orden_compra_hotel = plan.ordenCompraHotel;
+  if (sinSello && !header.centro_consumo?.trim() && plan.centroConsumo) patch.centro_consumo = plan.centroConsumo;
+  if (sinSello && !header.contacto_entrega?.trim() && plan.contactoEntrega) patch.contacto_entrega = plan.contactoEntrega;
+  if (sinSello && !header.fecha_entrega?.trim() && plan.fechaEntrega) patch.fecha_entrega = plan.fechaEntrega;
   const correoFromOrigen =
     origen
       .map((r) =>

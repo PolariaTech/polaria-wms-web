@@ -1,16 +1,8 @@
 "use client";
 
-import { Printer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
-import {
-  PolariaTableBadge,
-  PolariaTableCode,
-} from "@/components/shared/table/PolariaTableCells";
-import { BotonDetalleOrden } from "./BotonDetalleOrden";
-import { textoFechaEntregaListado } from "./texto-fecha-entrega-listado";
-import { renderClienteListadoCell } from "./cliente-listado-cell";
 import {
   cypherMatchesCreateDraft,
   OV_LISTADO_DATATABLE_CHROME_CLASS,
@@ -20,6 +12,7 @@ import {
   shouldClearCypherOnCreateClose,
 } from "./ov-create-draft-session";
 import { OvEstadoFiltroBar } from "./OvEstadoFiltroBar";
+import { buildOperadorOrdenesVentaColumns } from "./build-operador-ordenes-venta-columns";
 import { TABLA_COMPACTA_PANTALLA_BAJA } from "@/components/shared/table/tabla-compacta";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
@@ -33,14 +26,9 @@ import {
 import {
   ESTADO_ORDEN_VENTA_LABELS,
   ESTADOS_ORDEN_VENTA,
-  formatEstadoOrdenVenta,
-  variantEstadoOrdenVenta,
 } from "../../../shared/constants/sales-status";
 import { useOrdenesVentaSubscription } from "../../../shared/hooks/useOrdenesVentaSubscription";
-import {
-  ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS,
-  ordenVentaTableColumnClass,
-} from "../../constants/ordenes-venta-table-layout";
+import { ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS } from "../../constants/ordenes-venta-table-layout";
 import {
   buildOrdenTareaAlmacenLandscapePdfBlob,
   printOrdenTareaAlmacenLandscape,
@@ -82,8 +70,6 @@ import type {
   EstadoOrdenVenta,
   OrdenVentaOperadorRow,
 } from "../../../shared/types/sales.types";
-import { OvAlertaDot } from "../shared/OvAlertaDot";
-import { OvEditPresenceBadge } from "../shared/OvEditPresenceBadge";
 import { useOvEditLockSession } from "../../hooks/use-ov-edit-lock-session";
 import {
   mergeOvEditPresence,
@@ -153,14 +139,6 @@ const FEEDBACK_VERSION_NUEVA: OvFeedback = {
   retry: null,
   recargar: true,
 };
-
-function renderEstadoBadge(estado: string) {
-  return (
-    <PolariaTableBadge variant={variantEstadoOrdenVenta(estado)}>
-      {formatEstadoOrdenVenta(estado)}
-    </PolariaTableBadge>
-  );
-}
 
 export function OperadorOrdenesVentaPageContent({
   codigoCuenta: codigoCuentaProp,
@@ -1003,151 +981,14 @@ export function OperadorOrdenesVentaPageContent({
   }, []);
 
   const columns = useMemo(
-    () => [
-      {
-        id: "venta",
-        header: "OV",
-        headerClassName: ordenVentaTableColumnClass("venta", "header"),
-        cellClassName: ordenVentaTableColumnClass("venta"),
-        cell: (row: OrdenVentaOperadorRow) => (
-          <span className="inline-flex items-center gap-2">
-            <OvAlertaDot
-              alertaStatus={row.alertaStatus}
-              minutosEnEstado={row.minutosEnEstado}
-              slaMinutos={row.slaMinutos}
-              alertaMinutos={row.alertaMinutos}
-            />
-            <PolariaTableCode>{row.venta}</PolariaTableCode>
-            <OvEditPresenceBadge
-              editLockedBy={row.editLockedBy}
-              editLockedAt={row.editLockedAt}
-              editLockedNombre={row.editLockedNombre}
-              viewerId={useAuthStore.getState().session?.idUsuario}
-            />
-            {row.potencialDuplicado ? (
-              <span
-                className="shrink-0 rounded-md border border-polaria-warning-border bg-polaria-warning-bg px-1.5 py-0.5 polaria-text-caption font-semibold text-polaria-warning"
-                title={
-                  row.potencialDuplicadoDe && row.potencialDuplicadoDe.length > 0
-                    ? `Posible duplicado de ${row.potencialDuplicadoDe.join(", ")}`
-                    : "Posible OV duplicada (Mateo aún aprende)"
-                }
-              >
-                Dup?
-              </span>
-            ) : null}
-          </span>
-        ),
-      },
-      {
-        id: "occ",
-        header: "Orden de compra",
-        headerClassName: ordenVentaTableColumnClass("occ", "header"),
-        cellClassName: ordenVentaTableColumnClass("occ"),
-        cell: (row: OrdenVentaOperadorRow) => {
-          const title =
-            row.occTodas.length > 0 ? row.occTodas.join(", ") : row.occ;
-          const tieneMas = row.occTodas.length > 1;
-          return (
-            <span
-              className="inline-flex max-w-[10rem] items-center gap-1"
-              title={title}
-            >
-              <span className="min-w-0 truncate">{row.occ}</span>
-              {tieneMas ? (
-                <span
-                  className="shrink-0 font-medium text-polaria-teal"
-                  aria-label={`${row.occTodas.length - 1} OCC más`}
-                >
-                  +
-                </span>
-              ) : null}
-            </span>
-          );
-        },
-      },
-      {
-        id: "comprador",
-        header: "Cliente",
-        headerClassName: ordenVentaTableColumnClass("comprador", "header"),
-        cellClassName: ordenVentaTableColumnClass("comprador"),
-        cell: (row: OrdenVentaOperadorRow) => renderClienteListadoCell(row),
-      },
-      {
-        id: "estado",
-        header: "Estado",
-        headerClassName: ordenVentaTableColumnClass("estado", "header"),
-        cellClassName: ordenVentaTableColumnClass("estado"),
-        cell: (row: OrdenVentaOperadorRow) => renderEstadoBadge(row.estado),
-      },
-      {
-        id: "fecha",
-        header: "Fecha de entrega",
-        headerClassName: ordenVentaTableColumnClass("fecha", "header"),
-        cellClassName: ordenVentaTableColumnClass("fecha"),
-        cell: (row: OrdenVentaOperadorRow) => textoFechaEntregaListado(row),
-      },
-      {
-        id: "ot",
-        header: "Tareas",
-        headerClassName: ordenVentaTableColumnClass("ot", "header"),
-        cellClassName: ordenVentaTableColumnClass("ot"),
-        cell: (row: OrdenVentaOperadorRow) => String(row.ordenesTrabajo),
-      },
-      ...(inspect
-        ? []
-        : [
-            {
-              id: "acciones",
-              header: "Acciones",
-              headerClassName: ordenVentaTableColumnClass("acciones", "header"),
-              cellClassName: ordenVentaTableColumnClass("acciones"),
-              cell: (row: OrdenVentaOperadorRow) => {
-                const open = cypherId === row.idOrdenVenta;
-                return (
-                  <span
-                    className="inline-flex items-center gap-1.5"
-                    onClick={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => event.stopPropagation()}
-                  >
-                    <BotonDetalleOrden
-                      abierto={open}
-                      venta={row.venta}
-                      onAlternar={() => {
-                        if (row.estado === "cancelada") {
-                          // REQ-255: Cypher solo lectura; abrir detalle, no edición.
-                          setDetalleId(row.idOrdenVenta);
-                          setCypherId((prev) =>
-                            prev === row.idOrdenVenta
-                              ? null
-                              : row.idOrdenVenta,
-                          );
-                          return;
-                        }
-                        setCypherId((prev) =>
-                          prev === row.idOrdenVenta ? null : row.idOrdenVenta,
-                        );
-                      }}
-                    />
-                    {idsCorreoNoEnviado.has(row.idOrdenVenta) ? (
-                      <span
-                        title="Esta orden no se imprimió"
-                        aria-label={`La orden ${row.venta} no se imprimió`}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-polaria-danger bg-transparent text-polaria-danger"
-                      >
-                        <Printer
-                          className="h-4 w-4"
-                          strokeWidth={2.25}
-                          aria-hidden
-                        />
-                      </span>
-                    ) : null}
-                  </span>
-                );
-              },
-            },
-          ]),
-    ],
+    () =>
+      buildOperadorOrdenesVentaColumns({
+        inspect,
+        cypherId,
+        idsCorreoNoEnviado,
+        setDetalleId,
+        setCypherId,
+      }),
     [idsCorreoNoEnviado, inspect, cypherId],
   );
 
