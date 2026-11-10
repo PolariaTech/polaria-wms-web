@@ -9,7 +9,9 @@ import { LIMITE_INSTRUCCION_REAGRUPACION } from "./reagrupacion-modal-estado";
 const TEXTO = "Divide la orden de venta por orden de compra.";
 
 function instruccion(id: string) {
-  const encontrada = INSTRUCCIONES_FRECUENTES_REAGRUPACION.find((i) => i.id === id);
+  const encontrada = INSTRUCCIONES_FRECUENTES_REAGRUPACION.find(
+    (frecuente) => frecuente.id === id,
+  );
   if (!encontrada) throw new Error(`Falta ${id}`);
   return encontrada;
 }
@@ -86,12 +88,14 @@ describe("INSTRUCCIONES_FRECUENTES_REAGRUPACION", () => {
   });
 
   it("ids y etiquetas únicos, y todas caben en el límite", () => {
-    const ids = INSTRUCCIONES_FRECUENTES_REAGRUPACION.map((i) => i.id);
-    const etiquetas = INSTRUCCIONES_FRECUENTES_REAGRUPACION.map((i) => i.etiqueta);
+    const ids = INSTRUCCIONES_FRECUENTES_REAGRUPACION.map((frecuente) => frecuente.id);
+    const etiquetas = INSTRUCCIONES_FRECUENTES_REAGRUPACION.map(
+      (frecuente) => frecuente.etiqueta,
+    );
     expect(new Set(ids).size).toBe(ids.length);
     expect(new Set(etiquetas).size).toBe(etiquetas.length);
-    for (const i of INSTRUCCIONES_FRECUENTES_REAGRUPACION) {
-      expect(i.texto.length).toBeLessThan(LIMITE_INSTRUCCION_REAGRUPACION);
+    for (const frecuente of INSTRUCCIONES_FRECUENTES_REAGRUPACION) {
+      expect(frecuente.texto.length).toBeLessThan(LIMITE_INSTRUCCION_REAGRUPACION);
     }
   });
 });
