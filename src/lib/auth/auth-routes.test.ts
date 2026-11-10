@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isCapturaOrdenPath, isProtectedPath } from "@/lib/auth/auth-routes";
+import {
+  isCapturaOrdenPath,
+  isDespachoPublicoPath,
+  isProtectedPath,
+} from "@/lib/auth/auth-routes";
 
 describe("auth-routes", () => {
   it("detecta rutas protegidas del shell", () => {
@@ -8,9 +12,12 @@ describe("auth-routes", () => {
     expect(isProtectedPath("/dashboard")).toBe(true);
     expect(isProtectedPath("/platform")).toBe(true);
     expect(isProtectedPath("/perfil")).toBe(true);
+    expect(isProtectedPath("/imprimir-despacho")).toBe(true);
     expect(isProtectedPath("/login")).toBe(false);
     expect(isProtectedPath("/auth/sso")).toBe(false);
     expect(isProtectedPath("/captura-orden/abc")).toBe(false);
+    expect(isProtectedPath("/despacho")).toBe(false);
+    expect(isProtectedPath("/despacho/api")).toBe(false);
     expect(isProtectedPath("/")).toBe(false);
   });
 
@@ -18,5 +25,11 @@ describe("auth-routes", () => {
     expect(isCapturaOrdenPath("/captura-orden")).toBe(true);
     expect(isCapturaOrdenPath("/captura-orden/ov-1")).toBe(true);
     expect(isCapturaOrdenPath("/dashboard")).toBe(false);
+  });
+
+  it("detecta el despacho público", () => {
+    expect(isDespachoPublicoPath("/despacho")).toBe(true);
+    expect(isDespachoPublicoPath("/despacho/api")).toBe(true);
+    expect(isDespachoPublicoPath("/dashboard")).toBe(false);
   });
 });
