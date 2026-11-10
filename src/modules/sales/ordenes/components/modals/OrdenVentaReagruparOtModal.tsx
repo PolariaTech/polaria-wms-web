@@ -2,7 +2,6 @@
 
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useId, useReducer, useRef, useState } from "react";
-import { POLARIA_FORM_INPUT_CLASS } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -19,10 +18,13 @@ import {
   type EstadoCorreccion,
 } from "./reagrupacion-modal-ui";
 import { ReagrupacionDivisionPlan } from "./ReagrupacionDivisionPlan";
+import { ReagruparOtCampoInstruccion } from "./ReagruparOtCampoInstruccion";
+import {
+  tieneHuecosSinCompletar,
+  type GrupoInstruccion,
+} from "../../utils/ot/instrucciones-frecuentes-reagrupacion";
 import {
   ESTADO_INICIAL_REAGRUPACION,
-  instruccionExcedeLimite,
-  MENSAJE_INSTRUCCION_MUY_LARGA,
   puedeGenerar,
   reducirModalReagrupacion,
 } from "../../utils/ot/reagrupacion-modal-estado";
@@ -380,6 +382,11 @@ export function OrdenVentaReagruparOtModal({
       ? correccion
       : null;
   const textoBloqueado = cargando || enPropuesta;
+  const gruposInstruccion: GrupoInstruccion[] = [
+    "reorganizar",
+    ...(onDividir ? (["dividir"] as const) : []),
+    ...(onAplicarCorreccion ? (["corregir"] as const) : []),
+  ];
   const movimientos = estado.movimientos;
 
   // Con la capa de carga abierta, Escape lo atiende ella (pide confirmar la cancelación):
@@ -444,39 +451,18 @@ export function OrdenVentaReagruparOtModal({
           </section>
         ) : null}
 
-        <div className="flex flex-col gap-2">
-          <label
-            htmlFor={campoId}
-            className="text-base font-medium text-polaria-w lg:text-lg"
-          >
-            Instrucción
-          </label>
-          <textarea
-            id={campoId}
-            value={estado.instruccion}
-            readOnly={textoBloqueado}
-            rows={6}
-            placeholder={
-              onAplicarCorreccion
-                ? "Ejemplos: Junta las órdenes de comedor y de bares en una sola. · Faltan productos: el total de la factura es 27,905.25."
-                : "Ejemplo: Junta las órdenes de comedor y de bares en una sola."
-            }
-            onChange={(evento) =>
-              dispatch({ tipo: "ESCRIBIR", texto: evento.target.value })
-            }
-            className={cn(
-              // Mismo borde, fondo y foco que el resto de los campos de la app.
-              POLARIA_FORM_INPUT_CLASS,
-              "min-h-[9rem] resize-y text-base leading-relaxed lg:min-h-[12rem] lg:text-[1.0625rem]",
-              textoBloqueado && "opacity-70",
-            )}
-          />
-          {instruccionExcedeLimite(estado.instruccion) ? (
-            <p role="alert" className="text-sm text-polaria-danger lg:text-base">
-              {MENSAJE_INSTRUCCION_MUY_LARGA}
-            </p>
-          ) : null}
-        </div>
+        <ReagruparOtCampoInstruccion
+          id={campoId}
+          valor={estado.instruccion}
+          bloqueado={textoBloqueado}
+          gruposDisponibles={gruposInstruccion}
+          placeholder={
+            onAplicarCorreccion
+              ? "Ejemplos: Junta las órdenes de comedor y de bares en una sola. · Faltan productos: el total de la factura es 27,905.25."
+              : "Ejemplo: Junta las órdenes de comedor y de bares en una sola."
+          }
+          onCambio={(texto) => dispatch({ tipo: "ESCRIBIR", texto })}
+        />
 
         {estado.aviso ? (
           <p
@@ -597,7 +583,11 @@ export function OrdenVentaReagruparOtModal({
               <button
                 type="button"
                 className={BOTON_PRIMARIO}
-                disabled={cargando || !puedeGenerar(estado)}
+                disabled={
+                  cargando ||
+                  !puedeGenerar(estado) ||
+                  tieneHuecosSinCompletar(estado.instruccion)
+                }
                 onClick={() => {
                   void handleGenerar();
                 }}
