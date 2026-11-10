@@ -98,6 +98,8 @@
 - `src/modules/sales/ordenes/utils/pedido/resolve-cantidad-envase.ts`
 - `src/modules/sales/ordenes/utils/pedido/sanitize-telefono-contacto.test.ts`
 - `src/modules/sales/ordenes/utils/pedido/sanitize-telefono-contacto.ts`
+- `src/modules/sales/ordenes/print-batch/html-a-pdf.ts` — autorizada por el usuario el 2026-11-10
+- `src/modules/sales/ordenes/print-batch/html-a-pdf.test.ts` — autorizada por el usuario el 2026-11-10
 
 ### Compartidos (cambio mínimo y aviso)
 - `CHANGELOG.md`
