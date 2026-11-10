@@ -56,6 +56,12 @@ export interface OrdenVentaCreateModalProps {
   abrirReagruparAlCargar?: boolean;
   /** Avisa que la apertura pedida arriba ya se atendió (o no aplica). */
   onReagruparAlCargarAtendido?: () => void;
+  /**
+   * REQ-180: otro operador tiene el soft-lock → formulario solo lectura.
+   */
+  soloLectura?: boolean;
+  /** Nombre del editor activo (banner de solo lectura). */
+  editLockHolderNombre?: string | null;
 }
 
 export type CaptureStep = "start" | "preview" | "pickOt" | "form";

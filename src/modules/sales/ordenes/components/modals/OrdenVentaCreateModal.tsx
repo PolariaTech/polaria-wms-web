@@ -46,6 +46,8 @@ export function OrdenVentaCreateModal({
   onCompanionOtPickerChange,
   operadorRowsForDuplicado = [],
   onCompanionIdCompradorChange,
+  soloLectura = false,
+  editLockHolderNombre = null,
 }: OrdenVentaCreateModalProps) {
   const { codigoCuenta, activeBodegaId } = useCompany();
   const { showToast } = usePolariaToast();
@@ -199,10 +201,10 @@ export function OrdenVentaCreateModal({
     }
     let cancelled = false;
     void getOrdenVentaDetalle({
-      codigoCuenta,
+            codigoCuenta,
       idOrdenVenta: editingId,
-    })
-      .then((detalle) => {
+      })
+        .then((detalle) => {
         if (cancelled) return;
         const compradorRow = compradores.find(
           (row) => row.idComprador === (detalle.id_comprador ?? "").trim(),
@@ -220,7 +222,7 @@ export function OrdenVentaCreateModal({
         );
       })
       .catch(() => {
-        if (cancelled) return;
+          if (cancelled) return;
       });
     return () => {
       cancelled = true;
@@ -290,7 +292,6 @@ export function OrdenVentaCreateModal({
   useFolioDesdeLista(bolsa);
   Object.assign(bolsa, usePrefillYDiscrepanciasOv(bolsa));
   Object.assign(bolsa, useSeleccionarCompradorModal(bolsa));
-  // REQ-170: tapar paint antes del bootstrap (layout) para no mostrar OCC/productos a medias.
   useBloqueoPaintEdicionOv(bolsa);
   Object.assign(bolsa, useResetFormularioOv(bolsa));
   Object.assign(bolsa, useEditarLineasOv(bolsa));
@@ -300,5 +301,10 @@ export function OrdenVentaCreateModal({
   Object.assign(bolsa, useHandleSubmitOv(bolsa));
   Object.assign(bolsa, useCierreCapturaOv(bolsa));
   bolsa.showMateoLoading = open && (isReadingIa || isSaving);
+  bolsa.lockUi = {
+    soloLectura: Boolean(soloLectura),
+    holderNombre: editLockHolderNombre?.trim() || null,
+  };
+  if (soloLectura) bolsa.confirmSubmitDisabled = true;
   return <OrdenVentaModalShell estado={bolsa} />;
 }

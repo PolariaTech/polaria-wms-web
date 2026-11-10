@@ -26,6 +26,7 @@ import {
 import { buildNotasLineasText } from "../../ordenes/utils/pedido/build-orden-venta-captura-observaciones";
 import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/origen/materialize-ov-desde-origen";
 import { parseOrigenCorreoJson } from "../../ordenes/utils/origen/origen-correo-ordenes-trabajo";
+import { leerCabeceraUsuarioSello } from "../../ordenes/utils/pedido/sellar-edicion-usuario-origen";
 import {
   isCatalogoTipoProductoMercancia,
   parseCatalogoMetadatos,
@@ -65,7 +66,7 @@ export { fetchUltimaDireccionEntregaPorComprador } from "./sales-ultima-direccio
 const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
 
 const ORDEN_VENTA_COLUMNS =
-  "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at,estado_desde";
+  "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at,estado_desde,edit_locked_by,edit_locked_at,edit_locked_nombre";
 
 /** Listado operador: OCC, origen_correo y fecha de entrega para el filtro del topbar. */
 const ORDEN_VENTA_OPERADOR_LIST_COLUMNS =
@@ -75,6 +76,9 @@ type OrdenVentaOperadorListRow = OrdenVentaRow & {
   orden_compra_hotel?: string | null;
   origen_correo?: unknown;
   fecha_entrega?: string | null;
+  edit_locked_by?: string | null;
+  edit_locked_at?: string | null;
+  edit_locked_nombre?: string | null;
 };
 
 /** Más reciente primero (fecha de creación); id como desempate estable. */
@@ -710,6 +714,9 @@ function mapOrdenVentaOperadorRow(
     alertaMinutos: slaConfig.alertaMinutos,
     potencialDuplicado: false,
     potencialDuplicadoDe: [],
+    editLockedBy: row.edit_locked_by ?? null,
+    editLockedAt: row.edit_locked_at ?? null,
+    editLockedNombre: row.edit_locked_nombre ?? null,
   };
 }
 
@@ -1841,43 +1848,41 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
 
   const headerLineasCount = lineasExistentes.length;
   const needsLines = headerLineasCount === 0;
+  const sinSello = !leerCabeceraUsuarioSello(origen); // REQ-281
   const needsHeader =
     !header.id_comprador?.trim() ||
-    !header.orden_compra_hotel?.trim() ||
-    !header.centro_consumo?.trim() ||
-    !header.contacto_entrega?.trim() ||
-    !header.fecha_entrega?.trim();
-
+    (sinSello &&
+      (!header.orden_compra_hotel?.trim() ||
+        !header.centro_consumo?.trim() ||
+        !header.contacto_entrega?.trim() ||
+        !header.fecha_entrega?.trim()));
   if (!needsLines && !needsHeader) {
     return { materializado: false, lineas: headerLineasCount };
   }
-
   const [productos, compradores] = await Promise.all([
     listProductosVentaCatalogo({ codigoCuenta }),
     listCompradoresAdmin({ codigoCuenta, limit: 5000 }),
   ]);
-
   const plan = buildMaterializeOvDesdeOrigenPlan({
     origenCorreo: origen,
     productos,
     compradores,
     origenTexto: header.origen_texto,
   });
-
   const patch: Record<string, unknown> = {};
   if (!header.id_comprador?.trim() && plan.idComprador) {
     patch.id_comprador = plan.idComprador;
   }
-  if (!header.orden_compra_hotel?.trim() && plan.ordenCompraHotel) {
+  if (sinSello && !header.orden_compra_hotel?.trim() && plan.ordenCompraHotel) {
     patch.orden_compra_hotel = plan.ordenCompraHotel;
   }
-  if (!header.centro_consumo?.trim() && plan.centroConsumo) {
+  if (sinSello && !header.centro_consumo?.trim() && plan.centroConsumo) {
     patch.centro_consumo = plan.centroConsumo;
   }
-  if (!header.contacto_entrega?.trim() && plan.contactoEntrega) {
+  if (sinSello && !header.contacto_entrega?.trim() && plan.contactoEntrega) {
     patch.contacto_entrega = plan.contactoEntrega;
   }
-  if (!header.fecha_entrega?.trim() && plan.fechaEntrega) {
+  if (sinSello && !header.fecha_entrega?.trim() && plan.fechaEntrega) {
     patch.fecha_entrega = plan.fechaEntrega;
   }
   const correoFromOrigen =
@@ -1890,7 +1895,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
           : "",
       )
       .find(Boolean) || "";
-  if (!header.correo_contacto?.trim() && correoFromOrigen) {
+  if (sinSello && !header.correo_contacto?.trim() && correoFromOrigen) {
     patch.correo_contacto = correoFromOrigen;
   }
 

@@ -21,10 +21,8 @@ import {
   especificacionConPiezas,
   piezasAproxKgParaLinea,
 } from "../pedido/piezas-aprox-kg";
-import {
-  resolveCantidadPrecioDesdeEnvase,
-  resolveEspecificacionPedidoLinea,
-} from "../pedido/resolve-cantidad-envase";
+import { resolveCantidadPrecioDesdeEnvase } from "../pedido/resolve-cantidad-envase";
+import { resolveEspecificacionPedidoLinea } from "../pedido/resolve-especificacion-pedido-linea";
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
 
 export interface MaterializeLineaPlan {

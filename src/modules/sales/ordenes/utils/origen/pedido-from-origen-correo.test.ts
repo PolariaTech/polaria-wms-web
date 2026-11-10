@@ -124,8 +124,8 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
     });
 
     expect(pedido.lineas.map((linea) => linea.especificacion)).toEqual([
-      "Enrriado",
-      "Rojo",
+      "Madurez: Enrriado",
+      "Madurez: Rojo",
       null,
     ]);
   });
@@ -177,8 +177,10 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
     const espec = pedido.lineas.map((linea) => linea.especificacion);
 
     it("junta la madurez y lo que va en rojo (Obs.) como especificación", () => {
-      expect(espec[0]).toBe("Amarillo · Firme");
-      expect(espec[3]).toBe("Amarillo · Macizo por favor es para picar para ceviches");
+      expect(espec[0]).toBe("Madurez: Amarillo · Firme");
+      expect(espec[3]).toBe(
+        "Madurez: Amarillo · Macizo por favor es para picar para ceviches",
+      );
     });
 
     it("no convierte el color del nombre en especificación", () => {
@@ -189,7 +191,9 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
     it("pone los kilos como cantidad y las piezas en la especificación", () => {
       expect(pedido.lineas[4]?.cantidad).toBe(7.2);
       expect(pedido.lineas[4]?.unidad).toBe("KGM");
-      expect(espec[4]).toBe("Amarillo · NO MANDAR AGUACATE MUY MADUROS · 4 PZA");
+      expect(espec[4]).toBe(
+        "Madurez: Amarillo · NO MANDAR AGUACATE MUY MADUROS · 4 PZA",
+      );
     });
 
     it("no marca como rival de typo a otro calibre del mismo aguacate (200g vs 260g)", () => {

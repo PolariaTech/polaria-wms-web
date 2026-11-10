@@ -1,4 +1,9 @@
-import { extractMadurezEspecificacion } from "./resolve-cantidad-envase";
+import {
+  extractMadurezEspecificacion,
+  formatMadurezConEtiqueta,
+  stripEtiquetaMadurez,
+  textoYaTraeMadurez,
+} from "./especificacion-madurez-domo";
 
 export type FilaMadurez = {
   producto: string;
@@ -10,7 +15,7 @@ const HEADER_MADUREZ =
 const HEADER_PRODUCTO =
   /^(?:producto|texto breve(?:\s+de\s+material)?|descripci[oó]n|art[ií]culo|material)$/i;
 const INLINE_NIVEL =
-  /^(.+?)\s+(?:niveles?\s+de\s+)?(?:maduraci[oó]n|madurez|firmeza)\s*[:=]\s*(\S.*?)\s*$/i;
+  /^(.+?)\s+(?:niveles?\s+de\s+)?(?:maduraci[oó]n|madurez|firmeza)\s*[:=]\s*([^\s·|;]+)/i;
 
 function norm(value: string): string {
   return value
@@ -45,7 +50,9 @@ function splitCeldas(line: string): string[] {
 export function nivelMadurezDesdeCelda(
   value: string | null | undefined,
 ): string | null {
-  const raw = (value ?? "").trim().replace(/\s+/g, " ").replace(/[.:]+$/, "");
+  const crudo = (value ?? "").trim().replace(/\s+/g, " ").replace(/[.:]+$/, "");
+  // En listados ADP a veces llega «Amarillo · $141.00»; solo el nivel.
+  const raw = (crudo.split(/\s*[·|]\s*/)[0] ?? crudo).trim();
   if (!raw || raw.length > 40) return null;
   if (/^(?:n\/a|na|s\/n|-+|ninguno|ninguna|no)$/i.test(raw)) return null;
   const canon = extractMadurezEspecificacion(raw);
@@ -54,7 +61,8 @@ export function nivelMadurezDesdeCelda(
   if (/^\d+(?:[.,]\d+)?$/.test(raw) && (!Number.isFinite(numero) || numero > 5)) {
     return null;
   }
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
+  // REQ-287: columna Madurez → siempre «Madurez: …» (incl. Pintón, 3/4, etc.).
+  return formatMadurezConEtiqueta(raw.charAt(0).toUpperCase() + raw.slice(1));
 }
 
 function claveEsMadurez(key: string): boolean {
@@ -170,13 +178,32 @@ function unirEspecificacion(
   const base = actual?.trim() || "";
   if (!madurez) return base || null;
   if (!base) return madurez;
-  if (norm(base).includes(norm(madurez))) return base;
+  if (textoYaTraeMadurez(base, madurez)) {
+    // REQ-287: si la base era solo «Amarillo», subir a «Madurez: Amarillo».
+    if (
+      /^madurez\s*:/i.test(madurez) &&
+      !/^madurez\s*:/i.test(base) &&
+      norm(stripEtiquetaMadurez(base)) === norm(stripEtiquetaMadurez(madurez))
+    ) {
+      return madurez;
+    }
+    return base;
+  }
   const nivelYaPuesto = extractMadurezEspecificacion(base);
-  if (nivelYaPuesto && norm(nivelYaPuesto) !== norm(madurez)) {
+  if (
+    nivelYaPuesto &&
+    norm(stripEtiquetaMadurez(nivelYaPuesto)) !==
+      norm(stripEtiquetaMadurez(madurez))
+  ) {
     const resto = base
       .split(" · ")
       .map((part) => part.trim())
-      .filter((part) => part && norm(part) !== norm(nivelYaPuesto))
+      .filter(
+        (part) =>
+          part &&
+          norm(part) !== norm(nivelYaPuesto) &&
+          norm(part) !== norm(stripEtiquetaMadurez(nivelYaPuesto)),
+      )
       .join(" · ");
     return resto ? `${resto} · ${madurez}` : madurez;
   }

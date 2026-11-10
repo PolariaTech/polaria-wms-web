@@ -393,7 +393,7 @@ const RESPONSE_SCHEMA = {
             especificacion: {
               type: ["string", "null"],
               description:
-                "Nota/calidad/madurez/uso o empaque de ESTE producto. PRIORIDAD (REQ-158): si la fila trae columna Madurez, Maduración, Firmeza o Nivel, cópiala aquí en TODAS las filas que la traigan, no solo en algunas. Vale el texto de la celda (pintón, maduro, enrriados, 3/4, listo para hoy). No la dejes solo en notas generales. También: 'sin penacho', '2x galón de 5 litros', '1x cubeta de 10 litros'. null si esa fila no trae nota.",
+                "Especificación de ESTE producto para almacén (REQ-287). Interpreta correo + adjuntos: madurez/color/textura/corte/empaque/domo/tamaño u otra indicación del cliente sobre ESE ítem (comida FYV, quesos, salsas, etc.). Si dice «Madurez: Amarillo» o columna Madurez=Amarillo → escribe exactamente «Madurez: Amarillo» (no solo «Amarillo»). Si el nombre trae «(Domo de 500 g)» → «Domo de 500g». Ej.: «limón verde», «queso blando», «sin penacho», «2x galón de 5 litros». No inventes. null si esa fila no trae especificación.",
             },
             numeroPedido: {
               type: ["string", "null"],
@@ -744,7 +744,7 @@ export async function extraerPedido({
     `- "rfc" solo si el mensaje/documento lo declara explícitamente; nunca lo infieras del nombre del cliente.`,
     `- "direccion", "anden", "contacto", "telefono", "correo", "horarioDesde" y "horarioHasta" salen del correo, mensaje o PDF (Ship To, Deliver To, Enviar a, Andén, Dock, Contacto, Tel, Email, hora de entrega, ventana de recepción, delivery window). Llénalos siempre que el dato aparezca; null solo si no está. No inventes ni uses un valor habitual que el documento no diga.`,
     `- "correo" (REQ-122): usa mail humano del hotel. Si De/From es bss_system@birchstreet.net, noreply o cuenta del proveedor (admonaguacatesdepuebla), busca Email/mailto en el cuerpo/PDF. Si De/From es persona del hotel, úsalo. No pongas el Para/To del proveedor.`,
-    `- "especificacion" (REQ-158): en correos de Pedidos · Aguacates de Puebla, cada renglón puede traer su nivel de maduración en una columna. Cópialo en la especificación de ESA fila, en todas las filas que tengan valor, aunque el nombre del producto no diga verde/firme/maduro. No lo dejes solo en las notas generales.`,
+    `- "especificacion" (REQ-158/287): interpreta lo que el cliente pide de CADA producto (correo y/o PDF/adjuntos). Madurez/color/textura/empaque/domo/tamaño/corte u otra nota de comida. Si viene «Madurez: Amarillo» o columna Madurez → «Madurez: Amarillo» completo (no solo el color). Si dice «(Domo de 500 g)» o Domo de 500g en el nombre → ponlo en especificación. En ADP, copia la columna Maduración/Madurez de CADA fila. No inventes; null si no hay. No lo dejes solo en notas generales.`,
     `- "cantidad" y "especificacion" (REQ-158, piezas): si el renglón dice "3 piezas, aprox 5.4 KG", la cantidad es 5.4, la unidad es KGM, y la especificación lleva "3 PZA". No uses el número de piezas como cantidad.`,
     `- "nombreCliente" (REQ-116): en POs BirchStreet (bss_system) copia Property/Hotel/Bill To (ej. FAIRMONT MAYAKOBA), no el remitente ni la cocina.`,
     `- "horarioDesde"/"horarioHasta" (crítico): si el cuerpo dice "Hora de entrega 6:00 am", "8:00 AM – 2:00 PM", "de 8 a 14", "ventana de recepción…", DEBES llenarlos en 24h HH:MM. No los dejes null si aparecen. Una sola hora → solo horarioDesde.`,

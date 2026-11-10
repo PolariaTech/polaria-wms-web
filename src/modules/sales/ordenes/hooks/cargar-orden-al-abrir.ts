@@ -1,26 +1,20 @@
 import { getCompradorAdmin, listCompradorProductoAliasAdmin } from "@/modules/admin-panel";
 import type { CompradorListRow } from "@/modules/admin-panel";
 import { fetchUltimosPreciosPorComprador } from "../../shared/services/sales.service";
-import { extractCorreoContactoDesdeTexto } from "../utils/origen/correo-chrome";
-import { resolveFechaEntregaDesdeOrigen } from "../utils/origen/materialize-ov-desde-origen";
 import { buildPedidoExtraidoFromOrigenCorreo } from "../utils/origen/pedido-from-origen-correo";
-import { sanitizeNotasGeneralesPedido } from "../utils/origen/texto-origen-pedido";
 import {
-  stripSurtidoFotoQrFromNotas,
   todayIsoDate,
   tomorrowIsoDate,
 } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { mapPedidoExtraidoToForm } from "../utils/pedido/map-pedido-extraido-to-form";
-import { isFechaEntregaIsoValida } from "../utils/pedido/pedido-form-validation";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/pedido/prefill-orden-venta-from-comprador";
-import { resolveOccCampoFormulario } from "../utils/pedido/occ-alineada-listado-ov";
-import {
-  resolveCabeceraGuardada,
-  resolvePropuestaClienteMateoAlReabrir,
-} from "../utils/pedido/resolve-cabecera-guardada";
+import { resolvePropuestaClienteMateoAlReabrir } from "../utils/pedido/resolve-cabecera-guardada";
+import { leerCabeceraUsuarioSello } from "../utils/pedido/sellar-edicion-usuario-origen";
 import { applyVerificacionesOrigenALineas } from "../utils/pedido/apply-verificaciones-origen-lineas";
 import { mergeLineasBdConOrigenPendiente } from "../utils/pedido/merge-lineas-bd-y-origen";
-import { lineaFormDesdeIa, toDateInputValue } from "../utils/pedido/orden-venta-create-helpers";
+import { lineaFormDesdeIa } from "../utils/pedido/orden-venta-create-helpers";
+import { flattenOrdenesTrabajoToOrigenCorreo } from "../utils/origen/origen-correo-ordenes-trabajo";
+import { resolverCabeceraFormConSelloUsuario } from "./aplicar-cabecera-con-sello-usuario";
 import {
   rankCompradoresFromNombre,
   shouldAutoAssignComprador,
@@ -81,8 +75,9 @@ export function cargarFichaYPreciosDeComprador(input: {
 
 
 export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
-  const { origenCorreoRows, detalle, idCompradorDetalle, nombreEscritoOrigen, setCompradorNombreIa, compradorRows, handleSelectComprador, selectedCompradorIdRef, ovMaterializada, setCompradorSugerencias, setIdComprador, setCompradorLabel, setPrioridad, productoRows, hijasEdit, setFechaEntrega, setCentroConsumo, setObservaciones, setOrdenCompraHotel, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setVentanaDesde, setVentanaHasta, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias, skipOtSeedFromOrigenRef, lineasDesdeDetalle, setLineas, setStartMode, setFormOtPage, setStep } = input;
+  const { origenCorreoRows, detalle, idCompradorDetalle, nombreEscritoOrigen, setCompradorNombreIa, compradorRows, handleSelectComprador, selectedCompradorIdRef, ovMaterializada, setCompradorSugerencias, setIdComprador, setCompradorLabel, setPrioridad, productoRows, hijasEdit, setFechaEntrega, setCentroConsumo, setObservaciones, setOrdenCompraHotel, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setVentanaDesde, setVentanaHasta, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias, skipOtSeedFromOrigenRef, lineasDesdeDetalle, setLineas, setStartMode, setFormOtPage, setStep, setOrdenesTrabajoPreview, setOrigenCorreoDraft } = input;
   if (!detalle) return;
+          const selloUsuario = leerCabeceraUsuarioSello(origenCorreoRows);
           const pedido = buildPedidoExtraidoFromOrigenCorreo({
             origenCorreo: origenCorreoRows,
             origenTexto: detalle.origen_texto,
@@ -150,71 +145,53 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
             pedido,
             productos: productoRows,
             ficha: {
-              centroConsumo: detalle.centro_consumo?.trim() || "",
+              centroConsumo: selloUsuario?.centroConsumo ??
+                (detalle.centro_consumo?.trim() || ""),
               ventanaDesde: detalle.ventana_desde?.trim() || "",
               ventanaHasta: detalle.ventana_hasta?.trim() || "",
-              direccion: detalle.direccion_entrega?.trim() || "",
+              direccion: selloUsuario?.direccionEntrega ??
+                (detalle.direccion_entrega?.trim() || ""),
               anden: detalle.anden?.trim() || "",
-              contacto: detalle.contacto_entrega?.trim() || "",
-              telefono:
-                detalle.telefono_contacto?.trim() || telefonoForMap || "",
-              correo: detalle.correo_contacto?.trim() || "",
+              contacto: selloUsuario?.contacto ??
+                (detalle.contacto_entrega?.trim() || ""),
+              telefono: selloUsuario
+                ? selloUsuario.telefono
+                : detalle.telefono_contacto?.trim() || telefonoForMap || "",
+              correo: selloUsuario
+                ? selloUsuario.correo
+                : detalle.correo_contacto?.trim() || "",
               aceptaSustituciones: detalle.acepta_sustituciones?.trim() || "",
               requiereLote: detalle.requiere_lote?.trim() || "",
               registrarTemperatura:
                 detalle.registrar_temperatura?.trim() || "",
-              observaciones:
-                sanitizeNotasGeneralesPedido(
-                  stripSurtidoFotoQrFromNotas(detalle.notas_almacen ?? "") ||
-                    "",
-                  detalle.origen_texto,
-                ) || "",
+              observaciones: selloUsuario?.notasGenerales ?? "",
             },
             tomorrowIso: tomorrowIsoDate(),
             todayIso: todayIsoDate(),
           });
 
-          // Preferir ISO de BD; luego origen/adjuntos; luego mapped (puede ser mañana default).
-          const fechaDb = toDateInputValue(detalle.fecha_entrega);
-          const fechaMapped = isFechaEntregaIsoValida(mapped.fechaEntrega)
-            ? mapped.fechaEntrega.trim()
-            : "";
-          const fechaOrigen = resolveFechaEntregaDesdeOrigen({
-            origenCorreo: origenCorreoRows,
-            hijas: hijasEdit,
-          });
-          setFechaEntrega(
-            isFechaEntregaIsoValida(fechaDb)
-              ? fechaDb
-              : fechaOrigen || fechaMapped || "",
-          );
-          setCentroConsumo(mapped.centroConsumo);
-          // REQ-230: lo guardado por el usuario manda sobre lo reconstruido del correo.
-          const cabecera = resolveCabeceraGuardada({
+          const cabeceraForm = resolverCabeceraFormConSelloUsuario({
+            origenCorreoRows,
             detalle,
-            filasOrigen: origenCorreoRows,
-            propuesta: mapped,
+            mapped,
+            hijasEdit,
+            telefonoForMap,
           });
-          setObservaciones(cabecera.observaciones);
-          // REQ-170: misma OCC que la tabla (hotel + origen_correo), sin flash vacío.
-          setOrdenCompraHotel(
-            resolveOccCampoFormulario({
-              ordenCompraHotelGuardada:
-                cabecera.ordenCompraHotel || detalle.orden_compra_hotel,
-              propuestaMateo: mapped.ordenCompraHotel,
-              origenTexto: detalle.origen_texto,
-              origenCorreo: detalle.origen_correo ?? origenCorreoRows,
-            }),
-          );
-          setDireccion(mapped.direccion);
-          setAnden(mapped.anden);
-          setContacto(mapped.contacto);
-          setTelefono(mapped.telefono);
-          setCorreo(
-            mapped.correo.trim() ||
-              extractCorreoContactoDesdeTexto(detalle.origen_texto) ||
-              "",
-          );
+          setFechaEntrega(cabeceraForm.fechaEntrega);
+          setCentroConsumo(cabeceraForm.centroConsumo);
+          setObservaciones(cabeceraForm.observaciones);
+          setOrdenCompraHotel(cabeceraForm.ordenCompraHotel);
+          setDireccion(cabeceraForm.direccion);
+          setAnden(cabeceraForm.anden);
+          setContacto(cabeceraForm.contacto);
+          setTelefono(cabeceraForm.telefono);
+          setCorreo(cabeceraForm.correo);
+          if (cabeceraForm.selloUsuario) {
+            setOrdenesTrabajoPreview?.(cabeceraForm.hijasParaForm);
+            setOrigenCorreoDraft?.(
+              flattenOrdenesTrabajoToOrigenCorreo(cabeceraForm.hijasParaForm),
+            );
+          }
           setVentanaDesde(mapped.ventanaDesde);
           setVentanaHasta(mapped.ventanaHasta);
           setAceptaSustituciones(mapped.aceptaSustituciones);
@@ -232,17 +209,18 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
           } else {
             nextMissing.add("cliente");
           }
-          if (!mapped.direccion.trim()) nextMissing.add("direccion");
+          if (!cabeceraForm.direccion.trim()) nextMissing.add("direccion");
           else nextMissing.delete("direccion");
           setMissingFields(nextMissing);
           setDiscrepancias(mapped.discrepancias);
+          const hijasLineas = cabeceraForm.hijasParaForm;
           if (ovMaterializada) {
             // REQ-236: BD + renglones origen pendientes + _idProducto del avance.
             skipOtSeedFromOrigenRef.current = true;
             setLineas(
               mergeLineasBdConOrigenPendiente({
                 lineasBd: lineasDesdeDetalle(),
-                hijas: hijasEdit,
+                hijas: hijasLineas,
                 origenRows: origenCorreoRows,
                 productos: productoRows,
               }),
@@ -260,7 +238,5 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
           }
           setStartMode("docs");
           setFormOtPage(0);
-          // Sin preview intermedio: formulario de la 1ª OT (Cypher se abre desde la lista).
           setStep("form");
-
 }

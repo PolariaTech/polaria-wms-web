@@ -41,9 +41,9 @@ describe("asignarMadurezAProductos con Obs. (REQ-231)", () => {
         textoFuente: CORREO_ADP,
       }),
     ).toEqual([
-      "Amarillo · Firme",
+      "Madurez: Amarillo · Firme",
       null,
-      "Amarillo · Macizo por favor es para picar para ceviches",
+      "Madurez: Amarillo · Macizo por favor es para picar para ceviches",
     ]);
   });
 });
@@ -63,9 +63,9 @@ describe("filasMadurezDesdeTexto", () => {
     );
 
     expect(filas).toEqual([
-      { producto: "Aguacate Hass", madurez: "Pintón" },
-      { producto: "Jitomate Saladet", madurez: "Rojo" },
-      { producto: "Plátano", madurez: "Enrriado" },
+      { producto: "Aguacate Hass", madurez: "Madurez: Pintón" },
+      { producto: "Jitomate Saladet", madurez: "Madurez: Rojo" },
+      { producto: "Plátano", madurez: "Madurez: Enrriado" },
     ]);
   });
 
@@ -99,10 +99,10 @@ describe("aplicarMadurezDesdeTexto", () => {
     );
 
     expect(lineas.map((linea) => linea.especificacion)).toEqual([
-      "Pintón",
-      "Rojo",
+      "Madurez: Pintón",
+      "Madurez: Rojo",
       null,
-      "Maduro",
+      "Madurez: Maduro",
     ]);
   });
 });

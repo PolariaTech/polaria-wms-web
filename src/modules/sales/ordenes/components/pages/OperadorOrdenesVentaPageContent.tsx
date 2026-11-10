@@ -83,6 +83,12 @@ import type {
   OrdenVentaOperadorRow,
 } from "../../../shared/types/sales.types";
 import { OvAlertaDot } from "../shared/OvAlertaDot";
+import { OvEditPresenceBadge } from "../shared/OvEditPresenceBadge";
+import { useOvEditLockSession } from "../../hooks/use-ov-edit-lock-session";
+import {
+  mergeOvEditPresence,
+  useOvEditPresencePoll,
+} from "../../hooks/use-ov-edit-presence-poll";
 import { applySurtidoCapturasToPrintSheets } from "../../surtido/apply-surtido-to-print";
 import { listOrdenIdsConSurtidoCaptura } from "../../surtido/list-orden-ids-con-surtido-captura";
 import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
@@ -169,6 +175,12 @@ export function OperadorOrdenesVentaPageContent({
   ); // null = Todos
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const editLock = useOvEditLockSession({
+    codigoCuenta,
+    isCreateOpen,
+    editingId,
+    inspect,
+  });
   const [createDraftId, setCreateDraftId] = useState<string | null>(null);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [cypherId, setCypherId] = useState<string | null>(null);
@@ -405,7 +417,16 @@ export function OperadorOrdenesVentaPageContent({
   }, []);
 
   const fechaFiltroDia = useOvFechaFiltroStore((s) => s.dia);
-  const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
+  const rowsBase = useMemo(() => data?.rows ?? [], [data?.rows]);
+  const presenceById = useOvEditPresencePoll({
+    codigoCuenta,
+    ids: rowsBase.map((row) => row.idOrdenVenta),
+    enabled: Boolean(codigoCuenta) && !inspect,
+  });
+  const rows = useMemo(
+    () => mergeOvEditPresence(rowsBase, presenceById),
+    [rowsBase, presenceById],
+  );
   const rowsDelDia = useMemo(() => {
     if (!fechaFiltroDia) return rows;
     return rows.filter((row) =>
@@ -997,6 +1018,12 @@ export function OperadorOrdenesVentaPageContent({
               alertaMinutos={row.alertaMinutos}
             />
             <PolariaTableCode>{row.venta}</PolariaTableCode>
+            <OvEditPresenceBadge
+              editLockedBy={row.editLockedBy}
+              editLockedAt={row.editLockedAt}
+              editLockedNombre={row.editLockedNombre}
+              viewerId={useAuthStore.getState().session?.idUsuario}
+            />
             {row.potencialDuplicado ? (
               <span
                 className="shrink-0 rounded-md border border-polaria-warning-border bg-polaria-warning-bg px-1.5 py-0.5 polaria-text-caption font-semibold text-polaria-warning"
@@ -1135,6 +1162,10 @@ export function OperadorOrdenesVentaPageContent({
   const cerrarFormulario = (volverAlDetalle: boolean) => {
     const closingId = resolveCreateCypherTarget(editingId, createDraftId);
     const editedId = editingId;
+    // REQ-180: liberar soft-lock ya (no esperar stale) y refrescar badge del listado.
+    void editLock.releaseCurrent(editedId).finally(() => {
+      void reload();
+    });
     formularioDelCypherRef.current = false;
     setIsCreateOpen(false);
     setEditingId(null);
@@ -1142,6 +1173,7 @@ export function OperadorOrdenesVentaPageContent({
     setReagruparAlAbrirId(null);
     setCompanionOtPicker(null);
     setCompanionIdComprador(null);
+    editLock.resetLockUi();
     if (shouldClearCypherOnCreateClose({ cypherId, closingId })) {
       setCypherId(null);
     }
@@ -1185,6 +1217,7 @@ export function OperadorOrdenesVentaPageContent({
                 label: "Nueva venta",
                 onClick: () => {
                   if (!codigoCuenta) return;
+                  editLock.resetLockUi();
                   setEditingId(null);
                   setCreateDraftId(null);
                   setIsCreateOpen(true);
@@ -1198,14 +1231,16 @@ export function OperadorOrdenesVentaPageContent({
             setDetalleId(row.idOrdenVenta);
             return;
           }
-          // OV por_confirmar: formulario + Cypher juntos.
+          // OV por_confirmar: formulario + Cypher juntos (REQ-180: soft-lock).
           if (!inspect && row.estado === "por_confirmar") {
             const id = row.idOrdenVenta;
-            setDetalleId(null);
-            setEditingId(id);
-            setCreateDraftId(null);
-            setIsCreateOpen(true);
-            setCypherId(id);
+            void editLock.prepareOpenEdit(id).then(() => {
+              setDetalleId(null);
+              setEditingId(id);
+              setCreateDraftId(null);
+              setIsCreateOpen(true);
+              setCypherId(id);
+            });
             return;
           }
           setCypherId(null);
@@ -1276,10 +1311,12 @@ export function OperadorOrdenesVentaPageContent({
               ?.estado,
           })
             ? () => {
-                formularioDelCypherRef.current = true;
-                setEditingId(cypherId);
-                setIsCreateOpen(true);
-                setReagruparAlAbrirId(cypherId);
+                void editLock.prepareOpenEdit(cypherId).then((apertura) => {
+                  formularioDelCypherRef.current = true;
+                  setEditingId(cypherId);
+                  setIsCreateOpen(true);
+                  if (!apertura.soloLectura) setReagruparAlAbrirId(cypherId);
+                });
               }
             : undefined
         }
@@ -1300,10 +1337,12 @@ export function OperadorOrdenesVentaPageContent({
           if (!cypherId) return;
           const target = rows.find((r) => r.idOrdenVenta === cypherId);
           if (!target || target.estado === "cancelada") return;
-          formularioDelCypherRef.current = true;
-          setDetalleId(null);
-          setEditingId(cypherId);
-          setIsCreateOpen(true);
+          void editLock.prepareOpenEdit(cypherId).then(() => {
+            formularioDelCypherRef.current = true;
+            setDetalleId(null);
+            setEditingId(cypherId);
+            setIsCreateOpen(true);
+          });
         }}
         onPrint={() => {
           const target = cypherId
@@ -1364,6 +1403,7 @@ export function OperadorOrdenesVentaPageContent({
                   if (editingId === borradaId) {
                     setEditingId(null);
                     setIsCreateOpen(false);
+                    editLock.resetLockUi();
                   }
                   if (detalleId === borradaId) {
                     setDetalleId(null);
@@ -1408,10 +1448,14 @@ export function OperadorOrdenesVentaPageContent({
         onCompanionOtPickerChange={setCompanionOtPicker}
         onCompanionIdCompradorChange={setCompanionIdComprador}
         abrirReagruparAlCargar={Boolean(
-          editingId && reagruparAlAbrirId === editingId,
+          editingId &&
+            reagruparAlAbrirId === editingId &&
+            !editLock.soloLectura,
         )}
         onReagruparAlCargarAtendido={limpiarReagruparAlAbrir}
         operadorRowsForDuplicado={rows}
+        soloLectura={editLock.soloLectura}
+        editLockHolderNombre={editLock.holderNombre}
         onClose={() => cerrarFormulario(true)}
         onCreated={() => {
           void reload();

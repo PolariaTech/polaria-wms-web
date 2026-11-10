@@ -30,8 +30,8 @@ import {
   familiaUnidadCatalogo,
   formatEspecificacionEnvase,
   resolveCantidadPrecioDesdeEnvase,
-  resolveEspecificacionPedidoLinea,
 } from "./resolve-cantidad-envase";
+import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedido-linea";
 import { sanitizeNotasGeneralesPedido } from "../origen/texto-origen-pedido";
 import { resolveOrdenCompraLimpia } from "./normalize-numero-pedido";
 

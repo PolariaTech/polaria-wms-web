@@ -18,9 +18,9 @@ import {
 import { OrdenVentaModalCuerpo, OrdenVentaModalOverlays, type OrdenVentaFormEstado } from "./OrdenVentaDiscrepanciasDialog";
 import { revisionPendienteVisible } from "../../utils/pedido/occ-alineada-listado-ov";
 import { ETIQUETA_TAREA, etiquetaTareaIndice } from "./etiqueta-tarea-ot";
+import { OrdenVentaModalReadonlyBody } from "./orden-venta-modal-readonly-body";
 
 export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado }) {
-  // REQ-170: no mostrar chips de revisión (p. ej. «Sin productos») mientras hidrata.
   const revisionLista = revisionPendienteVisible({
     formDataReady: estado.formDataReady,
     isLoading: estado.isLoading,
@@ -30,6 +30,7 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
   const confirmBloqueoReason = revisionLista
     ? estado.confirmBloqueoReason
     : null;
+  const soloLectura = Boolean(estado.lockUi?.soloLectura);
 
   return (
     <>
@@ -41,23 +42,35 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
         open={estado.open && !estado.showMateoLoading}
         onClose={estado.requestClose}
         scrollRegionRef={estado.formScrollRef}
-        title={tituloCreateModalOv(estado)}
-        description={descriptionCreateModalOv(estado)}
+        title={tituloCreateModalOv({
+          ...estado,
+          soloLectura,
+        })}
+        description={descriptionCreateModalOv({
+          ...estado,
+          soloLectura,
+          editLockHolderNombre: estado.lockUi?.holderNombre ?? null,
+        })}
         onSubmit={(event) => {
+          if (soloLectura) {
+            event.preventDefault();
+            return;
+          }
           estado.submitIntentRef.current = "emit";
           void estado.handleSubmit(event);
         }}
         error={estado.step === "form" ? null : estado.error}
         isSubmitting={estado.isSaving}
-        // REQ-289: con OV ya confirmada solo se sale de la vista; no se cancela nada.
         cancelLabel={
-          estado.isEditing &&
-          estado.editingEstado !== "por_confirmar" &&
-          !estado.pendingEmitId
+          soloLectura ||
+          (estado.isEditing &&
+            estado.editingEstado !== "por_confirmar" &&
+            !estado.pendingEmitId)
             ? "Salir"
             : "Cancelar"
         }
         submitDisabled={
+          soloLectura ||
           estado.step === "preview" ||
           estado.step === "pickOt" ||
           estado.isLoading ||
@@ -171,7 +184,7 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
           />
         }
         footerBeforeCancel={
-          estado.step === "form" ? (
+          estado.step === "form" && !soloLectura ? (
             <OrdenVentaFormFooterIconActions
               showEliminar={Boolean(estado.hijaFormActiva)}
               indiceOt1Based={estado.formOtSafePage + 1}
@@ -201,7 +214,9 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
           ) : undefined
         }
         footerAction={
-          estado.step === "pickOt" ? (
+          soloLectura ? (
+            <></>
+          ) : estado.step === "pickOt" ? (
             <></>
           ) : estado.step === "preview" ? (
             <button
@@ -241,13 +256,15 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
           ) : estado.step === "form" ? (
             <button
               type="submit"
-              disabled={estado.confirmSubmitDisabled}
+              disabled={soloLectura || estado.confirmSubmitDisabled}
               title={
-                estado.confirmSubmitDisabled
-                  ? (estado.confirmBloqueoReason ?? "Completa lo pendiente para confirmar")
-                  : undefined
+                soloLectura
+                  ? "Solo lectura: otro usuario está editando"
+                  : estado.confirmSubmitDisabled
+                    ? (estado.confirmBloqueoReason ?? "Completa lo pendiente para confirmar")
+                    : undefined
               }
-              aria-disabled={estado.confirmSubmitDisabled}
+              aria-disabled={soloLectura || estado.confirmSubmitDisabled}
               className={cn(
                 "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
                 "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
@@ -277,7 +294,9 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
         }
         submitOnEnter={false}
       >
-        <OrdenVentaModalCuerpo estado={estado} />
+        <OrdenVentaModalReadonlyBody soloLectura={soloLectura}>
+          <OrdenVentaModalCuerpo estado={estado} />
+        </OrdenVentaModalReadonlyBody>
       </PolariaFormModal>
       <OrdenVentaModalOverlays estado={estado} />
     </>

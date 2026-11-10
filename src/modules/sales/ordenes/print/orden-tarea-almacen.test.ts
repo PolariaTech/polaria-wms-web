@@ -147,7 +147,7 @@ describe("orden de tarea almacén", () => {
     expect(data.notasGenerales).not.toMatch(/faltantes/i);
   });
 
-  it("sin notas de almacén, usa notas clave del correo (sin tablas ni saludos)", () => {
+  it("REQ-281: sin notas_almacen en BD, el PDF no reinyecta el correo", () => {
     const data = mapOrdenVentaToAlmacenPrintData({
       listRow: LIST_ROW,
       detalle: {
@@ -162,9 +162,49 @@ describe("orden de tarea almacén", () => {
         notas_almacen: "",
       },
     });
-    expect(data.notasGenerales).toContain("Pedido de FYV");
-    expect(data.notasGenerales).toContain("Llevar 3 juegos");
-    expect(data.notasGenerales).not.toContain("Clave Sap");
+    expect(data.notasGenerales).toBe("");
+  });
+
+  it("REQ-281: centro y fecha del detalle BD ganan sobre Almacen/Fecha de Mateo", () => {
+    const data = mapOrdenVentaToAlmacenPrintSheets({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        centro_consumo: "Centro editado",
+        fecha_entrega: "2026-11-15T00:00:00.000Z",
+        origen_correo: [
+          {
+            "Numero pedido": "100",
+            Almacen: "Bar Mateo",
+            Fecha: "2026-01-01",
+            Producto: "HPR FROZEN-PORK RACKS",
+            Cantidad: 10,
+          },
+        ],
+      },
+    });
+    expect(data).toHaveLength(1);
+    expect(data[0]?.centroConsumo).toBe("Centro editado");
+    expect(data[0]?.fechaEntrega).toBe("15/11/2026");
+  });
+
+  it("REQ-281: centro vacío en BD no pisa con Almacen de Mateo", () => {
+    const data = mapOrdenVentaToAlmacenPrintSheets({
+      listRow: LIST_ROW,
+      detalle: {
+        ...DETALLE,
+        centro_consumo: "",
+        origen_correo: [
+          {
+            "Numero pedido": "100",
+            Almacen: "Bar Mateo",
+            Producto: "HPR FROZEN-PORK RACKS",
+            Cantidad: 10,
+          },
+        ],
+      },
+    });
+    expect(data[0]?.centroConsumo).toBe("");
   });
 
   it("mapea folio, cliente y productos de la venta", () => {
