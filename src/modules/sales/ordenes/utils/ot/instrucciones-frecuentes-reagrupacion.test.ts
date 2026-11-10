@@ -16,14 +16,14 @@ function instruccion(id: string) {
 
 describe("aplicarInstruccionFrecuente", () => {
   it("con el campo vacío deja solo la instrucción modelo, con el cursor al final", () => {
-    const r = aplicarInstruccionFrecuente("  \n ", TEXTO);
-    expect(r.valor).toBe(TEXTO);
-    expect(r.seleccion).toEqual({ inicio: TEXTO.length, fin: TEXTO.length });
+    const resultado = aplicarInstruccionFrecuente("  \n ", TEXTO);
+    expect(resultado.valor).toBe(TEXTO);
+    expect(resultado.seleccion).toEqual({ inicio: TEXTO.length, fin: TEXTO.length });
   });
 
   it("con texto escrito lo conserva y agrega el modelo en una línea nueva", () => {
-    const r = aplicarInstruccionFrecuente("Junta las OT de bares. ", TEXTO);
-    expect(r.valor).toBe(`Junta las OT de bares.\n${TEXTO}`);
+    const resultado = aplicarInstruccionFrecuente("Junta las OT de bares. ", TEXTO);
+    expect(resultado.valor).toBe(`Junta las OT de bares.\n${TEXTO}`);
   });
 
   it("no repite un modelo que ya está en el campo", () => {
@@ -33,8 +33,10 @@ describe("aplicarInstruccionFrecuente", () => {
 
   it("selecciona el primer hueco para que se escriba encima", () => {
     const texto = "El total del pedido debe ser [total].";
-    const r = aplicarInstruccionFrecuente("Hola.", texto);
-    expect(r.valor.slice(r.seleccion.inicio, r.seleccion.fin)).toBe("[total]");
+    const resultado = aplicarInstruccionFrecuente("Hola.", texto);
+    expect(resultado.valor.slice(resultado.seleccion.inicio, resultado.seleccion.fin)).toBe(
+      "[total]",
+    );
   });
 });
 

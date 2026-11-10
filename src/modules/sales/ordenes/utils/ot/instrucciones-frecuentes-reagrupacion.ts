@@ -124,12 +124,15 @@ export function aplicarInstruccionFrecuente(
   else if (actual.includes(texto)) valor = actual;
   else valor = `${actual.trimEnd()}\n${texto}`;
 
-  const base = Math.max(valor.lastIndexOf(texto), 0);
+  const inicioModelo = Math.max(valor.lastIndexOf(texto), 0);
   const hueco = HUECO.exec(texto);
   return {
     valor,
     seleccion: hueco
-      ? { inicio: base + hueco.index, fin: base + hueco.index + hueco[0].length }
+      ? {
+          inicio: inicioModelo + hueco.index,
+          fin: inicioModelo + hueco.index + hueco[0].length,
+        }
       : { inicio: valor.length, fin: valor.length },
   };
 }
