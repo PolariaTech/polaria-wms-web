@@ -1,3 +1,4 @@
+import { completarAlmacenDelPedido } from "./completar-almacen-del-pedido";
 import { filtrarRenglonesOrigenPedibles } from "./renglon-origen-pedible";
 
 /**
@@ -131,7 +132,9 @@ export function groupOrigenCorreoToOrdenesTrabajo(
   if (!renglones || renglones.length === 0) return [];
 
   // REQ-234: no mostrar en OT hijas productos con cantidad 0.
-  const pedibles = filtrarRenglonesOrigenPedibles(renglones);
+  const pedibles = completarAlmacenDelPedido(
+    filtrarRenglonesOrigenPedibles(renglones),
+  );
   if (pedibles.length === 0) return [];
 
   const buckets = new Map<string, OrigenCorreoRenglon[]>();
