@@ -51,7 +51,21 @@
 
 ### Notas y justificaciones
 
-quien_despacho es el campo de pantalla "Quién despachó la mercancía" y la clave `despachador` del API. quien_recibio es el campo de pantalla "Transportista" y la clave `transportista` del API. No hay Tabla 3: ningún campo se prellena. El botón "Pasar a despachada" queda deshabilitado si alguno de los dos textos, ya recortado, está vacío, y solo abre la pregunta "¿Seguro que quieres despachar {codigo} de {cliente}?". Quien guarda es "Sí, despachar". "Volver" regresa al formulario y conserva lo escrito. "Cerrar" cierra el modal sin diálogo de descarte. El máximo de 120 caracteres lo rechaza el back; el front no lo corta. Los nombres no tienen columna propia: se guardan en el log de la orden, por eso no hay capa BD.
+quien_despacho es el campo de pantalla "Quién despachó la mercancía" y la clave `despachador` del API. quien_recibio es el campo de pantalla "Transportista" y la clave `transportista` del API. No hay Tabla 3: ningún campo se prellena. El botón "Pasar a despachada" sigue habilitado. Si el texto recortado está vacío, al enviarlo muestra "Escribe quién despachó la mercancía." o "Escribe quién es el transportista.". Si pasa de 120 caracteres, el front y el back muestran "El nombre de quien despachó es demasiado largo." o "El nombre del transportista es demasiado largo." y no recortan el texto. Con los dos nombres válidos abre la pregunta "¿Seguro que quieres despachar {codigo} de {cliente}?". Quien guarda es "Sí, despachar". "Volver" regresa al formulario y conserva lo escrito. "Cerrar" cierra el modal sin diálogo de descarte. Los nombres no tienen columna propia: se guardan en el log de la orden, por eso no hay capa BD.
+
+### Checklist de prueba manual
+
+| Ítem | Resultado |
+|---|---|
+| Vacío en quien despachó muestra "Escribe quién despachó la mercancía." | PASS |
+| Vacío en transportista muestra "Escribe quién es el transportista." | PASS |
+| 120 caracteres en los dos campos abre la confirmación y no llama al API | PASS |
+| 121 caracteres muestra el mensaje de nombre demasiado largo en cada campo | PASS |
+| El botón "Pasar a despachada" sigue habilitado con el formulario vacío | PASS |
+| Tabulación: primero "Quién despachó la mercancía", después "Transportista" | PASS |
+| Ningún campo toma el foco solo al abrir el modal | PASS |
+| Clic fuera del modal con datos sin guardar no lo cierra | PASS |
+| "Volver" conserva lo escrito; "Sí, despachar" confirma | PASS |
 
 ### Versión y revisión (del schema de ese formulario, no de esta plantilla)
 

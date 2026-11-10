@@ -97,11 +97,30 @@ describe("DespachoPublicoLista", () => {
       "El nombre del transportista es demasiado largo.",
     );
 
+    const limite = "a".repeat(120);
+    fireEvent.change(screen.getByLabelText("Quién despachó la mercancía"), {
+      target: { value: limite },
+    });
+    fireEvent.change(screen.getByLabelText("Transportista"), {
+      target: { value: limite },
+    });
+    fireEvent.click(confirmar);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        "¿Seguro que quieres despachar OV-1 de Krystal Cancún?",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Volver" }));
+
+    fireEvent.change(screen.getByLabelText("Quién despachó la mercancía"), {
+      target: { value: "Ana" },
+    });
     fireEvent.change(screen.getByLabelText("Transportista"), {
       target: { value: "Luis" },
     });
 
-    fireEvent.click(confirmar);
+    fireEvent.click(screen.getByRole("button", { name: "Pasar a despachada" }));
 
     expect(fetch).not.toHaveBeenCalled();
     expect(
@@ -147,5 +166,26 @@ describe("DespachoPublicoLista", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByLabelText("Quién despachó la mercancía")).toBeInTheDocument();
+  });
+
+  it("tabula primero quien despachó y después el transportista", () => {
+    render(
+      <DespachoPublicoLista
+        alistada={alistada}
+        alistamiento={[]}
+        errorCarga={null}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /OV-1/ }));
+    const dialogo = screen.getByRole("dialog");
+    const campos = dialogo.querySelectorAll("input");
+
+    expect(campos).toHaveLength(2);
+    expect(campos[0]).toHaveAccessibleName("Quién despachó la mercancía");
+    expect(campos[1]).toHaveAccessibleName("Transportista");
+    expect(campos[0]).not.toHaveAttribute("disabled");
+    expect(campos[1]).not.toHaveAttribute("disabled");
+    expect(campos[0]).not.toHaveAttribute("autofocus");
   });
 });
