@@ -17,12 +17,11 @@ import type {
   ReagrupacionAplicada,
   StartMode,
 } from "./orden-venta-create-modal.types";
-
-/** Callback del modal. El argumento concreto lo da quien lo llama. */
-export type AccionModal = (...argumentos: readonly unknown[]) => unknown;
+import type { AccionModal } from "./accion-modal";
+import type { OrdenVentaFormEntregaCoords } from "./orden-venta-form-entrega-coords";
 
 /** Estado vivo del modal de orden de venta, compartido por los hooks y la pantalla. */
-export interface OrdenVentaFormEstado {
+export interface OrdenVentaFormEstado extends OrdenVentaFormEntregaCoords {
   aceptaSustituciones: string;
   /** Bodega activa de la sesión: la OV borrador se crea en ella (REQ-199). */
   activeBodegaId: string | null;

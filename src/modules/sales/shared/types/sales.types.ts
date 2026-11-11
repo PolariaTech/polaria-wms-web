@@ -169,6 +169,10 @@ export interface OrdenVentaDetalleRow extends OrdenVentaRow {
   moneda?: string | null;
   bodega_destino_label?: string | null;
   direccion_entrega?: string | null;
+  /** REQ-251: latitud del punto de entrega. */
+  entrega_lat?: number | null;
+  /** REQ-251: longitud del punto de entrega. */
+  entrega_lng?: number | null;
   anden?: string | null;
   contacto_entrega?: string | null;
   telefono_contacto?: string | null;
@@ -215,6 +219,9 @@ export interface CreateOrdenVentaInput {
   moneda?: string;
   bodegaDestinoLabel?: string;
   direccionEntrega?: string;
+  /** REQ-251 */
+  entregaLat?: number | null;
+  entregaLng?: number | null;
   anden?: string;
   contacto?: string;
   telefono?: string;

@@ -1,11 +1,16 @@
 import { filtrarRenglonesOrigenPedibles } from "./renglon-origen-pedible";
 
+import {
+  baseGroupKeyOrigenCorreo,
+  contiguousOtIdsForRenglones,
+} from "./origen-correo-ot-contigua";
+
 /**
  * Agrupa renglones de origen_correo en órdenes de trabajo (hijas) de una OV.
  *
- * Clave = Numero pedido + Almacen (centro de consumo).
- * Así un mismo PO con varios almacenes (AVA) genera varias hijas,
- * y varios PO con el mismo almacén (Marina) también.
+ * Clave base = Numero pedido + Almacen (+ Numero almacen si viene).
+ * REQ-238: además se respetan bloques contiguos en el orden del documento
+ * (misma cocina que reaparece tras otra = OT nueva).
  */
 
 export interface OrigenCorreoRenglon {
@@ -74,10 +79,6 @@ function norm(value: string | null | undefined): string {
   return (value ?? "").toString().trim();
 }
 
-function normKey(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
 function parseCantidad(value: number | string | undefined): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -88,19 +89,13 @@ function parseCantidad(value: number | string | undefined): number {
 }
 
 export function groupKeyOrigenCorreo(renglon: OrigenCorreoRenglon): string {
-  const otId = norm(renglon._otId);
-  if (otId) return otId;
-
-  const pedido = norm(renglon["Numero pedido"]);
-  const almacen = norm(renglon.Almacen);
-  const referencia = norm(renglon["Referencia pedido"]);
-
-  if (pedido || almacen) {
-    return `pedido:${pedido ? normKey(pedido) : "_"}|almacen:${almacen ? normKey(almacen) : "_"}`;
-  }
-  if (referencia) return `ref:${normKey(referencia)}`;
-  return "default";
+  return baseGroupKeyOrigenCorreo(renglon);
 }
+
+export {
+  baseGroupKeyOrigenCorreo,
+  contiguousOtIdsForRenglones,
+} from "./origen-correo-ot-contigua";
 
 function labelFromGroup(
   key: string,
@@ -134,14 +129,16 @@ export function groupOrigenCorreoToOrdenesTrabajo(
   const pedibles = filtrarRenglonesOrigenPedibles(renglones);
   if (pedibles.length === 0) return [];
 
+  const otIds = contiguousOtIdsForRenglones(pedibles);
   const buckets = new Map<string, OrigenCorreoRenglon[]>();
-  for (const row of pedibles) {
-    const key = groupKeyOrigenCorreo(row);
+  pedibles.forEach((row, index) => {
+    const key = otIds[index] ?? groupKeyOrigenCorreo(row);
     const list = buckets.get(key);
     if (list) list.push(row);
     else buckets.set(key, [row]);
-  }
+  });
 
+  // Orden de aparición en el documento (REQ-238), no alfabético.
   const hijas: OrdenTrabajoHija[] = [];
   for (const [key, rows] of buckets) {
     const first = rows[0]!;
@@ -161,7 +158,7 @@ export function groupOrigenCorreoToOrdenesTrabajo(
     });
   }
 
-  return hijas.sort((a, b) => a.label.localeCompare(b.label, "es"));
+  return hijas;
 }
 
 function newManualOtId(): string {

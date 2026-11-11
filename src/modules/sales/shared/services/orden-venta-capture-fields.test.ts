@@ -27,4 +27,20 @@ describe("ordenVentaCaptureFields", () => {
     });
     expect(fields.denominacion_comercial_override).toBeNull();
   });
+
+  it("REQ-251: persiste coordenadas de entrega", () => {
+    const fields = ordenVentaCaptureFields({
+      codigoCuenta: "mit",
+      entregaLat: 20.63,
+      entregaLng: -87.07,
+    });
+    expect(fields.entrega_lat).toBe(20.63);
+    expect(fields.entrega_lng).toBe(-87.07);
+  });
+
+  it("REQ-251: sin coords guarda null", () => {
+    const fields = ordenVentaCaptureFields({ codigoCuenta: "mit" });
+    expect(fields.entrega_lat).toBeNull();
+    expect(fields.entrega_lng).toBeNull();
+  });
 });

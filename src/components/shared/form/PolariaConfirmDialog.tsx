@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { useEffect, useId, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils/cn";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
 import {
@@ -76,10 +77,12 @@ export function PolariaConfirmDialog({
 
   useBodyScrollLock(open);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  // REQ-304: portal a body para no quedar detrás de Cypher (stacking del modal OV).
+  return createPortal(
     <div
+      data-polaria-confirm-portal=""
       className={cn(
         // auto: si el padre (p. ej. Cypher) tiene pointer-events-none, sin esto Conservar/Borrar no clicable.
         "pointer-events-auto fixed inset-0 flex overflow-hidden",
@@ -191,6 +194,7 @@ export function PolariaConfirmDialog({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

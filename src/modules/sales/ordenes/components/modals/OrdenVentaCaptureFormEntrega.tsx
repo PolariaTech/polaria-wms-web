@@ -20,6 +20,9 @@ export function OrdenVentaCaptureFormEntrega({
   direccion,
   onDireccion,
   avisoVerificarDireccion,
+  entregaLat = null,
+  entregaLng = null,
+  onEntregaCoords,
   contacto,
   onContacto,
   telefono,
@@ -39,6 +42,10 @@ export function OrdenVentaCaptureFormEntrega({
   direccion: string;
   onDireccion: (value: string) => void;
   avisoVerificarDireccion: boolean;
+  /** REQ-251 */
+  entregaLat?: number | null;
+  entregaLng?: number | null;
+  onEntregaCoords?: (coords: { lat: number; lng: number } | null) => void;
   contacto: string;
   onContacto: (value: string) => void;
   telefono: string;
@@ -97,6 +104,14 @@ export function OrdenVentaCaptureFormEntrega({
           value={direccion}
           onChange={(event) => {
             onDireccion(event.target.value);
+            onEntregaCoords?.(null);
+            onClearField("direccion");
+          }}
+          entregaLat={entregaLat}
+          entregaLng={entregaLng}
+          onEntregaCoords={onEntregaCoords}
+          onDireccionFromMapa={(next) => {
+            onDireccion(next);
             onClearField("direccion");
           }}
           controlClassName={fieldControlClass({ field: "direccion", ...marks })}

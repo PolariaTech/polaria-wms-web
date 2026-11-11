@@ -66,11 +66,14 @@ export function OrdenVentaModalDialogs(props: OrdenVentaModalDialogsProps) {
     editingId, folioVisible, setReagruparOpen, obtenerSolicitudReagrupacion,
     handleAplicarReagrupacion, handleAplicarCorreccionCorreo, handleDividirOrden,
   } = props;
+  // REQ-304: con Cypher abierto, el confirm se acopla a la izquierda (mismo patrón del form).
+  const confirmLayout = cypherOpen ? "dock-left" : "center";
   return (
     <>
       <PolariaConfirmDialog
         open={confirmDiscrepanciasOpen}
         stackLevel="nested"
+        layout={confirmLayout}
         onClose={() => setConfirmDiscrepanciasOpen(false)}
         onConfirm={() => {
           setConfirmDiscrepanciasOpen(false);
@@ -161,6 +164,7 @@ export function OrdenVentaModalDialogs(props: OrdenVentaModalDialogsProps) {
       <PolariaConfirmDialog
         open={confirmSaveOpen}
         stackLevel="nested"
+        layout={confirmLayout}
         onClose={() => setConfirmSaveOpen(false)}
         onConfirm={() => {
           if (
@@ -223,6 +227,7 @@ export function OrdenVentaModalDialogs(props: OrdenVentaModalDialogsProps) {
       <PolariaConfirmDialog
         open={confirmDiscardOpen}
         stackLevel="nested"
+        layout={confirmLayout}
         onClose={() => setConfirmDiscardOpen(false)}
         onConfirm={() => {
           setConfirmDiscardOpen(false);
@@ -241,6 +246,7 @@ export function OrdenVentaModalDialogs(props: OrdenVentaModalDialogsProps) {
       <PolariaConfirmDialog
         open={addOtOpen}
         stackLevel="nested"
+        layout={confirmLayout}
         onClose={() => {
           setAddOtOpen(false);
           setError(null);
@@ -274,6 +280,7 @@ export function OrdenVentaModalDialogs(props: OrdenVentaModalDialogsProps) {
       <PolariaConfirmDialog
         open={Boolean(confirmRemoveOtId)}
         stackLevel="nested"
+        layout={confirmLayout}
         onClose={() => setConfirmRemoveOtId(null)}
         onConfirm={handleConfirmRemoveOrdenTrabajo}
         title="¿Eliminar esta tarea de almacén?"

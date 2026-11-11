@@ -15,7 +15,10 @@ import {
   scoreProductoMatch,
   shouldAutoAcceptProductoSuggestion,
 } from "../match/find-closest-producto-catalogo";
-import { groupKeyOrigenCorreo } from "../origen/origen-correo-ordenes-trabajo";
+import {
+  contiguousOtIdsForRenglones,
+  type OrigenCorreoRenglon,
+} from "../origen/origen-correo-ordenes-trabajo";
 import {
   extractDireccionShipToDesdeTexto,
   extractEntregaDesdeTexto,
@@ -767,8 +770,17 @@ export function mapPedidoExtraidoToForm(params: {
   }
 
   const lineas: LineaVentaFromIa[] = [];
+  // REQ-238: misma clave OT que groupOrigenCorreoToOrdenesTrabajo (bloques contiguos).
+  const renglonesOt: OrigenCorreoRenglon[] = pedido.lineas.map((linea) => ({
+    "Numero pedido": linea.numeroPedido || "",
+    Almacen: linea.almacen || "",
+    "Numero almacen": linea.numeroAlmacen || "",
+    "Referencia pedido": linea.referenciaPedido || "",
+  }));
+  const otIdsPorLinea = contiguousOtIdsForRenglones(renglonesOt);
 
-  for (const linea of pedido.lineas) {
+  for (let index = 0; index < pedido.lineas.length; index += 1) {
+    const linea = pedido.lineas[index]!;
     const match = resolveProductoMatch(linea, byKey, byCodigo, byKeyNorm);
     const textoOriginal = linea.textoOriginal?.trim() || "";
 
@@ -778,13 +790,7 @@ export function mapPedidoExtraidoToForm(params: {
         : "";
 
     const precioDoc = parsePrecioIa(linea.precioUnitario);
-    // Misma clave que groupOrigenCorreoToOrdenesTrabajo (sin fallbacks de
-    // cabecera): si no, el pager OT filtra y la página queda sin productos.
-    const otId = groupKeyOrigenCorreo({
-      "Numero pedido": linea.numeroPedido || "",
-      Almacen: linea.almacen || "",
-      "Referencia pedido": linea.referenciaPedido || "",
-    });
+    const otId = otIdsPorLinea[index] ?? "default";
 
     if (match) {
       const qty = resolveLineaCantidadPrecioEmpaque({

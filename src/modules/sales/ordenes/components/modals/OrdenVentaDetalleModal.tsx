@@ -10,16 +10,10 @@ import {
 } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
-import { PolariaTableBadge } from "@/components/shared/table/PolariaTableCells";
-import { formatDateTime } from "@/components/shared/utils/formatters";
 import { cn } from "@/lib/utils/cn";
 import { formatPrecioEs } from "@/lib/utils/decimal-es";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { withCuentaSchema } from "@/lib/supabase/cuenta-schema";
-import {
-  formatEstadoOrdenVenta,
-  variantEstadoOrdenVenta,
-} from "../../../shared/constants/sales-status";
 import { emitirOrdenVentaApi } from "../../../shared/services/sales-api.service";
 import { getOrdenVentaDetalle } from "../../../shared/services/sales.service";
 import {
@@ -33,7 +27,6 @@ import type {
   OrdenVentaLineaRow,
 } from "../../../shared/types/sales.types";
 import {
-  formatCapturaFecha,
   notaCapturaForLinea,
   parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
@@ -61,10 +54,7 @@ import {
 } from "./detalle-venta-presentacion";
 import { useRecargaFolioFactura } from "../../surtido/folio-factura-captura";
 import { OrdenVentaDetalleProductos } from "./OrdenVentaDetalleProductos";
-import {
-  OrdenVentaDetalleDiaSemana,
-  OrdenVentaDetalleIdentidadCliente,
-} from "./OrdenVentaDetalleIdentidadCliente";
+import { OrdenVentaDetalleDatosPedidoEntrega } from "./OrdenVentaDetalleDatosPedidoEntrega";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
 import {
   formatCompradorOrdenVenta,
@@ -138,36 +128,6 @@ function CaptureSection({
       </h3>
       <div className="p-4">{children}</div>
     </section>
-  );
-}
-
-function MetaField({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="min-w-0">
-      <p className="polaria-text-label text-polaria-w-20">{label}</p>
-      <div className="mt-1 break-words polaria-text-body-sm font-medium text-polaria-w">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function TextValue({ value }: { value: string | undefined }) {
-  const trimmed = value?.trim() ?? "";
-  return <>{trimmed || "—"}</>;
-}
-
-function renderEstadoBadge(estado: string) {
-  return (
-    <PolariaTableBadge variant={variantEstadoOrdenVenta(estado)}>
-      {formatEstadoOrdenVenta(estado)}
-    </PolariaTableBadge>
   );
 }
 
@@ -256,7 +216,6 @@ function DetalleContent({
       cancelled = true;
     };
   }, [codigoCuenta, hija?.id, idOrdenVenta, recargaFolio]);
-  const prioridad = captura.prioridad.trim();
   // Cuerpo: origen_texto / bloque "Pedido original" / observaciones crudas del correo.
   const cuerpoMensaje = (() => {
     const fromOrigen = captura.origenTexto.trim();
@@ -312,87 +271,22 @@ function DetalleContent({
 
   return (
     <>
-      <CaptureSection title="Datos del pedido">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <OrdenVentaDetalleIdentidadCliente
-            orden={orden}
-            clienteNombre={clienteOrigenFallback}
-          />
-          <MetaField label="Orden de compra del cliente">
-            <TextValue value={captura.ordenCompraHotel} />
-          </MetaField>
-          <MetaField label="Folio de factura">
-            <TextValue value={folioFactura} />
-          </MetaField>
-          <MetaField label="Centro de consumo">
-            <TextValue value={captura.centroConsumo} />
-          </MetaField>
-          <MetaField label="Referencia de pedido">
-            <TextValue value={hija?.referenciaPedido} />
-          </MetaField>
-          <MetaField label="Fecha de creación">
-            {formatDateTime(orden.created_at || orden.fecha_pedido)}
-          </MetaField>
-          <MetaField label="Estado">{renderEstadoBadge(orden.estado)}</MetaField>
-        </div>
-      </CaptureSection>
-
-      <CaptureSection title="Entrega">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {/* REQ-254: Notas + logística en Entrega */}
-          <div className="sm:col-span-3">
-            <MetaField label="Notas generales">
-              <p className="whitespace-pre-wrap">
-                {notasGenerales.trim() || "—"}
-              </p>
-            </MetaField>
-          </div>
-          <MetaField label="Prioridad">
-            {prioridad ? (
-              <PolariaTableBadge
-                variant={prioridad.toLowerCase() === "urgente" ? "warning" : "neutral"}
-              >
-                {prioridad}
-              </PolariaTableBadge>
-            ) : (
-              "—"
-            )}
-          </MetaField>
-          <MetaField label="Moneda">
-            <TextValue value={captura.moneda || "MXN"} />
-          </MetaField>
-          <MetaField label="Fecha de entrega">
-            <TextValue
-              value={
-                captura.fechaEntrega
-                  ? formatCapturaFecha(captura.fechaEntrega)
-                  : ""
-              }
-            />
-          </MetaField>
-          <OrdenVentaDetalleDiaSemana fechaEntrega={captura.fechaEntrega} />
-          <MetaField label="Ventana de entrega">
-            <TextValue value={captura.ventanaEntrega} />
-          </MetaField>
-          {/* REQ-217: dirección full-width; Andén oculto */}
-          <div className="sm:col-span-3">
-            <MetaField label="Dirección de entrega">
-              <p className="whitespace-pre-wrap">
-                {captura.direccion.trim() || "—"}
-              </p>
-            </MetaField>
-          </div>
-          <MetaField label="Contacto del cliente">
-            <TextValue value={captura.contacto} />
-          </MetaField>
-          <MetaField label="Teléfono del contacto">
-            <TextValue value={captura.telefono} />
-          </MetaField>
-          <MetaField label="Correo del contacto">
-            <TextValue value={captura.correo} />
-          </MetaField>
-        </div>
-      </CaptureSection>
+      <OrdenVentaDetalleDatosPedidoEntrega
+        orden={orden}
+        clienteNombre={clienteOrigenFallback}
+        ordenCompraHotel={captura.ordenCompraHotel}
+        folioFactura={folioFactura}
+        centroConsumo={captura.centroConsumo}
+        referenciaPedido={hija?.referenciaPedido ?? ""}
+        moneda={captura.moneda}
+        fechaEntrega={captura.fechaEntrega}
+        ventanaEntrega={captura.ventanaEntrega}
+        contacto={captura.contacto}
+        telefono={captura.telefono}
+        correo={captura.correo}
+        direccion={captura.direccion}
+        notasGenerales={notasGenerales}
+      />
 
       <CaptureSection title="Productos">
         {lineItems.length === 0 && origenRenglonesFallback.length === 0 ? (

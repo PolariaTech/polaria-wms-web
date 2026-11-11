@@ -12,7 +12,7 @@ import { OrdenVentaCaptureFormProgramacion } from "./OrdenVentaCaptureFormProgra
 import { resolveRfcClienteCatalogo } from "../../utils/pedido/rfc-cliente-ov";
 
 export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
-  const { ordenesTrabajoForm, hijaFormActiva, isEditing, setStep, setStartMode, setError, successMessage, hasProductos, emptyCatalogMessage, startMode, origenTexto, origenArchivosNombres, vendedorNombre, idComprador, compradorLabel, compradorNombreIa, compradorSugerencias, missingFields, setPicker, codigoClienteCatalogo, denominacionComercialCatalogo, denominacionComercial, setDenominacionComercial, fechaCreacion, paginarPorOt, folioFactura, ordenCompraHotel, setOrdenCompraHotel, exigeOc, centroConsumo, setCentroConsumo, fechaEntrega, setFechaEntrega, esPorConfirmar, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, observaciones, setObservaciones, clearFieldMarks, autoFields, warnFields, direccion, setDireccion, setAvisoVerificarDireccion, avisoVerificarDireccion, contacto, setContacto, telefono, setTelefono, correo, setCorreo, lineasConIndice, subtotalVenta, ivaVenta, totalVenta, totalOvCompleta, mostrarTotalOv, puedeAgregarProducto, setReplaceLineaIndex, handleOpenReplaceProducto, handleLineaFieldChange, handleCantidadChange, handleCantidadBlur, handlePrecioChange, handlePrecioBlur, handleRemoveLinea, lineas, setLineas, aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote, registrarTemperatura, setRegistrarTemperatura, compradores, fichaComprador } = input;
+  const { ordenesTrabajoForm, hijaFormActiva, isEditing, setStep, setStartMode, setError, successMessage, hasProductos, emptyCatalogMessage, startMode, origenTexto, origenArchivosNombres, vendedorNombre, idComprador, compradorLabel, compradorNombreIa, compradorSugerencias, missingFields, setPicker, codigoClienteCatalogo, denominacionComercialCatalogo, denominacionComercial, setDenominacionComercial, fechaCreacion, paginarPorOt, folioFactura, ordenCompraHotel, setOrdenCompraHotel, exigeOc, centroConsumo, setCentroConsumo, fechaEntrega, setFechaEntrega, esPorConfirmar, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, observaciones, setObservaciones, clearFieldMarks, autoFields, warnFields, direccion, setDireccion, entregaLat, entregaLng, setEntregaLat, setEntregaLng, setAvisoVerificarDireccion, avisoVerificarDireccion, contacto, setContacto, telefono, setTelefono, correo, setCorreo, lineasConIndice, subtotalVenta, ivaVenta, totalVenta, totalOvCompleta, mostrarTotalOv, puedeAgregarProducto, setReplaceLineaIndex, handleOpenReplaceProducto, handleLineaFieldChange, handleCantidadChange, handleCantidadBlur, handlePrecioChange, handlePrecioBlur, handleRemoveLinea, lineas, setLineas, aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote, registrarTemperatura, setRegistrarTemperatura, compradores, fichaComprador } = input;
   // REQ-259: RFC en el recuadro (sin abrir Cypher).
   const rfcClienteCatalogo = resolveRfcClienteCatalogo({
     fichaRfc: fichaComprador?.rfc,
@@ -177,6 +177,12 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                     setAvisoVerificarDireccion(false);
                   }}
                   avisoVerificarDireccion={avisoVerificarDireccion}
+                  entregaLat={entregaLat}
+                  entregaLng={entregaLng}
+                  onEntregaCoords={(coords) => {
+                    setEntregaLat(coords?.lat ?? null);
+                    setEntregaLng(coords?.lng ?? null);
+                  }}
                   contacto={contacto}
                   onContacto={setContacto}
                   telefono={telefono}

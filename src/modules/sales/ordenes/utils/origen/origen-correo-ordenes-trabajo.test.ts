@@ -88,15 +88,16 @@ describe("groupOrigenCorreoToOrdenesTrabajo", () => {
       },
     ];
     const hijas = groupOrigenCorreoToOrdenesTrabajo(rows);
-    expect(hijas).toHaveLength(3);
-    const bar = hijas.find((h) => h.almacen.includes("Bar Whisky"));
+    // REQ-238: Bar Whisky reaparece tras Plaza → OT aparte (4 hijas, no 3).
+    expect(hijas).toHaveLength(4);
+    const bars = hijas.filter((h) => h.almacen.includes("Bar Whisky"));
     const plaza = hijas.find((h) => h.almacen.includes("Plaza Mx"));
     const gener = hijas.find((h) => h.almacen.includes("Almacen Gener"));
-    expect(bar?.renglones).toHaveLength(2);
+    expect(bars).toHaveLength(2);
+    expect(bars[0]?.renglones).toHaveLength(1);
+    expect(bars[1]?.renglones).toHaveLength(1);
     expect(plaza?.renglones).toHaveLength(1);
     expect(gener?.renglones).toHaveLength(1);
-    expect(bar?.label).toContain("4502949779");
-    expect(bar?.label).toMatch(/Bar Whisky/i);
   });
 
   it("si no hay Numero pedido, agrupa por Almacen", () => {
@@ -126,7 +127,7 @@ describe("groupOrigenCorreoToOrdenesTrabajo", () => {
       { "Numero pedido": oc, Almacen: "Ayb Rest Veracruz", Producto: "FRESA FRESCA", Cantidad: 2 },
       { "Numero pedido": oc, Almacen: "Panadería Ayb", Producto: "ZARZAMORA", Cantidad: 3 },
       { "Numero pedido": oc, Almacen: "Ayb Xc Cena Gran Tlachco", Producto: "BLUE BERRY", Cantidad: 0.8 },
-      // Tres filas Troglodita (distintos Usuario en origen) = UNA sola OT
+      // Contiguas mismo almacén sin código → una OT; con Numero almacen distinto → otra.
       { "Numero pedido": oc, Almacen: "Ayb Xp Restaurant Troglodita", Producto: "FRESA FRESCA", Cantidad: 1 },
       { "Numero pedido": oc, Almacen: "Ayb Xp Restaurant Troglodita", Producto: "FRAMBUESA", Cantidad: 1 },
       { "Numero pedido": oc, Almacen: "Ayb Xp Restaurant Troglodita", Producto: "ZARZAMORA", Cantidad: 1 },

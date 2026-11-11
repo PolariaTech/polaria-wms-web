@@ -38,7 +38,7 @@ import {
 import { abrirFormularioDesdeDocs } from "./useOtOv";
 
 export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
-  const { open, setOrdenCargadaId, setFechaCreacion, setStep, isEditing, setStartMode, setIsCompradorCreateOpen, setIdComprador, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, selectedCompradorIdRef, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setDenominacionComercial, setObservaciones, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setTotalSolicitudDetectado, setOrigenArchivoFiles, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setFormOtPage, setLineas, setProductosBase, setPrecioOverrideByProducto, setEquivalenciaByProducto, setCompradores, setBodegasDestino, setIdBodegaDestino, setPendingEmitId, setEditingEstado, setEditingCodigo, setReagruparOpen, setReagruparAplicada, setPicker, setReplaceLineaIndex, setAutoFields, setWarnFields, setAvisoVerificarDireccion, setMissingFields, setDiscrepancias, setConfirmDiscrepanciasOpen, setConfirmSaveOpen, setIsReadingIa, skipDiscrepanciaConfirmRef, skipSaveConfirmRef, skipOtSeedFromOrigenRef, pendingDraftSaveAfterReorgRef, setCantidadFocusId, setError, setSuccessMessage, setIsSaving, submitIntentRef, setOrigenAdjuntos, setEmlInnerAdjuntos, setConfirmDiscardOpen, setFichaComprador, setExigeOc, codigoCuenta, setFormDataReady, setIsLoading, editingId, codigoVenta, handleSelectComprador, bootstrapPromiseRef, compradores, formDataReady } = estado;
+  const { open, setOrdenCargadaId, setFechaCreacion, setStep, isEditing, setStartMode, setIsCompradorCreateOpen, setIdComprador, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, selectedCompradorIdRef, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setDenominacionComercial, setObservaciones, setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setTotalSolicitudDetectado, setOrigenArchivoFiles, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setFormOtPage, setLineas, setProductosBase, setPrecioOverrideByProducto, setEquivalenciaByProducto, setCompradores, setBodegasDestino, setIdBodegaDestino, setPendingEmitId, setEditingEstado, setEditingCodigo, setReagruparOpen, setReagruparAplicada, setPicker, setReplaceLineaIndex, setAutoFields, setWarnFields, setAvisoVerificarDireccion, setMissingFields, setDiscrepancias, setConfirmDiscrepanciasOpen, setConfirmSaveOpen, setIsReadingIa, skipDiscrepanciaConfirmRef, skipSaveConfirmRef, skipOtSeedFromOrigenRef, pendingDraftSaveAfterReorgRef, setCantidadFocusId, setError, setSuccessMessage, setIsSaving, submitIntentRef, setOrigenAdjuntos, setEmlInnerAdjuntos, setConfirmDiscardOpen, setFichaComprador, setExigeOc, codigoCuenta, setFormDataReady, setIsLoading, editingId, codigoVenta, handleSelectComprador, bootstrapPromiseRef, compradores, formDataReady } = estado;
   useEffect(() => {
     if (!open) {
       // Al cerrar el formulario su detalle queda en memoria: que no se tome por el de la
@@ -67,6 +67,8 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
     setDenominacionComercial("");
     setObservaciones("");
     setDireccion("");
+    setEntregaLat(null);
+    setEntregaLng(null);
     setAnden("");
     setContacto("");
     setTelefono("");
@@ -161,7 +163,7 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
           setEditingEstado, setFechaCreacion, setOrdenCargadaId, setEditingCodigo,
           setIdComprador, setCompradorLabel, setFechaEntrega, setVentanaDesde, setVentanaHasta,
           setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setObservaciones,
-          setDireccion, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida,
+          setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida,
           setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura,
           setOrigenTexto, setOrigenAdjuntos, setOrigenCorreoDraft, setOrdenesTrabajoPreview,
           setCompradorNombreIa, setCompradorSugerencias, setLineas, setStartMode, setFormOtPage,
@@ -202,7 +204,7 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
 }
 
 export function useAperturaDesdeDocsOv(estado: OrdenVentaFormEstado) {
-  const { origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos, codigoCuenta, origenTexto, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, fechaEntrega, ordenCompraHotel, aceptaSustituciones, requiereLote, registrarTemperatura, autoFields, warnFields, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields, applyCompradorPrefill } = estado;
+  const { origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos } = estado;
   const origenArchivosNombres = useMemo(() => {
     const fromFiles = origenArchivoFiles.map((file) => file.name);
     const raw =
@@ -214,91 +216,10 @@ export function useAperturaDesdeDocsOv(estado: OrdenVentaFormEstado) {
     return [...new Set(raw.map((name) => name.trim()).filter(Boolean))];
   }, [origenArchivoFiles, origenAdjuntos, emlInnerAdjuntos]);
 
+  // Pasar el estado completo: un partial omitía setters (Cypher / total solicitud).
   const openFormFromDocs = useCallback(async () => {
-    await abrirFormularioDesdeDocs({
-      codigoCuenta,
-      origenTexto,
-      origenArchivoFiles,
-      compradorLabel,
-      compradores,
-      handleSelectComprador,
-      idComprador,
-      selectedCompradorIdRef,
-      ensureFormDataReady,
-      productos,
-      fichaComprador,
-      anden,
-      centroConsumo,
-      contacto,
-      correo,
-      direccion,
-      observaciones,
-      telefono,
-      ventanaDesde,
-      ventanaHasta,
-      fechaEntrega,
-      ordenCompraHotel,
-      aceptaSustituciones,
-      requiereLote,
-      registrarTemperatura,
-      autoFields,
-      warnFields,
-      setAceptaSustituciones,
-      setAnden,
-      setAutoFields,
-      setCentroConsumo,
-      setCompradorLabel,
-      setCompradorNombreIa,
-      setCompradorSugerencias,
-      setContacto,
-      setCorreo,
-      setDireccion,
-      setDiscrepancias,
-      setError,
-      setExigeOc,
-      setFechaEntrega,
-      setFichaComprador,
-      setFormOtPage,
-      setIdComprador,
-      setIsReadingIa,
-      setLineas,
-      setMissingFields,
-      setObservaciones,
-      setOrdenCompraHotel,
-      setOrdenesTrabajoPreview,
-      setOrigenCorreoDraft,
-      setOrigenTexto,
-      setRegistrarTemperatura,
-      setRequiereLote,
-      setStartMode,
-      setStep,
-      setTelefono,
-      setVentanaDesde,
-      setVentanaHasta,
-      setWarnFields,
-    } as OrdenVentaFormEstado);
-  }, [
-    anden,
-    applyCompradorPrefill,
-    centroConsumo,
-    codigoCuenta,
-    compradorLabel,
-    compradores,
-    contacto,
-    correo,
-    direccion,
-    ensureFormDataReady,
-    fichaComprador,
-    handleSelectComprador,
-    idComprador,
-    observaciones,
-    origenArchivoFiles,
-    origenTexto,
-    productos,
-    telefono,
-    ventanaDesde,
-    ventanaHasta,
-  ]);
+    await abrirFormularioDesdeDocs(estado);
+  }, [estado]);
 
   return { origenArchivosNombres, openFormFromDocs };
 }

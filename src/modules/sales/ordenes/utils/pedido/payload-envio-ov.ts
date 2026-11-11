@@ -157,6 +157,8 @@ export function buildPayloadEnvioOv(params: {
   vendedor: string;
   bodegaDestinoLabel: string;
   direccion: string;
+  entregaLat?: number | null;
+  entregaLng?: number | null;
   anden: string;
   contacto: string;
   telefono: string;
@@ -193,6 +195,8 @@ export function buildPayloadEnvioOv(params: {
     vendedor: params.vendedor,
     bodegaDestinoLabel: params.bodegaDestinoLabel,
     direccionEntrega: params.direccion,
+    entregaLat: params.entregaLat ?? null,
+    entregaLng: params.entregaLng ?? null,
     anden: params.anden,
     contacto: params.contacto,
     telefono: params.telefono,

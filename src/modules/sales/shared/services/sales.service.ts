@@ -46,6 +46,7 @@ import {
   type ProductoVentaOption,
   type UpdateOrdenVentaInput,
 } from "../types/sales.types";
+import { ORDEN_VENTA_DETALLE_FLAT_COLUMNS } from "./orden-venta-detalle-columns";
 import {
   computeOvSla,
   normalizeOvSlaConfig,
@@ -88,9 +89,6 @@ function sortOrdenesVentaPorCreacionDesc(rows: OrdenVentaRow[]): OrdenVentaRow[]
 }
 
 const COMPRADOR_COLUMNS = "id_comprador,nombre";
-
-const ORDEN_VENTA_DETALLE_FLAT_COLUMNS =
-  "prioridad,orden_compra_hotel,centro_consumo,vendedor,moneda,bodega_destino_label,direccion_entrega,anden,contacto_entrega,telefono_contacto,correo_contacto,turno,hora_salida,chofer,unidad,notas_lineas,notas_almacen,fecha_entrega,ventana_desde,ventana_hasta,acepta_sustituciones,requiere_lote,registrar_temperatura,origen_texto,origen_archivos,origen_correo,denominacion_comercial_override";
 
 const ORDEN_VENTA_DETALLE_SELECT =
   `${ORDEN_VENTA_COLUMNS},${ORDEN_VENTA_DETALLE_FLAT_COLUMNS},` +
