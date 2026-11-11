@@ -164,7 +164,7 @@ export function CodigoDespachoPageContent() {
         {previa ? (
           <iframe
             title="Vista previa de la hoja con el código QR de despacho"
-            src={`${previa.url}#zoom=page-fit`}
+            src={`${previa.url}#view=Fit`}
             className="h-[28rem] min-h-[20rem] w-full rounded-2xl border border-polaria-w-08 bg-polaria-bg lg:h-auto lg:min-h-0 lg:flex-1"
           />
         ) : errorPrevia ? null : (
