@@ -15,6 +15,8 @@ interface ImpresionBatchFiltroImpresionProps {
   conteos: ConteosImpresion;
   /** Se está leyendo el registro de impresiones de las órdenes. */
   buscando: boolean;
+  /** Cuántas órdenes no se pudieron revisar: pueden estar impresas aunque no salgan marcadas. */
+  sinRevisar?: number;
   onChange: (valor: ImpresionOvBatch) => void;
 }
 
@@ -28,7 +30,7 @@ const OPCIONES: ReadonlyArray<{ valor: ImpresionOvBatch; etiqueta: string; conte
  * «Todas / Sin imprimir / Ya impresas» (REQ-298): para sacar solo lo nuevo o para volver a imprimir
  * una orden que ya salió. Cada opción dice cuántas órdenes tiene en cuanto se sabe.
  */
-export function ImpresionBatchFiltroImpresion({ valor, conteos, buscando, onChange }: ImpresionBatchFiltroImpresionProps) {
+export function ImpresionBatchFiltroImpresion({ valor, conteos, buscando, sinRevisar = 0, onChange }: ImpresionBatchFiltroImpresionProps) {
   return (
     <fieldset className="flex min-w-0 flex-col gap-1">
       <legend className="mb-1 text-xs font-medium text-polaria-w">Estado de impresión</legend>
@@ -56,8 +58,15 @@ export function ImpresionBatchFiltroImpresion({ valor, conteos, buscando, onChan
           );
         })}
         {/* Existe siempre y se llena después: así los lectores de pantalla sí anuncian el cambio. */}
-        <span aria-live="polite" className="polaria-text-body-sm text-polaria-w empty:hidden">
-          {buscando ? "Revisando qué se imprimió antes…" : null}
+        <span
+          aria-live="polite"
+          className={cn("polaria-text-body-sm empty:hidden", !buscando && sinRevisar > 0 ? "text-polaria-warning" : "text-polaria-w")}
+        >
+          {buscando
+            ? "Revisando qué se imprimió antes…"
+            : sinRevisar > 0
+              ? `No se pudo revisar ${sinRevisar} ${sinRevisar === 1 ? "orden" : "órdenes"}: podrían estar impresas aunque no salgan marcadas.`
+              : null}
         </span>
       </div>
     </fieldset>

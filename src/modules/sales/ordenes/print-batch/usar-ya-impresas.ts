@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OrdenVentaOperadorRow } from "../../shared/types/sales.types";
-import { idsOvYaImpresas } from "./ya-impresas";
+import { leerYaImpresas } from "./ya-impresas";
 
 type EjecutarEnCuenta = <T>(tarea: () => Promise<T>) => Promise<T>;
 
@@ -20,7 +20,11 @@ interface Entrada {
  * (por ejemplo, justo después de imprimir).
  */
 export function useYaImpresas({ codigoCuenta, rows, runScoped, activo }: Entrada) {
-  const [leido, setLeido] = useState<{ rows: readonly OrdenVentaOperadorRow[]; ids: ReadonlySet<string> } | null>(null);
+  const [leido, setLeido] = useState<{
+    rows: readonly OrdenVentaOperadorRow[];
+    ids: ReadonlySet<string>;
+    fallidas: number;
+  } | null>(null);
   const [progreso, setProgreso] = useState<string | null>(null);
   const runScopedActual = useRef(runScoped);
   useEffect(() => {
@@ -33,16 +37,16 @@ export function useYaImpresas({ codigoCuenta, rows, runScoped, activo }: Entrada
   useEffect(() => {
     if (!buscando || !codigoCuenta) return;
     let cancelado = false;
-    void idsOvYaImpresas({
+    void leerYaImpresas({
       codigoCuenta,
       rows,
       runScoped: (tarea) => runScopedActual.current(tarea),
       onProgreso: (leidas, total) => {
         if (!cancelado) setProgreso(`Revisando OV ${leidas} de ${total}…`);
       },
-    }).then((ids) => {
+    }).then(({ impresas, fallidas }) => {
       if (cancelado) return;
-      setLeido({ rows, ids });
+      setLeido({ rows, ids: impresas, fallidas });
       setProgreso(null);
     });
     return () => {
@@ -52,5 +56,7 @@ export function useYaImpresas({ codigoCuenta, rows, runScoped, activo }: Entrada
 
   const recargar = useCallback(() => setLeido(null), []);
 
-  return { ids, buscando, progreso, recargar };
+  const fallidas = leido !== null && leido.rows === rows ? leido.fallidas : 0;
+
+  return { ids, fallidas, buscando, progreso, recargar };
 }

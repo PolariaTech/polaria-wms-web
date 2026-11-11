@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OrdenVentaOperadorRow } from "../../shared/types/sales.types";
 import { fetchOrdenVentaLog } from "../services/orden-venta-log.client";
-import { idsOvYaImpresas } from "./ya-impresas";
+import { idsOvYaImpresas, leerYaImpresas } from "./ya-impresas";
 
 vi.mock("../services/orden-venta-log.client", () => ({ fetchOrdenVentaLog: vi.fn() }));
 
@@ -75,5 +75,35 @@ describe("idsOvYaImpresas", () => {
 
     expect(impresas.size).toBe(0);
     expect(fetchLog).not.toHaveBeenCalled();
+  });
+});
+
+describe("leerYaImpresas", () => {
+  beforeEach(() => {
+    fetchLog.mockReset();
+  });
+
+  it("cuenta las OV cuyo log no se pudo leer, para poder avisarlo", async () => {
+    fetchLog.mockImplementation(async ({ idOrdenVenta }) => {
+      if (idOrdenVenta === "a" || idOrdenVenta === "c") throw new Error("sin red");
+      return logDe("impresion_pdf");
+    });
+
+    const { impresas, fallidas } = await leerYaImpresas({
+      codigoCuenta: "JBR",
+      rows: [fila("a"), fila("b"), fila("c")],
+      runScoped,
+    });
+
+    expect([...impresas]).toEqual(["b"]);
+    expect(fallidas).toBe(2);
+  });
+
+  it("si todo se lee bien no hay fallidas", async () => {
+    fetchLog.mockResolvedValue(logDe());
+
+    const { fallidas } = await leerYaImpresas({ codigoCuenta: "JBR", rows: [fila("a")], runScoped });
+
+    expect(fallidas).toBe(0);
   });
 });

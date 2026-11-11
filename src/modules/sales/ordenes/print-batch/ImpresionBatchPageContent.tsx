@@ -218,6 +218,7 @@ export function ImpresionBatchPageContent() {
               valor={filtros.impresion}
               conteos={conteos}
               buscando={yaImpresas.buscando}
+              sinRevisar={yaImpresas.fallidas}
               onChange={(impresion) => cambiarFiltros({ ...filtros, impresion })}
             />
             <div className="w-full sm:w-72">

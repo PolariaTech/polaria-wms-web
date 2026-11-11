@@ -28,6 +28,19 @@ describe("ImpresionBatchFiltroImpresion", () => {
     expect(onChange).toHaveBeenCalledWith("impresas");
   });
 
+  it("avisa con texto cuántas órdenes no se pudieron revisar, y no dice nada si todas se revisaron", () => {
+    const { rerender } = render(
+      <ImpresionBatchFiltroImpresion valor="todas" conteos={CONTEOS} buscando={false} sinRevisar={1} onChange={vi.fn()} />,
+    );
+    expect(screen.getByText(/No se pudo revisar 1 orden: podrían estar impresas/)).toBeInTheDocument();
+
+    rerender(<ImpresionBatchFiltroImpresion valor="todas" conteos={CONTEOS} buscando={false} sinRevisar={3} onChange={vi.fn()} />);
+    expect(screen.getByText(/No se pudo revisar 3 órdenes/)).toBeInTheDocument();
+
+    rerender(<ImpresionBatchFiltroImpresion valor="todas" conteos={CONTEOS} buscando={false} sinRevisar={0} onChange={vi.fn()} />);
+    expect(screen.queryByText(/No se pudo revisar/)).not.toBeInTheDocument();
+  });
+
   it("mientras no sabe qué se imprimió antes no inventa cantidades y lo dice", () => {
     montar({ conteos: { todas: 12, sinImprimir: null, impresas: null }, buscando: true });
 
