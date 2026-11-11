@@ -62,6 +62,31 @@ describe("VentasSidebar (REQ-104)", () => {
     );
   });
 
+  it.each(["administrador_cuenta", "operador_cuenta"])(
+    "«Imprimir PDF» lleva a la página del código de despacho, en otra pestaña, para el rol %s (REQ-306)",
+    (idRol) => {
+      estado.idRol = idRol;
+      render(<VentasSidebar />);
+
+      const enlace = screen.getByRole("link", { name: /^Imprimir PDF/ });
+      expect(enlace).toHaveAttribute("href", ROUTES.imprimirDespacho);
+      expect(enlace).toHaveAttribute("target", "_blank");
+      expect(enlace).toHaveAttribute("rel", "noopener noreferrer");
+      expect(enlace).toHaveAccessibleName("Imprimir PDF (se abre en una pestaña nueva)");
+      expect(enlace).not.toHaveAttribute("aria-current");
+    },
+  );
+
+  it("«Imprimir PDF» va después de «Estado de fotos» y los demás enlaces siguen en la misma pestaña", () => {
+    render(<VentasSidebar />);
+
+    const fotos = screen.getByRole("link", { name: "Estado de fotos" });
+    const imprimir = screen.getByRole("link", { name: /^Imprimir PDF/ });
+    expect(fotos.compareDocumentPosition(imprimir) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fotos).not.toHaveAttribute("target");
+    expect(screen.getByRole("link", { name: "Órdenes de venta" })).not.toHaveAttribute("target");
+  });
+
   it("un rol que no es de cuenta no ve el menú, así que tampoco «Estado de fotos»", () => {
     estado.idRol = "operario";
     render(<VentasSidebar />);
