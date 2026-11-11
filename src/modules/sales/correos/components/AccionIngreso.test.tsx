@@ -7,6 +7,24 @@ import { AccionIngreso, AvisoDelFlujo } from "./AccionIngreso";
 const sinFiltro = { nuevoPedido: null, motivo: null } as const;
 
 describe("AccionIngreso (REQ-275)", () => {
+  it("un ingreso vencido del api ofrece «Reintentar» con el motivo en el tooltip", async () => {
+    render(
+      <AccionIngreso
+        fila={fila({
+          ...sinFiltro,
+          ingreso: ingreso({
+            estado: "error",
+            error: "El ingreso no terminó. Toca Reintentar.",
+          }),
+        })}
+        onIngresar={vi.fn()}
+      />,
+    );
+    const boton = screen.getByRole("button", { name: /Reintentar el ingreso/ });
+    expect(boton).toHaveTextContent("Reintentar");
+    expect(boton).toHaveAttribute("title", "El ingreso no terminó. Toca Reintentar.");
+  });
+
   it("un ingreso fallido ofrece «Reintentar» y deja el error en el tooltip", async () => {
     const alIngresar = vi.fn();
     render(
