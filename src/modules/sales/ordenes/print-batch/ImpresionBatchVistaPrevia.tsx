@@ -47,7 +47,8 @@ export function ImpresionBatchVistaPrevia({
   const [url, setUrl] = useState<string | null>(null);
 
   const titulo = useRef<HTMLHeadingElement>(null);
-  const porPartes = descargaPartes !== undefined && partesDe(descargaPartes.previa).length > 1;
+  const totalPartes = descargaPartes ? partesDe(descargaPartes.previa).length : 1;
+  const porPartes = totalPartes > 1;
 
   useEffect(() => {
     const objectUrl = URL.createObjectURL(blob);
@@ -74,6 +75,11 @@ export function ImpresionBatchVistaPrevia({
           <p className="polaria-text-body-sm tabular-nums text-polaria-w">
             {ot} OT de {ov} OV · {hojas} {hojas === 1 ? "hoja" : "hojas"} · {descripcionOrden}
           </p>
+          {porPartes ? (
+            <p className="polaria-text-body-sm text-polaria-w">
+              El paquete va en {totalPartes} partes y aquí se ve la parte 1. Descarga cada parte por separado.
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -93,6 +99,10 @@ export function ImpresionBatchVistaPrevia({
               href={url}
               download={nombreArchivo}
               aria-disabled={imprimiendo || undefined}
+              tabIndex={imprimiendo ? -1 : undefined}
+              onClick={(event) => {
+                if (imprimiendo) event.preventDefault();
+              }}
               className={cn(
                 BOTON_BASE,
                 "border-polaria-t-20 bg-polaria-t-08 text-polaria-w hover:border-polaria-teal hover:bg-polaria-t-20",
@@ -123,11 +133,13 @@ export function ImpresionBatchVistaPrevia({
       </div>
 
       {descargaPartes && porPartes ? (
-        <ImpresionBatchDescargaPartes
-          previa={descargaPartes.previa}
-          codigoCuenta={descargaPartes.codigoCuenta}
-          deshabilitado={imprimiendo}
-        />
+        <div className="shrink-0">
+          <ImpresionBatchDescargaPartes
+            previa={descargaPartes.previa}
+            codigoCuenta={descargaPartes.codigoCuenta}
+            deshabilitado={imprimiendo}
+          />
+        </div>
       ) : null}
 
       {url ? (

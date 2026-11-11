@@ -19,7 +19,7 @@ interface ImpresionBatchFiltroImpresionProps {
 }
 
 const OPCIONES: ReadonlyArray<{ valor: ImpresionOvBatch; etiqueta: string; conteo: keyof ConteosImpresion }> = [
-  { valor: "todas", etiqueta: "Todas las órdenes", conteo: "todas" },
+  { valor: "todas", etiqueta: "Todas", conteo: "todas" },
   { valor: "sin_imprimir", etiqueta: "Sin imprimir", conteo: "sinImprimir" },
   { valor: "impresas", etiqueta: "Ya impresas", conteo: "impresas" },
 ];
@@ -31,7 +31,7 @@ const OPCIONES: ReadonlyArray<{ valor: ImpresionOvBatch; etiqueta: string; conte
 export function ImpresionBatchFiltroImpresion({ valor, conteos, buscando, onChange }: ImpresionBatchFiltroImpresionProps) {
   return (
     <fieldset className="flex min-w-0 flex-col gap-1">
-      <legend className="mb-1 text-xs font-medium text-polaria-w">Impresión</legend>
+      <legend className="mb-1 text-xs font-medium text-polaria-w">Estado de impresión</legend>
       <div className="flex flex-wrap items-center gap-1.5">
         {OPCIONES.map((opcion) => {
           const activo = valor === opcion.valor;
@@ -55,11 +55,10 @@ export function ImpresionBatchFiltroImpresion({ valor, conteos, buscando, onChan
             </button>
           );
         })}
-        {buscando ? (
-          <p role="status" className="polaria-text-body-sm text-polaria-w">
-            Revisando qué se imprimió antes…
-          </p>
-        ) : null}
+        {/* Existe siempre y se llena después: así los lectores de pantalla sí anuncian el cambio. */}
+        <span aria-live="polite" className="polaria-text-body-sm text-polaria-w empty:hidden">
+          {buscando ? "Revisando qué se imprimió antes…" : null}
+        </span>
       </div>
     </fieldset>
   );

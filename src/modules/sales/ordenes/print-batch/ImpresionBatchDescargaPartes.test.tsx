@@ -74,9 +74,26 @@ describe("ImpresionBatchDescargaPartes", () => {
     expect(screen.getByRole("button", { name: "Descargar parte 1 de 2" })).toBeEnabled();
   });
 
-  it("no deja descargar mientras se envía a la impresora", () => {
+  it("no deja descargar mientras se envía a la impresora, sin sacar los botones del teclado", async () => {
+    const usuario = userEvent.setup();
     render(<ImpresionBatchDescargaPartes previa={previa([parte("a"), parte("b")])} codigoCuenta="1YW43" deshabilitado />);
 
-    for (const boton of screen.getAllByRole("button")) expect(boton).toBeDisabled();
+    for (const boton of screen.getAllByRole("button")) expect(boton).toHaveAttribute("aria-disabled", "true");
+    await usuario.click(screen.getByRole("button", { name: "Descargar parte 1 de 2" }));
+    expect(armarPartePdf).not.toHaveBeenCalled();
+  });
+
+  it("con más de 4 partes ofrece un selector y un solo botón para la parte elegida", async () => {
+    const usuario = userEvent.setup();
+    render(<ImpresionBatchDescargaPartes previa={previa(["a", "b", "c", "d", "e"].map(parte))} codigoCuenta="1YW43" />);
+
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("group", { name: "Descargar el PDF por partes (5 partes)" })).toBeInTheDocument();
+
+    await usuario.selectOptions(screen.getByLabelText("Parte"), "3");
+    await usuario.click(screen.getByRole("button", { name: "Descargar parte 4 de 5" }));
+
+    await waitFor(() => expect(descargados).toEqual(["impresion-batch-1-parte-4-de-5.pdf"]));
+    expect(armarPartePdf).toHaveBeenCalledWith(expect.objectContaining({ indice: 3, total: 5 }));
   });
 });

@@ -192,12 +192,12 @@ describe("ImpresionBatchPageContent: reimprimir lo ya impreso (REQ-298)", () => 
     );
   });
 
-  it("al nacer muestra todas las órdenes y no lee ningún registro de impresiones", async () => {
+  it("al nacer muestra todas las órdenes (botón «Todas») y no lee ningún registro de impresiones", async () => {
     render(<ImpresionBatchPageContent />);
 
     await screen.findByText("OV-a");
 
-    expect(screen.getByRole("button", { name: "Todas las órdenes (3)" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Todas (3)" })).toHaveAttribute("aria-pressed", "true");
     expect(fetchLog).not.toHaveBeenCalled();
   });
 
@@ -225,7 +225,7 @@ describe("ImpresionBatchPageContent: reimprimir lo ya impreso (REQ-298)", () => 
     await userEvent.click(screen.getByRole("button", { name: /^Ya impresas/ }));
     await waitFor(() => expect(screen.queryByText("OV-b")).toBeNull());
 
-    await userEvent.click(screen.getByRole("button", { name: /^Todas las órdenes/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Todas \(/ }));
 
     expect(await screen.findByText("OV-b")).toBeInTheDocument();
     expect(screen.getByText("OV-a")).toBeInTheDocument();

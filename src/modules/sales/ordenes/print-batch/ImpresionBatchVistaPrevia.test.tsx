@@ -88,6 +88,17 @@ describe("ImpresionBatchVistaPrevia con el paquete en varias partes", () => {
     expect(screen.queryByRole("link", { name: "Descargar PDF" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Descargar parte 1 de 2" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Descargar parte 2 de 2" })).toBeInTheDocument();
+    expect(screen.getByText(/El paquete va en 2 partes y aquí se ve la parte 1/)).toBeInTheDocument();
+  });
+
+  it("con la impresión en curso, el enlace de descarga no se activa ni con teclado", async () => {
+    montar({ imprimiendo: true });
+
+    const enlace = screen.getByRole("link", { name: "Descargar PDF" });
+
+    expect(enlace).toHaveAttribute("aria-disabled", "true");
+    expect(enlace).toHaveAttribute("tabindex", "-1");
+    expect(enlace.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))).toBe(false);
   });
 
   it("con una sola parte deja el botón de descarga de siempre", () => {
