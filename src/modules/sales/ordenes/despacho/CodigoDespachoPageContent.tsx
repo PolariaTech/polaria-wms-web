@@ -40,7 +40,7 @@ interface Previa {
 export function CodigoDespachoPageContent() {
   const { codigoCuenta } = useAdminMaestroScope();
   const zonaHoraria = useCuentaZonaHoraria(codigoCuenta);
-  // undefined = todavía consultando; null = la cuenta no tiene impresora configurada.
+  // undefined = todavía consultando o no se pudo consultar; null = la cuenta no tiene impresora configurada.
   const [hayImpresora, setHayImpresora] = useState<boolean | null | undefined>(undefined);
   const [previa, setPrevia] = useState<Previa | null>(null);
   const [errorPrevia, setErrorPrevia] = useState<string | null>(null);
@@ -55,7 +55,9 @@ export function CodigoDespachoPageContent() {
         if (vigente) setHayImpresora(destino ? true : null);
       },
       () => {
-        if (vigente) setHayImpresora(null);
+        // No se pudo consultar: no es lo mismo que no tener impresora. Se deja imprimir y, si de
+        // verdad falla, el envío dice qué pasó.
+        if (vigente) setHayImpresora(undefined);
       },
     );
     return () => {

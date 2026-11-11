@@ -1,5 +1,9 @@
 import QRCode from "qrcode";
 import { imprimirPdfListo } from "@/modules/sales/ordenes/print-batch/imprimir-pdf-listo";
+import {
+  esErrorDeVersionVieja,
+  MENSAJE_VERSION_NUEVA,
+} from "@/modules/sales/ordenes/print/print-correo-fallo";
 import type { SilentPrintResult } from "@/modules/sales/ordenes/print/print-silent-cuenta";
 import { resolveCapturaOrdenOrigin } from "@/modules/sales/ordenes/print/resolve-captura-orden-origin";
 import {
@@ -10,6 +14,26 @@ import {
 
 /** Falla que el operador puede entender: el mensaje ya dice qué pasó. */
 export class CodigoDespachoError extends Error {}
+
+/**
+ * Los únicos textos de la impresión que ya dicen qué hacer en lenguaje claro. Cualquier otro (lo
+ * que devuelva QZ Tray, el servidor o el navegador) puede traer detalles técnicos —direcciones,
+ * nombres de equipos, códigos— y el operador no los ve.
+ */
+const MENSAJES_PARA_OPERADOR: ReadonlySet<string> = new Set([
+  "No hay impresora configurada.",
+  "Falta la cuenta para imprimir.",
+]);
+
+const MENSAJE_IMPRESION_GENERICO =
+  "No se pudo enviar a la impresora. Revisa que esté encendida e inténtalo de nuevo.";
+
+/** El mensaje que verá el operador para un fallo de impresión; lo técnico queda fuera. */
+function mensajeDeImpresionParaOperador(causa: unknown): string {
+  if (esErrorDeVersionVieja(causa)) return MENSAJE_VERSION_NUEVA;
+  if (causa instanceof Error && MENSAJES_PARA_OPERADOR.has(causa.message)) return causa.message;
+  return MENSAJE_IMPRESION_GENERICO;
+}
 
 /**
  * REQ-306: arma la hoja carta con el QR que abre la lista pública de despacho de la cuenta. La
@@ -57,10 +81,6 @@ export async function imprimirCodigoDespacho(
       nombreTrabajo: "Código de despacho",
     });
   } catch (causa: unknown) {
-    throw new CodigoDespachoError(
-      causa instanceof Error && causa.message
-        ? causa.message
-        : "No se pudo enviar a la impresora. Revisa que esté encendida e inténtalo de nuevo.",
-    );
+    throw new CodigoDespachoError(mensajeDeImpresionParaOperador(causa));
   }
 }

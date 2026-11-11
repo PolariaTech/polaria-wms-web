@@ -8,6 +8,7 @@ const PDF = new Blob(["pdf"], { type: "application/pdf" });
 const estado = vi.hoisted(() => ({
   codigoCuenta: "1YW43" as string | null,
   impresora: { nombre: "Epson de despacho" } as { nombre: string } | null,
+  fallaConsulta: false,
   preparar: vi.fn(),
   imprimir: vi.fn(),
 }));
@@ -27,7 +28,8 @@ vi.mock("@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria", () => ({
   useCuentaZonaHoraria: () => "America/Bogota",
 }));
 vi.mock("@/modules/configurator/impresoras/services/impresoras.service", () => ({
-  getImpresoraActivaCuenta: () => Promise.resolve(estado.impresora),
+  getImpresoraActivaCuenta: () =>
+    estado.fallaConsulta ? Promise.reject(new Error("fallo de red")) : Promise.resolve(estado.impresora),
 }));
 vi.mock("./imprimir-codigo-despacho", () => ({
   CodigoDespachoError: class CodigoDespachoError extends Error {},
@@ -45,6 +47,7 @@ describe("CodigoDespachoPageContent (REQ-306)", () => {
   beforeEach(() => {
     estado.codigoCuenta = "1YW43";
     estado.impresora = { nombre: "Epson de despacho" };
+    estado.fallaConsulta = false;
     estado.preparar.mockReset().mockResolvedValue(PDF);
     estado.imprimir
       .mockReset()
@@ -143,6 +146,15 @@ describe("CodigoDespachoPageContent (REQ-306)", () => {
     expect(await screen.findByText(/no tiene una impresora configurada/)).toBeInTheDocument();
     await screen.findByTitle(VISTA);
     expect(screen.getByRole("button", { name: IMPRIMIR })).toBeDisabled();
+  });
+
+  it("si no se puede consultar la impresora no dice que no tenga: deja imprimir y el envío informa", async () => {
+    estado.fallaConsulta = true;
+    render(<CodigoDespachoPageContent />);
+
+    await screen.findByTitle(VISTA);
+    expect(screen.queryByText(/no tiene una impresora configurada/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: IMPRIMIR })).toBeEnabled();
   });
 
   it("sin cuenta activa no arma nada y el botón queda deshabilitado", () => {

@@ -86,11 +86,45 @@ describe("código de despacho: preparar e imprimir (REQ-306)", () => {
     expect(mocks.render).not.toHaveBeenCalled();
   });
 
-  it("si la impresora falla conserva su mensaje (ya dice qué hacer)", async () => {
-    mocks.imprimirPdfListo.mockRejectedValue(new Error("No hay impresora configurada."));
+  it.each(["No hay impresora configurada.", "Falta la cuenta para imprimir."])(
+    "si la impresora falla con «%s» conserva ese mensaje, que ya dice qué hacer",
+    async (mensaje) => {
+      mocks.imprimirPdfListo.mockRejectedValue(new Error(mensaje));
+
+      const error = await imprimirCodigoDespacho(PDF, "1YW43").catch((causa: unknown) => causa);
+      expect(error).toBeInstanceOf(CodigoDespachoError);
+      expect((error as Error).message).toBe(mensaje);
+    },
+  );
+
+  it.each([
+    "TypeError: x is undefined",
+    "WebSocket connection to 'wss://localhost:8181/' failed",
+    "La impresora (192.168.1.50) está en la red local: instala QZ Tray en este PC y agrega «EPSON-L3250».",
+    "No se pudo imprimir desde el servidor. ECONNREFUSED 10.0.0.5:631",
+  ])("un error técnico de la impresora no llega al operador: «%s»", async (tecnico) => {
+    mocks.imprimirPdfListo.mockRejectedValue(new Error(tecnico));
 
     const error = await imprimirCodigoDespacho(PDF, "1YW43").catch((causa: unknown) => causa);
     expect(error).toBeInstanceOf(CodigoDespachoError);
-    expect((error as Error).message).toBe("No hay impresora configurada.");
+    expect((error as Error).message).toBe(
+      "No se pudo enviar a la impresora. Revisa que esté encendida e inténtalo de nuevo.",
+    );
+  });
+
+  it("un valor que no es un Error tampoco se muestra tal cual", async () => {
+    mocks.imprimirPdfListo.mockRejectedValue("ECONNRESET");
+
+    await expect(imprimirCodigoDespacho(PDF, "1YW43")).rejects.toThrow(
+      "No se pudo enviar a la impresora. Revisa que esté encendida e inténtalo de nuevo.",
+    );
+  });
+
+  it("si hay una versión nueva de la aplicación pide recargar la página", async () => {
+    mocks.imprimirPdfListo.mockRejectedValue(new Error("Failed to fetch dynamically imported module: /_next/x.js"));
+
+    await expect(imprimirCodigoDespacho(PDF, "1YW43")).rejects.toThrow(
+      "Hay una versión nueva de Polaria. Recarga la página para poder imprimir.",
+    );
   });
 });
