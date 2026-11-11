@@ -11,8 +11,16 @@ import {
 /** Falla que el operador puede entender: el mensaje ya dice qué pasó. */
 export class CodigoDespachoError extends Error {}
 
-/** Arma la hoja carta con el QR que abre la lista pública de despacho de la cuenta. */
-async function armarPdfCodigoDespacho(codigoCuenta: string): Promise<Blob> {
+/**
+ * REQ-306: arma la hoja carta con el QR que abre la lista pública de despacho de la cuenta. La
+ * dirección del QR sale del origen vigente de la app (nunca un preview de Vercel), así que cambia
+ * sola entre local, pruebas y producción. La misma hoja se muestra en la vista previa y se imprime.
+ */
+export async function prepararCodigoDespacho(codigoCuenta: string): Promise<Blob> {
+  const cuenta = codigoCuenta.trim();
+  if (!cuenta) {
+    throw new CodigoDespachoError("No hay una cuenta activa para armar el código.");
+  }
   const origin = resolveCapturaOrdenOrigin();
   if (!origin) {
     throw new CodigoDespachoError(
@@ -20,7 +28,7 @@ async function armarPdfCodigoDespacho(codigoCuenta: string): Promise<Blob> {
     );
   }
   try {
-    const qrDataUrl = await QRCode.toDataURL(urlDespachoConCuenta(origin, codigoCuenta), {
+    const qrDataUrl = await QRCode.toDataURL(urlDespachoConCuenta(origin, cuenta), {
       errorCorrectionLevel: "M",
       margin: 1,
       width: 800,
@@ -36,20 +44,16 @@ async function armarPdfCodigoDespacho(codigoCuenta: string): Promise<Blob> {
 }
 
 /**
- * REQ-306: manda a la impresora configurada de la cuenta la hoja con el QR de despacho, por el
- * mismo camino que la impresión rápida y la detallada (correo, IPP o QZ Tray según la impresora).
- * La dirección del QR sale del origen vigente de la app (nunca un preview de Vercel), así que
- * cambia sola entre local, pruebas y producción.
+ * Manda a la impresora configurada de la cuenta la hoja ya armada, por el mismo camino que la
+ * impresión rápida y la detallada (correo, IPP o QZ Tray según la impresora).
  */
-export async function imprimirCodigoDespacho(codigoCuenta: string): Promise<SilentPrintResult> {
-  const cuenta = codigoCuenta.trim();
-  if (!cuenta) {
-    throw new CodigoDespachoError("No hay una cuenta activa para armar el código.");
-  }
-  const pdf = await armarPdfCodigoDespacho(cuenta);
+export async function imprimirCodigoDespacho(
+  pdf: Blob,
+  codigoCuenta: string,
+): Promise<SilentPrintResult> {
   try {
     return await imprimirPdfListo(pdf, {
-      codigoCuenta: cuenta,
+      codigoCuenta: codigoCuenta.trim(),
       nombreTrabajo: "Código de despacho",
     });
   } catch (causa: unknown) {
