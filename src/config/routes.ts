@@ -64,6 +64,8 @@ export const ROUTES = {
   dashboardVentasImpresionRapida: "/dashboard/ventas/impresion-rapida",
   /** POL-406: estado de las fotos de captura por OV y OT (solo lectura). */
   dashboardVentasEstadoFotos: "/dashboard/ventas/estado-fotos",
+  /** REQ-306: la hoja con el QR de despacho de la cuenta, dentro de Ventas. */
+  dashboardVentasCodigoDespacho: "/dashboard/ventas/codigo-despacho",
   /** REQ-104: correos de pedidos que registra n8n (todos). */
   dashboardVentasCorreosMateo: "/dashboard/ventas/correos-mateo",
   /** REQ-104: correos que el flujo descartó, para ingresarlos a mano como OV. */
@@ -71,6 +73,10 @@ export const ROUTES = {
   /** REQ-104: el correo completo (cuerpo y adjuntos), en una pestaña propia. */
   dashboardVentasCorreo: (messageId: string) =>
     `/dashboard/ventas/correo/${encodeURIComponent(messageId)}`,
+  /** REQ-292: listado público de despacho — sin login, con la cuenta del QR. */
+  despachoPublico: "/despacho",
+  /** REQ-292: quien ya está logueado imprime el QR de su cuenta. */
+  imprimirDespacho: "/imprimir-despacho",
   /** Captura pública (QR) de hoja surtida — sin login. */
   capturaOrden: (idOrdenVenta: string, idOrdenTrabajo?: string) => {
     const base = `/captura-orden/${encodeURIComponent(idOrdenVenta)}`;

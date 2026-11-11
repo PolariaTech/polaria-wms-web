@@ -7,6 +7,7 @@ import {
   MailX,
   Minus,
   Plus,
+  QrCode,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -65,6 +66,13 @@ const ITEM_ESTADO_FOTOS: ItemMenu = {
   href: ROUTES.dashboardVentasEstadoFotos,
   label: "Estado de fotos",
   icon: Camera,
+};
+
+/** REQ-306: la hoja con el QR del despacho de la cuenta (REQ-292); va tras el estado de fotos. */
+const ITEM_CODIGO_DESPACHO: ItemMenu = {
+  href: ROUTES.dashboardVentasCodigoDespacho,
+  label: "Código de despacho",
+  icon: QrCode,
 };
 
 /** Solo los roles de nivel cuenta usan el menú de Ventas con correos. */
@@ -158,6 +166,14 @@ export function VentasSidebar() {
                     activo={
                       pathname === ITEM_ESTADO_FOTOS.href ||
                       pathname.startsWith(`${ITEM_ESTADO_FOTOS.href}/`)
+                    }
+                  />
+                  {/* REQ-306: la hoja con el QR del despacho público. */}
+                  <EnlaceMenu
+                    item={ITEM_CODIGO_DESPACHO}
+                    activo={
+                      pathname === ITEM_CODIGO_DESPACHO.href ||
+                      pathname.startsWith(`${ITEM_CODIGO_DESPACHO.href}/`)
                     }
                   />
                 </>

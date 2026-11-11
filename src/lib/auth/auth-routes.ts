@@ -5,6 +5,7 @@ const PROTECTED_PREFIXES = [
   ROUTES.dashboard,
   ROUTES.platform,
   ROUTES.perfil,
+  ROUTES.imprimirDespacho,
 ] as const;
 
 export function isProtectedPath(pathname: string): boolean {
@@ -16,4 +17,12 @@ export function isProtectedPath(pathname: string): boolean {
 /** QR público: no rehidratar sesión al volver de Fototeca (iOS). */
 export function isCapturaOrdenPath(pathname: string): boolean {
   return pathname === "/captura-orden" || pathname.startsWith("/captura-orden/");
+}
+
+/** REQ-292: despacho público, sin usuario ni clave. */
+export function isDespachoPublicoPath(pathname: string): boolean {
+  return (
+    pathname === ROUTES.despachoPublico ||
+    pathname.startsWith(`${ROUTES.despachoPublico}/`)
+  );
 }

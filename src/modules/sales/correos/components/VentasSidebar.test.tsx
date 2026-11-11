@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTES } from "@/config/routes";
@@ -60,6 +60,33 @@ describe("VentasSidebar (REQ-104)", () => {
       "aria-current",
       "page",
     );
+  });
+
+  it.each(["administrador_cuenta", "operador_cuenta"])(
+    "«Código de despacho» es un enlace de la misma pestaña, dentro de Ventas, para el rol %s (REQ-306)",
+    (idRol) => {
+      estado.idRol = idRol;
+      render(<VentasSidebar />);
+
+      const enlace = screen.getByRole("link", { name: "Código de despacho" });
+      expect(enlace).toHaveAttribute("href", ROUTES.dashboardVentasCodigoDespacho);
+      expect(enlace).not.toHaveAttribute("target");
+      expect(enlace).not.toHaveAttribute("aria-current");
+    },
+  );
+
+  it("«Código de despacho» va después de «Estado de fotos» y se marca como actual al estar dentro de ella", () => {
+    render(<VentasSidebar />);
+    const fotos = screen.getByRole("link", { name: "Estado de fotos" });
+    const codigo = screen.getByRole("link", { name: "Código de despacho" });
+    expect(fotos.compareDocumentPosition(codigo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    estado.pathname = ROUTES.dashboardVentasCodigoDespacho;
+    cleanup();
+    render(<VentasSidebar />);
+    const actuales = screen.getAllByRole("link", { current: "page" });
+    expect(actuales).toHaveLength(1);
+    expect(actuales[0]).toHaveAccessibleName("Código de despacho");
   });
 
   it("un rol que no es de cuenta no ve el menú, así que tampoco «Estado de fotos»", () => {

@@ -4,7 +4,11 @@ import { useCallback, useEffect, useLayoutEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getPostLoginRoute, ROUTES } from "@/config/routes";
 import { subscribeAuthChanged } from "@/lib/auth/auth-broadcast";
-import { isCapturaOrdenPath, isProtectedPath } from "@/lib/auth/auth-routes";
+import {
+  isCapturaOrdenPath,
+  isDespachoPublicoPath,
+  isProtectedPath,
+} from "@/lib/auth/auth-routes";
 import {
   expireAuthSession,
   getPersistedAccessToken,
@@ -31,7 +35,7 @@ export function AuthSessionBootstrap() {
 
   const enforceRouteAuth = useCallback(() => {
     if (isMateoSsoExitInProgress()) return;
-    if (isCapturaOrdenPath(pathname)) return;
+    if (isCapturaOrdenPath(pathname) || isDespachoPublicoPath(pathname)) return;
 
     const remaining = getSessionRemainingMs(
       useAuthStore.getState().sessionStartedAt ??
