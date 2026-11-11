@@ -19,11 +19,14 @@ import type {
 } from "./orden-venta-create-modal.types";
 import type { AccionModal } from "./accion-modal";
 import type { OrdenVentaFormEntregaCoords } from "./orden-venta-form-entrega-coords";
+import type { OrdenVentaFormSetters } from "./orden-venta-form-setters";
 
 /** Estado vivo del modal de orden de venta, compartido por los hooks y la pantalla. */
-export interface OrdenVentaFormEstado extends OrdenVentaFormEntregaCoords {
+export interface OrdenVentaFormEstado
+  extends OrdenVentaFormEntregaCoords,
+    OrdenVentaFormSetters {
   aceptaSustituciones: string;
-  /** Bodega activa de la sesión: la OV borrador se crea en ella (REQ-199). */
+  /** Bodega de sesión (REQ-199). */
   activeBodegaId: string | null;
   addOtAlmacen: string;
   addOtNumeroPedido: string;
@@ -54,7 +57,7 @@ export interface OrdenVentaFormEstado extends OrdenVentaFormEntregaCoords {
   correo: string;
   cypherOpen: boolean;
   denominacionComercialCatalogo: string;
-  /** REQ-241: valor editable; persistir vía override (OV + comprador). */
+  /** REQ-241: editable; override OV + comprador. */
   denominacionComercial: string;
   direccion: string;
   docsFileInputRef: { current: HTMLInputElement | null };
@@ -263,42 +266,6 @@ export interface OrdenVentaFormEstado extends OrdenVentaFormEntregaCoords {
   seededOtIdsRef: { current: Set<string> };
   selectedCompradorIdRef: { current: string };
   session: { idUsuario?: string; nombre?: string | null } | null;
-  setAnden: Dispatch<SetStateAction<string>>;
-  setAutoFields: Dispatch<SetStateAction<Set<string>>>;
-  setBodegasDestino: Dispatch<SetStateAction<BodegaDestinoOption[]>>;
-  setCantidadFocusId: Dispatch<SetStateAction<string | null>>;
-  setChofer: Dispatch<SetStateAction<string>>;
-  setCompradorLabel: Dispatch<SetStateAction<string>>;
-  setCompradorNombreIa: Dispatch<SetStateAction<string | null>>;
-  setCompradorSugerencias: Dispatch<SetStateAction<CompradorListRow[]>>;
-  setCompradores: Dispatch<SetStateAction<CompradorListRow[]>>;
-  setDiscrepancias: Dispatch<SetStateAction<CampoDiscrepancia[]>>;
-  setEditingCodigo: Dispatch<SetStateAction<string>>;
-  setEditingEstado: Dispatch<SetStateAction<string | null>>;
-  setEmlInnerAdjuntos: Dispatch<SetStateAction<OrigenAdjunto[]>>;
-  setEquivalenciaByProducto: Dispatch<SetStateAction<Record<string, string>>>;
-  setExigeOc: Dispatch<SetStateAction<boolean>>;
-  setFechaCreacion: Dispatch<SetStateAction<string>>;
-  setFichaComprador: Dispatch<SetStateAction<CompradorAltaFicha | null>>;
-  setFormDataReady: Dispatch<SetStateAction<boolean>>;
-  setHoraSalida: Dispatch<SetStateAction<string>>;
-  setIdComprador: Dispatch<SetStateAction<string>>;
-  setIsLoading: Dispatch<SetStateAction<boolean>>;
-  setIsReadingIa: Dispatch<SetStateAction<boolean>>;
-  setIsSaving: Dispatch<SetStateAction<boolean>>;
-  setMateoBusyMessage: Dispatch<SetStateAction<string | undefined>>;
-  setOrdenCargadaId: Dispatch<SetStateAction<string | null>>;
-  setOrdenesTrabajoPreview: Dispatch<SetStateAction<OrdenTrabajoHija[]>>;
-  setOrigenAdjuntos: Dispatch<SetStateAction<OrigenAdjunto[]>>;
-  setOrigenCorreoDraft: Dispatch<SetStateAction<OrigenCorreoRenglon[]>>;
-  setPendingEmitId: Dispatch<SetStateAction<string | null>>;
-  setPrecioOverrideByProducto: Dispatch<SetStateAction<Record<string, number>>>;
-  setProductosBase: Dispatch<SetStateAction<ProductoVentaOption[]>>;
-  setReagruparAplicada: Dispatch<SetStateAction<ReagrupacionAplicada | null>>;
-  setSuccessMessage: Dispatch<SetStateAction<string | null>>;
-  setTurno: Dispatch<SetStateAction<string>>;
-  setUnidad: Dispatch<SetStateAction<string>>;
-  setWarnFields: Dispatch<SetStateAction<Set<string>>>;
   showToast: (aviso: PolariaToastInput) => void;
   skipOtSeedFromOrigenRef: { current: boolean };
   syncActiveOtFromForm: () => OrdenTrabajoHija[];
