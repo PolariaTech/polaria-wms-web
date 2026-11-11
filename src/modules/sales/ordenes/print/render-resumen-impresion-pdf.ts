@@ -24,7 +24,7 @@ export interface FilaResumenImpresion {
 /** Lo que dice la portada: qué se imprime, desde cuándo y todo lo que lleva el PDF. */
 export interface ResumenImpresionPdf {
   titulo: string;
-  /** Ej. «Impresión rápida · entrega hasta 05/11/2026». */
+  /** Ej. «Impresión rápida · entrega 05/11/2026». */
   subtitulo: string;
   /** Ej. «Generado 05/11/2026 3:42 p. m.». */
   generado: string;

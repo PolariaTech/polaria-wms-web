@@ -53,7 +53,7 @@ interface Aviso {
 }
 
 /**
- * Impresión rápida: se elige hasta qué fecha de entrega y el sistema arma, en el orden de la
+ * Impresión rápida: se elige una fecha de entrega exacta y el sistema arma, en el orden de la
  * daily (fecha, cantidad de OT, cliente), todo lo confirmado o en alistamiento que nunca se
  * imprimió. El operador revisa el PDF y confirma dos veces antes de enviarlo.
  */
@@ -104,7 +104,7 @@ export function ImpresionRapidaPageContent() {
         setAviso({
           tipo: "aviso",
           title: "Nada por imprimir.",
-          detail: "No hay órdenes confirmadas sin imprimir con entrega hasta esa fecha. Prueba con una fecha posterior.",
+          detail: "No hay órdenes confirmadas sin imprimir con entrega en esa fecha. Prueba con otra fecha.",
         });
         return;
       }
@@ -250,13 +250,13 @@ export function ImpresionRapidaPageContent() {
             className="flex max-w-3xl flex-col gap-4"
           >
             <p className="polaria-text-body text-polaria-w">
-              Imprime todo lo confirmado que aún no se ha impreso, con entrega desde la fecha
-              elegida hacia atrás. Antes de enviar verás el PDF y se pedirá confirmar dos veces.
+              Imprime todo lo confirmado que aún no se ha impreso y que se entrega exactamente en
+              la fecha elegida. Antes de enviar verás el PDF y se pedirá confirmar dos veces.
             </p>
             <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
               <PolariaDateInputDdMm
                 id="rapida-fecha"
-                label="Imprimir con entrega hasta"
+                label="Imprimir con entrega exactamente en esta fecha"
                 value={fecha}
                 onChange={setFechaElegida}
                 disabled={preparando}

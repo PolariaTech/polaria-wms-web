@@ -16,7 +16,7 @@ import {
 
 export interface EntradaPreviaRapida {
   codigoCuenta: string;
-  /** Fecha de entrega hasta la que se imprime (`YYYY-MM-DD`). */
+  /** Fecha de entrega exacta que se imprime (`YYYY-MM-DD`). */
   fecha: string;
   zonaHoraria: string;
   hojas: OrdenTareaAlmacenPrintData[];
@@ -35,7 +35,7 @@ export interface EntradaPreviaRapida {
  */
 export async function armarPreviaRapida(entrada: EntradaPreviaRapida): Promise<PreviaBatch> {
   const { codigoCuenta, fecha, zonaHoraria, hojas, resumen, conOc, origenPorOv, alProgreso } = entrada;
-  const subtitulo = `Impresión rápida · entrega hasta ${formatIsoToDdMmYyyy(fecha)}`;
+  const subtitulo = `Impresión rápida · entrega ${formatIsoToDdMmYyyy(fecha)}`;
   const generado = `Generado ${formatIsoToDdMmYyyy(hoyEnCuenta(zonaHoraria))} ${horaEnCuenta(zonaHoraria)}`;
 
   if (conOc) {

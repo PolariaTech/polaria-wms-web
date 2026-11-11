@@ -96,6 +96,10 @@ const HOJAS = [
 ] as OrdenTareaAlmacenPrintData[];
 
 async function prepararImpresion() {
+  // La rápida imprime una fecha exacta: se elige la de los datos de prueba.
+  const campo = screen.getByRole("textbox", { name: /Imprimir con entrega exactamente en esta fecha/ });
+  await userEvent.clear(campo);
+  await userEvent.type(campo, "10/01/2026{Enter}");
   await userEvent.click(screen.getByRole("button", { name: "Preparar impresión" }));
   await screen.findByRole("region", { name: "Vista previa de la impresión" });
 }
@@ -117,7 +121,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   URL.createObjectURL = vi.fn(() => "blob:rapida");
   URL.revokeObjectURL = vi.fn();
-  listOrdenes.mockResolvedValue([ov("nuevo", "2026-01-12"), ov("viejo", "2026-01-10")]);
+  listOrdenes.mockResolvedValue([ov("viejo", "2026-01-10"), ov("nuevo", "2026-01-10"), ov("otrodia", "2026-01-12")]);
   buildBlob.mockResolvedValue({ blob: new Blob(["%PDF"]), filename: "x.pdf" });
   cargarHojas.mockImplementation(async (entrada: { alLeerDetalle?: (id: string, origen: string | null) => void }) => {
     entrada.alLeerDetalle?.("viejo", '[{"nombre":"pedido.pdf"}]');
@@ -224,7 +228,9 @@ describe("ImpresionRapidaPageContent: con las órdenes de compra originales (REQ
     armarConOc.mockRejectedValue(new Error("No se pudo armar el PDF."));
     render(<ImpresionRapidaPageContent />);
     await marcarOc();
-
+    const campo = screen.getByRole("textbox", { name: /Imprimir con entrega exactamente en esta fecha/ });
+    await userEvent.clear(campo);
+    await userEvent.type(campo, "10/01/2026{Enter}");
     await userEvent.click(screen.getByRole("button", { name: "Preparar impresión" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo armar el PDF.");

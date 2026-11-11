@@ -30,7 +30,7 @@ vi.mock("@/modules/configurator/impresoras/services/impresoras.service", () => (
 
 import { ImpresionRapidaPageContent } from "./ImpresionRapidaPageContent";
 
-const campoFecha = () => screen.getByRole("textbox", { name: /Imprimir con entrega hasta/ });
+const campoFecha = () => screen.getByRole("textbox", { name: /Imprimir con entrega exactamente en esta fecha/ });
 const botonPreparar = () => screen.getByRole("button", { name: "Preparar impresión" });
 
 beforeEach(() => {
@@ -38,7 +38,7 @@ beforeEach(() => {
   listOrdenes.mockResolvedValue([]);
 });
 
-describe("ImpresionRapidaPageContent: el campo «Imprimir con entrega hasta»", () => {
+describe("ImpresionRapidaPageContent: el campo «Imprimir con entrega exactamente en esta fecha»", () => {
   it("nace con la fecha de hoy (DD/MM/AAAA) y deja preparar la impresión", () => {
     render(<ImpresionRapidaPageContent />);
 

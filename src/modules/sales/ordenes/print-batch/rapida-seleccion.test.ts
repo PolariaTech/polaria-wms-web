@@ -59,14 +59,14 @@ describe("ordenarOvRapida", () => {
 });
 
 describe("candidatasRapida", () => {
-  it("toma solo las confirmadas, desde la fecha elegida hacia atrás (esa fecha incluida)", () => {
+  it("toma solo las confirmadas con entrega exactamente en la fecha elegida", () => {
     const rows = [
       ov("antes", { fechaEntrega: "2026-10-10" }),
       ov("igual", { fechaEntrega: "2026-11-05" }),
       ov("despues", { fechaEntrega: "2026-11-06" }),
     ];
 
-    expect(ids(candidatasRapida(rows, "2026-11-05"))).toEqual(["antes", "igual"]);
+    expect(ids(candidatasRapida(rows, "2026-11-05"))).toEqual(["igual"]);
   });
 
   it("deja fuera lo que ya salió de «confirmada»: alistamiento ya tiene surtido llenado", () => {
@@ -77,13 +77,13 @@ describe("candidatasRapida", () => {
       ov("ok"),
     ];
 
-    expect(ids(candidatasRapida(rows, "2026-11-30"))).toEqual(["ok"]);
+    expect(ids(candidatasRapida(rows, "2026-11-06"))).toEqual(["ok"]);
   });
 
   it("deja fuera las OV sin fecha de entrega", () => {
     const rows = [ov("sin", { fechaEntrega: null }), ov("con", { fechaEntrega: "2026-11-01" })];
 
-    expect(ids(candidatasRapida(rows, "2026-11-05"))).toEqual(["con"]);
+    expect(ids(candidatasRapida(rows, "2026-11-01"))).toEqual(["con"]);
   });
 
   it("sin una fecha válida no hay candidatas", () => {
