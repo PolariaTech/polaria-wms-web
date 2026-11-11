@@ -3,6 +3,9 @@
 import { ArrowLeft, Download, Loader2, Printer } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { ImpresionBatchDescargaPartes } from "./ImpresionBatchDescargaPartes";
+import { partesDe } from "./enviar-paquete";
+import type { PreviaBatch } from "./utilidades-batch";
 
 interface ImpresionBatchVistaPreviaProps {
   blob: Blob;
@@ -16,6 +19,11 @@ interface ImpresionBatchVistaPreviaProps {
   descripcionOrden?: string;
   /** Texto del botón para regresar a la pantalla anterior. */
   etiquetaVolver?: string;
+  /**
+   * Si el paquete va en varias partes, en vez de un solo botón de descarga hay uno por parte
+   * (el PDF de la vista previa solo trae la primera).
+   */
+  descargaPartes?: { previa: PreviaBatch; codigoCuenta: string };
   onVolver: () => void;
   onImprimir: () => void;
 }
@@ -32,12 +40,15 @@ export function ImpresionBatchVistaPrevia({
   nombreArchivo,
   descripcionOrden = "ordenadas por fecha y hora de entrega",
   etiquetaVolver = "Volver a la selección",
+  descargaPartes,
   onVolver,
   onImprimir,
 }: ImpresionBatchVistaPreviaProps) {
   const [url, setUrl] = useState<string | null>(null);
 
   const titulo = useRef<HTMLHeadingElement>(null);
+  const totalPartes = descargaPartes ? partesDe(descargaPartes.previa).length : 1;
+  const porPartes = totalPartes > 1;
 
   useEffect(() => {
     const objectUrl = URL.createObjectURL(blob);
@@ -64,6 +75,11 @@ export function ImpresionBatchVistaPrevia({
           <p className="polaria-text-body-sm tabular-nums text-polaria-w">
             {ot} OT de {ov} OV · {hojas} {hojas === 1 ? "hoja" : "hojas"} · {descripcionOrden}
           </p>
+          {porPartes ? (
+            <p className="polaria-text-body-sm text-polaria-w">
+              El paquete va en {totalPartes} partes y aquí se ve la parte 1. Descarga cada parte por separado.
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -78,11 +94,15 @@ export function ImpresionBatchVistaPrevia({
             <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             {etiquetaVolver}
           </button>
-          {url ? (
+          {url && !porPartes ? (
             <a
               href={url}
               download={nombreArchivo}
               aria-disabled={imprimiendo || undefined}
+              tabIndex={imprimiendo ? -1 : undefined}
+              onClick={(event) => {
+                if (imprimiendo) event.preventDefault();
+              }}
               className={cn(
                 BOTON_BASE,
                 "border-polaria-t-20 bg-polaria-t-08 text-polaria-w hover:border-polaria-teal hover:bg-polaria-t-20",
@@ -111,6 +131,16 @@ export function ImpresionBatchVistaPrevia({
           </button>
         </div>
       </div>
+
+      {descargaPartes && porPartes ? (
+        <div className="shrink-0">
+          <ImpresionBatchDescargaPartes
+            previa={descargaPartes.previa}
+            codigoCuenta={descargaPartes.codigoCuenta}
+            deshabilitado={imprimiendo}
+          />
+        </div>
+      ) : null}
 
       {url ? (
         <iframe

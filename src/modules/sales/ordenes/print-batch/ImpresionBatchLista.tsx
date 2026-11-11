@@ -66,6 +66,8 @@ interface ImpresionBatchListaProps {
   onAlternarOt: (row: OrdenVentaOperadorRow, ot: number) => void;
   /** Centro de consumo de cada OT, para que el operador reconozca cuál marca. */
   cargarCentros: (row: OrdenVentaOperadorRow) => Promise<Record<number, string>>;
+  /** Ids de las OV con una impresión en su registro (REQ-298); `null` o ausente = aún no se sabe y no se marca nada. */
+  yaImpresas?: ReadonlySet<string> | null;
 }
 
 /** Las OV llegan ordenadas por entrega; cada día lleva su encabezado. */
@@ -75,6 +77,7 @@ export function ImpresionBatchLista({
   onAlternarOv,
   onAlternarOt,
   cargarCentros,
+  yaImpresas,
 }: ImpresionBatchListaProps) {
   const [abiertas, setAbiertas] = useState<ReadonlySet<string>>(new Set());
   const [centros, setCentros] = useState<Readonly<Record<string, CentrosOv>>>({});
@@ -140,9 +143,14 @@ export function ImpresionBatchLista({
                   <span className="polaria-text-body-sm tabular-nums text-polaria-w">
                     {oc ? `OC ${oc}` : ""}
                   </span>
-                  <PolariaTableBadge variant={variantEstadoOrdenVenta(row.estado)}>
-                    {formatEstadoOrdenVenta(row.estado)}
-                  </PolariaTableBadge>
+                  <span className="flex flex-wrap items-center gap-2">
+                    {yaImpresas?.has(row.idOrdenVenta) ? (
+                      <PolariaTableBadge variant="positive">Impresa</PolariaTableBadge>
+                    ) : null}
+                    <PolariaTableBadge variant={variantEstadoOrdenVenta(row.estado)}>
+                      {formatEstadoOrdenVenta(row.estado)}
+                    </PolariaTableBadge>
+                  </span>
                 </div>
                 {total > 1 ? (
                   <button

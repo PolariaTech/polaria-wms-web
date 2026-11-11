@@ -15,17 +15,19 @@ export function logTieneImpresion(entradas: readonly { payloadTipo?: string | nu
 }
 
 /**
- * Ids de las OV que ya se imprimieron alguna vez. Si el log de una OV no se puede leer se
- * da por no impresa: es mejor ofrecer de más (el operador ve la lista) que dejar una sin sacar.
+ * Ids de las OV que ya se imprimieron alguna vez, y cuántas no se pudieron revisar. Si el log de una
+ * OV no se puede leer se da por no impresa: es mejor ofrecer de más (el operador ve la lista) que
+ * dejar una sin sacar; `fallidas` deja avisarle cuántas quedaron sin revisar.
  */
-export async function idsOvYaImpresas(input: {
+export async function leerYaImpresas(input: {
   codigoCuenta: string;
   rows: readonly OrdenVentaOperadorRow[];
   runScoped: EjecutarEnCuenta;
   onProgreso?: (leidas: number, total: number) => void;
-}): Promise<Set<string>> {
+}): Promise<{ impresas: Set<string>; fallidas: number }> {
   const { codigoCuenta, rows, runScoped, onProgreso } = input;
   const impresas = new Set<string>();
+  let fallidas = 0;
   let siguiente = 0;
   let leidas = 0;
 
@@ -39,7 +41,8 @@ export async function idsOvYaImpresas(input: {
         );
         if (logTieneImpresion(log)) impresas.add(row.idOrdenVenta);
       } catch {
-        // Sin log se trata como no impresa.
+        // Sin log se trata como no impresa, pero se cuenta para avisarlo.
+        fallidas += 1;
       }
       leidas += 1;
       onProgreso?.(leidas, rows.length);
@@ -49,5 +52,10 @@ export async function idsOvYaImpresas(input: {
   await Promise.all(
     Array.from({ length: Math.min(LOGS_EN_PARALELO, rows.length) }, trabajador),
   );
-  return impresas;
+  return { impresas, fallidas };
+}
+
+/** Solo los ids de las OV ya impresas (lo que necesita la impresión rápida). */
+export async function idsOvYaImpresas(input: Parameters<typeof leerYaImpresas>[0]): Promise<Set<string>> {
+  return (await leerYaImpresas(input)).impresas;
 }

@@ -35,7 +35,8 @@ export function filtrosActivos(filtros: FiltrosBatch): boolean {
     filtros.texto.trim() !== "" ||
     filtros.cliente !== "" ||
     filtros.fechaEntrega !== "" ||
-    filtros.tipo !== "todas"
+    filtros.tipo !== "todas" ||
+    filtros.impresion !== "todas"
   );
 }
 

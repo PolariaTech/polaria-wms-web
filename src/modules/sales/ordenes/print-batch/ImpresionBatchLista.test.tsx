@@ -141,3 +141,23 @@ describe("ImpresionBatchLista", () => {
     expect(document.getElementById(id)).not.toBeNull();
   });
 });
+
+describe("ImpresionBatchLista: marca de las ya impresas (REQ-298)", () => {
+  const rows = [ov("a"), ov("b")];
+
+  it("escribe «Impresa» en las OV que ya tienen una impresión, con texto y no solo color", () => {
+    montar(rows, { yaImpresas: new Set(["a"]) });
+
+    const filaA = screen.getByText("OV-a").closest("li")!;
+    const filaB = screen.getByText("OV-b").closest("li")!;
+    expect(filaA).toHaveTextContent("Impresa");
+    expect(filaB).not.toHaveTextContent("Impresa");
+  });
+
+  it("mientras no se sabe qué se imprimió (sin datos) no marca ninguna", () => {
+    montar(rows);
+    montar(rows, { yaImpresas: null });
+
+    expect(screen.queryByText("Impresa")).not.toBeInTheDocument();
+  });
+});
