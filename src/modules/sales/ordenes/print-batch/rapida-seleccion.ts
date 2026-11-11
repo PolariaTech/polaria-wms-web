@@ -23,18 +23,18 @@ export function ordenarOvRapida(
 
 /**
  * OV candidatas: solo las «confirmada» (todavía sin nada llenado en bodega; en cuanto pasan a
- * alistamiento ya hay surtido), con fecha de entrega no posterior a la elegida («esa fecha y
- * anterior»). Una OV sin fecha de entrega no se puede ubicar en el tiempo y no entra: se
+ * alistamiento ya hay surtido), con fecha de entrega exactamente la elegida (ni antes ni
+ * después). Una OV sin fecha de entrega no se puede ubicar en el tiempo y no entra: se
  * imprime a mano desde la detallada, que también cubre el alistamiento.
  */
 export function candidatasRapida(
   rows: readonly OrdenVentaOperadorRow[],
-  hastaFecha: string,
+  fechaExacta: string,
 ): OrdenVentaOperadorRow[] {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(hastaFecha)) return [];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaExacta)) return [];
   return rows.filter((row) => {
     const dia = diaEntregaDeOv(row);
-    return row.estado === "confirmada" && dia !== "" && dia <= hastaFecha;
+    return row.estado === "confirmada" && dia === fechaExacta;
   });
 }
 

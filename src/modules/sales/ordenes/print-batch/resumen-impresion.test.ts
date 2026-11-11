@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OrdenVentaOperadorRow } from "../../shared/types/sales.types";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
-import { armarResumenImpresion, rangosDeOt } from "./resumen-impresion";
+import { armarResumenImpresion } from "./resumen-impresion";
 
 function item(id: string, extra: Partial<OrdenVentaOperadorRow>, ots: number[]) {
   return {
@@ -10,7 +10,8 @@ function item(id: string, extra: Partial<OrdenVentaOperadorRow>, ots: number[]) 
   };
 }
 
-const hoja = (id: string) => ({ idOrdenVenta: id }) as OrdenTareaAlmacenPrintData;
+const hoja = (id: string, numeroOrdenCliente?: string) =>
+  ({ idOrdenVenta: id, numeroOrdenCliente }) as OrdenTareaAlmacenPrintData;
 
 describe("armarResumenImpresion", () => {
   it("arma una fila por OV, en el orden recibido, con OT y hojas de cada una", () => {
@@ -24,8 +25,8 @@ describe("armarResumenImpresion", () => {
     expect(resumen.titulo).toBe("Resumen de impresión");
     expect(resumen.subtitulo).toContain("entrega hasta 05/11/2026");
     expect(resumen.filas).toEqual([
-      { venta: "OV-b", cliente: "Hotel Luna", entrega: "05/11/2026", ot: 2, otLista: "1, 2", hojas: 3 },
-      { venta: "OV-a", cliente: "Hotel Sol", entrega: "05/11/2026", ot: 1, otLista: "1", hojas: 1 },
+      { venta: "OV-b", cliente: "Hotel Luna", entrega: "05-NOV", ot: 2, ordenCliente: "", hojas: 3 },
+      { venta: "OV-a", cliente: "Hotel Sol", entrega: "05-NOV", ot: 1, ordenCliente: "", hojas: 1 },
     ]);
   });
 
@@ -101,11 +102,26 @@ describe("armarResumenImpresion", () => {
   });
 });
 
-describe("rangosDeOt", () => {
-  it("agrupa las OT seguidas en rangos y deja sueltas las demás", () => {
-    expect(rangosDeOt([1, 2, 3, 5])).toBe("1-3, 5");
-    expect(rangosDeOt([2, 4, 5, 8, 9, 10, 11])).toBe("2, 4, 5, 8-11");
-    expect(rangosDeOt([7])).toBe("7");
-    expect(rangosDeOt([])).toBe("");
+describe("orden de compra del cliente en el resumen", () => {
+  it("toma el número que sale en las hojas de la OV, sin repetir, y vacío si ninguna lo trae", () => {
+    const resumen = armarResumenImpresion({
+      orden: [item("a", {}, [1, 2]), item("b", {}, [1]), item("c", {}, [1])],
+      hojas: [hoja("a", "OC-10"), hoja("a", "OC-11"), hoja("a", "OC-10"), hoja("b", "  "), hoja("c")],
+      subtitulo: "",
+      generado: "",
+    });
+
+    expect(resumen.filas.map((f) => f.ordenCliente)).toEqual(["OC-10, OC-11", "", ""]);
+  });
+
+  it("la entrega sale como día y mes abreviado, sin año", () => {
+    const resumen = armarResumenImpresion({
+      orden: [item("a", { fechaEntrega: "2026-11-03" }, [1])],
+      hojas: [hoja("a")],
+      subtitulo: "",
+      generado: "",
+    });
+
+    expect(resumen.filas[0]?.entrega).toBe("03-NOV");
   });
 });

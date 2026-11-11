@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ImpresionBatchVistaPrevia } from "./ImpresionBatchVistaPrevia";
+import type { PreviaBatch } from "./utilidades-batch";
 
 beforeEach(() => {
   URL.createObjectURL = vi.fn(() => "blob:batch");
@@ -73,5 +74,37 @@ describe("ImpresionBatchVistaPrevia", () => {
   it("una sola hoja va en singular", () => {
     montar({ hojas: 1, ot: 1, ov: 1 });
     expect(screen.getByText("1 OT de 1 OV · 1 hoja · ordenadas por fecha y hora de entrega")).toBeInTheDocument();
+  });
+});
+
+describe("ImpresionBatchVistaPrevia con el paquete en varias partes", () => {
+  const parte = (id: string) => ({ hojas: [], resumen: [], id });
+  const previa = (partes?: unknown[]) =>
+    ({ blob: new Blob(["x"]), hojas: [], resumen: [], nombreArchivo: "impresion-batch.pdf", partes }) as unknown as PreviaBatch;
+
+  it("cambia el botón único por uno de descarga por cada parte", () => {
+    montar({ descargaPartes: { previa: previa([parte("a"), parte("b")]), codigoCuenta: "1YW43" } });
+
+    expect(screen.queryByRole("link", { name: "Descargar PDF" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Descargar parte 1 de 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Descargar parte 2 de 2" })).toBeInTheDocument();
+    expect(screen.getByText(/El paquete va en 2 partes y aquí se ve la parte 1/)).toBeInTheDocument();
+  });
+
+  it("con la impresión en curso, el enlace de descarga no se activa ni con teclado", async () => {
+    montar({ imprimiendo: true });
+
+    const enlace = screen.getByRole("link", { name: "Descargar PDF" });
+
+    expect(enlace).toHaveAttribute("aria-disabled", "true");
+    expect(enlace).toHaveAttribute("tabindex", "-1");
+    expect(enlace.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))).toBe(false);
+  });
+
+  it("con una sola parte deja el botón de descarga de siempre", () => {
+    montar({ descargaPartes: { previa: previa([parte("a")]), codigoCuenta: "1YW43" } });
+
+    expect(screen.getByRole("link", { name: "Descargar PDF" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Descargar parte/ })).not.toBeInTheDocument();
   });
 });

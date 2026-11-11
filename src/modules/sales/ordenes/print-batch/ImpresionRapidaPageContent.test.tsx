@@ -97,6 +97,10 @@ const HOJAS = [
 ] as OrdenTareaAlmacenPrintData[];
 
 async function prepararImpresion() {
+  // La rápida imprime una fecha exacta: se elige la de los datos de prueba.
+  const campo = screen.getByRole("textbox", { name: /Imprimir con entrega exactamente en esta fecha/ });
+  await userEvent.clear(campo);
+  await userEvent.type(campo, "10/01/2026{Enter}");
   await userEvent.click(screen.getByRole("button", { name: "Preparar impresión" }));
   await screen.findByRole("region", { name: "Vista previa de la impresión" });
 }
@@ -106,9 +110,10 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn(() => "blob:rapida");
   URL.revokeObjectURL = vi.fn();
   listOrdenes.mockResolvedValue([
-    ov("nuevo", { fechaEntrega: "2026-01-12", ordenesTrabajo: 1 }),
-    ov("viejo", { fechaEntrega: "2026-01-10", ordenesTrabajo: 3 }),
-    ov("impreso", { fechaEntrega: "2026-01-09" }),
+    ov("nuevo", { fechaEntrega: "2026-01-10", ordenesTrabajo: 3 }),
+    ov("viejo", { fechaEntrega: "2026-01-10", ordenesTrabajo: 1 }),
+    ov("impreso", { fechaEntrega: "2026-01-10" }),
+    ov("otrodia", { fechaEntrega: "2026-01-09" }),
     ov("futuro", { fechaEntrega: "2099-01-01" }),
     ov("alistada", { estado: "alistada" }),
     ov("sinfecha", { fechaEntrega: null }),
@@ -156,9 +161,9 @@ describe("ImpresionRapidaPageContent", () => {
 
     const { resumen } = buildBlob.mock.calls[0]![1];
     expect(resumen.titulo).toBe("Resumen de impresión");
-    expect(resumen.subtitulo).toMatch(/^Impresión rápida · entrega hasta \d{2}\/\d{2}\/\d{4}$/);
+    expect(resumen.subtitulo).toMatch(/^Impresión rápida · entrega \d{2}\/\d{2}\/\d{4}$/);
     expect(resumen.filas.map((f: { venta: string }) => f.venta)).toEqual(["OV-viejo", "OV-nuevo"]);
-    expect(resumen.filas[0]).toMatchObject({ cliente: "Hotel Sol", entrega: "10/01/2026", ot: 3 });
+    expect(resumen.filas[0]).toMatchObject({ cliente: "Hotel Sol", entrega: "10-ENE", ot: 1 });
   });
 
   it("la vista previa cuenta la hoja del resumen y dice que va primera", async () => {
@@ -181,7 +186,7 @@ describe("ImpresionRapidaPageContent", () => {
       "viejo",
       "nuevo",
     ]);
-    expect(entrada.resumen[0].ots).toEqual([1, 2, 3]);
+    expect(entrada.resumen[1].ots).toEqual([1, 2, 3]);
     // Solo se consulta el log de las candidatas: ni la futura, ni la alistada, ni la sin fecha.
     expect(yaImpresas.mock.calls[0]![0].rows.map((r: OrdenVentaOperadorRow) => r.idOrdenVenta).sort()).toEqual([
       "impreso",
@@ -223,7 +228,7 @@ describe("ImpresionRapidaPageContent", () => {
     // Va debajo del botón y no arriba: así el botón que se acaba de pulsar no se mueve de lugar.
     const boton = screen.getByRole("button", { name: "Preparar impresión" });
     expect(boton.compareDocumentPosition(aviso) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText(/Prueba con una fecha posterior/)).toBeInTheDocument();
+    expect(screen.getByText(/Prueba con otra fecha/)).toBeInTheDocument();
     expect(cargarHojas).not.toHaveBeenCalled();
     expect(buildBlob).not.toHaveBeenCalled();
   });
@@ -231,7 +236,9 @@ describe("ImpresionRapidaPageContent", () => {
   it("si falla la lectura muestra el error y se queda en la pantalla de la fecha", async () => {
     cargarHojas.mockRejectedValueOnce(new Error("No se pudo leer OV-viejo. Inténtalo de nuevo."));
     render(<ImpresionRapidaPageContent />);
-
+    const campo = screen.getByRole("textbox", { name: /Imprimir con entrega exactamente en esta fecha/ });
+    await userEvent.clear(campo);
+    await userEvent.type(campo, "10/01/2026{Enter}");
     await userEvent.click(screen.getByRole("button", { name: "Preparar impresión" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo leer OV-viejo");
