@@ -7,15 +7,8 @@ import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
 import { cn } from "@/lib/utils/cn";
 import { useAdminMaestroScope } from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import { useCuentaZonaHoraria } from "@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria";
-import { getImpresoraActivaCuenta } from "@/modules/configurator/impresoras/services/impresoras.service";
 import { listOrdenesVentaOperador } from "../../shared/services/sales.service";
 import type { OrdenVentaOperadorRow } from "../../shared/types/sales.types";
-import {
-  buildOrdenTareaAlmacenLandscapePdfBlob,
-  printOrdenTareaAlmacenLandscape,
-} from "../print/download-orden-tarea-almacen-pdf";
-import { MENSAJE_VERSION_NUEVA, esErrorDeVersionVieja } from "../print/print-correo-fallo";
-import { printQueueUserMessage } from "../print/print-queue-status";
 import {
   alternarOt,
   alternarOv,
@@ -32,28 +25,42 @@ import {
   type FiltrosBatch,
   type SeleccionBatch,
 } from "./batch-seleccion";
+import { armarPreviaDetallada } from "./armar-previa-detallada";
 import { cargarCentrosConsumo, cargarHojasBatch } from "./cargar-hojas-batch";
+import { esperaEntrePartes, partesDe } from "./enviar-paquete";
 import { ImpresionBatchBarra } from "./ImpresionBatchBarra";
 import { ImpresionBatchConfirmacion } from "./ImpresionBatchConfirmacion";
+import { ImpresionBatchFiltroImpresion } from "./ImpresionBatchFiltroImpresion";
 import { ImpresionBatchFiltros, filtrosActivos } from "./ImpresionBatchFiltros";
 import { ImpresionBatchLista } from "./ImpresionBatchLista";
-import { ImpresionBatchMensaje, type TipoMensajeBatch } from "./ImpresionBatchMensaje";
+import { ImpresionBatchMensaje } from "./ImpresionBatchMensaje";
 import { ImpresionBatchVistaPrevia } from "./ImpresionBatchVistaPrevia";
-import { registrarImpresionBatch } from "./registrar-impresion-batch";
+import { ImpresionRapidaAvisoOc } from "./ImpresionRapidaAvisoOc";
+import { ImpresionRapidaConfirmacion } from "./ImpresionRapidaConfirmacion";
 import {
-  horaEnCuenta,
-  nombreArchivoBatch,
+  ImpresionRapidaTipos,
+  TIPOS_RAPIDA_INICIALES,
+  type TipoDocumentoRapida,
+} from "./ImpresionRapidaTipos";
+import { hojasPorEnviar } from "./partir-paquete";
+import { useEnvioPaquete, type AvisoEnvio } from "./usar-envio-paquete";
+import { useYaImpresas } from "./usar-ya-impresas";
+import {
+  hojasDelPaquete,
   ordenDeImpresion,
+  paginasDelResumen,
   type PreviaBatch,
 } from "./utilidades-batch";
 
 /** El módulo ya mide el alto de la ventana (`fitViewport`): el área de trabajo toma lo que sobra. */
 const AREA_FIJA = "min-h-0 lg:flex-1";
 
-interface Aviso {
-  tipo: TipoMensajeBatch;
-  title: string;
-  detail: string;
+/** Qué dice la vista previa de sí misma: con OC cada OV lleva detrás las suyas; con varios envíos solo se ve el primero. */
+function descripcionDeLaVista(previa: PreviaBatch): string {
+  const partes = previa.partes ?? [];
+  if (!partes.some((parte) => parte.pdf)) return "ordenadas por fecha y hora de entrega";
+  const base = "ordenadas por fecha y hora de entrega; cada OV con sus órdenes de compra detrás y el resumen en la primera hoja";
+  return partes.length > 1 ? `${base} (vista previa del envío 1 de ${partes.length})` : base;
 }
 
 export function ImpresionBatchPageContent() {
@@ -61,14 +68,16 @@ export function ImpresionBatchPageContent() {
   const zonaHoraria = useCuentaZonaHoraria(codigoCuenta);
   const [filtros, setFiltros] = useState<FiltrosBatch>(FILTROS_BATCH_INICIALES);
   const [seleccion, setSeleccion] = useState<SeleccionBatch>(new Map());
+  const [tipos, setTipos] = useState<ReadonlySet<TipoDocumentoRapida>>(TIPOS_RAPIDA_INICIALES);
   const [progreso, setProgreso] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const [previa, setPrevia] = useState<PreviaBatch | null>(null);
-  const [confirmando, setConfirmando] = useState(false);
-  const [impresora, setImpresora] = useState<string | null>(null);
-  const [imprimiendo, setImprimiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<Aviso | null>(null);
+  const [aviso, setAviso] = useState<AvisoEnvio | null>(null);
+  const {
+    confirmando, setConfirmando, impresora, modoEnvio, imprimiendo, progresoEnvio,
+    siguienteParte, reiniciarPartes, pedirConfirmacion, imprimir: enviar,
+  } = useEnvioPaquete({ codigoCuenta, zonaHoraria });
 
   const fetchOrdenes = useCallback(async (): Promise<OrdenVentaOperadorRow[]> => {
     if (!codigoCuenta) return [];
@@ -82,10 +91,17 @@ export function ImpresionBatchPageContent() {
 
   const rows = useMemo(() => data ?? [], [data]);
   const clientes = useMemo(() => clientesDeOv(rows), [rows]);
+  // El registro de impresiones solo se lee cuando el operador filtra por «sin imprimir» o «ya impresas».
+  const yaImpresas = useYaImpresas({ codigoCuenta, rows, runScoped, activo: filtros.impresion !== "todas" });
   const visibles = useMemo(
-    () => ordenarOvPorEntrega(filtrarOvBatch(rows, filtros)),
-    [rows, filtros],
+    () => ordenarOvPorEntrega(filtrarOvBatch(rows, filtros, yaImpresas.ids ?? undefined)),
+    [rows, filtros, yaImpresas.ids],
   );
+  const conteos = useMemo(() => {
+    const ids = yaImpresas.ids;
+    const impresas = ids ? rows.filter((row) => ids.has(row.idOrdenVenta)).length : null;
+    return { todas: rows.length, sinImprimir: impresas === null ? null : rows.length - impresas, impresas };
+  }, [rows, yaImpresas.ids]);
   const resumen = useMemo(() => resumenSeleccion(seleccion, rows), [seleccion, rows]);
   const totales = contarSeleccion(resumen);
 
@@ -108,20 +124,37 @@ export function ImpresionBatchPageContent() {
 
   const aceptar = async () => {
     if (!codigoCuenta || resumen.length === 0) return;
+    if (!tipos.has("ot")) {
+      setError("Elige «Órdenes de tarea» en el tipo de documentos para poder imprimir.");
+      return;
+    }
     setCargando(true);
     setError(null);
     setAviso(null);
     try {
+      const conOc = tipos.has("oc");
+      // El detalle de cada OV ya se lee para armar sus hojas: de ahí salen también sus adjuntos.
+      const origenPorOv = new Map<string, string | null | undefined>();
       const hojas = await cargarHojasBatch({
         codigoCuenta,
         resumen,
         zonaHoraria,
         runScoped,
         onProgreso: (leidas, total) => setProgreso(`Leyendo OV ${leidas} de ${total}…`),
+        alLeerDetalle: conOc ? (id, origen) => origenPorOv.set(id, origen) : undefined,
       });
       if (hojas.length === 0) throw new Error("No hay hojas para las OT elegidas.");
-      const { blob } = await buildOrdenTareaAlmacenLandscapePdfBlob(hojas, { codigoCuenta });
-      setPrevia({ blob, hojas, resumen, nombreArchivo: nombreArchivoBatch() });
+      const nueva = await armarPreviaDetallada({
+        codigoCuenta,
+        zonaHoraria,
+        hojas,
+        resumen,
+        conOc,
+        origenPorOv,
+        alProgreso: setProgreso,
+      });
+      reiniciarPartes();
+      setPrevia(nueva);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "No se pudo armar la vista previa.");
     } finally {
@@ -130,65 +163,43 @@ export function ImpresionBatchPageContent() {
     }
   };
 
-  const pedirConfirmacion = () => {
-    setConfirmando(true);
-    if (!codigoCuenta) return;
-    void getImpresoraActivaCuenta(codigoCuenta).then(
-      (destino) => setImpresora(destino?.nombre?.trim() || null),
-      () => setImpresora(null),
-    );
-  };
-
-  const imprimir = async () => {
-    if (!previa || !codigoCuenta) return;
-    setImprimiendo(true);
-    try {
-      const enviado = await printOrdenTareaAlmacenLandscape(previa.hojas, { codigoCuenta });
-      registrarImpresionBatch({ previa, codigoCuenta, enviado });
-      const mensaje = printQueueUserMessage({
-        outcome: enviado.queue,
-        impresora: enviado.impresora,
-        codigo: `${previa.resumen.length} OV`,
-        hojas: previa.hojas.length,
-      });
-      setAviso({
-        // Solo es «todo bien» si la cola lo confirma; si quedó en espera, se avisa en ámbar.
-        tipo: enviado.queue.kind === "printing" || enviado.queue.kind === "unknown" ? "ok" : "aviso",
-        title: mensaje.title,
-        detail: `${mensaje.detail} Enviado a las ${horaEnCuenta(zonaHoraria)}.`,
-      });
-      setSeleccion(new Map());
-      setPrevia(null);
-    } catch (e: unknown) {
-      // Falla el envío: se queda en la vista previa con la selección intacta para reintentar.
-      setError(
-        esErrorDeVersionVieja(e)
-          ? MENSAJE_VERSION_NUEVA
-          : e instanceof Error
-            ? e.message
-            : "No se pudo enviar a la impresora.",
-      );
-    } finally {
-      setConfirmando(false);
-      setImprimiendo(false);
-    }
-  };
+  // Si falla el envío se queda en la vista previa con la selección intacta para reintentar.
+  const imprimir = () =>
+    enviar(previa, {
+      alIniciar: () => setError(null),
+      alFallar: setError,
+      alTerminar: (resultado) => {
+        setAviso(resultado);
+        setSeleccion(new Map());
+        setPrevia(null);
+        yaImpresas.recargar();
+      },
+    });
 
   return (
     <OperationalModuleShell title="Impresión detallada" gate={{ roles: ROLES_NIVEL_CUENTA }} fitViewport compactoEnPantallaBaja>
       {previa ? (
         <div className={cn("flex flex-col gap-4 [@media(max-height:50rem)]:gap-2", AREA_FIJA)}>
           {error ? <ImpresionBatchMensaje tipo="error">{error}</ImpresionBatchMensaje> : null}
+          <ImpresionRapidaAvisoOc previa={previa} />
+          {progresoEnvio ? (
+            <ImpresionBatchMensaje tipo="aviso">
+              {progresoEnvio} No cierres esta pestaña hasta que termine.
+            </ImpresionBatchMensaje>
+          ) : null}
           <ImpresionBatchVistaPrevia
             blob={previa.blob}
-            hojas={previa.hojas.length}
+            hojas={hojasDelPaquete(previa)}
             ot={contarSeleccion(previa.resumen).ot}
             ov={previa.resumen.length}
             imprimiendo={imprimiendo}
             nombreArchivo={previa.nombreArchivo}
+            descripcionOrden={descripcionDeLaVista(previa)}
+            descargaPartes={codigoCuenta ? { previa, codigoCuenta } : undefined}
             onVolver={() => {
               setPrevia(null);
               setError(null);
+              reiniciarPartes();
             }}
             onImprimir={pedirConfirmacion}
           />
@@ -202,6 +213,17 @@ export function ImpresionBatchPageContent() {
           ) : null}
           {error ? <ImpresionBatchMensaje tipo="error">{error}</ImpresionBatchMensaje> : null}
           <ImpresionBatchFiltros filtros={filtros} clientes={clientes} onChange={cambiarFiltros} />
+          <div className="flex shrink-0 flex-wrap items-end gap-3 [@media(max-height:50rem)]:gap-2">
+            <ImpresionBatchFiltroImpresion
+              valor={filtros.impresion}
+              conteos={conteos}
+              buscando={yaImpresas.buscando}
+              onChange={(impresion) => cambiarFiltros({ ...filtros, impresion })}
+            />
+            <div className="w-full sm:w-72">
+              <ImpresionRapidaTipos value={tipos} onChange={setTipos} disabled={cargando} />
+            </div>
+          </div>
           <div
             aria-busy={cargando}
             inert={cargando}
@@ -257,15 +279,29 @@ export function ImpresionBatchPageContent() {
         </div>
       )}
 
-      <ImpresionBatchConfirmacion
-        open={confirmando && Boolean(previa)}
-        hojas={previa?.hojas.length ?? 0}
-        orden={previa ? ordenDeImpresion(previa) : []}
-        impresora={impresora}
-        imprimiendo={imprimiendo}
-        onClose={() => setConfirmando(false)}
-        onConfirm={() => void imprimir()}
-      />
+      {previa?.partes ? (
+        <ImpresionRapidaConfirmacion
+          open={confirmando}
+          hojas={hojasPorEnviar(partesDe(previa), siguienteParte, paginasDelResumen(previa.resumenPdf))}
+          orden={partesDe(previa).slice(siguienteParte).flatMap((parte) => parte.resumen)}
+          impresora={impresora}
+          imprimiendo={imprimiendo}
+          partes={partesDe(previa).length - siguienteParte}
+          esperaMinutos={esperaEntrePartes(modoEnvio) / 60_000}
+          onClose={() => setConfirmando(false)}
+          onConfirm={() => void imprimir()}
+        />
+      ) : (
+        <ImpresionBatchConfirmacion
+          open={confirmando && Boolean(previa)}
+          hojas={previa?.hojas.length ?? 0}
+          orden={previa ? ordenDeImpresion(previa) : []}
+          impresora={impresora}
+          imprimiendo={imprimiendo}
+          onClose={() => setConfirmando(false)}
+          onConfirm={() => void imprimir()}
+        />
+      )}
     </OperationalModuleShell>
   );
 }

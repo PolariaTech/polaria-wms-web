@@ -1,21 +1,19 @@
 "use client";
 
 import { Loader2, Zap } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { PolariaDateInputDdMm } from "@/components/shared/form/PolariaDateInputDdMm";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { cn } from "@/lib/utils/cn";
 import { useAdminMaestroScope } from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import { useCuentaZonaHoraria } from "@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria";
-import { getImpresoraActivaCuenta } from "@/modules/configurator/impresoras/services/impresoras.service";
 import { listOrdenesVentaOperador } from "../../shared/services/sales.service";
-import { printQueueUserMessage } from "../print/print-queue-status";
 import { armarPreviaRapida } from "./armar-previa-rapida";
 import { contarSeleccion } from "./batch-seleccion";
 import { cargarHojasBatch } from "./cargar-hojas-batch";
-import { enviarPaquete, esperaEntrePartes, mensajeDeFallo, partesDe } from "./enviar-paquete";
-import { ImpresionBatchMensaje, type TipoMensajeBatch } from "./ImpresionBatchMensaje";
+import { esperaEntrePartes, partesDe } from "./enviar-paquete";
+import { ImpresionBatchMensaje } from "./ImpresionBatchMensaje";
 import { ImpresionRapidaAvisoOc } from "./ImpresionRapidaAvisoOc";
 import { ImpresionBatchVistaPrevia } from "./ImpresionBatchVistaPrevia";
 import { ImpresionRapidaConfirmacion } from "./ImpresionRapidaConfirmacion";
@@ -26,8 +24,8 @@ import {
 } from "./ImpresionRapidaTipos";
 import { hojasPorEnviar } from "./partir-paquete";
 import { candidatasRapida, resumenRapida } from "./rapida-seleccion";
+import { useEnvioPaquete, type AvisoEnvio } from "./usar-envio-paquete";
 import {
-  horaEnCuenta,
   hojasDelPaquete,
   hoyEnCuenta,
   paginasDelResumen,
@@ -46,12 +44,6 @@ function descripcionDeLaVista(previa: PreviaBatch): string {
   return partes.length > 1 && partes[0]?.pdf ? `${base} (vista previa del envío 1 de ${partes.length})` : base;
 }
 
-interface Aviso {
-  tipo: TipoMensajeBatch;
-  title: string;
-  detail: string;
-}
-
 /**
  * Impresión rápida: se elige una fecha de entrega exacta y el sistema arma, en el orden de la
  * daily (fecha, cantidad de OT, cliente), todo lo confirmado o en alistamiento que nunca se
@@ -66,23 +58,12 @@ export function ImpresionRapidaPageContent() {
   const [progreso, setProgreso] = useState<string | null>(null);
   const [preparando, setPreparando] = useState(false);
   const [previa, setPrevia] = useState<PreviaBatch | null>(null);
-  const [confirmando, setConfirmando] = useState(false);
-  const [impresora, setImpresora] = useState<string | null>(null);
-  const [modoEnvio, setModoEnvio] = useState<string | null>(null);
-  const [imprimiendo, setImprimiendo] = useState(false);
-  const [progresoEnvio, setProgresoEnvio] = useState<string | null>(null);
-  /** Próxima parte por mandar: tras un fallo a mitad se retoma desde ahí, sin repetir las que salieron. */
-  const [siguienteParte, setSiguienteParte] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<Aviso | null>(null);
-  const montada = useRef(true);
-
-  useEffect(() => {
-    montada.current = true;
-    return () => {
-      montada.current = false;
-    };
-  }, []);
+  const [aviso, setAviso] = useState<AvisoEnvio | null>(null);
+  const {
+    confirmando, setConfirmando, impresora, modoEnvio, imprimiendo, progresoEnvio,
+    siguienteParte, reiniciarPartes, pedirConfirmacion, imprimir: enviar,
+  } = useEnvioPaquete({ codigoCuenta, zonaHoraria });
 
   const preparar = useCallback(async () => {
     if (!codigoCuenta || !fecha) return;
@@ -131,7 +112,7 @@ export function ImpresionRapidaPageContent() {
         origenPorOv,
         alProgreso: setProgreso,
       });
-      setSiguienteParte(0);
+      reiniciarPartes();
       setPrevia(nueva);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "No se pudo armar la impresión.");
@@ -139,64 +120,17 @@ export function ImpresionRapidaPageContent() {
       setPreparando(false);
       setProgreso(null);
     }
-  }, [codigoCuenta, fecha, runScoped, tipos, zonaHoraria]);
+  }, [codigoCuenta, fecha, reiniciarPartes, runScoped, tipos, zonaHoraria]);
 
-  const pedirConfirmacion = () => {
-    setConfirmando(true);
-    if (!codigoCuenta) return;
-    void getImpresoraActivaCuenta(codigoCuenta).then(
-      (destino) => {
-        setImpresora(destino?.nombre?.trim() || null);
-        setModoEnvio(destino?.modoEnvio ?? null);
+  const imprimir = () =>
+    enviar(previa, {
+      alIniciar: () => setError(null),
+      alFallar: setError,
+      alTerminar: (resultado) => {
+        setAviso(resultado);
+        setPrevia(null);
       },
-      () => setImpresora(null),
-    );
-  };
-
-  const imprimir = async () => {
-    if (!previa || !codigoCuenta) return;
-    setImprimiendo(true);
-    setError(null);
-    const total = partesDe(previa).length;
-    const resultado = await enviarPaquete({
-      previa,
-      codigoCuenta,
-      desde: siguienteParte,
-      esperaMs: esperaEntrePartes(modoEnvio),
-      alCambiar: (indice, de, fase, segundos) =>
-        setProgresoEnvio(
-          fase === "enviando"
-            ? `Enviando parte ${indice + 1} de ${de}…`
-            : `Parte ${indice + 1} de ${de} enviada. La siguiente sale en ${segundos} s.`,
-        ),
-      cancelado: () => !montada.current,
     });
-    if (!montada.current) return;
-    setProgresoEnvio(null);
-    setConfirmando(false);
-    setImprimiendo(false);
-    setSiguienteParte(resultado.siguiente);
-
-    if (resultado.error !== undefined) {
-      setError(mensajeDeFallo(resultado.error, resultado.siguiente, total));
-      return;
-    }
-    if (!resultado.ultimo) return;
-    const mensaje = printQueueUserMessage({
-      outcome: resultado.ultimo.queue,
-      impresora: resultado.ultimo.impresora,
-      codigo: `${previa.resumen.length} OV`,
-      hojas: hojasDelPaquete(previa),
-    });
-    const kind = resultado.ultimo.queue.kind;
-    setAviso({
-      tipo: kind === "printing" || kind === "unknown" ? "ok" : "aviso",
-      title: mensaje.title,
-      detail: `${mensaje.detail}${total > 1 ? ` Se mandó en ${total} partes.` : ""} Terminó a las ${horaEnCuenta(zonaHoraria)}.`,
-    });
-    setSiguienteParte(0);
-    setPrevia(null);
-  };
 
   // Los avisos van donde está la atención: con la vista previa, arriba de ella; en el formulario,
   // debajo del botón. Arriba del formulario empujaban los controles justo después de pulsarlo.
@@ -236,7 +170,7 @@ export function ImpresionRapidaPageContent() {
             onVolver={() => {
               setPrevia(null);
               setError(null);
-              setSiguienteParte(0);
+              reiniciarPartes();
             }}
             onImprimir={pedirConfirmacion}
           />
