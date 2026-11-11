@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { ImpresionOvBatch } from "./batch-seleccion";
 
@@ -39,9 +40,7 @@ export function ImpresionBatchFiltroImpresion({ valor, conteos, buscando, sinRev
       <legend className="mb-1 whitespace-nowrap text-xs font-medium text-polaria-w">
         Estado de impresión
         {/* Aviso corto en la línea del título: no ocupa sitio entre los botones ni mueve nada. El texto completo va aparte, solo para lectores de pantalla. */}
-        {buscando ? (
-          <span aria-hidden className="ml-2 font-normal">· Revisando…</span>
-        ) : sinRevisar > 0 ? (
+        {!buscando && sinRevisar > 0 ? (
           <span aria-hidden title={MENSAJE_SIN_REVISAR(sinRevisar)} className="ml-2 font-normal text-polaria-warning">
             · {sinRevisar} sin revisar
           </span>
@@ -66,7 +65,16 @@ export function ImpresionBatchFiltroImpresion({ valor, conteos, buscando, sinRev
               )}
             >
               {opcion.etiqueta}
-              {cantidad === null ? null : ` (${cantidad})`}
+              {cantidad !== null ? (
+                ` (${cantidad})`
+              ) : buscando ? (
+                // Un spinner donde irá el contador: ocupa lo mismo que el número y no mueve los botones.
+                <Loader2
+                  aria-hidden
+                  className="ml-1.5 inline-block h-3.5 w-3.5 animate-spin align-[-2px] motion-reduce:animate-none"
+                  strokeWidth={2}
+                />
+              ) : null}
             </button>
           );
         })}

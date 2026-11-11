@@ -48,8 +48,10 @@ describe("ImpresionBatchFiltroImpresion", () => {
     expect(screen.getByRole("button", { name: "Sin imprimir" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ya impresas" })).toBeInTheDocument();
     expect(screen.getByText("Revisando qué se imprimió antes…")).toHaveAttribute("aria-live", "polite");
-    // A la vista solo hay un aviso corto en la línea del título; el texto largo es para lectores de pantalla.
+    // A la vista solo hay un spinner donde irá cada contador; el texto largo es para lectores de pantalla.
     expect(screen.getByText("Revisando qué se imprimió antes…")).toHaveClass("sr-only");
-    expect(screen.getByText("· Revisando…")).toBeInTheDocument();
+    const botones = [screen.getByRole("button", { name: "Sin imprimir" }), screen.getByRole("button", { name: "Ya impresas" })];
+    for (const boton of botones) expect(boton.querySelector("svg.animate-spin")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Todas (12)" }).querySelector("svg")).toBeNull();
   });
 });
