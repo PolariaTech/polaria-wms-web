@@ -26,6 +26,9 @@ const OPCIONES: ReadonlyArray<{ valor: ImpresionOvBatch; etiqueta: string; conte
   { valor: "impresas", etiqueta: "Ya impresas", conteo: "impresas" },
 ];
 
+const MENSAJE_SIN_REVISAR = (n: number) =>
+  `No se pudo revisar ${n} ${n === 1 ? "orden" : "órdenes"}: podrían estar impresas aunque no salgan marcadas.`;
+
 /**
  * «Todas / Sin imprimir / Ya impresas» (REQ-298): para sacar solo lo nuevo o para volver a imprimir
  * una orden que ya salió. Cada opción dice cuántas órdenes tiene en cuanto se sabe.
@@ -33,7 +36,17 @@ const OPCIONES: ReadonlyArray<{ valor: ImpresionOvBatch; etiqueta: string; conte
 export function ImpresionBatchFiltroImpresion({ valor, conteos, buscando, sinRevisar = 0, onChange }: ImpresionBatchFiltroImpresionProps) {
   return (
     <fieldset className="flex min-w-0 flex-col gap-1">
-      <legend className="mb-1 text-xs font-medium text-polaria-w">Estado de impresión</legend>
+      <legend className="mb-1 whitespace-nowrap text-xs font-medium text-polaria-w">
+        Estado de impresión
+        {/* Aviso corto en la línea del título: no ocupa sitio entre los botones ni mueve nada. El texto completo va aparte, solo para lectores de pantalla. */}
+        {buscando ? (
+          <span aria-hidden className="ml-2 font-normal">· Revisando…</span>
+        ) : sinRevisar > 0 ? (
+          <span aria-hidden title={MENSAJE_SIN_REVISAR(sinRevisar)} className="ml-2 font-normal text-polaria-warning">
+            · {sinRevisar} sin revisar
+          </span>
+        ) : null}
+      </legend>
       <div className="flex flex-wrap items-center gap-1.5">
         {OPCIONES.map((opcion) => {
           const activo = valor === opcion.valor;
@@ -57,18 +70,11 @@ export function ImpresionBatchFiltroImpresion({ valor, conteos, buscando, sinRev
             </button>
           );
         })}
-        {/* Existe siempre y se llena después: así los lectores de pantalla sí anuncian el cambio. */}
-        <span
-          aria-live="polite"
-          className={cn("polaria-text-body-sm empty:hidden", !buscando && sinRevisar > 0 ? "text-polaria-warning" : "text-polaria-w")}
-        >
-          {buscando
-            ? "Revisando qué se imprimió antes…"
-            : sinRevisar > 0
-              ? `No se pudo revisar ${sinRevisar} ${sinRevisar === 1 ? "orden" : "órdenes"}: podrían estar impresas aunque no salgan marcadas.`
-              : null}
-        </span>
       </div>
+      {/* Existe siempre y se llena después: así los lectores de pantalla sí anuncian el cambio. */}
+      <span aria-live="polite" className="sr-only">
+        {buscando ? "Revisando qué se imprimió antes…" : sinRevisar > 0 ? MENSAJE_SIN_REVISAR(sinRevisar) : null}
+      </span>
     </fieldset>
   );
 }

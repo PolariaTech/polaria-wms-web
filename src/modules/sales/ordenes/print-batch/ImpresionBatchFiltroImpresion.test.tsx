@@ -33,6 +33,7 @@ describe("ImpresionBatchFiltroImpresion", () => {
       <ImpresionBatchFiltroImpresion valor="todas" conteos={CONTEOS} buscando={false} sinRevisar={1} onChange={vi.fn()} />,
     );
     expect(screen.getByText(/No se pudo revisar 1 orden: podrían estar impresas/)).toBeInTheDocument();
+    expect(screen.getByText(/1 sin revisar/)).toHaveAttribute("title", expect.stringContaining("podrían estar impresas"));
 
     rerender(<ImpresionBatchFiltroImpresion valor="todas" conteos={CONTEOS} buscando={false} sinRevisar={3} onChange={vi.fn()} />);
     expect(screen.getByText(/No se pudo revisar 3 órdenes/)).toBeInTheDocument();
@@ -47,5 +48,8 @@ describe("ImpresionBatchFiltroImpresion", () => {
     expect(screen.getByRole("button", { name: "Sin imprimir" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ya impresas" })).toBeInTheDocument();
     expect(screen.getByText("Revisando qué se imprimió antes…")).toHaveAttribute("aria-live", "polite");
+    // A la vista solo hay un aviso corto en la línea del título; el texto largo es para lectores de pantalla.
+    expect(screen.getByText("Revisando qué se imprimió antes…")).toHaveClass("sr-only");
+    expect(screen.getByText("· Revisando…")).toBeInTheDocument();
   });
 });
