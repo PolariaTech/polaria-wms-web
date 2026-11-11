@@ -260,6 +260,7 @@ export function ImpresionBatchPageContent() {
                 onAlternarOv={(row) => cambiarSeleccion((s) => alternarOv(s, row))}
                 onAlternarOt={(row, ot) => cambiarSeleccion((s) => alternarOt(s, row, ot))}
                 cargarCentros={cargarCentros}
+                yaImpresas={yaImpresas.ids}
               />
             )}
           </div>

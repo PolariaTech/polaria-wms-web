@@ -216,6 +216,7 @@ describe("ImpresionBatchPageContent: reimprimir lo ya impreso (REQ-298)", () => 
 
     expect(await screen.findByText("OV-a")).toBeInTheDocument();
     expect(screen.queryByText("OV-b")).toBeNull();
+    expect(screen.getByText("OV-a").closest("li")).toHaveTextContent("Impresa");
     expect(fetchLog).toHaveBeenCalledTimes(3);
   });
 
