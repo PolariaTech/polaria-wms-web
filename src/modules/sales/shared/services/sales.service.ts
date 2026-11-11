@@ -54,6 +54,7 @@ import {
   isOrigenOnlyFirstDraft,
 } from "./create-orden-venta-origen-only-draft";
 import { materializeOrdenVentaDesdeOrigenSiVacia } from "./materializar-lineas-desde-origen";
+import { camposInicialesFilaOperador } from "./campos-iniciales-fila-operador";
 import { ordenVentaCaptureFields } from "./orden-venta-capture-fields";
 import { mapDenominacionDetalleFields as mapDenominacion } from "./map-denominacion-detalle";
 export { fetchUltimaDireccionEntregaPorComprador } from "./sales-ultima-direccion-entrega";
@@ -705,11 +706,7 @@ function mapOrdenVentaOperadorRow(
     minutosEnEstado: sla.minutosEnEstado,
     slaMinutos: slaConfig.slaMinutos,
     alertaMinutos: slaConfig.alertaMinutos,
-    potencialDuplicado: false,
-    potencialDuplicadoDe: [],
-    editLockedBy: row.edit_locked_by ?? null,
-    editLockedAt: row.edit_locked_at ?? null,
-    editLockedNombre: row.edit_locked_nombre ?? null,
+    ...camposInicialesFilaOperador(row),
   };
 }
 
