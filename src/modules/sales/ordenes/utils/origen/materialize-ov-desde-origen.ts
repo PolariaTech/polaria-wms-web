@@ -1,8 +1,8 @@
 import type { CompradorListRow } from "@/modules/admin-panel";
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
-import { codigoContradiceNombre } from "../match/codigo-contradice-nombre";
+import { codigoContradiceNombre, rankSinFamiliaAjena } from "../match/codigo-contradice-nombre";
 import {
-  productoCompatibleConTextoCliente, rankProductosCatalogo,
+  productoCompatibleConTextoCliente,
   shouldAutoAcceptProductoSuggestion,
 } from "../match/find-closest-producto-catalogo";
 import {
@@ -205,7 +205,7 @@ function resolveProductoForRenglon(
     if (byCodigo.length === 1 && !codigoContradiceNombre(renglon.Producto, codigo, byCodigo[0]!)) return byCodigo[0]!;
   }
 
-  const ranked = rankProductosCatalogo(query, productos, { limit: 3 });
+  const ranked = rankSinFamiliaAjena(query, productos, { limit: 3 });
   const top = ranked.candidates[0];
   if (!top) return null;
 

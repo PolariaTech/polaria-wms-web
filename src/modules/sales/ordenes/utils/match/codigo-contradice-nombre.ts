@@ -1,9 +1,11 @@
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
 import {
   productoCompatibleConTextoCliente,
-  rankProductosCatalogo,
   type ProductoCatalogoMatchResult,
 } from "./find-closest-producto-catalogo";
+import { rankSinFamiliaAjena } from "./sustantivo-principal";
+
+export { rankSinFamiliaAjena };
 
 function codigoComparable(valor: string | null | undefined): string {
   return (valor ?? "").replace(/\s+/g, "").toLowerCase();
@@ -41,7 +43,7 @@ export function rankSinCodigoContradicho(
     codigoProductoCliente?: string | null;
   },
 ): ProductoCatalogoMatchResult {
-  const ranked = rankProductosCatalogo(query, productos);
+  const ranked = rankSinFamiliaAjena(query, productos);
   return {
     ...ranked,
     candidates: ranked.candidates.filter(

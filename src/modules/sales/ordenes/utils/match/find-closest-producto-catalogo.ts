@@ -120,7 +120,7 @@ const SYNONYM_GROUPS: readonly (readonly string[])[] = [
   ["pepino", "pepinos", "cucumber", "cucumbers"],
   ["esparrago", "esparragos", "asparagus"],
   ["apio", "celery"],
-  ["chile", "chiles", "pepper", "peppers", "morron"],
+  ["chile", "chiles", "pepper", "peppers"], ["pimiento", "pimientos", "morron", "morrones"],
   ["guanabana", "soursop"],
   ["maracuya", "passionfruit", "passion"],
   // Sinónimos reales de variante (cualquier producto), p. ej. MX orejona ≈ romana.
