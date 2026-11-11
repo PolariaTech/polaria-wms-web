@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { groupOrigenCorreoToOrdenesTrabajo } from "./origen-correo-ordenes-trabajo";
 import {
   contiguousOtIdsForRenglones,
+  contiguousOtIdsFromPedidoLineas,
   baseGroupKeyOrigenCorreo,
 } from "./origen-correo-ot-contigua";
 
@@ -60,4 +61,15 @@ describe("origen-correo-ot-contigua (REQ-238)", () => {
     });
     expect(a).not.toBe(b);
   });
+
+  it("contiguousOtIdsFromPedidoLineas separa bloques no contiguos", () => {
+    const ids = contiguousOtIdsFromPedidoLineas([
+      { numeroPedido: "PO-1", almacen: "Cocina 1" },
+      { numeroPedido: "PO-1", almacen: "Cocina 2" },
+      { numeroPedido: "PO-1", almacen: "Cocina 1" },
+    ]);
+    expect(ids).toHaveLength(3);
+    expect(ids[0]).not.toBe(ids[2]);
+  });
 });
+

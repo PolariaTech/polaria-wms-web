@@ -63,3 +63,22 @@ export function contiguousOtIdsForRenglones(
 
   return ids;
 }
+
+/** REQ-238: OT ids contiguos desde líneas IA del pedido (sin pasar por OrigenCorreo). */
+export function contiguousOtIdsFromPedidoLineas(
+  lineas: ReadonlyArray<{
+    numeroPedido?: string | null;
+    almacen?: string | null;
+    numeroAlmacen?: string | null;
+    referenciaPedido?: string | null;
+  }>,
+): string[] {
+  return contiguousOtIdsForRenglones(
+    lineas.map((linea) => ({
+      "Numero pedido": linea.numeroPedido || "",
+      Almacen: linea.almacen || "",
+      "Numero almacen": linea.numeroAlmacen || "",
+      "Referencia pedido": linea.referenciaPedido || "",
+    })),
+  );
+}

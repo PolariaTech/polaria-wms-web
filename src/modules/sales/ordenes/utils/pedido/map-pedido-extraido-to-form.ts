@@ -15,10 +15,7 @@ import {
   scoreProductoMatch,
   shouldAutoAcceptProductoSuggestion,
 } from "../match/find-closest-producto-catalogo";
-import {
-  contiguousOtIdsForRenglones,
-  type OrigenCorreoRenglon,
-} from "../origen/origen-correo-ordenes-trabajo";
+import { contiguousOtIdsFromPedidoLineas } from "../origen/origen-correo-ot-contigua";
 import {
   extractDireccionShipToDesdeTexto,
   extractEntregaDesdeTexto,
@@ -771,13 +768,7 @@ export function mapPedidoExtraidoToForm(params: {
 
   const lineas: LineaVentaFromIa[] = [];
   // REQ-238: misma clave OT que groupOrigenCorreoToOrdenesTrabajo (bloques contiguos).
-  const renglonesOt: OrigenCorreoRenglon[] = pedido.lineas.map((linea) => ({
-    "Numero pedido": linea.numeroPedido || "",
-    Almacen: linea.almacen || "",
-    "Numero almacen": linea.numeroAlmacen || "",
-    "Referencia pedido": linea.referenciaPedido || "",
-  }));
-  const otIdsPorLinea = contiguousOtIdsForRenglones(renglonesOt);
+  const otIdsPorLinea = contiguousOtIdsFromPedidoLineas(pedido.lineas);
 
   for (let index = 0; index < pedido.lineas.length; index += 1) {
     const linea = pedido.lineas[index]!;
