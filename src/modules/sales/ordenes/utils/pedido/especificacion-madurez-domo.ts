@@ -24,9 +24,6 @@ export function stripEtiquetaMadurez(value: string): string {
 export function formatMadurezConEtiqueta(nivel: string): string {
   const limpio = stripEtiquetaMadurez(nivel);
   if (!limpio) return "";
-  if (/^madurez\s*:/i.test(nivel.trim())) {
-    return `Madurez: ${limpio}`;
-  }
   return `Madurez: ${limpio}`;
 }
 
@@ -62,7 +59,7 @@ export function extractMadurezEspecificacion(
 ): string | null {
   const raw = (texto ?? "").trim();
   if (!raw) return null;
-  const t = quitarAcentos(raw);
+  const textoSinAcentos = quitarAcentos(raw);
 
   const labeled = raw.match(
     /\b(?:niveles?\s+de\s+)?(?:maduraci[oó]n|madurez|firmeza|color|calidad)\s*[:=]\s*([^\n|;]{1,40})/i,
@@ -81,8 +78,8 @@ export function extractMadurezEspecificacion(
     }
   }
 
-  if (t.length <= 40) {
-    const solo = t.match(
+  if (textoSinAcentos.length <= 40) {
+    const solo = textoSinAcentos.match(
       new RegExp(String.raw`^(?:madurez\s+)?(${FRASE_MADUREZ})$`, "i"),
     );
     if (solo?.[1]) {
@@ -92,7 +89,7 @@ export function extractMadurezEspecificacion(
   }
 
   // REQ-231: «verde»/«roja» en nombre de producto no son madurez.
-  const inline = t.match(
+  const inline = textoSinAcentos.match(
     new RegExp(
       String.raw`\b(${FRASE_MADUREZ.replace("|roj[oa]s?|verdes?", "")})\b`,
       "i",
@@ -149,14 +146,14 @@ export function textoYaTraeMadurez(
   haystack: string,
   madurez: string,
 ): boolean {
-  const h = quitarAcentos(haystack).toLowerCase();
-  const mFull = quitarAcentos(madurez).toLowerCase();
-  const mNivel = quitarAcentos(stripEtiquetaMadurez(madurez)).toLowerCase();
-  if (!mNivel) return false;
-  if (h.includes(mFull)) return true;
-  if (h.includes(`madurez: ${mNivel}`)) return true;
-  if (h.includes(`maduracion: ${mNivel}`)) return true;
+  const textoNormalizado = quitarAcentos(haystack).toLowerCase();
+  const madurezCompleta = quitarAcentos(madurez).toLowerCase();
+  const nivelNormalizado = quitarAcentos(stripEtiquetaMadurez(madurez)).toLowerCase();
+  if (!nivelNormalizado) return false;
+  if (textoNormalizado.includes(madurezCompleta)) return true;
+  if (textoNormalizado.includes(`madurez: ${nivelNormalizado}`)) return true;
+  if (textoNormalizado.includes(`maduracion: ${nivelNormalizado}`)) return true;
   // «Amarillo · Firme» ya incluye el nivel suelto.
-  const partes = h.split(/\s*[·|,;]\s*|\s+/);
-  return partes.some((p) => p === mNivel);
+  const partes = textoNormalizado.split(/\s*[·|,;]\s*|\s+/);
+  return partes.some((p) => p === nivelNormalizado);
 }

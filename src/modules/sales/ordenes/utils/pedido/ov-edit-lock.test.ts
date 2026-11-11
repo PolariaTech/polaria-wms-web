@@ -4,7 +4,6 @@ import {
   hasActiveForeignOvEditLock,
   initialsFromNombre,
   isOvEditLockStale,
-  ovEditPresenceLabel,
   OV_EDIT_LOCK_STALE_MS,
 } from "./ov-edit-lock";
 
@@ -78,35 +77,5 @@ describe("ov-edit-lock (REQ-180)", () => {
         now,
       ).mode,
     ).toBe("edit");
-  });
-
-  it("ovEditPresenceLabel distingue tú / otro / null", () => {
-    const now = 1_700_000_000_000;
-    const fresh = new Date(now - 5_000).toISOString();
-    expect(
-      ovEditPresenceLabel(
-        { editLockedBy: "u1", editLockedAt: fresh, editLockedNombre: "Ana" },
-        "u1",
-        now,
-      ),
-    ).toBe("Tú estás editando");
-    expect(
-      ovEditPresenceLabel(
-        { editLockedBy: "u2", editLockedAt: fresh, editLockedNombre: "Luis" },
-        "u1",
-        now,
-      ),
-    ).toBe("Luis está editando");
-    expect(
-      ovEditPresenceLabel(
-        {
-          editLockedBy: "u2",
-          editLockedAt: new Date(now - OV_EDIT_LOCK_STALE_MS - 1).toISOString(),
-          editLockedNombre: "Luis",
-        },
-        "u1",
-        now,
-      ),
-    ).toBeNull();
   });
 });

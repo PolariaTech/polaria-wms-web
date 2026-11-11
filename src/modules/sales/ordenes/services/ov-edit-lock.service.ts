@@ -74,7 +74,7 @@ export async function acquireOvEditLock(params: {
   const holderAntes = current.editLockedBy?.trim() || null;
 
   const updated = await runDomainMutation<LockRow[] | null>((client) => {
-    let q = client
+    let filtro = client
       .from("orden_venta")
       .update({
         edit_locked_by: params.idUsuario,
@@ -85,13 +85,13 @@ export async function acquireOvEditLock(params: {
       .eq("id_orden_venta", params.idOrdenVenta);
 
     if (!holderAntes) {
-      q = q.is("edit_locked_by", null);
+      filtro = filtro.is("edit_locked_by", null);
     } else {
-      q = q.eq("edit_locked_by", holderAntes);
+      filtro = filtro.eq("edit_locked_by", holderAntes);
     }
 
     return asQueryResult(
-      q.select("edit_locked_by,edit_locked_at,edit_locked_nombre"),
+      filtro.select("edit_locked_by,edit_locked_at,edit_locked_nombre"),
     );
   });
 

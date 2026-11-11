@@ -201,10 +201,10 @@ export function OrdenVentaCreateModal({
     }
     let cancelled = false;
     void getOrdenVentaDetalle({
-            codigoCuenta,
+      codigoCuenta,
       idOrdenVenta: editingId,
-      })
-        .then((detalle) => {
+    })
+      .then((detalle) => {
         if (cancelled) return;
         const compradorRow = compradores.find(
           (row) => row.idComprador === (detalle.id_comprador ?? "").trim(),
@@ -222,7 +222,7 @@ export function OrdenVentaCreateModal({
         );
       })
       .catch(() => {
-          if (cancelled) return;
+        if (cancelled) return;
       });
     return () => {
       cancelled = true;

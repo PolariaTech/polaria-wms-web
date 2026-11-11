@@ -9,8 +9,8 @@ import {
   type CantidadEnvaseResuelta,
 } from "./resolve-cantidad-envase";
 
-function quitarAcentos(s: string): string {
-  return s.normalize("NFD").replace(/\p{M}/gu, "");
+function quitarAcentos(texto: string): string {
+  return texto.normalize("NFD").replace(/\p{M}/gu, "");
 }
 
 function pareceFraseEnvase(texto: string): boolean {

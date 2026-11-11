@@ -705,8 +705,11 @@ function mapOrdenVentaOperadorRow(
     minutosEnEstado: sla.minutosEnEstado,
     slaMinutos: slaConfig.slaMinutos,
     alertaMinutos: slaConfig.alertaMinutos,
-    potencialDuplicado: false, potencialDuplicadoDe: [],
-    editLockedBy: row.edit_locked_by ?? null, editLockedAt: row.edit_locked_at ?? null, editLockedNombre: row.edit_locked_nombre ?? null,
+    potencialDuplicado: false,
+    potencialDuplicadoDe: [],
+    editLockedBy: row.edit_locked_by ?? null,
+    editLockedAt: row.edit_locked_at ?? null,
+    editLockedNombre: row.edit_locked_nombre ?? null,
   };
 }
 

@@ -1,8 +1,10 @@
 import { extractCorreoContactoDesdeTexto } from "../utils/origen/correo-chrome";
 import { resolveFechaEntregaDesdeOrigen } from "../utils/origen/materialize-ov-desde-origen";
 import { sanitizeNotasGeneralesPedido } from "../utils/origen/texto-origen-pedido";
-import type { OrdenTrabajoHija } from "../utils/origen/origen-correo-ordenes-trabajo";
-import type { OrigenCorreoRenglon } from "../utils/origen/origen-correo-ordenes-trabajo";
+import type {
+  OrdenTrabajoHija,
+  OrigenCorreoRenglon,
+} from "../utils/origen/origen-correo-ordenes-trabajo";
 import {
   stripSurtidoFotoQrFromNotas,
 } from "../utils/pedido/build-orden-venta-captura-observaciones";
