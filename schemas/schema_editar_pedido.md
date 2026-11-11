@@ -5,7 +5,7 @@
 | Formulario | Editar pedido |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/día/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Día de la semana (REQ-257); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); Notas generales del pedido (layout + sanitize REQ-286/277); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225) |
+| Campos nuevos o modificados | Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/día/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Día de la semana (REQ-257); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); Notas generales del pedido (layout + sanitize REQ-286/277); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287) |
 | ¿Vive en un modal? | Sí |
 | ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | Sí |
 | Responsable (Desarrollador) | Desarrollador frontend |
@@ -27,6 +27,8 @@
 | Dirección de entrega | Texto | No | — | Última OV confirmada del comprador, o dirección de ficha | No | Razón social (comprador) | Al elegir razón social se prellena; si el usuario ya escribió y onlyEmpty, no se pisa | Sin mensaje de bloqueo al confirmar: vacío se guarda; puede marcarse en missingFields si el origen no la trajo. | Front |
 | Notas generales del pedido | Texto | No | — | — | No | — | REQ-286/277: no inventar Entrega/Destino ni duplicar campos parametrizados | Sin mensaje de error: vacío se guarda. | Front |
 | Aviso total solicitud vs OV | Número (solo lectura / banner) | No | > 0 para mostrar | Extracción IA o resolve-occ de adjuntos PDF/EML | No | Líneas del pedido | REQ-279: si `totalSolicitudDetectado` > 0 y difiere del total OV, muestra aviso; no bloquea confirmar | Sin mensaje de bloqueo: es informativo. | Front |
+| Bloqueo de edición (soft-lock) | Estado (usuario, última actividad, nombre) | No | Caduca a los 90 s sin latido; el latido se refresca cada 30 s | Sin bloqueo | No | Usuario que abre el pedido | REQ-180: si otro usuario tiene un bloqueo vigente (no caducado), el formulario se abre en solo lectura; si el bloqueo es propio o está caducado, se abre en edición y el usuario toma el bloqueo; al cerrar se libera | Descripción del modal: «<Nombre> está editando este pedido · solo lectura». Botón de guardar deshabilitado con el texto «Solo lectura: otro usuario está editando». | Front / BD |
+| Cabecera sellada por el usuario | Texto (notas generales, centro de consumo, orden de compra, fecha de entrega, dirección, contacto, teléfono, correo) | No | — | — | No | Guardado desde el formulario | REQ-281: al guardar desde el formulario se guarda un sello con esos ocho valores; al reabrir manda el sello, incluido el vacío, sobre la información de BD y sobre lo que sugiere Mateo; sin sello (pedido que aún no se guardó desde el formulario) rige BD y luego Mateo; el sello se recorta con trim | Sin mensaje de error: un valor vacío en el sello se respeta y no se vuelve a rellenar. | Front |
 
 ### Tabla 2 — Interacción (Nivel 2)
 
@@ -48,6 +50,8 @@
 | Notas generales del pedido | Último campo del bloque Entrega (REQ-278; deja de ir arriba) | No | — |
 | Prioridad | Oculta en UI (REQ-278); valor por defecto «Normal» se mantiene en estado | Sí (no visible) | — |
 | Aviso total solicitud vs OV | Banner encima del formulario cuando aplica (REQ-279) | Sí (solo lectura) | — |
+| Todos los campos del formulario en modo solo lectura | No aplica: ningún campo recibe foco ni se puede editar | Sí, todos (REQ-180) | — |
+| Botón Actualizar / Confirmar en modo solo lectura | No aplica | Sí (REQ-180); los iconos Guardar avance y Eliminar tarea del pie no se muestran y el botón Cancelar pasa a decir «Salir» | — |
 
 ### Tabla 3 — Pre-llenado
 
@@ -62,9 +66,15 @@
 | Hora desde | Sí | Extracción IA / Información de BD | Sí |
 | Hora hasta | Sí | Extracción IA / Información de BD | Sí |
 | Precio unitario (línea) | Sí | Extracción IA / Información de BD | Sí |
-| Dirección de entrega | Sí | Información de BD | Sí |
-| Notas generales del pedido | Sí | Extracción IA / Información de BD | Sí |
+| Dirección de entrega | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
+| Notas generales del pedido | Sí | Extracción IA / Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
 | Aviso total solicitud vs OV | Sí | Extracción IA / adjuntos vía resolve-occ (Front) | No |
+| Contacto del cliente | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
+| Teléfono del contacto | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
+| Correo del contacto | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
+| Fecha de entrega | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
+| Centro de consumo | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
+| Orden de compra | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
 
 ### Tabla 4 — Prueba automatizada (Nivel 2)
 
@@ -128,11 +138,19 @@ El modal no se cierra al tocar el fondo (closeOnBackdrop es false). Si hay progr
 
 En edición de un pedido que ya no está por confirmar, el botón de guardar dice "Actualizar". Si todavía está por confirmar, dice "Confirmar". Título y descripción del modal se resuelven con `tituloCreateModalOv` / `descriptionCreateModalOv`: en edición no hay subtítulo (REQ-220), el título identifica el pedido. Eliminar tarea y Guardar avance van como iconos en el pie, junto a Cancelar (REQ-232); el encabezado conserva solo el botón de Cypher. Etiquetas de OT usan "TAREA" / "Órdenes de tarea" (REQ-214/225).
 
+REQ-180 (bloqueo de edición): `decideOvEditLockMode` abre el formulario en solo lectura cuando otro usuario tiene un bloqueo vigente (`hasActiveForeignOvEditLock`); el bloqueo se guarda en las columnas `edit_locked_by`, `edit_locked_at` y `edit_locked_nombre` de `orden_venta` (migración 117_orden_venta_edit_lock de `polaria-wms-db`). En solo lectura el cuerpo del modal va dentro de un `fieldset` deshabilitado (`OrdenVentaModalReadonlyBody`), el título es «Ver · <folio>» o «Ver pedido» y no se muestran las acciones del pie. El latido (`OV_EDIT_LOCK_HEARTBEAT_MS`, 30 s) refresca `edit_locked_at`; sin latido durante `OV_EDIT_LOCK_STALE_MS` (90 s) el bloqueo se considera caducado. El listado consulta la presencia cada 4 s (`OV_EDIT_PRESENCE_POLL_MS`). No hay capa Back nueva: el servicio `ov-edit-lock.service` escribe desde el front.
+
+REQ-281 (sello del usuario): `sellarCabeceraUsuarioEnOrigen` guarda el sello en cada renglón de `origen_correo` al enviar (`payload-envio-ov.ts`); `leerCabeceraUsuarioSello` lo lee al reabrir y `resolveCampoConSelloUsuario` decide el valor: con sello manda el sello; sin sello, BD y luego Mateo. Al materializar la OV desde el origen (`materializar-lineas-desde-origen.ts`) los campos de cabecera solo se rellenan si la OV no tiene sello, para no pisar lo que el usuario dejó.
+
+REQ-287: la especificación de línea muestra la madurez con la etiqueta «Madurez: <nivel>» y no la repite si el texto ya la trae (`formatMadurezConEtiqueta`, `textoYaTraeMadurez`). REQ-297 (impresión en carta) no cambia campos de este formulario.
+
+La prueba automatizada del Nivel 2 (Tabla 4) cubre el modo edición. El modo solo lectura exige dos sesiones de usuarios distintos sobre la misma orden, y se recorre a mano en el checklist del lote.
+
 ### Versión y revisión (del schema de ese formulario, no de esta plantilla)
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.6 |
-| Fecha de aprobación | 09/11/2026 |
+| Versión del schema | v1.7 |
+| Fecha de aprobación | 11/11/2026 |
 | Aprobado por | Desarrollador frontend |
 | Próxima revisión | Cuando el formulario cambie de campos o de reglas |
