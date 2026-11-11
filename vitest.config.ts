@@ -5,8 +5,10 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   test: {
-    // Threads en vez de forks (el valor por defecto de Vitest 4): mide entre 27 % y 45 % menos de tiempo en la suite completa (≈ 120 s contra ≈ 220 s con la máquina libre).
-    pool: "threads",
+    // Forks: con "threads" Node 22 aborta la suite
+    // (v8::Module::IsGraphAsync must be used on an instantiated module).
+    pool: "forks",
+    maxWorkers: 2,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
