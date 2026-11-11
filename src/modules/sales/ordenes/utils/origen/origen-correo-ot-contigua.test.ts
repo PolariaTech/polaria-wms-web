@@ -70,6 +70,19 @@ describe("origen-correo-ot-contigua (REQ-238)", () => {
     ]);
     expect(ids).toHaveLength(3);
     expect(ids[0]).not.toBe(ids[2]);
+    expect(ids[0]).toContain("|bloque:");
+    expect(ids[2]).toContain("|bloque:");
+  });
+
+  it("un solo bloque de cocina no añade |bloque (clave estable)", () => {
+    const ids = contiguousOtIdsFromPedidoLineas([
+      { numeroPedido: "7", almacen: "Abar" },
+      { numeroPedido: "7", almacen: "Abar" },
+    ]);
+    expect(ids[0]).toBe("pedido:7|almacen:abar");
+    expect(ids[0]).toBe(ids[1]);
+    expect(ids[0]).not.toContain("|bloque:");
   });
 });
+
 

@@ -107,26 +107,36 @@ describe("otsDeOrigen", () => {
   });
 
   it("numera las OT de la OV como la hoja impresa: por nombre, de 1 al total", () => {
+    // REQ-238: Veracruz → Tlachco → Veracruz = 3 OT (misma cocina no contigua no se fusiona).
     const ots = otsDeOrigen([
       renglon("4501", "Blue AYB Rest Veracruz"),
       renglon("4501", "Blue AYB XC Cena Gran Tlachco"),
       renglon("4501", "Blue AYB Rest Veracruz", "Cebolla"),
     ]);
 
-    expect(ots.size).toBe(2);
-    expect(ots.get("pedido:4501|almacen:blue ayb rest veracruz")).toEqual({
+    expect(ots.size).toBe(3);
+    const veracruz1 = [...ots.entries()].find(
+      ([, ot]) => ot.almacen === "Blue AYB Rest Veracruz" && ot.numero === 1,
+    );
+    const tlachco = ots.get("pedido:4501|almacen:blue ayb xc cena gran tlachco");
+    const veracruz2 = [...ots.entries()].find(
+      ([, ot]) => ot.almacen === "Blue AYB Rest Veracruz" && ot.numero === 3,
+    );
+    expect(veracruz1?.[1]).toMatchObject({
       numero: 1,
-      total: 2,
-      almacen: "Blue AYB Rest Veracruz",
+      total: 3,
       pedido: "4501",
       pedidoVaria: false,
     });
-    expect(ots.get("pedido:4501|almacen:blue ayb xc cena gran tlachco")).toMatchObject({
+    expect(tlachco).toMatchObject({
       numero: 2,
-      total: 2,
+      total: 3,
       almacen: "Blue AYB XC Cena Gran Tlachco",
     });
+    expect(veracruz2?.[1]).toMatchObject({ numero: 3, total: 3 });
+    expect(veracruz1?.[0]).not.toBe(veracruz2?.[0]);
   });
+
 
   it("encuentra la OT aunque la clave del intento difiera en tildes, mayúsculas o espacios", () => {
     const ots = otsDeOrigen([renglon("4501", "BLUE Ayb Xc Producción De Banquetes")]);

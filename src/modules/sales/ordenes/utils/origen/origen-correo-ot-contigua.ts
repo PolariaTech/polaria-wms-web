@@ -34,19 +34,25 @@ export function baseGroupKeyOrigenCorreo(renglon: OrigenCorreoRenglon): string {
 
 /**
  * REQ-238: misma cocina/pedido no contigua (tras otra cocina) = otra OT.
+ * Solo añade `|bloque:N` cuando esa clave base aparece en más de un bloque
+ * (si hay un solo bloque, la clave queda estable para estado-fotos / intentos).
  * Filas con `_otId` manual se respetan tal cual.
  */
 export function contiguousOtIdsForRenglones(
   renglones: readonly OrigenCorreoRenglon[],
 ): string[] {
-  const ids: string[] = [];
+  type Asignacion =
+    | { tipo: "manual"; id: string }
+    | { tipo: "auto"; base: string; bloque: number };
+
+  const asignaciones: Asignacion[] = [];
   let lastAutoBase: string | null = null;
   let bloqueSeq = 0;
 
   for (const row of renglones) {
     const manualOtId = norm(row._otId);
     if (manualOtId) {
-      ids.push(manualOtId);
+      asignaciones.push({ tipo: "manual", id: manualOtId });
       lastAutoBase = null;
       continue;
     }
@@ -56,12 +62,24 @@ export function contiguousOtIdsForRenglones(
       bloqueSeq += 1;
       lastAutoBase = base;
     }
-    ids.push(
-      base === "default" ? "default" : `${base}|bloque:${bloqueSeq}`,
-    );
+    asignaciones.push({ tipo: "auto", base, bloque: bloqueSeq });
   }
 
-  return ids;
+  const bloquesPorBase = new Map<string, Set<number>>();
+  for (const item of asignaciones) {
+    if (item.tipo !== "auto" || item.base === "default") continue;
+    const set = bloquesPorBase.get(item.base) ?? new Set<number>();
+    set.add(item.bloque);
+    bloquesPorBase.set(item.base, set);
+  }
+
+  return asignaciones.map((item) => {
+    if (item.tipo === "manual") return item.id;
+    if (item.base === "default") return "default";
+    const bloques = bloquesPorBase.get(item.base);
+    if (!bloques || bloques.size <= 1) return item.base;
+    return `${item.base}|bloque:${item.bloque}`;
+  });
 }
 
 /** REQ-238: OT ids contiguos desde líneas IA del pedido (sin pasar por OrigenCorreo). */
