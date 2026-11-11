@@ -7,7 +7,7 @@ import {
   MailX,
   Minus,
   Plus,
-  Printer,
+  QrCode,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -40,8 +40,6 @@ interface ItemMenu {
   icon: LucideIcon;
   /** Línea fina encima: separa las órdenes de los correos. */
   separadorAntes?: boolean;
-  /** Abre fuera de Ventas, en otra pestaña, para no perder la lista que se está viendo. */
-  nuevaPestana?: boolean;
 }
 
 const ITEMS: readonly ItemMenu[] = [
@@ -70,12 +68,11 @@ const ITEM_ESTADO_FOTOS: ItemMenu = {
   icon: Camera,
 };
 
-/** REQ-306: el PDF con el QR del despacho de la cuenta (REQ-292); se imprime desde su propia página. */
-const ITEM_IMPRIMIR_PDF: ItemMenu = {
-  href: ROUTES.imprimirDespacho,
-  label: "Imprimir PDF",
-  icon: Printer,
-  nuevaPestana: true,
+/** REQ-306: la hoja con el QR del despacho de la cuenta (REQ-292); va tras el estado de fotos. */
+const ITEM_CODIGO_DESPACHO: ItemMenu = {
+  href: ROUTES.dashboardVentasCodigoDespacho,
+  label: "Código de despacho",
+  icon: QrCode,
 };
 
 /** Solo los roles de nivel cuenta usan el menú de Ventas con correos. */
@@ -98,13 +95,6 @@ function EnlaceMenu({
     <Link
       href={item.href}
       aria-current={activo ? "page" : undefined}
-      {...(item.nuevaPestana
-        ? {
-            target: "_blank",
-            rel: "noopener noreferrer",
-            "aria-label": `${item.label} (se abre en una pestaña nueva)`,
-          }
-        : {})}
       className={cn(
         "flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl border px-3 py-2.5 transition-colors",
         "polaria-text-body-sm font-medium",
@@ -178,8 +168,14 @@ export function VentasSidebar() {
                       pathname.startsWith(`${ITEM_ESTADO_FOTOS.href}/`)
                     }
                   />
-                  {/* REQ-306: imprime el QR del despacho público; va tras el estado de fotos. */}
-                  <EnlaceMenu item={ITEM_IMPRIMIR_PDF} activo={false} />
+                  {/* REQ-306: la hoja con el QR del despacho público. */}
+                  <EnlaceMenu
+                    item={ITEM_CODIGO_DESPACHO}
+                    activo={
+                      pathname === ITEM_CODIGO_DESPACHO.href ||
+                      pathname.startsWith(`${ITEM_CODIGO_DESPACHO.href}/`)
+                    }
+                  />
                 </>
               ) : null}
               {item.separadorAntes ? (

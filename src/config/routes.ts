@@ -64,6 +64,8 @@ export const ROUTES = {
   dashboardVentasImpresionRapida: "/dashboard/ventas/impresion-rapida",
   /** POL-406: estado de las fotos de captura por OV y OT (solo lectura). */
   dashboardVentasEstadoFotos: "/dashboard/ventas/estado-fotos",
+  /** REQ-306: la hoja con el QR de despacho de la cuenta, dentro de Ventas. */
+  dashboardVentasCodigoDespacho: "/dashboard/ventas/codigo-despacho",
   /** REQ-104: correos de pedidos que registra n8n (todos). */
   dashboardVentasCorreosMateo: "/dashboard/ventas/correos-mateo",
   /** REQ-104: correos que el flujo descartó, para ingresarlos a mano como OV. */
