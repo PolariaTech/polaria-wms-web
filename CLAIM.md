@@ -14,6 +14,7 @@
 - `src/modules/sales/ordenes/print/orden-tarea-almacen.test.ts` — autorizada por el usuario el 2026-11-10
 - `vitest.config.ts` — autorizada por el usuario el 2026-11-11
 - `src/test/vitest-config.test.ts` — autorizada por el usuario el 2026-11-11
+- `src/modules/sales/correos/components/VentasSidebar.tsx` — autorizada por el usuario el 2026-11-11
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/config/routes.ts`
