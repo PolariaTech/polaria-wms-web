@@ -65,6 +65,7 @@
 - `src/modules/sales/ordenes/ai/openai-pedido.client.ts`
 - `src/modules/sales/ordenes/utils/pedido/normalize-numero-pedido.ts`
 - `src/modules/sales/ordenes/utils/pedido/normalize-numero-pedido.test.ts`
+- `src/modules/sales/ordenes/hooks/reset-formulario-ov.ts` — autorizada por el usuario el 2026-11-11
 
 ### Compartidos (cambio mínimo y aviso)
 - `package.json`
