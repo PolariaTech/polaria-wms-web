@@ -1,13 +1,8 @@
 import type { OrigenAdjunto } from "../utils/origen/origen-adjuntos";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import { uploadOvAdjuntosClient } from "../services/ov-adjuntos.client";
-import {
-  buildPayloadEnvioOv,
-  notasLineasParaEnvio,
-  origenCorreoParaEnvio,
-  textoOrigenParaPersistir,
-} from "../utils/pedido/payload-envio-ov";
-import { overrideDenominacionParaPersistir } from "../utils/pedido/resolve-denominacion-comercial";
+import { armarPayloadEnvioConSelloUsuario } from "../utils/pedido/armar-payload-envio-con-sello";
+import { textoOrigenParaPersistir } from "../utils/pedido/payload-envio-ov";
 import { ejecutarPersistenciaEnvio } from "./useEnvioOv";
 import { validarEnvioOv } from "./validar-envio-ov";
 import { useCallback, type FormEvent } from "react";
@@ -55,20 +50,22 @@ export async function confirmarEnvioOv(input: OrdenVentaFormEstado) {
     return;
   }
 
-  const notasLineasText = notasLineasParaEnvio(lineas);
-  const payload = buildPayloadEnvioOv({
+  const payload = armarPayloadEnvioConSelloUsuario({
     codigoCuenta,
-    lineas: lineasParsed,
+    lineasParsed,
+    lineas,
+    hijasSynced,
+    origenCorreoDraft,
     idBodegaDestino,
     idComprador,
-    fechaEntrega: fechaEntregaPersist,
+    fechaEntregaPersist,
     ventanaDesde,
     ventanaHasta,
     prioridad,
     moneda,
     ordenCompraHotel,
     centroConsumo,
-    vendedor: vendedorNombre,
+    vendedorNombre,
     bodegaDestinoLabel,
     direccion,
     anden,
@@ -82,24 +79,15 @@ export async function confirmarEnvioOv(input: OrdenVentaFormEstado) {
     aceptaSustituciones,
     requiereLote,
     registrarTemperatura,
-    origenTexto: persistOrigenTexto,
-    origenArchivos: persistOrigenAdjuntos,
-    origenCorreo: origenCorreoParaEnvio({
-      hijas: hijasSynced,
-      lineas,
-      origenCorreoDraft,
-      idComprador,
-      compradorNombreIa,
-      compradorLabel,
-    }),
-    notasLineas: notasLineasText,
+    persistOrigenTexto,
+    persistOrigenAdjuntos,
+    compradorNombreIa,
+    compradorLabel,
     observaciones,
     idCreador,
     isDraft,
-    denominacionComercialOverride: overrideDenominacionParaPersistir({
-      valorFormulario: denominacionComercial ?? "",
-      apodoSincronizado: denominacionComercialCatalogo ?? "",
-    }),
+    denominacionComercial,
+    denominacionComercialCatalogo,
   });
 
   await ejecutarPersistenciaEnvio({

@@ -4,8 +4,8 @@ import {
   formatEspecificacionEnvase,
   parseEnvaseContenidoDesdeTexto,
   resolveCantidadPrecioDesdeEnvase,
-  resolveEspecificacionPedidoLinea,
 } from "./resolve-cantidad-envase";
+import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedido-linea";
 
 describe("familiaUnidadCatalogo", () => {
   it("normaliza LTR/KGM/PZA", () => {
@@ -154,52 +154,62 @@ describe("formatEspecificacionEnvase / resolveEspecificacionPedidoLinea", () => 
     ).toBe("sin penacho");
   });
 
-  it("REQ-120: madurez desde texto → especificación", () => {
+  it("REQ-120/287: madurez desde texto → especificación con etiqueta", () => {
     expect(
       resolveEspecificacionPedidoLinea({
         especificacionIa: null,
         envase: null,
         textoOriginal: "AGUACATE HASS madurez: amarillo",
       }),
-    ).toBe("Amarillo");
+    ).toBe("Madurez: Amarillo");
     expect(
       resolveEspecificacionPedidoLinea({
         especificacionIa: null,
         envase: null,
         textoOriginal: "firme",
       }),
-    ).toBe("Firme");
+    ).toBe("Madurez: Firme");
   });
 
-  it("REQ-158: maduro y plurales también van a la especificación", () => {
+  it("REQ-158/287: maduro y plurales también van a la especificación", () => {
     expect(
       resolveEspecificacionPedidoLinea({
         especificacionIa: null,
         envase: null,
         textoOriginal: "AGUACATE HASS maduro",
       }),
-    ).toBe("Maduro");
+    ).toBe("Madurez: Maduro");
     expect(
       resolveEspecificacionPedidoLinea({
         especificacionIa: null,
         envase: null,
         textoOriginal: "enrriados",
       }),
-    ).toBe("Enrriado");
+    ).toBe("Madurez: Enrriado");
     expect(
       resolveEspecificacionPedidoLinea({
         especificacionIa: null,
         envase: null,
         textoOriginal: "aguacate no muy maduro",
       }),
-    ).toBe("No muy maduro");
+    ).toBe("Madurez: No muy maduro");
     expect(
       resolveEspecificacionPedidoLinea({
         especificacionIa: null,
         envase: null,
         textoOriginal: "PLATANO maduración: 3/4",
       }),
-    ).toBe("3/4");
+    ).toBe("Madurez: 3/4");
+  });
+
+  it("REQ-287: Domo de 500g del nombre va a especificación", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: null,
+        envase: null,
+        textoOriginal: "FRAMBUESAS (DOMO) (Domo de 500 g) [Cód. 10501529]",
+      }),
+    ).toBe("Domo de 500g");
   });
 
   it("REQ-231: el color que es parte del nombre del producto no es especificación", () => {
@@ -228,15 +238,22 @@ describe("formatEspecificacionEnvase / resolveEspecificacionPedidoLinea", () => 
         textoOriginal: "AGUACATE EXTRA (200 a 260g)",
       }),
     ).toBe("Amarillo · Firme");
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "Madurez: Amarillo · Firme",
+        envase: null,
+        textoOriginal: "AGUACATE EXTRA (200 a 260g)",
+      }),
+    ).toBe("Madurez: Amarillo · Firme");
   });
 
-  it("REQ-231: el color sí cuenta cuando viene rotulado como madurez", () => {
+  it("REQ-231/287: el color sí cuenta cuando viene rotulado como madurez", () => {
     expect(
       resolveEspecificacionPedidoLinea({
         especificacionIa: null,
         envase: null,
         textoOriginal: "JITOMATE GUAJE madurez: rojo",
       }),
-    ).toBe("Rojo");
+    ).toBe("Madurez: Rojo");
   });
 });

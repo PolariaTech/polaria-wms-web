@@ -9,9 +9,22 @@ const PAGE_H = 279.4;
 const MARGEN_VERTICAL_MM = 10;
 const ESCALA_RENDER = 1.5;
 export const ANCHO_PAGINA_PX = 816;
+/** REQ-297: si la OC es más ancha que la carta, se captura hasta 2× y luego escala al PDF. */
+export const ANCHO_MAX_RENDER_PX = ANCHO_PAGINA_PX * 2;
 /** Un HTML que pase de esto se corta: es una OC, no un libro, y cada página pesa en el paquete. */
 export const MAX_PAGINAS_HTML = 10;
 const ESPERA_MAXIMA_MS = 10_000;
+
+/**
+ * REQ-297: ancho de captura del HTML.
+ * - Contenido angosto → carta (816) para llenar el PDF.
+ * - Contenido más ancho → hasta 2× carta, luego `pdfDeHtml` lo escala al ancho carta.
+ */
+export function resolverAnchoRenderHtml(anchoNaturalPx: number): number {
+  const natural = Math.max(0, Math.floor(anchoNaturalPx));
+  if (natural <= ANCHO_PAGINA_PX) return ANCHO_PAGINA_PX;
+  return Math.min(natural, ANCHO_MAX_RENDER_PX);
+}
 
 /**
  * Lo mínimo que se necesita de lo que dibuja `html2canvas`. `tinta` dice cuánto hay dibujado en
@@ -33,18 +46,30 @@ const UMBRAL_TINTA = 600;
 /**
  * Estilos de papel para una OC de cliente. Un `border="1"` pinta dos filos (el de la tabla y,
  * a 2 px, el de cada celda): se funden en uno. Las celdas respiran para que el texto no toque
- * el marco, y una línea sin espacios (una lista de correos) se parte en vez de ensanchar su
- * columna y aplastar la de al lado, que es lo que dejaba la hoja medio vacía.
+ * el marco. REQ-297: TODO el HTML (no solo tablas) cabe y usa el ancho carta.
  */
 export const ESTILOS_PAPEL = [
-  "html,body{margin:0;background:#fff}",
-  "body{padding:24px}",
+  "html,body{margin:0;width:100%!important;max-width:100%!important;background:#fff}",
+  "body{padding:12px 10px;box-sizing:border-box;min-width:100%}",
+  "body *{max-width:100%;box-sizing:border-box}",
+  "table{width:100%!important;max-width:100%!important}",
+  "img,svg,canvas,video{max-width:100%!important;height:auto}",
+  "pre{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}",
   'table[border]:not([border="0"]){border-collapse:collapse}',
-  'table[border]:not([border="0"])>tbody>tr>td,table[border]:not([border="0"])>tbody>tr>th{padding:6px 8px}',
+  'table[border]:not([border="0"])>tbody>tr>td,table[border]:not([border="0"])>tbody>tr>th{padding:5px 6px}',
   // La última fila es la que cierra el marco: más aire para que el borde no roce el último renglón.
-  'table[border]:not([border="0"])>tbody>tr:last-child>td{padding-bottom:16px}',
-  "td,th{overflow-wrap:anywhere}",
+  'table[border]:not([border="0"])>tbody>tr:last-child>td{padding-bottom:14px}',
+  "td,th{overflow-wrap:anywhere;word-break:break-word}",
 ].join("");
+
+/** REQ-297: quita width/max-width en px/pt/mm del CSS inline o de <style>. */
+export function quitarAnchosFijosDeCss(css: string): string {
+  return css
+    .replace(/\b(?:max-)?width\s*:\s*\d+(?:\.\d+)?(?:px|pt|mm|cm|in)\s*;?/gi, "")
+    .replace(/;;+/g, ";")
+    .replace(/^\s*;\s*|\s*;\s*$/g, "")
+    .trim();
+}
 
 export type Renderizador = (htmlSeguro: string) => Promise<LienzoRenderizado>;
 
@@ -75,12 +100,21 @@ export function sanitizarHtmlOc(html: string): string {
       } else if (ATRIBUTOS_DE_RED.has(nombre) && !valor.startsWith("data:") && !valor.startsWith("#")) {
         elemento.removeAttribute(atributo.name);
       } else if (nombre === "style") {
-        elemento.setAttribute(atributo.name, limpiarCss(atributo.value));
+        elemento.setAttribute(
+          atributo.name,
+          quitarAnchosFijosDeCss(limpiarCss(atributo.value)),
+        );
       }
     }
   });
   doc.querySelectorAll("style").forEach((estilo) => {
-    estilo.textContent = limpiarCss(estilo.textContent ?? "");
+    estilo.textContent = quitarAnchosFijosDeCss(
+      limpiarCss(estilo.textContent ?? ""),
+    );
+  });
+  // REQ-297: cualquier width fijo del HTML del cliente deja la hoja a medias.
+  doc.querySelectorAll("[width]").forEach((elemento) => {
+    elemento.removeAttribute("width");
   });
   const politica = doc.createElement("meta");
   politica.setAttribute("http-equiv", "Content-Security-Policy");
@@ -124,6 +158,47 @@ function recortarLienzo(lienzo: HTMLCanvasElement, desdePx: number, hastaPx: num
   return tramo.toDataURL("image/jpeg", 0.8);
 }
 
+/**
+ * REQ-297: prepara el documento para capturar a ancho carta.
+ * - Si el HTML es más angosto: lo escala (zoom) para llenar la carta.
+ * - Si es más ancho: abre el marco hasta 2× carta; el PDF lo baja a carta.
+ */
+export function ajustarHtmlAlAnchoCarta(
+  documento: Document,
+  marco: HTMLIFrameElement,
+): number {
+  const cuerpo = documento.body;
+  cuerpo.style.boxSizing = "border-box";
+  cuerpo.style.transform = "";
+  cuerpo.style.transformOrigin = "top left";
+  (cuerpo.style as CSSStyleDeclaration & { zoom?: string }).zoom = "";
+  cuerpo.style.minWidth = "";
+  cuerpo.style.width = "auto";
+
+  marco.style.width = `${ANCHO_PAGINA_PX}px`;
+  const anchoNatural = Math.max(
+    cuerpo.scrollWidth,
+    documento.documentElement.scrollWidth,
+    1,
+  );
+
+  if (anchoNatural < ANCHO_PAGINA_PX) {
+    const escala = ANCHO_PAGINA_PX / anchoNatural;
+    // `zoom` escala layout + pintura en Chromium (html2canvas lo respeta mejor que transform).
+    (cuerpo.style as CSSStyleDeclaration & { zoom?: string }).zoom = String(escala);
+    marco.style.width = `${ANCHO_PAGINA_PX}px`;
+    marco.style.height = `${Math.max(Math.ceil(documento.documentElement.scrollHeight), 1)}px`;
+    return ANCHO_PAGINA_PX;
+  }
+
+  const anchoRender = resolverAnchoRenderHtml(anchoNatural);
+  marco.style.width = `${anchoRender}px`;
+  cuerpo.style.minWidth = `${anchoRender}px`;
+  cuerpo.style.width = `${anchoRender}px`;
+  marco.style.height = `${Math.max(documento.documentElement.scrollHeight, 1)}px`;
+  return anchoRender;
+}
+
 /** Dibuja el HTML ya limpio en un iframe fuera de pantalla, sin scripts, y lo fotografía. */
 export async function renderizarEnIframe(htmlSeguro: string): Promise<LienzoRenderizado> {
   const marco = document.createElement("iframe");
@@ -143,12 +218,15 @@ export async function renderizarEnIframe(htmlSeguro: string): Promise<LienzoRend
     });
     const documento = marco.contentDocument;
     if (!documento?.body) throw new Error("No se pudo abrir el HTML.");
-    marco.style.height = `${documento.documentElement.scrollHeight}px`;
+
+    // REQ-297: todo el HTML (no solo tablas) se mide y se escala al ancho carta.
+    const anchoRender = ajustarHtmlAlAnchoCarta(documento, marco);
+
     const lienzo = await html2canvas(documento.body, {
       scale: ESCALA_RENDER,
       backgroundColor: "#ffffff",
       logging: false,
-      windowWidth: ANCHO_PAGINA_PX,
+      windowWidth: anchoRender,
     });
     return {
       width: lienzo.width,

@@ -7,8 +7,12 @@ export function tituloCreateModalOv(params: {
   isEditing: boolean;
   step: CreateModalCaptureStep;
   folioVisible: string;
+  soloLectura?: boolean;
 }): string {
-  const { isEditing, step, folioVisible } = params;
+  const { isEditing, step, folioVisible, soloLectura } = params;
+  if (soloLectura && isEditing) {
+    return folioVisible ? `Ver · ${folioVisible}` : "Ver pedido";
+  }
   if (isEditing && step === "pickOt") return "Órdenes de trabajo";
   if (isEditing) {
     return folioVisible ? `Editar · ${folioVisible}` : "Editar pedido";
@@ -29,8 +33,21 @@ export function descriptionCreateModalOv(params: {
   step: CreateModalCaptureStep;
   formDescription: string;
   startMode: CreateModalStartMode;
+  soloLectura?: boolean;
+  editLockHolderNombre?: string | null;
 }): string | undefined {
-  const { isEditing, step, formDescription, startMode } = params;
+  const {
+    isEditing,
+    step,
+    formDescription,
+    startMode,
+    soloLectura,
+    editLockHolderNombre,
+  } = params;
+  if (soloLectura && isEditing) {
+    const quien = editLockHolderNombre?.trim() || "Otro usuario";
+    return `${quien} está editando este pedido · solo lectura`;
+  }
   if (isEditing && step === "pickOt") {
     return "Elige qué orden de trabajo quieres editar";
   }

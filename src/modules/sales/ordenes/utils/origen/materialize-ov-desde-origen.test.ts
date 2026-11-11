@@ -236,8 +236,8 @@ describe("materialize-ov-desde-origen", () => {
       compradores,
     });
 
-    expect(plan.lineas[0]?.especificacion).toBe("Pintón");
-    expect(plan.lineas[1]?.especificacion).toBe("Maduro");
+    expect(plan.lineas[0]?.especificacion).toBe("Madurez: Pintón");
+    expect(plan.lineas[1]?.especificacion).toBe("Madurez: Maduro");
   });
 
   it("REQ-158: 3 piezas aprox 5.4 kg usa el peso y deja 3 PZA", () => {

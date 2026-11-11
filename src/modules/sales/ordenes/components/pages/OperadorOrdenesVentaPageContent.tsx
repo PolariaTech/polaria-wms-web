@@ -1,16 +1,8 @@
 "use client";
 
-import { Printer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
-import {
-  PolariaTableBadge,
-  PolariaTableCode,
-} from "@/components/shared/table/PolariaTableCells";
-import { BotonDetalleOrden } from "./BotonDetalleOrden";
-import { textoFechaEntregaListado } from "./texto-fecha-entrega-listado";
-import { renderClienteListadoCell } from "./cliente-listado-cell";
 import {
   cypherMatchesCreateDraft,
   OV_LISTADO_DATATABLE_CHROME_CLASS,
@@ -20,6 +12,7 @@ import {
   shouldClearCypherOnCreateClose,
 } from "./ov-create-draft-session";
 import { OvEstadoFiltroBar } from "./OvEstadoFiltroBar";
+import { buildOperadorOrdenesVentaColumns } from "./build-operador-ordenes-venta-columns";
 import { TABLA_COMPACTA_PANTALLA_BAJA } from "@/components/shared/table/tabla-compacta";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
@@ -33,14 +26,9 @@ import {
 import {
   ESTADO_ORDEN_VENTA_LABELS,
   ESTADOS_ORDEN_VENTA,
-  formatEstadoOrdenVenta,
-  variantEstadoOrdenVenta,
 } from "../../../shared/constants/sales-status";
 import { useOrdenesVentaSubscription } from "../../../shared/hooks/useOrdenesVentaSubscription";
-import {
-  ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS,
-  ordenVentaTableColumnClass,
-} from "../../constants/ordenes-venta-table-layout";
+import { ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS } from "../../constants/ordenes-venta-table-layout";
 import {
   buildOrdenTareaAlmacenLandscapePdfBlob,
   printOrdenTareaAlmacenLandscape,
@@ -82,7 +70,11 @@ import type {
   EstadoOrdenVenta,
   OrdenVentaOperadorRow,
 } from "../../../shared/types/sales.types";
-import { OvAlertaDot } from "../shared/OvAlertaDot";
+import { useOvEditLockSession } from "../../hooks/use-ov-edit-lock-session";
+import {
+  mergeOvEditPresence,
+  useOvEditPresencePoll,
+} from "../../hooks/use-ov-edit-presence-poll";
 import { applySurtidoCapturasToPrintSheets } from "../../surtido/apply-surtido-to-print";
 import { listOrdenIdsConSurtidoCaptura } from "../../surtido/list-orden-ids-con-surtido-captura";
 import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
@@ -148,14 +140,6 @@ const FEEDBACK_VERSION_NUEVA: OvFeedback = {
   recargar: true,
 };
 
-function renderEstadoBadge(estado: string) {
-  return (
-    <PolariaTableBadge variant={variantEstadoOrdenVenta(estado)}>
-      {formatEstadoOrdenVenta(estado)}
-    </PolariaTableBadge>
-  );
-}
-
 export function OperadorOrdenesVentaPageContent({
   codigoCuenta: codigoCuentaProp,
   mode = "manage",
@@ -169,6 +153,12 @@ export function OperadorOrdenesVentaPageContent({
   ); // null = Todos
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const editLock = useOvEditLockSession({
+    codigoCuenta,
+    isCreateOpen,
+    editingId,
+    inspect,
+  });
   const [createDraftId, setCreateDraftId] = useState<string | null>(null);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [cypherId, setCypherId] = useState<string | null>(null);
@@ -405,7 +395,16 @@ export function OperadorOrdenesVentaPageContent({
   }, []);
 
   const fechaFiltroDia = useOvFechaFiltroStore((s) => s.dia);
-  const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
+  const rowsBase = useMemo(() => data?.rows ?? [], [data?.rows]);
+  const presenceById = useOvEditPresencePoll({
+    codigoCuenta,
+    ids: rowsBase.map((row) => row.idOrdenVenta),
+    enabled: Boolean(codigoCuenta) && !inspect,
+  });
+  const rows = useMemo(
+    () => mergeOvEditPresence(rowsBase, presenceById),
+    [rowsBase, presenceById],
+  );
   const rowsDelDia = useMemo(() => {
     if (!fechaFiltroDia) return rows;
     return rows.filter((row) =>
@@ -981,147 +980,18 @@ export function OperadorOrdenesVentaPageContent({
     }
   }, []);
 
+  const viewerId = useAuthStore((s) => s.session?.idUsuario) ?? null;
   const columns = useMemo(
-    () => [
-      {
-        id: "venta",
-        header: "OV",
-        headerClassName: ordenVentaTableColumnClass("venta", "header"),
-        cellClassName: ordenVentaTableColumnClass("venta"),
-        cell: (row: OrdenVentaOperadorRow) => (
-          <span className="inline-flex items-center gap-2">
-            <OvAlertaDot
-              alertaStatus={row.alertaStatus}
-              minutosEnEstado={row.minutosEnEstado}
-              slaMinutos={row.slaMinutos}
-              alertaMinutos={row.alertaMinutos}
-            />
-            <PolariaTableCode>{row.venta}</PolariaTableCode>
-            {row.potencialDuplicado ? (
-              <span
-                className="shrink-0 rounded-md border border-polaria-warning-border bg-polaria-warning-bg px-1.5 py-0.5 polaria-text-caption font-semibold text-polaria-warning"
-                title={
-                  row.potencialDuplicadoDe && row.potencialDuplicadoDe.length > 0
-                    ? `Posible duplicado de ${row.potencialDuplicadoDe.join(", ")}`
-                    : "Posible OV duplicada (Mateo aún aprende)"
-                }
-              >
-                Dup?
-              </span>
-            ) : null}
-          </span>
-        ),
-      },
-      {
-        id: "occ",
-        header: "Orden de compra",
-        headerClassName: ordenVentaTableColumnClass("occ", "header"),
-        cellClassName: ordenVentaTableColumnClass("occ"),
-        cell: (row: OrdenVentaOperadorRow) => {
-          const title =
-            row.occTodas.length > 0 ? row.occTodas.join(", ") : row.occ;
-          const tieneMas = row.occTodas.length > 1;
-          return (
-            <span
-              className="inline-flex max-w-[10rem] items-center gap-1"
-              title={title}
-            >
-              <span className="min-w-0 truncate">{row.occ}</span>
-              {tieneMas ? (
-                <span
-                  className="shrink-0 font-medium text-polaria-teal"
-                  aria-label={`${row.occTodas.length - 1} OCC más`}
-                >
-                  +
-                </span>
-              ) : null}
-            </span>
-          );
-        },
-      },
-      {
-        id: "comprador",
-        header: "Cliente",
-        headerClassName: ordenVentaTableColumnClass("comprador", "header"),
-        cellClassName: ordenVentaTableColumnClass("comprador"),
-        cell: (row: OrdenVentaOperadorRow) => renderClienteListadoCell(row),
-      },
-      {
-        id: "estado",
-        header: "Estado",
-        headerClassName: ordenVentaTableColumnClass("estado", "header"),
-        cellClassName: ordenVentaTableColumnClass("estado"),
-        cell: (row: OrdenVentaOperadorRow) => renderEstadoBadge(row.estado),
-      },
-      {
-        id: "fecha",
-        header: "Fecha de entrega",
-        headerClassName: ordenVentaTableColumnClass("fecha", "header"),
-        cellClassName: ordenVentaTableColumnClass("fecha"),
-        cell: (row: OrdenVentaOperadorRow) => textoFechaEntregaListado(row),
-      },
-      {
-        id: "ot",
-        header: "Tareas",
-        headerClassName: ordenVentaTableColumnClass("ot", "header"),
-        cellClassName: ordenVentaTableColumnClass("ot"),
-        cell: (row: OrdenVentaOperadorRow) => String(row.ordenesTrabajo),
-      },
-      ...(inspect
-        ? []
-        : [
-            {
-              id: "acciones",
-              header: "Acciones",
-              headerClassName: ordenVentaTableColumnClass("acciones", "header"),
-              cellClassName: ordenVentaTableColumnClass("acciones"),
-              cell: (row: OrdenVentaOperadorRow) => {
-                const open = cypherId === row.idOrdenVenta;
-                return (
-                  <span
-                    className="inline-flex items-center gap-1.5"
-                    onClick={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => event.stopPropagation()}
-                  >
-                    <BotonDetalleOrden
-                      abierto={open}
-                      venta={row.venta}
-                      onAlternar={() => {
-                        if (row.estado === "cancelada") {
-                          // REQ-255: Cypher solo lectura; abrir detalle, no edición.
-                          setDetalleId(row.idOrdenVenta);
-                          setCypherId((prev) =>
-                            prev === row.idOrdenVenta
-                              ? null
-                              : row.idOrdenVenta,
-                          );
-                          return;
-                        }
-                        setCypherId((prev) =>
-                          prev === row.idOrdenVenta ? null : row.idOrdenVenta,
-                        );
-                      }}
-                    />
-                    {idsCorreoNoEnviado.has(row.idOrdenVenta) ? (
-                      <span
-                        title="Esta orden no se imprimió"
-                        aria-label={`La orden ${row.venta} no se imprimió`}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-polaria-danger bg-transparent text-polaria-danger"
-                      >
-                        <Printer
-                          className="h-4 w-4"
-                          strokeWidth={2.25}
-                          aria-hidden
-                        />
-                      </span>
-                    ) : null}
-                  </span>
-                );
-              },
-            },
-          ]),
-    ],
-    [idsCorreoNoEnviado, inspect, cypherId],
+    () =>
+      buildOperadorOrdenesVentaColumns({
+        inspect,
+        cypherId,
+        idsCorreoNoEnviado,
+        viewerId,
+        setDetalleId,
+        setCypherId,
+      }),
+    [idsCorreoNoEnviado, inspect, cypherId, viewerId],
   );
 
   const companionWithCypher = Boolean(
@@ -1135,6 +1005,10 @@ export function OperadorOrdenesVentaPageContent({
   const cerrarFormulario = (volverAlDetalle: boolean) => {
     const closingId = resolveCreateCypherTarget(editingId, createDraftId);
     const editedId = editingId;
+    // REQ-180: liberar soft-lock ya (no esperar stale) y refrescar badge del listado.
+    void editLock.releaseCurrent(editedId).finally(() => {
+      void reload();
+    });
     formularioDelCypherRef.current = false;
     setIsCreateOpen(false);
     setEditingId(null);
@@ -1142,6 +1016,7 @@ export function OperadorOrdenesVentaPageContent({
     setReagruparAlAbrirId(null);
     setCompanionOtPicker(null);
     setCompanionIdComprador(null);
+    editLock.resetLockUi();
     if (shouldClearCypherOnCreateClose({ cypherId, closingId })) {
       setCypherId(null);
     }
@@ -1185,6 +1060,7 @@ export function OperadorOrdenesVentaPageContent({
                 label: "Nueva venta",
                 onClick: () => {
                   if (!codigoCuenta) return;
+                  editLock.resetLockUi();
                   setEditingId(null);
                   setCreateDraftId(null);
                   setIsCreateOpen(true);
@@ -1198,14 +1074,16 @@ export function OperadorOrdenesVentaPageContent({
             setDetalleId(row.idOrdenVenta);
             return;
           }
-          // OV por_confirmar: formulario + Cypher juntos.
+          // OV por_confirmar: formulario + Cypher juntos (REQ-180: soft-lock).
           if (!inspect && row.estado === "por_confirmar") {
             const id = row.idOrdenVenta;
-            setDetalleId(null);
-            setEditingId(id);
-            setCreateDraftId(null);
-            setIsCreateOpen(true);
-            setCypherId(id);
+            void editLock.prepareOpenEdit(id).then(() => {
+              setDetalleId(null);
+              setEditingId(id);
+              setCreateDraftId(null);
+              setIsCreateOpen(true);
+              setCypherId(id);
+            });
             return;
           }
           setCypherId(null);
@@ -1276,10 +1154,12 @@ export function OperadorOrdenesVentaPageContent({
               ?.estado,
           })
             ? () => {
-                formularioDelCypherRef.current = true;
-                setEditingId(cypherId);
-                setIsCreateOpen(true);
-                setReagruparAlAbrirId(cypherId);
+                void editLock.prepareOpenEdit(cypherId).then((apertura) => {
+                  formularioDelCypherRef.current = true;
+                  setEditingId(cypherId);
+                  setIsCreateOpen(true);
+                  if (!apertura.soloLectura) setReagruparAlAbrirId(cypherId);
+                });
               }
             : undefined
         }
@@ -1300,10 +1180,12 @@ export function OperadorOrdenesVentaPageContent({
           if (!cypherId) return;
           const target = rows.find((r) => r.idOrdenVenta === cypherId);
           if (!target || target.estado === "cancelada") return;
-          formularioDelCypherRef.current = true;
-          setDetalleId(null);
-          setEditingId(cypherId);
-          setIsCreateOpen(true);
+          void editLock.prepareOpenEdit(cypherId).then(() => {
+            formularioDelCypherRef.current = true;
+            setDetalleId(null);
+            setEditingId(cypherId);
+            setIsCreateOpen(true);
+          });
         }}
         onPrint={() => {
           const target = cypherId
@@ -1364,6 +1246,7 @@ export function OperadorOrdenesVentaPageContent({
                   if (editingId === borradaId) {
                     setEditingId(null);
                     setIsCreateOpen(false);
+                    editLock.resetLockUi();
                   }
                   if (detalleId === borradaId) {
                     setDetalleId(null);
@@ -1408,10 +1291,14 @@ export function OperadorOrdenesVentaPageContent({
         onCompanionOtPickerChange={setCompanionOtPicker}
         onCompanionIdCompradorChange={setCompanionIdComprador}
         abrirReagruparAlCargar={Boolean(
-          editingId && reagruparAlAbrirId === editingId,
+          editingId &&
+            reagruparAlAbrirId === editingId &&
+            !editLock.soloLectura,
         )}
         onReagruparAlCargarAtendido={limpiarReagruparAlAbrir}
         operadorRowsForDuplicado={rows}
+        soloLectura={editLock.soloLectura}
+        editLockHolderNombre={editLock.holderNombre}
         onClose={() => cerrarFormulario(true)}
         onCreated={() => {
           void reload();

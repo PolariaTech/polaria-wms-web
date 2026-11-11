@@ -8,6 +8,7 @@ import { normalizeEstadoOrdenVenta } from "../constants/sales-status";
 import { buildNotasLineasText } from "../../ordenes/utils/pedido/build-orden-venta-captura-observaciones";
 import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/origen/materialize-ov-desde-origen";
 import { parseOrigenCorreoJson } from "../../ordenes/utils/origen/origen-correo-ordenes-trabajo";
+import { leerCabeceraUsuarioSello } from "../../ordenes/utils/pedido/sellar-edicion-usuario-origen";
 import type { ProductoVentaOption } from "../types/sales.types";
 
 /** Una reserva sin líneas más vieja que esto se considera caída y se puede retomar. */
@@ -150,12 +151,14 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
 
   const headerLineasCount = lineasExistentes.length;
   const needsLines = headerLineasCount === 0;
+  const sinSello = !leerCabeceraUsuarioSello(origen);
   const needsHeader =
     !header.id_comprador?.trim() ||
-    !header.orden_compra_hotel?.trim() ||
-    !header.centro_consumo?.trim() ||
-    !header.contacto_entrega?.trim() ||
-    !header.fecha_entrega?.trim();
+    (sinSello &&
+      (!header.orden_compra_hotel?.trim() ||
+        !header.centro_consumo?.trim() ||
+        !header.contacto_entrega?.trim() ||
+        !header.fecha_entrega?.trim()));
 
   if (!needsLines && !needsHeader) {
     return { materializado: false, lineas: headerLineasCount };
@@ -177,16 +180,16 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
   if (!header.id_comprador?.trim() && plan.idComprador) {
     patch.id_comprador = plan.idComprador;
   }
-  if (!header.orden_compra_hotel?.trim() && plan.ordenCompraHotel) {
+  if (sinSello && !header.orden_compra_hotel?.trim() && plan.ordenCompraHotel) {
     patch.orden_compra_hotel = plan.ordenCompraHotel;
   }
-  if (!header.centro_consumo?.trim() && plan.centroConsumo) {
+  if (sinSello && !header.centro_consumo?.trim() && plan.centroConsumo) {
     patch.centro_consumo = plan.centroConsumo;
   }
-  if (!header.contacto_entrega?.trim() && plan.contactoEntrega) {
+  if (sinSello && !header.contacto_entrega?.trim() && plan.contactoEntrega) {
     patch.contacto_entrega = plan.contactoEntrega;
   }
-  if (!header.fecha_entrega?.trim() && plan.fechaEntrega) {
+  if (sinSello && !header.fecha_entrega?.trim() && plan.fechaEntrega) {
     patch.fecha_entrega = plan.fechaEntrega;
   }
   const correoFromOrigen =
@@ -199,7 +202,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
           : "",
       )
       .find(Boolean) || "";
-  if (!header.correo_contacto?.trim() && correoFromOrigen) {
+  if (sinSello && !header.correo_contacto?.trim() && correoFromOrigen) {
     patch.correo_contacto = correoFromOrigen;
   }
 

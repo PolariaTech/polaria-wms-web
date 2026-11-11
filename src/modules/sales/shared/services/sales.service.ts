@@ -54,6 +54,7 @@ import {
   isOrigenOnlyFirstDraft,
 } from "./create-orden-venta-origen-only-draft";
 import { materializeOrdenVentaDesdeOrigenSiVacia } from "./materializar-lineas-desde-origen";
+import { camposInicialesFilaOperador } from "./campos-iniciales-fila-operador";
 import { ordenVentaCaptureFields } from "./orden-venta-capture-fields";
 import { mapDenominacionDetalleFields as mapDenominacion } from "./map-denominacion-detalle";
 export { fetchUltimaDireccionEntregaPorComprador } from "./sales-ultima-direccion-entrega";
@@ -62,7 +63,7 @@ export { fetchUltimaDireccionEntregaPorComprador } from "./sales-ultima-direccio
 const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
 
 const ORDEN_VENTA_COLUMNS =
-  "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at,estado_desde";
+  "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at,estado_desde,edit_locked_by,edit_locked_at,edit_locked_nombre";
 
 /** Listado operador: OCC, origen_correo y fecha de entrega para el filtro del topbar. */
 const ORDEN_VENTA_OPERADOR_LIST_COLUMNS =
@@ -705,8 +706,7 @@ function mapOrdenVentaOperadorRow(
     minutosEnEstado: sla.minutosEnEstado,
     slaMinutos: slaConfig.slaMinutos,
     alertaMinutos: slaConfig.alertaMinutos,
-    potencialDuplicado: false,
-    potencialDuplicadoDe: [],
+    ...camposInicialesFilaOperador(row),
   };
 }
 
