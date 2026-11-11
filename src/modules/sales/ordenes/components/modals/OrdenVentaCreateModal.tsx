@@ -75,6 +75,8 @@ export function OrdenVentaCreateModal({
   const [centroConsumo, setCentroConsumo] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [direccion, setDireccion] = useState("");
+  const [entregaLat, setEntregaLat] = useState<number | null>(null);
+  const [entregaLng, setEntregaLng] = useState<number | null>(null);
   const [anden, setAnden] = useState("");
   const [contacto, setContacto] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -238,6 +240,7 @@ export function OrdenVentaCreateModal({
     fechaEntrega, setFechaEntrega, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta,
     prioridad, setPrioridad, moneda, setMoneda, ordenCompraHotel, setOrdenCompraHotel,
     centroConsumo, setCentroConsumo, observaciones, setObservaciones, direccion, setDireccion,
+    entregaLat, setEntregaLat, entregaLng, setEntregaLng,
     anden, setAnden, contacto, setContacto, telefono, setTelefono, correo, setCorreo,
     denominacionComercial, setDenominacionComercial,
     turno, setTurno, horaSalida, setHoraSalida, chofer, setChofer, unidad, setUnidad,

@@ -40,6 +40,8 @@ function envio(partial: Record<string, unknown> = {}) {
     centroConsumo: "",
     vendedorNombre: "Ana",
     direccion: "",
+    entregaLat: null,
+    entregaLng: null,
     anden: "",
     contacto: "",
     telefono: "",

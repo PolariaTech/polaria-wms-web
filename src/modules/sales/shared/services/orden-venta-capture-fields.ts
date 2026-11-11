@@ -43,6 +43,14 @@ export function ordenVentaCaptureFields(
     moneda: input.moneda?.trim() || null,
     bodega_destino_label: input.bodegaDestinoLabel?.trim() || null,
     direccion_entrega: input.direccionEntrega?.trim() || null,
+    entrega_lat:
+      typeof input.entregaLat === "number" && Number.isFinite(input.entregaLat)
+        ? input.entregaLat
+        : null,
+    entrega_lng:
+      typeof input.entregaLng === "number" && Number.isFinite(input.entregaLng)
+        ? input.entregaLng
+        : null,
     anden: input.anden?.trim() || null,
     contacto_entrega: input.contacto?.trim() || null,
     telefono_contacto: sanitizeTelefonoContacto(input.telefono) || null,

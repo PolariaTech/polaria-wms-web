@@ -50,6 +50,8 @@ function detalleVacio(partial: Record<string, unknown> = {}) {
     notas_almacen: "",
     observaciones: "",
     direccion_entrega: "Muelle 2",
+    entrega_lat: 20.63,
+    entrega_lng: -87.07,
     anden: "",
     contacto_entrega: "",
     telefono_contacto: "",
@@ -92,6 +94,10 @@ function setters() {
     setCentroConsumo: vi.fn(),
     setObservaciones: vi.fn(),
     setDireccion: vi.fn(),
+    setEntregaLat: vi.fn(),
+    setEntregaLng: vi.fn(),
+    entregaLat: null,
+    entregaLng: null,
     setAnden: vi.fn(),
     setContacto: vi.fn(),
     setTelefono: vi.fn(),
@@ -190,6 +196,8 @@ describe("aplicarDetalleCargado", () => {
     expect(acciones.setIdComprador).toHaveBeenCalledWith("c1");
     expect(acciones.setCompradorLabel).toHaveBeenCalledWith("Hotel Norte");
     expect(acciones.setDireccion).toHaveBeenCalledWith("Muelle 2");
+    expect(acciones.setEntregaLat).toHaveBeenCalledWith(20.63);
+    expect(acciones.setEntregaLng).toHaveBeenCalledWith(-87.07);
     expect(acciones.setOrdenCompraHotel).toHaveBeenCalledWith("OC-1");
     expect(acciones.setIdBodegaDestino).toHaveBeenLastCalledWith("bd2");
     expect(acciones.setStartMode).not.toHaveBeenCalled();

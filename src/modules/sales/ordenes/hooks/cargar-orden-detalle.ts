@@ -33,7 +33,7 @@ import { aplicarDetalleExternoPorConfirmar, aplicarDetalleSinMateo, cargarFichaY
 import { notasCanonConSelloUsuario } from "./aplicar-cabecera-con-sello-usuario";
 
 export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
-  const { productoRows, compradorRows, internas, externas, idBodegaDefault, detalle, codigoCuenta, editingId, codigoVenta, handleSelectComprador, selectedCompradorIdRef, skipOtSeedFromOrigenRef, setProductosBase, setCompradores, setBodegasDestino, setIdBodegaDestino, setEditingEstado, setFechaCreacion, setOrdenCargadaId, setEditingCodigo, setIdComprador, setCompradorLabel, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setObservaciones, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setOrigenAdjuntos, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setCompradorNombreIa, setCompradorSugerencias, setLineas, setStartMode, setFormOtPage, setStep, setMissingFields, setDiscrepancias, setAutoFields, setWarnFields, setFichaComprador, setExigeOc, setPrecioOverrideByProducto, setEquivalenciaByProducto } = entrada;
+  const { productoRows, compradorRows, internas, externas, idBodegaDefault, detalle, codigoCuenta, editingId, codigoVenta, handleSelectComprador, selectedCompradorIdRef, skipOtSeedFromOrigenRef, setProductosBase, setCompradores, setBodegasDestino, setIdBodegaDestino, setEditingEstado, setFechaCreacion, setOrdenCargadaId, setEditingCodigo, setIdComprador, setCompradorLabel, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setObservaciones, setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setOrigenAdjuntos, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setCompradorNombreIa, setCompradorSugerencias, setLineas, setStartMode, setFormOtPage, setStep, setMissingFields, setDiscrepancias, setAutoFields, setWarnFields, setFichaComprador, setExigeOc, setPrecioOverrideByProducto, setEquivalenciaByProducto } = entrada;
         setProductosBase(productoRows);
         setCompradores(compradorRows);
         const incluirTipo = internas.length > 0 && externas.length > 0;
@@ -119,6 +119,18 @@ export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
         setDireccion(
           selloEarly?.direccionEntrega ??
             (detalle.direccion_entrega?.trim() || ""),
+        );
+        setEntregaLat(
+          typeof detalle.entrega_lat === "number" &&
+            Number.isFinite(detalle.entrega_lat)
+            ? detalle.entrega_lat
+            : null,
+        );
+        setEntregaLng(
+          typeof detalle.entrega_lng === "number" &&
+            Number.isFinite(detalle.entrega_lng)
+            ? detalle.entrega_lng
+            : null,
         );
         setAnden(detalle.anden?.trim() || "");
         setContacto(

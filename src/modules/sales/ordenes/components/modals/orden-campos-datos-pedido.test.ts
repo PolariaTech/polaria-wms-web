@@ -30,7 +30,9 @@ describe("orden logística OV (REQ-278)", () => {
     );
     expect(ORDEN_TRAS_NOTAS_GENERALES_DETALLE).toEqual([
       "Fecha de entrega",
-      "Ventana de entrega",
+      "Día de la semana",
+      "Hora desde",
+      "Hora hasta",
     ]);
   });
 });

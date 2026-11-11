@@ -32,6 +32,8 @@ export function armarPayloadEnvioConSelloUsuario(params: {
   vendedorNombre: string;
   bodegaDestinoLabel: string;
   direccion: string;
+  entregaLat?: number | null;
+  entregaLng?: number | null;
   anden: string;
   contacto: string;
   telefono: string;
@@ -69,6 +71,8 @@ export function armarPayloadEnvioConSelloUsuario(params: {
     vendedor: params.vendedorNombre,
     bodegaDestinoLabel: params.bodegaDestinoLabel,
     direccion: params.direccion,
+    entregaLat: params.entregaLat,
+    entregaLng: params.entregaLng,
     anden: params.anden,
     contacto: params.contacto,
     telefono: params.telefono,

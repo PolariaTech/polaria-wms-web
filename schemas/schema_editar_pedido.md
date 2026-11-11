@@ -5,7 +5,7 @@
 | Formulario | Editar pedido |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/día/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Día de la semana (REQ-257); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); Notas generales del pedido (layout + sanitize REQ-286/277); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287) |
+| Campos nuevos o modificados | Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/día/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Día de la semana (REQ-257); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287) |
 | ¿Vive en un modal? | Sí |
 | ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | Sí |
 | Responsable (Desarrollador) | Desarrollador frontend |
@@ -25,6 +25,8 @@
 | Hora hasta | Texto (hora) | No | — | — | No | — | REQ-278: etiqueta «Hora hasta» (antes ventana hasta) | Sin mensaje de bloqueo al confirmar. | Front |
 | Precio unitario (línea) | Número | No | ≥ 0; vacío se trata como 0 | — | No | — | REQ-235: al confirmar y en avance, precio vacío o 0 se persiste como 0; no bloquea confirmación | Sin mensaje de bloqueo por precio vacío/0 al confirmar. | Front / Back |
 | Dirección de entrega | Texto | No | — | Última OV confirmada del comprador, o dirección de ficha | No | Razón social (comprador) | Al elegir razón social se prellena; si el usuario ya escribió y onlyEmpty, no se pisa | Sin mensaje de bloqueo al confirmar: vacío se guarda; puede marcarse en missingFields si el origen no la trajo. | Front |
+| Latitud de entrega (`entrega_lat`) | Número | No | Finito | null | No | Dirección de entrega / mapa | REQ-251: pin opcional vía mapa (Leaflet + Nominatim); no bloquea confirmar; se guarda con la OV | Sin mensaje de bloqueo: vacío/null se guarda. | Front / BD |
+| Longitud de entrega (`entrega_lng`) | Número | No | Finito | null | No | Dirección de entrega / mapa | REQ-251: pin opcional vía mapa (Leaflet + Nominatim); no bloquea confirmar; se guarda con la OV | Sin mensaje de bloqueo: vacío/null se guarda. | Front / BD |
 | Notas generales del pedido | Texto | No | — | — | No | — | REQ-286/277: no inventar Entrega/Destino ni duplicar campos parametrizados | Sin mensaje de error: vacío se guarda. | Front |
 | Aviso total solicitud vs OV | Número (solo lectura / banner) | No | > 0 para mostrar | Extracción IA o resolve-occ de adjuntos PDF/EML | No | Líneas del pedido | REQ-279: si `totalSolicitudDetectado` > 0 y difiere del total OV, muestra aviso; no bloquea confirmar | Sin mensaje de bloqueo: es informativo. | Front |
 | Bloqueo de edición (soft-lock) | Estado (usuario, última actividad, nombre) | No | Caduca a los 90 s sin latido; el latido se refresca cada 30 s | Sin bloqueo | No | Usuario que abre el pedido | REQ-180: si otro usuario tiene un bloqueo vigente (no caducado), el formulario se abre en solo lectura; si el bloqueo es propio o está caducado, se abre en edición y el usuario toma el bloqueo; al cerrar se libera | Descripción del modal: «<Nombre> está editando este pedido · solo lectura». Botón de guardar deshabilitado con el texto «Solo lectura: otro usuario está editando». | Front / BD |
@@ -46,7 +48,8 @@
 | Contacto del cliente | En Entrega, después de Hora hasta y antes de teléfono (REQ-278) | No | — |
 | Teléfono del contacto | En Entrega, después de contacto (REQ-278) | No | — |
 | Correo del contacto | En Entrega, después de teléfono y antes de dirección (REQ-278) | No | — |
-| Dirección de entrega | En Entrega, a ancho completo, después de correo y antes de notas (REQ-278) | No | — |
+| Dirección de entrega | En Entrega, a ancho completo, después de correo y antes de notas (REQ-278); icono mapa abre modal de pin (REQ-251) | No | — |
+| Latitud / longitud de entrega | No son campos de texto: se setean desde el modal de mapa (REQ-251) | No | — |
 | Notas generales del pedido | Último campo del bloque Entrega (REQ-278; deja de ir arriba) | No | — |
 | Prioridad | Oculta en UI (REQ-278); valor por defecto «Normal» se mantiene en estado | Sí (no visible) | — |
 | Aviso total solicitud vs OV | Banner encima del formulario cuando aplica (REQ-279) | Sí (solo lectura) | — |
@@ -67,6 +70,8 @@
 | Hora hasta | Sí | Extracción IA / Información de BD | Sí |
 | Precio unitario (línea) | Sí | Extracción IA / Información de BD | Sí |
 | Dirección de entrega | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
+| Latitud de entrega | Sí | Información de BD (`entrega_lat`) o geocodificación del mapa (REQ-251) | Sí (vía mapa) |
+| Longitud de entrega | Sí | Información de BD (`entrega_lng`) o geocodificación del mapa (REQ-251) | Sí (vía mapa) |
 | Notas generales del pedido | Sí | Extracción IA / Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
 | Aviso total solicitud vs OV | Sí | Extracción IA / adjuntos vía resolve-occ (Front) | No |
 | Contacto del cliente | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |

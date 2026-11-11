@@ -10,13 +10,33 @@ export const ORDEN_TRAS_NOTAS_GENERALES = [
   "Hora hasta",
 ] as const;
 
-/** En detalle la ventana sigue siendo un solo MetaField. */
+/**
+ * REQ-305: en visualización, misma programación que edición (ya no un solo
+ * «Ventana de entrega»).
+ */
 export const ORDEN_TRAS_NOTAS_GENERALES_DETALLE = [
   "Fecha de entrega",
-  "Ventana de entrega",
+  "Día de la semana",
+  "Hora desde",
+  "Hora hasta",
 ] as const;
 
-/** Cabecera del bloque Entrega (formulario edición). */
+/** Labels de Datos del pedido en visualización (moneda arriba; sin prioridad). */
+export const LABELS_DATOS_PEDIDO_DETALLE = [
+  "Cliente",
+  "Código de cliente",
+  "Denominación comercial",
+  "RFC",
+  "Orden de compra del cliente",
+  "Folio de factura",
+  "Centro de consumo",
+  "Moneda",
+  "Referencia de pedido",
+  "Fecha de creación",
+  "Estado",
+] as const;
+
+/** Cabecera del bloque Entrega (edición y visualización, REQ-278/305). */
 export const ORDEN_BLOQUE_ENTREGA_DETALLE = [
   "Fecha de entrega",
   "Día de la semana",
@@ -28,6 +48,20 @@ export const ORDEN_BLOQUE_ENTREGA_DETALLE = [
   "Dirección de entrega",
   "Notas generales",
 ] as const;
+
+/** Parte «06:00 – 09:00» / «06:00-09:00» en hora desde/hasta para el detalle. */
+export function partirVentanaEntrega(ventana: string): {
+  desde: string;
+  hasta: string;
+} {
+  const trimmed = ventana.trim();
+  if (!trimmed) return { desde: "", hasta: "" };
+  const partes = trimmed.split(/\s*[–—-]\s*/).map((parte) => parte.trim());
+  if (partes.length >= 2 && partes[0] && partes[1]) {
+    return { desde: partes[0], hasta: partes.slice(1).join(" - ") };
+  }
+  return { desde: trimmed, hasta: "" };
+}
 
 export function ordenTrasNotasEsCorrecto(
   labelsTrasNotas: readonly string[],
