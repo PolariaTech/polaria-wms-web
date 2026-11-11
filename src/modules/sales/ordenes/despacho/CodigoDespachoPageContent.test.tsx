@@ -58,7 +58,8 @@ describe("CodigoDespachoPageContent (REQ-306)", () => {
 
     expect(screen.getByRole("heading", { name: "Código de despacho" })).toBeInTheDocument();
     const vista = await screen.findByTitle(VISTA);
-    expect(vista).toHaveAttribute("src", "data:application/pdf;base64,AA==");
+    // «page-fit»: el visor abre con la hoja carta completa a lo alto, sin zoom ni desplazamiento.
+    expect(vista).toHaveAttribute("src", "data:application/pdf;base64,AA==#zoom=page-fit");
     expect(screen.queryByText(/Se imprimirá en/)).not.toBeInTheDocument();
     expect(estado.preparar).toHaveBeenCalledWith("1YW43");
     expect(estado.imprimir).not.toHaveBeenCalled();
