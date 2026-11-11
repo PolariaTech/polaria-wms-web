@@ -1,7 +1,7 @@
 import { formatIsoToDdMmYyyy } from "@/lib/utils/fecha-dd-mm-yyyy";
 import { buildOrdenTareaAlmacenLandscapePdfBlob } from "../print/download-orden-tarea-almacen-pdf";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
-import type { ResumenOvBatch } from "./batch-seleccion";
+import { diaEntregaDeOv, type ResumenOvBatch } from "./batch-seleccion";
 import { armarPaqueteConOc, dependenciasReales } from "./armar-paquete-con-oc";
 import { horaEnCuenta, hoyEnCuenta, nombreArchivoBatch, type PreviaBatch } from "./utilidades-batch";
 
@@ -15,6 +15,13 @@ export interface EntradaPreviaDetallada {
   /** `origen_archivos` de cada OV (`idOrdenVenta`); solo hace falta con OC. */
   origenPorOv: ReadonlyMap<string, string | null | undefined>;
   alProgreso: (texto: string) => void;
+}
+
+/** «Impresión detallada · entrega 06/11/2026» si todas las OV salen el mismo día; si no, solo «Impresión detallada». */
+function subtituloDetallada(resumen: readonly ResumenOvBatch[]): string {
+  const dias = new Set(resumen.map(({ row }) => diaEntregaDeOv(row)));
+  const [dia] = [...dias];
+  return dias.size === 1 && dia ? `Impresión detallada · entrega ${formatIsoToDdMmYyyy(dia)}` : "Impresión detallada";
 }
 
 /**
@@ -33,7 +40,7 @@ export async function armarPreviaDetallada(entrada: EntradaPreviaDetallada): Pro
 
   const generado = `Generado ${formatIsoToDdMmYyyy(hoyEnCuenta(zonaHoraria))} ${horaEnCuenta(zonaHoraria)}`;
   const { partes, resumenPdf } = await armarPaqueteConOc(
-    { hojas, resumen, origenPorOv, subtitulo: "Impresión detallada", generado, alProgreso },
+    { hojas, resumen, origenPorOv, subtitulo: subtituloDetallada(resumen), generado, alProgreso },
     dependenciasReales(async (todas) => {
       const { blob } = await buildOrdenTareaAlmacenLandscapePdfBlob(todas, { codigoCuenta });
       return new Uint8Array(await blob.arrayBuffer());

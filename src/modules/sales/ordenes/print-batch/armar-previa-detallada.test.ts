@@ -15,7 +15,7 @@ vi.mock("./armar-paquete-con-oc", () => ({
 import { armarPreviaDetallada } from "./armar-previa-detallada";
 
 const HOJAS = [{ idOrdenVenta: "a" } as OrdenTareaAlmacenPrintData];
-const RESUMEN = [{ row: { idOrdenVenta: "a", venta: "OV-a" } as OrdenVentaOperadorRow, ots: [1] }];
+const RESUMEN = [{ row: { idOrdenVenta: "a", venta: "OV-a", fechaEntrega: "2026-11-06" } as OrdenVentaOperadorRow, ots: [1] }];
 
 function entrada(extra: { conOc: boolean }) {
   return {
@@ -62,7 +62,7 @@ describe("armarPreviaDetallada", () => {
     expect(previa.partes).toHaveLength(2);
     expect(previa.resumenPdf).toBe(resumenPdf);
     expect(armarConOc).toHaveBeenCalledWith(
-      expect.objectContaining({ hojas: HOJAS, subtitulo: "Impresión detallada", generado: expect.stringMatching(/^Generado /) }),
+      expect.objectContaining({ hojas: HOJAS, subtitulo: "Impresión detallada · entrega 06/11/2026", generado: expect.stringMatching(/^Generado /) }),
       { marca: "dependencias" },
     );
   });

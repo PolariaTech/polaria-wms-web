@@ -58,21 +58,26 @@ const COL_OV: Columna = { clave: "Orden de venta", ancho: 22, alinea: "left" };
 const COL_CLIENTE: Columna = { clave: "Cliente", ancho: 76, alinea: "left" };
 const COL_ENTREGA: Columna = { clave: "Entrega", ancho: 16, alinea: "center" };
 const COL_OT: Columna = { clave: "OT", ancho: 12, alinea: "center" };
-const COL_ORDEN_CLIENTE: Columna = { clave: "Orden de compra", ancho: 26, alinea: "center" };
+const COL_ORDEN_CLIENTE: Columna = { clave: "Orden de compra", ancho: 40, alinea: "center" };
 const COL_OC: Columna = { clave: "Págs. OC", ancho: 14, alinea: "center" };
 const COL_PARTE: Columna = { clave: "Parte", ancho: 12, alinea: "center" };
 const COL_DESDE: Columna = { clave: "Desde la hoja", ancho: 24, alinea: "center" };
 
-/** Las columnas «Págs. OC» y «Parte» solo aparecen si hacen falta; el ancho sale del cliente, que es el que más sobra. */
-function columnasDe(conOc: boolean, conParte: boolean): Columna[] {
+/**
+ * Las columnas «Págs. OC», «Parte» y «Entrega» solo aparecen si hacen falta; el ancho sale del cliente,
+ * que es el que más sobra. Sin «Entrega» (todas las OV salen el mismo día, que ya dice el subtítulo) el
+ * espacio libre pasa a la orden de compra, para que su número salga completo.
+ */
+function columnasDe(conOc: boolean, conParte: boolean, conEntrega: boolean): Columna[] {
   const extra = (conOc ? COL_OC.ancho : 0) + (conParte ? COL_PARTE.ancho : 0);
+  const ordenCliente = conEntrega ? COL_ORDEN_CLIENTE : { ...COL_ORDEN_CLIENTE, ancho: COL_ORDEN_CLIENTE.ancho + COL_ENTREGA.ancho };
   const columnas = [
     COL_NUMERO,
     COL_OV,
     { ...COL_CLIENTE, ancho: COL_CLIENTE.ancho - extra },
-    COL_ENTREGA,
+    ...(conEntrega ? [COL_ENTREGA] : []),
     COL_OT,
-    COL_ORDEN_CLIENTE,
+    ordenCliente,
     ...(conOc ? [COL_OC] : []),
     ...(conParte ? [COL_PARTE] : []),
     COL_DESDE,
@@ -164,7 +169,9 @@ function dibujarPagina(
 
   const conOc = resumen.filas.some((fila) => (fila.oc ?? 0) > 0);
   const conParte = resumen.filas.some((fila) => (fila.parte ?? 1) > 1);
-  const columnas = columnasDe(conOc, conParte);
+  // Con todas las OV del mismo día la fecha ya está en el subtítulo: la columna sobra.
+  const conEntrega = new Set(resumen.filas.map((fila) => fila.entrega)).size > 1;
+  const columnas = columnasDe(conOc, conParte, conEntrega);
   const inicios = hojasIniciales(resumen.filas, paginasResumen);
   const totalOv = resumen.filas.length;
   const totalOt = resumen.filas.reduce((suma, fila) => suma + fila.ot, 0);
@@ -215,7 +222,7 @@ function dibujarPagina(
       String(desde + indice + 1),
       fila.venta,
       fila.cliente,
-      fila.entrega,
+      ...(conEntrega ? [fila.entrega] : []),
       String(fila.ot),
       fila.ordenCliente || "—",
       ...(conOc ? [fila.oc ? String(fila.oc) : "—"] : []),

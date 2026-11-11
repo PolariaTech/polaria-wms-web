@@ -64,11 +64,38 @@ describe("columnas del resumen", () => {
     expect(texto).toContain("(OC-7788) Tj");
   });
 
-  it("la fecha de entrega sale como la trae la fila, ya sin año", () => {
+  it("si las OV salen en días distintos, la columna «Entrega» trae la fecha de cada una, ya sin año", () => {
     const pdf = pdfConDosHojas();
-    anadirResumenAlPdf(pdf, resumen([fila(1, { entrega: "03-NOV" })]));
+    anadirResumenAlPdf(pdf, resumen([fila(1, { entrega: "03-NOV" }), fila(2, { entrega: "04-NOV" })]));
 
-    expect(contenido(pdf, 1)).toContain("(03-NOV) Tj");
+    const texto = contenido(pdf, 1);
+    expect(texto).toContain("(Entrega) Tj");
+    expect(texto).toContain("(03-NOV) Tj");
+    expect(texto).toContain("(04-NOV) Tj");
+  });
+
+  it("si todas salen el mismo día quita la columna «Entrega» y deja ese ancho a la orden de compra", () => {
+    const conFecha = pdfConDosHojas();
+    const sinFecha = pdfConDosHojas();
+    const mismoDia = [fila(1, { ordenCliente: "OC-77" }), fila(2, { ordenCliente: "OC-78" })];
+    anadirResumenAlPdf(conFecha, resumen([mismoDia[0]!, { ...mismoDia[1]!, entrega: "06-NOV" }]));
+    anadirResumenAlPdf(sinFecha, resumen(mismoDia));
+
+    expect(contenido(sinFecha, 1)).not.toContain("(Entrega) Tj");
+    expect(contenido(sinFecha, 1)).not.toContain("(05-NOV) Tj");
+    expect(contenido(sinFecha, 1)).toContain("(Orden de compra) Tj");
+    expect(contenido(conFecha, 1)).toContain("(Entrega) Tj");
+  });
+
+  it("sin la columna «Entrega», un número de orden de compra largo sale completo", () => {
+    const largo = "PO-2026-11-0457-AGUACATES-HASS-001";
+    const pdf = pdfConDosHojas();
+    const conEntrega = pdfConDosHojas();
+    anadirResumenAlPdf(pdf, resumen([fila(1, { ordenCliente: largo }), fila(2, { ordenCliente: "OC-1" })]));
+    anadirResumenAlPdf(conEntrega, resumen([fila(1, { ordenCliente: largo }), fila(2, { ordenCliente: "OC-1", entrega: "06-NOV" })]));
+
+    expect(contenido(pdf, 1)).toContain(`(${largo}) Tj`);
+    expect(contenido(conEntrega, 1)).not.toContain(`(${largo}) Tj`);
   });
 });
 
