@@ -13,7 +13,6 @@ import {
   formatCapturaFecha,
   notaCapturaForLinea,
   parseOrdenVentaCapturaObservaciones,
-  stripSurtidoFotoQrFromNotas,
 } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { filterLineasByOrdenTrabajoHija, resolveNumeroOrdenClientePrint } from "../utils/ot/filter-lineas-by-orden-trabajo";
 import {
@@ -21,18 +20,17 @@ import {
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
 } from "../utils/origen/origen-correo-ordenes-trabajo";
-import {
-  extractNotasClaveCorreo,
-  fitNotasGeneralesPdf,
-  looksLikeEmailHeaderJunk,
-  sanitizeNotasGeneralesPedido,
-} from "../utils/origen/texto-origen-pedido";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
 import {
   getCuentaZonaHorariaOption,
   resolveCuentaZonaHorariaId,
 } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 import { diaSemanaEntregaEs } from "../utils/pedido/dia-semana-entrega";
+import {
+  resolveCentroConsumoDesdeDetalle,
+  resolveFechaYDiaEntregaDesdeDetalle,
+  resolveNotasGeneralesDesdeDetalle,
+} from "./resolve-cabecera-print-desde-detalle";
 
 export const PRODUCTOS_POR_HOJA_TAREA = 30; // Informe OT: 20 → 30 líneas por hoja
 
@@ -167,24 +165,6 @@ function paginarHojaPorProductos(
   return pages;
 }
 
-function resolveNotasGenerales(input: {
-  origenTexto: string;
-  notasAlmacen: string;
-}): string {
-  // PDF: lo que el usuario dejó en notas de almacén manda (p. ej. al confirmar).
-  // Solo si está vacío, se usa un resumen del correo de origen.
-  const deUsuario = sanitizeNotasGeneralesPedido(
-    stripSurtidoFotoQrFromNotas(input.notasAlmacen),
-  );
-  if (deUsuario && !looksLikeEmailHeaderJunk(deUsuario)) {
-    return fitNotasGeneralesPdf(deUsuario);
-  }
-  const deCorreo = fitNotasGeneralesPdf(
-    extractNotasClaveCorreo(input.origenTexto),
-  );
-  if (deCorreo && !looksLikeEmailHeaderJunk(deCorreo)) return deCorreo;
-  return "";
-}
 function formatHoraEntrega(input: {
   ventanaDesde?: string | null;
   ventanaHasta?: string | null;
@@ -287,7 +267,12 @@ function buildBaseSheet(input: {
 
   const captura = parseOrdenVentaCapturaObservaciones(detalle.observaciones);
   const direccionCaptura = captura.direccion.trim();
-  const fechaEntregaCaptura = captura.fechaEntrega.trim();
+  const { fechaEntrega, diaEntrega } = resolveFechaYDiaEntregaDesdeDetalle({
+    fechaCaptura: captura.fechaEntrega,
+    fechaEntregaBd: detalle.fecha_entrega,
+    fechaPedido: detalle.fecha_pedido,
+    createdAt: detalle.created_at,
+  });
 
   return {
     idOrdenVenta: detalle.id_orden_venta,
@@ -308,37 +293,15 @@ function buildBaseSheet(input: {
       detalle.comprador_razon_social?.trim() ||
       formatCompradorNombreOrdenVenta(detalle),
     clienteDenominacionComercial: (detalle.denominacion_comercial_override ?? detalle.comprador_denominacion_comercial_override)?.trim() || detalle.comprador_apodo?.trim() || "",
-    centroConsumo:
-      hija?.almacen ||
-      captura.centroConsumo ||
-      detalle.centro_consumo?.trim() ||
-      "",
+    // REQ-281: cabecera del PDF = detalle BD (no Almacen/Fecha de Mateo por OT).
+    centroConsumo: resolveCentroConsumoDesdeDetalle({
+      centroBd: detalle.centro_consumo,
+      centroCaptura: captura.centroConsumo,
+    }),
     numeroOrdenCliente: resolveNumeroOrdenClientePrint({ ordenCompraHotel: detalle.orden_compra_hotel, hijaNumeroPedido: hija?.numeroPedido, capturaOrdenCompra: captura.ordenCompraHotel, tareaTotal }),
     ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
-    fechaEntrega: (() => {
-      const f = hija?.fecha
-        ? formatCapturaFecha(hija.fecha)
-        : fechaEntregaCaptura
-          ? formatCapturaFecha(fechaEntregaCaptura)
-          : formatFechaEntrega(
-              detalle.fecha_entrega ||
-                detalle.fecha_pedido ||
-                detalle.created_at,
-            );
-      return f;
-    })(),
-    diaEntrega: (() => {
-      const f = hija?.fecha
-        ? formatCapturaFecha(hija.fecha)
-        : fechaEntregaCaptura
-          ? formatCapturaFecha(fechaEntregaCaptura)
-          : formatFechaEntrega(
-              detalle.fecha_entrega ||
-                detalle.fecha_pedido ||
-                detalle.created_at,
-            );
-      return diaSemanaEntregaEs(f);
-    })(),
+    fechaEntrega,
+    diaEntrega,
     horaEntrega: formatHoraEntrega({
       ventanaDesde: detalle.ventana_desde,
       ventanaHasta: detalle.ventana_hasta,
@@ -350,11 +313,9 @@ function buildBaseSheet(input: {
       detalle.bodega_destino_nombre?.trim() ||
       detalle.bodega_nombre?.trim() ||
       "",
-    notasGenerales: resolveNotasGenerales({
-      origenTexto:
-        detalle.origen_texto?.trim() || captura.origenTexto.trim() || "",
-      notasAlmacen: detalle.notas_almacen?.trim() || "",
-    }),
+    notasGenerales: resolveNotasGeneralesDesdeDetalle(
+      detalle.notas_almacen?.trim() || "",
+    ),
     lineas: mapLineasPrint(
       lineas,
       detalle.notas_lineas?.trim() || captura.notasLineas,

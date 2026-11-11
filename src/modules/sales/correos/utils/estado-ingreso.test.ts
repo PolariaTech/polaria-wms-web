@@ -63,6 +63,17 @@ describe("estadoDelIngreso", () => {
     });
   });
 
+  it("4. un error de vencimiento del api también ofrece reintentar", () => {
+    expect(
+      estado({
+        ingreso: ingreso({
+          estado: "error",
+          error: "El ingreso no terminó. Toca Reintentar.",
+        }),
+      }),
+    ).toEqual({ tipo: "ingresar", reintentar: true, aviso: null });
+  });
+
   it("5. un duplicado avisa y deja ingresarlo a mano", () => {
     expect(estado({ resultado: "duplicado" })).toEqual({
       tipo: "ingresar",

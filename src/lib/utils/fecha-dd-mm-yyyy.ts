@@ -5,6 +5,28 @@ export function formatIsoToDdMmYyyy(iso: string): string {
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
+const MESES_ABREVIADOS = [
+  "ENE",
+  "FEB",
+  "MAR",
+  "ABR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AGO",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DIC",
+];
+
+/** ISO `YYYY-MM-DD` → `03-NOV` (día y mes abreviado, sin año); vacío si no es fecha. */
+export function formatIsoToDdMonAbrev(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  const mes = match ? MESES_ABREVIADOS[Number(match[2]) - 1] : undefined;
+  return match && mes ? `${match[3]}-${mes}` : "";
+}
+
 /**
  * Acepta `DD/MM/AAAA`, `D/M/AAAA` o ISO `YYYY-MM-DD`.
  * Devuelve ISO o null si no es fecha calendario válida.

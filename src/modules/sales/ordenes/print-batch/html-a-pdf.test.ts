@@ -1,6 +1,15 @@
 import { PDFDocument } from "pdf-lib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_PAGINAS_HTML, pdfDeHtml, sanitizarHtmlOc, type LienzoRenderizado } from "./html-a-pdf";
+import {
+  ANCHO_MAX_RENDER_PX,
+  ANCHO_PAGINA_PX,
+  MAX_PAGINAS_HTML,
+  pdfDeHtml,
+  quitarAnchosFijosDeCss,
+  resolverAnchoRenderHtml,
+  sanitizarHtmlOc,
+  type LienzoRenderizado,
+} from "./html-a-pdf";
 
 // `addImage` es de cada instancia de jsPDF, no del prototipo: se sustituye la clase por una que
 // registra las llamadas, así no hace falta una imagen real para probar cómo se reparte en páginas.
@@ -94,12 +103,27 @@ describe("sanitizarHtmlOc", () => {
     const html = limpio("<head><style>td{color:blue}</style></head><body><table border=1><tr><td>a</td></tr></table></body>");
 
     expect(html).toContain("border-collapse:collapse");
-    expect(html).toContain("padding:6px 8px");
+    expect(html).toContain("padding:5px 6px");
     // La fila que cierra el marco lleva más aire abajo.
-    expect(html).toContain("tr:last-child>td{padding-bottom:16px}");
+    expect(html).toContain("tr:last-child>td{padding-bottom:14px}");
     expect(html).toContain("overflow-wrap:anywhere");
+    // REQ-297: tablas al ancho completo de la carta.
+    expect(html).toContain("table{width:100%!important;max-width:100%!important}");
     // Van al final del head para ganar sobre lo del cliente.
     expect(html.indexOf("color:blue")).toBeLessThan(html.indexOf("border-collapse:collapse"));
+  });
+
+  it("REQ-297: quita width fijo de todo el HTML (tablas, divs, estilos)", () => {
+    const html = limpio(
+      '<body><div width="500" style="width:640px;color:red"><table width="600" border="1"><col width="80"><tr><td>Código</td><td>Total</td></tr></table></div></body>',
+    );
+    expect(html).not.toContain('width="500"');
+    expect(html).not.toContain('width="600"');
+    expect(html).not.toContain('width="80"');
+    expect(html).not.toContain("width:640px");
+    expect(html).toContain("color:red");
+    expect(html).toContain("Código");
+    expect(html).toContain("body *{max-width:100%");
   });
 
   it("quita una política propia del documento y deja solo la suya", () => {
@@ -107,6 +131,26 @@ describe("sanitizarHtmlOc", () => {
 
     expect(html).not.toContain("default-src *");
     expect(html.match(/Content-Security-Policy/g)).toHaveLength(1);
+  });
+});
+
+describe("resolverAnchoRenderHtml (REQ-297)", () => {
+  it("usa el ancho carta cuando el HTML es más angosto o igual", () => {
+    expect(resolverAnchoRenderHtml(400)).toBe(ANCHO_PAGINA_PX);
+    expect(resolverAnchoRenderHtml(ANCHO_PAGINA_PX)).toBe(ANCHO_PAGINA_PX);
+  });
+
+  it("respeta un HTML más ancho hasta el tope de 2× carta", () => {
+    expect(resolverAnchoRenderHtml(1000)).toBe(1000);
+    expect(resolverAnchoRenderHtml(ANCHO_MAX_RENDER_PX + 500)).toBe(ANCHO_MAX_RENDER_PX);
+  });
+});
+
+describe("quitarAnchosFijosDeCss (REQ-297)", () => {
+  it("borra width/max-width en px y deja el resto del estilo", () => {
+    expect(quitarAnchosFijosDeCss("width:600px;color:blue;max-width:800px")).toBe(
+      "color:blue",
+    );
   });
 });
 

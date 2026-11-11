@@ -14,6 +14,17 @@ describe("tituloCreateModalOv", () => {
       }),
     ).toBe("Editar · OV-00001075");
   });
+
+  it("en solo lectura muestra Ver · folio (REQ-180)", () => {
+    expect(
+      tituloCreateModalOv({
+        isEditing: true,
+        step: "form",
+        folioVisible: "OV-00001075",
+        soloLectura: true,
+      }),
+    ).toBe("Ver · OV-00001075");
+  });
 });
 
 describe("descriptionCreateModalOv", () => {
@@ -48,5 +59,18 @@ describe("descriptionCreateModalOv", () => {
         startMode: "scratch",
       }),
     ).toBe("Captura manual");
+  });
+
+  it("en solo lectura avisa quién edita (REQ-180)", () => {
+    expect(
+      descriptionCreateModalOv({
+        isEditing: true,
+        step: "form",
+        formDescription: "Captura manual",
+        startMode: null,
+        soloLectura: true,
+        editLockHolderNombre: "Luis",
+      }),
+    ).toBe("Luis está editando este pedido · solo lectura");
   });
 });

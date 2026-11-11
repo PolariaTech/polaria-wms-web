@@ -13,6 +13,7 @@ describe("filtrosActivos", () => {
     expect(filtrosActivos({ ...FILTROS_BATCH_INICIALES, texto: " " })).toBe(false);
     expect(filtrosActivos({ ...FILTROS_BATCH_INICIALES, cliente: "Hotel Sol" })).toBe(true);
     expect(filtrosActivos({ ...FILTROS_BATCH_INICIALES, tipo: "una_ot" })).toBe(true);
+    expect(filtrosActivos({ ...FILTROS_BATCH_INICIALES, impresion: "impresas" })).toBe(true);
   });
 });
 

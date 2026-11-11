@@ -112,6 +112,22 @@ describe("CorreosTable — ingreso como OV (REQ-104)", () => {
     expect(api.ingresarCorreo).toHaveBeenCalledTimes(2);
   });
 
+  it("pasados 5 min sigue «Ingresando pedido…» y no fabrica un error local", async () => {
+    api.listarCorreos.mockResolvedValue(lista([fila()]));
+    api.ingresarCorreo.mockResolvedValue(ingreso());
+    api.consultarIngreso.mockResolvedValue(ingreso());
+    const user = usuario();
+    render(<CorreosTable modo="descartados" />);
+
+    await user.click(await screen.findByRole("button", { name: BOTON_INGRESAR }));
+    await act(() => vi.advanceTimersByTimeAsync(5 * 60_000 + 6_000));
+
+    expect(screen.getByText("Ingresando pedido…")).toBeInTheDocument();
+    expect(screen.queryByText(/Tardó más de lo esperado/)).not.toBeInTheDocument();
+    expect(toast.showToast).not.toHaveBeenCalled();
+    expect(api.consultarIngreso.mock.calls.length).toBeGreaterThan(1);
+  });
+
   it("retoma el seguimiento de un correo que ya venía procesándose", async () => {
     api.listarCorreos.mockResolvedValue(lista([fila({ ingreso: ingreso() })]));
     api.consultarIngreso.mockResolvedValue(

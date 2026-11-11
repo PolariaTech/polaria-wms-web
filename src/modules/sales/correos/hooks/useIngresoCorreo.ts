@@ -11,8 +11,6 @@ import type { IngresoCorreo } from "../types/correos.types";
 import { mensajeDeError } from "../utils/correos-formato";
 
 const SONDEO_CADA_MS = 3_000;
-/** Pasado este tiempo se deja de sondear; la tabla actualizada dirá si al final quedó. */
-const SONDEO_MAXIMO_MS = 5 * 60_000;
 
 const ERRORES_QUE_CORTAN_EL_SONDEO: ReadonlySet<string> = new Set([
   "SESION",
@@ -68,26 +66,17 @@ async function consultarSinCortar(
   }
 }
 
-/** Consulta el ingreso hasta que termine, falle o pase el tiempo máximo, y entrega el resultado. */
+/** Consulta el ingreso hasta que el api deje de decir `procesando` o se aborte. */
 async function seguirIngreso(
   messageId: string,
   signal: AbortSignal,
   alTerminar: (ingreso: IngresoCorreo) => void,
 ): Promise<void> {
-  const inicio = Date.now();
   while (!signal.aborted) {
     await esperar(SONDEO_CADA_MS, signal);
     if (signal.aborted) return;
     const ingreso = await consultarSinCortar(messageId, signal);
     if (ingreso && ingreso.estado !== "procesando") return alTerminar(ingreso);
-    if (Date.now() - inicio > SONDEO_MAXIMO_MS) {
-      return alTerminar(
-        conError(
-          messageId,
-          "Tardó más de lo esperado. Actualiza la tabla para ver si ya quedó ingresado.",
-        ),
-      );
-    }
   }
 }
 

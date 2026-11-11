@@ -1,22 +1,21 @@
+import { formatIsoToDdMonAbrev } from "@/lib/utils/fecha-dd-mm-yyyy";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
 import type { ResumenImpresionPdf } from "../print/render-resumen-impresion-pdf";
 import { diaEntregaDeOv, type ResumenOvBatch } from "./batch-seleccion";
 
-/** `YYYY-MM-DD` → `DD/MM/AAAA`, como lo muestran las hojas; vacío si no hay fecha. */
+/** `YYYY-MM-DD` → `03-NOV` (sin año, para que la columna sea angosta); vacío si no hay fecha. */
 function fechaCorta(dia: string): string {
-  return dia ? `${dia.slice(8, 10)}/${dia.slice(5, 7)}/${dia.slice(0, 4)}` : "";
+  return formatIsoToDdMonAbrev(dia);
 }
 
-/** `[1,2,3,5]` → «1-3, 5»: las OT de una OV agrupadas en rangos. */
-export function rangosDeOt(ots: readonly number[]): string {
-  const partes: string[] = [];
-  for (let i = 0; i < ots.length; ) {
-    let j = i;
-    while (j + 1 < ots.length && ots[j + 1] === ots[j]! + 1) j += 1;
-    partes.push(j - i >= 2 ? `${ots[i]}-${ots[j]}` : ots.slice(i, j + 1).join(", "));
-    i = j + 1;
+/** Los números de orden de compra del cliente que salen en las hojas de la OV, sin repetir. */
+function ordenClienteDeHojas(hojas: readonly OrdenTareaAlmacenPrintData[]): string {
+  const numeros = new Set<string>();
+  for (const hoja of hojas) {
+    const numero = hoja.numeroOrdenCliente?.trim();
+    if (numero) numeros.add(numero);
   }
-  return partes.join(", ");
+  return [...numeros].join(", ");
 }
 
 /** de resumen que abre el PDF: una fila por OV, en el orden en que salen sus
@@ -37,10 +36,10 @@ export function armarResumenImpresion(input: {
   ocPorOv?: ReadonlyMap<string, { paginas: number; avisos: readonly string[] }>;
 }): ResumenImpresionPdf {
   const { orden, hojas, subtitulo, generado, parteDeOv, ocPorOv } = input;
-  const hojasPorOv = new Map<string, number>();
+  const hojasPorOv = new Map<string, OrdenTareaAlmacenPrintData[]>();
   for (const hoja of hojas) {
     const id = hoja.idOrdenVenta ?? "";
-    hojasPorOv.set(id, (hojasPorOv.get(id) ?? 0) + 1);
+    hojasPorOv.set(id, [...(hojasPorOv.get(id) ?? []), hoja]);
   }
   const notas: string[] = [];
   const filas = orden.map(({ row, ots }) => {
@@ -51,13 +50,14 @@ export function armarResumenImpresion(input: {
         notas.push(`${row.venta}: no tiene OC para imprimir (adjuntos HTML, PDF o Excel).`);
       }
     }
+    const hojasDeOv = hojasPorOv.get(row.idOrdenVenta) ?? [];
     return {
       venta: row.venta,
       cliente: row.comprador,
       entrega: fechaCorta(diaEntregaDeOv(row)),
       ot: ots.length,
-      otLista: rangosDeOt(ots),
-      hojas: hojasPorOv.get(row.idOrdenVenta) ?? ots.length,
+      ordenCliente: ordenClienteDeHojas(hojasDeOv),
+      hojas: hojasDeOv.length || ots.length,
       ...(oc && oc.paginas > 0 ? { oc: oc.paginas } : {}),
       ...(parteDeOv?.has(row.idOrdenVenta) ? { parte: parteDeOv.get(row.idOrdenVenta) } : {}),
     };

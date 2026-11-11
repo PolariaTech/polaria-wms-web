@@ -18,6 +18,10 @@ import { buildNotasLineasText, buildOrdenVentaCapturaObservaciones } from "./bui
 import type { LineaVentaForm } from "../../types/orden-venta-create-modal.types";
 import { nombresOrigenAdjuntos } from "../origen/origen-adjuntos";
 import type { OrigenAdjunto } from "../origen/origen-adjuntos";
+import {
+  sellarCabeceraUsuarioEnOrigen,
+  type CabeceraUsuarioSello,
+} from "./sellar-edicion-usuario-origen";
 
 export function textoOrigenParaPersistir(params: {
   isEditing: boolean;
@@ -105,6 +109,8 @@ export function origenCorreoParaEnvio(params: {
   idComprador: string;
   compradorNombreIa: string | null;
   compradorLabel: string;
+  /** REQ-281: snapshot del form; si falta, no se sella (compat tests). */
+  cabeceraUsuario?: CabeceraUsuarioSello;
 }): OrigenCorreoRenglon[] {
   const nombreEnOrigen =
     (params.hijas.length > 0
@@ -139,7 +145,9 @@ export function origenCorreoParaEnvio(params: {
           })),
         })
       : params.origenCorreoDraft;
-  return sellarNombreClienteMateoEnOrigen(base, propuestaMateo);
+  const conCliente = sellarNombreClienteMateoEnOrigen(base, propuestaMateo);
+  if (!params.cabeceraUsuario) return conCliente;
+  return sellarCabeceraUsuarioEnOrigen(conCliente, params.cabeceraUsuario);
 }
 
 export function buildPayloadEnvioOv(params: {

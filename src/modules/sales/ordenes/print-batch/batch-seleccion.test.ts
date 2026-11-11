@@ -100,6 +100,25 @@ describe("filtrarOvBatch", () => {
   });
 });
 
+describe("filtrarOvBatch por impresión", () => {
+  const rows = [ov("a", {}), ov("b", {}), ov("c", {})];
+  const ids = (res: readonly { idOrdenVenta: string }[]) => res.map((r) => r.idOrdenVenta);
+  const impresas = new Set(["a"]);
+
+  it("«sin imprimir» deja fuera las OV con una impresión en su log y «impresas» deja solo esas", () => {
+    const sin = filtrarOvBatch(rows, { ...FILTROS_BATCH_INICIALES, impresion: "sin_imprimir" }, impresas);
+    const con = filtrarOvBatch(rows, { ...FILTROS_BATCH_INICIALES, impresion: "impresas" }, impresas);
+
+    expect(ids(sin)).toEqual(ids(rows).slice(1));
+    expect(ids(con)).toEqual(ids(rows).slice(0, 1));
+  });
+
+  it("«todas» no mira el log, y mientras el log no llega ningún filtro de impresión excluye nada", () => {
+    expect(filtrarOvBatch(rows, FILTROS_BATCH_INICIALES, impresas)).toHaveLength(rows.length);
+    expect(filtrarOvBatch(rows, { ...FILTROS_BATCH_INICIALES, impresion: "impresas" })).toHaveLength(rows.length);
+  });
+});
+
 describe("orden de la lista por entrega", () => {
   it("ordena por día de entrega, deja las OV sin fecha al final y conserva el orden a igual día", () => {
     const res = ordenarOvPorEntrega([

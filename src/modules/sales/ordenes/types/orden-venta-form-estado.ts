@@ -188,6 +188,7 @@ export interface OrdenVentaFormEstado extends OrdenVentaFormEntregaCoords {
   showMateoLoading: boolean;
   skipDiscrepanciaConfirmRef: { current: boolean };
   skipSaveConfirmRef: { current: boolean };
+  lockUi: { soloLectura: boolean; holderNombre: string | null };
   startMode: StartMode | null;
   step: CaptureStep;
   submitIntentRef: { current: "emit" | "draft" };

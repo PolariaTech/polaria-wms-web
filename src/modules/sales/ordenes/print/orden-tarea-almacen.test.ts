@@ -147,7 +147,7 @@ describe("orden de tarea almacén", () => {
     expect(data.notasGenerales).not.toMatch(/faltantes/i);
   });
 
-  it("sin notas de almacén, usa notas clave del correo (sin tablas ni saludos)", () => {
+  it("REQ-281: sin notas_almacen en BD, el PDF no reinyecta el correo", () => {
     const data = mapOrdenVentaToAlmacenPrintData({
       listRow: LIST_ROW,
       detalle: {
@@ -162,9 +162,7 @@ describe("orden de tarea almacén", () => {
         notas_almacen: "",
       },
     });
-    expect(data.notasGenerales).toContain("Pedido de FYV");
-    expect(data.notasGenerales).toContain("Llevar 3 juegos");
-    expect(data.notasGenerales).not.toContain("Clave Sap");
+    expect(data.notasGenerales).toBe("");
   });
 
   it("mapea folio, cliente y productos de la venta", () => {

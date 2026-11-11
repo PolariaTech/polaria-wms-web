@@ -33,6 +33,10 @@ export interface OrdenVentaRow {
   updated_at: string;
   /** Instante de entrada al estado actual (SLA). */
   estado_desde?: string | null;
+  /** REQ-180 soft-lock (opcionales hasta migrar todos los tenants). */
+  edit_locked_by?: string | null;
+  edit_locked_at?: string | null;
+  edit_locked_nombre?: string | null;
 }
 
 export type OvSlaStatusUi = "en_tiempo" | "atrasada" | "cerrada";
@@ -82,6 +86,10 @@ export interface OrdenVentaOperadorRow {
   potencialDuplicado?: boolean;
   /** Códigos de otras OV candidatas a duplicado. */
   potencialDuplicadoDe?: string[];
+  /** REQ-180: soft-lock — quién edita ahora (presencia listado). */
+  editLockedBy?: string | null;
+  editLockedAt?: string | null;
+  editLockedNombre?: string | null;
 }
 
 export const UNIDAD_MEDIDA_VENTA_DEFAULT = "kg" as const;

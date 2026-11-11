@@ -54,7 +54,7 @@ describe("armarPreviaRapida sin OC", () => {
     const previa = await armarPreviaRapida(entrada());
 
     expect(armarPdf).toHaveBeenCalledTimes(1);
-    expect(armarPdf.mock.calls[0]![1].resumen.subtitulo).toBe("Impresión rápida · entrega hasta 05/11/2026");
+    expect(armarPdf.mock.calls[0]![1].resumen.subtitulo).toBe("Impresión rápida · entrega 05/11/2026");
     expect(previa.partes).toHaveLength(1);
     expect(previa.partes![0]!.pdf).toBeUndefined();
     expect(armarConOc).not.toHaveBeenCalled();
@@ -107,7 +107,7 @@ describe("armarPreviaRapida con OC", () => {
     expect(previa.resumenPdf?.titulo).toBe("Resumen de impresión");
     const [datos] = armarConOc.mock.calls[0]!;
     expect(datos.origenPorOv).toBe(origenPorOv);
-    expect(datos.subtitulo).toBe("Impresión rápida · entrega hasta 05/11/2026");
+    expect(datos.subtitulo).toBe("Impresión rápida · entrega 05/11/2026");
     // Con OC el paquete no se arma por la vía de las hojas: solo se pide la base de OT.
     expect(armarPdf).not.toHaveBeenCalled();
   });

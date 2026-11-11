@@ -9,6 +9,9 @@ export type SeleccionBatch = ReadonlyMap<string, ReadonlySet<number>>;
 
 export type TipoOvBatch = "todas" | "una_ot" | "varias_ot";
 
+/** Por si la OV ya se imprimió alguna vez (REQ-298): para reimprimir lo impreso o sacar solo lo nuevo. */
+export type ImpresionOvBatch = "todas" | "sin_imprimir" | "impresas";
+
 export interface FiltrosBatch {
   texto: string;
   /** Comprador exacto; vacío = todos. */
@@ -16,6 +19,7 @@ export interface FiltrosBatch {
   /** `YYYY-MM-DD`; vacío = cualquier fecha de entrega. */
   fechaEntrega: string;
   tipo: TipoOvBatch;
+  impresion: ImpresionOvBatch;
 }
 
 export const FILTROS_BATCH_INICIALES: FiltrosBatch = {
@@ -23,6 +27,7 @@ export const FILTROS_BATCH_INICIALES: FiltrosBatch = {
   cliente: "",
   fechaEntrega: "",
   tipo: "todas",
+  impresion: "todas",
 };
 
 export type EstadoSeleccionOv = "ninguna" | "parcial" | "todas";
@@ -87,9 +92,14 @@ export function etiquetaDiaEntrega(dia: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
+/**
+ * `yaImpresas` son los ids de las OV con alguna impresión en su log. Mientras no se conocen
+ * (`undefined`) el filtro de impresión no excluye nada.
+ */
 export function filtrarOvBatch(
   rows: readonly OrdenVentaOperadorRow[],
   filtros: FiltrosBatch,
+  yaImpresas?: ReadonlySet<string>,
 ): OrdenVentaOperadorRow[] {
   const texto = filtros.texto.trim().toLowerCase();
   return rows.filter((row) => {
@@ -100,6 +110,10 @@ export function filtrarOvBatch(
     const total = totalOtDeOv(row);
     if (filtros.tipo === "una_ot" && total !== 1) return false;
     if (filtros.tipo === "varias_ot" && total <= 1) return false;
+    if (yaImpresas && filtros.impresion !== "todas") {
+      const impresa = yaImpresas.has(row.idOrdenVenta);
+      if (filtros.impresion === "sin_imprimir" ? impresa : !impresa) return false;
+    }
     if (!texto) return true;
     const haystack = [row.venta, row.comprador, row.occ, ...row.occTodas]
       .join(" ")

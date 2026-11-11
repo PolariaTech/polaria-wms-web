@@ -4,13 +4,13 @@ import { jsPDF } from "jspdf";
 export interface FilaResumenImpresion {
   venta: string;
   cliente: string;
-  /** `DD/MM/AAAA`; vacío si la OV no tiene fecha de entrega. */
+  /** `03-NOV` (día y mes, sin año); vacío si la OV no tiene fecha de entrega. */
   entrega: string;
   /** Cuántas OT de la OV van en el paquete. */
   ot: number;
-  /** Cuáles OT van, ya escritas (ej. «1-3, 5»); si falta, la columna muestra solo la cantidad. */
-  otLista?: string;
-  /** Cuántas hojas ocupan esas OT (una OT con muchos renglones usa varias). */
+  /** Número de orden de compra del cliente, el mismo de las hojas de OT; vacío si no tiene. */
+  ordenCliente?: string;
+  /** Cuántas hojas ocupan esas OT (una OT con muchos renglones usa varias); no se dibuja, cuenta para «Desde la hoja». */
   hojas: number;
   /** Páginas de OC (adjuntos HTML, PDF o Excel) que van detrás de las hojas de OT de la OV. */
   oc?: number;
@@ -24,7 +24,7 @@ export interface FilaResumenImpresion {
 /** Lo que dice la portada: qué se imprime, desde cuándo y todo lo que lleva el PDF. */
 export interface ResumenImpresionPdf {
   titulo: string;
-  /** Ej. «Impresión rápida · entrega hasta 05/11/2026». */
+  /** Ej. «Impresión rápida · entrega 05/11/2026». */
   subtitulo: string;
   /** Ej. «Generado 05/11/2026 3:42 p. m.». */
   generado: string;
@@ -54,25 +54,30 @@ interface Columna {
 }
 
 const COL_NUMERO: Columna = { clave: "#", ancho: 10, alinea: "center" };
-const COL_OV: Columna = { clave: "Orden de venta", ancho: 30, alinea: "left" };
+const COL_OV: Columna = { clave: "Orden de venta", ancho: 22, alinea: "left" };
 const COL_CLIENTE: Columna = { clave: "Cliente", ancho: 76, alinea: "left" };
-const COL_ENTREGA: Columna = { clave: "Entrega", ancho: 24, alinea: "center" };
-const COL_OT: Columna = { clave: "OT", ancho: 26, alinea: "center" };
-const COL_HOJAS: Columna = { clave: "Hojas", ancho: 14, alinea: "center" };
-const COL_OC: Columna = { clave: "OC", ancho: 12, alinea: "center" };
+const COL_ENTREGA: Columna = { clave: "Entrega", ancho: 16, alinea: "center" };
+const COL_OT: Columna = { clave: "OT", ancho: 12, alinea: "center" };
+const COL_ORDEN_CLIENTE: Columna = { clave: "Orden de compra", ancho: 40, alinea: "center" };
+const COL_OC: Columna = { clave: "Págs. OC", ancho: 14, alinea: "center" };
 const COL_PARTE: Columna = { clave: "Parte", ancho: 12, alinea: "center" };
 const COL_DESDE: Columna = { clave: "Desde la hoja", ancho: 24, alinea: "center" };
 
-/** Las columnas «OC» y «Parte» solo aparecen si hacen falta; el ancho sale del cliente, que es el que más sobra. */
-function columnasDe(conOc: boolean, conParte: boolean): Columna[] {
+/**
+ * Las columnas «Págs. OC», «Parte» y «Entrega» solo aparecen si hacen falta; el ancho sale del cliente,
+ * que es el que más sobra. Sin «Entrega» (todas las OV salen el mismo día, que ya dice el subtítulo) el
+ * espacio libre pasa a la orden de compra, para que su número salga completo.
+ */
+function columnasDe(conOc: boolean, conParte: boolean, conEntrega: boolean): Columna[] {
   const extra = (conOc ? COL_OC.ancho : 0) + (conParte ? COL_PARTE.ancho : 0);
+  const ordenCliente = conEntrega ? COL_ORDEN_CLIENTE : { ...COL_ORDEN_CLIENTE, ancho: COL_ORDEN_CLIENTE.ancho + COL_ENTREGA.ancho };
   const columnas = [
     COL_NUMERO,
     COL_OV,
     { ...COL_CLIENTE, ancho: COL_CLIENTE.ancho - extra },
-    COL_ENTREGA,
+    ...(conEntrega ? [COL_ENTREGA] : []),
     COL_OT,
-    COL_HOJAS,
+    ordenCliente,
     ...(conOc ? [COL_OC] : []),
     ...(conParte ? [COL_PARTE] : []),
     COL_DESDE,
@@ -164,7 +169,9 @@ function dibujarPagina(
 
   const conOc = resumen.filas.some((fila) => (fila.oc ?? 0) > 0);
   const conParte = resumen.filas.some((fila) => (fila.parte ?? 1) > 1);
-  const columnas = columnasDe(conOc, conParte);
+  // Con todas las OV del mismo día la fecha ya está en el subtítulo: la columna sobra.
+  const conEntrega = new Set(resumen.filas.map((fila) => fila.entrega)).size > 1;
+  const columnas = columnasDe(conOc, conParte, conEntrega);
   const inicios = hojasIniciales(resumen.filas, paginasResumen);
   const totalOv = resumen.filas.length;
   const totalOt = resumen.filas.reduce((suma, fila) => suma + fila.ot, 0);
@@ -215,9 +222,9 @@ function dibujarPagina(
       String(desde + indice + 1),
       fila.venta,
       fila.cliente,
-      fila.entrega,
-      fila.otLista ?? String(fila.ot),
-      String(fila.hojas),
+      ...(conEntrega ? [fila.entrega] : []),
+      String(fila.ot),
+      fila.ordenCliente || "—",
       ...(conOc ? [fila.oc ? String(fila.oc) : "—"] : []),
       ...(conParte ? [String(fila.parte ?? 1)] : []),
       String(inicios[desde + indice]),

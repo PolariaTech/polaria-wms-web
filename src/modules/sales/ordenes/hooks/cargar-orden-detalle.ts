@@ -10,17 +10,17 @@ import { parseOrigenArchivos } from "../utils/origen/origen-adjuntos";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
-  sanitizeNotasGeneralesPedido,
 } from "../utils/origen/texto-origen-pedido";
-import {
-  parseOrdenVentaCapturaObservaciones,
-  stripSurtidoFotoQrFromNotas,
-} from "../utils/pedido/build-orden-venta-captura-observaciones";
+import { parseOrdenVentaCapturaObservaciones } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { mapDetalleLineasAForm, ovTieneLineasMaterializadas } from "../utils/pedido/map-detalle-lineas-a-form";
 import { resolveOccCampoFormulario } from "../utils/pedido/occ-alineada-listado-ov";
 import { sanitizeOrigenCorreoNumeroPedido } from "../utils/pedido/normalize-numero-pedido";
 import { resolverFechaCreacionEdicion } from "../utils/pedido/resolver-fecha-creacion-edicion";
 import { sanitizeTelefonoContacto } from "../utils/pedido/sanitize-telefono-contacto";
+import {
+  aplicarSelloCabeceraAHijas,
+  leerCabeceraUsuarioSello,
+} from "../utils/pedido/sellar-edicion-usuario-origen";
 import { withNotasGeneralesOnHijas } from "../utils/ot/notas-generales-ot";
 import { formatCompradorOrdenVenta } from "../utils/display/orden-venta-display";
 import {
@@ -30,6 +30,7 @@ import {
   toDateInputValue,
 } from "../utils/pedido/orden-venta-create-helpers";
 import { aplicarDetalleExternoPorConfirmar, aplicarDetalleSinMateo, cargarFichaYPreciosDeComprador } from "./cargar-orden-al-abrir";
+import { notasCanonConSelloUsuario } from "./aplicar-cabecera-con-sello-usuario";
 
 export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
   const { productoRows, compradorRows, internas, externas, idBodegaDefault, detalle, codigoCuenta, editingId, codigoVenta, handleSelectComprador, selectedCompradorIdRef, skipOtSeedFromOrigenRef, setProductosBase, setCompradores, setBodegasDestino, setIdBodegaDestino, setEditingEstado, setFechaCreacion, setOrdenCargadaId, setEditingCodigo, setIdComprador, setCompradorLabel, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setObservaciones, setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setOrigenAdjuntos, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setCompradorNombreIa, setCompradorSugerencias, setLineas, setStartMode, setFormOtPage, setStep, setMissingFields, setDiscrepancias, setAutoFields, setWarnFields, setFichaComprador, setExigeOc, setPrecioOverrideByProducto, setEquivalenciaByProducto } = entrada;
@@ -97,15 +98,28 @@ export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
             origenCorreo: detalle.origen_correo,
           }),
         );
-        setCentroConsumo(detalle.centro_consumo?.trim() || "");
-        const notasCanon = sanitizeNotasGeneralesPedido(
-          stripSurtidoFotoQrFromNotas(detalle.notas_almacen ?? "") ||
-            parseOrdenVentaCapturaObservaciones(detalle.observaciones)
-              .observaciones,
-          detalle.origen_texto,
+        const origenCorreoRows = sanitizeOrigenCorreoNumeroPedido(
+          parseOrigenCorreoJson(detalle.origen_correo),
+          origenTextoLoad,
         );
+        const selloEarly = leerCabeceraUsuarioSello(origenCorreoRows);
+        setCentroConsumo(
+          selloEarly?.centroConsumo ??
+            (detalle.centro_consumo?.trim() || ""),
+        );
+        const notasCanon = notasCanonConSelloUsuario({
+          origenCorreoRows,
+          notasAlmacen: detalle.notas_almacen ?? "",
+          observacionesOv: parseOrdenVentaCapturaObservaciones(
+            detalle.observaciones,
+          ).observaciones,
+          origenTexto: detalle.origen_texto,
+        });
         setObservaciones(notasCanon);
-        setDireccion(detalle.direccion_entrega?.trim() || "");
+        setDireccion(
+          selloEarly?.direccionEntrega ??
+            (detalle.direccion_entrega?.trim() || ""),
+        );
         setEntregaLat(
           typeof detalle.entrega_lat === "number" &&
             Number.isFinite(detalle.entrega_lat)
@@ -119,13 +133,20 @@ export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
             : null,
         );
         setAnden(detalle.anden?.trim() || "");
-        setContacto(detalle.contacto_entrega?.trim() || "");
-        setTelefono(sanitizeTelefonoContacto(detalle.telefono_contacto));
+        setContacto(
+          selloEarly?.contacto ?? (detalle.contacto_entrega?.trim() || ""),
+        );
+        setTelefono(
+          sanitizeTelefonoContacto(
+            selloEarly?.telefono ?? detalle.telefono_contacto,
+          ),
+        );
         setCorreo(
-          detalle.correo_contacto?.trim() ||
-            extractCorreoContactoDesdeTexto(detalle.origen_texto) ||
-            extractCorreoContactoDesdeTexto(detalle.observaciones) ||
-            "",
+          selloEarly?.correo ??
+            (detalle.correo_contacto?.trim() ||
+              extractCorreoContactoDesdeTexto(detalle.origen_texto) ||
+              extractCorreoContactoDesdeTexto(detalle.observaciones) ||
+              ""),
         );
         setTurno(detalle.turno?.trim() || "");
         setHoraSalida(detalle.hora_salida?.trim() || "");
@@ -136,15 +157,14 @@ export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
         setRegistrarTemperatura(detalle.registrar_temperatura?.trim() || "");
         setOrigenTexto(origenTextoLoad);
         setOrigenAdjuntos(parseOrigenArchivos(detalle.origen_archivos));
-        const origenCorreoRows = sanitizeOrigenCorreoNumeroPedido(
-          parseOrigenCorreoJson(detalle.origen_correo),
-          origenTextoLoad,
-        );
-        // REQ-141: origen no debe reinyectar notas ya borradas en la OV.
-        const hijasEdit = withNotasGeneralesOnHijas(
+        // REQ-141/281: notas y cabecera del sello; no reinyectar Mateo al form.
+        const hijasBase = withNotasGeneralesOnHijas(
           groupOrigenCorreoToOrdenesTrabajo(origenCorreoRows),
           notasCanon,
         );
+        const hijasEdit = selloEarly
+          ? aplicarSelloCabeceraAHijas(hijasBase, selloEarly)
+          : hijasBase;
         setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(hijasEdit));
         setOrdenesTrabajoPreview(hijasEdit);
         if (detalle.id_bodega_destino?.trim()) {
@@ -216,6 +236,8 @@ export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
             setStartMode,
             setFormOtPage,
             setStep,
+            setOrdenesTrabajoPreview,
+            setOrigenCorreoDraft,
           } as OrdenVentaFormEstado);
         } else {
           aplicarDetalleSinMateo({

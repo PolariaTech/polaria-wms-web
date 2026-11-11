@@ -18,14 +18,10 @@ import {
   puedeBorrarOrdenVenta,
   puedeEditarOrdenVenta,
 } from "../constants/sales-status";
-import { listCompradoresAdmin } from "@/modules/admin-panel/compradores/services/compradores.service";
 import {
   collectOrdenesCompraCliente,
   countOrdenesTrabajo,
 } from "../../ordenes/utils/display/orden-venta-tabla-meta";
-import { buildNotasLineasText } from "../../ordenes/utils/pedido/build-orden-venta-captura-observaciones";
-import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/origen/materialize-ov-desde-origen";
-import { parseOrigenCorreoJson } from "../../ordenes/utils/origen/origen-correo-ordenes-trabajo";
 import {
   isCatalogoTipoProductoMercancia,
   parseCatalogoMetadatos,
@@ -58,6 +54,8 @@ import {
   insertOrdenVentaOrigenOnlyDraft,
   isOrigenOnlyFirstDraft,
 } from "./create-orden-venta-origen-only-draft";
+import { materializeOrdenVentaDesdeOrigenSiVacia } from "./materializar-lineas-desde-origen";
+import { camposInicialesFilaOperador } from "./campos-iniciales-fila-operador";
 import { ordenVentaCaptureFields } from "./orden-venta-capture-fields";
 import { mapDenominacionDetalleFields as mapDenominacion } from "./map-denominacion-detalle";
 export { fetchUltimaDireccionEntregaPorComprador } from "./sales-ultima-direccion-entrega";
@@ -66,7 +64,7 @@ export { fetchUltimaDireccionEntregaPorComprador } from "./sales-ultima-direccio
 const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
 
 const ORDEN_VENTA_COLUMNS =
-  "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at,estado_desde";
+  "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at,estado_desde,edit_locked_by,edit_locked_at,edit_locked_nombre";
 
 /** Listado operador: OCC, origen_correo y fecha de entrega para el filtro del topbar. */
 const ORDEN_VENTA_OPERADOR_LIST_COLUMNS =
@@ -706,8 +704,7 @@ function mapOrdenVentaOperadorRow(
     minutosEnEstado: sla.minutosEnEstado,
     slaMinutos: slaConfig.slaMinutos,
     alertaMinutos: slaConfig.alertaMinutos,
-    potencialDuplicado: false,
-    potencialDuplicadoDe: [],
+    ...camposInicialesFilaOperador(row),
   };
 }
 
@@ -1764,203 +1761,6 @@ export interface GetOrdenVentaDetalleParams {
   idOrdenVenta: string;
 }
 
-/**
- * Si una OV por_confirmar llegó del bot/tercero solo con origen_correo
- * (sin líneas ni comprador), materializa cabecera + líneas desde ese JSON.
- */
-export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
-  codigoCuenta: string;
-  idOrdenVenta: string;
-}): Promise<{ materializado: boolean; lineas: number }> {
-  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
-  const idOrdenVenta = params.idOrdenVenta.trim();
-  if (!idOrdenVenta) return { materializado: false, lineas: 0 };
-
-  const header = await runDomainQuery<{
-    estado: string;
-    id_comprador: string | null;
-    orden_compra_hotel: string | null;
-    centro_consumo: string | null;
-    contacto_entrega: string | null;
-    correo_contacto: string | null;
-    fecha_entrega: string | null;
-    notas_lineas: string | null;
-    origen_correo: unknown;
-    origen_texto: string | null;
-  } | null>((client) => {
-    const query = client
-      .from("orden_venta")
-      .select(
-        "estado,id_comprador,orden_compra_hotel,centro_consumo,contacto_entrega,correo_contacto,fecha_entrega,notas_lineas,origen_correo,origen_texto",
-      )
-      .eq("codigo_cuenta", codigoCuenta)
-      .eq("id_orden_venta", idOrdenVenta)
-      .maybeSingle();
-
-    return query as unknown as Promise<{
-      data: {
-        estado: string;
-        id_comprador: string | null;
-        orden_compra_hotel: string | null;
-        centro_consumo: string | null;
-        contacto_entrega: string | null;
-        correo_contacto: string | null;
-        fecha_entrega: string | null;
-        notas_lineas: string | null;
-        origen_correo: unknown;
-        origen_texto: string | null;
-      } | null;
-      error: { message: string } | null;
-    }>;
-  });
-
-  if (!header) return { materializado: false, lineas: 0 };
-  if (normalizeEstadoOrdenVenta(header.estado) !== "por_confirmar") {
-    return { materializado: false, lineas: 0 };
-  }
-
-  const origen = parseOrigenCorreoJson(header.origen_correo);
-  if (origen.length === 0) return { materializado: false, lineas: 0 };
-
-  const lineasExistentes = await runDomainQuery<
-    { id_linea_orden_venta: string }[]
-  >((client) => {
-    const query = client
-      .from("orden_venta_linea")
-      .select("id_linea_orden_venta")
-      .eq("id_orden_venta", idOrdenVenta)
-      .limit(1);
-
-    return query as unknown as Promise<{
-      data: { id_linea_orden_venta: string }[] | null;
-      error: { message: string } | null;
-    }>;
-  });
-
-  const headerLineasCount = lineasExistentes.length;
-  const needsLines = headerLineasCount === 0;
-  const needsHeader =
-    !header.id_comprador?.trim() ||
-    !header.orden_compra_hotel?.trim() ||
-    !header.centro_consumo?.trim() ||
-    !header.contacto_entrega?.trim() ||
-    !header.fecha_entrega?.trim();
-
-  if (!needsLines && !needsHeader) {
-    return { materializado: false, lineas: headerLineasCount };
-  }
-
-  const [productos, compradores] = await Promise.all([
-    listProductosVentaCatalogo({ codigoCuenta }),
-    listCompradoresAdmin({ codigoCuenta, limit: 5000 }),
-  ]);
-
-  const plan = buildMaterializeOvDesdeOrigenPlan({
-    origenCorreo: origen,
-    productos,
-    compradores,
-    origenTexto: header.origen_texto,
-  });
-
-  const patch: Record<string, unknown> = {};
-  if (!header.id_comprador?.trim() && plan.idComprador) {
-    patch.id_comprador = plan.idComprador;
-  }
-  if (!header.orden_compra_hotel?.trim() && plan.ordenCompraHotel) {
-    patch.orden_compra_hotel = plan.ordenCompraHotel;
-  }
-  if (!header.centro_consumo?.trim() && plan.centroConsumo) {
-    patch.centro_consumo = plan.centroConsumo;
-  }
-  if (!header.contacto_entrega?.trim() && plan.contactoEntrega) {
-    patch.contacto_entrega = plan.contactoEntrega;
-  }
-  if (!header.fecha_entrega?.trim() && plan.fechaEntrega) {
-    patch.fecha_entrega = plan.fechaEntrega;
-  }
-  const correoFromOrigen =
-    origen
-      .map((r) =>
-        typeof r === "object" && r && "Correo contacto" in r
-          ? String(
-              (r as { "Correo contacto"?: unknown })["Correo contacto"] ?? "",
-            ).trim()
-          : "",
-      )
-      .find(Boolean) || "";
-  if (!header.correo_contacto?.trim() && correoFromOrigen) {
-    patch.correo_contacto = correoFromOrigen;
-  }
-
-  if (Object.keys(patch).length > 0) {
-    await runDomainMutation((client) => {
-      const query = client
-        .from("orden_venta")
-        .update(patch)
-        .eq("codigo_cuenta", codigoCuenta)
-        .eq("id_orden_venta", idOrdenVenta);
-
-      return query as unknown as Promise<{
-        data: unknown;
-        error: { message: string } | null;
-      }>;
-    });
-  }
-
-  let inserted = 0;
-  if (needsLines && plan.lineas.length > 0) {
-    await runDomainMutation((client) => {
-      const query = client.from("orden_venta_linea").insert(
-        plan.lineas.map((linea) => ({
-          id_orden_venta: idOrdenVenta,
-          id_producto: linea.idProducto,
-          cantidad_pedida: linea.cantidadPedida,
-          precio_unitario: linea.precioUnitario > 0 ? linea.precioUnitario : 0,
-          cajas: null,
-          presentacion: null,
-          unidad_medida: linea.unidadMedida?.trim() || null,
-        })),
-      );
-
-      return query as unknown as Promise<{
-        data: unknown;
-        error: { message: string } | null;
-      }>;
-    });
-    inserted = plan.lineas.length;
-
-    // REQ-124: persistir frase de envase en notas_lineas (PDF / form).
-    if (!header.notas_lineas?.trim()) {
-      const notasLineas = buildNotasLineasText(
-        plan.lineas.map((linea) => ({
-          nombre: linea.nombreProducto || linea.aliasCliente,
-          cantidad: linea.cantidadPedida,
-          especificacion: linea.especificacion,
-        })),
-      );
-      if (notasLineas) {
-        await runDomainMutation((client) => {
-          const query = client
-            .from("orden_venta")
-            .update({ notas_lineas: notasLineas })
-            .eq("codigo_cuenta", codigoCuenta)
-            .eq("id_orden_venta", idOrdenVenta);
-
-          return query as unknown as Promise<{
-            data: unknown;
-            error: { message: string } | null;
-          }>;
-        });
-      }
-    }
-  }
-
-  return {
-    materializado: inserted > 0 || Object.keys(patch).length > 0,
-    lineas: inserted || headerLineasCount,
-  };
-}
-
 export async function getOrdenVentaDetalle(
   params: GetOrdenVentaDetalleParams,
 ): Promise<OrdenVentaDetalleRow> {
@@ -1978,6 +1778,7 @@ export async function getOrdenVentaDetalle(
   await materializeOrdenVentaDesdeOrigenSiVacia({
     codigoCuenta,
     idOrdenVenta,
+    listProductos: listProductosVentaCatalogo,
   });
 
   const row = await runDomainQuery<OrdenVentaDetalleDbRow | null>((client) => {
