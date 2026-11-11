@@ -1,5 +1,9 @@
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
-import { productoCompatibleConTextoCliente } from "./find-closest-producto-catalogo";
+import {
+  productoCompatibleConTextoCliente,
+  rankProductosCatalogo,
+  type ProductoCatalogoMatchResult,
+} from "./find-closest-producto-catalogo";
 
 function codigoComparable(valor: string | null | undefined): string {
   return (valor ?? "").replace(/\s+/g, "").toLowerCase();
@@ -26,4 +30,27 @@ export function codigoContradiceNombre(
   const textoRestante = textoSinElCodigo(textoCliente ?? "", codigoLeido ?? "");
   if (!textoRestante) return false;
   return !productoCompatibleConTextoCliente(textoRestante, producto);
+}
+
+/** Rankea el catálogo y descarta el producto cuyo SKU contradice el nombre del cliente. */
+export function rankSinCodigoContradicho(
+  query: string,
+  productos: readonly ProductoVentaOption[],
+  linea: {
+    textoOriginal?: string | null;
+    codigoProductoCliente?: string | null;
+  },
+): ProductoCatalogoMatchResult {
+  const ranked = rankProductosCatalogo(query, productos);
+  return {
+    ...ranked,
+    candidates: ranked.candidates.filter(
+      (candidato) =>
+        !codigoContradiceNombre(
+          linea.textoOriginal,
+          linea.codigoProductoCliente,
+          candidato.producto,
+        ),
+    ),
+  };
 }

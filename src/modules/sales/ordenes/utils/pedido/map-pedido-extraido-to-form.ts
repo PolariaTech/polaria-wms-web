@@ -8,11 +8,10 @@ import {
   collectMissingFieldsDocs,
   type CampoOperativoDocs,
 } from "./empaque-lineas";
-import { codigoContradiceNombre } from "../match/codigo-contradice-nombre";
+import { rankSinCodigoContradicho } from "../match/codigo-contradice-nombre";
 import {
   findTypoRivalProductos,
   productoCompatibleConTextoCliente,
-  rankProductosCatalogo,
   scoreProductoMatch,
   shouldAutoAcceptProductoSuggestion,
 } from "../match/find-closest-producto-catalogo";
@@ -343,7 +342,10 @@ function findVecinosAmbiguos(
   return findTypoRivalProductos(query, chosen, productos);
 }
 
-/** Rankea sugerencias cruzando texto, clave Mateo y SKU; marca empate cercano. */
+/**
+ * Rankea sugerencias cruzando texto del cliente, clave Mateo y SKU cliente.
+ * Fusiona candidatos y marca ambigüedad si hay empate cercano.
+ */
 function pickSugerencias(
   linea: {
     textoOriginal?: string | null;
@@ -384,10 +386,9 @@ function pickSugerencias(
   let queryUsed = queries[0] ?? "";
 
   for (const query of queries) {
-    const ranked = rankProductosCatalogo(query, productos);
+    const ranked = rankSinCodigoContradicho(query, productos, linea);
     if (ranked.ambiguous) anyAmbiguous = true;
     for (const candidate of ranked.candidates) {
-      if (codigoContradiceNombre(linea.textoOriginal, linea.codigoProductoCliente, candidate.producto)) continue;
       const prev = byId.get(candidate.producto.idProducto);
       if (!prev || candidate.score > prev.score) {
         byId.set(candidate.producto.idProducto, candidate);

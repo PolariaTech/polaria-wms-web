@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
-import { codigoContradiceNombre } from "./codigo-contradice-nombre";
+import {
+  codigoContradiceNombre,
+  rankSinCodigoContradicho,
+} from "./codigo-contradice-nombre";
 
 function productoVenta(
   parcial: Pick<ProductoVentaOption, "idProducto" | "codigo" | "nombre">,
@@ -152,5 +155,43 @@ describe("codigoContradiceNombre (REQ-299)", () => {
     },
   ] as const)("$caso", ({ texto, codigo, producto, contradice }) => {
     expect(codigoContradiceNombre(texto, codigo, producto)).toBe(contradice);
+  });
+
+  const pepino = productoVenta({
+    idProducto: "p-pepino",
+    codigo: "115001300",
+    nombre: "PEPINO",
+  });
+
+  it("rankSinCodigoContradicho filtra el candidato cuyo SKU contradice el nombre", () => {
+    const ranked = rankSinCodigoContradicho(
+      "115001005",
+      [AGUACATE_EXTRA, pepino],
+      {
+        textoOriginal: "Pepino",
+        codigoProductoCliente: "115001005",
+      },
+    );
+    expect(
+      ranked.candidates.some(
+        (candidato) => candidato.producto.idProducto === "p-aguacate-extra",
+      ),
+    ).toBe(false);
+  });
+
+  it("rankSinCodigoContradicho deja el candidato compatible", () => {
+    const ranked = rankSinCodigoContradicho(
+      "115001005",
+      [AGUACATE_EXTRA, pepino],
+      {
+        textoOriginal: "AGUACATE EXTRA",
+        codigoProductoCliente: "115001005",
+      },
+    );
+    expect(
+      ranked.candidates.some(
+        (candidato) => candidato.producto.idProducto === "p-aguacate-extra",
+      ),
+    ).toBe(true);
   });
 });
