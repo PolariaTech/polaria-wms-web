@@ -36,6 +36,8 @@
 - `src/lib/utils/fecha-dd-mm-yyyy.test.ts`
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaTipos.tsx`
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaTipos.test.tsx`
+- `src/modules/sales/ordenes/print-batch/ImpresionBatchLista.tsx` — autorizada por el usuario el 2026-11-11
+- `src/modules/sales/ordenes/print-batch/ImpresionBatchLista.test.tsx` — autorizada por el usuario el 2026-11-11
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
