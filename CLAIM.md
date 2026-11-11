@@ -38,6 +38,8 @@
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaTipos.test.tsx`
 - `src/modules/sales/ordenes/print-batch/ImpresionBatchLista.tsx` — autorizada por el usuario el 2026-11-11
 - `src/modules/sales/ordenes/print-batch/ImpresionBatchLista.test.tsx` — autorizada por el usuario el 2026-11-11
+- `src/modules/sales/ordenes/print-batch/ya-impresas.ts` — autorizada por el usuario el 2026-11-11
+- `src/modules/sales/ordenes/print-batch/ya-impresas.test.ts` — autorizada por el usuario el 2026-11-11
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
