@@ -1,8 +1,4 @@
-import {
-  buildOrdenTareaAlmacenLandscapePdfBlob,
-  printOrdenTareaAlmacenLandscape,
-} from "../print/download-orden-tarea-almacen-pdf";
-import { numerarBlobPdf } from "../print/numerar-hojas-pdf";
+import { printOrdenTareaAlmacenLandscape } from "../print/download-orden-tarea-almacen-pdf";
 import { MENSAJE_VERSION_NUEVA, esErrorDeVersionVieja } from "../print/print-correo-fallo";
 import type { SilentPrintResult } from "../print/print-silent-cuenta";
 import {
@@ -11,6 +7,7 @@ import {
   type FaseEnvio,
   type ResultadoEnvioPartes,
 } from "./enviar-por-partes";
+import { armarPartePdf } from "./armar-parte-pdf";
 import { imprimirPdfListo } from "./imprimir-pdf-listo";
 import type { ParteEnvio } from "./partir-paquete";
 import { registrarImpresionBatch } from "./registrar-impresion-batch";
@@ -76,11 +73,8 @@ export function enviarPaquete(input: {
       } else if (previa.resumenPdf) {
         // Impresión rápida sin OC: el PDF se arma aquí para numerar sus hojas («Hoja N de M»), a las
         // que remite «Desde la hoja» del resumen. El resumen va solo en la primera parte.
-        const { blob } = await buildOrdenTareaAlmacenLandscapePdfBlob(parte.hojas, {
-          codigoCuenta,
-          resumen: indice === 0 ? previa.resumenPdf : undefined,
-        });
-        enviado = await imprimirPdfListo(await numerarBlobPdf(blob, etiquetaParte), { codigoCuenta, nombreTrabajo });
+        const pdf = await armarPartePdf({ parte, indice, total: partes.length, resumenPdf: previa.resumenPdf, codigoCuenta });
+        enviado = await imprimirPdfListo(pdf, { codigoCuenta, nombreTrabajo });
       } else {
         // La impresión detallada no lleva resumen ni numera sus hojas.
         enviado = await printOrdenTareaAlmacenLandscape(parte.hojas, { codigoCuenta, resumen: undefined, etiquetaParte });

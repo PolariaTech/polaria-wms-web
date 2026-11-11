@@ -3,6 +3,9 @@
 import { ArrowLeft, Download, Loader2, Printer } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { ImpresionBatchDescargaPartes } from "./ImpresionBatchDescargaPartes";
+import { partesDe } from "./enviar-paquete";
+import type { PreviaBatch } from "./utilidades-batch";
 
 interface ImpresionBatchVistaPreviaProps {
   blob: Blob;
@@ -16,6 +19,11 @@ interface ImpresionBatchVistaPreviaProps {
   descripcionOrden?: string;
   /** Texto del botón para regresar a la pantalla anterior. */
   etiquetaVolver?: string;
+  /**
+   * Si el paquete va en varias partes, en vez de un solo botón de descarga hay uno por parte
+   * (el PDF de la vista previa solo trae la primera).
+   */
+  descargaPartes?: { previa: PreviaBatch; codigoCuenta: string };
   onVolver: () => void;
   onImprimir: () => void;
 }
@@ -32,12 +40,14 @@ export function ImpresionBatchVistaPrevia({
   nombreArchivo,
   descripcionOrden = "ordenadas por fecha y hora de entrega",
   etiquetaVolver = "Volver a la selección",
+  descargaPartes,
   onVolver,
   onImprimir,
 }: ImpresionBatchVistaPreviaProps) {
   const [url, setUrl] = useState<string | null>(null);
 
   const titulo = useRef<HTMLHeadingElement>(null);
+  const porPartes = descargaPartes !== undefined && partesDe(descargaPartes.previa).length > 1;
 
   useEffect(() => {
     const objectUrl = URL.createObjectURL(blob);
@@ -78,7 +88,7 @@ export function ImpresionBatchVistaPrevia({
             <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             {etiquetaVolver}
           </button>
-          {url ? (
+          {url && !porPartes ? (
             <a
               href={url}
               download={nombreArchivo}
@@ -111,6 +121,14 @@ export function ImpresionBatchVistaPrevia({
           </button>
         </div>
       </div>
+
+      {descargaPartes && porPartes ? (
+        <ImpresionBatchDescargaPartes
+          previa={descargaPartes.previa}
+          codigoCuenta={descargaPartes.codigoCuenta}
+          deshabilitado={imprimiendo}
+        />
+      ) : null}
 
       {url ? (
         <iframe

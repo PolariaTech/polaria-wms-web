@@ -12,7 +12,7 @@ import {
 } from "./render-resumen-impresion-pdf";
 
 function fila(n: number, extra: Partial<FilaResumenImpresion> = {}): FilaResumenImpresion {
-  return { venta: `OV-${n}`, cliente: `Cliente ${n}`, entrega: "05/11/2026", ot: 1, hojas: 1, ...extra };
+  return { venta: `OV-${n}`, cliente: `Cliente ${n}`, entrega: "05-NOV", ot: 1, hojas: 1, ...extra };
 }
 
 function resumen(filas: FilaResumenImpresion[]): ResumenImpresionPdf {
@@ -36,14 +36,39 @@ function pdfConDosHojas(): jsPDF {
 const contenido = (pdf: jsPDF, pagina: number): string =>
   (pdf.internal as unknown as { pages: string[][] }).pages[pagina]!.join("\n");
 
-describe("columna OT del resumen", () => {
-  it("escribe cuáles OT van de cada OV cuando la fila las trae, y solo la cantidad si no", () => {
+describe("columnas del resumen", () => {
+  it("la columna OT muestra solo el total de OT de cada OV", () => {
     const pdf = pdfConDosHojas();
-    anadirResumenAlPdf(pdf, resumen([fila(1, { ot: 4, otLista: "1-3, 5", hojas: 4 }), fila(2, { ot: 2 })]));
+    anadirResumenAlPdf(pdf, resumen([fila(1, { ot: 4, hojas: 4 }), fila(2, { ot: 7 })]));
 
     const texto = contenido(pdf, 1);
-    expect(texto).toContain("(1-3, 5) Tj");
-    expect(texto).toContain("(2) Tj");
+    expect(texto).toContain("(4) Tj");
+    expect(texto).toContain("(7) Tj");
+  });
+
+  it("no dibuja la columna «Hojas», pero las hojas siguen contando para los totales", () => {
+    const pdf = pdfConDosHojas();
+    anadirResumenAlPdf(pdf, resumen([fila(1, { hojas: 3 }), fila(2)]));
+
+    const texto = contenido(pdf, 1);
+    expect(texto).not.toContain("(Hojas) Tj");
+    expect(texto).toContain("4 hojas");
+  });
+
+  it("añade la columna «Orden de compra» con el número del cliente", () => {
+    const pdf = pdfConDosHojas();
+    anadirResumenAlPdf(pdf, resumen([fila(1, { ordenCliente: "OC-7788" }), fila(2)]));
+
+    const texto = contenido(pdf, 1);
+    expect(texto).toContain("(Orden de compra) Tj");
+    expect(texto).toContain("(OC-7788) Tj");
+  });
+
+  it("la fecha de entrega sale como la trae la fila, ya sin año", () => {
+    const pdf = pdfConDosHojas();
+    anadirResumenAlPdf(pdf, resumen([fila(1, { entrega: "03-NOV" })]));
+
+    expect(contenido(pdf, 1)).toContain("(03-NOV) Tj");
   });
 });
 
@@ -144,25 +169,25 @@ describe("anadirResumenAlPdf", () => {
     expect(contenido(pdf, 1)).not.toContain("Anonima");
   });
 
-  it("con OC añade la columna «OC» y «Desde la hoja» cuenta sus páginas", () => {
+  it("con OC añade la columna «Págs. OC» y «Desde la hoja» cuenta sus páginas", () => {
     const pdf = pdfConDosHojas();
 
     // Portada de 1 página: la OV A arranca en la 2, ocupa 1 hoja de OT + 3 de OC, y la OV B en la 6.
     anadirResumenAlPdf(pdf, resumen([fila(1, { hojas: 1, oc: 3 }), fila(2, { hojas: 1 })]));
 
     const primera = contenido(pdf, 1);
-    expect(primera).toContain("(OC) Tj");
+    expect(primera).toContain("(Págs. OC) Tj");
     const textos = [...primera.matchAll(/\((\d+|—)\) Tj/g)].map((m) => m[1]);
     expect(textos).toEqual(expect.arrayContaining(["2", "6", "3"]));
     expect(primera).toContain("3 p");
   });
 
-  it("sin OC no aparece la columna «OC»", () => {
+  it("sin OC no aparece la columna «Págs. OC»", () => {
     const pdf = pdfConDosHojas();
 
     anadirResumenAlPdf(pdf, resumen([fila(1), fila(2)]));
 
-    expect(contenido(pdf, 1)).not.toContain("(OC) Tj");
+    expect(contenido(pdf, 1)).not.toContain("(Págs. OC) Tj");
   });
 
   it("las notas de lo que no se pudo imprimir van en una hoja aparte, detrás de la tabla", () => {

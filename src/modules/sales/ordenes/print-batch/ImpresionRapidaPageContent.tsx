@@ -232,6 +232,7 @@ export function ImpresionRapidaPageContent() {
             nombreArchivo={previa.nombreArchivo}
             descripcionOrden={descripcionDeLaVista(previa)}
             etiquetaVolver="Cambiar la fecha"
+            descargaPartes={codigoCuenta ? { previa, codigoCuenta } : undefined}
             onVolver={() => {
               setPrevia(null);
               setError(null);
