@@ -91,8 +91,8 @@ export function ImpresionBatchPageContent() {
 
   const rows = useMemo(() => data ?? [], [data]);
   const clientes = useMemo(() => clientesDeOv(rows), [rows]);
-  // El registro de impresiones solo se lee cuando el operador filtra por «sin imprimir» o «ya impresas».
-  const yaImpresas = useYaImpresas({ codigoCuenta, rows, runScoped, activo: filtros.impresion !== "todas" });
+  // El registro de impresiones se lee en cuanto llega la lista, para que las marcas y los totales estén listos.
+  const yaImpresas = useYaImpresas({ codigoCuenta, rows, runScoped, activo: true });
   const visibles = useMemo(
     () => ordenarOvPorEntrega(filtrarOvBatch(rows, filtros, yaImpresas.ids ?? undefined)),
     [rows, filtros, yaImpresas.ids],

@@ -192,13 +192,17 @@ describe("ImpresionBatchPageContent: reimprimir lo ya impreso (REQ-298)", () => 
     );
   });
 
-  it("al nacer muestra todas las órdenes (botón «Todas») y no lee ningún registro de impresiones", async () => {
+  it("al abrir la pantalla lee el registro solo, marca las impresas y da los totales sin tocar ningún filtro", async () => {
     render(<ImpresionBatchPageContent />);
 
     await screen.findByText("OV-a");
 
+    expect(await screen.findByRole("button", { name: "Ya impresas (1)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Todas (3)" })).toHaveAttribute("aria-pressed", "true");
-    expect(fetchLog).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Sin imprimir (2)" })).toBeInTheDocument();
+    expect(screen.getByText("OV-a").closest("li")).toHaveTextContent("Impresa");
+    expect(screen.getByText("OV-b").closest("li")).not.toHaveTextContent("Impresa");
+    expect(fetchLog).toHaveBeenCalledTimes(3);
   });
 
   it("«Sin imprimir» quita las que ya se imprimieron y «Ya impresas» deja solo esas", async () => {
