@@ -68,6 +68,7 @@
 - `src/modules/sales/ordenes/hooks/reset-formulario-ov.ts` — autorizada por el usuario el 2026-11-11
 - `package-lock.json` — autorizada por el usuario el 2026-11-11
 - `src/modules/sales/ordenes/surtido/estado-fotos/estado-fotos.logic.test.ts` — autorizada por el usuario el 2026-11-11
+- `src/modules/sales/ordenes/print/orden-tarea-almacen.test.ts` — autorizada por el usuario el 2026-11-11
 
 ### Compartidos (cambio mínimo y aviso)
 - `package.json`
