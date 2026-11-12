@@ -81,6 +81,7 @@
 - `src/modules/sales/ordenes/components/pages/OperadorOrdenesVentaPageContent.tsx`
 - `src/modules/sales/ordenes/hooks/sync-ot-formulario.ts`
 - `src/modules/sales/ordenes/hooks/aplicar-reagrupacion-ov.ts`
+- `src/modules/sales/ordenes/types/orden-venta-create-modal.types.ts` — autorizada por el usuario el 2026-11-12
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/ordenes/utils/origen/texto-origen-pedido.ts`
