@@ -1,0 +1,27 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildMaterializeOvDesdeOrigenPlan — renglón sin match y cantidad 0 > omite cantidad 0, anota el sin match y materializa el renglón válido 1`] = `
+{
+  "centroConsumo": "Cocina",
+  "contactoEntrega": null,
+  "fechaEntrega": "2026-11-12",
+  "idComprador": "c-ejemplo",
+  "lineas": [
+    {
+      "aliasCliente": "BROCOLI",
+      "cantidadPedida": 10,
+      "codigoProductoCliente": "",
+      "especificacion": "",
+      "idProducto": "p-brocoli",
+      "nombreProducto": "BROCOLI",
+      "precioUnitario": 33,
+      "unidadMedida": "kg",
+    },
+  ],
+  "nombreClienteOrigen": "Hotel Ejemplo Cancún",
+  "ordenCompraHotel": "OC-EJEMPLO-001",
+  "sinMatchProductos": [
+    "CEBOLLA BLANCA KG",
+  ],
+}
+`;
