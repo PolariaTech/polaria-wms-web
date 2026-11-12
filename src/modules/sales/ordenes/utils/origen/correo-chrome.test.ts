@@ -43,8 +43,8 @@ describe("correo-chrome", () => {
       from: "Francisco <fmora@pamhotels.com>",
       subject: "HOTEL UNICO || OC 4502982532",
     });
-    const ia = "Buen día Estimado proveedor,";
-    const out = mergeCorreoChromeIntoTexto(`${eml}\n\n${ia}`, ia);
+    const cuerpoIa = "Buen día Estimado proveedor,";
+    const out = mergeCorreoChromeIntoTexto(`${eml}\n\n${cuerpoIa}`, cuerpoIa);
     expect(out).toContain("fmora@pamhotels.com");
     expect(out).toContain("HOTEL UNICO");
     expect(out).toContain("Buen día");

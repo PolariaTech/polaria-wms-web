@@ -112,9 +112,9 @@ describe("resolveTextoProductoOrigen (REQ-309: Solicitado de otro renglón)", ()
   });
 
   it("control: match_producto.textoCliente sigue mandando", () => {
-    const l = { ...linea("CHILE MORRON VERDE", 3), match_producto: { textoCliente: "Chile verde (texto del cliente)" } };
+    const lineaConMatch = { ...linea("CHILE MORRON VERDE", 3), match_producto: { textoCliente: "Chile verde (texto del cliente)" } };
     expect(
-      resolveTextoProductoOrigen({ linea: l as never, origenRenglones: renglones }),
+      resolveTextoProductoOrigen({ linea: lineaConMatch as never, origenRenglones: renglones }),
     ).toBe("Chile verde (texto del cliente)");
   });
 });

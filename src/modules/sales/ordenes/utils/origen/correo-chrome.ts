@@ -20,12 +20,12 @@ export type CorreoChromeParsed = CorreoChrome & { body: string };
 export function formatMailAddress(value: unknown): string | undefined {
   if (value == null) return undefined;
   if (typeof value === "string") {
-    const t = value.trim();
-    return t || undefined;
+    const trimmed = value.trim();
+    return trimmed || undefined;
   }
   if (typeof value === "object" && "text" in value) {
-    const t = String((value as { text?: unknown }).text ?? "").trim();
-    return t || undefined;
+    const trimmed = String((value as { text?: unknown }).text ?? "").trim();
+    return trimmed || undefined;
   }
   return undefined;
 }
@@ -46,7 +46,7 @@ export function parseCorreoChromeFromText(raw: string): CorreoChromeParsed {
   const from =
     text.match(/^(?:\*+)?(?:De|From)(?:\*+)?\s*:\s*(.+)$/im)?.[1]?.trim() ||
     undefined;
-  const to =
+  const para =
     text.match(/^(?:\*+)?(?:Para|To)(?:\*+)?\s*:\s*(.+)$/im)?.[1]?.trim() ||
     undefined;
   const subject =
@@ -55,21 +55,21 @@ export function parseCorreoChromeFromText(raw: string): CorreoChromeParsed {
     )?.[1]?.trim() || undefined;
 
   let body = text;
-  if (from || to || subject) {
+  if (from || para || subject) {
     body = text
       .split("\n")
       .filter((line) => {
-        const t = line.trim();
-        if (!t) return true;
+        const trimmed = line.trim();
+        if (!trimmed) return true;
         return !/^(?:\*+)?(?:De|From|Para|To|Asunto|Subject|Date|Fecha|Cc|Cco|Bcc|Enviado el|Sent)(?:\*+)?\s*:/i.test(
-          t,
+          trimmed,
         );
       })
       .join("\n")
       .trim();
   }
 
-  return { from, to, subject, body: body || text };
+  return { from, to: para, subject, body: body || text };
 }
 
 /**
@@ -78,7 +78,7 @@ export function parseCorreoChromeFromText(raw: string): CorreoChromeParsed {
  */
 export function withCorreoChromePreserved(
   raw: string,
-  cleanBody: (s: string) => string,
+  cleanBody: (cuerpo: string) => string,
 ): string {
   const chrome = parseCorreoChromeFromText(raw);
   const cleaned = cleanBody(chrome.body || raw).trim();

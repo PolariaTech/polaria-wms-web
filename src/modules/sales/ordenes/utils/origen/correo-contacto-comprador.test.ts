@@ -5,7 +5,7 @@ import {
   quitarBloqueProveedor,
 } from "./correo-contacto-comprador";
 
-const OC = [
+const textoOc = [
   "PO NUMBER : CUNQR0000001 Status: Fax/email/csv accepted",
   "Supplier: Proveedor de Prueba SA de CV(Direct)",
   "Calle Falsa 123",
@@ -33,7 +33,7 @@ describe("esCorreoProveedor (REQ-310)", () => {
 
 describe("quitarBloqueProveedor (REQ-310)", () => {
   it("quita el bloque Supplier hasta Bill To y conserva el resto", () => {
-    const limpio = quitarBloqueProveedor(OC);
+    const limpio = quitarBloqueProveedor(textoOc);
     expect(limpio).not.toContain("aguacatesdepuebla");
     expect(limpio).not.toContain("Calle Falsa");
     expect(limpio).toContain("Bill To: Hotel Ejemplo");
@@ -48,7 +48,7 @@ describe("quitarBloqueProveedor (REQ-310)", () => {
 
 describe("correoDelBloqueEnviadoPor (REQ-310)", () => {
   it("devuelve el correo del bloque Sent From", () => {
-    expect(correoDelBloqueEnviadoPor(OC)).toBe("compras@ejemplo.com");
+    expect(correoDelBloqueEnviadoPor(textoOc)).toBe("compras@ejemplo.com");
   });
 
   it("devuelve null si no hay bloque o si solo trae correos del proveedor", () => {

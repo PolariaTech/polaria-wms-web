@@ -16,15 +16,15 @@ function isArchSku(sku: string | null | undefined): boolean {
 function parseCantidad(value: number | string | undefined): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
-    const n = Number(value.replace(",", ".").trim());
-    return Number.isFinite(n) ? n : 0;
+    const numero = Number(value.replace(",", ".").trim());
+    return Number.isFinite(numero) ? numero : 0;
   }
   return 0;
 }
 
-function namesLooselyMatch(a: string, b: string): boolean {
-  const left = a.trim().toLowerCase();
-  const right = b.trim().toLowerCase();
+function namesLooselyMatch(nombreA: string, nombreB: string): boolean {
+  const left = nombreA.trim().toLowerCase();
+  const right = nombreB.trim().toLowerCase();
   if (!left || !right) return false;
   if (left === right || left.includes(right) || right.includes(left)) {
     return true;
@@ -36,10 +36,10 @@ function namesLooselyMatch(a: string, b: string): boolean {
       .split(/[^a-z0-9]+/i)
       .map((t) => t.trim())
       .filter((t) => t.length >= 4);
-  const ta = tokens(left);
-  const tb = tokens(right);
-  if (ta.length === 0 || tb.length === 0) return false;
-  const shared = ta.filter((t) => tb.includes(t));
+  const tokensLeft = tokens(left);
+  const tokensRight = tokens(right);
+  if (tokensLeft.length === 0 || tokensRight.length === 0) return false;
+  const shared = tokensLeft.filter((t) => tokensRight.includes(t));
   return shared.some((t) => t.length >= 5);
 }
 

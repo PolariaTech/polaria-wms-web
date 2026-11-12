@@ -62,8 +62,8 @@ export function resolveEspecificacionPedidoLinea(params: {
   }
 
   if (domo) {
-    const already = parts.some((p) =>
-      quitarAcentos(p).toLowerCase().includes(quitarAcentos(domo).toLowerCase()),
+    const already = parts.some((parte) =>
+      quitarAcentos(parte).toLowerCase().includes(quitarAcentos(domo).toLowerCase()),
     );
     const iaYaTrae = quitarAcentos(textoIa)
       .toLowerCase()
@@ -80,8 +80,8 @@ export function resolveEspecificacionPedidoLinea(params: {
       Boolean(domo) && quitarAcentos(textoIa) === quitarAcentos(domo);
     const iaEsEnvase = Boolean(envaseTxt) && pareceFraseEnvase(textoIa);
     if (!iaEsSoloMadurez && !iaEsSoloDomo && !iaEsEnvase) {
-      const already = parts.some((p) =>
-        quitarAcentos(p).includes(quitarAcentos(textoIa)),
+      const already = parts.some((parte) =>
+        quitarAcentos(parte).includes(quitarAcentos(textoIa)),
       );
       if (!already) parts.push(textoIa);
     }

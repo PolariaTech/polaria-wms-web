@@ -36,8 +36,8 @@ function norm(value: string | null | undefined): string {
 function parseCantidad(value: number | string | undefined): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
-    const n = Number(value.replace(",", ".").trim());
-    return Number.isFinite(n) ? n : 0;
+    const numero = Number(value.replace(",", ".").trim());
+    return Number.isFinite(numero) ? numero : 0;
   }
   return 0;
 }
@@ -63,8 +63,8 @@ function labelFromGroup(
 
   let destino = almacen;
   if (!destino && ref) {
-    const m = ref.match(/FYV\s+(.+?)\s+PARA\s+ENTREGA/i);
-    destino = m?.[1]?.trim() || ref;
+    const matchFyv = ref.match(/FYV\s+(.+?)\s+PARA\s+ENTREGA/i);
+    destino = matchFyv?.[1]?.trim() || ref;
   }
 
   if (pedido && destino) return `${pedido} — ${destino}`;
@@ -134,14 +134,14 @@ export function createEmptyOrdenTrabajoHija(input?: {
   referenciaPedido?: string;
   responsableExterno?: string;
 }): OrdenTrabajoHija {
-  const id = norm(input?.id) || newManualOtId();
+  const idOt = norm(input?.id) || newManualOtId();
   const almacen = norm(input?.almacen);
   const numeroPedido = norm(input?.numeroPedido);
   const fecha = norm(input?.fecha);
   const referenciaPedido = norm(input?.referenciaPedido);
   const responsableExterno = norm(input?.responsableExterno);
   const renglon: OrigenCorreoRenglon = {
-    _otId: id,
+    _otId: idOt,
     Almacen: almacen,
     "Numero pedido": numeroPedido,
     Fecha: fecha,
@@ -155,7 +155,7 @@ export function createEmptyOrdenTrabajoHija(input?: {
       ? `${numeroPedido} — ${almacen}`
       : almacen || numeroPedido) || "Nueva orden de trabajo";
   return {
-    id,
+    id: idOt,
     label,
     numeroPedido,
     almacen,

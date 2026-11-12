@@ -118,7 +118,7 @@ export function agregarFrasesOrigenSinRepetir(params: {
 export function textoEspecificacionTrasFiltroSolicitado(
   partes: readonly string[],
   solicitado: string,
-  ia: string,
+  textoIa: string,
 ): string {
   const visibles = partes.filter(
     (parte) =>
@@ -126,5 +126,5 @@ export function textoEspecificacionTrasFiltroSolicitado(
   );
   if (visibles.length > 0) return visibles.join(" · ");
   if (partes.length > 0) return "";
-  return ia;
+  return textoIa;
 }

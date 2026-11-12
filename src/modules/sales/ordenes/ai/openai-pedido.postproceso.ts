@@ -67,8 +67,8 @@ function coerceProductoCatalogo(
   const raw = value.trim();
   if (catalogoClaves.includes(raw)) return raw;
 
-  const normalize = (s: string) =>
-    s
+  const normalize = (texto: string) =>
+    texto
       .trim()
       .toLowerCase()
       .normalize("NFD")

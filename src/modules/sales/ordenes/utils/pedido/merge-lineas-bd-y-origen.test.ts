@@ -95,17 +95,17 @@ describe("mergeLineasBdConOrigenPendiente (REQ-236)", () => {
 
 describe("mergeLineasBdConOrigenPendiente — renglón descartado al materializar (REQ-309, OV-1569)", () => {
   const hija = () => {
-    const h = createEmptyOrdenTrabajoHija({ id: "ot-1", almacen: "Cocina" });
-    h.renglones = [
+    const hijaOt = createEmptyOrdenTrabajoHija({ id: "ot-1", almacen: "Cocina" });
+    hijaOt.renglones = [
       { Producto: "Jugo de Limón fresco galón de 5 litros", Cantidad: 1, Especificacion: "Fresco" },
       { Producto: "Pimiento morrón ROJO por kilo", Cantidad: 5, Especificacion: "Limpio, sin cáscara" },
       { Producto: "Ajo limpio por kilo en BOTE", Cantidad: 2, Especificacion: "En bote" },
     ];
-    return h;
+    return hijaOt;
   };
   const fusionar = (lineasBd: LineaVentaForm[]) => {
-    const h = hija();
-    return mergeLineasBdConOrigenPendiente({ lineasBd, hijas: [h], origenRows: h.renglones, productos: [] });
+    const hijaOt = hija();
+    return mergeLineasBdConOrigenPendiente({ lineasBd, hijas: [hijaOt], origenRows: hijaOt.renglones, productos: [] });
   };
 
   it("el pendiente es el pimiento descartado: no se pierde ni se duplica el jugo", () => {

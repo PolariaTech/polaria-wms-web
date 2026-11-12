@@ -69,10 +69,10 @@ function mostFrequent(values: string[]): string | null {
   }
   let best: string | null = null;
   let bestN = 0;
-  for (const [key, n] of counts) {
-    if (n > bestN) {
+  for (const [key, veces] of counts) {
+    if (veces > bestN) {
       best = key;
-      bestN = n;
+      bestN = veces;
     }
   }
   return best;

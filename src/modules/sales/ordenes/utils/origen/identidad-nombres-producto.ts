@@ -44,22 +44,22 @@ export function coloresDeNombre(texto: string | null | undefined): Set<string> {
 
 /** True si los dos nombres nombran colores y no comparten ninguno (verde ≠ rojo). */
 export function nombresContradicenPorColor(
-  a: string | null | undefined,
-  b: string | null | undefined,
+  nombreA: string | null | undefined,
+  nombreB: string | null | undefined,
 ): boolean {
-  const coloresA = coloresDeNombre(a);
-  const coloresB = coloresDeNombre(b);
+  const coloresA = coloresDeNombre(nombreA);
+  const coloresB = coloresDeNombre(nombreB);
   if (coloresA.size === 0 || coloresB.size === 0) return false;
   return ![...coloresA].some((color) => coloresB.has(color));
 }
 
 /** Los dos nombres tienen las mismas palabras significativas (sin importar el orden). */
 export function nombresIguales(
-  a: string | null | undefined,
-  b: string | null | undefined,
+  nombreA: string | null | undefined,
+  nombreB: string | null | undefined,
 ): boolean {
-  const palabrasA = [...new Set(palabrasDeNombre(a))].sort();
-  const palabrasB = [...new Set(palabrasDeNombre(b))].sort();
+  const palabrasA = [...new Set(palabrasDeNombre(nombreA))].sort();
+  const palabrasB = [...new Set(palabrasDeNombre(nombreB))].sort();
   return (
     palabrasA.length > 0 &&
     palabrasA.length === palabrasB.length &&
@@ -72,12 +72,12 @@ export function nombresIguales(
  * -1 si se contradicen por color.
  */
 export function afinidadDeNombres(
-  a: string | null | undefined,
-  b: string | null | undefined,
+  nombreA: string | null | undefined,
+  nombreB: string | null | undefined,
 ): number {
-  if (nombresContradicenPorColor(a, b)) return -1;
-  const palabrasA = new Set(palabrasDeNombre(a));
-  const palabrasB = new Set(palabrasDeNombre(b));
+  if (nombresContradicenPorColor(nombreA, nombreB)) return -1;
+  const palabrasA = new Set(palabrasDeNombre(nombreA));
+  const palabrasB = new Set(palabrasDeNombre(nombreB));
   if (palabrasA.size === 0 || palabrasB.size === 0) return 0;
   let comunes = 0;
   for (const palabra of palabrasA) if (palabrasB.has(palabra)) comunes += 1;
