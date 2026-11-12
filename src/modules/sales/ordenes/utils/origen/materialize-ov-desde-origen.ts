@@ -223,6 +223,7 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
           especificacionIa: niveles[index] ?? null,
           envase: converted,
           textoOriginal: alias,
+          especificacionOrigen: renglon.Especificacion,
         }),
         piezas,
       ),

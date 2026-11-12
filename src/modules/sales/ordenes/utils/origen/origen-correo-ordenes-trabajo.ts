@@ -48,6 +48,8 @@ export interface OrigenCorreoRenglon {
   "Correo contacto"?: string;
   /** Prioridad del pedido (Normal / Urgente). */
   Prioridad?: string;
+  /** REQ-287: lo que el cliente pide del producto (sin penacho, limpio, en bote…), como lo leyó Mateo. */
+  Especificacion?: string;
   /** Notas generales / instrucciones de entrega. */
   "Notas generales"?: string;
   /** Índice en el array original / vínculo con línea del formulario. */

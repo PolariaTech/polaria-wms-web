@@ -4,6 +4,10 @@ import type {
   OrdenTrabajoHija,
   OrigenCorreoRenglon,
 } from "../origen/origen-correo-ordenes-trabajo";
+import {
+  nombresContradicenPorColor,
+  nombresIguales,
+} from "../origen/identidad-nombres-producto";
 
 function isArchSku(sku: string | null | undefined): boolean {
   return Boolean(sku?.trim().toUpperCase().startsWith("ARCH-"));
@@ -64,10 +68,11 @@ export function resolveSkuVisible(input: {
     const codigo = (row["Codigo producto"] ?? "").trim();
     if (!codigo || !prod) continue;
     if (!namesLooselyMatch(titulo, prod)) continue;
+    if (nombresContradicenPorColor(titulo, prod)) continue;
     const rowQty = parseCantidad(row.Cantidad);
-    let score = 1;
-    if (rowQty > 0 && Math.abs(rowQty - qty) < 0.001) score = 3;
-    else if (rowQty > 0 && Math.abs(rowQty - qty) / rowQty < 0.05) score = 2;
+    let score = nombresIguales(titulo, prod) ? 4 : 1;
+    if (rowQty > 0 && Math.abs(rowQty - qty) < 0.001) score += 2;
+    else if (rowQty > 0 && Math.abs(rowQty - qty) / rowQty < 0.05) score += 1;
     if (!best || score > best.score) {
       best = { codigo, score };
     }
@@ -100,10 +105,11 @@ export function resolveTextoProductoOrigen(input: {
     const prod = (row.Producto ?? "").trim();
     if (!prod) continue;
     if (!namesLooselyMatch(titulo, prod)) continue;
+    if (nombresContradicenPorColor(titulo, prod)) continue;
     const rowQty = parseCantidad(row.Cantidad);
-    let score = 1;
-    if (rowQty > 0 && Math.abs(rowQty - qty) < 0.001) score = 3;
-    else if (rowQty > 0 && Math.abs(rowQty - qty) / rowQty < 0.05) score = 2;
+    let score = nombresIguales(titulo, prod) ? 4 : 1;
+    if (rowQty > 0 && Math.abs(rowQty - qty) < 0.001) score += 2;
+    else if (rowQty > 0 && Math.abs(rowQty - qty) / rowQty < 0.05) score += 1;
     if (!best || score > best.score) {
       best = { producto: prod, score };
     }
