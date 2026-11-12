@@ -87,6 +87,7 @@
 - `src/modules/sales/ordenes/hooks/useOtOv.ts` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/hooks/useLineasOv.ts` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/hooks/useLineasOv.test.ts` — autorizada por el usuario el 2026-11-12
+- `src/modules/sales/ordenes/utils/pedido/map-detalle-lineas-a-form.ts` — autorizada por el usuario el 2026-11-12
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/ordenes/utils/origen/texto-origen-pedido.ts`
