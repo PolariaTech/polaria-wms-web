@@ -95,6 +95,7 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.test.tsx` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.req-225.test.tsx` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/utils/pedido/payload-envio-ov.test.ts` — autorizada por el usuario el 2026-11-12
+- `src/modules/sales/ordenes/hooks/validar-envio-ov.test.ts` — autorizada por el usuario el 2026-11-12
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/ordenes/utils/origen/texto-origen-pedido.ts`
