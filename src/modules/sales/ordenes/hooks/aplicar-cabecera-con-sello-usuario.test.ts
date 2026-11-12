@@ -3,6 +3,7 @@ import {
   notasCanonConSelloUsuario,
   resolverCabeceraFormConSelloUsuario,
 } from "./aplicar-cabecera-con-sello-usuario";
+import { resolveCabeceraGuardada } from "../utils/pedido/resolve-cabecera-guardada";
 import { sellarCabeceraUsuarioEnOrigen } from "../utils/pedido/sellar-edicion-usuario-origen";
 
 describe("resolverCabeceraFormConSelloUsuario (REQ-281)", () => {
@@ -63,8 +64,8 @@ describe("resolverCabeceraFormConSelloUsuario (REQ-281)", () => {
   });
 });
 
-describe("notasCanonConSelloUsuario (REQ-281)", () => {
-  it("sin sello puede re-extraer; con sello vacío queda vacío", () => {
+describe("notasCanonConSelloUsuario (REQ-281 / REQ-141)", () => {
+  it("con sello vacío queda vacío", () => {
     const conSello = sellarCabeceraUsuarioEnOrigen(
       [{ Producto: "X", Cantidad: 1 }],
       {
@@ -85,6 +86,45 @@ describe("notasCanonConSelloUsuario (REQ-281)", () => {
         observacionesOv: "",
         origenTexto: "Maduro · andén 3",
       }),
+    ).toBe("");
+  });
+
+  it("REQ-141: sin sello, notas_almacen vacío + captura no reinyecta el correo", () => {
+    expect(
+      notasCanonConSelloUsuario({
+        origenCorreoRows: [
+          {
+            Producto: "X",
+            Cantidad: 1,
+            "Notas generales": "Adjunto le remito la orden",
+          },
+        ],
+        notasAlmacen: "",
+        observacionesOv: "Fecha de entrega: 2026-10-30",
+        origenTexto:
+          "Adjunto le remito la orden de compra. En caso de haber faltantes, favor de mencionar.",
+      }),
+    ).toBe("");
+  });
+
+  it("REQ-141: resolveCabeceraGuardada no revive notas si notas_almacen vacío con captura", () => {
+    expect(
+      resolveCabeceraGuardada({
+        detalle: {
+          orden_compra_hotel: "OCC-1",
+          notas_almacen: "",
+          observaciones: "Fecha entrega: 2026-10-30",
+          origen_texto: "Adjunto le remito la orden de compra.",
+        },
+        filasOrigen: [
+          { "Notas generales": "" },
+          { "Notas generales": "Adjunto le remito la orden" },
+        ],
+        propuesta: {
+          observaciones: "Adjunto le remito la orden de compra.",
+          ordenCompraHotel: "OCC-1",
+        },
+      }).observaciones,
     ).toBe("");
   });
 });

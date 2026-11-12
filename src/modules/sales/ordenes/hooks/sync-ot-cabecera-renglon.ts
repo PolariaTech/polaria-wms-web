@@ -1,4 +1,7 @@
-import type { OrigenCorreoRenglon } from "../utils/origen/origen-correo-ordenes-trabajo";
+import type {
+  OrdenTrabajoHija,
+  OrigenCorreoRenglon,
+} from "../utils/origen/origen-correo-ordenes-trabajo";
 import { isGarbageOcValue } from "../utils/pedido/normalize-numero-pedido";
 
 /** Campos de cabecera del form que se escriben en el renglón de la OT activa (REQ-281). */
@@ -16,6 +19,65 @@ export type CabeceraFormParaOt = {
   notasOt: string;
   prioridadOt: string;
 };
+
+function renglonesBase(hija: OrdenTrabajoHija): OrigenCorreoRenglon[] {
+  return hija.renglones.length > 0
+    ? hija.renglones
+    : [{ Producto: "", Cantidad: 0 }];
+}
+
+/**
+ * REQ-141: sin OT activa (multi-OT sin pager), igual limpia/propaga cabecera OV
+ * (notas, contacto, tel, correo, dirección) en todas las hijas.
+ */
+export function propagarCabeceraOvATodasLasHijas(
+  hijas: OrdenTrabajoHija[],
+  cabecera: Pick<
+    CabeceraFormParaOt,
+    "notasOt" | "direccionOt" | "telefonoOt" | "correoOt" | "responsableExterno"
+  >,
+): OrdenTrabajoHija[] {
+  return hijas.map((hija) => ({
+    ...hija,
+    renglones: renglonesBase(hija).map((row) =>
+      aplicarCabeceraOvARenglonHermano(row, cabecera),
+    ),
+  }));
+}
+
+/** Sync form → OT activa + cabecera OV a hermanas (REQ-141 / REQ-281). */
+export function aplicarCabeceraFormAOrdenesTrabajo(
+  hijas: OrdenTrabajoHija[],
+  targetHijaId: string,
+  cabecera: CabeceraFormParaOt,
+): OrdenTrabajoHija[] {
+  return hijas.map((hija) => {
+    if (hija.id !== targetHijaId) {
+      return {
+        ...hija,
+        renglones: renglonesBase(hija).map((row) =>
+          aplicarCabeceraOvARenglonHermano(row, cabecera),
+        ),
+      };
+    }
+    const renglones = renglonesBase(hija).map((row) =>
+      aplicarCabeceraFormARenglonActivo(row, cabecera),
+    );
+    const label =
+      (cabecera.numeroPedido && cabecera.almacen
+        ? `${cabecera.numeroPedido} — ${cabecera.almacen}`
+        : cabecera.almacen || cabecera.numeroPedido) || hija.label;
+    return {
+      ...hija,
+      almacen: cabecera.almacen,
+      numeroPedido: cabecera.numeroPedido,
+      fecha: cabecera.fecha,
+      responsableExterno: cabecera.responsableExterno,
+      label,
+      renglones,
+    };
+  });
+}
 
 /**
  * REQ-281: el form manda, incluido el vacío (antes `||` dejaba el valor viejo del origen).

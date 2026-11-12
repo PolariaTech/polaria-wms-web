@@ -28,8 +28,8 @@ import { hasOtPagerRequiredBlocking } from "../utils/ot/ot-pager-required";
 import { todayIsoDate } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { normalizeEstadoOrdenVenta } from "../../shared/constants/sales-status";
 import {
-  aplicarCabeceraFormARenglonActivo,
-  aplicarCabeceraOvARenglonHermano,
+  aplicarCabeceraFormAOrdenesTrabajo,
+  propagarCabeceraOvATodasLasHijas,
 } from "./sync-ot-cabecera-renglon";
 import { useRevisionPendienteOv } from "./aplicar-correccion-correo-ov";
 
@@ -117,66 +117,30 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
         : !paginarPorOt && ordenesTrabajoForm.length === 1
           ? ordenesTrabajoForm[0]
           : null;
-    if (!targetHija) return ordenesTrabajoForm;
 
-    const almacen = centroConsumo.trim();
-    const numeroPedido = ordenCompraHotel.trim();
-    const fecha = fechaEntrega.trim();
-    const responsableExterno = contacto.trim();
-    const telefonoOt = telefono.trim();
-    const correoOt = correo.trim();
-    const direccionOt = direccion.trim();
-    const andenOt = anden.trim();
-    const ventanaDesdeOt = ventanaDesde.trim();
-    const ventanaHastaOt = ventanaHasta.trim();
-    const notasOt = observaciones.trim();
-    const prioridadOt = prioridad.trim();
-
-    const cabecera = {
-      almacen,
-      numeroPedido,
-      fecha,
-      responsableExterno,
-      telefonoOt,
-      correoOt,
-      direccionOt,
-      andenOt,
-      ventanaDesdeOt,
-      ventanaHastaOt,
-      notasOt,
-      prioridadOt,
+    const cabeceraOv = {
+      responsableExterno: contacto.trim(),
+      telefonoOt: telefono.trim(),
+      correoOt: correo.trim(),
+      direccionOt: direccion.trim(),
+      notasOt: observaciones.trim(),
     };
 
-    return ordenesTrabajoForm.map((hija) => {
-      // REQ-141 / REQ-112 / REQ-281: cabecera de OV — propagar a todas las OT.
-      if (hija.id !== targetHija.id) {
-        return {
-          ...hija,
-          renglones: (
-            hija.renglones.length > 0
-              ? hija.renglones
-              : [{ Producto: "", Cantidad: 0 }]
-          ).map((row) => aplicarCabeceraOvARenglonHermano(row, cabecera)),
-        };
-      }
-      const renglones = (
-        hija.renglones.length > 0
-          ? hija.renglones
-          : [{ Producto: "", Cantidad: 0 }]
-      ).map((row) => aplicarCabeceraFormARenglonActivo(row, cabecera));
-      const label =
-        (numeroPedido && almacen
-          ? `${numeroPedido} — ${almacen}`
-          : almacen || numeroPedido) || hija.label;
-      return {
-        ...hija,
-        almacen,
-        numeroPedido,
-        fecha,
-        responsableExterno,
-        label,
-        renglones,
-      };
+    // Multi-OT sin pager: igual propagar cabecera OV (notas/contacto/…) a todas.
+    if (!targetHija) {
+      if (ordenesTrabajoForm.length === 0) return ordenesTrabajoForm;
+      return propagarCabeceraOvATodasLasHijas(ordenesTrabajoForm, cabeceraOv);
+    }
+
+    return aplicarCabeceraFormAOrdenesTrabajo(ordenesTrabajoForm, targetHija.id, {
+      almacen: centroConsumo.trim(),
+      numeroPedido: ordenCompraHotel.trim(),
+      fecha: fechaEntrega.trim(),
+      andenOt: anden.trim(),
+      ventanaDesdeOt: ventanaDesde.trim(),
+      ventanaHastaOt: ventanaHasta.trim(),
+      prioridadOt: prioridad.trim(),
+      ...cabeceraOv,
     });
   }, [
     anden,

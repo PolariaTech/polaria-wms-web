@@ -3,6 +3,7 @@ import type { OrigenCorreoRenglon } from "../utils/origen/origen-correo-ordenes-
 import {
   aplicarCabeceraFormARenglonActivo,
   aplicarCabeceraOvARenglonHermano,
+  propagarCabeceraOvATodasLasHijas,
 } from "./sync-ot-cabecera-renglon";
 
 const base: OrigenCorreoRenglon = {
@@ -89,5 +90,51 @@ describe("aplicarCabeceraOvARenglonHermano (REQ-281)", () => {
     expect(next["Correo contacto"]).toBe("");
     expect(next["Responsable externo"]).toBe("");
     expect(next.Almacen).toBe("COCINA A");
+  });
+});
+
+describe("propagarCabeceraOvATodasLasHijas (REQ-141)", () => {
+  it("limpia notas en todas las OT aunque no haya OT activa/pager", () => {
+    const hijas = [
+      {
+        id: "ot-1",
+        label: "1",
+        numeroPedido: "A",
+        almacen: "COCINA A",
+        referenciaPedido: "",
+        fecha: "",
+        responsableExterno: "Ana",
+        renglones: [{ ...base }],
+        totalCantidad: 1,
+      },
+      {
+        id: "ot-2",
+        label: "2",
+        numeroPedido: "B",
+        almacen: "COCINA B",
+        referenciaPedido: "",
+        fecha: "",
+        responsableExterno: "Luis",
+        renglones: [
+          {
+            ...base,
+            Almacen: "COCINA B",
+            "Notas generales": "otras notas",
+          },
+        ],
+        totalCantidad: 1,
+      },
+    ];
+    const next = propagarCabeceraOvATodasLasHijas(hijas, {
+      notasOt: "",
+      direccionOt: "",
+      telefonoOt: "",
+      correoOt: "",
+      responsableExterno: "",
+    });
+    expect(next[0]?.renglones[0]?.["Notas generales"]).toBe("");
+    expect(next[1]?.renglones[0]?.["Notas generales"]).toBe("");
+    expect(next[0]?.almacen).toBe("COCINA A");
+    expect(next[1]?.almacen).toBe("COCINA B");
   });
 });
