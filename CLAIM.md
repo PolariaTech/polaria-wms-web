@@ -91,6 +91,8 @@
 - `src/modules/sales/ordenes/utils/origen/correo-chrome.test.ts`
 - `src/modules/sales/ordenes/utils/origen/pedido-from-origen-correo.ts`
 - `src/modules/sales/ordenes/components/pages/OperadorOrdenesVentaPageContent.tsx`
+- `src/modules/sales/ordenes/hooks/sync-ot-formulario.ts` — autorizada por el usuario el 2026-11-12
+- `src/modules/sales/ordenes/hooks/aplicar-reagrupacion-ov.ts` — autorizada por el usuario el 2026-11-12
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/ordenes/ai/openai-pedido.client.ts`
