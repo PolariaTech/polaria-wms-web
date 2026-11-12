@@ -119,7 +119,7 @@ export const SUSTITUCIONES = [
 export const SI_NO = ["Sí", "No"] as const;
 
 // Modelos que ya se confirmó (en este proceso) que rechazan `temperature` personalizado
-// — ver el bloque de manejo de error en extraerPedido() más abajo.
+// — ver el bloque de manejo de error en extraerPedido() (openai-pedido.client.ts).
 export const MODELOS_SIN_TEMPERATURA = new Set<string>();
 
 // Lo que la IA puede decidir es SOLO interpretación de lenguaje (qué dice el texto,

@@ -3,8 +3,8 @@ import type { OrigenCorreoRenglon } from "./origen-correo-ordenes-trabajo";
 export function parseCantidad(value: number | string | undefined): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
-    const n = Number(value.replace(",", ".").trim());
-    return Number.isFinite(n) ? n : 0;
+    const numero = Number(value.replace(",", ".").trim());
+    return Number.isFinite(numero) ? numero : 0;
   }
   return 0;
 }
@@ -14,14 +14,14 @@ export function parsePrecio(value: number | string | undefined): number | null {
     return value;
   }
   if (typeof value === "string") {
-    const n = Number(value.replace(",", ".").trim());
-    return Number.isFinite(n) && n > 0 ? n : null;
+    const numero = Number(value.replace(",", ".").trim());
+    return Number.isFinite(numero) && numero > 0 ? numero : null;
   }
   return null;
 }
 
-export function pad2Fecha(n: number): string {
-  return String(n).padStart(2, "0");
+export function pad2Fecha(valor: number): string {
+  return String(valor).padStart(2, "0");
 }
 
 /** YYYY-MM-DD solo si el calendario es real (evita 2026-24-10). */
@@ -34,11 +34,11 @@ export function ymdIfValid(year: number, month: number, day: number): string | n
     return null;
   }
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const dt = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const fechaUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
   if (
-    dt.getUTCFullYear() !== year ||
-    dt.getUTCMonth() + 1 !== month ||
-    dt.getUTCDate() !== day
+    fechaUtc.getUTCFullYear() !== year ||
+    fechaUtc.getUTCMonth() + 1 !== month ||
+    fechaUtc.getUTCDate() !== day
   ) {
     return null;
   }

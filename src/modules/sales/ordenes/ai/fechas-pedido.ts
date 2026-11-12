@@ -1,16 +1,16 @@
 import * as chrono from "chrono-node";
 
-export function formatISO(d: Date): string {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+export function formatISO(fecha: Date): string {
+  const anio = fecha.getUTCFullYear();
+  const mes = String(fecha.getUTCMonth() + 1).padStart(2, "0");
+  const dia = String(fecha.getUTCDate()).padStart(2, "0");
+  return `${anio}-${mes}-${dia}`;
 }
 
 export function sumarDias(referencia: Date, dias: number): string {
-  const d = new Date(referencia);
-  d.setUTCDate(d.getUTCDate() + dias);
-  return formatISO(d);
+  const fecha = new Date(referencia);
+  fecha.setUTCDate(fecha.getUTCDate() + dias);
+  return formatISO(fecha);
 }
 
 const SIN_ACENTOS: Record<string, string> = {
@@ -21,8 +21,8 @@ const SIN_ACENTOS: Record<string, string> = {
   ú: "u",
   ñ: "n",
 };
-function quitarAcentos(s: string): string {
-  return s.toLowerCase().replace(/[áéíóúñ]/g, (c) => SIN_ACENTOS[c] ?? c);
+function quitarAcentos(texto: string): string {
+  return texto.toLowerCase().replace(/[áéíóúñ]/g, (caracter) => SIN_ACENTOS[caracter] ?? caracter);
 }
 
 const DIAS_SEMANA: Record<string, number> = {

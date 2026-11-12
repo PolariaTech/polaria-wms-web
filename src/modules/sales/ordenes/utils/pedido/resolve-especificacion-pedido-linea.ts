@@ -5,10 +5,9 @@ import {
   textoYaTraeMadurez,
 } from "./especificacion-madurez-domo";
 import {
-  esAtributoPedido,
-  fraseRedundanteConSolicitado,
+  agregarFrasesOrigenSinRepetir,
   frasesDeEspecificacion,
-  fraseSinEnvase,
+  textoEspecificacionTrasFiltroSolicitado,
 } from "./especificacion-origen";
 import {
   formatEspecificacionEnvase,
@@ -41,23 +40,23 @@ export function resolveEspecificacionPedidoLinea(params: {
   const envaseTxt = params.envase
     ? formatEspecificacionEnvase(params.envase)
     : (params.envaseTexto?.trim() || "");
-  const ia = params.especificacionIa?.trim() || "";
+  const textoIa = params.especificacionIa?.trim() || "";
   const frasesOrigen = frasesDeEspecificacion(params.especificacionOrigen);
   const madurez =
     extractMadurezEspecificacion(params.textoOriginal) ||
-    extractMadurezEspecificacion(ia) ||
+    extractMadurezEspecificacion(textoIa) ||
     frasesOrigen.map(extractMadurezEspecificacion).find(Boolean) ||
     "";
   const domo =
     extractDomoEspecificacion(params.textoOriginal) ||
-    extractDomoEspecificacion(ia) ||
+    extractDomoEspecificacion(textoIa) ||
     extractDomoEspecificacion(params.especificacionOrigen) ||
     "";
 
   const parts: string[] = [];
   if (envaseTxt) parts.push(envaseTxt);
 
-  if (madurez && !textoYaTraeMadurez(ia, madurez)) {
+  if (madurez && !textoYaTraeMadurez(textoIa, madurez)) {
     const already = parts.some((p) => textoYaTraeMadurez(p, madurez));
     if (!already) parts.push(madurez);
   }
@@ -66,50 +65,44 @@ export function resolveEspecificacionPedidoLinea(params: {
     const already = parts.some((p) =>
       quitarAcentos(p).toLowerCase().includes(quitarAcentos(domo).toLowerCase()),
     );
-    const iaYaTrae = quitarAcentos(ia)
+    const iaYaTrae = quitarAcentos(textoIa)
       .toLowerCase()
       .includes(quitarAcentos(domo).toLowerCase());
     if (!already && !iaYaTrae) parts.push(domo);
   }
 
-  if (ia) {
+  if (textoIa) {
     const iaEsSoloMadurez =
       Boolean(madurez) &&
-      (quitarAcentos(ia) === quitarAcentos(madurez) ||
-        quitarAcentos(ia) === quitarAcentos(stripEtiquetaMadurez(madurez)));
+      (quitarAcentos(textoIa) === quitarAcentos(madurez) ||
+        quitarAcentos(textoIa) === quitarAcentos(stripEtiquetaMadurez(madurez)));
     const iaEsSoloDomo =
-      Boolean(domo) && quitarAcentos(ia) === quitarAcentos(domo);
-    const iaEsEnvase = Boolean(envaseTxt) && pareceFraseEnvase(ia);
+      Boolean(domo) && quitarAcentos(textoIa) === quitarAcentos(domo);
+    const iaEsEnvase = Boolean(envaseTxt) && pareceFraseEnvase(textoIa);
     if (!iaEsSoloMadurez && !iaEsSoloDomo && !iaEsEnvase) {
       const already = parts.some((p) =>
-        quitarAcentos(p).includes(quitarAcentos(ia)),
+        quitarAcentos(p).includes(quitarAcentos(textoIa)),
       );
-      if (!already) parts.push(ia);
+      if (!already) parts.push(textoIa);
     }
   }
 
-  for (const frase of frasesOrigen) {
-    const util = fraseSinEnvase(frase, Boolean(envaseTxt));
-    const repetida =
-      !util ||
-      (madurez && extractMadurezEspecificacion(util) === madurez) ||
-      (domo && extractDomoEspecificacion(util)) ||
-      parts.some((p) => quitarAcentos(p).toLowerCase().includes(quitarAcentos(util).toLowerCase()));
-    if (!repetida) parts.push(util);
-  }
+  agregarFrasesOrigenSinRepetir({
+    frasesOrigen,
+    partes: parts,
+    hayEnvase: Boolean(envaseTxt),
+    madurez,
+    domo,
+  });
 
   // La madurez que venía sola en `ia` no se repite arriba; si hay otras partes, no puede perderse.
   if (madurez && parts.length > 0 && !parts.some((p) => textoYaTraeMadurez(p, madurez))) {
     parts.splice(envaseTxt ? 1 : 0, 0, madurez);
   }
 
-  // No repetir en Especificación lo que ya dice Solicitado, salvo atributos pedidos.
-  const solicitado = params.textoOriginal ?? "";
-  const visibles = parts.filter(
-    (parte) =>
-      esAtributoPedido(parte) || !fraseRedundanteConSolicitado(parte, solicitado),
+  return textoEspecificacionTrasFiltroSolicitado(
+    parts,
+    params.textoOriginal ?? "",
+    textoIa,
   );
-
-  if (visibles.length > 0) return visibles.join(" · ");
-  return ia;
 }

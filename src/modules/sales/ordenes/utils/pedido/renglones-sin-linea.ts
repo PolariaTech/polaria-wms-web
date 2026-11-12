@@ -48,20 +48,23 @@ export function indicesRenglonesSinLinea(
   lineas: readonly LineaParaEmparejar[],
   renglones: readonly OrigenCorreoRenglon[],
 ): number[] {
-  const candidatos: Array<{ i: number; j: number; s: number }> = [];
+  const candidatos: Array<{ i: number; j: number; puntajeCandidato: number }> = [];
   lineas.forEach((linea, i) =>
     renglones.forEach((row, j) => {
-      const s = puntaje(linea, row, Math.abs(i - j));
-      if (s > 0) candidatos.push({ i, j, s });
+      const puntajeCandidato = puntaje(linea, row, Math.abs(i - j));
+      if (puntajeCandidato > 0) candidatos.push({ i, j, puntajeCandidato });
     }),
   );
-  candidatos.sort((x, y) => y.s - x.s || x.j - y.j);
+  candidatos.sort(
+    (izquierda, derecha) =>
+      derecha.puntajeCandidato - izquierda.puntajeCandidato || izquierda.j - derecha.j,
+  );
   const lineaUsada = new Set<number>();
   const renglonUsado = new Set<number>();
-  for (const c of candidatos) {
-    if (lineaUsada.has(c.i) || renglonUsado.has(c.j)) continue;
-    lineaUsada.add(c.i);
-    renglonUsado.add(c.j);
+  for (const candidato of candidatos) {
+    if (lineaUsada.has(candidato.i) || renglonUsado.has(candidato.j)) continue;
+    lineaUsada.add(candidato.i);
+    renglonUsado.add(candidato.j);
   }
   const lineasLibres = lineas.map((_, i) => i).filter((i) => !lineaUsada.has(i));
   const renglonesLibres = renglones.map((_, j) => j).filter((j) => !renglonUsado.has(j));

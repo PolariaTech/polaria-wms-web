@@ -47,10 +47,10 @@ export function nombresContradicenPorColor(
   a: string | null | undefined,
   b: string | null | undefined,
 ): boolean {
-  const ca = coloresDeNombre(a);
-  const cb = coloresDeNombre(b);
-  if (ca.size === 0 || cb.size === 0) return false;
-  return ![...ca].some((color) => cb.has(color));
+  const coloresA = coloresDeNombre(a);
+  const coloresB = coloresDeNombre(b);
+  if (coloresA.size === 0 || coloresB.size === 0) return false;
+  return ![...coloresA].some((color) => coloresB.has(color));
 }
 
 /** Los dos nombres tienen las mismas palabras significativas (sin importar el orden). */
@@ -58,9 +58,13 @@ export function nombresIguales(
   a: string | null | undefined,
   b: string | null | undefined,
 ): boolean {
-  const pa = [...new Set(palabrasDeNombre(a))].sort();
-  const pb = [...new Set(palabrasDeNombre(b))].sort();
-  return pa.length > 0 && pa.length === pb.length && pa.every((p, i) => p === pb[i]);
+  const palabrasA = [...new Set(palabrasDeNombre(a))].sort();
+  const palabrasB = [...new Set(palabrasDeNombre(b))].sort();
+  return (
+    palabrasA.length > 0 &&
+    palabrasA.length === palabrasB.length &&
+    palabrasA.every((palabra, indice) => palabra === palabrasB[indice])
+  );
 }
 
 /**
@@ -72,10 +76,10 @@ export function afinidadDeNombres(
   b: string | null | undefined,
 ): number {
   if (nombresContradicenPorColor(a, b)) return -1;
-  const pa = new Set(palabrasDeNombre(a));
-  const pb = new Set(palabrasDeNombre(b));
-  if (pa.size === 0 || pb.size === 0) return 0;
+  const palabrasA = new Set(palabrasDeNombre(a));
+  const palabrasB = new Set(palabrasDeNombre(b));
+  if (palabrasA.size === 0 || palabrasB.size === 0) return 0;
   let comunes = 0;
-  for (const palabra of pa) if (pb.has(palabra)) comunes += 1;
-  return comunes / Math.min(pa.size, pb.size);
+  for (const palabra of palabrasA) if (palabrasB.has(palabra)) comunes += 1;
+  return comunes / Math.min(palabrasA.size, palabrasB.size);
 }

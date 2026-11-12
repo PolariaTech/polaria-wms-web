@@ -82,9 +82,9 @@ function coerceProductoCatalogo(
   const codigoMatch = raw.match(/\(([^()]+)\)\s*$/);
   const codigo = codigoMatch?.[1]?.trim().toLowerCase();
   if (codigo) {
-    const hits = catalogoClaves.filter((k) => {
-      const m = k.match(/\(([^()]+)\)\s*$/);
-      return m?.[1]?.trim().toLowerCase() === codigo;
+    const hits = catalogoClaves.filter((clave) => {
+      const matchCodigo = clave.match(/\(([^()]+)\)\s*$/);
+      return matchCodigo?.[1]?.trim().toLowerCase() === codigo;
     });
     if (hits.length === 1) return hits[0] ?? null;
   }

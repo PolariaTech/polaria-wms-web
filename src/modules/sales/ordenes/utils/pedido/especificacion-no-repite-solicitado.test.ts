@@ -31,4 +31,23 @@ describe("no repetir en Especificación lo que ya dice Solicitado (REQ-287)", ()
       }),
     ).toBe("limpio · en bote · fresco");
   });
+
+  it("si la IA copia el Solicitado y todo se filtra, el resultado es vacío (no se cae a ia)", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "Pimiento morrón ROJO · por kilo",
+        textoOriginal: "Pimiento morrón ROJO por kilo",
+      }),
+    ).toBe("");
+  });
+
+  it("un envase que también está en Solicitado se sigue mostrando", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: null,
+        textoOriginal: "Aceite caja de 10 litros",
+        envaseTexto: "caja de 10 litros",
+      }),
+    ).toBe("caja de 10 litros");
+  });
 });
