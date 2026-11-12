@@ -16,16 +16,29 @@ import { leerCabeceraUsuarioSello } from "../utils/pedido/sellar-edicion-usuario
  * No usa renglones Mateo (`Almacen`/`Fecha` de origen_correo) ni el cuerpo del correo.
  */
 
+type DetalleNotasPrint = {
+  notas_almacen?: string | null;
+  origen_correo?: unknown;
+};
+
 /**
  * REQ-032 / REQ-281: notas del PDF.
  * Con sello `_cabeceraUsuario` manda el texto del form (también vacío).
  * Sin sello: `notas_almacen`. Nunca reinyecta `origen_texto`.
  */
 export function resolveNotasGeneralesDesdeDetalle(
-  notasAlmacen: string,
+  notasAlmacenOrDetalle: string | DetalleNotasPrint,
   origenCorreo?: unknown,
 ): string {
-  const sello = leerCabeceraUsuarioSello(parseOrigenCorreoJson(origenCorreo));
+  const notasAlmacen =
+    typeof notasAlmacenOrDetalle === "string"
+      ? notasAlmacenOrDetalle
+      : notasAlmacenOrDetalle.notas_almacen?.trim() || "";
+  const origen =
+    typeof notasAlmacenOrDetalle === "string"
+      ? origenCorreo
+      : notasAlmacenOrDetalle.origen_correo;
+  const sello = leerCabeceraUsuarioSello(parseOrigenCorreoJson(origen));
   const fuente = sello ? sello.notasGenerales : notasAlmacen;
   const deUsuario = sanitizeNotasGeneralesPedido(
     stripSurtidoFotoQrFromNotas(fuente),

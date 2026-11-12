@@ -313,10 +313,7 @@ function buildBaseSheet(input: {
       detalle.bodega_destino_nombre?.trim() ||
       detalle.bodega_nombre?.trim() ||
       "",
-    notasGenerales: resolveNotasGeneralesDesdeDetalle(
-      detalle.notas_almacen?.trim() || "",
-      detalle.origen_correo,
-    ),
+    notasGenerales: resolveNotasGeneralesDesdeDetalle(detalle),
     lineas: mapLineasPrint(
       lineas,
       detalle.notas_lineas?.trim() || captura.notasLineas,
