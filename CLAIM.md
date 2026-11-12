@@ -14,6 +14,7 @@
 - `src/modules/sales/ordenes/utils/display/resolve-sku-visible.ts` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/utils/display/resolve-sku-visible.test.ts` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/utils/origen/origen-correo-ordenes-trabajo.ts` — autorizada por el usuario el 2026-11-12
+- `src/modules/sales/ordenes/utils/origen/materialize-ov-desde-origen.ts` — autorizada por el usuario el 2026-11-12
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
