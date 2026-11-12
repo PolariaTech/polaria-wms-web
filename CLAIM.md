@@ -84,6 +84,7 @@
 - `src/modules/sales/ordenes/types/orden-venta-create-modal.types.ts` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/utils/pedido/orden-venta-create-helpers.ts` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/utils/pedido/orden-venta-create-helpers.test.ts` — autorizada por el usuario el 2026-11-12
+- `src/modules/sales/ordenes/hooks/useOtOv.ts` — autorizada por el usuario el 2026-11-12
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/ordenes/utils/origen/texto-origen-pedido.ts`
