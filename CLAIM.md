@@ -100,6 +100,7 @@
 - `next.config.test.ts` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/components/shared/OrigenAdjuntosCards.test.tsx` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/utils/pedido/merge-lineas-bd-y-origen.test.ts` — autorizada por el usuario el 2026-11-12
+- `src/app/despacho/api/route.ts` — autorizada por el usuario el 2026-11-12
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/ordenes/utils/origen/texto-origen-pedido.ts`
