@@ -93,6 +93,7 @@
 - `src/modules/sales/ordenes/components/modals/detalle-venta-presentacion.test.ts` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/hooks/aplicar-detalle-sin-mateo.test.ts` — autorizada por el usuario el 2026-11-12
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.test.tsx` — autorizada por el usuario el 2026-11-12
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.req-225.test.tsx` — autorizada por el usuario el 2026-11-12
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/ordenes/utils/origen/texto-origen-pedido.ts`
