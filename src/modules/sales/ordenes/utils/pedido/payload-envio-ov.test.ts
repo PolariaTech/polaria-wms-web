@@ -17,7 +17,6 @@ function linea(partial: Partial<LineaVentaForm> = {}): LineaVentaForm {
     cajasInput: "1",
     presentacion: "Granel",
     especificacion: "",
-    descuentoPctInput: "",
     ivaPct: "0",
     kgDisponible: 10,
     unidadMedida: "kg",

@@ -54,7 +54,6 @@ export interface LineaVentaFromIa {
   cajasInput: string;
   presentacion: string;
   especificacion: string;
-  descuentoPctInput: string;
   ivaPct: string;
   kgDisponible: number;
   unidadMedida: string;
@@ -818,7 +817,6 @@ export function mapPedidoExtraidoToForm(params: {
             especificacionEnvase: qty.especificacionEnvase,
 
           }),
-          descuentoPctInput: "0",
           ivaPct: "0",
           kgDisponible: match.kgDisponible,
           unidadMedida: inferUnidadDesdeTexto(
@@ -857,7 +855,6 @@ export function mapPedidoExtraidoToForm(params: {
           especificacionEnvase: qty.especificacionEnvase,
 
         }),
-        descuentoPctInput: "0",
         ivaPct: "0",
         kgDisponible: match.kgDisponible,
         unidadMedida: inferUnidadDesdeTexto(
@@ -938,7 +935,6 @@ export function mapPedidoExtraidoToForm(params: {
           especificacionEnvase: qty.especificacionEnvase,
 
         }),
-        descuentoPctInput: "0",
         ivaPct: "0",
         kgDisponible: sugerencia.kgDisponible,
         unidadMedida: inferUnidadDesdeTexto(
@@ -981,7 +977,6 @@ export function mapPedidoExtraidoToForm(params: {
         especificacionEnvase: qty.especificacionEnvase,
 
       }),
-      descuentoPctInput: "0",
       ivaPct: "0",
       kgDisponible: sugerencia?.kgDisponible ?? 0,
       unidadMedida: inferUnidadDesdeTexto(

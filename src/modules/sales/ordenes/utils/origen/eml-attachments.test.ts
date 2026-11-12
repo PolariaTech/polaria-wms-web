@@ -43,7 +43,7 @@ describe("listEmlAttachmentParts", () => {
   });
 });
 
-describe("buildEmlInlineHtml (REQ-159)", () => {
+describe("buildEmlInlineHtml (REQ-159 / REQ-132)", () => {
   it("arma HTML legible con asunto, de/para y cuerpo", async () => {
     const html = await buildEmlInlineHtml(buildMimeWithPdf());
     expect(html).toContain("<!DOCTYPE html>");
@@ -52,5 +52,7 @@ describe("buildEmlInlineHtml (REQ-159)", () => {
     expect(html).toContain("pedidos@polaria.co");
     expect(html).toContain("Hola, adjunto la OC.");
     expect(html).toContain('charset="utf-8"');
+    expect(html).toContain("border-collapse");
   });
 });
+

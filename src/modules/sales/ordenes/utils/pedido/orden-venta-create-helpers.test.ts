@@ -24,7 +24,6 @@ function linea(partial: Partial<LineaVentaForm> = {}): LineaVentaForm {
     cajasInput: "",
     presentacion: "",
     especificacion: "",
-    descuentoPctInput: "",
     ivaPct: "0",
     kgDisponible: 0,
     unidadMedida: "kg",
@@ -66,22 +65,20 @@ describe("formatProductoNombreConSku", () => {
 });
 
 describe("lineAmounts", () => {
-  it("calcula bruto, descuento, base e iva", () => {
+  it("calcula bruto e iva sin descuento (REQ-218)", () => {
     expect(
       lineAmounts(
         linea({
           cantidadInput: "2",
           precioUnitario: 10,
-          descuentoPctInput: "10",
           ivaPct: "16",
         }),
       ),
     ).toEqual({
       bruto: 20,
-      descuento: 2,
-      base: 18,
-      iva: 2.88,
-      importe: 18,
+      base: 20,
+      iva: 3.2,
+      importe: 20,
     });
   });
 });

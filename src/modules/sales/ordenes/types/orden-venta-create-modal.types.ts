@@ -93,7 +93,6 @@ export interface LineaVentaForm {
   cajasInput: string;
   presentacion: string;
   especificacion: string;
-  descuentoPctInput: string;
   ivaPct: string;
   kgDisponible: number;
   unidadMedida: string;

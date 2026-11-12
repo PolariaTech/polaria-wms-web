@@ -22,7 +22,6 @@ describe("aplicarDetalleSinMateo (REQ-236)", () => {
           cajasInput: "",
           presentacion: "",
           especificacion: "",
-          descuentoPctInput: "",
           ivaPct: "0",
           kgDisponible: 1,
           unidadMedida: "KGM",

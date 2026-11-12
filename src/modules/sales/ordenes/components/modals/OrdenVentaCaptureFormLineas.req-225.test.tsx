@@ -16,7 +16,6 @@ function linea(): LineaVentaForm {
     cajasInput: "",
     presentacion: "",
     especificacion: "",
-    descuentoPctInput: "",
     ivaPct: "0",
     kgDisponible: 10,
     unidadMedida: "KG",

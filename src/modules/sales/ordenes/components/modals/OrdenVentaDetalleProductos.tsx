@@ -13,16 +13,15 @@ export type FilaProductoDetalle = {
   linea: OrdenVentaLineaRow;
   titulo: string;
   especificacion: string;
-  descuentoPct: number;
   ivaPct: number;
   importe: number;
 };
 
+/** REQ-218: sin columna Desc% ni pie Descuentos (consistente con edición). */
 export function OrdenVentaDetalleProductos({
   filas,
   hija,
   subtotal,
-  descuentos,
   iva,
   total,
   mostrarTotalOv,
@@ -31,7 +30,6 @@ export function OrdenVentaDetalleProductos({
   filas: FilaProductoDetalle[];
   hija: OrdenTrabajoHija | null;
   subtotal: number;
-  descuentos: number;
   iva: number;
   total: number;
   mostrarTotalOv: boolean;
@@ -41,11 +39,10 @@ export function OrdenVentaDetalleProductos({
     <div className="overflow-hidden rounded-xl border border-polaria-w-08">
       <table className="w-full table-fixed border-collapse text-left">
         <colgroup>
-          <col className="w-[26%]" />
-          <col className="w-[18%]" />
-          <col className="w-[13%]" />
-          <col className="w-[9%]" />
-          <col className="w-[12%]" />
+          <col className="w-[28%]" />
+          <col className="w-[22%]" />
+          <col className="w-[14%]" />
+          <col className="w-[14%]" />
           <col className="w-[10%]" />
           <col className="w-[12%]" />
         </colgroup>
@@ -59,9 +56,6 @@ export function OrdenVentaDetalleProductos({
             </th>
             <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
               Cantidad
-            </th>
-            <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
-              Desc%
             </th>
             <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
               Precio
@@ -110,9 +104,6 @@ export function OrdenVentaDetalleProductos({
                   )}
                 </td>
                 <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
-                  {row.descuentoPct}
-                </td>
-                <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
                   ${formatPrecioEs(row.linea.precio_unitario)}
                 </td>
                 <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
@@ -139,14 +130,6 @@ export function OrdenVentaDetalleProductos({
               </td>
               <td className="font-mono polaria-text-body-sm text-polaria-w">
                 ${formatPrecioEs(subtotal)}
-              </td>
-            </tr>
-            <tr>
-              <td className="pr-6 polaria-text-body-sm text-polaria-w-50">
-                Descuentos
-              </td>
-              <td className="font-mono polaria-text-body-sm text-polaria-w">
-                ${formatPrecioEs(descuentos)}
               </td>
             </tr>
             <tr>

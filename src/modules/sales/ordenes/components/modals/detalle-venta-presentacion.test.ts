@@ -21,22 +21,20 @@ describe("detalle de venta", () => {
     expect(leerFolioFacturaVista(undefined)).toBe("");
   });
 
-  it("tope de descuento, IVA y texto inválido", () => {
-    expect(porcentajeDeNota("· desc 150%", "desc")).toBe(100);
+  it("lee IVA y rechaza texto inválido (REQ-218: sin desc)", () => {
     expect(porcentajeDeNota("IVA 16%", "IVA")).toBe(16);
-    expect(porcentajeDeNota("desc no", "desc")).toBe(0);
     expect(porcentajeDeNota("", "IVA")).toBe(0);
   });
 
-  it("quita descuento e IVA de la especificación", () => {
+  it("quita restos desc e IVA de la especificación", () => {
     expect(especificacionVisible("fresa · desc 10% · IVA 16%")).toBe("fresa");
   });
 
-  it("calcula importe y total con descuento e IVA", () => {
+  it("calcula importe sin descuento e IVA (REQ-218)", () => {
     const monto = montoDeNota("desc 10% · IVA 16%", 2, 100);
-    expect(monto.importe).toBe(180);
-    expect(monto.iva).toBeCloseTo(28.8);
-    expect(totalLineaConIva(2, 100, "desc 10% · IVA 16%")).toBeCloseTo(208.8);
+    expect(monto.importe).toBe(200);
+    expect(monto.iva).toBeCloseTo(32);
+    expect(totalLineaConIva(2, 100, "desc 10% · IVA 16%")).toBeCloseTo(232);
   });
 
   it("cuenta una orden y varias", () => {

@@ -19,14 +19,12 @@ describe("OrdenVentaDetalleProductos", () => {
             linea: lineaBase,
             titulo: "Producto demo",
             especificacion: "",
-            descuentoPct: 0,
             ivaPct: 0,
             importe: 20,
           },
         ]}
         hija={null}
         subtotal={20}
-        descuentos={0}
         iva={0}
         total={20}
         mostrarTotalOv={false}
@@ -37,5 +35,28 @@ describe("OrdenVentaDetalleProductos", () => {
     expect(conteo).toBeInTheDocument();
     expect(conteo.textContent).not.toMatch(/kg|·/i);
   });
-});
 
+  it("no muestra Desc% ni Descuentos (REQ-218)", () => {
+    render(
+      <OrdenVentaDetalleProductos
+        filas={[
+          {
+            linea: lineaBase,
+            titulo: "Producto demo",
+            especificacion: "fresa",
+            ivaPct: 16,
+            importe: 20,
+          },
+        ]}
+        hija={null}
+        subtotal={20}
+        iva={3.2}
+        total={23.2}
+        mostrarTotalOv={false}
+        totalOv={23.2}
+      />,
+    );
+    expect(screen.queryByText("Desc%")).not.toBeInTheDocument();
+    expect(screen.queryByText("Descuentos")).not.toBeInTheDocument();
+  });
+});

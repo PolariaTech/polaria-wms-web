@@ -225,17 +225,13 @@ export function useTotalesVentaOv(estado: OrdenVentaFormEstado) {
     () => lineasParaTotales.reduce((sum: number, linea) => sum + lineAmounts(linea).bruto, 0),
     [lineasParaTotales],
   );
-  const descuentosVenta = useMemo(
-    () => lineasParaTotales.reduce((sum: number, linea) => sum + lineAmounts(linea).descuento, 0),
-    [lineasParaTotales],
-  );
   const ivaVenta = useMemo(
     () => lineasParaTotales.reduce((sum: number, linea) => sum + lineAmounts(linea).iva, 0),
     [lineasParaTotales],
   );
   const totalVenta = useMemo(
-    () => Math.max(0, subtotalVenta - descuentosVenta + ivaVenta),
-    [descuentosVenta, ivaVenta, subtotalVenta],
+    () => Math.max(0, subtotalVenta + ivaVenta),
+    [ivaVenta, subtotalVenta],
   );
   const mostrarTotalOv =
     ordenesTrabajoForm.length > 1 &&
@@ -244,12 +240,12 @@ export function useTotalesVentaOv(estado: OrdenVentaFormEstado) {
     if (!mostrarTotalOv) return 0;
     return lineas.reduce((sum: number, linea) => {
       const importesLinea = lineAmounts(linea);
-      return sum + Math.max(0, importesLinea.bruto - importesLinea.descuento + importesLinea.iva);
+      return sum + Math.max(0, importesLinea.bruto + importesLinea.iva);
     }, 0);
   }, [lineas, mostrarTotalOv]);
   return {
     lineasParaTotales, otPagerNextBlocked, esPorConfirmar, revisionPendiente,
     confirmBloqueoReason, confirmSubmitDisabled, focusRevisionPendiente,
-    subtotalVenta, descuentosVenta, ivaVenta, totalVenta, mostrarTotalOv, totalOvCompleta,
+    subtotalVenta, ivaVenta, totalVenta, mostrarTotalOv, totalOvCompleta,
   };
 }

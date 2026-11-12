@@ -100,7 +100,6 @@ export function notasLineasParaEnvio(lineas: readonly LineaVentaForm[]): string 
       otId: linea.otId,
       idProducto: linea.idProducto || null,
       especificacion: linea.especificacion,
-      descuentoPct: parseDecimalEs(linea.descuentoPctInput),
       ivaPct: linea.ivaPct,
     })),
   );
