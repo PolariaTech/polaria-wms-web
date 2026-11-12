@@ -315,6 +315,7 @@ function buildBaseSheet(input: {
       "",
     notasGenerales: resolveNotasGeneralesDesdeDetalle(
       detalle.notas_almacen?.trim() || "",
+      detalle.origen_correo,
     ),
     lineas: mapLineasPrint(
       lineas,

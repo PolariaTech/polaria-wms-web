@@ -77,4 +77,65 @@ describe("armarPayloadEnvioConSelloUsuario (REQ-281)", () => {
     expect(sello?.centroConsumo).toBe("");
     expect(sello?.telefono).toBe("");
   });
+
+  it("REQ-032: notas_almacen guarda el texto del form (no re-extrae el correo)", () => {
+    const hija = createEmptyOrdenTrabajoHija({
+      id: "ot-1",
+      almacen: "SUSHI",
+    });
+    const editadas =
+      "que su chofer traiga la OC impresa al momento de la entrega junto con su factura fiscal. Por favor traer únicamente dos facturas junto con la orden de compra";
+    const payload = armarPayloadEnvioConSelloUsuario({
+      codigoCuenta: "demo",
+      lineasParsed: [
+        {
+          idProducto: "p1",
+          cantidad: 1,
+          precioUnitario: 10,
+          unidadMedida: "KG",
+        },
+      ],
+      lineas: [linea("ot-1")],
+      hijasSynced: [hija],
+      origenCorreoDraft: [],
+      idBodegaDestino: "b1",
+      idComprador: "c1",
+      fechaEntregaPersist: "2026-11-06",
+      ventanaDesde: "",
+      ventanaHasta: "",
+      prioridad: "Normal",
+      moneda: "MXN",
+      ordenCompraHotel: "ADP-1",
+      centroConsumo: "Bar",
+      vendedorNombre: "",
+      bodegaDestinoLabel: "",
+      direccion: "",
+      anden: "",
+      contacto: "",
+      telefono: "",
+      correo: "",
+      turno: "",
+      horaSalida: "",
+      chofer: "",
+      unidad: "",
+      aceptaSustituciones: "",
+      requiereLote: "",
+      registrarTemperatura: "",
+      persistOrigenTexto:
+        "Adjunto le remito la orden de compra. En caso de haber faltantes, favor de mencionar.",
+      persistOrigenAdjuntos: [],
+      compradorNombreIa: null,
+      compradorLabel: "Cliente",
+      observaciones: editadas,
+      idCreador: "u1",
+      isDraft: true,
+    });
+    expect(payload.notasAlmacen).toMatch(/dos facturas/i);
+    expect(payload.notasAlmacen).not.toMatch(/Adjunto le remito/i);
+    const sello = leerCabeceraUsuarioSello(
+      (payload.origenCorreo as Parameters<typeof leerCabeceraUsuarioSello>[0]) ??
+        [],
+    );
+    expect(sello?.notasGenerales).toBe(editadas);
+  });
 });
