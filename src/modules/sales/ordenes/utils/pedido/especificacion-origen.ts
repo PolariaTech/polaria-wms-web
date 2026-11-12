@@ -55,9 +55,24 @@ export function esAtributoPedido(frase: string): boolean {
   );
 }
 
+const PALABRAS_VACIAS_SOLICITADO = new Set([
+  "de", "del", "la", "el", "los", "las", "en", "y", "con", "por",
+]);
+
+/** Palabras de una frase incluyendo números y unidades (3, pzas, kg, litros). */
+function palabrasConNumerosYUnidades(
+  texto: string | null | undefined,
+): string[] {
+  return normalizarFrase(texto ?? "")
+    .split(/[^a-z0-9]+/)
+    .filter(
+      (palabra) => palabra.length > 0 && !PALABRAS_VACIAS_SOLICITADO.has(palabra),
+    );
+}
+
 /**
- * True si el fragmento ya está dicho en Solicitado (substring o las mismas palabras).
- * Un fragmento sin palabras significativas («por kilo») solo cuenta si el texto lo contiene.
+ * True si el fragmento ya está dicho en Solicitado: (a) el texto lo contiene, o (b) todas
+ * sus palabras —números y unidades incluidos— están en Solicitado. «3 pzas» no se pierde.
  */
 export function fraseRedundanteConSolicitado(
   frase: string,
@@ -67,9 +82,9 @@ export function fraseRedundanteConSolicitado(
   const solicitadoNormalizado = normalizarFrase(solicitado ?? "");
   if (!fraseNormalizada || !solicitadoNormalizado) return false;
   if (solicitadoNormalizado.includes(fraseNormalizada)) return true;
-  const palabras = palabrasDeNombre(frase);
+  const palabras = palabrasConNumerosYUnidades(frase);
   if (palabras.length === 0) return false;
-  const enSolicitado = new Set(palabrasDeNombre(solicitado));
+  const enSolicitado = new Set(palabrasConNumerosYUnidades(solicitado));
   return palabras.every((palabra) => enSolicitado.has(palabra));
 }
 

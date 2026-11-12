@@ -41,6 +41,24 @@ describe("no repetir en Especificación lo que ya dice Solicitado (REQ-287)", ()
     ).toBe("");
   });
 
+  it("conserva cantidad y unidad que no están en Solicitado (3 pzas de pepino verde)", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "3 pzas de pepino verde",
+        textoOriginal: "PEPINO VERDE",
+      }),
+    ).toBe("3 pzas de pepino verde");
+  });
+
+  it("Solicitado idéntico a la especificación, con cantidad y unidad, queda vacío", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "Tomate bola 5 kg",
+        textoOriginal: "Tomate bola 5 kg",
+      }),
+    ).toBe("");
+  });
+
   it("un envase que también está en Solicitado se sigue mostrando", () => {
     expect(
       resolveEspecificacionPedidoLinea({
