@@ -119,29 +119,29 @@ export function postprocesarPedido(params: {
   ].join("\n");
 
   // Post-proceso: Oc Generada / REQUISICION # vs basura OCR (rAutorizado, Usuario…).
-  const lineasRaw = parsed.lineas.map((l) => ({
-    textoOriginal: l.textoOriginal,
-    productoCatalogo: coerceProductoCatalogo(l.productoCatalogo, catalogoClaves),
+  const lineasRaw = parsed.lineas.map((linea) => ({
+    textoOriginal: linea.textoOriginal,
+    productoCatalogo: coerceProductoCatalogo(linea.productoCatalogo, catalogoClaves),
     // El cálculo determinista manda siempre que sea posible (cajas + presentación con
     // peso parseable); el número que haya dado la IA solo se usa cuando no hay nada
     // que calcular — así el resultado no depende de si el modelo decidió o no hacer
     // la multiplicación por su cuenta.
-    cantidad: calcularCantidadDesdeCajas(l.cajas, l.presentacion) ?? l.cantidad,
-    unidad: l.unidad,
-    cajas: l.cajas,
-    presentacion: l.presentacion,
-    especificacion: l.especificacion,
-    numeroPedido: l.numeroPedido?.trim() || null,
-    almacen: l.almacen?.trim() || null,
-    numeroAlmacen: l.numeroAlmacen?.trim() || null,
-    referenciaPedido: l.referenciaPedido?.trim() || null,
-    codigoProductoCliente: l.codigoProductoCliente?.trim() || null,
-    responsableExterno: l.responsableExterno?.trim() || null,
+    cantidad: calcularCantidadDesdeCajas(linea.cajas, linea.presentacion) ?? linea.cantidad,
+    unidad: linea.unidad,
+    cajas: linea.cajas,
+    presentacion: linea.presentacion,
+    especificacion: linea.especificacion,
+    numeroPedido: linea.numeroPedido?.trim() || null,
+    almacen: linea.almacen?.trim() || null,
+    numeroAlmacen: linea.numeroAlmacen?.trim() || null,
+    referenciaPedido: linea.referenciaPedido?.trim() || null,
+    codigoProductoCliente: linea.codigoProductoCliente?.trim() || null,
+    responsableExterno: linea.responsableExterno?.trim() || null,
     precioUnitario:
-      l.precioUnitario != null &&
-      Number.isFinite(l.precioUnitario) &&
-      l.precioUnitario > 0
-        ? l.precioUnitario
+      linea.precioUnitario != null &&
+      Number.isFinite(linea.precioUnitario) &&
+      linea.precioUnitario > 0
+        ? linea.precioUnitario
         : null,
   }));
   const normalizedPedidos = normalizeNumeroPedidoFields({
@@ -207,27 +207,27 @@ export function postprocesarPedido(params: {
     parsed.notasGeneralesAlmacen?.trim() ||
     parsed.observaciones?.trim() ||
     "";
-  const origenCorreo = lineas.map((l, index) => ({
+  const origenCorreo = lineas.map((linea, index) => ({
     // ISO primero: al reabrir OV, parseFechaOrigen no debe romper MM/DD BirchStreet.
     Fecha: fechaEntrega || fechaLabel || "",
-    Unidad: l.unidad === "KGM" ? "KGS" : l.unidad || "",
-    Almacen: l.almacen || parsed.centroConsumo || "",
+    Unidad: linea.unidad === "KGM" ? "KGS" : linea.unidad || "",
+    Almacen: linea.almacen || parsed.centroConsumo || "",
     Horario: "",
-    Cantidad: l.cantidad ?? 0,
-    Producto: l.textoOriginal || l.productoCatalogo || "",
+    Cantidad: linea.cantidad ?? 0,
+    Producto: linea.textoOriginal || linea.productoCatalogo || "",
     Precio:
-      l.precioUnitario != null &&
-      Number.isFinite(l.precioUnitario) &&
-      l.precioUnitario > 0
-        ? l.precioUnitario
+      linea.precioUnitario != null &&
+      Number.isFinite(linea.precioUnitario) &&
+      linea.precioUnitario > 0
+        ? linea.precioUnitario
         : "",
     "Numero correo": "",
-    "Numero pedido": l.numeroPedido || ordenCompraHotelNormalizado || "",
+    "Numero pedido": linea.numeroPedido || ordenCompraHotelNormalizado || "",
     "Nombre cliente": nombreClienteCabecera,
-    "Numero almacen": l.numeroAlmacen || "",
-    "Codigo producto": l.codigoProductoCliente || "",
-    "Referencia pedido": l.referenciaPedido || "",
-    "Responsable externo": l.responsableExterno || contactoCabecera || "",
+    "Numero almacen": linea.numeroAlmacen || "",
+    "Codigo producto": linea.codigoProductoCliente || "",
+    "Referencia pedido": linea.referenciaPedido || "",
+    "Responsable externo": linea.responsableExterno || contactoCabecera || "",
     "Responsable interno": "",
     "Referencia del cliente": "",
     "Ventana desde": ventanaDesdeCabecera,
