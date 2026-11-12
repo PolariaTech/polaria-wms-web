@@ -8,10 +8,10 @@ import {
   collectMissingFieldsDocs,
   type CampoOperativoDocs,
 } from "./empaque-lineas";
+import { rankSinCodigoContradicho } from "../match/codigo-contradice-nombre";
 import {
   findTypoRivalProductos,
   productoCompatibleConTextoCliente,
-  rankProductosCatalogo,
   scoreProductoMatch,
   shouldAutoAcceptProductoSuggestion,
 } from "../match/find-closest-producto-catalogo";
@@ -386,7 +386,7 @@ function pickSugerencias(
   let queryUsed = queries[0] ?? "";
 
   for (const query of queries) {
-    const ranked = rankProductosCatalogo(query, productos);
+    const ranked = rankSinCodigoContradicho(query, productos, linea);
     if (ranked.ambiguous) anyAmbiguous = true;
     for (const candidate of ranked.candidates) {
       const prev = byId.get(candidate.producto.idProducto);

@@ -106,4 +106,41 @@ describe("lineaSembradaDesdeRenglon (REQ-201)", () => {
     expect(linea.catalogPending).toBe(true);
     expect(linea.idProducto).toBe("");
   });
+
+  it("REQ-299: no sugiere AGUACATE cuando el renglón pide Pepino con SKU 115001005", () => {
+    const aguacateExtra: ProductoVentaOption = {
+      idProducto: "p-aguacate-extra",
+      label: "AGUACATE EXTRA (115001005)",
+      idCliente: null,
+      idBodega: "bod-1",
+      codigo: "115001005",
+      nombre: "AGUACATE EXTRA",
+      kgDisponible: 40,
+      precioUnitario: 90,
+      unidadMedida: "kg",
+    };
+    const pepino: ProductoVentaOption = {
+      idProducto: "p-pepino",
+      label: "PEPINO (115001300)",
+      idCliente: null,
+      idBodega: "bod-1",
+      codigo: "115001300",
+      nombre: "PEPINO",
+      kgDisponible: 80,
+      precioUnitario: 20,
+      unidadMedida: "kg",
+    };
+    const linea = lineaSembradaDesdeRenglon({
+      row: renglon({
+        Producto: "Pepino",
+        "Codigo producto": "115001005",
+      }),
+      productos: [aguacateExtra, pepino],
+      otId: "ot-1",
+    });
+
+    expect(linea.catalogPending).toBe(true);
+    expect(linea.idProducto).toBe("");
+    expect(linea.sugerencia?.idProducto).not.toBe("p-aguacate-extra");
+  });
 });

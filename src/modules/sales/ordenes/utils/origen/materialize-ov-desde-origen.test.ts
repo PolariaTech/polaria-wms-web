@@ -181,6 +181,57 @@ describe("materialize-ov-desde-origen", () => {
     expect(plan.sinMatchProductos).toContain("CEBOLLA BLANCA KG");
   });
 
+  it("REQ-299: Pepino + 115001005 no materializa AGUACATE EXTRA", () => {
+    const catalogo: ProductoVentaOption[] = [
+      ...productos,
+      {
+        idProducto: "p-aguacate",
+        label: "AGUACATE EXTRA (115001005)",
+        idCliente: null,
+        idBodega: "b1",
+        codigo: "115001005",
+        nombre: "AGUACATE EXTRA",
+        kgDisponible: 40,
+        precioUnitario: 90,
+        unidadMedida: "kg",
+      },
+      {
+        idProducto: "p-pepino",
+        label: "PEPINO (115001300)",
+        idCliente: null,
+        idBodega: "b1",
+        codigo: "115001300",
+        nombre: "PEPINO",
+        kgDisponible: 80,
+        precioUnitario: 20,
+        unidadMedida: "kg",
+      },
+    ];
+    const plan = buildMaterializeOvDesdeOrigenPlan({
+      origenCorreo: [
+        {
+          Fecha: "2026-10-21",
+          Precio: 20,
+          Cantidad: 5,
+          Producto: "Pepino",
+          "Codigo producto": "115001005",
+          "Numero pedido": "OV-TEST",
+          "Nombre cliente": "Fairmont Mayakoba",
+        },
+      ],
+      productos: catalogo,
+      compradores,
+    });
+    expect(plan.lineas.every((linea) => linea.idProducto !== "p-aguacate")).toBe(
+      true,
+    );
+    expect(plan.sinMatchProductos).not.toContain("AGUACATE EXTRA");
+    expect(
+      plan.lineas[0]?.idProducto === "p-pepino" ||
+        plan.sinMatchProductos.includes("Pepino"),
+    ).toBe(true);
+  });
+
   it("REQ-124: galón de 5 L → cantidad LTR + especificación", () => {
     const plan = buildMaterializeOvDesdeOrigenPlan({
       origenCorreo: [

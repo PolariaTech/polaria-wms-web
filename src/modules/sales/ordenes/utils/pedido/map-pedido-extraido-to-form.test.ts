@@ -688,13 +688,14 @@ describe("mapPedidoExtraidoToForm", () => {
     ).toBe(true);
   });
 
+  // El texto genérico con un SKU ya no se asigna solo (REQ-299).
   it("resuelve por codigoProductoCliente cuando coincide un SKU único", () => {
     const mapped = mapPedidoExtraidoToForm({
       pedido: {
         ...emptyPedido(),
         lineas: [
           {
-            textoOriginal: "producto hotel",
+            textoOriginal: "Aguacate Hass",
             productoCatalogo: null,
             cantidad: 1,
             unidad: "KGM",

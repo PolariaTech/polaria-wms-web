@@ -6,6 +6,7 @@ import {
 import { stripLeadingProductoCodigo } from "@/modules/sales/shared/utils/producto-venta-nombre";
 import type { LineaVentaForm } from "../../types/orden-venta-create-modal.types";
 import type { OrigenCorreoRenglon } from "../origen/origen-correo-ordenes-trabajo";
+import { codigoContradiceNombre } from "../match/codigo-contradice-nombre";
 import { formatPrecioInput, suggestFromCatalogo } from "./orden-venta-create-helpers";
 
 interface LineaSembradaParams {
@@ -74,7 +75,22 @@ export function lineaSembradaDesdeRenglon(params: LineaSembradaParams): LineaVen
     : undefined;
   if (catalogo) return lineaYaVerificada(catalogo, { ...params, nombre });
 
-  const query = [nombre, codigo !== "—" ? codigo : ""].filter(Boolean).join(" ");
+  const productoDelCodigo =
+    codigo === "—"
+      ? undefined
+      : productos.find(
+          (delCatalogo) =>
+            delCatalogo.codigo.trim().toLowerCase() === codigo.toLowerCase(),
+        );
+  const omitirCodigoPorContradiccion = productoDelCodigo
+    ? codigoContradiceNombre(nombre, codigo, productoDelCodigo)
+    : false;
+  const query = [
+    nombre,
+    codigo !== "—" && !omitirCodigoPorContradiccion ? codigo : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const suggested = suggestFromCatalogo(query, productos);
   return {
     idProducto: "",
