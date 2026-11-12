@@ -20,7 +20,6 @@ import {
   type OrdenTrabajoHija,
 } from "../utils/origen/origen-correo-ordenes-trabajo";
 import {
-  isGarbageOcValue,
   resolveOrdenCompraLimpia,
   sanitizeOrigenCorreoNumeroPedido,
 } from "../utils/pedido/normalize-numero-pedido";
@@ -28,6 +27,10 @@ import { lineAmounts } from "../utils/pedido/orden-venta-create-helpers";
 import { hasOtPagerRequiredBlocking } from "../utils/ot/ot-pager-required";
 import { todayIsoDate } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { normalizeEstadoOrdenVenta } from "../../shared/constants/sales-status";
+import {
+  aplicarCabeceraFormARenglonActivo,
+  aplicarCabeceraOvARenglonHermano,
+} from "./sync-ot-cabecera-renglon";
 import { useRevisionPendienteOv } from "./aplicar-correccion-correo-ov";
 
 export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
@@ -129,8 +132,23 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
     const notasOt = observaciones.trim();
     const prioridadOt = prioridad.trim();
 
+    const cabecera = {
+      almacen,
+      numeroPedido,
+      fecha,
+      responsableExterno,
+      telefonoOt,
+      correoOt,
+      direccionOt,
+      andenOt,
+      ventanaDesdeOt,
+      ventanaHastaOt,
+      notasOt,
+      prioridadOt,
+    };
+
     return ordenesTrabajoForm.map((hija) => {
-      // REQ-141 / REQ-112: notas y dirección son de la OV — propagar a todas las OT.
+      // REQ-141 / REQ-112 / REQ-281: cabecera de OV — propagar a todas las OT.
       if (hija.id !== targetHija.id) {
         return {
           ...hija,
@@ -138,39 +156,14 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
             hija.renglones.length > 0
               ? hija.renglones
               : [{ Producto: "", Cantidad: 0 }]
-          ).map((row) => ({
-            ...row,
-            "Notas generales": notasOt,
-            "Direccion entrega": direccionOt,
-            Destino: direccionOt,
-          })),
+          ).map((row) => aplicarCabeceraOvARenglonHermano(row, cabecera)),
         };
       }
       const renglones = (
         hija.renglones.length > 0
           ? hija.renglones
           : [{ Producto: "", Cantidad: 0 }]
-      ).map((row) => ({
-        ...row,
-        Almacen: almacen || row.Almacen,
-        "Numero pedido":
-          numeroPedido ||
-          (isGarbageOcValue(row["Numero pedido"])
-            ? ""
-            : row["Numero pedido"] || ""),
-        Fecha: fecha || row.Fecha,
-        "Responsable externo":
-          responsableExterno || row["Responsable externo"],
-        "Telefono contacto": telefonoOt || row["Telefono contacto"],
-        "Correo contacto": correoOt || row["Correo contacto"],
-        "Direccion entrega": direccionOt,
-        Destino: direccionOt,
-        Anden: andenOt || row.Anden,
-        "Ventana desde": ventanaDesdeOt || row["Ventana desde"],
-        "Ventana hasta": ventanaHastaOt || row["Ventana hasta"],
-        "Notas generales": notasOt,
-        Prioridad: prioridadOt || row.Prioridad,
-      }));
+      ).map((row) => aplicarCabeceraFormARenglonActivo(row, cabecera));
       const label =
         (numeroPedido && almacen
           ? `${numeroPedido} — ${almacen}`
