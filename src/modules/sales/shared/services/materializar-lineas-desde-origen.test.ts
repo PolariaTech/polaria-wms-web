@@ -11,6 +11,7 @@ const estadoSimulado = vi.hoisted(() => ({
   insertFalla: false,
   lineas: [] as Record<string, unknown>[],
   reservasLiberadas: 0,
+  productosDelPlan: [] as unknown[],
 }));
 
 function resolver(op: Op) {
@@ -116,7 +117,9 @@ vi.mock("./frases-comprador.service", () => ({
 
 vi.mock("../../ordenes/utils/origen/materialize-ov-desde-origen", () => ({
   compradorDesdeOrigen: () => null,
-  buildMaterializeOvDesdeOrigenPlan: () => ({
+  buildMaterializeOvDesdeOrigenPlan: (args: { productos: unknown[] }) => {
+    estadoSimulado.productosDelPlan = args.productos;
+    return {
     idComprador: null,
     ordenCompraHotel: null,
     centroConsumo: null,
@@ -144,9 +147,11 @@ vi.mock("../../ordenes/utils/origen/materialize-ov-desde-origen", () => ({
         matchProducto: { textoCliente: "Cebolla", fuente: "difuso" },
       },
     ],
-  }),
+  };
+  },
 }));
 
+import { productosConFrasesDelComprador } from "./frases-comprador.service";
 import { materializeOrdenVentaDesdeOrigenSiVacia } from "./materializar-lineas-desde-origen";
 
 const params = {
@@ -161,6 +166,12 @@ describe("materializeOrdenVentaDesdeOrigenSiVacia", () => {
     estadoSimulado.insertFalla = false;
     estadoSimulado.lineas = [];
     estadoSimulado.reservasLiberadas = 0;
+    estadoSimulado.productosDelPlan = [];
+    vi.mocked(productosConFrasesDelComprador).mockImplementation(
+      async ({ productos }: { productos: unknown }) => productos,
+    );
+    params.listProductos.mockReset();
+    params.listProductos.mockResolvedValue([]);
   });
 
   it("dos aperturas simultáneas insertan las líneas una sola vez", async () => {
@@ -200,5 +211,33 @@ describe("materializeOrdenVentaDesdeOrigenSiVacia", () => {
     estadoSimulado.insertFalla = false;
     await materializeOrdenVentaDesdeOrigenSiVacia(params);
     expect(estadoSimulado.lineas).toHaveLength(2);
+  });
+
+  it("si la consulta de frases falla, materializa igual y sin frasesCliente", async () => {
+    const catalogo = {
+      idProducto: "p1",
+      label: "Aguacate",
+      idCliente: null,
+      idBodega: "b1",
+      codigo: "AGU",
+      nombre: "Aguacate",
+      kgDisponible: 1,
+      precioUnitario: 0,
+      unidadMedida: "KGM",
+    };
+    vi.mocked(productosConFrasesDelComprador).mockRejectedValueOnce(
+      new Error("consulta de frases"),
+    );
+    params.listProductos.mockResolvedValueOnce([catalogo]);
+
+    const resultado = await materializeOrdenVentaDesdeOrigenSiVacia(params);
+
+    expect(resultado.materializado).toBe(true);
+    expect(estadoSimulado.lineas).toHaveLength(2);
+    expect(estadoSimulado.productosDelPlan).toEqual([catalogo]);
+    expect(
+      (estadoSimulado.productosDelPlan[0] as { frasesCliente?: unknown })
+        .frasesCliente,
+    ).toBeUndefined();
   });
 });

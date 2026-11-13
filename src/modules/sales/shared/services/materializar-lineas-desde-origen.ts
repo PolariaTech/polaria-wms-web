@@ -179,7 +179,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
     codigoCuenta,
     idComprador,
     productos,
-  });
+  }).catch(() => productos);
   const plan = buildMaterializeOvDesdeOrigenPlan({
     origenCorreo: origen,
     productos: productosConFrases,

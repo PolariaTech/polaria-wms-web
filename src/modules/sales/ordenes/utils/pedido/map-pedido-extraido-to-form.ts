@@ -239,12 +239,7 @@ function resolveEspecificacionLineaForm(params: {
   });
 }
 
-/**
- * Resuelve la clave que Mateo devolvió contra el catálogo real.
- * Acepta: exacta, case-insensitive, por SKU único entre paréntesis,
- * o por código de producto del cliente si calza un SKU único.
- * Nunca fuzzy libre aquí: eso solo alimenta sugerencias pendientes.
- */
+/** SKU único en el mapa de códigos; si hay varios, no elige. */
 function productoUnicoPorCodigo(
   codigo: string | null | undefined,
   byCodigo: Map<string, ProductoVentaOption[]>,
@@ -255,6 +250,10 @@ function productoUnicoPorCodigo(
   return hits.length === 1 ? hits[0] : undefined;
 }
 
+/**
+ * Orden: código único del cliente, frase del comprador, clave de Mateo.
+ * Nunca fuzzy libre aquí: eso solo alimenta sugerencias pendientes.
+ */
 function resolveProductoMatch(
   linea: {
     textoOriginal?: string | null;

@@ -36,12 +36,12 @@ function crearCliente() {
 
 vi.mock("@/lib/supabase/domain-query", () => {
   const ejecutar = async (cb: (c: unknown) => PromiseLike<unknown>) => {
-    const r = (await cb(crearCliente())) as {
+    const respuesta = (await cb(crearCliente())) as {
       data: unknown;
       error: { message: string } | null;
     };
-    if (r.error) throw new Error(r.error.message);
-    return r.data;
+    if (respuesta.error) throw new Error(respuesta.error.message);
+    return respuesta.data;
   };
   return {
     requireCodigoCuenta: (c: string) => c,
