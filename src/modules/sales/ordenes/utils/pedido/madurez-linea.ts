@@ -4,6 +4,7 @@ import {
   stripEtiquetaMadurez,
   textoYaTraeMadurez,
 } from "./especificacion-madurez-domo";
+import { LINEA_NUMERADA, conParentesisDelRenglon } from "./texto-renglon-origen";
 
 export type FilaMadurez = {
   producto: string;
@@ -137,7 +138,6 @@ export type FilaObservacion = {
   observacion: string;
 };
 
-const LINEA_NUMERADA = /^\s*\d+\s*[.)]\s+(.+?)\s*(?:\[|·|$)/;
 const LINEA_OBSERVACION = /^\s*obs(?:ervaci[oó]n(?:es)?)?\.?\s*:\s*(\S.*?)\s*$/i;
 
 /**
@@ -221,20 +221,22 @@ export function asignarMadurezAProductos(params: {
 }): (string | null)[] {
   const niveles = nivelesDeMadurez(params);
   const observaciones = observacionesDesdeTexto(params.textoFuente);
-  if (observaciones.length === 0) return niveles;
-
   // REQ-231: la observación de cada producto (lo que va en rojo) se suma a su madurez.
+  // REQ-323: lo que el renglón trae entre paréntesis y el producto no contiene se suma a la especificación.
   const usadas = new Set<number>();
   return params.productos.map((producto, index) => {
+    let base = niveles[index] ?? null;
     const hits = observaciones
       .map((fila, posicion) => ({ fila, posicion }))
       .filter(
         ({ fila, posicion }) =>
           !usadas.has(posicion) && nombresCoinciden(producto, fila.producto),
       );
-    if (hits.length !== 1) return niveles[index] ?? null;
-    usadas.add(hits[0]!.posicion);
-    return sumarObservacion(niveles[index], hits[0]!.fila.observacion);
+    if (hits.length === 1) {
+      usadas.add(hits[0]!.posicion);
+      base = sumarObservacion(base, hits[0]!.fila.observacion);
+    }
+    return conParentesisDelRenglon(base, params.textoFuente, producto);
   });
 }
 
