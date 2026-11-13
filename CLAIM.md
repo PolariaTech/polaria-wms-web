@@ -38,6 +38,7 @@
 - `src/modules/sales/ordenes/utils/pedido/familia-ajena.casos-reales.test.ts`
 - `src/modules/sales/ordenes/hooks/cargar-orden-al-abrir.test.ts` — autorizada por el usuario el 2026-11-13
 - `src/modules/sales/ordenes/hooks/seleccionar-comprador-ov.test.ts` — autorizada por el usuario el 2026-11-13
+- `src/modules/sales/ordenes/utils/origen/__snapshots__/materialize-ov-desde-origen.sin-match.test.ts.snap` — autorizada por el usuario el 2026-11-13
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
