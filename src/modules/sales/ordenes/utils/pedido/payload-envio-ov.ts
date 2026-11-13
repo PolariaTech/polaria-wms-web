@@ -6,7 +6,7 @@ import { resolveCantidadPrecioParaPersistir } from "./persist-linea-avance";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
-  sanitizeNotasGeneralesPedido,
+  stripCamposParametrizadosDeNotas,
 } from "../origen/texto-origen-pedido";
 import { buildOrigenCorreoFromOrdenesYLineas } from "../origen/origen-correo-ordenes-trabajo";
 import type {
@@ -14,7 +14,11 @@ import type {
   OrigenCorreoRenglon,
 } from "../origen/origen-correo-ordenes-trabajo";
 import { resolvePropuestaClienteMateoParaGuardar, sellarNombreClienteMateoEnOrigen } from "./resolve-cabecera-guardada";
-import { buildNotasLineasText, buildOrdenVentaCapturaObservaciones } from "./build-orden-venta-captura-observaciones";
+import {
+  buildNotasLineasText,
+  buildOrdenVentaCapturaObservaciones,
+  stripSurtidoFotoQrFromNotas,
+} from "./build-orden-venta-captura-observaciones";
 import type { LineaVentaForm } from "../../types/orden-venta-create-modal.types";
 import { nombresOrigenAdjuntos } from "../origen/origen-adjuntos";
 import type { OrigenAdjunto } from "../origen/origen-adjuntos";
@@ -96,7 +100,6 @@ export function notasLineasParaEnvio(lineas: readonly LineaVentaForm[]): string 
       otId: linea.otId,
       idProducto: linea.idProducto || null,
       especificacion: linea.especificacion,
-      descuentoPct: parseDecimalEs(linea.descuentoPctInput),
       ivaPct: linea.ivaPct,
     })),
   );
@@ -220,7 +223,10 @@ export function buildPayloadEnvioOv(params: {
     origenArchivos: params.origenArchivos,
     origenCorreo: params.origenCorreo,
     notasLineas: params.notasLineas,
-    notasAlmacen: sanitizeNotasGeneralesPedido(params.observaciones),
+    // REQ-032: el textarea manda a notas_almacen (sin re-extraer fragmentos del correo).
+    notasAlmacen: stripCamposParametrizadosDeNotas(
+      stripSurtidoFotoQrFromNotas(params.observaciones),
+    ).trim(),
     observaciones: buildOrdenVentaCapturaObservaciones({
       fechaEntrega: params.fechaEntrega,
       ventanaDesde: params.ventanaDesde,

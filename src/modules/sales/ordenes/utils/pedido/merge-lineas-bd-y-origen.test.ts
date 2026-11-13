@@ -13,7 +13,6 @@ function lineaBd(parcial: Partial<LineaVentaForm> & { otId: string }): LineaVent
     cajasInput: "",
     presentacion: "",
     especificacion: "",
-    descuentoPctInput: "",
     ivaPct: "0",
     kgDisponible: 10,
     unidadMedida: "KGM",

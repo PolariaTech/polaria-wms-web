@@ -125,86 +125,9 @@ export async function getEmlAttachmentBuffer(
   };
 }
 
-function escapeHtmlText(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-/**
- * REQ-159: HTML legible del .eml para abrir en pestaña (inline).
- * Preferir cuerpo HTML del correo; si no, texto plano. Sin scripts.
- */
-export async function buildEmlInlineHtml(buffer: Buffer): Promise<string> {
-  const parsed = await simpleParser(buffer);
-  const subject = String(parsed.subject ?? "").trim() || "(sin asunto)";
-  const from = formatMailAddress(parsed.from) || "—";
-  const to = formatMailAddress(parsed.to) || "—";
-  const htmlBody = typeof parsed.html === "string" ? parsed.html.trim() : "";
-  const textBody =
-    typeof parsed.text === "string" ? parsed.text.trim() : "";
-
-  const bodyInner = htmlBody
-    ? htmlBody
-    : textBody
-      ? `<pre>${escapeHtmlText(textBody)}</pre>`
-      : "<p><em>Este correo no trae cuerpo legible.</em></p>";
-
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'; font-src data:;" />
-  <title>${escapeHtmlText(subject)}</title>
-  <style>
-    :root { color-scheme: light; }
-    body {
-      margin: 0;
-      padding: 1.25rem 1.5rem 2rem;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      font-size: 15px;
-      line-height: 1.5;
-      color: #111;
-      background: #fff;
-    }
-    header {
-      max-width: 52rem;
-      margin: 0 auto 1rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid #e5e5e5;
-    }
-    h1 {
-      margin: 0 0 0.5rem;
-      font-size: 1.25rem;
-      font-weight: 700;
-    }
-    .meta { color: #444; font-size: 0.875rem; }
-    .meta div { margin: 0.15rem 0; }
-    .body {
-      max-width: 52rem;
-      margin: 0 auto;
-      overflow-wrap: anywhere;
-    }
-    .body pre {
-      white-space: pre-wrap;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.875rem;
-    }
-    .body img { max-width: 100%; height: auto; }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>${escapeHtmlText(subject)}</h1>
-    <div class="meta">
-      <div><strong>De:</strong> ${escapeHtmlText(from)}</div>
-      <div><strong>Para:</strong> ${escapeHtmlText(to)}</div>
-    </div>
-  </header>
-  <div class="body">${bodyInner}</div>
-</body>
-</html>`;
-}
+export {
+  buildEmlInlineHtml,
+  EML_INLINE_TABLE_CSS,
+  sanitizeEmailCss,
+  splitEmailHtmlStyles,
+} from "./eml-inline-html";

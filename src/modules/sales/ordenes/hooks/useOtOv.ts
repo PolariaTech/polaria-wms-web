@@ -202,7 +202,6 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
           cajasInput: linea.cajasInput,
           presentacion: linea.presentacion,
           especificacion: linea.especificacion,
-          descuentoPctInput: linea.descuentoPctInput,
           ivaPct: "0",
           kgDisponible: linea.kgDisponible,
           unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,

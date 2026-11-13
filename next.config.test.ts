@@ -9,6 +9,7 @@ describe("next.config", () => {
   it("excluye handlers locales del rewrite hacia Nest", async () => {
     expect(NEST_API_REWRITE_SOURCE).toContain("pedido-proveedor");
     expect(NEST_API_REWRITE_SOURCE).toContain("evidencia-transporte");
+    expect(NEST_API_REWRITE_SOURCE).toContain("product-version");
     expect(NEST_API_REWRITE_SOURCE).toContain("ventas/ordenes/[^/]+/log");
 
     const rewrites = await nextConfig.rewrites!();

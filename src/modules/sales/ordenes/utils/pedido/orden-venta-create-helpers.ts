@@ -63,7 +63,6 @@ export function lineaFormDesdeIa(
     cajasInput: linea.cajasInput,
     presentacion: linea.presentacion,
     especificacion: linea.especificacion,
-    descuentoPctInput: linea.descuentoPctInput,
     ivaPct: "0",
     kgDisponible: linea.kgDisponible,
     unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
@@ -103,24 +102,18 @@ export function fieldControlClass(params: {
   return undefined;
 }
 
+/** REQ-218: sin descuento; importe = bruto. */
 export function lineAmounts(linea: LineaVentaForm): {
   bruto: number;
-  descuento: number;
   base: number;
   iva: number;
   importe: number;
 } {
   const cantidad = parseDecimalEs(linea.cantidadInput) ?? 0;
   const bruto = Math.max(0, cantidad) * linea.precioUnitario;
-  const descuentoPct = Math.min(
-    100,
-    Math.max(0, parseDecimalEs(linea.descuentoPctInput) ?? 0),
-  );
-  const descuento = bruto * (descuentoPct / 100);
-  const base = Math.max(0, bruto - descuento);
   const ivaPct = Math.max(0, Number(linea.ivaPct) || 0);
-  const iva = base * (ivaPct / 100);
-  return { bruto, descuento, base, iva, importe: base };
+  const iva = bruto * (ivaPct / 100);
+  return { bruto, base: bruto, iva, importe: bruto };
 }
 
 export function formatCompradorLabel(row: CompradorListRow): string {

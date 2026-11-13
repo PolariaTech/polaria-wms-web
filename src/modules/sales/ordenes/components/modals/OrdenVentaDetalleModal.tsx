@@ -256,9 +256,8 @@ function DetalleContent({
     };
   });
   const subtotalOt = montosLinea.reduce((sum, row) => sum + row.bruto, 0);
-  const descuentosOt = montosLinea.reduce((sum, row) => sum + row.descuento, 0);
   const ivaOt = montosLinea.reduce((sum, row) => sum + row.iva, 0);
-  const totalOt = Math.max(0, subtotalOt - descuentosOt + ivaOt);
+  const totalOt = Math.max(0, subtotalOt + ivaOt);
   const totalOv = (orden.lineas ?? []).reduce((sum, linea) => {
     const nota = notaCapturaForLinea(captura.notasLineas, {
       nombre: resolveOrdenVentaLineaTitulo(linea),
@@ -365,7 +364,6 @@ function DetalleContent({
             filas={montosLinea}
             hija={hija}
             subtotal={subtotalOt}
-            descuentos={descuentosOt}
             iva={ivaOt}
             total={totalOt}
             mostrarTotalOv={mostrarTotalOv}

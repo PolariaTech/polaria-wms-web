@@ -57,7 +57,9 @@ export function OrdenVentaCypherDrawerChrome({
         onPointerUp={handleResizePointerUp}
         onPointerCancel={handleResizePointerUp}
         className={cn(
-          "absolute inset-y-0 left-0 z-30 w-1.5 -translate-x-1/2 cursor-col-resize touch-none",
+          // REQ-307: rail hacia dentro del Cypher (sin -translate) para que
+          // el drag no caiga sobre el editor dock-left.
+          "absolute inset-y-0 left-0 z-30 w-3 cursor-col-resize touch-none",
           "hover:bg-polaria-teal/40",
           isResizingWidth && "bg-polaria-teal/50",
         )}
