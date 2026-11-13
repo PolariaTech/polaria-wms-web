@@ -20,6 +20,7 @@
 - `src/modules/sales/ordenes/components/shared/OrigenAdjuntosCards.tsx`
 - `src/modules/sales/ordenes/components/shared/OrigenAdjuntosCards.test.tsx`
 - `CHANGELOG.md`
+- `src/modules/sales/ordenes/print-batch/aviso-oc.ts` — autorizada por el usuario el 2026-11-13
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaPageContent.oc.test.tsx`
