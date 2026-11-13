@@ -12,6 +12,9 @@ import {
   type OrigenAdjunto,
 } from "../../utils/origen/origen-adjuntos";
 
+/** Iconos de tarjeta: mismo tamaño en preview, tipo y acciones (REQ-102). */
+const ICONO_ADJUNTO_CLASS = "h-3 w-3 shrink-0";
+
 function formatBytes(bytes: number | null | undefined): string {
   if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return "";
   if (bytes < 1024) return `${bytes} B`;
@@ -33,20 +36,22 @@ export function OrigenAdjuntosCards({
   if (unique.length === 0) return null;
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-1.5", className)}>
       <p className="polaria-text-caption text-polaria-w-50">
         {unique.length === 1
           ? "1 archivo adjunto"
           : `${unique.length} archivos adjuntos`}
       </p>
-      {/* REQ-102: 2 cols en Cypher (estrecho); más cols en viewports anchos. */}
-      <ul className="grid grid-cols-2 items-stretch gap-1.5 min-[420px]:grid-cols-3">
+      {/* REQ-102: tarjetas uniformes y compactas; grid responsivo en Cypher. */}
+      <ul className="grid grid-cols-2 gap-1 min-[360px]:grid-cols-3 min-[520px]:grid-cols-4">
         {unique.map((item, index) => {
           const url = item.url?.trim() || "";
           const path = item.path?.trim() || "";
           const viewUrl = origenAdjuntoViewUrl(item);
           const downloadUrl = origenAdjuntoDownloadUrl(item);
-          const hasFile = Boolean(path || (url && !isBrokenCloudinaryPdfUrl(url)));
+          const hasFile = Boolean(
+            path || (url && !isBrokenCloudinaryPdfUrl(url)),
+          );
           const tipo = labelTipoOrigenAdjunto(item);
           const previewable = canPreviewOrigenAdjunto(item);
           const size = formatBytes(item.bytes);
@@ -54,9 +59,10 @@ export function OrigenAdjuntosCards({
           return (
             <li
               key={`${item.nombre}-${index}`}
-              className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-polaria-t-20 bg-polaria-bg/40"
+              data-adjunto-card=""
+              className="flex h-[5.25rem] min-w-0 flex-col overflow-hidden rounded-md border border-polaria-t-20 bg-polaria-bg/40"
             >
-              <div className="flex aspect-[4/3] shrink-0 items-center justify-center bg-polaria-t-08">
+              <div className="flex h-10 shrink-0 items-center justify-center overflow-hidden bg-polaria-t-08">
                 {previewable && url && tipo === "IMG" ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -65,28 +71,28 @@ export function OrigenAdjuntosCards({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex flex-col items-center gap-0.5 text-polaria-teal">
-                    <FileText className="h-4 w-4" aria-hidden />
-                    <span className="rounded bg-polaria-teal/15 px-1 py-px text-[0.65rem] font-semibold leading-none">
+                  <div className="flex items-center gap-1 text-polaria-teal">
+                    <FileText className={ICONO_ADJUNTO_CLASS} aria-hidden />
+                    <span className="rounded bg-polaria-teal/15 px-1 py-px text-[0.6rem] font-semibold leading-none">
                       {tipo}
                     </span>
                   </div>
                 )}
               </div>
-              <div className="mt-auto flex min-h-[2.75rem] items-center gap-1 border-t border-polaria-w-08 bg-polaria-w-08 px-1.5 py-1">
-                <span className="shrink-0 rounded bg-polaria-teal/20 px-0.5 py-px text-[0.6rem] font-bold leading-none text-polaria-teal">
+              <div className="flex h-11 min-h-0 items-center gap-0.5 border-t border-polaria-w-08 bg-polaria-w-08 px-1">
+                <span className="shrink-0 rounded bg-polaria-teal/20 px-0.5 py-px text-[0.55rem] font-bold leading-none text-polaria-teal">
                   {tipo}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p
-                    className="truncate text-[0.65rem] font-medium leading-tight text-polaria-w"
+                    className="truncate text-[0.6rem] font-medium leading-tight text-polaria-w"
                     title={item.nombre}
                   >
                     {item.nombre}
                   </p>
                   <p
                     className={cn(
-                      "truncate whitespace-nowrap text-[0.6rem] leading-tight",
+                      "truncate whitespace-nowrap text-[0.55rem] leading-tight",
                       size ? "text-polaria-w-50" : "invisible",
                     )}
                     aria-hidden={!size}
@@ -94,7 +100,7 @@ export function OrigenAdjuntosCards({
                     {size || "0 KB"}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center self-center">
+                <div className="flex shrink-0 items-center gap-0 self-center">
                   {hasFile && (viewUrl || downloadUrl) ? (
                     <>
                       {previewable && viewUrl ? (
@@ -106,7 +112,7 @@ export function OrigenAdjuntosCards({
                             aria-label={`Ver ${item.nombre}`}
                             onClick={() => onPreviewAdjunto(item, viewUrl)}
                           >
-                            <Eye className="h-3 w-3" aria-hidden />
+                            <Eye className={ICONO_ADJUNTO_CLASS} aria-hidden />
                           </button>
                         ) : (
                           <a
@@ -117,7 +123,7 @@ export function OrigenAdjuntosCards({
                             title="Ver"
                             aria-label={`Ver ${item.nombre}`}
                           >
-                            <Eye className="h-3 w-3" aria-hidden />
+                            <Eye className={ICONO_ADJUNTO_CLASS} aria-hidden />
                           </a>
                         )
                       ) : null}
@@ -131,13 +137,16 @@ export function OrigenAdjuntosCards({
                           title="Descargar"
                           aria-label={`Descargar ${item.nombre}`}
                         >
-                          <Download className="h-3 w-3" aria-hidden />
+                          <Download
+                            className={ICONO_ADJUNTO_CLASS}
+                            aria-hidden
+                          />
                         </a>
                       ) : null}
                     </>
                   ) : (
                     <span
-                      className="max-w-[3.5rem] text-right text-[0.6rem] leading-tight text-polaria-w-50"
+                      className="max-w-[3rem] truncate text-right text-[0.55rem] leading-tight text-polaria-w-50"
                       title={
                         url && isBrokenCloudinaryPdfUrl(url)
                           ? "Cloudinary bloquea PDF en esta cuenta. Volvé a subir el archivo (ahora va a Supabase Storage)."

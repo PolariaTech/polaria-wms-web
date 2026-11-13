@@ -96,7 +96,6 @@ export function mapDetalleLineasAForm(params: {
           : "",
       presentacion: linea.presentacion?.trim() || "",
       especificacion: "",
-      descuentoPctInput: "",
       ivaPct: "0",
       kgDisponible: catalogo?.kgDisponible ?? 0,
       unidadMedida:

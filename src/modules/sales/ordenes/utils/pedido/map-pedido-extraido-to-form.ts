@@ -55,7 +55,6 @@ export interface LineaVentaFromIa {
   cajasInput: string;
   presentacion: string;
   especificacion: string;
-  descuentoPctInput: string;
   ivaPct: string;
   kgDisponible: number;
   unidadMedida: string;
@@ -812,7 +811,6 @@ export function mapPedidoExtraidoToForm(params: {
           cajasInput: qty.cajasInput,
           presentacion: qty.presentacion,
           especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
-          descuentoPctInput: "0",
           ivaPct: "0",
           kgDisponible: match.kgDisponible,
           unidadMedida: inferUnidadDesdeTexto(textoOriginal, match.unidadMedida),
@@ -841,7 +839,6 @@ export function mapPedidoExtraidoToForm(params: {
         cajasInput: qty.cajasInput,
         presentacion: qty.presentacion,
         especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
-        descuentoPctInput: "0",
         ivaPct: "0",
         kgDisponible: match.kgDisponible,
         unidadMedida: inferUnidadDesdeTexto(textoOriginal, match.unidadMedida),
@@ -913,7 +910,6 @@ export function mapPedidoExtraidoToForm(params: {
         cajasInput: qty.cajasInput,
         presentacion: qty.presentacion,
         especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
-        descuentoPctInput: "0",
         ivaPct: "0",
         kgDisponible: sugerencia.kgDisponible,
         unidadMedida: inferUnidadDesdeTexto(textoOriginal, sugerencia.unidadMedida),
@@ -953,7 +949,6 @@ export function mapPedidoExtraidoToForm(params: {
       cajasInput: qty.cajasInput,
       presentacion: qty.presentacion,
       especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
-      descuentoPctInput: "0",
       ivaPct: "0",
       kgDisponible: sugerencia?.kgDisponible ?? 0,
       unidadMedida: inferUnidadDesdeTexto(textoOriginal, sugerencia?.unidadMedida ?? ""),

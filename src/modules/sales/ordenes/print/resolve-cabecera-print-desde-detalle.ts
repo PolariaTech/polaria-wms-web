@@ -3,21 +3,45 @@ import {
   stripSurtidoFotoQrFromNotas,
 } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { diaSemanaEntregaEs } from "../utils/pedido/dia-semana-entrega";
+import { parseOrigenCorreoJson } from "../utils/origen/origen-correo-ordenes-trabajo";
 import {
   fitNotasGeneralesPdf,
   looksLikeEmailHeaderJunk,
   sanitizeNotasGeneralesPedido,
 } from "../utils/origen/texto-origen-pedido";
+import { leerCabeceraUsuarioSello } from "../utils/pedido/sellar-edicion-usuario-origen";
 
 /**
  * Cabecera del PDF de almacén: detalle de venta (BD / captura del pedido).
  * No usa renglones Mateo (`Almacen`/`Fecha` de origen_correo) ni el cuerpo del correo.
  */
 
-/** Notas del PDF = `notas_almacen` del detalle. Vacío se respeta (no reinyecta el correo). */
-export function resolveNotasGeneralesDesdeDetalle(notasAlmacen: string): string {
+type DetalleNotasPrint = {
+  notas_almacen?: string | null;
+  origen_correo?: unknown;
+};
+
+/**
+ * REQ-032 / REQ-281: notas del PDF.
+ * Con sello `_cabeceraUsuario` manda el texto del form (también vacío).
+ * Sin sello: `notas_almacen`. Nunca reinyecta `origen_texto`.
+ */
+export function resolveNotasGeneralesDesdeDetalle(
+  notasAlmacenOrDetalle: string | DetalleNotasPrint,
+  origenCorreo?: unknown,
+): string {
+  const notasAlmacen =
+    typeof notasAlmacenOrDetalle === "string"
+      ? notasAlmacenOrDetalle
+      : notasAlmacenOrDetalle.notas_almacen?.trim() || "";
+  const origen =
+    typeof notasAlmacenOrDetalle === "string"
+      ? origenCorreo
+      : notasAlmacenOrDetalle.origen_correo;
+  const sello = leerCabeceraUsuarioSello(parseOrigenCorreoJson(origen));
+  const fuente = sello ? sello.notasGenerales : notasAlmacen;
   const deUsuario = sanitizeNotasGeneralesPedido(
-    stripSurtidoFotoQrFromNotas(notasAlmacen),
+    stripSurtidoFotoQrFromNotas(fuente),
   );
   if (deUsuario && !looksLikeEmailHeaderJunk(deUsuario)) {
     return fitNotasGeneralesPdf(deUsuario);

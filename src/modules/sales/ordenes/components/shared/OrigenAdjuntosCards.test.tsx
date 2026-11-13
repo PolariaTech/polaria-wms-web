@@ -66,7 +66,7 @@ describe("OrigenAdjuntosCards", () => {
     expect(screen.getByText("Sin archivo")).toBeInTheDocument();
   });
 
-  it("usa grid con altura uniforme entre tarjetas", () => {
+  it("usa tarjetas compactas del mismo tamaño (REQ-102)", () => {
     const { container } = render(
       <OrigenAdjuntosCards
         adjuntos={[
@@ -76,7 +76,8 @@ describe("OrigenAdjuntosCards", () => {
             bytes: 31_000,
           },
           {
-            nombre: "b.eml",
+            nombre:
+              "nombre-muy-largo-de-archivo-para-forzar-truncado-en-cypher.pdf",
             path: "cuenta/b.eml",
             bytes: 45_000,
           },
@@ -85,13 +86,26 @@ describe("OrigenAdjuntosCards", () => {
     );
 
     const list = container.querySelector("ul");
-    expect(list?.className).toContain("items-stretch");
-    const cards = container.querySelectorAll("li");
+    expect(list?.className).toContain("grid-cols-2");
+    expect(list?.className).toContain("min-[360px]:grid-cols-3");
+    const cards = container.querySelectorAll("[data-adjunto-card]");
     expect(cards).toHaveLength(2);
     for (const card of cards) {
-      expect(card.className).toContain("h-full");
+      expect(card.className).toContain("h-[5.25rem]");
+    }
+    const icons = container.querySelectorAll("svg");
+    for (const icon of icons) {
+      const className = icon.className.baseVal || icon.getAttribute("class") || "";
+      expect(className).toContain("h-3");
+      expect(className).toContain("w-3");
     }
     expect(screen.getByText("30 KB")).toBeInTheDocument();
     expect(screen.getByText("44 KB")).toBeInTheDocument();
+    expect(
+      screen.getByTitle(
+        "nombre-muy-largo-de-archivo-para-forzar-truncado-en-cypher.pdf",
+      ),
+    ).toHaveClass("truncate");
   });
 });
+

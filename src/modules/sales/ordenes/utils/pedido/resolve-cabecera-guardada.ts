@@ -88,15 +88,21 @@ export function resolveCabeceraGuardada(params: {
   const notasGuardadas = looksLikeCorreoCuerpoEnNotas(notasRaw)
     ? sanitizeNotasGeneralesPedido(notasRaw)
     : notasRaw;
+  // REQ-141/032: notas_almacen vacío + captura = borró (aunque filas queden a medias).
+  const borradasPorCaptura =
+    !notasGuardadas && Boolean((detalle.observaciones ?? "").trim());
+  const borradas =
+    borradasPorCaptura ||
+    usuarioBorroNotas({
+      notasGuardadas,
+      filasOrigen,
+      observacionesGuardadas: detalle.observaciones,
+    });
   return {
     observaciones: resolveNotasGuardadas({
       notasGuardadas,
       propuesta: propuesta.observaciones,
-      borradas: usuarioBorroNotas({
-        notasGuardadas,
-        filasOrigen,
-        observacionesGuardadas: detalle.observaciones,
-      }),
+      borradas,
     }),
     ordenCompraHotel: resolveOccGuardada({
       guardada: detalle.orden_compra_hotel,

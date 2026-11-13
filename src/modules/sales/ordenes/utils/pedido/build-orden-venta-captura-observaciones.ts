@@ -410,7 +410,6 @@ export function buildNotasLineasText(
     otId?: string | null;
     idProducto?: string | null;
     especificacion: string;
-    descuentoPct?: number | null;
     ivaPct?: string | null;
   }[],
 ): string {
@@ -419,9 +418,6 @@ export function buildNotasLineasText(
       const bits: string[] = [];
       if (linea.especificacion.trim()) {
         bits.push(linea.especificacion.trim());
-      }
-      if (linea.descuentoPct != null && linea.descuentoPct > 0) {
-        bits.push(`desc ${linea.descuentoPct}%`);
       }
       if (linea.ivaPct && linea.ivaPct !== "0") {
         bits.push(`IVA ${linea.ivaPct}%`);

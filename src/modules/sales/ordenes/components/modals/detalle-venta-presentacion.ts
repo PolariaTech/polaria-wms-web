@@ -25,17 +25,14 @@ export function leerFolioFacturaVista(
   return "";
 }
 
-export function porcentajeDeNota(
-  nota: string,
-  etiqueta: "desc" | "IVA",
-): number {
+export function porcentajeDeNota(nota: string, etiqueta: "IVA"): number {
   const match = nota.match(
     new RegExp(`(?:^|·)\\s*${etiqueta}\\s+([\\d.,]+)\\s*%`, "i"),
   );
   if (!match?.[1]) return 0;
   const pct = Number(match[1].replace(",", "."));
   if (!Number.isFinite(pct) || pct <= 0) return 0;
-  return etiqueta === "desc" ? Math.min(100, pct) : pct;
+  return pct;
 }
 
 export function especificacionVisible(nota: string): string {
@@ -84,34 +81,28 @@ export function tituloDetalleOvConOt(
 }
 
 export type MontoLineaVista = {
-  descuentoPct: number;
   ivaPct: number;
   especificacion: string;
   bruto: number;
-  descuento: number;
   iva: number;
   importe: number;
 };
 
+/** REQ-218: sin descuento; importe = bruto. */
 export function montoDeNota(
   nota: string,
   cantidad: number,
   precio: number,
 ): MontoLineaVista {
-  const descuentoPct = porcentajeDeNota(nota, "desc");
   const ivaPct = porcentajeDeNota(nota, "IVA");
   const bruto = cantidad * precio;
-  const descuento = bruto * (descuentoPct / 100);
-  const base = Math.max(0, bruto - descuento);
-  const iva = base * (ivaPct / 100);
+  const iva = bruto * (ivaPct / 100);
   return {
-    descuentoPct,
     ivaPct,
     especificacion: especificacionVisible(nota),
     bruto,
-    descuento,
     iva,
-    importe: base,
+    importe: bruto,
   };
 }
 

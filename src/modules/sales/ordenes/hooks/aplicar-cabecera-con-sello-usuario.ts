@@ -6,6 +6,7 @@ import type {
   OrigenCorreoRenglon,
 } from "../utils/origen/origen-correo-ordenes-trabajo";
 import {
+  parseOrdenVentaCapturaObservaciones,
   stripSurtidoFotoQrFromNotas,
 } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { isFechaEntregaIsoValida } from "../utils/pedido/pedido-form-validation";
@@ -152,10 +153,16 @@ export function notasCanonConSelloUsuario(params: {
 }): string {
   const sello = leerCabeceraUsuarioSello(params.origenCorreoRows);
   if (sello) return sello.notasGenerales;
+  const fromBd = stripSurtidoFotoQrFromNotas(params.notasAlmacen).trim();
+  // REQ-141: OV ya guardada con notas_almacen vacío → no rellenar desde el correo.
+  if (!fromBd && (params.observacionesOv ?? "").trim()) {
+    const fromCaptura = parseOrdenVentaCapturaObservaciones(
+      params.observacionesOv,
+    ).observaciones.trim();
+    return fromCaptura ? sanitizeNotasGeneralesPedido(fromCaptura) : "";
+  }
   return sanitizeNotasGeneralesPedido(
-    stripSurtidoFotoQrFromNotas(params.notasAlmacen) ||
-      params.observacionesOv ||
-      "",
+    fromBd || params.observacionesOv || "",
     params.origenTexto,
   );
 }

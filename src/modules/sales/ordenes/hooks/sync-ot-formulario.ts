@@ -20,7 +20,6 @@ import {
   type OrdenTrabajoHija,
 } from "../utils/origen/origen-correo-ordenes-trabajo";
 import {
-  isGarbageOcValue,
   resolveOrdenCompraLimpia,
   sanitizeOrigenCorreoNumeroPedido,
 } from "../utils/pedido/normalize-numero-pedido";
@@ -28,6 +27,10 @@ import { lineAmounts } from "../utils/pedido/orden-venta-create-helpers";
 import { hasOtPagerRequiredBlocking } from "../utils/ot/ot-pager-required";
 import { todayIsoDate } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { normalizeEstadoOrdenVenta } from "../../shared/constants/sales-status";
+import {
+  aplicarCabeceraFormAOrdenesTrabajo,
+  propagarCabeceraOvATodasLasHijas,
+} from "./sync-ot-cabecera-renglon";
 import { useRevisionPendienteOv } from "./aplicar-correccion-correo-ov";
 
 export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
@@ -114,76 +117,30 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
         : !paginarPorOt && ordenesTrabajoForm.length === 1
           ? ordenesTrabajoForm[0]
           : null;
-    if (!targetHija) return ordenesTrabajoForm;
 
-    const almacen = centroConsumo.trim();
-    const numeroPedido = ordenCompraHotel.trim();
-    const fecha = fechaEntrega.trim();
-    const responsableExterno = contacto.trim();
-    const telefonoOt = telefono.trim();
-    const correoOt = correo.trim();
-    const direccionOt = direccion.trim();
-    const andenOt = anden.trim();
-    const ventanaDesdeOt = ventanaDesde.trim();
-    const ventanaHastaOt = ventanaHasta.trim();
-    const notasOt = observaciones.trim();
-    const prioridadOt = prioridad.trim();
+    const cabeceraOv = {
+      responsableExterno: contacto.trim(),
+      telefonoOt: telefono.trim(),
+      correoOt: correo.trim(),
+      direccionOt: direccion.trim(),
+      notasOt: observaciones.trim(),
+    };
 
-    return ordenesTrabajoForm.map((hija) => {
-      // REQ-141 / REQ-112: notas y dirección son de la OV — propagar a todas las OT.
-      if (hija.id !== targetHija.id) {
-        return {
-          ...hija,
-          renglones: (
-            hija.renglones.length > 0
-              ? hija.renglones
-              : [{ Producto: "", Cantidad: 0 }]
-          ).map((row) => ({
-            ...row,
-            "Notas generales": notasOt,
-            "Direccion entrega": direccionOt,
-            Destino: direccionOt,
-          })),
-        };
-      }
-      const renglones = (
-        hija.renglones.length > 0
-          ? hija.renglones
-          : [{ Producto: "", Cantidad: 0 }]
-      ).map((row) => ({
-        ...row,
-        Almacen: almacen || row.Almacen,
-        "Numero pedido":
-          numeroPedido ||
-          (isGarbageOcValue(row["Numero pedido"])
-            ? ""
-            : row["Numero pedido"] || ""),
-        Fecha: fecha || row.Fecha,
-        "Responsable externo":
-          responsableExterno || row["Responsable externo"],
-        "Telefono contacto": telefonoOt || row["Telefono contacto"],
-        "Correo contacto": correoOt || row["Correo contacto"],
-        "Direccion entrega": direccionOt,
-        Destino: direccionOt,
-        Anden: andenOt || row.Anden,
-        "Ventana desde": ventanaDesdeOt || row["Ventana desde"],
-        "Ventana hasta": ventanaHastaOt || row["Ventana hasta"],
-        "Notas generales": notasOt,
-        Prioridad: prioridadOt || row.Prioridad,
-      }));
-      const label =
-        (numeroPedido && almacen
-          ? `${numeroPedido} — ${almacen}`
-          : almacen || numeroPedido) || hija.label;
-      return {
-        ...hija,
-        almacen,
-        numeroPedido,
-        fecha,
-        responsableExterno,
-        label,
-        renglones,
-      };
+    // Multi-OT sin pager: igual propagar cabecera OV (notas/contacto/…) a todas.
+    if (!targetHija) {
+      if (ordenesTrabajoForm.length === 0) return ordenesTrabajoForm;
+      return propagarCabeceraOvATodasLasHijas(ordenesTrabajoForm, cabeceraOv);
+    }
+
+    return aplicarCabeceraFormAOrdenesTrabajo(ordenesTrabajoForm, targetHija.id, {
+      almacen: centroConsumo.trim(),
+      numeroPedido: ordenCompraHotel.trim(),
+      fecha: fechaEntrega.trim(),
+      andenOt: anden.trim(),
+      ventanaDesdeOt: ventanaDesde.trim(),
+      ventanaHastaOt: ventanaHasta.trim(),
+      prioridadOt: prioridad.trim(),
+      ...cabeceraOv,
     });
   }, [
     anden,
@@ -268,17 +225,13 @@ export function useTotalesVentaOv(estado: OrdenVentaFormEstado) {
     () => lineasParaTotales.reduce((sum: number, linea) => sum + lineAmounts(linea).bruto, 0),
     [lineasParaTotales],
   );
-  const descuentosVenta = useMemo(
-    () => lineasParaTotales.reduce((sum: number, linea) => sum + lineAmounts(linea).descuento, 0),
-    [lineasParaTotales],
-  );
   const ivaVenta = useMemo(
     () => lineasParaTotales.reduce((sum: number, linea) => sum + lineAmounts(linea).iva, 0),
     [lineasParaTotales],
   );
   const totalVenta = useMemo(
-    () => Math.max(0, subtotalVenta - descuentosVenta + ivaVenta),
-    [descuentosVenta, ivaVenta, subtotalVenta],
+    () => Math.max(0, subtotalVenta + ivaVenta),
+    [ivaVenta, subtotalVenta],
   );
   const mostrarTotalOv =
     ordenesTrabajoForm.length > 1 &&
@@ -287,12 +240,12 @@ export function useTotalesVentaOv(estado: OrdenVentaFormEstado) {
     if (!mostrarTotalOv) return 0;
     return lineas.reduce((sum: number, linea) => {
       const importesLinea = lineAmounts(linea);
-      return sum + Math.max(0, importesLinea.bruto - importesLinea.descuento + importesLinea.iva);
+      return sum + Math.max(0, importesLinea.bruto + importesLinea.iva);
     }, 0);
   }, [lineas, mostrarTotalOv]);
   return {
     lineasParaTotales, otPagerNextBlocked, esPorConfirmar, revisionPendiente,
     confirmBloqueoReason, confirmSubmitDisabled, focusRevisionPendiente,
-    subtotalVenta, descuentosVenta, ivaVenta, totalVenta, mostrarTotalOv, totalOvCompleta,
+    subtotalVenta, ivaVenta, totalVenta, mostrarTotalOv, totalOvCompleta,
   };
 }

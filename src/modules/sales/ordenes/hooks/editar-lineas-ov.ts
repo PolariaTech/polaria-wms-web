@@ -248,7 +248,7 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
   const handleLineaFieldChange = useCallback(
     (
       index: number,
-      field: "especificacion" | "descuentoPctInput" | "ivaPct",
+      field: "especificacion" | "ivaPct",
       value: string,
     ) => {
       setLineas((prev) =>

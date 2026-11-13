@@ -133,7 +133,6 @@ export function crearLineaDesdeProducto(
     cajasInput: "",
     presentacion: "",
     especificacion: "",
-    descuentoPctInput: "",
     ivaPct: "0",
     kgDisponible: row.kgDisponible,
     unidadMedida: row.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
