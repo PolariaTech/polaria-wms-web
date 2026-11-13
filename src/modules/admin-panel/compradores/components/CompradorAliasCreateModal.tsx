@@ -88,7 +88,7 @@ export function CompradorAliasCreateModal({
   const [aliasByProductoId, setAliasByProductoId] = useState<
     Record<string, string>
   >({});
-  const [existingProductoIds, setExistingProductoIds] = useState<
+  const [precioEspecialPorProducto, setPrecioEspecialPorProducto] = useState<
     ReadonlySet<string>
   >(() => new Set());
   const [precioByProductoId, setPrecioByProductoId] = useState<
@@ -105,7 +105,7 @@ export function CompradorAliasCreateModal({
   const resetForm = useCallback(() => {
     setProductoQuery("");
     setAliasByProductoId({});
-    setExistingProductoIds(new Set());
+    setPrecioEspecialPorProducto(new Set());
     setPrecioByProductoId({});
     setDrafts({});
     setError(null);
@@ -144,25 +144,25 @@ export function CompradorAliasCreateModal({
         const existingAlias = Object.fromEntries(
           nextAliases.map((row) => [row.idProducto, row.alias] as const),
         );
-        const existingIds = new Set(
-          nextAliases.map((row) => row.idProducto),
+        const precioEspecialIds = new Set(
+          nextAliases
+            .filter((row) => row.precioOverride != null)
+            .map((row) => row.idProducto),
         );
 
         setProductos(nextProductos);
         setPrecioByProductoId(nextPrecios);
         setAliasByProductoId(existingAlias);
-        setExistingProductoIds(existingIds);
+        setPrecioEspecialPorProducto(precioEspecialIds);
         setDrafts(
           Object.fromEntries(
-            nextProductos
-              .filter((row) => !existingIds.has(row.idProducto))
-              .map((row) => [
-                row.idProducto,
-                {
-                  alias: "",
-                  precioTexto: precioToTexto(nextPrecios[row.idProducto]),
-                },
-              ]),
+            nextProductos.map((row) => [
+              row.idProducto,
+              {
+                alias: "",
+                precioTexto: precioToTexto(nextPrecios[row.idProducto]),
+              },
+            ]),
           ),
         );
       })
@@ -213,7 +213,6 @@ export function CompradorAliasCreateModal({
 
   const pendingCreates = useMemo(() => {
     return productos.filter((row) => {
-      if (existingProductoIds.has(row.idProducto)) return false;
       const draft = drafts[row.idProducto];
       if (!draft) return false;
       const hasAlias = Boolean(draft.alias.trim());
@@ -223,7 +222,7 @@ export function CompradorAliasCreateModal({
       );
       return hasAlias || precioChanged;
     });
-  }, [drafts, existingProductoIds, precioByProductoId, productos]);
+  }, [drafts, precioByProductoId, productos]);
 
   const handleDraftChange = useCallback(
     (idProducto: string, patch: Partial<EquivalenciaCreateDraft>) => {
@@ -295,6 +294,19 @@ export function CompradorAliasCreateModal({
       }
 
       toSave.push({ row, alias, precioParsed, precioChanged });
+    }
+
+    const choquePrecio = toSave.find(
+      (item) =>
+        item.precioChanged &&
+        item.precioParsed != null &&
+        precioEspecialPorProducto.has(item.row.idProducto),
+    );
+    if (choquePrecio) {
+      setError(
+        `Este cliente ya tiene un precio especial para ${choquePrecio.row.titulo}. Cámbialo en la tabla de equivalencias.`,
+      );
+      return;
     }
 
     setIsSubmitting(true);
@@ -421,32 +433,23 @@ export function CompradorAliasCreateModal({
                   </thead>
                   <tbody>
                     {productosFiltrados.map((row) => {
-                      const existingAlias =
-                        aliasByProductoId[row.idProducto] ?? "";
-                      const isDisabled = existingProductoIds.has(
-                        row.idProducto,
-                      );
                       const draft = drafts[row.idProducto];
                       const precioValue = precioByProductoId[row.idProducto];
                       const precioTexto =
                         draft?.precioTexto ?? precioToTexto(precioValue);
+                      const inputClass = cn(
+                        "h-full w-full bg-transparent px-3 py-2.5 text-polaria-w outline-none placeholder:text-polaria-w-20",
+                        "hover:bg-polaria-t-08 focus:bg-polaria-t-08 focus:ring-1 focus:ring-inset focus:ring-polaria-teal",
+                        "disabled:cursor-not-allowed disabled:opacity-60",
+                      );
 
                       return (
-                        <tr
-                          key={row.idProducto}
-                          className={cn(
-                            "text-polaria-w",
-                            isDisabled && "opacity-60",
-                          )}
-                        >
+                        <tr key={row.idProducto} className="text-polaria-w">
                           <td
                             className={cn(
                               GRID_CELL,
                               GRID_PAD,
-                              "font-medium",
-                              isDisabled
-                                ? "text-polaria-w-50"
-                                : "text-polaria-teal",
+                              "font-medium text-polaria-teal",
                             )}
                           >
                             {row.codigo}
@@ -455,67 +458,35 @@ export function CompradorAliasCreateModal({
                             {row.titulo}
                           </td>
                           <td className={GRID_CELL}>
-                            {isDisabled ? (
-                              <input
-                                type="text"
-                                value={existingAlias}
-                                disabled
-                                aria-label={`Equivalencia ${row.codigo} (ya creada)`}
-                                className="h-full w-full cursor-not-allowed bg-transparent px-3 py-2.5 text-polaria-w-50 opacity-70 outline-none"
-                              />
-                            ) : (
-                              <input
-                                type="text"
-                                value={draft?.alias ?? ""}
-                                disabled={isSubmitting}
-                                placeholder="—"
-                                aria-label={`Equivalencia ${row.codigo}`}
-                                onChange={(event) =>
-                                  handleDraftChange(row.idProducto, {
-                                    alias: event.target.value,
-                                  })
-                                }
-                                className={cn(
-                                  "h-full w-full bg-transparent px-3 py-2.5 text-polaria-w outline-none placeholder:text-polaria-w-20",
-                                  "hover:bg-polaria-t-08 focus:bg-polaria-t-08 focus:ring-1 focus:ring-inset focus:ring-polaria-teal",
-                                  "disabled:cursor-not-allowed disabled:opacity-60",
-                                )}
-                              />
-                            )}
+                            <input
+                              type="text"
+                              value={draft?.alias ?? ""}
+                              disabled={isSubmitting}
+                              placeholder="—"
+                              aria-label={`Equivalencia ${row.codigo}`}
+                              onChange={(event) =>
+                                handleDraftChange(row.idProducto, {
+                                  alias: event.target.value,
+                                })
+                              }
+                              className={inputClass}
+                            />
                           </td>
                           <td className={GRID_CELL}>
-                            {isDisabled ? (
-                              <input
-                                type="text"
-                                value={
-                                  precioValue == null
-                                    ? ""
-                                    : formatPrecioEs(precioValue)
-                                }
-                                disabled
-                                aria-label={`Precio ${row.codigo} (ya creada)`}
-                                className="h-full w-full cursor-not-allowed bg-transparent px-3 py-2.5 text-right tabular-nums text-polaria-w-50 opacity-70 outline-none"
-                              />
-                            ) : (
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={precioTexto}
-                                disabled={isSubmitting}
-                                placeholder="—"
-                                aria-label={`Precio ${row.codigo}`}
-                                onChange={(event) =>
-                                  handleDraftChange(row.idProducto, {
-                                    precioTexto: event.target.value,
-                                  })
-                                }
-                                className={cn(
-                                  "h-full w-full bg-transparent px-3 py-2.5 text-right tabular-nums text-polaria-w outline-none placeholder:text-polaria-w-20",
-                                  "hover:bg-polaria-t-08 focus:bg-polaria-t-08 focus:ring-1 focus:ring-inset focus:ring-polaria-teal",
-                                  "disabled:cursor-not-allowed disabled:opacity-60",
-                                )}
-                              />
-                            )}
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={precioTexto}
+                              disabled={isSubmitting}
+                              placeholder="—"
+                              aria-label={`Precio ${row.codigo}`}
+                              onChange={(event) =>
+                                handleDraftChange(row.idProducto, {
+                                  precioTexto: event.target.value,
+                                })
+                              }
+                              className={cn(inputClass, "text-right tabular-nums")}
+                            />
                           </td>
                           <td className={cn(GRID_CELL, GRID_PAD)}>
                             {row.unidad}

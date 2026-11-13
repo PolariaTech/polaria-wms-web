@@ -4,6 +4,7 @@ import {
   COMPRADOR_PRECIOS_EXCEL_COLUMNS,
   COMPRADOR_PRECIOS_SHEET_NAME,
 } from "./comprador-precios-excel";
+import { aliasPrincipalPorPar } from "./comprador-alias-reglas";
 
 export interface CompradorPreciosExcelImportRow {
   rowNumber: number;
@@ -255,11 +256,7 @@ export function planCompradorPreciosImport(input: {
       (row) => [row.codigo.trim().toLowerCase(), row] as const,
     ),
   );
-  const aliasByPair = new Map(
-    input.aliases.map(
-      (row) => [`${row.idComprador}::${row.idProducto}`, row] as const,
-    ),
-  );
+  const aliasByPair = aliasPrincipalPorPar(input.aliases);
 
   const latestByPair = new Map<string, CompradorPreciosExcelImportRow>();
   for (const row of input.rows) {

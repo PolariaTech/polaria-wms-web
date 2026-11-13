@@ -19,6 +19,7 @@ import {
   parseCompradorPreciosExcelFile,
   planCompradorPreciosImport,
 } from "../utils/comprador-precios-import";
+import { traducirErrorAlias } from "../utils/comprador-alias-reglas";
 
 const ALIAS_LIST_LIMIT = 500;
 const ALIAS_CUENTA_LIST_LIMIT = 5000;
@@ -90,13 +91,6 @@ function nestedComprador(
   if (!codigo && !nombre) return null;
 
   return { codigo, nombre };
-}
-
-function isUniqueAliasViolation(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  return /duplicate key|unique constraint|uq_comprador_producto_alias/i.test(
-    message,
-  );
 }
 
 export interface ListCompradorProductoAliasParams {
@@ -427,14 +421,10 @@ export async function createCompradorProductoAliasAdmin(
 
     return mapAliasRow(inserted);
   } catch (error: unknown) {
-    if (isUniqueAliasViolation(error)) {
-      throw new DomainServiceError(
-        "Este comprador ya tiene una equivalencia para ese producto.",
-        "INVALID_ARGUMENT",
-        error,
-      );
+    const mensaje = traducirErrorAlias(error);
+    if (mensaje) {
+      throw new DomainServiceError(mensaje, "INVALID_ARGUMENT", error);
     }
-
     throw error;
   }
 }
@@ -493,31 +483,39 @@ export async function updateCompradorProductoAliasAdmin(
     payload.precio = input.precio ?? null;
   }
 
-  const updated = await runDomainMutation<CompradorProductoAliasDbRow | null>(
-    (client) => {
-      const query = client
-        .from("comprador_producto_alias")
-        .update(payload)
-        .eq("codigo_cuenta", codigoCuenta)
-        .eq("id_alias", idAlias)
-        .select(ALIAS_COLUMNS)
-        .single();
+  try {
+    const updated = await runDomainMutation<CompradorProductoAliasDbRow | null>(
+      (client) => {
+        const query = client
+          .from("comprador_producto_alias")
+          .update(payload)
+          .eq("codigo_cuenta", codigoCuenta)
+          .eq("id_alias", idAlias)
+          .select(ALIAS_COLUMNS)
+          .single();
 
-      return query as unknown as Promise<{
-        data: CompradorProductoAliasDbRow | null;
-        error: { message: string } | null;
-      }>;
-    },
-  );
-
-  if (!updated) {
-    throw new DomainServiceError(
-      "No se pudo actualizar la equivalencia.",
-      "MUTATION_FAILED",
+        return query as unknown as Promise<{
+          data: CompradorProductoAliasDbRow | null;
+          error: { message: string } | null;
+        }>;
+      },
     );
-  }
 
-  return mapAliasRow(updated);
+    if (!updated) {
+      throw new DomainServiceError(
+        "No se pudo actualizar la equivalencia.",
+        "MUTATION_FAILED",
+      );
+    }
+
+    return mapAliasRow(updated);
+  } catch (error: unknown) {
+    const mensaje = traducirErrorAlias(error);
+    if (mensaje) {
+      throw new DomainServiceError(mensaje, "INVALID_ARGUMENT", error);
+    }
+    throw error;
+  }
 }
 
 export interface CompradorPreciosImportResult {

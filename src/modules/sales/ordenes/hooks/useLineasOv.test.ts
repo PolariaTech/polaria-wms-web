@@ -64,6 +64,7 @@ describe("actualizarSugerenciasDeCatalogo", () => {
     expect(next[0]?.idProducto).toBe("p-primera");
     expect(next[0]?.catalogPending).toBe(false);
     expect(next[0]?.filledByIa).toBe(true);
+    expect(next[0]?.propuestaSistema?.fuente).toBe("frase");
   });
 
   it("una línea que tocó el usuario no cambia", () => {

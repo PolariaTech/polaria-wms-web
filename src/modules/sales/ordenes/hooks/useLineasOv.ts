@@ -77,6 +77,14 @@ function lineaAsignadaPorFrase(
     sugerencia: null,
     sugerenciasAlternativas: [],
     filledByIa: true,
+    propuestaSistema: {
+      producto: {
+        idProducto: producto.idProducto,
+        nombre: producto.nombre,
+        codigo: producto.codigo,
+      },
+      fuente: "frase",
+    },
   };
 }
 

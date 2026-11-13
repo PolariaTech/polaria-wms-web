@@ -85,6 +85,10 @@ export interface LineaVentaFromIa {
   sugerencia?: SugerenciaProductoCatalogo | null;
   /** Otras coincidencias cercanas cuando hay ambigüedad o empate. */
   sugerenciasAlternativas?: SugerenciaProductoCatalogo[];
+  propuestaSistema?: {
+    producto: { idProducto: string; nombre: string; codigo: string } | null;
+    fuente: FuenteAsignacion | null;
+  };
 }
 
 export interface CampoDiscrepancia {
@@ -757,10 +761,7 @@ export function mapPedidoExtraidoToForm(params: {
     productos.map((p) => [catalogKey(p.nombre, p.codigo), p] as const),
   );
   const byKeyNorm = new Map(
-    productos.map(
-      (p) =>
-        [normalizeCatalogKey(catalogKey(p.nombre, p.codigo)), p] as const,
-    ),
+    productos.map((p) => [normalizeCatalogKey(catalogKey(p.nombre, p.codigo)), p] as const),
   );
   const byCodigo = new Map<string, ProductoVentaOption[]>();
   for (const p of productos) {
@@ -806,8 +807,7 @@ export function mapPedidoExtraidoToForm(params: {
         precioDoc,
         precioCatalogo: match.precioUnitario,
       });
-      // Aunque Mateo dio clave exacta, si el texto del cliente también
-      // se parece a OTRO producto (typo jass/hass, variantes), pedir confirmación.
+      // Clave exacta: si el texto también se parece a otro producto, pedir confirmación.
       const vecinos =
         resolucion.fuente === "frase"
           ? []
@@ -829,10 +829,7 @@ export function mapPedidoExtraidoToForm(params: {
           descuentoPctInput: "0",
           ivaPct: "0",
           kgDisponible: match.kgDisponible,
-          unidadMedida: inferUnidadDesdeTexto(
-            textoOriginal,
-            match.unidadMedida,
-          ),
+          unidadMedida: inferUnidadDesdeTexto(textoOriginal, match.unidadMedida),
           precioUnitario: qty.precioUnitario,
           precioManual: qty.precioManual,
           aliasCliente: textoOriginal,
@@ -844,6 +841,7 @@ export function mapPedidoExtraidoToForm(params: {
           catalogAmbiguo: true,
           sugerencia: toSugerencia(match),
           sugerenciasAlternativas: vecinos.map(toSugerencia),
+          propuestaSistema: { producto: null, fuente: null },
         });
         continue;
       }
@@ -860,10 +858,7 @@ export function mapPedidoExtraidoToForm(params: {
         descuentoPctInput: "0",
         ivaPct: "0",
         kgDisponible: match.kgDisponible,
-        unidadMedida: inferUnidadDesdeTexto(
-          textoOriginal,
-          match.unidadMedida,
-        ),
+        unidadMedida: inferUnidadDesdeTexto(textoOriginal, match.unidadMedida),
         precioUnitario: qty.precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -875,6 +870,10 @@ export function mapPedidoExtraidoToForm(params: {
         catalogAmbiguo: false,
         sugerencia: null,
         sugerenciasAlternativas: [],
+        propuestaSistema: {
+          producto: { idProducto: match.idProducto, nombre: match.nombre, codigo: match.codigo },
+          fuente: resolucion.fuente,
+        },
       });
       continue;
     }
@@ -921,10 +920,7 @@ export function mapPedidoExtraidoToForm(params: {
       );
       lineas.push({
         idProducto: sugerencia.idProducto,
-        nombre: stripLeadingProductoCodigo(
-          catalogo?.nombre ?? sugerencia.nombre,
-          sugerencia.codigo,
-        ),
+        nombre: stripLeadingProductoCodigo(catalogo?.nombre ?? sugerencia.nombre, sugerencia.codigo),
         codigo: sugerencia.codigo,
         idBodega: sugerencia.idBodega,
         cantidadInput: qty.cantidadInput,
@@ -934,10 +930,7 @@ export function mapPedidoExtraidoToForm(params: {
         descuentoPctInput: "0",
         ivaPct: "0",
         kgDisponible: sugerencia.kgDisponible,
-        unidadMedida: inferUnidadDesdeTexto(
-          textoOriginal,
-          sugerencia.unidadMedida,
-        ),
+        unidadMedida: inferUnidadDesdeTexto(textoOriginal, sugerencia.unidadMedida),
         precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -949,6 +942,14 @@ export function mapPedidoExtraidoToForm(params: {
         catalogAmbiguo: false,
         sugerencia: null,
         sugerenciasAlternativas: [],
+        propuestaSistema: {
+          producto: {
+            idProducto: sugerencia.idProducto,
+            nombre: catalogo?.nombre ?? sugerencia.nombre,
+            codigo: sugerencia.codigo,
+          },
+          fuente: "difuso",
+        },
       });
       continue;
     }
@@ -969,10 +970,7 @@ export function mapPedidoExtraidoToForm(params: {
       descuentoPctInput: "0",
       ivaPct: "0",
       kgDisponible: sugerencia?.kgDisponible ?? 0,
-      unidadMedida: inferUnidadDesdeTexto(
-        textoOriginal,
-        sugerencia?.unidadMedida ?? "",
-      ),
+      unidadMedida: inferUnidadDesdeTexto(textoOriginal, sugerencia?.unidadMedida ?? ""),
       precioUnitario,
       precioManual: qty.precioManual,
       aliasCliente: textoOriginal,
@@ -984,6 +982,7 @@ export function mapPedidoExtraidoToForm(params: {
       catalogAmbiguo: ambiguo,
       sugerencia,
       sugerenciasAlternativas: alternativas,
+      propuestaSistema: { producto: null, fuente: null },
     });
   }
 

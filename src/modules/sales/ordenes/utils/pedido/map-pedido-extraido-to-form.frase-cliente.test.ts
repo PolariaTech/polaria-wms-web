@@ -124,6 +124,14 @@ describe("mapPedidoExtraidoToForm por frase del cliente", () => {
     const mapped = mapear({ textoOriginal: "Manzana verde" }, [GRANNY, AJO]);
     expect(mapped.lineas[0]?.idProducto).toBe("p-granny");
     expect(mapped.lineas[0]?.catalogPending).toBe(false);
+    expect(mapped.lineas[0]?.propuestaSistema).toEqual({
+      producto: {
+        idProducto: "p-granny",
+        nombre: "MANZANA GRANNY SMITH",
+        codigo: "115001010",
+      },
+      fuente: "frase",
+    });
   });
 
   it("CA4/CA2: un texto sin frase queda igual que hoy, no por equivalencia", () => {
@@ -150,6 +158,10 @@ describe("mapPedidoExtraidoToForm por frase del cliente", () => {
       extraConFrase,
     ]);
     expect(mapped.lineas[0]?.idProducto).toBe("");
+    expect(mapped.lineas[0]?.propuestaSistema).toEqual({
+      producto: null,
+      fuente: null,
+    });
   });
 
   it("aguacate hass → PRIMERA aunque Mateo diga EXTRA", () => {
@@ -189,5 +201,6 @@ describe("mapPedidoExtraidoToForm por frase del cliente", () => {
       [EXTRA, PRIMERA],
     );
     expect(mapped.lineas[0]?.idProducto).toBe("p-aguacate-extra");
+    expect(mapped.lineas[0]?.propuestaSistema?.fuente).toBe("codigo");
   });
 });

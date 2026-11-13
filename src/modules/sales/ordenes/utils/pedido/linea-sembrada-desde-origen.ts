@@ -59,6 +59,7 @@ function lineaYaVerificada(
     catalogAmbiguo: false,
     sugerencia: null,
     sugerenciasAlternativas: [],
+    propuestaSistema: { producto: null, fuente: "verificado" },
   };
 }
 
@@ -115,5 +116,6 @@ export function lineaSembradaDesdeRenglon(params: LineaSembradaParams): LineaVen
     catalogAmbiguo: suggested.catalogAmbiguo,
     sugerencia: suggested.sugerencia,
     sugerenciasAlternativas: suggested.sugerenciasAlternativas,
+    propuestaSistema: { producto: null, fuente: null },
   };
 }
