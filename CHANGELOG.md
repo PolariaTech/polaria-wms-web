@@ -5,6 +5,7 @@ Versión de producto alineada con Polaria WMS.
 ## Sin publicar
 
 ### Ventas / OV
+- Correo partido en varias OV (REQ-313): el panel de la OV avisa cuando el correo se partió en varias OV y marca la OC de esa OV; la impresión con OC ya no repite las OC entre OV del mismo correo.
 - Familia ajena por calificativo (REQ-299): si el texto pide «Pimiento rojo» o «Naranja Primera», la búsqueda por parecido ya no asigna sola PULPA DE FRUTOS ROJOS ni AGUACATE PRIMERA. Descarta el producto cuyo sustantivo no está en el texto cuando el cliente escribió otra palabra distintiva, y trata pimiento/morrón como chile morrón.
 - Código que contradice el nombre (REQ-299): si Mateo escribe en «Código producto» un SKU de otro ítem (p. ej. «Pepino» con 115001005 = AGUACATE EXTRA), la web ya no asigna ni sugiere ese producto. Busca por el nombre o deja la línea por validar.
 - Líneas duplicadas al abrir una OV (REQ-280, REQ-299): cuando la OV llegaba solo con el correo y se abría desde dos sitios a la vez (lista y detalle, dos pestañas o dos personas), las líneas se creaban dos veces (OV con 18 productos y 36 líneas). Ahora solo la primera apertura crea las líneas, con una reserva en la OV (`lineas_materializadas_at`, migración 118 de `polaria-wms-db`); si la creación falla, la reserva se libera y se puede reintentar, y una reserva caída se retoma a los 2 minutos. La lógica salió de `sales.service.ts` a `materializar-lineas-desde-origen.ts`. Requiere aplicar antes la migración 118. No corrige las OV que ya quedaron duplicadas.

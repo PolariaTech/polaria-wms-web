@@ -8,8 +8,11 @@ import { OrdenVentaAdjuntoPreviewModal } from "./OrdenVentaAdjuntoPreviewModal";
 /** REQ-266/293: tarjetas de adjuntos + preview en el panel derecho (Cypher). */
 export function CypherOrigenAdjuntosBlock({
   adjuntos,
+  esDeEstaOv,
 }: {
   adjuntos: readonly OrigenAdjunto[];
+  /** REQ-313: qué adjunto es de la OC de esta OV (correo partido en varias OV). */
+  esDeEstaOv?: (adjunto: OrigenAdjunto) => boolean;
 }) {
   const [preview, setPreview] = useState<{
     adjunto: OrigenAdjunto;
@@ -20,6 +23,7 @@ export function CypherOrigenAdjuntosBlock({
     <>
       <OrigenAdjuntosCards
         adjuntos={adjuntos}
+        esDeEstaOv={esDeEstaOv}
         onPreviewAdjunto={(adjunto, viewUrl) =>
           setPreview({ adjunto, viewUrl })
         }

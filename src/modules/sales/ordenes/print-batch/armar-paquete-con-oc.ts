@@ -2,7 +2,8 @@ import { construirPdfResumen, type ResumenImpresionPdf } from "../print/render-r
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
 import type { ResumenOvBatch } from "./batch-seleccion";
 import { ensamblarPaquete, type BloqueOv } from "./ensamblar-paquete";
-import { ocDeOv } from "./oc-documentos";
+import { ocDeOv, type OcDeOv } from "./oc-documentos";
+import { ocPropiaDeOv } from "./oc-propia-de-ov";
 import {
   parteDeCadaOv,
   partirPaquete,
@@ -10,6 +11,7 @@ import {
   type ParteEnvio,
 } from "./partir-paquete";
 import { prepararOcDeOv, type OcPreparada } from "./preparar-oc";
+import { quitarOcRepetidas } from "./quitar-oc-repetidas";
 import { armarResumenImpresion } from "./resumen-impresion";
 import { ordenDeImpresion } from "./utilidades-batch";
 
@@ -23,7 +25,7 @@ export interface PaqueteConOc {
 }
 
 export interface DependenciasPaquete {
-  prepararOc: (origenArchivos: string | null | undefined) => Promise<OcPreparada>;
+  prepararOc: (oc: OcDeOv) => Promise<OcPreparada>;
   /** PDF con todas las hojas de OT, en orden, una página por hoja. */
   construirBaseOt: (hojas: readonly OrdenTareaAlmacenPrintData[]) => Promise<Uint8Array>;
 }
@@ -31,7 +33,7 @@ export interface DependenciasPaquete {
 /** Lo de verdad: baja las OC por el proxy y arma la base de OT con el generador de hojas de la cuenta. */
 export function dependenciasReales(construirBaseOt: DependenciasPaquete["construirBaseOt"]): DependenciasPaquete {
   return {
-    prepararOc: (origen) => prepararOcDeOv(ocDeOv(origen)),
+    prepararOc: (oc) => prepararOcDeOv(oc),
     construirBaseOt,
   };
 }
@@ -55,6 +57,8 @@ async function conLimite<T, R>(items: readonly T[], limite: number, tarea: (item
  * Arma el paquete de la impresión rápida con las OC originales (REQ-260): baja y convierte las OC de
  * cada OV, mide el paquete, lo parte en envíos de peso acotado y ensambla el PDF de cada uno. Cada
  * OV va con sus hojas de OT y detrás sus OC; el resumen, de primera hoja del primer envío.
+ * REQ-313: las OV de un correo partido guardan los mismos adjuntos; cada una imprime solo el
+ * documento de su OC cuando el nombre la trae, y un documento no se repite en OV hermanas.
  */
 export async function armarPaqueteConOc(
   input: {
@@ -73,12 +77,21 @@ export async function armarPaqueteConOc(
   const { hojas, resumen, origenPorOv, subtitulo, generado, alProgreso } = input;
   const orden = ordenDeImpresion({ hojas: [...hojas], resumen: [...resumen] });
 
+  const { ocPorOv: aBajar, avisosPorOv } = quitarOcRepetidas(
+    orden.map((item) => ({
+      idOrdenVenta: item.row.idOrdenVenta,
+      venta: item.row.venta,
+      oc: ocPropiaDeOv(ocDeOv(origenPorOv.get(item.row.idOrdenVenta)), item.row.occ),
+    })),
+  );
+
   let listas = 0;
   const ocs = await conLimite(orden, OV_EN_PARALELO, async (item) => {
-    const preparada = await deps.prepararOc(origenPorOv.get(item.row.idOrdenVenta));
+    const id = item.row.idOrdenVenta;
+    const preparada = await deps.prepararOc(aBajar.get(id) ?? { documentos: [], omitidos: [] });
     listas += 1;
     alProgreso?.(`Bajando órdenes de compra: ${listas} de ${orden.length}…`);
-    return preparada;
+    return { ...preparada, avisos: [...preparada.avisos, ...(avisosPorOv.get(id) ?? [])] };
   });
   const ocPorOv = new Map(orden.map((item, i) => [item.row.idOrdenVenta, ocs[i]!]));
 
