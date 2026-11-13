@@ -2,11 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import {
+  MENSAJE_COMPRADOR_NO_ENCONTRADO,
+  MENSAJE_CUENTA_NO_ENCONTRADA,
   mensajeFraseLarga,
   mensajePrecioInvalido,
   mensajeValidacionAliasPrecio,
 } from "../utils/comprador-alias-reglas";
-import { createCompradorProductoAliasAdmin } from "./comprador-producto-alias.service";
+import {
+  createCompradorProductoAliasAdmin,
+  updateCompradorProductoAliasAdmin,
+} from "./comprador-producto-alias.service";
 
 const ID_COMPRADOR = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const ID_PRODUCTO = "cccccccc-cccc-cccc-cccc-cccccccccccc";
@@ -81,5 +86,60 @@ describe("comprador-producto-alias.service validación", () => {
         entrada("Pechuga", { precio: -1, codigoProducto: "DICOK" }),
       ),
     ).rejects.toMatchObject({ message: mensaje });
+  });
+
+  it("rechaza sin comprador y sin cuenta, sin tocar la base", async () => {
+    const from = vi.fn();
+    setSupabaseClientForTests({ from } as never);
+
+    await expect(
+      createCompradorProductoAliasAdmin({ ...entrada("Pechuga"), idComprador: "" }),
+    ).rejects.toMatchObject({ message: MENSAJE_COMPRADOR_NO_ENCONTRADO });
+    await expect(
+      createCompradorProductoAliasAdmin({ ...entrada("Pechuga"), codigoCuenta: "" }),
+    ).rejects.toMatchObject({ message: MENSAJE_CUENTA_NO_ENCONTRADA });
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("acepta precio 0 y lo guarda como 0, no como null", async () => {
+    const insertChain = {
+      insert: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    insertChain.insert.mockReturnValue(insertChain);
+    insertChain.select.mockReturnValue(insertChain);
+    insertChain.single.mockResolvedValue({
+      data: {
+        id_alias: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        id_comprador: ID_COMPRADOR,
+        id_producto: ID_PRODUCTO,
+        alias: "Pechuga",
+        precio: 0,
+      },
+      error: null,
+    });
+    setSupabaseClientForTests({ from: vi.fn(() => insertChain) } as never);
+
+    expect(mensajeValidacionAliasPrecio("Pechuga", 0, "DICOK")).toBeNull();
+    await createCompradorProductoAliasAdmin(
+      entrada("Pechuga", { precio: 0, codigoProducto: "DICOK" }),
+    );
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ precio: 0 }),
+    );
+  });
+
+  it("al actualizar sin frase ni precio responde que no hay cambios", async () => {
+    const from = vi.fn();
+    setSupabaseClientForTests({ from } as never);
+
+    await expect(
+      updateCompradorProductoAliasAdmin({
+        codigoCuenta: "FOODS1",
+        idAlias: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      }),
+    ).rejects.toMatchObject({ message: "No hay cambios para guardar." });
+    expect(from).not.toHaveBeenCalled();
   });
 });
