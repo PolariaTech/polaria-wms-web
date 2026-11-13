@@ -1,3 +1,9 @@
+import {
+  correoDelBloqueEnviadoPor,
+  esCorreoProveedor,
+  quitarBloqueProveedor,
+} from "./correo-contacto-comprador";
+
 /**
  * Cabeceras de correo (De / Para / Asunto) para Cypher y origen_texto.
  */
@@ -14,12 +20,12 @@ export type CorreoChromeParsed = CorreoChrome & { body: string };
 export function formatMailAddress(value: unknown): string | undefined {
   if (value == null) return undefined;
   if (typeof value === "string") {
-    const t = value.trim();
-    return t || undefined;
+    const trimmed = value.trim();
+    return trimmed || undefined;
   }
   if (typeof value === "object" && "text" in value) {
-    const t = String((value as { text?: unknown }).text ?? "").trim();
-    return t || undefined;
+    const trimmed = String((value as { text?: unknown }).text ?? "").trim();
+    return trimmed || undefined;
   }
   return undefined;
 }
@@ -40,7 +46,7 @@ export function parseCorreoChromeFromText(raw: string): CorreoChromeParsed {
   const from =
     text.match(/^(?:\*+)?(?:De|From)(?:\*+)?\s*:\s*(.+)$/im)?.[1]?.trim() ||
     undefined;
-  const to =
+  const para =
     text.match(/^(?:\*+)?(?:Para|To)(?:\*+)?\s*:\s*(.+)$/im)?.[1]?.trim() ||
     undefined;
   const subject =
@@ -49,21 +55,21 @@ export function parseCorreoChromeFromText(raw: string): CorreoChromeParsed {
     )?.[1]?.trim() || undefined;
 
   let body = text;
-  if (from || to || subject) {
+  if (from || para || subject) {
     body = text
       .split("\n")
       .filter((line) => {
-        const t = line.trim();
-        if (!t) return true;
+        const trimmed = line.trim();
+        if (!trimmed) return true;
         return !/^(?:\*+)?(?:De|From|Para|To|Asunto|Subject|Date|Fecha|Cc|Cco|Bcc|Enviado el|Sent)(?:\*+)?\s*:/i.test(
-          t,
+          trimmed,
         );
       })
       .join("\n")
       .trim();
   }
 
-  return { from, to, subject, body: body || text };
+  return { from, to: para, subject, body: body || text };
 }
 
 /**
@@ -72,7 +78,7 @@ export function parseCorreoChromeFromText(raw: string): CorreoChromeParsed {
  */
 export function withCorreoChromePreserved(
   raw: string,
-  cleanBody: (s: string) => string,
+  cleanBody: (cuerpo: string) => string,
 ): string {
   const chrome = parseCorreoChromeFromText(raw);
   const cleaned = cleanBody(chrome.body || raw).trim();
@@ -110,7 +116,10 @@ export function isCorreoRemitenteGenerico(
 ): boolean {
   const value = (email ?? "").trim();
   if (!value) return false;
-  return CORREO_REMITENTE_GENERICO_RE.some((re) => re.test(value));
+  return (
+    CORREO_REMITENTE_GENERICO_RE.some((re) => re.test(value)) ||
+    esCorreoProveedor(value)
+  );
 }
 
 /** Saca la dirección de un valor De/From (`Nombre <mail@x.com>` o mail suelto). */
@@ -147,7 +156,14 @@ export function extractCorreoContactoDesdeTexto(
     toEmails.add(fromEmail.toLowerCase());
   }
 
+  // REQ-310: el «Email:» del bloque «Supplier:» es del proveedor; el del comprador va en «Sent From:».
+  const textoComprador = quitarBloqueProveedor(text);
+
   const pickBodyEmail = (): string | null => {
+    const delComprador = correoDelBloqueEnviadoPor(text);
+    if (delComprador && !toEmails.has(delComprador.toLowerCase())) {
+      return delComprador;
+    }
     const mailto = text.match(/mailto:([^\s"'<>]+)/i);
     if (mailto?.[1]) {
       try {
@@ -168,14 +184,14 @@ export function extractCorreoContactoDesdeTexto(
       }
     }
 
-    const labeled = text.match(
+    const labeled = textoComprador.match(
       /(?:e-?mail|correo(?:\s+electr[oó]nico)?|contacto)\s*[:=]\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
     );
     if (labeled?.[1] && !isCorreoRemitenteGenerico(labeled[1])) {
       return labeled[1];
     }
 
-    const all = text.match(EMAIL_RE) ?? [];
+    const all = textoComprador.match(EMAIL_RE) ?? [];
     for (const email of all) {
       const lower = email.toLowerCase();
       if (toEmails.has(lower)) continue;
@@ -191,8 +207,7 @@ export function extractCorreoContactoDesdeTexto(
   const fromBody = pickBodyEmail();
   if (fromBody) return fromBody;
 
-  // Último recurso: From genérico solo si no hubo nada humano en el cuerpo.
-  return fromEmail;
+  return fromEmail && !esCorreoProveedor(fromEmail) ? fromEmail : null;
 }
 
 /**

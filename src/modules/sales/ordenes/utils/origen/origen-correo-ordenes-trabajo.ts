@@ -5,6 +5,21 @@ import {
   baseGroupKeyOrigenCorreo,
   contiguousOtIdsForRenglones,
 } from "./origen-correo-ot-contigua";
+import type {
+  OrdenTrabajoHija,
+  OrigenCorreoRenglon,
+} from "./origen-correo-renglon";
+
+export type {
+  OrdenTrabajoHija,
+  OrigenCorreoRenglon,
+} from "./origen-correo-renglon";
+export {
+  isOrigenCorreoArray,
+  normalizeIdOrdenTrabajo,
+  parseIdOrdenTrabajoFields,
+  parseOrigenCorreoJson,
+} from "./origen-correo-renglon";
 
 /**
  * Agrupa renglones de origen_correo en órdenes de trabajo (hijas) de una OV.
@@ -14,68 +29,6 @@ import {
  * (misma cocina que reaparece tras otra = OT nueva).
  */
 
-export interface OrigenCorreoRenglon {
-  Fecha?: string;
-  Unidad?: string;
-  Almacen?: string;
-  Horario?: string;
-  Cantidad?: number | string;
-  Producto?: string;
-  /** Precio unitario del documento (si venía en el PDF/correo). */
-  Precio?: number | string;
-  "Numero correo"?: string;
-  "Numero pedido"?: string;
-  "Nombre cliente"?: string;
-  "Numero almacen"?: string;
-  "Codigo producto"?: string;
-  "Referencia pedido"?: string;
-  "Responsable externo"?: string;
-  "Responsable interno"?: string;
-  "Referencia del cliente"?: string;
-  /** Ventana de entrega (hora desde), ej. "06:00". */
-  "Ventana desde"?: string;
-  /** Ventana de entrega (hora hasta), ej. "06:00". */
-  "Ventana hasta"?: string;
-  /** Dirección / destino de entrega. */
-  "Direccion entrega"?: string;
-  /** Destino corto (ej. Parque Xcaret) si no hay dirección completa. */
-  Destino?: string;
-  /** Andén / punto de recepción. */
-  Anden?: string;
-  /** Teléfono del contacto de entrega. */
-  "Telefono contacto"?: string;
-  /** Correo del contacto de entrega. */
-  "Correo contacto"?: string;
-  /** Prioridad del pedido (Normal / Urgente). */
-  Prioridad?: string;
-  /** Notas generales / instrucciones de entrega. */
-  "Notas generales"?: string;
-  /** Índice en el array original / vínculo con línea del formulario. */
-  _lineaIndex?: number;
-  /**
-   * Id estable de orden de trabajo (manual o preservado tras editar).
-   * Si está presente, agrupa por este valor en vez de pedido+almacén.
-   */
-  _otId?: string;
-  /**
-   * REQ-201: producto de catálogo ya verificado al guardar avance (sin confirmar).
-   * Al reabrir se restaura sin volver a pedir verificación.
-   */
-  _idProducto?: string;
-}
-
-export interface OrdenTrabajoHija {
-  id: string;
-  label: string;
-  numeroPedido: string;
-  almacen: string;
-  referenciaPedido: string;
-  fecha: string;
-  responsableExterno: string;
-  renglones: OrigenCorreoRenglon[];
-  totalCantidad: number;
-}
-
 function norm(value: string | null | undefined): string {
   return (value ?? "").toString().trim();
 }
@@ -83,8 +36,8 @@ function norm(value: string | null | undefined): string {
 function parseCantidad(value: number | string | undefined): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
-    const n = Number(value.replace(",", ".").trim());
-    return Number.isFinite(n) ? n : 0;
+    const numero = Number(value.replace(",", ".").trim());
+    return Number.isFinite(numero) ? numero : 0;
   }
   return 0;
 }
@@ -110,8 +63,8 @@ function labelFromGroup(
 
   let destino = almacen;
   if (!destino && ref) {
-    const m = ref.match(/FYV\s+(.+?)\s+PARA\s+ENTREGA/i);
-    destino = m?.[1]?.trim() || ref;
+    const matchFyv = ref.match(/FYV\s+(.+?)\s+PARA\s+ENTREGA/i);
+    destino = matchFyv?.[1]?.trim() || ref;
   }
 
   if (pedido && destino) return `${pedido} — ${destino}`;
@@ -181,14 +134,14 @@ export function createEmptyOrdenTrabajoHija(input?: {
   referenciaPedido?: string;
   responsableExterno?: string;
 }): OrdenTrabajoHija {
-  const id = norm(input?.id) || newManualOtId();
+  const idOt = norm(input?.id) || newManualOtId();
   const almacen = norm(input?.almacen);
   const numeroPedido = norm(input?.numeroPedido);
   const fecha = norm(input?.fecha);
   const referenciaPedido = norm(input?.referenciaPedido);
   const responsableExterno = norm(input?.responsableExterno);
   const renglon: OrigenCorreoRenglon = {
-    _otId: id,
+    _otId: idOt,
     Almacen: almacen,
     "Numero pedido": numeroPedido,
     Fecha: fecha,
@@ -202,7 +155,7 @@ export function createEmptyOrdenTrabajoHija(input?: {
       ? `${numeroPedido} — ${almacen}`
       : almacen || numeroPedido) || "Nueva orden de trabajo";
   return {
-    id,
+    id: idOt,
     label,
     numeroPedido,
     almacen,
@@ -247,83 +200,3 @@ export {
 } from "./origen-correo-build-from-form";
 
 export { indexIdProductoVerificadoOrigen } from "./origen-correo-id-producto-verificado";
-
-export function isOrigenCorreoArray(value: unknown): value is OrigenCorreoRenglon[] {
-  return Array.isArray(value);
-}
-
-export function parseOrigenCorreoJson(
-  value: unknown,
-): OrigenCorreoRenglon[] {
-  if (!value) return [];
-  if (typeof value === "string") {
-    try {
-      const parsed: unknown = JSON.parse(value);
-      return isOrigenCorreoArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-  return isOrigenCorreoArray(value) ? value : [];
-}
-
-/** Normaliza la clave OT usada en QR / captura. */
-export function normalizeIdOrdenTrabajo(
-  value: string | null | undefined,
-): string {
-  return (value ?? "").trim();
-}
-
-/**
- * Parsea la clave `pedido:…|almacen:…` (o `ref:…`) a campos legibles.
- * El almacén de la clave es el centro de consumo de la OT.
- */
-export function parseIdOrdenTrabajoFields(idOrdenTrabajo: string): {
-  numeroPedido: string;
-  centroConsumo: string;
-  label: string;
-} {
-  const raw = normalizeIdOrdenTrabajo(idOrdenTrabajo);
-  if (!raw) {
-    return {
-      numeroPedido: "",
-      centroConsumo: "",
-      label: "Hoja (sin OT)",
-    };
-  }
-
-  const pedidoMatch = raw.match(/pedido:([^|]+)/i);
-  const almacenMatch = raw.match(/almacen:([^|]+)/i);
-  const refMatch = raw.match(/ref:([^|]+)/i);
-
-  const numeroPedido = (pedidoMatch?.[1] ?? "").trim();
-  const centroConsumo = (almacenMatch?.[1] ?? "").trim();
-  const referencia = (refMatch?.[1] ?? "").trim();
-
-  const pedido =
-    numeroPedido && numeroPedido !== "_" ? numeroPedido : "";
-  const centro =
-    centroConsumo && centroConsumo !== "_" ? centroConsumo : "";
-
-  if (pedido && centro) {
-    return {
-      numeroPedido: pedido,
-      centroConsumo: centro,
-      label: `${pedido} — ${centro}`,
-    };
-  }
-  if (centro) {
-    return { numeroPedido: pedido, centroConsumo: centro, label: centro };
-  }
-  if (pedido) {
-    return { numeroPedido: pedido, centroConsumo: "", label: pedido };
-  }
-  if (referencia && referencia !== "_") {
-    return {
-      numeroPedido: "",
-      centroConsumo: "",
-      label: referencia,
-    };
-  }
-  return { numeroPedido: "", centroConsumo: "", label: raw };
-}

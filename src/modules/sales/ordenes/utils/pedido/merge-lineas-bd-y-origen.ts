@@ -6,6 +6,8 @@ import type {
 } from "../origen/origen-correo-ordenes-trabajo";
 import { applyVerificacionesOrigenALineas } from "./apply-verificaciones-origen-lineas";
 import { lineaSembradaDesdeRenglon } from "./linea-sembrada-desde-origen";
+import { indicesRenglonesSinLinea } from "./renglones-sin-linea";
+import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedido-linea";
 
 function renglonTieneProducto(row: OrigenCorreoRenglon): boolean {
   return Boolean((row.Producto ?? "").trim());
@@ -29,16 +31,27 @@ export function mergeLineasBdConOrigenPendiente(params: {
 
     const enBd = params.lineasBd.filter(
       (linea) => linea.otId?.trim() === hija.id,
-    ).length;
+    );
 
-    for (let indice = enBd; indice < renglones.length; indice += 1) {
-      extras.push(
-        lineaSembradaDesdeRenglon({
-          row: renglones[indice]!,
-          productos: params.productos,
-          otId: hija.id,
-        }),
-      );
+    // REQ-309: el pendiente es el renglón sin línea, no el último de la lista.
+    for (const indice of indicesRenglonesSinLinea(enBd, renglones)) {
+      const row = renglones[indice]!;
+      const sembrada = lineaSembradaDesdeRenglon({
+        row,
+        productos: params.productos,
+        otId: hija.id,
+      });
+      // REQ-287: el renglón pendiente conserva lo que el cliente pidió (sin penacho, en bote…).
+      extras.push({
+        ...sembrada,
+        especificacion:
+          sembrada.especificacion ||
+          resolveEspecificacionPedidoLinea({
+            especificacionIa: null,
+            textoOriginal: row.Producto,
+            especificacionOrigen: row.Especificacion,
+          }),
+      });
     }
   }
 

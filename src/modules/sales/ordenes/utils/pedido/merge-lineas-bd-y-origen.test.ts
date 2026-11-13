@@ -92,3 +92,57 @@ describe("mergeLineasBdConOrigenPendiente (REQ-236)", () => {
     expect(fusion).toHaveLength(1);
   });
 });
+
+describe("mergeLineasBdConOrigenPendiente — renglón descartado al materializar (REQ-309, OV-1569)", () => {
+  const hija = () => {
+    const hijaOt = createEmptyOrdenTrabajoHija({ id: "ot-1", almacen: "Cocina" });
+    hijaOt.renglones = [
+      { Producto: "Jugo de Limón fresco galón de 5 litros", Cantidad: 1, Especificacion: "Fresco" },
+      { Producto: "Pimiento morrón ROJO por kilo", Cantidad: 5, Especificacion: "Limpio, sin cáscara" },
+      { Producto: "Ajo limpio por kilo en BOTE", Cantidad: 2, Especificacion: "En bote" },
+    ];
+    return hijaOt;
+  };
+  const fusionar = (lineasBd: LineaVentaForm[]) => {
+    const hijaOt = hija();
+    return mergeLineasBdConOrigenPendiente({ lineasBd, hijas: [hijaOt], origenRows: hijaOt.renglones, productos: [] });
+  };
+
+  it("el pendiente es el pimiento descartado: no se pierde ni se duplica el jugo", () => {
+    const fusion = fusionar([
+      lineaBd({ otId: "ot-1", idProducto: "p-jugo", nombre: "JUGO DE LIMON", cantidadInput: "1" }),
+      lineaBd({ otId: "ot-1", idProducto: "p-ajo", nombre: "AJO", cantidadInput: "2" }),
+    ]);
+    expect(fusion).toHaveLength(3);
+    const pendientes = fusion.filter((l) => l.catalogPending);
+    expect(pendientes).toHaveLength(1);
+    expect(pendientes[0]?.aliasCliente).toBe("Pimiento morrón ROJO por kilo");
+    expect(fusion.filter((l) => l.aliasCliente?.includes("Jugo"))).toHaveLength(0);
+  });
+
+  it("el renglón pendiente conserva su especificación", () => {
+    const fusion = fusionar([
+      lineaBd({ otId: "ot-1", idProducto: "p-jugo", nombre: "JUGO DE LIMON", cantidadInput: "1" }),
+      lineaBd({ otId: "ot-1", idProducto: "p-ajo", nombre: "AJO", cantidadInput: "2" }),
+    ]);
+    expect(fusion.find((l) => l.catalogPending)?.especificacion).toBe("Limpio · sin cáscara");
+  });
+
+  it("control: si están todas las líneas no agrega nada", () => {
+    const fusion = fusionar([
+      lineaBd({ otId: "ot-1", idProducto: "p-jugo", nombre: "JUGO DE LIMON", cantidadInput: "1" }),
+      lineaBd({ otId: "ot-1", idProducto: "p-pim", nombre: "PIMIENTO MORRON ROJO", cantidadInput: "5" }),
+      lineaBd({ otId: "ot-1", idProducto: "p-ajo", nombre: "AJO", cantidadInput: "2" }),
+    ]);
+    expect(fusion).toHaveLength(3);
+    expect(fusion.some((l) => l.catalogPending)).toBe(false);
+  });
+
+  it("control: si falta la última, el pendiente sigue siendo la última", () => {
+    const fusion = fusionar([
+      lineaBd({ otId: "ot-1", idProducto: "p-jugo", nombre: "JUGO DE LIMON", cantidadInput: "1" }),
+      lineaBd({ otId: "ot-1", idProducto: "p-pim", nombre: "PIMIENTO MORRON ROJO", cantidadInput: "5" }),
+    ]);
+    expect(fusion.filter((l) => l.catalogPending).map((l) => l.aliasCliente)).toEqual(["Ajo limpio por kilo en BOTE"]);
+  });
+});

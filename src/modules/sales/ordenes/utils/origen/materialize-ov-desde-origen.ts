@@ -24,6 +24,16 @@ import {
 import { resolveCantidadPrecioDesdeEnvase } from "../pedido/resolve-cantidad-envase";
 import { resolveEspecificacionPedidoLinea } from "../pedido/resolve-especificacion-pedido-linea";
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
+import {
+  parseCantidad,
+  parseFechaOrigen,
+  parsePrecio,
+} from "./parse-origen-renglon";
+
+export {
+  parseFechaOrigen,
+  resolveFechaEntregaDesdeOrigen,
+} from "./parse-origen-renglon";
 
 export interface MaterializeLineaPlan {
   idProducto: string;
@@ -50,115 +60,6 @@ export interface MaterializeOvPlan {
   nombreClienteOrigen: string | null;
 }
 
-function parseCantidad(value: number | string | undefined): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const n = Number(value.replace(",", ".").trim());
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}
-
-function parsePrecio(value: number | string | undefined): number | null {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const n = Number(value.replace(",", ".").trim());
-    return Number.isFinite(n) && n > 0 ? n : null;
-  }
-  return null;
-}
-
-function pad2Fecha(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-/** YYYY-MM-DD solo si el calendario es real (evita 2026-24-10). */
-function ymdIfValid(year: number, month: number, day: number): string | null {
-  if (
-    !Number.isFinite(year) ||
-    !Number.isFinite(month) ||
-    !Number.isFinite(day)
-  ) {
-    return null;
-  }
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const dt = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  if (
-    dt.getUTCFullYear() !== year ||
-    dt.getUTCMonth() + 1 !== month ||
-    dt.getUTCDate() !== day
-  ) {
-    return null;
-  }
-  return `${year}-${pad2Fecha(month)}-${pad2Fecha(day)}`;
-}
-
-/**
- * Resuelve a/b/yyyy ambiguo (DD/MM LatAm vs MM/DD US/BirchStreet).
- * Si solo una interpretación es calendario válido, la usa; si ambas, preferir DMY.
- */
-function parseSlashDateParts(
-  first: number,
-  second: number,
-  year: number,
-): string | null {
-  const asDmy = ymdIfValid(year, second, first);
-  const asMdy = ymdIfValid(year, first, second);
-  if (asDmy && !asMdy) return asDmy;
-  if (asMdy && !asDmy) return asMdy;
-  if (asDmy && asMdy) return asDmy;
-  return null;
-}
-
-/**
- * Normaliza fechas del tercero a YYYY-MM-DD.
- * Acepta ISO y slash dates (DD/MM o MM/DD); BirchStreet `10/24/2026` → 2026-10-24.
- */
-export function parseFechaOrigen(
-  value: string | null | undefined,
-): string | null {
-  const raw = (value ?? "").trim();
-  if (!raw) return null;
-  const iso = raw.match(/(\d{4}-\d{2}-\d{2})/);
-  if (iso?.[1]) {
-    const [y, m, d] = iso[1].split("-").map(Number);
-    return ymdIfValid(y!, m!, d!);
-  }
-  const slash = raw.match(/(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})\b/);
-  if (!slash) return null;
-  const first = Number(slash[1]);
-  const second = Number(slash[2]);
-  const yearRaw = slash[3]!;
-  const year =
-    yearRaw.length === 2
-      ? Number(yearRaw) >= 70
-        ? 1900 + Number(yearRaw)
-        : 2000 + Number(yearRaw)
-      : Number(yearRaw);
-  return parseSlashDateParts(first, second, year);
-}
-
-/**
- * Fecha de entrega desde OTs / origen_correo (adjuntos BirchStreet, etc.).
- * REQ-110: no confirmar a ciegas si el form está vacío pero el origen trae Fecha.
- */
-export function resolveFechaEntregaDesdeOrigen(params: {
-  origenCorreo: OrigenCorreoRenglon[];
-  hijas?: Array<{ fecha?: string | null }>;
-}): string | null {
-  for (const hija of params.hijas ?? []) {
-    const fromHija = parseFechaOrigen(hija.fecha);
-    if (fromHija) return fromHija;
-  }
-  for (const row of params.origenCorreo) {
-    const fromRow = parseFechaOrigen(row.Fecha);
-    if (fromRow) return fromRow;
-  }
-  return null;
-}
-
 function mostFrequent(values: string[]): string | null {
   const counts = new Map<string, number>();
   for (const value of values) {
@@ -168,10 +69,10 @@ function mostFrequent(values: string[]): string | null {
   }
   let best: string | null = null;
   let bestN = 0;
-  for (const [key, n] of counts) {
-    if (n > bestN) {
+  for (const [key, veces] of counts) {
+    if (veces > bestN) {
       best = key;
-      bestN = n;
+      bestN = veces;
     }
   }
   return best;
@@ -322,6 +223,7 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
           especificacionIa: niveles[index] ?? null,
           envase: converted,
           textoOriginal: alias,
+          especificacionOrigen: renglon.Especificacion,
         }),
         piezas,
       ),
