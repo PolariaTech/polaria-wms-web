@@ -32,3 +32,11 @@ export function productoPorFraseCliente(
   if (!fraseNormalizada) return null;
   return indice.get(fraseNormalizada) ?? null;
 }
+
+export function fraseClienteAmbigua(
+  texto: string,
+  indice: ReadonlyMap<string, ProductoVentaOption | null>,
+): boolean {
+  const fraseNormalizada = normalizeForMatch(texto);
+  return Boolean(fraseNormalizada) && indice.get(fraseNormalizada) === null;
+}

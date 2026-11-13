@@ -121,7 +121,7 @@ describe("seleccionarCompradorOv", () => {
       ),
     );
     expect(ui.setPrecioOverrideByProducto).toHaveBeenCalledWith({ p1: 12 });
-    expect(ui.setEquivalenciaByProducto).toHaveBeenCalledWith({ p1: "Palta" });
+    expect(ui.setEquivalenciaByProducto).toHaveBeenCalledWith({ p1: ["Palta"] });
   });
 
   it("REQ-252: pasa al prefill la última dirección confirmada de ese cliente", async () => {

@@ -108,7 +108,14 @@ vi.mock("@/modules/admin-panel/compradores/services/compradores.service", () => 
   listCompradoresAdmin: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("./frases-comprador.service", () => ({
+  productosConFrasesDelComprador: vi.fn(
+    async ({ productos }: { productos: unknown }) => productos,
+  ),
+}));
+
 vi.mock("../../ordenes/utils/origen/materialize-ov-desde-origen", () => ({
+  compradorDesdeOrigen: () => null,
   buildMaterializeOvDesdeOrigenPlan: () => ({
     idComprador: null,
     ordenCompraHotel: null,
@@ -124,6 +131,7 @@ vi.mock("../../ordenes/utils/origen/materialize-ov-desde-origen", () => ({
         nombreProducto: "Aguacate",
         aliasCliente: "Aguacate",
         especificacion: "",
+        matchProducto: { textoCliente: "Aguacate", fuente: "frase" },
       },
       {
         idProducto: "p2",
@@ -133,6 +141,7 @@ vi.mock("../../ordenes/utils/origen/materialize-ov-desde-origen", () => ({
         nombreProducto: "Cebolla",
         aliasCliente: "Cebolla",
         especificacion: "",
+        matchProducto: { textoCliente: "Cebolla", fuente: "difuso" },
       },
     ],
   }),
@@ -171,6 +180,13 @@ describe("materializeOrdenVentaDesdeOrigenSiVacia", () => {
 
     expect(estadoSimulado.lineas).toHaveLength(0);
     expect(resultado.materializado).toBe(false);
+  });
+
+  it("el insert guarda match_producto del plan", async () => {
+    await materializeOrdenVentaDesdeOrigenSiVacia(params);
+    expect(estadoSimulado.lineas[0]).toMatchObject({
+      match_producto: { textoCliente: "Aguacate", fuente: "frase" },
+    });
   });
 
   it("si el insert falla libera la reserva y deja reintentar", async () => {

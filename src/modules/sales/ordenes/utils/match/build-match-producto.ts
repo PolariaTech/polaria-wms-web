@@ -1,4 +1,8 @@
-import type { MatchProductoLinea, MatchProductoRef } from "../../../shared/types/sales.types";
+import type {
+  FuenteAsignacion,
+  MatchProductoLinea,
+  MatchProductoRef,
+} from "../../../shared/types/sales.types";
 
 export function buildMatchProductoLinea(params: {
   textoCliente?: string | null;
@@ -12,6 +16,7 @@ export function buildMatchProductoLinea(params: {
     nombre?: string | null;
     codigo?: string | null;
   };
+  fuente?: FuenteAsignacion | null;
 }): MatchProductoLinea | null {
   const idElegido = params.elegidoUsuario.idProducto.trim();
   if (!idElegido) return null;
@@ -40,5 +45,6 @@ export function buildMatchProductoLinea(params: {
       nombre: (params.elegidoUsuario.nombre ?? "").trim(),
       codigo: (params.elegidoUsuario.codigo ?? "").trim(),
     },
+    ...(params.fuente !== undefined ? { fuente: params.fuente } : {}),
   };
 }

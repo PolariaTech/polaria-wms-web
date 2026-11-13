@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
 import {
+  fraseClienteAmbigua,
   indiceFrasesCliente,
   productoPorFraseCliente,
 } from "./frase-cliente";
@@ -60,6 +61,8 @@ describe("indiceFrasesCliente y productoPorFraseCliente", () => {
   it("no asigna cuando la misma frase apunta a dos productos", () => {
     const indice = indiceFrasesCliente([AGUACATE_PRIMERA, AGUACATE_EXTRA]);
     expect(productoPorFraseCliente("aguacate hass", indice)).toBeNull();
+    expect(fraseClienteAmbigua("aguacate hass", indice)).toBe(true);
+    expect(fraseClienteAmbigua("Manzana verde", indice)).toBe(false);
   });
 
   it("ignora frases vacías y no asigna texto vacío", () => {

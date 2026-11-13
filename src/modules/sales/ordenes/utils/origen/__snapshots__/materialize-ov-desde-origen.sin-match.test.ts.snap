@@ -13,6 +13,20 @@ exports[`buildMaterializeOvDesdeOrigenPlan — renglón sin match y cantidad 0 >
       "codigoProductoCliente": "",
       "especificacion": "",
       "idProducto": "p-brocoli",
+      "matchProducto": {
+        "elegidoUsuario": {
+          "codigo": "105001500",
+          "idProducto": "p-brocoli",
+          "nombre": "BROCOLI",
+        },
+        "fuente": "difuso",
+        "sugeridoMateo": {
+          "codigo": "105001500",
+          "idProducto": "p-brocoli",
+          "nombre": "BROCOLI",
+        },
+        "textoCliente": "BROCOLI",
+      },
       "nombreProducto": "BROCOLI",
       "precioUnitario": 33,
       "unidadMedida": "kg",

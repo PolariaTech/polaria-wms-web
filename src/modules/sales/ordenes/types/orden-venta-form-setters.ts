@@ -25,7 +25,7 @@ export type OrdenVentaFormSetters = {
   setEditingCodigo: Dispatch<SetStateAction<string>>;
   setEditingEstado: Dispatch<SetStateAction<string | null>>;
   setEmlInnerAdjuntos: Dispatch<SetStateAction<OrigenAdjunto[]>>;
-  setEquivalenciaByProducto: Dispatch<SetStateAction<Record<string, string>>>;
+  setEquivalenciaByProducto: Dispatch<SetStateAction<Record<string, string[]>>>;
   setExigeOc: Dispatch<SetStateAction<boolean>>;
   setFechaCreacion: Dispatch<SetStateAction<string>>;
   setFichaComprador: Dispatch<SetStateAction<CompradorAltaFicha | null>>;

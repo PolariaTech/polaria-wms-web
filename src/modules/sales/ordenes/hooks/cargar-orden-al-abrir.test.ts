@@ -152,7 +152,7 @@ describe("cargarFichaYPreciosDeComprador", () => {
 
     await vi.waitFor(() => expect(setExigeOc).toHaveBeenCalledWith(true));
     expect(setPrecioOverrideByProducto).toHaveBeenCalledWith({ p1: 12 });
-    expect(setEquivalenciaByProducto).toHaveBeenCalledWith({ p1: "Palta" });
+    expect(setEquivalenciaByProducto).toHaveBeenCalledWith({ p1: ["Palta"] });
 
     selectedCompradorIdRef.current = "c2";
     setExigeOc.mockClear();

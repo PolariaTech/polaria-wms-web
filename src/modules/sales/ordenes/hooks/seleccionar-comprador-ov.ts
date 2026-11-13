@@ -42,7 +42,7 @@ export function seleccionarCompradorOv(input: {
     options?: { onlyEmpty?: boolean; ultimaDireccionConfirmada?: string | null },
   ) => void;
   setPrecioOverrideByProducto: (value: Record<string, number>) => void;
-  setEquivalenciaByProducto: (value: Record<string, string>) => void;
+  setEquivalenciaByProducto: OrdenVentaFormEstado["setEquivalenciaByProducto"];
   setDenominacionComercial: (value: string) => void;
 }) {
   const {

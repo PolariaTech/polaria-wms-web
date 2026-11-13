@@ -6,14 +6,29 @@ import {
   suggestFromCatalogo,
 } from "../utils/pedido/orden-venta-create-helpers";
 import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-nombre";
+import {
+  indiceFrasesCliente,
+  productoPorFraseCliente,
+} from "../utils/match/frase-cliente";
 
 /** Completa sugerencias de catálogo en líneas pendientes. Devuelve el mismo arreglo si nada cambió. */
 export function actualizarSugerenciasDeCatalogo(
   prev: LineaVentaForm[],
   productos: readonly ProductoVentaOption[],
 ): LineaVentaForm[] {
+  const indiceFrases = indiceFrasesCliente(productos);
   let changed = false;
   const next = prev.map((linea) => {
+    if (linea.filledByIa) {
+      const porFrase = productoPorFraseCliente(
+        linea.aliasCliente || linea.nombre || "",
+        indiceFrases,
+      );
+      if (porFrase && porFrase.idProducto !== linea.idProducto) {
+        changed = true;
+        return lineaAsignadaPorFrase(linea, porFrase);
+      }
+    }
     const suggested = sugerenciaSiPendiente(linea, productos);
     if (!suggested || mismaSugerencia(linea, suggested)) return linea;
     changed = true;
@@ -34,6 +49,35 @@ export function actualizarSugerenciasDeCatalogo(
     };
   });
   return changed ? next : prev;
+}
+
+function lineaAsignadaPorFrase(
+  linea: LineaVentaForm,
+  producto: ProductoVentaOption,
+): LineaVentaForm {
+  return {
+    ...linea,
+    idProducto: producto.idProducto,
+    nombre: stripLeadingProductoCodigo(producto.nombre, producto.codigo),
+    codigo: producto.codigo,
+    idBodega: producto.idBodega || linea.idBodega,
+    kgDisponible: producto.kgDisponible,
+    unidadMedida:
+      producto.unidadMedida ||
+      linea.unidadMedida ||
+      UNIDAD_MEDIDA_VENTA_DEFAULT,
+    precioUnitario: linea.precioManual
+      ? linea.precioUnitario
+      : producto.precioUnitario,
+    precioInput: linea.precioManual
+      ? linea.precioInput
+      : formatPrecioInput(producto.precioUnitario),
+    catalogPending: false,
+    catalogAmbiguo: false,
+    sugerencia: null,
+    sugerenciasAlternativas: [],
+    filledByIa: true,
+  };
 }
 
 function sugerenciaSiPendiente(

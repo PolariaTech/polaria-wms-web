@@ -94,6 +94,13 @@ export interface OrdenVentaOperadorRow {
 
 export const UNIDAD_MEDIDA_VENTA_DEFAULT = "kg" as const;
 
+export type FuenteAsignacion =
+  | "frase"
+  | "codigo"
+  | "catalogo"
+  | "difuso"
+  | "verificado";
+
 export interface ProductoVentaOption {
   idProducto: string;
   label: string;
@@ -103,6 +110,8 @@ export interface ProductoVentaOption {
   nombre: string;
   /** Nombre con el que este comprador conoce el producto (si tiene equivalencia). */
   equivalencia?: string | null;
+  /** Frases con las que este comprador pide el producto. */
+  frasesCliente?: readonly string[];
   kgDisponible: number;
   precioUnitario: number;
   /** Unidad de venta del catálogo (`producto.unidad_medida`). */
@@ -120,6 +129,7 @@ export interface MatchProductoLinea {
   textoCliente: string;
   sugeridoMateo: MatchProductoRef | null;
   elegidoUsuario: MatchProductoRef;
+  fuente?: FuenteAsignacion | null;
 }
 
 export interface OrdenVentaLineaInput {
