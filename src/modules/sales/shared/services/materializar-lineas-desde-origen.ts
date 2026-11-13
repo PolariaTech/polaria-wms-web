@@ -6,7 +6,11 @@ import {
 import { listCompradoresAdmin } from "@/modules/admin-panel/compradores/services/compradores.service";
 import { normalizeEstadoOrdenVenta } from "../constants/sales-status";
 import { buildNotasLineasText } from "../../ordenes/utils/pedido/build-orden-venta-captura-observaciones";
-import { buildMaterializeOvDesdeOrigenPlan } from "../../ordenes/utils/origen/materialize-ov-desde-origen";
+import {
+  buildMaterializeOvDesdeOrigenPlan,
+  compradorDesdeOrigen,
+} from "../../ordenes/utils/origen/materialize-ov-desde-origen";
+import { productosConFrasesDelComprador } from "./frases-comprador.service";
 import { parseOrigenCorreoJson } from "../../ordenes/utils/origen/origen-correo-ordenes-trabajo";
 import { leerCabeceraUsuarioSello } from "../../ordenes/utils/pedido/sellar-edicion-usuario-origen";
 import type { ProductoVentaOption } from "../types/sales.types";
@@ -168,10 +172,17 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
     params.listProductos({ codigoCuenta }),
     listCompradoresAdmin({ codigoCuenta, limit: 5000 }),
   ]);
-
+  const idComprador =
+    header.id_comprador?.trim() ||
+    compradorDesdeOrigen({ origenCorreo: origen, compradores });
+  const productosConFrases = await productosConFrasesDelComprador({
+    codigoCuenta,
+    idComprador,
+    productos,
+  }).catch(() => productos);
   const plan = buildMaterializeOvDesdeOrigenPlan({
     origenCorreo: origen,
-    productos,
+    productos: productosConFrases,
     compradores,
     origenTexto: header.origen_texto,
   });
@@ -222,9 +233,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
   }
 
   let inserted = 0;
-  // REQ-280 / REQ-299: dos aperturas a la vez veían "sin líneas" e insertaban
-  // las dos veces. Solo quien gana la reserva (UPDATE condicional, atómico por
-  // fila) inserta; las demás aperturas no hacen nada.
+  // REQ-280: solo quien gana la reserva inserta.
   const reservada =
     needsLines && plan.lineas.length > 0
       ? await reservarMaterializacionLineas({ codigoCuenta, idOrdenVenta })
@@ -242,6 +251,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
             cajas: null,
             presentacion: null,
             unidad_medida: linea.unidadMedida?.trim() || null,
+            match_producto: linea.matchProducto,
           })),
         );
 

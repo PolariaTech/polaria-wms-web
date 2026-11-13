@@ -1,6 +1,7 @@
 import type { PedidoExtraido } from "../../ai/openai-pedido.client";
 import { sanitizeTelefonoContacto } from "./sanitize-telefono-contacto";
-import type { ProductoVentaOption } from "../../../shared/types/sales.types";
+import type { FuenteAsignacion, ProductoVentaOption } from "../../../shared/types/sales.types";
+import { fraseClienteAmbigua, indiceFrasesCliente, productoPorFraseCliente } from "../match/frase-cliente";
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
 import { formatCapturaFecha } from "./build-orden-venta-captura-observaciones";
 import {
@@ -76,6 +77,10 @@ export interface LineaVentaFromIa {
   sugerencia?: SugerenciaProductoCatalogo | null;
   /** Otras coincidencias cercanas cuando hay ambigüedad o empate. */
   sugerenciasAlternativas?: SugerenciaProductoCatalogo[];
+  propuestaSistema?: {
+    producto: { idProducto: string; nombre: string; codigo: string } | null;
+    fuente: FuenteAsignacion | null;
+  };
 }
 
 export interface CampoDiscrepancia {
@@ -233,10 +238,19 @@ function resolveEspecificacionLineaForm(params: {
   });
 }
 
+/** SKU único en el mapa de códigos; si hay varios, no elige. */
+function productoUnicoPorCodigo(
+  codigo: string | null | undefined,
+  byCodigo: Map<string, ProductoVentaOption[]>,
+): ProductoVentaOption | undefined {
+  const key = norm(codigo ?? "");
+  if (!key) return undefined;
+  const hits = byCodigo.get(key) ?? [];
+  return hits.length === 1 ? hits[0] : undefined;
+}
+
 /**
- * Resuelve la clave que Mateo devolvió contra el catálogo real.
- * Acepta: exacta, case-insensitive, por SKU único entre paréntesis,
- * o por código de producto del cliente si calza un SKU único.
+ * Orden: código único del cliente, frase del comprador, clave de Mateo.
  * Nunca fuzzy libre aquí: eso solo alimenta sugerencias pendientes.
  */
 function resolveProductoMatch(
@@ -248,48 +262,35 @@ function resolveProductoMatch(
   byKey: Map<string, ProductoVentaOption>,
   byCodigo: Map<string, ProductoVentaOption[]>,
   byKeyNorm: Map<string, ProductoVentaOption>,
-): ProductoVentaOption | undefined {
+  indiceFrases: ReadonlyMap<string, ProductoVentaOption | null>,
+): { producto: ProductoVentaOption; fuente: FuenteAsignacion } | undefined {
   const textoCliente = linea.textoOriginal?.trim() || "";
   const accept = (p: ProductoVentaOption | undefined) =>
     p && productoCompatibleConTextoCliente(textoCliente, p) ? p : undefined;
 
+  const porCodigoCliente = accept(
+    productoUnicoPorCodigo(linea.codigoProductoCliente, byCodigo),
+  );
+  if (porCodigoCliente) return { producto: porCodigoCliente, fuente: "codigo" };
+  const porCodigoEnTexto = accept(
+    productoUnicoPorCodigo(extractCodigoFromCatalogKey(textoCliente), byCodigo),
+  );
+  if (porCodigoEnTexto) return { producto: porCodigoEnTexto, fuente: "codigo" };
+
+  if (fraseClienteAmbigua(textoCliente, indiceFrases)) return undefined;
+  const porFrase = productoPorFraseCliente(textoCliente, indiceFrases);
+  if (porFrase) return { producto: porFrase, fuente: "frase" };
+
   const clave = linea.productoCatalogo?.trim();
-  if (clave) {
-    const exact = accept(byKey.get(clave));
-    if (exact) return exact;
-
-    const byNorm = accept(byKeyNorm.get(normalizeCatalogKey(clave)));
-    if (byNorm) return byNorm;
-
-    const codigoClave = extractCodigoFromCatalogKey(clave);
-    if (codigoClave) {
-      const hits = byCodigo.get(norm(codigoClave)) ?? [];
-      if (hits.length === 1) {
-        const ok = accept(hits[0]);
-        if (ok) return ok;
-      }
-    }
-  }
-
-  const codigoCliente = linea.codigoProductoCliente?.trim();
-  if (codigoCliente) {
-    const hits = byCodigo.get(norm(codigoCliente)) ?? [];
-    if (hits.length === 1) {
-      const ok = accept(hits[0]);
-      if (ok) return ok;
-    }
-  }
-
-  // Código en el texto del cliente (ej. «AGUACATE EXTRA … (115001005)»).
-  const codigoEnTexto = extractCodigoFromCatalogKey(textoCliente);
-  if (codigoEnTexto) {
-    const hits = byCodigo.get(norm(codigoEnTexto)) ?? [];
-    if (hits.length === 1) {
-      const ok = accept(hits[0]);
-      if (ok) return ok;
-    }
-  }
-
+  if (!clave) return undefined;
+  const exact = accept(byKey.get(clave));
+  if (exact) return { producto: exact, fuente: "catalogo" };
+  const byNorm = accept(byKeyNorm.get(normalizeCatalogKey(clave)));
+  if (byNorm) return { producto: byNorm, fuente: "catalogo" };
+  const porCodigoClave = accept(
+    productoUnicoPorCodigo(extractCodigoFromCatalogKey(clave), byCodigo),
+  );
+  if (porCodigoClave) return { producto: porCodigoClave, fuente: "catalogo" };
   return undefined;
 }
 
@@ -751,10 +752,7 @@ export function mapPedidoExtraidoToForm(params: {
     productos.map((p) => [catalogKey(p.nombre, p.codigo), p] as const),
   );
   const byKeyNorm = new Map(
-    productos.map(
-      (p) =>
-        [normalizeCatalogKey(catalogKey(p.nombre, p.codigo)), p] as const,
-    ),
+    productos.map((p) => [normalizeCatalogKey(catalogKey(p.nombre, p.codigo)), p] as const),
   );
   const byCodigo = new Map<string, ProductoVentaOption[]>();
   for (const p of productos) {
@@ -764,6 +762,7 @@ export function mapPedidoExtraidoToForm(params: {
     list.push(p);
     byCodigo.set(key, list);
   }
+  const indiceFrases = indiceFrasesCliente(productos);
 
   const lineas: LineaVentaFromIa[] = [];
   // REQ-238: misma clave OT que groupOrigenCorreoToOrdenesTrabajo (bloques contiguos).
@@ -771,7 +770,8 @@ export function mapPedidoExtraidoToForm(params: {
 
   for (let index = 0; index < pedido.lineas.length; index += 1) {
     const linea = pedido.lineas[index]!;
-    const match = resolveProductoMatch(linea, byKey, byCodigo, byKeyNorm);
+    const resolucion = resolveProductoMatch(linea, byKey, byCodigo, byKeyNorm, indiceFrases);
+    const match = resolucion?.producto;
     const textoOriginal = linea.textoOriginal?.trim() || "";
 
     const presentacion =
@@ -792,9 +792,11 @@ export function mapPedidoExtraidoToForm(params: {
         precioDoc,
         precioCatalogo: match.precioUnitario,
       });
-      // Aunque Mateo dio clave exacta, si el texto del cliente también
-      // se parece a OTRO producto (typo jass/hass, variantes), pedir confirmación.
-      const vecinos = findVecinosAmbiguos(textoOriginal || match.nombre, match, productos);
+      // Clave exacta: si el texto también se parece a otro producto, pedir confirmación.
+      const vecinos =
+        resolucion.fuente === "frase"
+          ? []
+          : findVecinosAmbiguos(textoOriginal || match.nombre, match, productos);
       if (vecinos.length > 0) {
         const codigoCliente =
           linea.codigoProductoCliente?.trim() ||
@@ -808,21 +810,10 @@ export function mapPedidoExtraidoToForm(params: {
           cantidadInput: qty.cantidadInput,
           cajasInput: qty.cajasInput,
           presentacion: qty.presentacion,
-          especificacion: resolveEspecificacionLineaForm({
-
-            textoOriginal,
-
-            especificacionIa: linea.especificacion,
-
-            especificacionEnvase: qty.especificacionEnvase,
-
-          }),
+          especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
           ivaPct: "0",
           kgDisponible: match.kgDisponible,
-          unidadMedida: inferUnidadDesdeTexto(
-            textoOriginal,
-            match.unidadMedida,
-          ),
+          unidadMedida: inferUnidadDesdeTexto(textoOriginal, match.unidadMedida),
           precioUnitario: qty.precioUnitario,
           precioManual: qty.precioManual,
           aliasCliente: textoOriginal,
@@ -834,6 +825,7 @@ export function mapPedidoExtraidoToForm(params: {
           catalogAmbiguo: true,
           sugerencia: toSugerencia(match),
           sugerenciasAlternativas: vecinos.map(toSugerencia),
+          propuestaSistema: { producto: null, fuente: null },
         });
         continue;
       }
@@ -846,21 +838,10 @@ export function mapPedidoExtraidoToForm(params: {
         cantidadInput: qty.cantidadInput,
         cajasInput: qty.cajasInput,
         presentacion: qty.presentacion,
-        especificacion: resolveEspecificacionLineaForm({
-
-          textoOriginal,
-
-          especificacionIa: linea.especificacion,
-
-          especificacionEnvase: qty.especificacionEnvase,
-
-        }),
+        especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
         ivaPct: "0",
         kgDisponible: match.kgDisponible,
-        unidadMedida: inferUnidadDesdeTexto(
-          textoOriginal,
-          match.unidadMedida,
-        ),
+        unidadMedida: inferUnidadDesdeTexto(textoOriginal, match.unidadMedida),
         precioUnitario: qty.precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -872,6 +853,10 @@ export function mapPedidoExtraidoToForm(params: {
         catalogAmbiguo: false,
         sugerencia: null,
         sugerenciasAlternativas: [],
+        propuestaSistema: {
+          producto: { idProducto: match.idProducto, nombre: match.nombre, codigo: match.codigo },
+          fuente: resolucion.fuente,
+        },
       });
       continue;
     }
@@ -901,6 +886,7 @@ export function mapPedidoExtraidoToForm(params: {
 
     const autoAccept =
       sugerencia != null &&
+      !fraseClienteAmbigua(textoOriginal, indiceFrases) &&
       (mismoCodigo ||
         shouldAutoAcceptProductoSuggestion({
           query: picked.queryUsed || textoOriginal,
@@ -917,30 +903,16 @@ export function mapPedidoExtraidoToForm(params: {
       );
       lineas.push({
         idProducto: sugerencia.idProducto,
-        nombre: stripLeadingProductoCodigo(
-          catalogo?.nombre ?? sugerencia.nombre,
-          sugerencia.codigo,
-        ),
+        nombre: stripLeadingProductoCodigo(catalogo?.nombre ?? sugerencia.nombre, sugerencia.codigo),
         codigo: sugerencia.codigo,
         idBodega: sugerencia.idBodega,
         cantidadInput: qty.cantidadInput,
         cajasInput: qty.cajasInput,
         presentacion: qty.presentacion,
-        especificacion: resolveEspecificacionLineaForm({
-
-          textoOriginal,
-
-          especificacionIa: linea.especificacion,
-
-          especificacionEnvase: qty.especificacionEnvase,
-
-        }),
+        especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
         ivaPct: "0",
         kgDisponible: sugerencia.kgDisponible,
-        unidadMedida: inferUnidadDesdeTexto(
-          textoOriginal,
-          sugerencia.unidadMedida,
-        ),
+        unidadMedida: inferUnidadDesdeTexto(textoOriginal, sugerencia.unidadMedida),
         precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -952,6 +924,14 @@ export function mapPedidoExtraidoToForm(params: {
         catalogAmbiguo: false,
         sugerencia: null,
         sugerenciasAlternativas: [],
+        propuestaSistema: {
+          producto: {
+            idProducto: sugerencia.idProducto,
+            nombre: catalogo?.nombre ?? sugerencia.nombre,
+            codigo: sugerencia.codigo,
+          },
+          fuente: "difuso",
+        },
       });
       continue;
     }
@@ -968,21 +948,10 @@ export function mapPedidoExtraidoToForm(params: {
       cantidadInput: qty.cantidadInput,
       cajasInput: qty.cajasInput,
       presentacion: qty.presentacion,
-      especificacion: resolveEspecificacionLineaForm({
-
-        textoOriginal,
-
-        especificacionIa: linea.especificacion,
-
-        especificacionEnvase: qty.especificacionEnvase,
-
-      }),
+      especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
       ivaPct: "0",
       kgDisponible: sugerencia?.kgDisponible ?? 0,
-      unidadMedida: inferUnidadDesdeTexto(
-        textoOriginal,
-        sugerencia?.unidadMedida ?? "",
-      ),
+      unidadMedida: inferUnidadDesdeTexto(textoOriginal, sugerencia?.unidadMedida ?? ""),
       precioUnitario,
       precioManual: qty.precioManual,
       aliasCliente: textoOriginal,
@@ -994,6 +963,7 @@ export function mapPedidoExtraidoToForm(params: {
       catalogAmbiguo: ambiguo,
       sugerencia,
       sugerenciasAlternativas: alternativas,
+      propuestaSistema: { producto: null, fuente: null },
     });
   }
 

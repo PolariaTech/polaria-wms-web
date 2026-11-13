@@ -1,6 +1,16 @@
 import type { CompradorListRow } from "@/modules/admin-panel";
-import type { ProductoVentaOption } from "../../../shared/types/sales.types";
+import type {
+  FuenteAsignacion,
+  MatchProductoLinea,
+  ProductoVentaOption,
+} from "../../../shared/types/sales.types";
 import { codigoContradiceNombre, rankSinFamiliaAjena } from "../match/codigo-contradice-nombre";
+import { buildMatchProductoLinea } from "../match/build-match-producto";
+import {
+  fraseClienteAmbigua,
+  indiceFrasesCliente,
+  productoPorFraseCliente,
+} from "../match/frase-cliente";
 import {
   productoCompatibleConTextoCliente,
   shouldAutoAcceptProductoSuggestion,
@@ -47,6 +57,7 @@ export interface MaterializeLineaPlan {
   nombreProducto: string;
   /** REQ-124: frase de envase u otra especificación a persistir. */
   especificacion: string;
+  matchProducto: MatchProductoLinea;
 }
 
 export interface MaterializeOvPlan {
@@ -90,7 +101,8 @@ function cleanProductoQuery(raw: string): string {
 function resolveProductoForRenglon(
   renglon: OrigenCorreoRenglon,
   productos: readonly ProductoVentaOption[],
-): ProductoVentaOption | null {
+  indiceFrases: ReadonlyMap<string, ProductoVentaOption | null>,
+): { producto: ProductoVentaOption; fuente: FuenteAsignacion } | null {
   const query = cleanProductoQuery(
     renglon.Producto?.trim() ||
       renglon["Codigo producto"]?.trim() ||
@@ -103,18 +115,19 @@ function resolveProductoForRenglon(
     const byCodigo = productos.filter(
       (p) => p.codigo.trim().toLowerCase() === codigo.toLowerCase(),
     );
-    if (byCodigo.length === 1 && !codigoContradiceNombre(renglon.Producto, codigo, byCodigo[0]!)) return byCodigo[0]!;
+    if (byCodigo.length === 1 && !codigoContradiceNombre(renglon.Producto, codigo, byCodigo[0]!)) {
+      return { producto: byCodigo[0]!, fuente: "codigo" };
+    }
   }
+
+  if (fraseClienteAmbigua(query, indiceFrases)) return null;
+  const porFrase = productoPorFraseCliente(query, indiceFrases);
+  if (porFrase) return { producto: porFrase, fuente: "frase" };
 
   const ranked = rankSinFamiliaAjena(query, productos, { limit: 3 });
   const top = ranked.candidates[0];
   if (!top) return null;
-
-  // REQ-115: misma guarda que map-pedido (familia cebolla ≠ aguacate).
-  if (!productoCompatibleConTextoCliente(query, top.producto)) {
-    return null;
-  }
-
+  if (!productoCompatibleConTextoCliente(query, top.producto)) return null;
   const auto = shouldAutoAcceptProductoSuggestion({
     query,
     sugerenciaNombre: top.producto.nombre,
@@ -123,10 +136,25 @@ function resolveProductoForRenglon(
     secondScore: ranked.candidates[1]?.score ?? null,
     ambiguous: ranked.ambiguous,
   });
-  if (auto) return top.producto;
-
-  // Sin fallback por score flojo.
+  if (auto) return { producto: top.producto, fuente: "difuso" };
   return null;
+}
+
+export function compradorDesdeOrigen(params: {
+  origenCorreo: unknown;
+  compradores: readonly CompradorListRow[];
+}): string | null {
+  const renglones = parseOrigenCorreoJson(params.origenCorreo);
+  const nombreClienteOrigen =
+    renglones.map((r) => r["Nombre cliente"]?.trim()).find(Boolean) ?? null;
+  const compradorRank = rankCompradoresFromNombre(
+    nombreClienteOrigen,
+    params.compradores,
+  );
+  return (
+    shouldAutoAssignComprador(compradorRank, nombreClienteOrigen)
+      ?.idComprador ?? null
+  );
 }
 
 /**
@@ -143,15 +171,11 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
   const renglones = parseOrigenCorreoJson(params.origenCorreo);
   const nombreClienteOrigen =
     renglones.map((r) => r["Nombre cliente"]?.trim()).find(Boolean) ?? null;
-
-  const compradorRank = rankCompradoresFromNombre(
-    nombreClienteOrigen,
-    params.compradores,
-  );
-  // Exacto o fuzzy fuerte multi-token (REQ-116); parciales → UI.
-  const idComprador =
-    shouldAutoAssignComprador(compradorRank, nombreClienteOrigen)
-      ?.idComprador ?? null;
+  const idComprador = compradorDesdeOrigen({
+    origenCorreo: params.origenCorreo,
+    compradores: params.compradores,
+  });
+  const indiceFrases = indiceFrasesCliente(params.productos);
 
   const ordenCompraHotel =
     mostFrequent(
@@ -190,11 +214,31 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
     const cantidad = piezas?.kg ?? parseCantidad(renglon.Cantidad);
     if (cantidad <= 0) continue;
 
-    const match = resolveProductoForRenglon(renglon, params.productos);
-    if (!match) {
+    const resolucion = resolveProductoForRenglon(
+      renglon,
+      params.productos,
+      indiceFrases,
+    );
+    if (!resolucion) {
       if (alias) sinMatchProductos.push(alias);
       continue;
     }
+    const match = resolucion.producto;
+    const matchProducto = buildMatchProductoLinea({
+      textoCliente: alias,
+      sugeridoMateo: {
+        idProducto: match.idProducto,
+        nombre: match.nombre,
+        codigo: match.codigo,
+      },
+      elegidoUsuario: {
+        idProducto: match.idProducto,
+        nombre: match.nombre,
+        codigo: match.codigo,
+      },
+      fuente: resolucion.fuente,
+    });
+    if (!matchProducto) continue;
 
     const precioDoc = parsePrecio(renglon.Precio);
     const converted = resolveCantidadPrecioDesdeEnvase({
@@ -227,6 +271,7 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
         }),
         piezas,
       ),
+      matchProducto,
     });
   }
 

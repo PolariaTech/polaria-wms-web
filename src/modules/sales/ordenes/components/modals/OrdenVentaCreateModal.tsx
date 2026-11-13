@@ -112,19 +112,19 @@ export function OrdenVentaCreateModal({
   const [precioOverrideByProducto, setPrecioOverrideByProducto] = useState<
     Record<string, number>
   >({});
-  const [equivalenciaByProducto, setEquivalenciaByProducto] = useState<
-    Record<string, string>
-  >({});
+  const [equivalenciaByProducto, setEquivalenciaByProducto] = useState<Record<string, string[]>>({});
   const productos = useMemo(
     () =>
       productosBase.map((row) => {
         const override = precioOverrideByProducto[row.idProducto];
-        const equivalencia = equivalenciaByProducto[row.idProducto]?.trim();
-        if (override == null && !equivalencia) return row;
+        const frasesCliente = equivalenciaByProducto[row.idProducto] ?? [];
+        const equivalencia = frasesCliente[0]?.trim();
+        if (override == null && frasesCliente.length === 0) return row;
         return {
           ...row,
           ...(override != null ? { precioUnitario: override } : {}),
           ...(equivalencia ? { equivalencia } : { equivalencia: null }),
+          frasesCliente,
         };
       }),
     [equivalenciaByProducto, precioOverrideByProducto, productosBase],

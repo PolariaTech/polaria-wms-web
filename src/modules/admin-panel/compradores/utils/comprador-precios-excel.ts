@@ -1,4 +1,5 @@
 import { Workbook, type Cell } from "exceljs";
+import { aliasPrincipalPorPar } from "./comprador-alias-reglas";
 
 export const COMPRADOR_PRECIOS_SHEET_NAME = "Precios";
 
@@ -191,11 +192,7 @@ export function buildCompradorPreciosTemplateRows(input: {
   precioListaByProductoId: Record<string, number | null | undefined>;
   filters?: CompradorPreciosExportFilters;
 }): CompradorPreciosExcelSourceRow[] {
-  const aliasByPair = new Map(
-    input.aliases.map(
-      (row) => [`${row.idComprador}::${row.idProducto}`, row] as const,
-    ),
-  );
+  const aliasByPair = aliasPrincipalPorPar(input.aliases);
 
   const grupoFilter = input.filters?.grupos
     ?.map(normalizeGrupo)

@@ -6,6 +6,7 @@ import {
 import { createEmptyOrdenTrabajoHija } from "../origen/origen-correo-ordenes-trabajo";
 import { buildOrigenCorreoFromOrdenesYLineas } from "../origen/origen-correo-build-from-form";
 import { indexIdProductoVerificadoOrigen } from "../origen/origen-correo-id-producto-verificado";
+import { equivalenciasPorAprender } from "../match/aprender-equivalencias";
 
 describe("ovTieneLineasMaterializadas (REQ-195)", () => {
   it("true solo si hay id_producto", () => {
@@ -55,6 +56,124 @@ describe("REQ-201 verificaciones al grabar avance", () => {
     });
     expect(lineas[0]?.catalogPending).toBe(false);
     expect(lineas[0]?.idProducto).toBe("prod-1");
+    expect(lineas[0]?.propuestaSistema).toEqual({
+      producto: { idProducto: "prod-1", nombre: "Pepino", codigo: "105" },
+      fuente: null,
+    });
+  });
+
+  it("lee propuestaSistema del formato nuevo de match_producto", () => {
+    const lineas = mapDetalleLineasAForm({
+      detalleLineas: [
+        {
+          id_linea_orden_venta: "l1",
+          id_orden_venta: "ov-1",
+          id_producto: "prod-2",
+          cantidad_pedida: 2,
+          precio_unitario: 10,
+          cajas: null,
+          presentacion: null,
+          unidad_medida: "KGM",
+          match_producto: {
+            textoCliente: "Manzana verde",
+            sugeridoMateo: {
+              idProducto: "prod-granny",
+              nombre: "MANZANA GRANNY SMITH",
+              codigo: "115001010",
+            },
+            elegidoUsuario: {
+              idProducto: "prod-2",
+              nombre: "Pepino",
+              codigo: "105",
+            },
+            fuente: "frase",
+          },
+          producto: {
+            sku: "105",
+            descripcion: "Pepino",
+            metadatos_catalogo: null,
+          },
+        },
+      ],
+      productoRows: [
+        {
+          idProducto: "prod-2",
+          codigo: "105",
+          nombre: "Pepino",
+          idBodega: "bod-1",
+          kgDisponible: 100,
+          unidadMedida: "KGM",
+        },
+      ],
+      origenCorreoRows: [],
+      idBodegaDetalle: "bod-1",
+      notasLineas: "",
+      hijas: [],
+    });
+    expect(lineas[0]?.propuestaSistema).toEqual({
+      producto: {
+        idProducto: "prod-granny",
+        nombre: "MANZANA GRANNY SMITH",
+        codigo: "115001010",
+      },
+      fuente: "frase",
+    });
+  });
+
+  it("al reabrir una línea sin clave fuente no aprende el nombre del catálogo", () => {
+    const lineas = mapDetalleLineasAForm({
+      detalleLineas: [
+        {
+          id_linea_orden_venta: "l1",
+          id_orden_venta: "ov-1",
+          id_producto: "prod-1",
+          cantidad_pedida: 2,
+          precio_unitario: 10,
+          cajas: null,
+          presentacion: null,
+          unidad_medida: "KGM",
+          match_producto: {
+            textoCliente: "Pepino",
+            sugeridoMateo: null,
+            elegidoUsuario: {
+              idProducto: "prod-1",
+              nombre: "Pepino",
+              codigo: "105",
+            },
+          },
+          producto: {
+            sku: "105",
+            descripcion: "Pepino",
+            metadatos_catalogo: null,
+          },
+        },
+      ],
+      productoRows: [
+        {
+          idProducto: "prod-1",
+          codigo: "105",
+          nombre: "Pepino",
+          idBodega: "bod-1",
+          kgDisponible: 100,
+          unidadMedida: "KGM",
+        },
+      ],
+      origenCorreoRows: [],
+      idBodegaDetalle: "bod-1",
+      notasLineas: "",
+      hijas: [],
+    });
+    expect(lineas[0]?.propuestaSistema).toEqual({
+      producto: { idProducto: "prod-1", nombre: "Pepino", codigo: "105" },
+      fuente: null,
+    });
+    expect(
+      equivalenciasPorAprender({
+        lineas,
+        idComprador: "c1",
+        idsProductoVenta: ["prod-1"],
+      }),
+    ).toEqual([]);
   });
 
   it("REQ-170: con una sola OT asigna otId a líneas que quedaron sin match", () => {

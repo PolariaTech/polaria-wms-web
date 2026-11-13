@@ -67,6 +67,23 @@ export function mapDetalleLineasAForm(params: {
         linea,
         origenRenglones: origenCorreoRows,
       }) || undefined;
+    const match = linea.match_producto;
+    const tieneFuente = Boolean(match && "fuente" in match);
+    const propuestaSistema = tieneFuente
+      ? {
+          producto: match?.sugeridoMateo?.idProducto
+            ? {
+                idProducto: match.sugeridoMateo.idProducto,
+                nombre: match.sugeridoMateo.nombre,
+                codigo: match.sugeridoMateo.codigo,
+              }
+            : null,
+          fuente: match?.fuente ?? null,
+        }
+      : {
+          producto: { idProducto: linea.id_producto, nombre, codigo },
+          fuente: null,
+        };
     return {
       idProducto: linea.id_producto,
       nombre,
@@ -102,6 +119,7 @@ export function mapDetalleLineasAForm(params: {
         unidadMedida: string;
         precioUnitario: number;
       }>,
+      propuestaSistema,
     };
   });
 

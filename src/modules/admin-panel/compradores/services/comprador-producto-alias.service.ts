@@ -19,6 +19,7 @@ import {
   parseCompradorPreciosExcelFile,
   planCompradorPreciosImport,
 } from "../utils/comprador-precios-import";
+import { MENSAJE_COMPRADOR_NO_ENCONTRADO, MENSAJE_CUENTA_NO_ENCONTRADA, mensajeValidacionAliasPrecio, traducirErrorAlias } from "../utils/comprador-alias-reglas";
 
 const ALIAS_LIST_LIMIT = 500;
 const ALIAS_CUENTA_LIST_LIMIT = 5000;
@@ -90,13 +91,6 @@ function nestedComprador(
   if (!codigo && !nombre) return null;
 
   return { codigo, nombre };
-}
-
-function isUniqueAliasViolation(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  return /duplicate key|unique constraint|uq_comprador_producto_alias/i.test(
-    message,
-  );
 }
 
 export interface ListCompradorProductoAliasParams {
@@ -353,12 +347,16 @@ export interface CreateCompradorProductoAliasInput {
   alias: string;
   /** Si se omite o es null, el comprador usa la lista de precios. */
   precio?: number | null;
+  codigoProducto?: string;
 }
 
 /** Guarda equivalencia (nombre/precio) solo para ese comprador. */
 export async function createCompradorProductoAliasAdmin(
   input: CreateCompradorProductoAliasInput,
 ): Promise<CompradorProductoAliasRow> {
+  if (!input.codigoCuenta?.trim()) {
+    throw new DomainServiceError(MENSAJE_CUENTA_NO_ENCONTRADA, "INVALID_ARGUMENT");
+  }
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
   const idComprador = input.idComprador.trim();
   const idProducto = input.idProducto.trim();
@@ -369,10 +367,7 @@ export async function createCompradorProductoAliasAdmin(
       : input.precio;
 
   if (!idComprador) {
-    throw new DomainServiceError(
-      "Selecciona un comprador.",
-      "INVALID_ARGUMENT",
-    );
+    throw new DomainServiceError(MENSAJE_COMPRADOR_NO_ENCONTRADO, "INVALID_ARGUMENT");
   }
 
   if (!idProducto) {
@@ -382,18 +377,13 @@ export async function createCompradorProductoAliasAdmin(
     );
   }
 
-  if (alias.length > 255) {
-    throw new DomainServiceError(
-      "La equivalencia no puede superar 255 caracteres.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  if (precio != null && precio < 0) {
-    throw new DomainServiceError(
-      "Ingresa un precio válido (0 o mayor).",
-      "INVALID_ARGUMENT",
-    );
+  const errorValidacion = mensajeValidacionAliasPrecio(
+    alias,
+    precio,
+    input.codigoProducto,
+  );
+  if (errorValidacion) {
+    throw new DomainServiceError(errorValidacion, "INVALID_ARGUMENT");
   }
 
   try {
@@ -427,14 +417,10 @@ export async function createCompradorProductoAliasAdmin(
 
     return mapAliasRow(inserted);
   } catch (error: unknown) {
-    if (isUniqueAliasViolation(error)) {
-      throw new DomainServiceError(
-        "Este comprador ya tiene una equivalencia para ese producto.",
-        "INVALID_ARGUMENT",
-        error,
-      );
+    const mensaje = traducirErrorAlias(error);
+    if (mensaje) {
+      throw new DomainServiceError(mensaje, "INVALID_ARGUMENT", error);
     }
-
     throw error;
   }
 }
@@ -445,12 +431,16 @@ export interface UpdateCompradorProductoAliasInput {
   alias?: string;
   /** undefined = no tocar; null = volver a lista default. */
   precio?: number | null;
+  codigoProducto?: string;
 }
 
 /** Actualiza equivalencia y/o precio override del comprador. */
 export async function updateCompradorProductoAliasAdmin(
   input: UpdateCompradorProductoAliasInput,
 ): Promise<CompradorProductoAliasRow> {
+  if (!input.codigoCuenta?.trim()) {
+    throw new DomainServiceError(MENSAJE_CUENTA_NO_ENCONTRADA, "INVALID_ARGUMENT");
+  }
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
   const idAlias = input.idAlias.trim();
   const hasAlias = input.alias !== undefined;
@@ -471,53 +461,51 @@ export async function updateCompradorProductoAliasAdmin(
   }
 
   const payload: { alias?: string; precio?: number | null } = {};
-
-  if (hasAlias) {
-    const alias = (input.alias ?? "").trim();
-    if (alias.length > 255) {
-      throw new DomainServiceError(
-        "La equivalencia no puede superar 255 caracteres.",
-        "INVALID_ARGUMENT",
-      );
-    }
-    payload.alias = alias;
-  }
-
-  if (hasPrecio) {
-    if (input.precio != null && input.precio < 0) {
-      throw new DomainServiceError(
-        "Ingresa un precio válido (0 o mayor).",
-        "INVALID_ARGUMENT",
-      );
-    }
-    payload.precio = input.precio ?? null;
-  }
-
-  const updated = await runDomainMutation<CompradorProductoAliasDbRow | null>(
-    (client) => {
-      const query = client
-        .from("comprador_producto_alias")
-        .update(payload)
-        .eq("codigo_cuenta", codigoCuenta)
-        .eq("id_alias", idAlias)
-        .select(ALIAS_COLUMNS)
-        .single();
-
-      return query as unknown as Promise<{
-        data: CompradorProductoAliasDbRow | null;
-        error: { message: string } | null;
-      }>;
-    },
+  const alias = hasAlias ? (input.alias ?? "").trim() : "";
+  const errorValidacion = mensajeValidacionAliasPrecio(
+    alias,
+    hasPrecio ? input.precio : null,
+    input.codigoProducto,
   );
-
-  if (!updated) {
-    throw new DomainServiceError(
-      "No se pudo actualizar la equivalencia.",
-      "MUTATION_FAILED",
-    );
+  if (errorValidacion) {
+    throw new DomainServiceError(errorValidacion, "INVALID_ARGUMENT");
   }
+  if (hasAlias) payload.alias = alias;
+  if (hasPrecio) payload.precio = input.precio ?? null;
 
-  return mapAliasRow(updated);
+  try {
+    const updated = await runDomainMutation<CompradorProductoAliasDbRow | null>(
+      (client) => {
+        const query = client
+          .from("comprador_producto_alias")
+          .update(payload)
+          .eq("codigo_cuenta", codigoCuenta)
+          .eq("id_alias", idAlias)
+          .select(ALIAS_COLUMNS)
+          .single();
+
+        return query as unknown as Promise<{
+          data: CompradorProductoAliasDbRow | null;
+          error: { message: string } | null;
+        }>;
+      },
+    );
+
+    if (!updated) {
+      throw new DomainServiceError(
+        "No se pudo actualizar la equivalencia.",
+        "MUTATION_FAILED",
+      );
+    }
+
+    return mapAliasRow(updated);
+  } catch (error: unknown) {
+    const mensaje = traducirErrorAlias(error);
+    if (mensaje) {
+      throw new DomainServiceError(mensaje, "INVALID_ARGUMENT", error);
+    }
+    throw error;
+  }
 }
 
 export interface CompradorPreciosImportResult {
@@ -582,6 +570,7 @@ export async function importCompradorPreciosFromFile(
         idProducto: create.idProducto,
         alias: create.alias,
         precio: create.precio,
+        codigoProducto: productos.find((producto) => producto.idProducto === create.idProducto)?.codigo,
       });
       imported += 1;
     } catch (error: unknown) {

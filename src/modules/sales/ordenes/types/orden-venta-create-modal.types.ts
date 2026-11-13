@@ -1,6 +1,9 @@
 import type { FormEvent } from "react";
 import type { CompradorListRow } from "@/modules/admin-panel";
-import type { ProductoVentaOption } from "../../shared/types/sales.types";
+import type {
+  FuenteAsignacion,
+  ProductoVentaOption,
+} from "../../shared/types/sales.types";
 import type { AutoPrintOvResult } from "../print/auto-print-ov-tras-emitir";
 import type { OrdenVentaOperadorRow } from "../../shared/types/sales.types";
 import type { CypherCompanionOtPicker } from "../components/modals/OrdenVentaCypherDrawer";
@@ -109,6 +112,10 @@ export interface LineaVentaForm {
   catalogAmbiguo?: boolean;
   sugerencia?: LineaSugerenciaCatalogo | null;
   sugerenciasAlternativas?: LineaSugerenciaCatalogo[];
+  propuestaSistema?: {
+    producto: { idProducto: string; nombre: string; codigo: string } | null;
+    fuente: FuenteAsignacion | null;
+  };
 }
 
 /** Reagrupación de OT con IA aplicada al formulario y aún sin guardar (REQ-125). */

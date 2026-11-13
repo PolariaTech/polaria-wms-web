@@ -41,10 +41,53 @@ function producto(): ProductoVentaOption {
   };
 }
 
+function productoConFrase(): ProductoVentaOption {
+  return {
+    ...producto(),
+    idProducto: "p-primera",
+    codigo: "115001009",
+    nombre: "AGUACATE PRIMERA",
+    frasesCliente: ["Aguacate hass"],
+  };
+}
+
 describe("actualizarSugerenciasDeCatalogo", () => {
   it("no cambia la referencia si la línea ya tiene producto", () => {
     const prev = [linea({ catalogPending: false, idProducto: "p9" })];
     expect(actualizarSugerenciasDeCatalogo(prev, [producto()])).toBe(prev);
+  });
+
+  it("una línea pendiente con frase queda asignada", () => {
+    const prev = [linea({ filledByIa: true, catalogPending: true })];
+    const next = actualizarSugerenciasDeCatalogo(prev, [productoConFrase()]);
+    expect(next[0]?.idProducto).toBe("p-primera");
+    expect(next[0]?.catalogPending).toBe(false);
+    expect(next[0]?.filledByIa).toBe(true);
+    expect(next[0]?.propuestaSistema?.fuente).toBe("frase");
+  });
+
+  it("una línea que tocó el usuario no cambia", () => {
+    const prev = [
+      linea({ filledByIa: false, catalogPending: true, idProducto: "" }),
+    ];
+    const next = actualizarSugerenciasDeCatalogo(prev, [productoConFrase()]);
+    expect(next[0]?.idProducto).toBe("");
+  });
+
+  it("una línea asignada por búsqueda difusa pasa al de la frase", () => {
+    const prev = [
+      linea({
+        filledByIa: true,
+        catalogPending: false,
+        idProducto: "p1",
+        codigo: "AGU",
+      }),
+    ];
+    const next = actualizarSugerenciasDeCatalogo(prev, [
+      producto(),
+      productoConFrase(),
+    ]);
+    expect(next[0]?.idProducto).toBe("p-primera");
   });
 });
 

@@ -224,7 +224,7 @@ export interface OrdenVentaFormEstado
   discrepancias: CampoDiscrepancia[];
   emlInnerAdjuntos: OrigenAdjunto[];
   ensureFormDataReady: () => Promise<boolean>;
-  equivalenciaByProducto: Record<string, string>;
+  equivalenciaByProducto: Record<string, string[]>;
   externas: Array<{ idBodega: string; nombre: string; codigo: string }>;
   fechaEntregaPersist: string;
   fichaComprador: CompradorAltaFicha | null;

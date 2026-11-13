@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mensajePrecioInvalido } from "../utils/comprador-alias-reglas";
 import { CompradorAliasCreateModal } from "./CompradorAliasCreateModal";
 
 const {
@@ -86,10 +87,15 @@ describe("CompradorAliasCreateModal", () => {
 
     await user.clear(precio!);
     await user.type(precio!, "abc");
+    expect((precio as HTMLInputElement).value).not.toContain("a");
+    expect((precio as HTMLInputElement).value).not.toContain("b");
+    expect((precio as HTMLInputElement).value).not.toContain("c");
+
+    await user.type(precio!, "1.2.3");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(
-      await screen.findByText("Ingresa un precio válido para DICOK."),
+      await screen.findByText(mensajePrecioInvalido("DICOK")),
     ).toBeInTheDocument();
     expect(createCompradorProductoAliasAdmin).not.toHaveBeenCalled();
 

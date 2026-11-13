@@ -1,4 +1,5 @@
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
+import { normalizeForMatch } from "./normalize-for-match";
 
 export interface ProductoCatalogoScored {
   producto: ProductoVentaOption;
@@ -141,21 +142,6 @@ const SYNONYM_INDEX: Map<string, ReadonlySet<string>> = (() => {
   }
   return map;
 })();
-
-function normalizeForMatch(value: string): string {
-  return value
-    .trim()
-    // Mojibake frecuente de ñ/Ñ en PDFs/correos del tercero (PI¥A → PIÑA).
-    .replace(/¥/g, "ñ")
-    .replace(/\uFFFD/g, "n")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/\*/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function tokenList(value: string): string[] {
   return normalizeForMatch(value)

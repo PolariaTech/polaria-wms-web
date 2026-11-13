@@ -3,6 +3,7 @@
 import {
   useEffect,
   useId,
+  useRef,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { cn } from "@/lib/utils/cn";
@@ -18,6 +19,7 @@ import {
 } from "./polaria-form-modal-layout";
 import type { PolariaFormModalProps } from "./polaria-form-modal-props";
 import { PolariaFormModalFooter } from "./PolariaFormModalFooter";
+import { useModalFocus } from "./use-modal-focus";
 
 export type { PolariaFormModalProps } from "./polaria-form-modal-props";
 
@@ -61,6 +63,8 @@ export function PolariaFormModal({
 }: PolariaFormModalProps) {
   const titleId = useId();
   const descriptionId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalFocus(open, dialogRef);
   const cypherWidthMode = useShellOverlayStore((s) => s.cypherWidthMode);
 
   useEffect(() => {
@@ -167,6 +171,7 @@ export function PolariaFormModal({
       {closeOnBackdrop ? (
         <button
           type="button"
+          tabIndex={-1}
           aria-label="Cerrar modal"
           className={cn(
             "absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm transition-[top,right] duration-[320ms] ease-out",
@@ -189,8 +194,10 @@ export function PolariaFormModal({
       )}
 
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         className={cn(

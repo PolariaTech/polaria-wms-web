@@ -75,11 +75,11 @@ function lineaEnvioDesdeForm(
       unidadMedida: linea.unidadMedida.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
       matchProducto: buildMatchProductoLinea({
         textoCliente: linea.aliasCliente || linea.nombre,
-        sugeridoMateo: linea.sugerencia
+        sugeridoMateo: linea.propuestaSistema?.producto
           ? {
-              idProducto: linea.sugerencia.idProducto,
-              nombre: linea.sugerencia.nombre,
-              codigo: linea.sugerencia.codigo,
+              idProducto: linea.propuestaSistema.producto.idProducto,
+              nombre: linea.propuestaSistema.producto.nombre,
+              codigo: linea.propuestaSistema.producto.codigo,
             }
           : null,
         elegidoUsuario: {
@@ -87,6 +87,9 @@ function lineaEnvioDesdeForm(
           nombre: linea.nombre,
           codigo: linea.codigo,
         },
+        ...(linea.propuestaSistema !== undefined
+          ? { fuente: linea.propuestaSistema.fuente ?? null }
+          : {}),
       }),
     },
   };
