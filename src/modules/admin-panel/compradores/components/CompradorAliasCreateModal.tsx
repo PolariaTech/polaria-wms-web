@@ -22,6 +22,7 @@ import {
   createCompradorProductoAliasAdmin,
   listCompradorProductoAliasAdmin,
 } from "../services/comprador-producto-alias.service";
+import { MENSAJE_COMPRADOR_NO_ENCONTRADO, MENSAJE_CUENTA_NO_ENCONTRADA, mensajeFraseLarga, mensajePrecioInvalido } from "../utils/comprador-alias-reglas";
 
 interface CompradorAliasCreateModalProps {
   open: boolean;
@@ -94,9 +95,7 @@ export function CompradorAliasCreateModal({
   const [precioByProductoId, setPrecioByProductoId] = useState<
     Record<string, number>
   >({});
-  const [drafts, setDrafts] = useState<Record<string, EquivalenciaCreateDraft>>(
-    {},
-  );
+  const [drafts, setDrafts] = useState<Record<string, EquivalenciaCreateDraft>>({});
   const [isLoadingLists, setIsLoadingLists] = useState(false);
   const [productoQuery, setProductoQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -242,12 +241,12 @@ export function CompradorAliasCreateModal({
     setError(null);
 
     if (!codigoCuenta) {
-      setError("No se encontró la cuenta activa.");
+      setError(MENSAJE_CUENTA_NO_ENCONTRADA);
       return;
     }
 
     if (!comprador) {
-      setError("No se encontró el comprador.");
+      setError(MENSAJE_COMPRADOR_NO_ENCONTRADO);
       return;
     }
 
@@ -270,7 +269,7 @@ export function CompradorAliasCreateModal({
       const alias = draft.alias.trim();
 
       if (alias.length > 255) {
-        setError(`La equivalencia de ${row.codigo} supera 255 caracteres.`);
+        setError(mensajeFraseLarga(row.codigo));
         return;
       }
 
@@ -287,7 +286,7 @@ export function CompradorAliasCreateModal({
         } else {
           precioParsed = parseDecimalEs(trimmed);
           if (precioParsed == null || precioParsed < 0) {
-            setError(`Ingresa un precio válido para ${row.codigo}.`);
+            setError(mensajePrecioInvalido(row.codigo));
             return;
           }
         }
@@ -328,6 +327,7 @@ export function CompradorAliasCreateModal({
           idProducto: item.row.idProducto,
           alias: item.alias,
           precio: precioOverride,
+          codigoProducto: item.row.codigo,
         });
       }
 
@@ -482,7 +482,7 @@ export function CompradorAliasCreateModal({
                               aria-label={`Precio ${row.codigo}`}
                               onChange={(event) =>
                                 handleDraftChange(row.idProducto, {
-                                  precioTexto: event.target.value,
+                                  precioTexto: event.target.value.replace(/[^\d.,]/g, ""),
                                 })
                               }
                               className={cn(inputClass, "text-right tabular-nums")}

@@ -1,3 +1,30 @@
+export const MENSAJE_CUENTA_NO_ENCONTRADA = "No se encontró la cuenta activa.";
+export const MENSAJE_COMPRADOR_NO_ENCONTRADO = "No se encontró el comprador.";
+
+export function mensajeFraseLarga(codigo: string): string {
+  return `La equivalencia de ${codigo} supera 255 caracteres.`;
+}
+
+export function mensajePrecioInvalido(codigo: string): string {
+  return `Ingresa un precio válido para ${codigo}.`;
+}
+
+function codigoEnMensaje(codigo: string | undefined): string {
+  const recortado = codigo?.trim();
+  return recortado ? recortado : "este producto";
+}
+
+export function mensajeValidacionAliasPrecio(
+  alias: string,
+  precio: number | null | undefined,
+  codigoProducto?: string,
+): string | null {
+  const codigo = codigoEnMensaje(codigoProducto);
+  if (alias.length > 255) return mensajeFraseLarga(codigo);
+  if (precio != null && precio < 0) return mensajePrecioInvalido(codigo);
+  return null;
+}
+
 export function traducirErrorAlias(error: unknown): string | null {
   const mensaje = error instanceof Error ? error.message : String(error ?? "");
   if (!/duplicate key|unique constraint|uq_comprador_producto_alias/i.test(mensaje)) {

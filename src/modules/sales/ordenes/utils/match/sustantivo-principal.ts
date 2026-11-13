@@ -130,8 +130,14 @@ function palabrasDelNombre(nombre: string): string[] {
 }
 
 /** Misma palabra salvo plural simple (tomate/tomates, limon/limones). Sin sinónimos: jitomate no es tomate. */
-function mismaPalabra(a: string, b: string): boolean {
-  return a === b || `${a}s` === b || `${b}s` === a || `${a}es` === b || `${b}es` === a;
+function mismaPalabra(palabra: string, otra: string): boolean {
+  return (
+    palabra === otra ||
+    `${palabra}s` === otra ||
+    `${otra}s` === palabra ||
+    `${palabra}es` === otra ||
+    `${otra}es` === palabra
+  );
 }
 
 function incluidoEn(parte: string[], todo: string[]): boolean {
@@ -157,20 +163,24 @@ export function productoConNombreCompletoEnTexto(
     producto,
     tokens: palabrasDelNombre(producto.nombre ?? ""),
   }));
-  const mayorQue = (y: NombreTokens, x: NombreTokens) =>
-    y !== x && y.tokens.length > x.tokens.length && incluidoEn(x.tokens, y.tokens);
+  const mayorQue = (otro: NombreTokens, referencia: NombreTokens) =>
+    otro !== referencia &&
+    otro.tokens.length > referencia.tokens.length &&
+    incluidoEn(referencia.tokens, otro.tokens);
   const escritos = todos.filter(
-    (x) =>
-      x.tokens.length > 0 &&
-      incluidoEn(x.tokens, palabrasTexto) &&
-      !esProductoNoMercancia(x.producto) &&
-      !productoPreparacionIncompatibleConTexto(texto, x.producto),
+    (candidato) =>
+      candidato.tokens.length > 0 &&
+      incluidoEn(candidato.tokens, palabrasTexto) &&
+      !esProductoNoMercancia(candidato.producto) &&
+      !productoPreparacionIncompatibleConTexto(texto, candidato.producto),
   );
-  const maximos = escritos.filter((x) => !escritos.some((y) => mayorQue(y, x)));
+  const maximos = escritos.filter(
+    (candidato) => !escritos.some((otro) => mayorQue(otro, candidato)),
+  );
   const unico = maximos.length === 1 ? maximos[0]! : null;
   if (!unico || unico.tokens.length < 2) return null;
   if (!unico.tokens.some((token) => mismaPalabra(token, cabeza))) return null;
-  return todos.some((y) => mayorQue(y, unico)) ? null : unico.producto;
+  return todos.some((otro) => mayorQue(otro, unico)) ? null : unico.producto;
 }
 
 /**

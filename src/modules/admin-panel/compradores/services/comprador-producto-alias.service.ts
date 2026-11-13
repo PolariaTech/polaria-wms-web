@@ -19,7 +19,7 @@ import {
   parseCompradorPreciosExcelFile,
   planCompradorPreciosImport,
 } from "../utils/comprador-precios-import";
-import { traducirErrorAlias } from "../utils/comprador-alias-reglas";
+import { MENSAJE_COMPRADOR_NO_ENCONTRADO, MENSAJE_CUENTA_NO_ENCONTRADA, mensajeValidacionAliasPrecio, traducirErrorAlias } from "../utils/comprador-alias-reglas";
 
 const ALIAS_LIST_LIMIT = 500;
 const ALIAS_CUENTA_LIST_LIMIT = 5000;
@@ -347,12 +347,16 @@ export interface CreateCompradorProductoAliasInput {
   alias: string;
   /** Si se omite o es null, el comprador usa la lista de precios. */
   precio?: number | null;
+  codigoProducto?: string;
 }
 
 /** Guarda equivalencia (nombre/precio) solo para ese comprador. */
 export async function createCompradorProductoAliasAdmin(
   input: CreateCompradorProductoAliasInput,
 ): Promise<CompradorProductoAliasRow> {
+  if (!input.codigoCuenta?.trim()) {
+    throw new DomainServiceError(MENSAJE_CUENTA_NO_ENCONTRADA, "INVALID_ARGUMENT");
+  }
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
   const idComprador = input.idComprador.trim();
   const idProducto = input.idProducto.trim();
@@ -363,10 +367,7 @@ export async function createCompradorProductoAliasAdmin(
       : input.precio;
 
   if (!idComprador) {
-    throw new DomainServiceError(
-      "Selecciona un comprador.",
-      "INVALID_ARGUMENT",
-    );
+    throw new DomainServiceError(MENSAJE_COMPRADOR_NO_ENCONTRADO, "INVALID_ARGUMENT");
   }
 
   if (!idProducto) {
@@ -376,18 +377,13 @@ export async function createCompradorProductoAliasAdmin(
     );
   }
 
-  if (alias.length > 255) {
-    throw new DomainServiceError(
-      "La equivalencia no puede superar 255 caracteres.",
-      "INVALID_ARGUMENT",
-    );
-  }
-
-  if (precio != null && precio < 0) {
-    throw new DomainServiceError(
-      "Ingresa un precio válido (0 o mayor).",
-      "INVALID_ARGUMENT",
-    );
+  const errorValidacion = mensajeValidacionAliasPrecio(
+    alias,
+    precio,
+    input.codigoProducto,
+  );
+  if (errorValidacion) {
+    throw new DomainServiceError(errorValidacion, "INVALID_ARGUMENT");
   }
 
   try {
@@ -435,12 +431,16 @@ export interface UpdateCompradorProductoAliasInput {
   alias?: string;
   /** undefined = no tocar; null = volver a lista default. */
   precio?: number | null;
+  codigoProducto?: string;
 }
 
 /** Actualiza equivalencia y/o precio override del comprador. */
 export async function updateCompradorProductoAliasAdmin(
   input: UpdateCompradorProductoAliasInput,
 ): Promise<CompradorProductoAliasRow> {
+  if (!input.codigoCuenta?.trim()) {
+    throw new DomainServiceError(MENSAJE_CUENTA_NO_ENCONTRADA, "INVALID_ARGUMENT");
+  }
   const codigoCuenta = requireCodigoCuenta(input.codigoCuenta);
   const idAlias = input.idAlias.trim();
   const hasAlias = input.alias !== undefined;
@@ -461,27 +461,17 @@ export async function updateCompradorProductoAliasAdmin(
   }
 
   const payload: { alias?: string; precio?: number | null } = {};
-
-  if (hasAlias) {
-    const alias = (input.alias ?? "").trim();
-    if (alias.length > 255) {
-      throw new DomainServiceError(
-        "La equivalencia no puede superar 255 caracteres.",
-        "INVALID_ARGUMENT",
-      );
-    }
-    payload.alias = alias;
+  const alias = hasAlias ? (input.alias ?? "").trim() : "";
+  const errorValidacion = mensajeValidacionAliasPrecio(
+    alias,
+    hasPrecio ? input.precio : null,
+    input.codigoProducto,
+  );
+  if (errorValidacion) {
+    throw new DomainServiceError(errorValidacion, "INVALID_ARGUMENT");
   }
-
-  if (hasPrecio) {
-    if (input.precio != null && input.precio < 0) {
-      throw new DomainServiceError(
-        "Ingresa un precio válido (0 o mayor).",
-        "INVALID_ARGUMENT",
-      );
-    }
-    payload.precio = input.precio ?? null;
-  }
+  if (hasAlias) payload.alias = alias;
+  if (hasPrecio) payload.precio = input.precio ?? null;
 
   try {
     const updated = await runDomainMutation<CompradorProductoAliasDbRow | null>(
@@ -580,6 +570,7 @@ export async function importCompradorPreciosFromFile(
         idProducto: create.idProducto,
         alias: create.alias,
         precio: create.precio,
+        codigoProducto: productos.find((producto) => producto.idProducto === create.idProducto)?.codigo,
       });
       imported += 1;
     } catch (error: unknown) {

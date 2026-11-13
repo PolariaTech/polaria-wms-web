@@ -102,14 +102,14 @@ Foco al abrir y foco atrapado: antes de este cambio, `PolariaFormModal` no moví
 ### Checklist de prueba manual (Demo, 13/11/2026, 1366×768, comprador 1052001550)
 
 - [PASS] Nivel 1: en Equivalencia 115001456 escribir 259 caracteres y Guardar → «La equivalencia de 115001456 supera 255 caracteres.» No guarda.
-- [PASS] Nivel 1: en Precio 115001456 escribir letras y Guardar → «Ingresa un precio válido para 115001456.» No guarda.
+- [PASS] Nivel 1: el campo Precio filtra al escribir: «abc-» no entra (queda vacío), así que no se pueden escribir letras ni el signo menos. Con un precio mal formado («1.2.3» en 5010000077) y Guardar → «Ingresa un precio válido para 5010000077.» No guarda. El servicio usa el mismo texto (`mensajePrecioInvalido` de `comprador-alias-reglas.ts`).
 - [PASS] Nivel 2: dentro del modal, Tab recorre Cerrar (encabezado) → Buscar producto → Equivalencia fila 1 → Precio fila 1 → Equivalencia fila 2 → … → Cerrar (pie) → Guardar. Comprador, código, nombre y unidad no reciben foco.
 - [PASS] Nivel 2: al abrir, el foco entra al diálogo «Crear equivalencia de producto». Shift+Tab recién abierto va al último control (Cerrar del pie, porque Guardar está deshabilitado). Tab y Shift+Tab dan la vuelta sin salir al modal Editar.
 - [PASS] Nivel 2: Escape cierra «Crear equivalencia» y el foco vuelve a «Crear equivalencia» del modal Editar; un segundo Escape cierra Editar y el foco vuelve al botón «Editar» de la fila.
 - [PASS] Nivel 2: con Editar abierto y un `alertdialog` con `aria-modal="true"` agregado al final de `body` (como el portal de `PolariaConfirmDialog`), Tab dentro de la confirmación pasa de su primer botón al segundo: el modal de abajo no roba el foco.
 - [PASS] Nivel 2: los productos que ya tienen frase siguen editables: AJO (BOTE 1000G) 115001453 tiene dos frases y sus campos no están deshabilitados. El único campo deshabilitado es Comprador.
 - [PASS] Nivel 2: con cambios, el clic en el fondo no cierra el modal. Escape cierra solo este modal (el de Editar sigue abierto) y descarta lo escrito: al reabrir, el campo está vacío.
-- [N/A] Nivel 3: «Guardar sin cambios»: no se puede disparar, porque Guardar está deshabilitado mientras no hay cambios.
+- [PASS] Nivel 3: sin cambios, Guardar está deshabilitado al abrir el modal y se habilita al escribir un valor válido. Por eso el mensaje «No hay cambios para guardar.» no se puede disparar desde la pantalla.
 - [PASS] Nivel 3: NARANJA AMERICANA 115001454 con precio especial 55; escribir 60 y Guardar → «Este cliente ya tiene un precio especial para NARANJA AMERICANA. Cámbialo en la tabla de equivalencias.» En la base no se creó ninguna fila.
 - [PASS] Nivel 3: «Ajo en bote prueba POL-419» (frase de 115001453) escrita en AJO (BOTE 500G) 115001452 → «Este comprador ya usa esa frase para otro producto.» En la base no se creó ninguna fila.
 - [PASS] Nivel 4 / 5: el precio especial de 55 se guardó como una sola fila (frase vacía, precio 55.0000). Los intentos rechazados no dejaron filas, según consulta de solo lectura a `comprador_producto_alias` en Demo.

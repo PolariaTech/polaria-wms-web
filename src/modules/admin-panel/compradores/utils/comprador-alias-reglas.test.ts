@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   aliasPrincipalPorPar,
+  mensajeFraseLarga,
+  mensajePrecioInvalido,
   traducirErrorAlias,
 } from "./comprador-alias-reglas";
+
+describe("mensajes de validación", () => {
+  it("arma la frase larga y el precio inválido con el código", () => {
+    expect(mensajeFraseLarga("DICOK")).toBe(
+      "La equivalencia de DICOK supera 255 caracteres.",
+    );
+    expect(mensajePrecioInvalido("DICOK")).toBe(
+      "Ingresa un precio válido para DICOK.",
+    );
+  });
+});
 
 describe("traducirErrorAlias", () => {
   it("traduce una frase repetida", () => {
