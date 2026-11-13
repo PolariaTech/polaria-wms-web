@@ -1,14 +1,7 @@
 import type { PedidoExtraido } from "../../ai/openai-pedido.client";
 import { sanitizeTelefonoContacto } from "./sanitize-telefono-contacto";
-import type {
-  FuenteAsignacion,
-  ProductoVentaOption,
-} from "../../../shared/types/sales.types";
-import {
-  fraseClienteAmbigua,
-  indiceFrasesCliente,
-  productoPorFraseCliente,
-} from "../match/frase-cliente";
+import type { FuenteAsignacion, ProductoVentaOption } from "../../../shared/types/sales.types";
+import { fraseClienteAmbigua, indiceFrasesCliente, productoPorFraseCliente } from "../match/frase-cliente";
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
 import { formatCapturaFecha } from "./build-orden-venta-captura-observaciones";
 import {
@@ -779,13 +772,7 @@ export function mapPedidoExtraidoToForm(params: {
 
   for (let index = 0; index < pedido.lineas.length; index += 1) {
     const linea = pedido.lineas[index]!;
-    const resolucion = resolveProductoMatch(
-      linea,
-      byKey,
-      byCodigo,
-      byKeyNorm,
-      indiceFrases,
-    );
+    const resolucion = resolveProductoMatch(linea, byKey, byCodigo, byKeyNorm, indiceFrases);
     const match = resolucion?.producto;
     const textoOriginal = linea.textoOriginal?.trim() || "";
 
