@@ -40,6 +40,7 @@
 - `src/modules/sales/ordenes/hooks/seleccionar-comprador-ov.test.ts` — autorizada por el usuario el 2026-11-13
 - `src/modules/sales/ordenes/utils/origen/__snapshots__/materialize-ov-desde-origen.sin-match.test.ts.snap` — autorizada por el usuario el 2026-11-13
 - `src/modules/sales/ordenes/types/orden-venta-form-setters.ts` — autorizada por el usuario el 2026-11-13
+- `src/components/shared/form/PolariaFormModal.tsx` — autorizada por el usuario el 2026-11-13
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
