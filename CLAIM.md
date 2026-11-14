@@ -62,6 +62,7 @@
 - `schemas/schema_editar_pedido.md`
 - `src/modules/sales/ordenes/print-batch/orden-impresion.ts` — autorizada por el usuario el 2026-11-14
 - `src/modules/sales/ordenes/utils/pedido/build-orden-venta-captura-observaciones.test.ts` — autorizada por el usuario el 2026-11-14
+- `src/modules/sales/ordenes/print/orden-tarea-almacen.test.ts` — autorizada por el usuario el 2026-11-14
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/services/sales.service.ts`
