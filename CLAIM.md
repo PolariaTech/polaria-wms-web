@@ -60,6 +60,7 @@
 - `src/modules/sales/ordenes/utils/pedido/dia-semana-entrega.ts`
 - `src/modules/sales/ordenes/utils/pedido/dia-semana-entrega.test.ts`
 - `schemas/schema_editar_pedido.md`
+- `src/modules/sales/ordenes/print-batch/orden-impresion.ts` — autorizada por el usuario el 2026-11-14
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/services/sales.service.ts`
