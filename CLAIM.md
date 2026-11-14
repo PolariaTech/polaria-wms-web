@@ -66,6 +66,7 @@
 - `src/modules/sales/ordenes/print-batch/armar-previa-rapida.test.ts` — autorizada por el usuario el 2026-11-14
 - `src/modules/sales/ordenes/print-batch/armar-previa-detallada.test.ts` — autorizada por el usuario el 2026-11-14
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaPageContent.fecha.test.tsx` — autorizada por el usuario el 2026-11-14
+- `src/modules/sales/ordenes/print-batch/resumen-impresion.test.ts` — autorizada por el usuario el 2026-11-14
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/services/sales.service.ts`
