@@ -5,7 +5,6 @@ import { fraseClienteAmbigua, indiceFrasesCliente, productoPorFraseCliente } fro
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
 import { formatCapturaFecha } from "./build-orden-venta-captura-observaciones";
 import {
-  aplicarEmpaqueInicialLinea,
   collectMissingFieldsDocs,
   type CampoOperativoDocs,
 } from "./empaque-lineas";
@@ -16,6 +15,7 @@ import {
   scoreProductoMatch,
   shouldAutoAcceptProductoSuggestion,
 } from "../match/find-closest-producto-catalogo";
+import { sustantivoPrincipalAusente } from "../match/sustantivo-principal";
 import { contiguousOtIdsFromPedidoLineas } from "../origen/origen-correo-ot-contigua";
 import {
   extractDireccionShipToDesdeTexto,
@@ -27,12 +27,9 @@ import {
   FECHA_ENTREGA_DEFAULT_WARNING,
   isFechaEntregaAtrasada,
 } from "./pedido-form-validation";
-import {
-  familiaUnidadCatalogo,
-  formatEspecificacionEnvase,
-  resolveCantidadPrecioDesdeEnvase,
-} from "./resolve-cantidad-envase";
+import { familiaUnidadCatalogo } from "./resolve-cantidad-envase";
 import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedido-linea";
+import { resolveLineaCantidadPrecioEmpaque } from "./resolve-linea-cantidad-precio-empaque";
 import { sanitizeNotasGeneralesPedido } from "../origen/texto-origen-pedido";
 import { resolveOrdenCompraLimpia } from "./normalize-numero-pedido";
 
@@ -155,77 +152,6 @@ function parsePrecioIa(value: number | null | undefined): number | null {
   return value;
 }
 
-/**
- * Cantidad/precio/empaque de una línea: si el texto trae "N envase de X unidad"
- * y el catálogo vende en esa familia, convierte; si no, empaque cajas/kg.
- */
-function resolveLineaCantidadPrecioEmpaque(params: {
-  textoOriginal: string;
-  unidadMedidaCatalogo: string;
-  cantidad: number | null | undefined;
-  cajas: number | null | undefined;
-  presentacion: string;
-  precioDoc: number | null;
-  precioCatalogo: number;
-}): {
-  cantidadInput: string;
-  cajasInput: string;
-  presentacion: string;
-  precioUnitario: number;
-  precioManual: boolean;
-  packHint: string;
-  autoPackFields: Array<"cajasInput" | "presentacion" | "cantidadInput">;
-  /** REQ-124: frase de envase para Especificación, o "". */
-  especificacionEnvase: string;
-} {
-  const converted = resolveCantidadPrecioDesdeEnvase({
-    textoOriginal: params.textoOriginal,
-    unidadMedidaCatalogo: params.unidadMedidaCatalogo,
-    cantidadRaw: params.cantidad,
-    precioDoc: params.precioDoc,
-  });
-
-  if (converted) {
-    return {
-      cantidadInput: String(converted.cantidad),
-      cajasInput: "",
-      presentacion: "",
-      precioUnitario:
-        converted.precioUnitario ??
-        params.precioDoc ??
-        params.precioCatalogo,
-      precioManual:
-        converted.precioUnitario != null || params.precioDoc != null,
-      packHint: `Envase → ${converted.cantidad} ${params.unidadMedidaCatalogo || "u"} (${converted.frase})`,
-      autoPackFields: ["cantidadInput"],
-      especificacionEnvase: formatEspecificacionEnvase(converted),
-    };
-  }
-
-  const baseLinea = {
-    cajasInput:
-      params.cajas != null && Number.isFinite(params.cajas)
-        ? String(params.cajas)
-        : "",
-    presentacion: params.presentacion,
-    cantidadInput:
-      params.cantidad != null && Number.isFinite(params.cantidad)
-        ? String(params.cantidad)
-        : "",
-  };
-  const empaque = aplicarEmpaqueInicialLinea(baseLinea);
-  return {
-    cantidadInput: empaque.cantidadInput,
-    cajasInput: empaque.cajasInput,
-    presentacion: empaque.presentacion,
-    precioUnitario: params.precioDoc ?? params.precioCatalogo,
-    precioManual: params.precioDoc != null,
-    packHint: empaque.packHint,
-    autoPackFields: empaque.autoPackFields,
-    especificacionEnvase: "",
-  };
-}
-
 function resolveEspecificacionLineaForm(params: {
   textoOriginal: string;
   especificacionIa: string | null | undefined;
@@ -266,7 +192,11 @@ function resolveProductoMatch(
 ): { producto: ProductoVentaOption; fuente: FuenteAsignacion } | undefined {
   const textoCliente = linea.textoOriginal?.trim() || "";
   const accept = (p: ProductoVentaOption | undefined) =>
-    p && productoCompatibleConTextoCliente(textoCliente, p) ? p : undefined;
+    p &&
+    productoCompatibleConTextoCliente(textoCliente, p) &&
+    !sustantivoPrincipalAusente(textoCliente, p)
+      ? p
+      : undefined;
 
   const porCodigoCliente = accept(
     productoUnicoPorCodigo(linea.codigoProductoCliente, byCodigo),
@@ -361,9 +291,10 @@ function pickSugerencias(
   secondScore: number | null;
   queryUsed: string;
 } {
+  // REQ-311: no usar productoCatalogo como query fuzzy — una clave Mateo
+  // equivocada (PULPA, otro color) contaminaba sugerencias y dejaba amarillo.
   const queries = [
     linea.textoOriginal?.trim(),
-    linea.productoCatalogo?.trim(),
     linea.codigoProductoCliente?.trim(),
   ].filter((q): q is string => Boolean(q));
 
@@ -791,6 +722,7 @@ export function mapPedidoExtraidoToForm(params: {
         presentacion,
         precioDoc,
         precioCatalogo: match.precioUnitario,
+        especificacionIa: linea.especificacion,
       });
       // Clave exacta: si el texto también se parece a otro producto, pedir confirmación.
       const vecinos =
@@ -872,6 +804,7 @@ export function mapPedidoExtraidoToForm(params: {
       presentacion,
       precioDoc,
       precioCatalogo: sugerencia?.precioUnitario ?? 0,
+      especificacionIa: linea.especificacion,
     });
     const precioUnitario = qty.precioUnitario;
 

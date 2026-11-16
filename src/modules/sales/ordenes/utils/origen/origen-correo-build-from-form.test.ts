@@ -28,4 +28,40 @@ describe("buildOrigenCorreoFromOrdenesYLineas + indexIdProductoVerificadoOrigen 
     const index = indexIdProductoVerificadoOrigen(rows);
     expect(index.get("manual:ot-1#0")).toBe("prod-1");
   });
+
+  it("REQ-311: con 1 OT incluye líneas nuevas sin otId junto a las que sí lo tienen", () => {
+    const hija = createEmptyOrdenTrabajoHija({
+      id: "manual:ot-1",
+      almacen: "COCINA",
+    });
+    const rows = buildOrigenCorreoFromOrdenesYLineas({
+      hijas: [hija],
+      lineas: [
+        {
+          otId: "manual:ot-1",
+          idProducto: "prod-manzana",
+          nombre: "MANZANA",
+          codigo: "1",
+          cantidad: 15,
+          unidadMedida: "KGM",
+          precioUnitario: 65,
+        },
+        {
+          // Alta en form sin otId (1 OT / sin pager)
+          idProducto: "prod-coliflor",
+          nombre: "COLIFLOR",
+          codigo: "105001501",
+          cantidad: 20,
+          unidadMedida: "PZA",
+          precioUnitario: 33,
+        },
+      ],
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row["Codigo producto"])).toEqual([
+      "1",
+      "105001501",
+    ]);
+    expect(rows.every((row) => row._otId === "manual:ot-1")).toBe(true);
+  });
 });

@@ -1,4 +1,6 @@
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
+import { nombresContradicenPorColor } from "../origen/identidad-nombres-producto";
+import { colorClienteDesambiguaSugerencia } from "./color-desambigua-auto-accept";
 import { normalizeForMatch } from "./normalize-for-match";
 
 export interface ProductoCatalogoScored {
@@ -121,7 +123,16 @@ const SYNONYM_GROUPS: readonly (readonly string[])[] = [
   ["pepino", "pepinos", "cucumber", "cucumbers"],
   ["esparrago", "esparragos", "asparagus"],
   ["apio", "celery"],
-  ["chile", "chiles", "pepper", "peppers"], ["pimiento", "pimientos", "morron", "morrones"],
+  [
+    "chile",
+    "chiles",
+    "pepper",
+    "peppers",
+    "pimiento",
+    "pimientos",
+    "morron",
+    "morrones",
+  ],
   ["guanabana", "soursop"],
   ["maracuya", "passionfruit", "passion"],
   // Sinónimos reales de variante (cualquier producto), p. ej. MX orejona ≈ romana.
@@ -461,8 +472,15 @@ export function productoPreparacionIncompatibleConTexto(
     /\b(jugo|jugos|juice|zumo|zumos|pure|pures|puree|nectar|nectares|extracto|extractos)\b/;
   const textoPidePrep = prepRe.test(texto);
   const productoEsPrep = prepRe.test(nombre);
-  if (productoEsPrep === textoPidePrep) return false;
-  return true;
+  if (productoEsPrep !== textoPidePrep) return true;
+  // REQ-311: pimiento/chile fresco ≠ pulpa/recado (pero «Frutos rojos» sí puede ser PULPA).
+  if (
+    /\b(pulpa|pulpas|recado|recados)\b/.test(nombre) &&
+    /\b(pimiento|pimientos|chile|chiles|morron|morrones)\b/.test(texto)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -512,6 +530,8 @@ export function productoCompatibleConTextoCliente(
   if (codigoCoincideEnQuery(texto, producto.codigo)) return true;
   if (productoPreparacionIncompatibleConTexto(texto, producto)) return false;
   if (productosFamiliasSinonimoConflictivas(texto, producto)) return false;
+  // REQ-311: pimiento rojo ≠ pulpa/chile de otro color.
+  if (nombresContradicenPorColor(texto, producto.nombre)) return false;
 
   const score = scoreProductoMatch(texto, producto);
   if (esProductoNoMercancia(producto)) {
@@ -791,6 +811,17 @@ export function shouldAutoAcceptProductoSuggestion(params: {
     if (params.topScore - params.secondScore >= 0.08) return true;
     if (params.topScore >= 0.7 && params.secondScore < 0.55) return true;
   }
+  if (
+    colorClienteDesambiguaSugerencia({
+      query: params.query,
+      sugerenciaNombre: params.sugerenciaNombre,
+      topScore: params.topScore,
+      secondScore: params.secondScore,
+    })
+  ) {
+    return true;
+  }
+
   if (params.topScore >= 0.7 && !params.ambiguous) return true;
   if (
     params.topScore >= 0.85 &&

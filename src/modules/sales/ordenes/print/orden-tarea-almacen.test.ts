@@ -169,9 +169,9 @@ describe("orden de tarea almacén", () => {
     expect(data.impresa).toBe(
       formatOrdenTareaImpresaAt(new Date("2026-08-26T17:44:00")),
     );
-    // dd/mm/aaaa HH:mm
-    expect(data.creada).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
-    expect(data.impresa).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
+    // DD-MMM-AAAA HH:mm (REQ-320)
+    expect(data.creada).toMatch(/^\d{2}-[A-ZÁÉÍÓÚÜ]{3}-\d{4} \d{2}:\d{2}$/);
+    expect(data.impresa).toMatch(/^\d{2}-[A-ZÁÉÍÓÚÜ]{3}-\d{4} \d{2}:\d{2}$/);
   });
 
   it("usa unidad_medida persistida en cantidad solicitada (no fuerza kg)", () => {
@@ -231,7 +231,7 @@ describe("orden de tarea almacén", () => {
 
     expect(data.centroConsumo).toBe("Cocina de banquetes");
     expect(data.numeroOrdenCliente).toBe("OC-88");
-    expect(data.fechaEntrega).toBe("03/09/2026");
+    expect(data.fechaEntrega).toBe("03-SEP-2026 (JUEVES)");
     expect(data.direccionEntrega).toBe("Km 282");
     expect(data.lineas[0]?.especificacion).toBe("Firme · 2 cajas");
   });

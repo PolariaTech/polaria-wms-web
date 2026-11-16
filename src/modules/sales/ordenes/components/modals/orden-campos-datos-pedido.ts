@@ -1,22 +1,20 @@
 /**
- * Orden visual en Entrega tras REQ-278:
- * Fecha · Día · Hora desde · Hora hasta · contacto · dirección · notas.
+ * Orden visual en Entrega tras REQ-278/321:
+ * Fecha (día auxiliar) · Hora desde · Hora hasta · contacto · dirección · notas.
  * Prioridad oculta; moneda vive en «Datos del pedido».
  */
 export const ORDEN_TRAS_NOTAS_GENERALES = [
   "Fecha de entrega",
-  "Día de la semana",
   "Hora desde",
   "Hora hasta",
 ] as const;
 
 /**
- * REQ-305: en visualización, misma programación que edición (ya no un solo
- * «Ventana de entrega»).
+ * REQ-305/321: en visualización, misma programación que edición (ya no un solo
+ * «Ventana de entrega»; el día va auxiliar bajo la fecha).
  */
 export const ORDEN_TRAS_NOTAS_GENERALES_DETALLE = [
   "Fecha de entrega",
-  "Día de la semana",
   "Hora desde",
   "Hora hasta",
 ] as const;
@@ -36,10 +34,9 @@ export const LABELS_DATOS_PEDIDO_DETALLE = [
   "Estado",
 ] as const;
 
-/** Cabecera del bloque Entrega (edición y visualización, REQ-278/305). */
+/** Cabecera del bloque Entrega (edición y visualización, REQ-278/305/321). */
 export const ORDEN_BLOQUE_ENTREGA_DETALLE = [
   "Fecha de entrega",
-  "Día de la semana",
   "Hora desde",
   "Hora hasta",
   "Contacto del cliente",

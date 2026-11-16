@@ -119,29 +119,34 @@ let idOrdenVenta = isEditing ? editingId : pendingEmitId;
         }
 
         // REQ-241: persistir override en ficha del cliente (sin tocar apodo sync).
+        // Operador no tiene RLS de catálogo: el snapshot ya va en la OV; no tumbar confirm.
         if (
           idComprador &&
           codigoCuenta &&
           payload.denominacionComercialOverride !== undefined
         ) {
-          await patchCompradorDenominacionOverride({
-            codigoCuenta,
-            idComprador,
-            denominacionComercialOverride:
-              payload.denominacionComercialOverride,
-          });
-          if (typeof input.setCompradores === "function") {
-            input.setCompradores((prev) =>
-              prev.map((row) =>
-                row.idComprador === idComprador
-                  ? {
-                      ...row,
-                      denominacionComercialOverride:
-                        payload.denominacionComercialOverride?.trim() || "",
-                    }
-                  : row,
-              ),
-            );
+          try {
+            await patchCompradorDenominacionOverride({
+              codigoCuenta,
+              idComprador,
+              denominacionComercialOverride:
+                payload.denominacionComercialOverride,
+            });
+            if (typeof input.setCompradores === "function") {
+              input.setCompradores((prev) =>
+                prev.map((row) =>
+                  row.idComprador === idComprador
+                    ? {
+                        ...row,
+                        denominacionComercialOverride:
+                          payload.denominacionComercialOverride?.trim() || "",
+                      }
+                    : row,
+                ),
+              );
+            }
+          } catch {
+            // Operador sin permiso de catálogo: la OV ya lleva el snapshot.
           }
         }
 

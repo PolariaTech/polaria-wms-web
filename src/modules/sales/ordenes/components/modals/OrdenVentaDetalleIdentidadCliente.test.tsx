@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import {
-  OrdenVentaDetalleDiaSemana,
-  OrdenVentaDetalleIdentidadCliente,
-} from "./OrdenVentaDetalleIdentidadCliente";
+import { OrdenVentaDetalleIdentidadCliente } from "./OrdenVentaDetalleIdentidadCliente";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 
 describe("OrdenVentaDetalleIdentidadCliente (REQ-259)", () => {
@@ -25,13 +22,5 @@ describe("OrdenVentaDetalleIdentidadCliente (REQ-259)", () => {
     expect(screen.getByText("CPM850101ABC")).toBeInTheDocument();
     expect(screen.getByText("105001175")).toBeInTheDocument();
     expect(screen.getByText("SLS PLAYA MUJERES")).toBeInTheDocument();
-  });
-});
-
-describe("OrdenVentaDetalleDiaSemana (REQ-257)", () => {
-  it("muestra el día de la semana de la fecha de entrega", () => {
-    render(<OrdenVentaDetalleDiaSemana fechaEntrega="2026-11-04" />);
-    expect(screen.getByText("Día de la semana")).toBeInTheDocument();
-    expect(screen.getByText("Miércoles")).toBeInTheDocument();
   });
 });

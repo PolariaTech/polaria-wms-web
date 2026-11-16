@@ -70,6 +70,8 @@ describe("OrdenVentaDetalleDatosPedidoEntrega (REQ-305)", () => {
     expect(screen.getByText("06:00")).toBeTruthy();
     expect(screen.getByText("09:00")).toBeTruthy();
     expect(screen.queryByText("Ventana de entrega")).toBeNull();
+    expect(screen.queryByText("Día de la semana")).toBeNull();
+    expect(screen.getByText("12-NOV-2026 (JUEVES)")).toBeTruthy();
 
     const notas = screen.getByText("Notas generales");
     const direccion = screen.getByText("Dirección de entrega");

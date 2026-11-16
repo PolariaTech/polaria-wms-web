@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { formatFechaEntregaConDia } from "../utils/pedido/dia-semana-entrega";
 
 const listOrdenes = vi.fn();
 
@@ -29,6 +30,7 @@ vi.mock("@/modules/configurator/impresoras/services/impresoras.service", () => (
 }));
 
 import { ImpresionRapidaPageContent } from "./ImpresionRapidaPageContent";
+import { hoyEnCuenta } from "./utilidades-batch";
 
 const campoFecha = () => screen.getByRole("textbox", { name: /Imprimir con entrega exactamente en esta fecha/ });
 const botonPreparar = () => screen.getByRole("button", { name: "Preparar impresión" });
@@ -39,11 +41,11 @@ beforeEach(() => {
 });
 
 describe("ImpresionRapidaPageContent: el campo «Imprimir con entrega exactamente en esta fecha»", () => {
-  it("nace con la fecha de hoy (DD/MM/AAAA) y deja preparar la impresión", () => {
+  it("nace con la fecha de hoy (DD-MMM-AAAA (DÍA)) y deja preparar la impresión", () => {
     render(<ImpresionRapidaPageContent />);
 
     expect(campoFecha()).toHaveValue(
-      new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date()),
+      formatFechaEntregaConDia(hoyEnCuenta("America/Bogota")),
     );
     expect(botonPreparar()).toBeEnabled();
   });
@@ -62,34 +64,34 @@ describe("ImpresionRapidaPageContent: el campo «Imprimir con entrega exactament
     render(<ImpresionRapidaPageContent />);
     await userEvent.clear(campoFecha());
 
-    await userEvent.type(campoFecha(), "05/11/2026{Enter}");
+    await userEvent.type(campoFecha(), "05-NOV-2026{Enter}");
 
-    expect(campoFecha()).toHaveValue("05/11/2026");
+    expect(campoFecha()).toHaveValue("05-NOV-2026 (JUEVES)");
     expect(botonPreparar()).toBeEnabled();
   });
 
   it("una fecha que no existe no se acepta: vuelve a la última válida", async () => {
     render(<ImpresionRapidaPageContent />);
     await userEvent.clear(campoFecha());
-    await userEvent.type(campoFecha(), "05/11/2026{Enter}");
+    await userEvent.type(campoFecha(), "05-NOV-2026{Enter}");
 
     // Se reemplaza el texto sin vaciarlo: el estado conserva la última fecha válida.
     await userEvent.tripleClick(campoFecha());
-    await userEvent.type(campoFecha(), "31/02/2026{Enter}");
+    await userEvent.type(campoFecha(), "31-FEB-2026{Enter}");
 
-    expect(campoFecha()).toHaveValue("05/11/2026");
+    expect(campoFecha()).toHaveValue("05-NOV-2026 (JUEVES)");
     expect(botonPreparar()).toBeEnabled();
   });
 
   it("las letras no valen como fecha: al salir del campo vuelve a la última fecha válida", async () => {
     render(<ImpresionRapidaPageContent />);
     await userEvent.clear(campoFecha());
-    await userEvent.type(campoFecha(), "05/11/2026{Enter}");
+    await userEvent.type(campoFecha(), "05-NOV-2026{Enter}");
 
     await userEvent.tripleClick(campoFecha());
     await userEvent.type(campoFecha(), "abc{Enter}");
 
-    expect(campoFecha()).toHaveValue("05/11/2026");
+    expect(campoFecha()).toHaveValue("05-NOV-2026 (JUEVES)");
     expect(botonPreparar()).toBeEnabled();
   });
 });

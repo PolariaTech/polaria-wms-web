@@ -11,10 +11,7 @@ import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 import { formatCapturaFecha } from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import { CaptureSection } from "./CaptureSection";
 import { DireccionEntregaField } from "./DireccionEntregaField";
-import {
-  OrdenVentaDetalleDiaSemana,
-  OrdenVentaDetalleIdentidadCliente,
-} from "./OrdenVentaDetalleIdentidadCliente";
+import { OrdenVentaDetalleIdentidadCliente } from "./OrdenVentaDetalleIdentidadCliente";
 import { partirVentanaEntrega } from "./orden-campos-datos-pedido";
 
 function MetaField({
@@ -125,7 +122,6 @@ export function OrdenVentaDetalleDatosPedidoEntrega({
               value={fechaEntrega ? formatCapturaFecha(fechaEntrega) : ""}
             />
           </MetaField>
-          <OrdenVentaDetalleDiaSemana fechaEntrega={fechaEntrega} />
           <MetaField label="Hora desde">
             <TextValue value={desde} />
           </MetaField>

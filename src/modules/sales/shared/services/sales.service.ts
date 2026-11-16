@@ -774,7 +774,7 @@ export async function countOrdenesVentaPorConfirmar(
  * TEMP demo Operador Tecno (49M04): una OV existente por estado.
  * Sin crear filas. Quitar cuando pidan “normal”.
  */
-const DEMO_TECNO_ONE_PER_ESTADO = true;
+const DEMO_TECNO_ONE_PER_ESTADO = false;
 const DEMO_TECNO_CODIGO_CUENTA = "49M04";
 const DEMO_TECNO_ESTADOS = [
   "por_confirmar",

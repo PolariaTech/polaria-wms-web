@@ -23,6 +23,7 @@ const cierreBase = {
   confirmSaveOpen: false,
   confirmDiscardOpen: false,
   isEditing: false,
+  editingEstado: null,
   setConfirmDiscardOpen: vi.fn(),
   onClose: vi.fn(),
   previewHijas: [],
@@ -63,5 +64,23 @@ describe("useCierreCapturaOv", () => {
 
     rerender({ ...cierreBase, origenTexto: "10 kg", isReadingIa: true, startMode: "docs" });
     expect(result.current.docsReady).toBe(false);
+  });
+
+  it("REQ-311: en OV confirmada cierra sin diálogo de progreso perdido", () => {
+    const onClose = vi.fn();
+    const setConfirmDiscardOpen = vi.fn();
+    const { result } = renderHook(() =>
+      useCierreCapturaOv({
+        ...cierreBase,
+        isEditing: true,
+        editingEstado: "confirmada",
+        step: "form",
+        onClose,
+        setConfirmDiscardOpen,
+      } as never),
+    );
+    result.current.requestClose();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(setConfirmDiscardOpen).not.toHaveBeenCalled();
   });
 });

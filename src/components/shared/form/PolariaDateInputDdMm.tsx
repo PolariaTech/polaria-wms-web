@@ -7,11 +7,9 @@ import {
   POLARIA_FORM_INPUT_CLASS,
   POLARIA_FORM_INPUT_CLASS_COMPACT,
 } from "@/components/shared/form/PolariaFormField";
-import {
-  formatIsoToDdMmYyyy,
-  parseDdMmYyyyToIso,
-} from "@/lib/utils/fecha-dd-mm-yyyy";
+import { parseDdMmYyyyToIso } from "@/lib/utils/fecha-dd-mm-yyyy";
 import { cn } from "@/lib/utils/cn";
+import { formatFechaEntregaConDia } from "@/modules/sales/ordenes/utils/pedido/dia-semana-entrega";
 
 interface PolariaDateInputDdMmProps {
   id: string;
@@ -27,7 +25,7 @@ interface PolariaDateInputDdMmProps {
 }
 
 /**
- * Fecha en pantalla como DD/MM/AAAA (REQ-090).
+ * Fecha en pantalla como `DD-MMM-AAAA (DÍA)` (REQ-320/321).
  * El valor del formulario sigue siendo ISO; el calendario nativo abre al tocar el icono.
  */
 export function PolariaDateInputDdMm({
@@ -43,11 +41,11 @@ export function PolariaDateInputDdMm({
 }: PolariaDateInputDdMmProps) {
   const nativeRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(() =>
-    value ? formatIsoToDdMmYyyy(value) : "",
+    value ? formatFechaEntregaConDia(value) : "",
   );
 
   useEffect(() => {
-    setText(value ? formatIsoToDdMmYyyy(value) : "");
+    setText(value ? formatFechaEntregaConDia(value) : "");
   }, [value]);
 
   const openNativePicker = () => {
@@ -74,10 +72,10 @@ export function PolariaDateInputDdMm({
     const iso = parseDdMmYyyyToIso(trimmed);
     if (iso) {
       onChange(iso);
-      setText(formatIsoToDdMmYyyy(iso));
+      setText(formatFechaEntregaConDia(iso));
       return;
     }
-    setText(value ? formatIsoToDdMmYyyy(value) : "");
+    setText(value ? formatFechaEntregaConDia(value) : "");
   };
 
   return (
@@ -92,9 +90,9 @@ export function PolariaDateInputDdMm({
         <input
           id={id}
           type="text"
-          inputMode="numeric"
+          inputMode="text"
           autoComplete="off"
-          placeholder="DD/MM/AAAA"
+          placeholder="DD-MMM-AAAA"
           disabled={disabled}
           value={text}
           onChange={(event) => {
@@ -136,7 +134,7 @@ export function PolariaDateInputDdMm({
           onChange={(event) => {
             const next = event.target.value;
             onChange(next);
-            setText(next ? formatIsoToDdMmYyyy(next) : "");
+            setText(next ? formatFechaEntregaConDia(next) : "");
           }}
           className="pointer-events-none absolute h-0 w-0 opacity-0"
         />

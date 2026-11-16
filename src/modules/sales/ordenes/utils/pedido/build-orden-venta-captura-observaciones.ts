@@ -1,6 +1,7 @@
-import { parseFechaOrigen } from "../origen/materialize-ov-desde-origen";
 import { sanitizeTelefonoContacto } from "./sanitize-telefono-contacto";
 import { isCuerpoMensajeFormato } from "../origen/texto-origen-pedido";
+
+export { formatCapturaFecha } from "./format-captura-fecha";
 
 export interface OrdenVentaCapturaExtra {
   fechaEntrega: string;
@@ -451,18 +452,6 @@ export function stripSurtidoFotoQrFromNotas(raw: string): string {
   return raw
     .replace(/(?:\n\n+)?Surtido\s*\(\s*foto\s*qr\s*\)\s*:[\s\S]*$/i, "")
     .trim();
-}
-
-/** Visual México/Latam: siempre DD/MM/AAAA (acepta ISO o slash US/LatAm). */
-export function formatCapturaFecha(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  const iso = parseFechaOrigen(trimmed);
-  if (iso) {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-    if (match) return `${match[3]}/${match[2]}/${match[1]}`;
-  }
-  return trimmed;
 }
 
 export function todayIsoDate(now = new Date()): string {

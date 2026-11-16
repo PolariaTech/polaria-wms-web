@@ -1,6 +1,6 @@
 {
   "name": "polaria-wms-web",
-  "version": "2.13.0",
+  "version": "2.13.23",
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3001",

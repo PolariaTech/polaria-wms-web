@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
-import { diaSemanaEntregaEsTitulo } from "../../utils/pedido/dia-semana-entrega";
 import { resolveDenominacionComercial } from "../../utils/pedido/resolve-denominacion-comercial";
 
 function MetaField({
@@ -57,20 +56,5 @@ export function OrdenVentaDetalleIdentidadCliente({
         <TextValue value={orden.comprador_rfc ?? ""} />
       </MetaField>
     </>
-  );
-}
-
-/** REQ-257: día de la semana derivado de la fecha de entrega. */
-export function OrdenVentaDetalleDiaSemana({
-  fechaEntrega,
-}: {
-  fechaEntrega: string;
-}) {
-  return (
-    <MetaField label="Día de la semana">
-      <TextValue
-        value={fechaEntrega ? diaSemanaEntregaEsTitulo(fechaEntrega) : ""}
-      />
-    </MetaField>
   );
 }

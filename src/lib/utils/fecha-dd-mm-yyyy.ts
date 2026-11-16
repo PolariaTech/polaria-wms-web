@@ -1,10 +1,3 @@
-/** ISO `YYYY-MM-DD` → `DD/MM/AAAA` (visual México / Latam). */
-export function formatIsoToDdMmYyyy(iso: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
-  if (!match) return "";
-  return `${match[3]}/${match[2]}/${match[1]}`;
-}
-
 const MESES_ABREVIADOS = [
   "ENE",
   "FEB",
@@ -18,21 +11,46 @@ const MESES_ABREVIADOS = [
   "OCT",
   "NOV",
   "DIC",
-];
+] as const;
 
-/** ISO `YYYY-MM-DD` → `03-NOV` (día y mes abreviado, sin año); vacío si no es fecha. */
-export function formatIsoToDdMonAbrev(iso: string): string {
+const MES_ABREV_A_NUMERO: Record<string, number> = Object.fromEntries(
+  MESES_ABREVIADOS.map((abrev, index) => [abrev, index + 1]),
+);
+
+/** ISO `YYYY-MM-DD` → `DD-MMM-AAAA` (REQ-320; ej. `12-NOV-2026`). */
+export function formatIsoToDdMonYyyy(iso: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
   const mes = match ? MESES_ABREVIADOS[Number(match[2]) - 1] : undefined;
-  return match && mes ? `${match[3]}-${mes}` : "";
+  return match && mes ? `${match[3]}-${mes}-${match[1]}` : "";
 }
 
 /**
- * Acepta `DD/MM/AAAA`, `D/M/AAAA` o ISO `YYYY-MM-DD`.
+ * Alias histórico (REQ-090): ahora emite `DD-MMM-AAAA` (REQ-320).
+ * El valor canónico del formulario sigue siendo ISO.
+ */
+export function formatIsoToDdMmYyyy(iso: string): string {
+  return formatIsoToDdMonYyyy(iso);
+}
+
+/**
+ * Antes `03-NOV` sin año; REQ-320 unifica a `03-NOV-2026`.
+ * Se mantiene el nombre por los callers del batch de impresión.
+ */
+export function formatIsoToDdMonAbrev(iso: string): string {
+  return formatIsoToDdMonYyyy(iso);
+}
+
+/** Quita sufijo ` (DÍA)` de REQ-321 para poder parsear el valor del input. */
+export function stripDiaSemanaFechaSuffix(raw: string): string {
+  return raw.replace(/\s*\([^)]*\)\s*$/u, "").trim();
+}
+
+/**
+ * Acepta `DD-MMM-AAAA`, `DD-MMM-AAAA (DÍA)`, `DD/MM/AAAA`, `D/M/AAAA` o ISO `YYYY-MM-DD`.
  * Devuelve ISO o null si no es fecha calendario válida.
  */
 export function parseDdMmYyyyToIso(raw: string): string | null {
-  const trimmed = raw.trim();
+  const trimmed = stripDiaSemanaFechaSuffix(raw);
   if (!trimmed) return null;
 
   const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
@@ -43,6 +61,15 @@ export function parseDdMmYyyyToIso(raw: string): string | null {
     return isValidYmd(year, month, day)
       ? `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
       : null;
+  }
+
+  const monY = /^(\d{1,2})-([A-Za-zÁÉÍÓÚáéíóúÜü]{3})-(\d{4})$/.exec(trimmed);
+  if (monY) {
+    const day = Number(monY[1]);
+    const month = MES_ABREV_A_NUMERO[monY[2].toLocaleUpperCase("es")] ?? 0;
+    const year = Number(monY[3]);
+    if (!month || !isValidYmd(year, month, day)) return null;
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
 
   const dmY = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/.exec(trimmed);

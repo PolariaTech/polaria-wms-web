@@ -27,6 +27,27 @@ type ProductoCatalogo = {
   unidadMedida: string;
 };
 
+/** REQ-311: "20 KGM" / "6 KG" no es especificación si solo repite cantidad+UDM. */
+export function limpiarEspecificacionSoloCantidadUd(
+  especificacion: string,
+  unidadMedidaLinea: string,
+): string {
+  const texto = especificacion.trim();
+  if (!texto) return "";
+  const soloCantidadUd = texto.match(
+    /^(\d+(?:[.,]\d+)?)\s*(KGM|KG|LTR|L|PZA|PZ|UN|U\.?M\.?)\.?$/i,
+  );
+  if (!soloCantidadUd) return texto;
+  const udEspec = (soloCantidadUd[2] ?? "").toUpperCase().replace(/\./g, "");
+  const udLinea = unidadMedidaLinea.trim().toUpperCase();
+  const fam = (ud: string) =>
+    /^(KGM|KG)$/.test(ud) ? "kg" : /^(LTR|L)$/.test(ud) ? "ltr" : "pza";
+  if (!udLinea || fam(udEspec) !== fam(udLinea) || fam(udEspec) === "pza") {
+    return "";
+  }
+  return texto;
+}
+
 /**
  * REQ-195: líneas del formulario desde BD (OV materializada), con otId.
  */
@@ -136,9 +157,8 @@ export function mapDetalleLineasAForm(params: {
     );
   }
 
-  return lineasConOt.map((linea) => ({
-    ...linea,
-    especificacion: notaCapturaForLinea(notasLineas, {
+  return lineasConOt.map((linea) => {
+    const nota = notaCapturaForLinea(notasLineas, {
       nombre: linea.nombre,
       cantidad: parseDecimalEs(linea.cantidadInput) ?? 0,
       otId: linea.otId,
@@ -146,8 +166,15 @@ export function mapDetalleLineasAForm(params: {
       allowUnscoped:
         !linea.otId &&
         lineasConOt.filter((l) => l.nombre === linea.nombre).length === 1,
-    }),
-  }));
+    });
+    return {
+      ...linea,
+      especificacion: limpiarEspecificacionSoloCantidadUd(
+        nota,
+        linea.unidadMedida,
+      ),
+    };
+  });
 }
 
 export function ovTieneLineasMaterializadas(

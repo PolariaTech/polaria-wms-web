@@ -732,14 +732,31 @@ export function OperadorOrdenesVentaPageContent({
         error: null,
       });
 
+      const PDF_BUILD_TIMEOUT_MS = 45_000;
       try {
-        const sheets = ots?.length
-          ? filtrarHojasElegidas(await loadPrintSheets(row), ots)
-          : await loadPrintSheets(row);
-        if (sheets.length === 0) {
-          throw new Error("No hay datos para generar el PDF.");
-        }
-        const { blob } = await buildOrdenTareaAlmacenLandscapePdfBlob(sheets);
+        const buildPromise = (async () => {
+          const sheets = ots?.length
+            ? filtrarHojasElegidas(await loadPrintSheets(row), ots)
+            : await loadPrintSheets(row);
+          if (sheets.length === 0) {
+            throw new Error("No hay datos para generar el PDF.");
+          }
+          return buildOrdenTareaAlmacenLandscapePdfBlob(sheets);
+        })();
+        const { blob } = await Promise.race([
+          buildPromise,
+          new Promise<never>((_, reject) => {
+            window.setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    "La generación del PDF está tardando demasiado. Inténtalo de nuevo.",
+                  ),
+                ),
+              PDF_BUILD_TIMEOUT_MS,
+            );
+          }),
+        ]);
         setPdfPreview({
           title: `Previsualizacion · ${row.venta}`,
           blob,

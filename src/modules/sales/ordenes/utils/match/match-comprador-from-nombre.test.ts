@@ -171,6 +171,39 @@ describe("rankCompradoresFromNombre", () => {
     ).toBe("c-fairmont");
   });
 
+  it("REQ-311: auto-asigna con un solo token de marca largo (≥8) y score alto", () => {
+    const fairmontRows: CompradorListRow[] = [
+      {
+        idComprador: "c-fairmont",
+        codigo: "FAIRMAY",
+        comprador: "FAIRMONT MAYAKOBA",
+        apodo: "",
+        denominacionComercialOverride: "",
+        telefono: null,
+        rfc: "",
+        grupo: "",
+        estaActivo: true,
+      },
+      {
+        idComprador: "c-other",
+        codigo: "OTRO",
+        comprador: "Otro Cliente Local",
+        apodo: "",
+        denominacionComercialOverride: "",
+        telefono: null,
+        rfc: "",
+        grupo: "",
+        estaActivo: true,
+      },
+    ];
+    const ranked = rankCompradoresFromNombre("FAIRMONT", fairmontRows);
+    expect(ranked.candidates[0]?.comprador.idComprador).toBe("c-fairmont");
+    expect(ranked.candidates[0]?.score).toBeGreaterThanOrEqual(0.75);
+    expect(
+      shouldAutoAssignComprador(ranked, "FAIRMONT")?.idComprador,
+    ).toBe("c-fairmont");
+  });
+
   it("token genérico Cancun no auto-asigna ni fuerza sugerencia débil", () => {
     const cancunRows: CompradorListRow[] = [
       ...rows,

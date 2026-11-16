@@ -103,6 +103,22 @@ describe("resolveCantidadPrecioDesdeEnvase", () => {
     ).toBeNull();
   });
 
+  it("REQ-311: '1 galón de 5 L' + qty 8 de la PO → 40 LTR", () => {
+    expect(
+      resolveCantidadPrecioDesdeEnvase({
+        textoOriginal: "Jugo limón 1 galón de 5 litros",
+        unidadMedidaCatalogo: "LTR",
+        cantidadRaw: 8,
+        precioDoc: 350,
+      }),
+    ).toMatchObject({
+      cantidad: 40,
+      envases: 8,
+      contenidoPorEnvase: 5,
+      precioUnitario: 70,
+    });
+  });
+
   it("cajas de kg → KGM", () => {
     expect(
       resolveCantidadPrecioDesdeEnvase({

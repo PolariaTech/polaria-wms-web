@@ -48,6 +48,7 @@ export function OrdenVentaAdjuntoPreviewModal({
   const esImagen = adjunto ? esAdjuntoImagen(adjunto) : false;
 
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [htmlSrcDoc, setHtmlSrcDoc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(ADJUNTO_PREVIEW_ZOOM_DEFAULT);
@@ -62,6 +63,7 @@ export function OrdenVentaAdjuntoPreviewModal({
   useEffect(() => {
     if (!open || !viewUrl || esImagen) {
       setObjectUrl(null);
+      setHtmlSrcDoc(null);
       setLoading(false);
       setError(null);
       return;
@@ -81,10 +83,30 @@ export function OrdenVentaAdjuntoPreviewModal({
             `No se pudo cargar el adjunto (${response.status}).`,
           );
         }
-        const blob = await response.blob();
-        if (cancelled) return;
-        created = URL.createObjectURL(blob);
-        setObjectUrl(created);
+        const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
+        const esHtml =
+          contentType.includes("text/html") ||
+          /\.html?$/i.test(adjunto?.nombre ?? "");
+        if (esHtml) {
+          // REQ-311: blob: no carga CSS relativo → totales/tablas en blanco.
+          // srcdoc + fondo blanco fuerza legibilidad del HTML Accor/OC.
+          const html = await response.text();
+          if (cancelled) return;
+          const conFondo = html.includes("<head")
+            ? html.replace(
+                /<head([^>]*)>/i,
+                '<head$1><base target="_blank"><style>html,body{background:#fff!important;color:#111!important}</style>',
+              )
+            : `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{background:#fff!important;color:#111!important}</style></head><body>${html}</body></html>`;
+          setHtmlSrcDoc(conFondo);
+          setObjectUrl(null);
+        } else {
+          const blob = await response.blob();
+          if (cancelled) return;
+          created = URL.createObjectURL(blob);
+          setObjectUrl(created);
+          setHtmlSrcDoc(null);
+        }
       } catch (err: unknown) {
         if (cancelled) return;
         setError(
@@ -101,7 +123,7 @@ export function OrdenVentaAdjuntoPreviewModal({
       cancelled = true;
       if (created) URL.revokeObjectURL(created);
     };
-  }, [esImagen, open, viewUrl]);
+  }, [adjunto?.nombre, esImagen, open, viewUrl]);
 
   useEffect(() => {
     if (!open) return;
@@ -211,6 +233,15 @@ export function OrdenVentaAdjuntoPreviewModal({
               className="flex min-h-[16rem] items-center justify-center px-6 py-10 text-center text-polaria-danger"
             >
               {error}
+            </div>
+          ) : htmlSrcDoc ? (
+            <div style={zoomStyle}>
+              <iframe
+                title={title}
+                srcDoc={htmlSrcDoc}
+                sandbox="allow-same-origin"
+                className="h-[min(72vh,48rem)] w-full border-0 bg-white"
+              />
             </div>
           ) : objectUrl ? (
             <div style={zoomStyle}>
