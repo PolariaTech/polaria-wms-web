@@ -69,6 +69,10 @@
 - `src/modules/sales/ordenes/print-batch/resumen-impresion.test.ts` — autorizada por el usuario el 2026-11-14
 - `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleModal.test.ts` — autorizada por el usuario el 2026-11-14
 - `src/modules/sales/ordenes/utils/pedido/avisos-validacion-fecha.test.ts` — autorizada por el usuario el 2026-11-14
+- `package.json` — autorizada por el usuario el 2026-11-16
+- `package-lock.json` — autorizada por el usuario el 2026-11-16
+- `VERSION` — autorizada por el usuario el 2026-11-16
+- `src/constants/brand/brand.ts` — autorizada por el usuario el 2026-11-16
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/services/sales.service.ts`
