@@ -99,6 +99,7 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaAdjuntoPreviewModal.test.tsx` — autorizada por el usuario el 2026-11-16
 - `src/components/shared/toast/PolariaToastProvider.tsx` — autorizada por el usuario el 2026-11-16
 - `src/modules/sales/ordenes/hooks/useEnvioOv.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/hooks/useEnvioOv.test.ts` — autorizada por el usuario el 2026-11-16
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/services/sales.service.ts`
