@@ -222,4 +222,46 @@ describe("buildPedidoExtraidoFromOrigenCorreo", () => {
       expect(espec[5]).toBeNull();
     });
   });
+
+  it("REQ-323: la especificación conserva el paréntesis del renglón que Mateo omitió", () => {
+    const pedido = buildPedidoExtraidoFromOrigenCorreo({
+      origenCorreo: [
+        {
+          Cantidad: 1,
+          Producto: "FRESAS (DOMO)",
+          "Codigo producto": "10501527",
+          Unidad: "PZA",
+        },
+        {
+          Cantidad: 1,
+          Producto: "FRAMBUESAS (DOMO)",
+          "Codigo producto": "10501529",
+          Unidad: "PZA",
+        },
+        {
+          Cantidad: 25,
+          Producto: "JITOMATE GUAJE",
+          "Codigo producto": "10501518",
+          Unidad: "KGM",
+        },
+      ],
+      origenTexto: [
+        "1. FRESAS (DOMO) (Domo de 1 kg) [Cód. 10501527] · 1 domo · $215.00/domo · $215.00",
+        " Facturar: 1 kg · $215.00/kg · Cód. 105001503",
+        "2. FRAMBUESAS (DOMO) (Domo de 200 g) [Cód. 10501529] · 1 domo · $64.00/domo · $64.00",
+        " Facturar: 0.2 kg · $320.00/kg · Cód. 105001506",
+        " Obs.: 170 GRAMOS",
+        "3. ARÁNDANOS/BLUEBERRIES (DOMO) (Domo de 200 g) [Cód. 10501528] · 1 domo · $64.00/domo · $64.00",
+        "5. APIO [Cód. 105001554] · 1 pza · $18.00/pza · $18.00",
+        "9. JITOMATE GUAJE [Cód. 10501518] · 25 kg · $39.00/kg · Madurez: Amarillo · $975.00",
+      ].join("\n"),
+    });
+
+    expect(pedido.lineas.map((linea) => linea.especificacion)).toEqual([
+      "Domo de 1 kg",
+      "Domo de 200g · 170 GRAMOS",
+      "Madurez: Amarillo",
+    ]);
+  });
 });
+
