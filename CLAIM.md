@@ -88,6 +88,15 @@
 - `src/modules/sales/ordenes/components/pages/OperadorOrdenesVentaPageContent.test.tsx` — autorizada por el usuario el 2026-11-16
 - `src/modules/sales/ordenes/components/modals/OrdenVentaPdfPreviewModal.tsx` — autorizada por el usuario el 2026-11-16
 - `src/modules/sales/ordenes/components/modals/OrdenVentaAdjuntoPreviewModal.tsx` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/match/find-closest-producto-catalogo.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/match/find-closest-producto-catalogo.test.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/match/frase-cliente.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/match/frase-cliente.test.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/ai/openai-pedido.prompt.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/map-pedido-extraido-to-form.test.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/map-pedido-extraido-to-form.frase-cliente.test.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/familia-ajena.casos-reales.test.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/components/modals/OrdenVentaAdjuntoPreviewModal.test.tsx` — autorizada por el usuario el 2026-11-16
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/services/sales.service.ts`
