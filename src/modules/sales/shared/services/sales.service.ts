@@ -770,63 +770,10 @@ export async function countOrdenesVentaPorConfirmar(
   return result.count;
 }
 
-/**
- * TEMP demo Operador Tecno (49M04): una OV existente por estado.
- * Sin crear filas. Quitar cuando pidan “normal”.
- */
-const DEMO_TECNO_ONE_PER_ESTADO = false;
-const DEMO_TECNO_CODIGO_CUENTA = "49M04";
-const DEMO_TECNO_ESTADOS = [
-  "por_confirmar",
-  "confirmada",
-  "alistamiento",
-  "alistada",
-  "revisada",
-  "despachada",
-  "facturada",
-] as const;
-
-async function listOrdenesVentaOperadorDemoOnePerEstado(
-  codigoCuenta: string,
-): Promise<OrdenVentaOperadorRow[]> {
-  const picked: OrdenVentaOperadorListRow[] = [];
-
-  for (const estado of DEMO_TECNO_ESTADOS) {
-    const rows = await runDomainQuery<OrdenVentaOperadorListRow[]>((client) => {
-      const query = client
-        .from("orden_venta")
-        .select(ORDEN_VENTA_OPERADOR_LIST_COLUMNS)
-        .eq("codigo_cuenta", codigoCuenta)
-        .eq("estado", estado)
-        .order("created_at", { ascending: false })
-        .order("id_orden_venta", { ascending: false })
-        .limit(1);
-
-      return query as unknown as Promise<{
-        data: OrdenVentaOperadorListRow[] | null;
-        error: { message: string } | null;
-      }>;
-    });
-
-    if (rows[0]) picked.push(rows[0]);
-  }
-
-  return enrichOrdenesVentaOperador(
-    sortOrdenesVentaPorCreacionDesc(picked),
-  );
-}
-
 export async function listOrdenesVentaOperador(
   params: TenantListParams,
 ): Promise<OrdenVentaOperadorRow[]> {
   const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
-
-  if (
-    DEMO_TECNO_ONE_PER_ESTADO &&
-    codigoCuenta === DEMO_TECNO_CODIGO_CUENTA
-  ) {
-    return listOrdenesVentaOperadorDemoOnePerEstado(codigoCuenta);
-  }
 
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 

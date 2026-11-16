@@ -29,10 +29,8 @@ import {
 } from "../../../shared/constants/sales-status";
 import { useOrdenesVentaSubscription } from "../../../shared/hooks/useOrdenesVentaSubscription";
 import { ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS } from "../../constants/ordenes-venta-table-layout";
-import {
-  buildOrdenTareaAlmacenLandscapePdfBlob,
-  printOrdenTareaAlmacenLandscape,
-} from "../../print/download-orden-tarea-almacen-pdf";
+import { printOrdenTareaAlmacenLandscape } from "../../print/download-orden-tarea-almacen-pdf";
+import { buildOvPdfBlobConTimeout } from "../../utils/pdf/build-ov-pdf-con-timeout";
 import {
   autoPrintOrdenVentaTrasEmitir,
   autoPrintResultToFeedback,
@@ -732,31 +730,11 @@ export function OperadorOrdenesVentaPageContent({
         error: null,
       });
 
-      const PDF_BUILD_TIMEOUT_MS = 45_000;
       try {
-        const buildPromise = (async () => {
-          const sheets = ots?.length
-            ? filtrarHojasElegidas(await loadPrintSheets(row), ots)
-            : await loadPrintSheets(row);
-          if (sheets.length === 0) {
-            throw new Error("No hay datos para generar el PDF.");
-          }
-          return buildOrdenTareaAlmacenLandscapePdfBlob(sheets);
-        })();
-        const { blob } = await Promise.race([
-          buildPromise,
-          new Promise<never>((_, reject) => {
-            window.setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    "La generación del PDF está tardando demasiado. Inténtalo de nuevo.",
-                  ),
-                ),
-              PDF_BUILD_TIMEOUT_MS,
-            );
-          }),
-        ]);
+        const sheets = ots?.length
+          ? filtrarHojasElegidas(await loadPrintSheets(row), ots)
+          : await loadPrintSheets(row);
+        const blob = await buildOvPdfBlobConTimeout(sheets);
         setPdfPreview({
           title: `Previsualizacion · ${row.venta}`,
           blob,

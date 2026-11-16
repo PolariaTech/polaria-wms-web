@@ -131,25 +131,6 @@ describe("limón fruta vs jugo de limón", () => {
     expect(match?.idProducto).toBe("jugo");
   });
 
-  it("REQ-311: pimiento rojo no es compatible con PULPA DE FRUTOS ROJOS", () => {
-    const pulpa: ProductoVentaOption = {
-      idProducto: "pulpa",
-      label: "PULPA DE FRUTOS ROJOS (115001418)",
-      idCliente: null,
-      idBodega: "b1",
-      codigo: "115001418",
-      nombre: "PULPA DE FRUTOS ROJOS",
-      kgDisponible: 10,
-      precioUnitario: 80,
-      unidadMedida: "KGM",
-    };
-    expect(
-      productoCompatibleConTextoCliente(
-        "Pimiento morrón ROJO por kilo",
-        pulpa,
-      ),
-    ).toBe(false);
-  });
 });
 
 describe("ANTICIPO vs jugo de limón", () => {

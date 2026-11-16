@@ -35,6 +35,7 @@ describe("OrdenVentaAdjuntoPreviewModal", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
+        headers: new Headers({ "content-type": "application/pdf" }),
         blob: async () => blob,
       }),
     );
@@ -194,5 +195,37 @@ describe("OrdenVentaAdjuntoPreviewModal", () => {
     );
 
     expect(screen.getByText("No hay archivo para mostrar.")).toBeInTheDocument();
+  });
+
+  it("REQ-311: HTML de OC usa srcdoc (no blob) para CSS relativo", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({ "content-type": "text/html; charset=utf-8" }),
+        text: async () =>
+          "<html><head></head><body><table><tr><td>Total</td></tr></table></body></html>",
+      }),
+    );
+
+    render(
+      <OrdenVentaAdjuntoPreviewModal
+        open
+        adjunto={{
+          nombre: "oc.html",
+          mime: "text/html",
+          path: "cuenta/oc.html",
+        }}
+        viewUrl="/api/ov-adjuntos/file?path=cuenta%2Foc.html"
+        dockWithCypher
+        onClose={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      const iframe = document.querySelector('iframe[title="oc.html"]');
+      expect(iframe).toHaveAttribute("srcdoc");
+      expect(iframe?.getAttribute("srcdoc")).toContain("background:#fff");
+    });
   });
 });

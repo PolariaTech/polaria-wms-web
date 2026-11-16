@@ -2,6 +2,9 @@ import type { ProductoVentaOption } from "../../../shared/types/sales.types";
 import { nombresContradicenPorColor } from "../origen/identidad-nombres-producto";
 import { colorClienteDesambiguaSugerencia } from "./color-desambigua-auto-accept";
 import { normalizeForMatch } from "./normalize-for-match";
+import { productoPreparacionIncompatibleConTexto } from "./producto-preparacion-incompatible";
+
+export { productoPreparacionIncompatibleConTexto };
 
 export interface ProductoCatalogoScored {
   producto: ProductoVentaOption;
@@ -123,16 +126,7 @@ const SYNONYM_GROUPS: readonly (readonly string[])[] = [
   ["pepino", "pepinos", "cucumber", "cucumbers"],
   ["esparrago", "esparragos", "asparagus"],
   ["apio", "celery"],
-  [
-    "chile",
-    "chiles",
-    "pepper",
-    "peppers",
-    "pimiento",
-    "pimientos",
-    "morron",
-    "morrones",
-  ],
+  ["chile", "chiles", "pepper", "peppers", "pimiento", "pimientos", "morron", "morrones"],
   ["guanabana", "soursop"],
   ["maracuya", "passionfruit", "passion"],
   // Sinónimos reales de variante (cualquier producto), p. ej. MX orejona ≈ romana.
@@ -453,33 +447,6 @@ export function esProductoNoMercancia(producto: {
     return true;
   }
   if (u === "act" || u === "ser" || u === "pag") return true;
-  return false;
-}
-
-/**
- * Jugo/puré/néctar en catálogo vs pedido de fruta entera (o al revés).
- * Evita "LIMON PERSA SIN SEMILLA" → "JUGO DE LIMON".
- */
-export function productoPreparacionIncompatibleConTexto(
-  textoCliente: string | null | undefined,
-  producto: ProductoVentaOption,
-): boolean {
-  const texto = normalizeForMatch(textoCliente ?? "");
-  const nombre = normalizeForMatch(producto.nombre ?? "");
-  if (!texto || !nombre) return false;
-
-  const prepRe =
-    /\b(jugo|jugos|juice|zumo|zumos|pure|pures|puree|nectar|nectares|extracto|extractos)\b/;
-  const textoPidePrep = prepRe.test(texto);
-  const productoEsPrep = prepRe.test(nombre);
-  if (productoEsPrep !== textoPidePrep) return true;
-  // REQ-311: pimiento/chile fresco ≠ pulpa/recado (pero «Frutos rojos» sí puede ser PULPA).
-  if (
-    /\b(pulpa|pulpas|recado|recados)\b/.test(nombre) &&
-    /\b(pimiento|pimientos|chile|chiles|morron|morrones)\b/.test(texto)
-  ) {
-    return true;
-  }
   return false;
 }
 
@@ -818,9 +785,8 @@ export function shouldAutoAcceptProductoSuggestion(params: {
       topScore: params.topScore,
       secondScore: params.secondScore,
     })
-  ) {
+  )
     return true;
-  }
 
   if (params.topScore >= 0.7 && !params.ambiguous) return true;
   if (

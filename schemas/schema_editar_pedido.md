@@ -131,7 +131,7 @@ Fecha de creación solo aparece al editar un pedido. El input es de solo lectura
 
 RFC (REQ-259) es solo lectura: se toma de `comprador.rfc` / `comprador_rfc` al cargar el detalle o al elegir comprador. No se edita ni se envía como campo propio del payload de captura.
 
-Fecha de entrega (REQ-320/321): valor visual `DD-MMM-AAAA (DÍA)` en el mismo campo (ej. `17-NOV-2026 (MARTES)`), vía `formatFechaEntregaConDia` / `formatCapturaFecha`. Sin hint de formato ni campo «Día de la semana». El canónico del form sigue siendo ISO. El PDF de OT también muestra la fecha con día y mantiene `diaEntrega` aparte.
+Fecha de entrega (REQ-320/321): valor visual `DD-MMM-AAAA (DÍA)` en el mismo campo (ej. `17-NOV-2026 (MARTES)`), vía `formatFechaEntregaConDia` / `formatCapturaFecha`. Sin hint de formato ni campo «Día de la semana». El canónico del form sigue siendo ISO. El PDF de OT también muestra la fecha con día y mantiene `diaEntrega` aparte. Al escribir, `PolariaDateInputDdMm` solo admite dígitos, letras, `-` `/` `.` espacio y paréntesis (bloquea el resto al teclear).
 
 Precio unitario (REQ-235): `persist-linea-avance` y `createOrdenVenta`/`updateOrdenVenta` aceptan precio vacío o 0 en avance y al confirmar; se normaliza a 0. La cantidad > 0 sigue exigida solo al confirmar (REQ-138).
 

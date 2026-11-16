@@ -83,7 +83,9 @@ export function OrdenVentaAdjuntoPreviewModal({
             `No se pudo cargar el adjunto (${response.status}).`,
           );
         }
-        const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
+        const contentType = (
+          response.headers?.get("content-type") ?? ""
+        ).toLowerCase();
         const esHtml =
           contentType.includes("text/html") ||
           /\.html?$/i.test(adjunto?.nombre ?? "");

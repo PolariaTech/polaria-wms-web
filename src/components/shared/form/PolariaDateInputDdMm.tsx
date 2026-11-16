@@ -96,7 +96,11 @@ export function PolariaDateInputDdMm({
           disabled={disabled}
           value={text}
           onChange={(event) => {
-            const next = event.target.value;
+            // REQ-320: solo dígitos, letras, separadores y paréntesis del día.
+            const next = event.target.value.replace(
+              /[^\dA-Za-zÁÉÍÓÚÑáéíóúñ\-/.()\s]/g,
+              "",
+            );
             setText(next);
             // REQ-110: vaciar el estado del form al borrar (no esperar blur).
             if (!next.trim()) onChange("");

@@ -145,8 +145,13 @@ let idOrdenVenta = isEditing ? editingId : pendingEmitId;
                 ),
               );
             }
-          } catch {
-            // Operador sin permiso de catálogo: la OV ya lleva el snapshot.
+          } catch (err: unknown) {
+            // Solo tragamos fallo de catálogo/RLS; el snapshot ya va en la OV.
+            const esFalloCatalogo =
+              err instanceof DomainServiceError &&
+              (err.code === "MUTATION_FAILED" ||
+                /denominaci[oó]n comercial/i.test(err.message));
+            if (!esFalloCatalogo) throw err;
           }
         }
 

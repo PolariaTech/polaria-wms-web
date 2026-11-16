@@ -33,4 +33,19 @@ describe("PolariaDateInputDdMm (REQ-320/321)", () => {
     await user.type(input, "12-NOV-2026{Enter}");
     expect(onChange).toHaveBeenCalledWith("2026-11-12");
   });
+
+  it("bloquea caracteres inválidos al escribir", async () => {
+    const user = userEvent.setup();
+    render(
+      <PolariaDateInputDdMm
+        id="fecha-test"
+        label="Fecha"
+        value=""
+        onChange={() => undefined}
+      />,
+    );
+    const input = screen.getByLabelText("Fecha");
+    await user.type(input, "12@NOV#2026");
+    expect(input).toHaveValue("12NOV2026");
+  });
 });
