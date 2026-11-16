@@ -11,7 +11,6 @@ import {
 import { fieldControlClass } from "../../utils/pedido/orden-venta-create-helpers";
 import { salirDeHoraConTab } from "../../utils/pedido/resolve-cabecera-guardada";
 import { todayIsoDate } from "../../utils/pedido/build-orden-venta-captura-observaciones";
-import { diaSemanaEntregaEsTitulo } from "../../utils/pedido/dia-semana-entrega";
 
 type Marks = {
   autoFields: Set<string>;
@@ -32,17 +31,26 @@ export interface OrdenVentaCaptureFormProgramacionProps {
   marks: Marks;
 }
 
+/** Solo avisos bajo fecha; el día va dentro del valor (REQ-321). */
+function hintFechaEntrega(params: {
+  atrasada: boolean;
+  missing: boolean;
+}): string | undefined {
+  if (params.atrasada) return FECHA_ENTREGA_ATRASADA_WARNING;
+  if (params.missing) return "Obligatoria para confirmar";
+  return undefined;
+}
+
 /**
- * REQ-278: Fecha · Día · Hora desde · Hora hasta en una sola fila.
+ * REQ-278/321: Fecha `DD-MMM-AAAA (DÍA)` · Hora desde · Hora hasta.
  * Prioridad ocultada; moneda subió a «Datos del pedido»; notas van al final de Entrega.
  */
 export function OrdenVentaCaptureFormProgramacion(
   props: OrdenVentaCaptureFormProgramacionProps,
 ) {
   const atrasada = isFechaEntregaAtrasada(props.fechaEntrega, todayIsoDate());
-  const diaSemana = diaSemanaEntregaEsTitulo(props.fechaEntrega);
   return (
-    <div className="col-span-full grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="col-span-full grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <PolariaDateInputDdMm
         id="orden-venta-fecha-entrega"
         label="Fecha de entrega"
@@ -53,13 +61,10 @@ export function OrdenVentaCaptureFormProgramacion(
           props.onClearField("fechaEntrega");
           if (iso.trim()) props.onClearFechaError();
         }}
-        hint={
-          atrasada
-            ? FECHA_ENTREGA_ATRASADA_WARNING
-            : props.marks.missingFields.has("fechaEntrega")
-              ? "Obligatoria para confirmar"
-              : "Formato DD/MM/AAAA"
-        }
+        hint={hintFechaEntrega({
+          atrasada,
+          missing: props.marks.missingFields.has("fechaEntrega"),
+        })}
         controlClassName={fieldControlClass({
           field: "fechaEntrega",
           autoFields: props.marks.autoFields,
@@ -69,16 +74,6 @@ export function OrdenVentaCaptureFormProgramacion(
           missingFields: props.marks.missingFields,
           missing: !isFechaEntregaIsoValida(props.fechaEntrega),
         })}
-        compact
-      />
-      <PolariaFormInput
-        id="orden-venta-dia-semana-entrega"
-        label="Día de la semana"
-        value={diaSemana}
-        readOnly
-        tabIndex={-1}
-        placeholder="—"
-        aria-live="polite"
         compact
       />
       <PolariaFormInput

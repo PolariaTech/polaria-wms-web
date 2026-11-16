@@ -83,4 +83,13 @@ describe("resolveEspecificacionPedidoLinea con la especificación del origen (RE
     expect(resolveEspecificacionPedidoLinea({ especificacionIa: "Madurez: Rojo", textoOriginal: "PIÑA" })).toBe("Madurez: Rojo");
     expect(resolveEspecificacionPedidoLinea({ especificacionIa: null, envaseTexto: "1x galón de 5 litros" })).toBe("1x galón de 5 litros");
   });
+
+  it("REQ-311: descarta especificación que solo es cantidad+UDM", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "20 KGM",
+        textoOriginal: "COLIFLOR",
+      }),
+    ).toBe("");
+  });
 });

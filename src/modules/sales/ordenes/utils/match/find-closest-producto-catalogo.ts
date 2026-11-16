@@ -1,5 +1,10 @@
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
+import { nombresContradicenPorColor } from "../origen/identidad-nombres-producto";
+import { colorClienteDesambiguaSugerencia } from "./color-desambigua-auto-accept";
 import { normalizeForMatch } from "./normalize-for-match";
+import { productoPreparacionIncompatibleConTexto } from "./producto-preparacion-incompatible";
+
+export { productoPreparacionIncompatibleConTexto };
 
 export interface ProductoCatalogoScored {
   producto: ProductoVentaOption;
@@ -121,7 +126,7 @@ const SYNONYM_GROUPS: readonly (readonly string[])[] = [
   ["pepino", "pepinos", "cucumber", "cucumbers"],
   ["esparrago", "esparragos", "asparagus"],
   ["apio", "celery"],
-  ["chile", "chiles", "pepper", "peppers"], ["pimiento", "pimientos", "morron", "morrones"],
+  ["chile", "chiles", "pepper", "peppers", "pimiento", "pimientos", "morron", "morrones"],
   ["guanabana", "soursop"],
   ["maracuya", "passionfruit", "passion"],
   // Sinónimos reales de variante (cualquier producto), p. ej. MX orejona ≈ romana.
@@ -446,26 +451,6 @@ export function esProductoNoMercancia(producto: {
 }
 
 /**
- * Jugo/puré/néctar en catálogo vs pedido de fruta entera (o al revés).
- * Evita "LIMON PERSA SIN SEMILLA" → "JUGO DE LIMON".
- */
-export function productoPreparacionIncompatibleConTexto(
-  textoCliente: string | null | undefined,
-  producto: ProductoVentaOption,
-): boolean {
-  const texto = normalizeForMatch(textoCliente ?? "");
-  const nombre = normalizeForMatch(producto.nombre ?? "");
-  if (!texto || !nombre) return false;
-
-  const prepRe =
-    /\b(jugo|jugos|juice|zumo|zumos|pure|pures|puree|nectar|nectares|extracto|extractos)\b/;
-  const textoPidePrep = prepRe.test(texto);
-  const productoEsPrep = prepRe.test(nombre);
-  if (productoEsPrep === textoPidePrep) return false;
-  return true;
-}
-
-/**
  * Familias de sinónimo distintas en query vs producto (cebolla vs aguacate).
  * REQ-115: no aceptar asignación cruzada aunque el score fuzzy sea bajo-medio.
  */
@@ -512,6 +497,8 @@ export function productoCompatibleConTextoCliente(
   if (codigoCoincideEnQuery(texto, producto.codigo)) return true;
   if (productoPreparacionIncompatibleConTexto(texto, producto)) return false;
   if (productosFamiliasSinonimoConflictivas(texto, producto)) return false;
+  // REQ-311: pimiento rojo ≠ pulpa/chile de otro color.
+  if (nombresContradicenPorColor(texto, producto.nombre)) return false;
 
   const score = scoreProductoMatch(texto, producto);
   if (esProductoNoMercancia(producto)) {
@@ -791,6 +778,16 @@ export function shouldAutoAcceptProductoSuggestion(params: {
     if (params.topScore - params.secondScore >= 0.08) return true;
     if (params.topScore >= 0.7 && params.secondScore < 0.55) return true;
   }
+  if (
+    colorClienteDesambiguaSugerencia({
+      query: params.query,
+      sugerenciaNombre: params.sugerenciaNombre,
+      topScore: params.topScore,
+      secondScore: params.secondScore,
+    })
+  )
+    return true;
+
   if (params.topScore >= 0.7 && !params.ambiguous) return true;
   if (
     params.topScore >= 0.85 &&

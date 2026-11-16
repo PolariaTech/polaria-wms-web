@@ -1,4 +1,5 @@
 import { formatKgEs } from "@/lib/utils/decimal-es";
+import { formatIsoToDdMonYyyy } from "@/lib/utils/fecha-dd-mm-yyyy";
 import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../shared/types/sales.types";
 import type {
   OrdenVentaDetalleRow,
@@ -37,8 +38,8 @@ export const PRODUCTOS_POR_HOJA_TAREA = 30; // Informe OT: 20 → 30 líneas por
 export { diaSemanaEntregaEs };
 
 /**
- * Formato meta del PDF: dd/mm/aaaa HH:mm en zona de la cuenta (default Cancún).
- * No usa la zona del PC.
+ * Formato meta del PDF: DD-MMM-AAAA HH:mm en zona de la cuenta (default Cancún).
+ * REQ-320. No usa la zona del PC.
  */
 export function formatOrdenTareaImpresaAt(
   date: Date,
@@ -55,7 +56,9 @@ export function formatOrdenTareaImpresaAt(
   }).formatToParts(date);
   const get = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((p) => p.type === type)?.value ?? "";
-  return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}`;
+  const iso = `${get("year")}-${get("month")}-${get("day")}`;
+  const fecha = formatIsoToDdMonYyyy(iso);
+  return fecha ? `${fecha} ${get("hour")}:${get("minute")}` : "";
 }
 
 /**
@@ -111,12 +114,7 @@ export function formatOrdenTareaPageMeta(input: {
 
 function formatFechaEntrega(value: string | null | undefined): string {
   if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = String(date.getFullYear());
-  return `${day}/${month}/${year}`;
+  return formatCapturaFecha(value);
 }
 
 function formatOrdenTrabajoCorto(

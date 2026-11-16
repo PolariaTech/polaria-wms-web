@@ -29,8 +29,16 @@ export function buildOrigenCorreoFromOrdenesYLineas(params: {
   const verificadas = params.lineas.filter((linea) =>
     Boolean(linea.idProducto?.trim()),
   );
+  const unicaHija = params.hijas.length === 1 ? params.hijas[0] : null;
   for (const hija of params.hijas) {
-    const lineasOt = params.lineas.filter((linea) => linea.otId === hija.id);
+    // REQ-311: con 1 OT, líneas sin otId (alta en form) también van al origen.
+    const lineasOt = params.lineas.filter((linea) => {
+      if (linea.otId === hija.id) return true;
+      if (unicaHija && hija.id === unicaHija.id && !linea.otId?.trim()) {
+        return true;
+      }
+      return false;
+    });
     if (lineasOt.length > 0) {
       for (const linea of lineasOt) {
         const producto = linea.aliasCliente?.trim() || linea.nombre;

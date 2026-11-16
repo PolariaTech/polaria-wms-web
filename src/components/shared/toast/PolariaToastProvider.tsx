@@ -12,6 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils/cn";
+import { newToastId } from "./new-toast-id";
 
 export type PolariaToastVariant = "success" | "error" | "info" | "dark";
 
@@ -111,7 +112,7 @@ export function PolariaToastProvider({ children }: { children: ReactNode }) {
 
   const showToast = useCallback(
     (input: PolariaToastInput) => {
-      const id = crypto.randomUUID();
+      const id = newToastId();
       const durationMs = input.durationMs ?? DEFAULT_DURATION_MS;
       const item: PolariaToastItem = {
         id,

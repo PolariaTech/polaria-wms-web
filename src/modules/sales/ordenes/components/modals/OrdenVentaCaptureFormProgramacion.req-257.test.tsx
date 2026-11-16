@@ -29,19 +29,27 @@ function propsBase(
   };
 }
 
-describe("OrdenVentaCaptureFormProgramacion (REQ-257)", () => {
-  it("muestra el día de la semana en un campo de solo lectura al lado de la fecha", () => {
-    render(<OrdenVentaCaptureFormProgramacion {...propsBase()} />);
+describe("OrdenVentaCaptureFormProgramacion (REQ-257/321)", () => {
+  it("muestra el día dentro del valor de fecha, sin hint de formato ni campo aparte", () => {
+    render(
+      <OrdenVentaCaptureFormProgramacion
+        {...propsBase({ fechaEntrega: "2099-01-17" })}
+      />,
+    );
 
-    const dia = screen.getByLabelText(/Día de la semana/);
-    expect(dia).toHaveAttribute("readonly");
-    expect(dia).toHaveValue("Sábado");
+    expect(screen.queryByLabelText(/Día de la semana/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Fecha de entrega/)).toHaveValue(
+      "17-ENE-2099 (SÁBADO)",
+    );
+    expect(screen.queryByText(/Formato DD-MMM-AAAA/)).not.toBeInTheDocument();
   });
 
-  it("deja el día vacío si no hay fecha de entrega", () => {
+  it("sin fecha de entrega el campo queda vacío y sin hint de formato", () => {
     render(
       <OrdenVentaCaptureFormProgramacion {...propsBase({ fechaEntrega: "" })} />,
     );
-    expect(screen.getByLabelText(/Día de la semana/)).toHaveValue("");
+    expect(screen.getByLabelText(/Fecha de entrega/)).toHaveValue("");
+    expect(screen.queryByText(/Formato DD-MMM-AAAA/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Día de la semana/)).not.toBeInTheDocument();
   });
 });

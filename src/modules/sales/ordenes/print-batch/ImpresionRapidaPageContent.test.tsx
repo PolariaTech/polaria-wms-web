@@ -161,9 +161,15 @@ describe("ImpresionRapidaPageContent", () => {
 
     const { resumen } = buildBlob.mock.calls[0]![1];
     expect(resumen.titulo).toBe("Resumen de impresión");
-    expect(resumen.subtitulo).toMatch(/^Impresión rápida · entrega \d{2}\/\d{2}\/\d{4}$/);
+    expect(resumen.subtitulo).toMatch(
+      /^Impresión rápida · entrega \d{2}-[A-ZÁÉÍÓÚÑ]{3}-\d{4}$/,
+    );
     expect(resumen.filas.map((f: { venta: string }) => f.venta)).toEqual(["OV-viejo", "OV-nuevo"]);
-    expect(resumen.filas[0]).toMatchObject({ cliente: "Hotel Sol", entrega: "10-ENE", ot: 1 });
+    expect(resumen.filas[0]).toMatchObject({
+      cliente: "Hotel Sol",
+      entrega: "10-ENE-2026",
+      ot: 1,
+    });
   });
 
   it("la vista previa cuenta la hoja del resumen y dice que va primera", async () => {

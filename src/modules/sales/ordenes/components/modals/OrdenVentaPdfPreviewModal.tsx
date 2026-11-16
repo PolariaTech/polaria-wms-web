@@ -14,6 +14,8 @@ interface OrdenVentaPdfPreviewModalProps {
   dockWithCypher?: boolean;
 }
 
+const PDF_PREVIEW_TIMEOUT_MS = 45_000;
+
 export function OrdenVentaPdfPreviewModal({
   open,
   title,
@@ -24,6 +26,7 @@ export function OrdenVentaPdfPreviewModal({
   dockWithCypher = false,
 }: OrdenVentaPdfPreviewModalProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
     if (!open || !blob) {
@@ -36,6 +39,21 @@ export function OrdenVentaPdfPreviewModal({
       URL.revokeObjectURL(url);
     };
   }, [open, blob]);
+
+  useEffect(() => {
+    if (!open || !isLoading || blob || error) {
+      setTimedOut(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setTimedOut(true), PDF_PREVIEW_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [open, isLoading, blob, error]);
+
+  const errorVisible =
+    error ||
+    (timedOut
+      ? "La generación del PDF está tardando demasiado. Cierra e inténtalo de nuevo."
+      : null);
 
   return (
     <PolariaFormModal
@@ -51,9 +69,9 @@ export function OrdenVentaPdfPreviewModal({
       size="2xl"
       scrollClassName="max-h-[min(80vh,52rem)] overflow-hidden p-0"
       onSubmit={(event) => event.preventDefault()}
-      error={error}
+      error={errorVisible}
     >
-      {isLoading ? (
+      {isLoading && !timedOut ? (
         <div className="flex min-h-[24rem] items-center justify-center px-6 py-10 text-polaria-w-50">
           Generando PDF…
         </div>

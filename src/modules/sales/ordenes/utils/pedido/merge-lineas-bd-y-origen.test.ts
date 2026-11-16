@@ -144,4 +144,31 @@ describe("mergeLineasBdConOrigenPendiente — renglón descartado al materializa
     ]);
     expect(fusion.filter((l) => l.catalogPending).map((l) => l.aliasCliente)).toEqual(["Ajo limpio por kilo en BOTE"]);
   });
+
+  it("REQ-311: no duplica jugo cuando BD ya tiene qty convertida distinta al renglón", () => {
+    const hijaOt = createEmptyOrdenTrabajoHija({ id: "ot-1", almacen: "Bar" });
+    hijaOt.renglones = [
+      {
+        Producto: "Jugo de Limón fresco galón de 5 litros",
+        Cantidad: 8,
+      },
+      { Producto: "Ajo limpio por kilo en BOTE", Cantidad: 2 },
+    ];
+    const fusion = mergeLineasBdConOrigenPendiente({
+      lineasBd: [
+        lineaBd({
+          otId: "ot-1",
+          idProducto: "p-jugo",
+          nombre: "JUGO DE LIMON",
+          cantidadInput: "40",
+          unidadMedida: "LTR",
+        }),
+      ],
+      hijas: [hijaOt],
+      origenRows: hijaOt.renglones,
+      productos: [],
+    });
+    expect(fusion.filter((l) => l.nombre.includes("LIMON") || l.aliasCliente?.includes("Jugo"))).toHaveLength(1);
+    expect(fusion.some((l) => l.catalogPending && (l.aliasCliente ?? "").includes("Ajo"))).toBe(true);
+  });
 });

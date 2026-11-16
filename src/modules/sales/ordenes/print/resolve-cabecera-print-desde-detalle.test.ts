@@ -94,7 +94,7 @@ describe("resolve-cabecera-print-desde-detalle (REQ-281 / REQ-032 PDF)", () => {
       fechaPedido: "2026-06-28T12:00:00.000Z",
       createdAt: "2026-06-28T12:00:00.000Z",
     });
-    expect(conBd.fechaEntrega).toBe("03/09/2026");
+    expect(conBd.fechaEntrega).toBe("03-SEP-2026 (JUEVES)");
 
     const vacia = resolveFechaYDiaEntregaDesdeDetalle({
       fechaCaptura: "",

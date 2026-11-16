@@ -235,9 +235,12 @@ export function OrdenVentaModalDialogs(props: OrdenVentaModalDialogsProps) {
         }}
         title="¿Salir del pedido?"
         description={
-          ordenesTrabajoForm.length > 1
-            ? "Se perderá el progreso capturado, incluidas las órdenes de trabajo."
-            : "Se perderá el progreso capturado y volverás a Ventas."
+          isEditing &&
+          (editingEstado === "confirmada" || editingEstado === "por_confirmar")
+            ? "Si tienes cambios sin guardar, se perderán. ¿Cerrar de todos modos?"
+            : ordenesTrabajoForm.length > 1
+              ? "Se perderá el progreso capturado, incluidas las órdenes de trabajo."
+              : "Se perderá el progreso capturado y volverás a Ventas."
         }
         confirmLabel="Salir"
         cancelLabel="Seguir editando"

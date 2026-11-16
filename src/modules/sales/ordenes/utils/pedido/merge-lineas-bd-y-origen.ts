@@ -4,6 +4,7 @@ import type {
   OrdenTrabajoHija,
   OrigenCorreoRenglon,
 } from "../origen/origen-correo-ordenes-trabajo";
+import { afinidadDeNombres } from "../origen/identidad-nombres-producto";
 import { applyVerificacionesOrigenALineas } from "./apply-verificaciones-origen-lineas";
 import { lineaSembradaDesdeRenglon } from "./linea-sembrada-desde-origen";
 import { indicesRenglonesSinLinea } from "./renglones-sin-linea";
@@ -11,6 +12,29 @@ import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedid
 
 function renglonTieneProducto(row: OrigenCorreoRenglon): boolean {
   return Boolean((row.Producto ?? "").trim());
+}
+
+/** REQ-311: no sembrar pendiente si ya hay línea BD del mismo producto (qty convertida no debe duplicar). */
+function extraYaCubiertaEnBd(
+  extra: LineaVentaForm,
+  lineasBd: readonly LineaVentaForm[],
+): boolean {
+  const etiquetaExtra = extra.aliasCliente?.trim() || extra.nombre;
+  return lineasBd.some((bd) => {
+    if ((bd.otId ?? "").trim() !== (extra.otId ?? "").trim()) return false;
+    if (
+      bd.idProducto.trim() &&
+      extra.idProducto.trim() &&
+      bd.idProducto.trim() === extra.idProducto.trim()
+    ) {
+      return true;
+    }
+    const etiquetaBd = bd.aliasCliente?.trim() || bd.nombre;
+    return (
+      afinidadDeNombres(etiquetaExtra, bd.nombre) >= 0.75 ||
+      afinidadDeNombres(etiquetaExtra, etiquetaBd) >= 0.75
+    );
+  });
 }
 
 /**
@@ -55,7 +79,10 @@ export function mergeLineasBdConOrigenPendiente(params: {
     }
   }
 
-  const fusionadas = [...params.lineasBd, ...extras];
+  const extrasSinDuplicar = extras.filter(
+    (extra) => !extraYaCubiertaEnBd(extra, params.lineasBd),
+  );
+  const fusionadas = [...params.lineasBd, ...extrasSinDuplicar];
   return applyVerificacionesOrigenALineas(
     fusionadas,
     params.origenRows,

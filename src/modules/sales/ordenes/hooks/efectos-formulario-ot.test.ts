@@ -5,7 +5,7 @@ import {
 } from "./cabecera-ot-desde-hija";
 import type { OrdenTrabajoHija } from "../utils/origen/origen-correo-ordenes-trabajo";
 
-/** Contrato del efecto de cambio de OT en useEfectosFormularioOt (REQ-281). */
+/** Contrato del efecto de cambio de OT en useEfectosFormularioOt (REQ-281/311). */
 describe("efectos-formulario-ot / cabecera al cambiar OT", () => {
   it("la cabecera inyectable no incluye campos de OV", () => {
     const hija: OrdenTrabajoHija = {

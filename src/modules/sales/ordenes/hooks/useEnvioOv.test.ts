@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DomainServiceError } from "@/lib/utils/domain-service-error";
+import { patchCompradorDenominacionOverride } from "@/modules/admin-panel";
 import { createOrdenVenta, updateOrdenVenta } from "../../shared/services/sales.service";
+import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
 import { postOrdenVentaLogForOts } from "../services/orden-venta-log.client";
 import { ejecutarPersistenciaEnvio } from "./useEnvioOv";
 
@@ -19,8 +22,24 @@ vi.mock("../services/orden-venta-log.client", () => ({
 }));
 
 vi.mock("../print/auto-print-ov-tras-emitir", () => ({
-  fetchAutoImprimirFlag: vi.fn(),
+  fetchAutoImprimirFlag: vi.fn().mockResolvedValue(false),
   autoPrintOrdenVentaTrasEmitir: vi.fn(),
+}));
+
+vi.mock("@/modules/admin-panel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/admin-panel")>();
+  return {
+    ...actual,
+    patchCompradorDenominacionOverride: vi.fn(),
+  };
+});
+
+vi.mock("../../shared/services/aprender-equivalencias.service", () => ({
+  aprenderEquivalencias: vi.fn().mockResolvedValue({
+    creadas: 0,
+    actualizadas: 0,
+    fallidas: 0,
+  }),
 }));
 
 describe("ejecutarPersistenciaEnvio", () => {
@@ -154,5 +173,127 @@ describe("ejecutarPersistenciaEnvio", () => {
     expect(updateOrdenVenta).toHaveBeenCalledWith(expect.objectContaining({ idOrdenVenta: "ov-1" }));
     expect(createOrdenVenta).not.toHaveBeenCalled();
     expect(onOrdenIdReady).not.toHaveBeenCalled();
+  });
+
+  it("REQ-241: si falla el patch de denominación (RLS operador), no tumba el confirm", async () => {
+    vi.mocked(updateOrdenVenta).mockResolvedValue({
+      idOrdenVenta: "ov-2151",
+      venta: "OV-00002151",
+    } as never);
+    vi.mocked(emitirOrdenVentaApi).mockResolvedValue({
+      idOrdenVenta: "ov-2151",
+      venta: "OV-00002151",
+    } as never);
+    vi.mocked(patchCompradorDenominacionOverride).mockRejectedValue(
+      new DomainServiceError(
+        "No se pudo guardar la denominación comercial del cliente.",
+        "MUTATION_FAILED",
+      ),
+    );
+
+    const showToast = vi.fn();
+    const onClose = vi.fn();
+    const onCreated = vi.fn();
+    const setError = vi.fn();
+
+    await ejecutarPersistenciaEnvio({
+      isDraft: false,
+      isEditing: true,
+      pendingEmitId: null,
+      editingId: "ov-2151",
+      editingEstado: "por_confirmar",
+      codigoCuenta: "49M04",
+      idCreador: "u1",
+      idComprador: "comp-1",
+      session: { nombre: "Operador" },
+      payload: {
+        vendedor: "Operador",
+        idBodega: "b1",
+        denominacionComercialOverride: "FIESTA AMERICANA",
+      },
+      fechaEntrega: "2026-11-17",
+      fechaEntregaPersist: "2026-11-17",
+      ordenesTrabajoForm: [{ id: "ot-1" }],
+      folioFactura: { guardar: vi.fn() },
+      reagruparAplicada: null,
+      setPendingEmitId: vi.fn(),
+      setEditingEstado: vi.fn(),
+      setFechaEntrega: vi.fn(),
+      setIsSaving: vi.fn(),
+      setMateoBusyMessage: vi.fn(),
+      setError,
+      showToast,
+      onCreated,
+      onClose,
+    });
+
+    expect(patchCompradorDenominacionOverride).toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Aviso" }),
+    );
+    expect(setError).not.toHaveBeenCalled();
+    expect(onCreated).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("REQ-241: si el patch de denominación falla por otra causa, sí reporta error", async () => {
+    vi.mocked(updateOrdenVenta).mockResolvedValue({
+      idOrdenVenta: "ov-2151",
+      venta: "OV-00002151",
+    } as never);
+    vi.mocked(patchCompradorDenominacionOverride).mockRejectedValue(
+      new DomainServiceError(
+        "Falta el identificador del comprador.",
+        "INVALID_ARGUMENT",
+      ),
+    );
+
+    const showToast = vi.fn();
+    const onClose = vi.fn();
+    const onCreated = vi.fn();
+    const setError = vi.fn();
+
+    await ejecutarPersistenciaEnvio({
+      isDraft: false,
+      isEditing: true,
+      pendingEmitId: null,
+      editingId: "ov-2151",
+      editingEstado: "por_confirmar",
+      codigoCuenta: "49M04",
+      idCreador: "u1",
+      idComprador: "comp-1",
+      session: { nombre: "Operador" },
+      payload: {
+        vendedor: "Operador",
+        idBodega: "b1",
+        denominacionComercialOverride: "FIESTA AMERICANA",
+      },
+      fechaEntrega: "2026-11-17",
+      fechaEntregaPersist: "2026-11-17",
+      ordenesTrabajoForm: [{ id: "ot-1" }],
+      folioFactura: { guardar: vi.fn() },
+      reagruparAplicada: null,
+      setPendingEmitId: vi.fn(),
+      setEditingEstado: vi.fn(),
+      setFechaEntrega: vi.fn(),
+      setIsSaving: vi.fn(),
+      setMateoBusyMessage: vi.fn(),
+      setError,
+      showToast,
+      onCreated,
+      onClose,
+    });
+
+    expect(setError).toHaveBeenCalledWith(
+      "Falta el identificador del comprador.",
+    );
+    expect(showToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "No se pudo confirmar",
+        variant: "error",
+      }),
+    );
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

@@ -1,13 +1,16 @@
+import { parseDdMmYyyyToIso } from "@/lib/utils/fecha-dd-mm-yyyy";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
 
 /** Sin fecha o sin hora reconocible: la hoja va después de las que sí la tienen. */
 const SIN_DATO = Number.MAX_SAFE_INTEGER;
 
-/** `DD/MM/AAAA` (como la imprime la hoja) → `AAAAMMDD`. */
+/** Fecha impresa (`DD-MMM-AAAA` o legado `DD/MM/AAAA`) → `AAAAMMDD`. */
 function claveFecha(fechaEntrega: string): number {
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(fechaEntrega.trim());
+  const iso = parseDdMmYyyyToIso(fechaEntrega);
+  if (!iso) return SIN_DATO;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!match) return SIN_DATO;
-  return Number(`${match[3]}${match[2]}${match[1]}`);
+  return Number(`${match[1]}${match[2]}${match[3]}`);
 }
 
 /**

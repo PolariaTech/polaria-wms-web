@@ -94,7 +94,15 @@ export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
     // REQ-112 / REQ-141 / REQ-281: contacto / teléfono / correo / dirección / notas
     // son de la OV — no reinyectar (cabeceraOtDesdeHija solo trae campos de OT).
     const cab = cabeceraOtDesdeHija(hija);
-    if (cab.almacen) setCentroConsumo(cab.almacen);
+    // REQ-311: con 1 OT (sin pager) no pisar centro ya editado; solo rellenar vacío.
+    // Con pager multi-OT sí aplica el almacén de la hija activa.
+    if (cab.almacen) {
+      if (hijaFormActiva) {
+        setCentroConsumo(cab.almacen);
+      } else {
+        setCentroConsumo((prev) => prev.trim() || cab.almacen);
+      }
+    }
     if (cab.numeroPedido) setOrdenCompraHotel(cab.numeroPedido);
     if (cab.fechaIso) setFechaEntrega(cab.fechaIso);
     if (cab.anden) setAnden(cab.anden);
