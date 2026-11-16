@@ -73,6 +73,21 @@
 - `package-lock.json` — autorizada por el usuario el 2026-11-16
 - `VERSION` — autorizada por el usuario el 2026-11-16
 - `src/constants/brand/brand.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/aviso-direccion-ov.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/aviso-direccion-ov.test.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/match/match-comprador-from-nombre.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/match/match-comprador-from-nombre.test.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/map-pedido-extraido-to-form.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/resolve-cantidad-envase.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/resolve-cantidad-envase.test.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/renglones-sin-linea.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/renglones-sin-linea.test.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/resolve-especificacion-pedido-linea.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/utils/pedido/resolve-especificacion-pedido-linea.test.ts` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/components/pages/OperadorOrdenesVentaPageContent.tsx` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/components/pages/OperadorOrdenesVentaPageContent.test.tsx` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/components/modals/OrdenVentaPdfPreviewModal.tsx` — autorizada por el usuario el 2026-11-16
+- `src/modules/sales/ordenes/components/modals/OrdenVentaAdjuntoPreviewModal.tsx` — autorizada por el usuario el 2026-11-16
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/services/sales.service.ts`
