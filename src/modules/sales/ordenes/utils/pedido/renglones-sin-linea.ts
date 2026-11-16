@@ -34,7 +34,13 @@ function puntaje(
   if (codigoRenglon && codigoRenglon === norm(linea.codigo)) puntos += 3;
   if (puntos <= 0) return 0;
   const cantidadLinea = parseDecimalEs(linea.cantidadInput) ?? 0;
-  if (Math.abs(cantidadLinea - cantidadRenglon(row)) < 0.001) puntos += 0.5;
+  const cantidadDoc = cantidadRenglon(row);
+  if (Math.abs(cantidadLinea - cantidadDoc) < 0.001) {
+    puntos += 0.5;
+  } else if (afinidad >= 0.75) {
+    // REQ-311: qty convertida (8 PZ → 40 LTR) no debe impedir el empareje.
+    puntos += 0.25;
+  }
   return puntos - 0.01 * cercania;
 }
 

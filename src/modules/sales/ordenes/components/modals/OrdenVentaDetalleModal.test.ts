@@ -23,9 +23,9 @@ describe("OrdenVentaDetalleModal", () => {
     );
     expect([...ORDEN_TRAS_NOTAS_GENERALES_DETALLE]).toEqual([
       "Fecha de entrega",
-      "Día de la semana",
       "Hora desde",
       "Hora hasta",
     ]);
+    expect(ORDEN_BLOQUE_ENTREGA_DETALLE).not.toContain("Día de la semana");
   });
 });

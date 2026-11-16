@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  limpiarEspecificacionSoloCantidadUd,
   mapDetalleLineasAForm,
   ovTieneLineasMaterializadas,
 } from "./map-detalle-lineas-a-form";
@@ -15,6 +16,19 @@ describe("ovTieneLineasMaterializadas (REQ-195)", () => {
     expect(
       ovTieneLineasMaterializadas([{ id_producto: "prod-1" }]),
     ).toBe(true);
+  });
+});
+
+describe("limpiarEspecificacionSoloCantidadUd (REQ-311)", () => {
+  it("quita '20 KGM' cuando la línea vende en PZA", () => {
+    expect(limpiarEspecificacionSoloCantidadUd("20 KGM", "PZA")).toBe("");
+    expect(limpiarEspecificacionSoloCantidadUd("6 KG", "PZA")).toBe("");
+  });
+
+  it("conserva especificación real", () => {
+    expect(limpiarEspecificacionSoloCantidadUd("Sin penacho", "KGM")).toBe(
+      "Sin penacho",
+    );
   });
 });
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
+import type { OrdenVentaCapturaParsed } from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import {
+  buildCapturaDetalleVista,
   especificacionVisible,
   leerFolioFacturaVista,
   montoDeNota,
@@ -11,6 +14,33 @@ import {
   tituloDetalleOvConOt,
   totalLineaConIva,
 } from "./detalle-venta-presentacion";
+
+const fromObsVacio = {
+  observaciones: "",
+  fechaEntrega: "",
+  ventanaEntrega: "",
+  prioridad: "",
+  ordenCompraHotel: "",
+  centroConsumo: "",
+  vendedor: "",
+  moneda: "",
+  bodegaDestino: "",
+  direccion: "",
+  anden: "",
+  contacto: "",
+  telefono: "",
+  correo: "",
+  turno: "",
+  horaSalida: "",
+  chofer: "",
+  unidad: "",
+  aceptaSustituciones: "",
+  requiereLote: "",
+  registrarTemperatura: "",
+  notasLineas: "",
+  origenTexto: "",
+  origenArchivos: [],
+} as OrdenVentaCapturaParsed;
 
 describe("detalle de venta", () => {
   it("lee el folio exacto y también un alias en otro caso", () => {
@@ -97,6 +127,46 @@ describe("detalle de venta", () => {
         "Notas generales",
       ]),
     ).toBe(false);
+  });
+
+  it("REQ-311: centro del sello (vacío) no reinyecta almacén de OT", () => {
+    const orden = {
+      centro_consumo: "COCINA VIEJA",
+      origen_correo: [
+        {
+          Producto: "X",
+          Cantidad: 1,
+          _cabeceraUsuario: {
+            notasGenerales: "",
+            centroConsumo: "",
+            referenciaPedido: "",
+            fechaEntrega: "",
+            direccionEntrega: "",
+            contacto: "",
+            telefono: "",
+            correo: "",
+          },
+        },
+      ],
+    } as OrdenVentaDetalleRow;
+    const captura = buildCapturaDetalleVista(
+      orden,
+      {
+        id: "ot-1",
+        label: "OT",
+        numeroPedido: "",
+        almacen: "BANQUETES",
+        referenciaPedido: "",
+        fecha: "",
+        responsableExterno: "",
+        renglones: [],
+        totalCantidad: 0,
+      },
+      fromObsVacio,
+      1,
+      "",
+    );
+    expect(captura.centroConsumo).toBe("");
   });
 });
 

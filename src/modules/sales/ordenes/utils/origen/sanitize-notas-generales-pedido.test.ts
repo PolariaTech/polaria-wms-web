@@ -1,11 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeNotasGeneralesPedido } from "./sanitize-notas-generales-pedido";
+import {
+  looksLikePedidoHeaderJunk,
+  sanitizeNotasGeneralesPedido,
+} from "./sanitize-notas-generales-pedido";
 
 describe("sanitizeNotasGeneralesPedido", () => {
   it("respeta notas cortas capturadas en Polaria", () => {
     expect(sanitizeNotasGeneralesPedido("Maduro · andén 3")).toBe(
       "Maduro · andén 3",
     );
+  });
+
+  it("vacía encabezado ADP (folio/emisión/asesor/cliente) colado como notas", () => {
+    const junk =
+      "PEDIDO ADP-261116-0520-ARN · ORDINARIO. Emisión: 16/11/2026 05:22 hrs. Asesor: Atención al Cliente. Cliente: PALAPITA ARCO RANCHO VIEJO EVENTO. Teléfono:";
+    expect(looksLikePedidoHeaderJunk(junk)).toBe(true);
+    expect(sanitizeNotasGeneralesPedido(junk)).toBe("");
+  });
+
+  it("conserva instrucción útil aunque venga junto a metadatos", () => {
+    const mixed =
+      "Emisión: 16/11/2026. Asesor: Atención al Cliente. Maduro, no verde · andén 3";
+    expect(sanitizeNotasGeneralesPedido(mixed)).toMatch(/Maduro/i);
+    expect(sanitizeNotasGeneralesPedido(mixed)).toMatch(/andén 3/i);
+    expect(sanitizeNotasGeneralesPedido(mixed)).not.toMatch(/Emisi[oó]n/i);
   });
 
   it("REQ-286: no inventa Entrega/Destino a partir del cuerpo del correo", () => {

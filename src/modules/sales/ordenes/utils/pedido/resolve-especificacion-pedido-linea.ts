@@ -24,6 +24,13 @@ function pareceFraseEnvase(texto: string): boolean {
   );
 }
 
+/** REQ-311: "20 KGM" / "6 PZA" no es especificación de producto. */
+function esSoloCantidadYUnidad(texto: string): boolean {
+  return /^\d+(?:[.,]\d+)?\s*(?:KGM|KG|LTR|L|PZA|PZ|UN|U\.?M\.?)\.?$/i.test(
+    texto.trim(),
+  );
+}
+
 /**
  * Especificación de línea: envase (REQ-124), madurez/domo (REQ-120/287)
  * y lo que Mateo extrajo del pedido.
@@ -40,8 +47,11 @@ export function resolveEspecificacionPedidoLinea(params: {
   const envaseTxt = params.envase
     ? formatEspecificacionEnvase(params.envase)
     : (params.envaseTexto?.trim() || "");
-  const textoIa = params.especificacionIa?.trim() || "";
-  const frasesOrigen = frasesDeEspecificacion(params.especificacionOrigen);
+  const textoIaRaw = params.especificacionIa?.trim() || "";
+  const textoIa = esSoloCantidadYUnidad(textoIaRaw) ? "" : textoIaRaw;
+  const frasesOrigen = frasesDeEspecificacion(params.especificacionOrigen).filter(
+    (frase) => !esSoloCantidadYUnidad(frase),
+  );
   const madurez =
     extractMadurezEspecificacion(params.textoOriginal) ||
     extractMadurezEspecificacion(textoIa) ||

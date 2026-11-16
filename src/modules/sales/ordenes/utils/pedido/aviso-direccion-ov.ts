@@ -174,7 +174,7 @@ export function useLeerOcDesdeAdjuntos(estado: OrdenVentaFormEstado) {
 }
 
 export function useCierreCapturaOv(estado: OrdenVentaFormEstado) {
-  const { pendingDraftSaveAfterReorgRef, reagruparAplicada, step, isSaving, isLoading, submitIntentRef, handleSubmit, startMode, origenTexto, origenArchivoFiles, productos, isReadingIa, origenAdjuntos, open, picker, isCompradorCreateOpen, confirmDiscrepanciasOpen, confirmSaveOpen, confirmDiscardOpen, isEditing, setConfirmDiscardOpen, onClose, previewHijas, setStep, setError, setStartMode, ordenesTrabajoForm, setOrigenArchivoFiles } = estado;
+  const { pendingDraftSaveAfterReorgRef, reagruparAplicada, step, isSaving, isLoading, submitIntentRef, handleSubmit, startMode, origenTexto, origenArchivoFiles, productos, isReadingIa, origenAdjuntos, open, picker, isCompradorCreateOpen, confirmDiscrepanciasOpen, confirmSaveOpen, confirmDiscardOpen, isEditing, editingEstado, setConfirmDiscardOpen, onClose, previewHijas, setStep, setError, setStartMode, ordenesTrabajoForm, setOrigenArchivoFiles } = estado;
   useEffect(() => {
     if (!pendingDraftSaveAfterReorgRef.current || !reagruparAplicada) return;
     if (step !== "form" || isSaving || isLoading) return;
@@ -236,7 +236,14 @@ export function useCierreCapturaOv(estado: OrdenVentaFormEstado) {
     }
 
     // En edición: el picker de OT está en Cypher; ESC pide salir (no vuelve a pickOt).
+    // REQ-311: OV ya confirmada (u operativa) → cerrar sin “se perderá el progreso”.
+    // por_confirmar sigue pidiendo confirmación (borrador Mateo).
     if (isEditing) {
+      const estadoNorm = normalizeEstadoOrdenVenta(editingEstado);
+      if (estadoNorm !== "por_confirmar" && estadoNorm !== "cancelada") {
+        onClose();
+        return;
+      }
       if (hasCaptureProgress) {
         setConfirmDiscardOpen(true);
         return;
@@ -279,10 +286,15 @@ export function useCierreCapturaOv(estado: OrdenVentaFormEstado) {
     startMode,
     previewHijas.length,
     isEditing,
+    editingEstado,
     ordenesTrabajoForm.length,
     docsHasContent,
     hasCaptureProgress,
     onClose,
+    setConfirmDiscardOpen,
+    setError,
+    setStartMode,
+    setStep,
   ]);
 
   const appendDocsFiles = useCallback((files: FileList | File[]) => {

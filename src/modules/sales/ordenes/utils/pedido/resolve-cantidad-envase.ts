@@ -214,22 +214,34 @@ export function resolveCantidadPrecioDesdeEnvase(params: {
   const texto = quitarAcentos(params.textoOriginal ?? "");
   const patronConN = ENVASE_RE.test(texto);
 
-  // Envases: N del texto; si el nombre solo dice "cubeta de 10 L" y la
-  // cantidad cruda es el conteo de envases, usa esa cantidad.
+  // Envases: N del texto; si la frase solo describe el envase ("galón de 5 L")
+  // y la cantidad cruda es el conteo de la PO (8 PZ), usa esa cantidad.
   let envases = parsed.envases;
-  if (!patronConN && cantidadRaw != null && approx(cantidadRaw, Math.round(cantidadRaw))) {
-    const candidato = Math.round(cantidadRaw);
-    if (
-      candidato >= 1 &&
-      !approx(candidato, parsed.contenidoPorEnvase) &&
-      !approx(candidato, candidato * parsed.contenidoPorEnvase)
-    ) {
-      envases = candidato;
-    }
+  const cantidadEnteraEnvases =
+    cantidadRaw != null &&
+    approx(cantidadRaw, Math.round(cantidadRaw)) &&
+    Math.round(cantidadRaw) >= 1
+      ? Math.round(cantidadRaw)
+      : null;
+  const cantidadPareceConteoEnvases =
+    cantidadEnteraEnvases != null &&
+    !approx(cantidadEnteraEnvases, parsed.contenidoPorEnvase) &&
+    !approx(
+      cantidadEnteraEnvases,
+      cantidadEnteraEnvases * parsed.contenidoPorEnvase,
+    );
+
+  if (!patronConN && cantidadPareceConteoEnvases && cantidadEnteraEnvases != null) {
+    envases = cantidadEnteraEnvases;
   } else if (patronConN && cantidadRaw != null && approx(cantidadRaw, parsed.envases)) {
     envases = parsed.envases;
+  } else if (patronConN && cantidadPareceConteoEnvases && cantidadEnteraEnvases != null) {
+    // REQ-311: "1 galón de 5 L" en texto + qty 8 de la PO → 8 envases, no 1.
+    envases = cantidadEnteraEnvases;
   } else if (patronConN) {
     envases = parsed.envases;
+  } else if (cantidadPareceConteoEnvases && cantidadEnteraEnvases != null) {
+    envases = cantidadEnteraEnvases;
   }
 
   const cantidadObjetivo = roundQty(envases * parsed.contenidoPorEnvase);

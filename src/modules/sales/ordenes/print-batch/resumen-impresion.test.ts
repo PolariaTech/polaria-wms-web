@@ -18,15 +18,15 @@ describe("armarResumenImpresion", () => {
     const resumen = armarResumenImpresion({
       orden: [item("b", { comprador: "Hotel Luna" }, [1, 2]), item("a", {}, [1])],
       hojas: [hoja("b"), hoja("b"), hoja("b"), hoja("a")],
-      subtitulo: "Impresión rápida · entrega hasta 05/11/2026",
-      generado: "Generado 05/11/2026 3:42 p. m.",
+      subtitulo: "Impresión rápida · entrega hasta 05-NOV-2026",
+      generado: "Generado 05-NOV-2026 3:42 p. m.",
     });
 
     expect(resumen.titulo).toBe("Resumen de impresión");
-    expect(resumen.subtitulo).toContain("entrega hasta 05/11/2026");
+    expect(resumen.subtitulo).toContain("entrega hasta 05-NOV-2026");
     expect(resumen.filas).toEqual([
-      { venta: "OV-b", cliente: "Hotel Luna", entrega: "05-NOV", ot: 2, ordenCliente: "", hojas: 3 },
-      { venta: "OV-a", cliente: "Hotel Sol", entrega: "05-NOV", ot: 1, ordenCliente: "", hojas: 1 },
+      { venta: "OV-b", cliente: "Hotel Luna", entrega: "05-NOV-2026", ot: 2, ordenCliente: "", hojas: 3 },
+      { venta: "OV-a", cliente: "Hotel Sol", entrega: "05-NOV-2026", ot: 1, ordenCliente: "", hojas: 1 },
     ]);
   });
 
@@ -114,7 +114,7 @@ describe("orden de compra del cliente en el resumen", () => {
     expect(resumen.filas.map((f) => f.ordenCliente)).toEqual(["OC-10, OC-11", "", ""]);
   });
 
-  it("la entrega sale como día y mes abreviado, sin año", () => {
+  it("la entrega sale como DD-MMM-AAAA (REQ-320)", () => {
     const resumen = armarResumenImpresion({
       orden: [item("a", { fechaEntrega: "2026-11-03" }, [1])],
       hojas: [hoja("a")],
@@ -122,6 +122,6 @@ describe("orden de compra del cliente en el resumen", () => {
       generado: "",
     });
 
-    expect(resumen.filas[0]?.entrega).toBe("03-NOV");
+    expect(resumen.filas[0]?.entrega).toBe("03-NOV-2026");
   });
 });

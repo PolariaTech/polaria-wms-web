@@ -118,7 +118,11 @@ export function totalLineaConIva(
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 import type { OrdenVentaCapturaParsed } from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import { sanitizeTelefonoContacto } from "../../utils/pedido/sanitize-telefono-contacto";
-import type { OrdenTrabajoHija } from "../../utils/origen/origen-correo-ordenes-trabajo";
+import {
+  parseOrigenCorreoJson,
+  type OrdenTrabajoHija,
+} from "../../utils/origen/origen-correo-ordenes-trabajo";
+import { leerCabeceraUsuarioSello } from "../../utils/pedido/sellar-edicion-usuario-origen";
 import { resolveNumeroOrdenClientePrint } from "../../utils/ot/filter-lineas-by-orden-trabajo";
 
 export { resolveNumeroOrdenClientePrint };
@@ -131,6 +135,9 @@ export function buildCapturaDetalleVista(
   tareaTotal: number,
   ventanaFlat: string,
 ): OrdenVentaCapturaParsed {
+  const sello = leerCabeceraUsuarioSello(
+    parseOrigenCorreoJson(orden.origen_correo),
+  );
   return {
     ...fromObs,
     prioridad: orden.prioridad?.trim() || fromObs.prioridad,
@@ -140,8 +147,13 @@ export function buildCapturaDetalleVista(
       capturaOrdenCompra: fromObs.ordenCompraHotel,
       tareaTotal,
     }),
-    centroConsumo:
-      hija?.almacen || orden.centro_consumo?.trim() || fromObs.centroConsumo,
+    // REQ-311: sello (también vacío) manda; si no, BD/captura antes que OT vieja.
+    centroConsumo: sello
+      ? sello.centroConsumo
+      : orden.centro_consumo?.trim() ||
+        fromObs.centroConsumo ||
+        hija?.almacen ||
+        "",
     moneda: orden.moneda?.trim() || fromObs.moneda,
     bodegaDestino:
       orden.bodega_destino_label?.trim() || fromObs.bodegaDestino,

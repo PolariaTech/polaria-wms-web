@@ -5,7 +5,7 @@
 | Formulario | Editar pedido |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/día/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Día de la semana (REQ-257); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287) |
+| Campos nuevos o modificados | Formato visual de fechas DD-MMM-AAAA (REQ-320) en Fecha de entrega, listados, preview, avisos y PDF de impresión (valor canónico sigue ISO); Día de entrega como texto auxiliar bajo Fecha (REQ-321; ya no campo aparte REQ-257); Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287) |
 | ¿Vive en un modal? | Sí |
 | ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | Sí |
 | Responsable (Desarrollador) | Desarrollador frontend |
@@ -20,7 +20,7 @@
 | Denominación comercial | Texto | No | — | Override WMS del comprador, o apodo sync | No | Razón social (comprador) | REQ-241: editable; si difiere del apodo sync se guarda en denominacion_comercial_override (OV + ficha); el sync no pisa el override | Sin mensaje de error: vacío se guarda (vuelve al apodo sync). | Front / Back / BD |
 | RFC | Texto | No | — | RFC del comprador en catálogo | No | Razón social (comprador) | Al elegir comprador se muestra su RFC; solo lectura en el formulario | Sin mensaje de error: no se edita ni se guarda desde este campo. | Front |
 | Moneda | Texto | No | — | MXN | No | — | REQ-278: vive en «Datos del pedido» (ya no en Entrega) | Sin mensaje de error: vacío se trata como MXN al guardar. | Front |
-| Día de la semana | Texto | No | — | Derivado de Fecha de entrega | No | Fecha de entrega | Se recalcula al cambiar la fecha de entrega; solo lectura | Sin mensaje de error: no se edita ni se guarda desde este campo. | Front |
+| Día de entrega (en valor) | Texto | No | — | Derivado de Fecha de entrega | No | Fecha de entrega | REQ-321: va dentro del mismo valor visual `DD-MMM-AAAA (DÍA)`; no es campo aparte ni de tabulación | Sin mensaje de error: no se edita ni se guarda aparte. | Front |
 | Hora desde | Texto (hora) | No | — | — | No | — | REQ-278: etiqueta «Hora desde» (antes ventana desde) | Sin mensaje de bloqueo al confirmar. | Front |
 | Hora hasta | Texto (hora) | No | — | — | No | — | REQ-278: etiqueta «Hora hasta» (antes ventana hasta) | Sin mensaje de bloqueo al confirmar. | Front |
 | Precio unitario (línea) | Número | No | ≥ 0; vacío se trata como 0 | — | No | — | REQ-235: al confirmar y en avance, precio vacío o 0 se persiste como 0; no bloquea confirmación | Sin mensaje de bloqueo por precio vacío/0 al confirmar. | Front / Back |
@@ -41,8 +41,8 @@
 | Denominación comercial | En Datos del pedido, después de código de cliente (REQ-241) | No | — |
 | RFC | En Datos del pedido, después de denominación comercial (REQ-259) | Sí (solo lectura) | — |
 | Moneda | En Datos del pedido, junto a centro de consumo / OC (REQ-278) | No | — |
-| Día de la semana | En Entrega, junto a Fecha de entrega (REQ-257) | Sí (solo lectura) | — |
-| Hora desde | En Entrega, después de Día de la semana (REQ-278) | No | — |
+| Día de entrega (en valor) | No aplica tabulación: parte del valor de Fecha de entrega (REQ-321) | Sí (solo lectura / no campo) | — |
+| Hora desde | En Entrega, después de Fecha de entrega (REQ-278/321) | No | — |
 | Hora hasta | En Entrega, después de Hora desde (REQ-278) | No | — |
 | Precio unitario (línea) | Dentro de la grilla de líneas del pedido | No | — |
 | Contacto del cliente | En Entrega, después de Hora hasta y antes de teléfono (REQ-278) | No | — |
@@ -65,7 +65,7 @@
 | Denominación comercial | Sí | Información de BD (override ?? apodo sync) | Sí |
 | RFC | Sí | Información de BD | No |
 | Moneda | Sí | Extracción IA / Información de BD | Sí |
-| Día de la semana | Sí | Derivado de Fecha de entrega (Front) | No |
+| Día de entrega (en valor) | Sí | Derivado de Fecha de entrega (Front); en el mismo valor visual (REQ-321) | No |
 | Hora desde | Sí | Extracción IA / Información de BD | Sí |
 | Hora hasta | Sí | Extracción IA / Información de BD | Sí |
 | Precio unitario (línea) | Sí | Extracción IA / Información de BD | Sí |
@@ -107,7 +107,7 @@
 | Denominación comercial | textbox "Denominación comercial" | Luis (override WMS; vacío vuelve al apodo sync) |
 | RFC | textbox "RFC" | RFC del comprador (solo lectura) |
 | Moneda | combobox / textbox Moneda en Datos del pedido | MXN |
-| Día de la semana | textbox "Día de la semana" | Día derivado de la fecha de entrega (solo lectura) |
+| Fecha de entrega | textbox "Fecha de entrega" | Valor `DD-MMM-AAAA (DÍA)` (REQ-321); canónico ISO |
 | Hora desde | textbox / time "Hora desde" | 06:00 |
 | Hora hasta | textbox / time "Hora hasta" | 08:00 |
 | Precio unitario (línea) | spinbutton / textbox de precio en línea | vacío o 0 al confirmar |
@@ -119,7 +119,7 @@
 
 Esta versión del schema documenta el lote UI OV/correo Cypher (REQ-276…294) sobre el schema previo (REQ-241/252/254/257/259/235). Contrato Front↔Back de denominación cubierto por `map-denominacion-detalle.test.ts` y `orden-venta-capture-fields.test.ts`. Layout Entrega y orden de campos: `orden-campos-datos-pedido.ts`, `OrdenVentaCaptureFormEntrega.tsx`, `OrdenVentaCaptureFormPedido.tsx`, `OrdenVentaCaptureFormProgramacion.tsx`.
 
-Orden de los campos (REQ-278): Datos del pedido lleva cliente, código, denominación comercial, RFC (solo lectura), fecha de creación y folio (solo al editar), orden de compra, centro de consumo y **moneda**. Entrega lleva, en este orden: fecha de entrega, día de la semana (derivado, solo lectura), Hora desde, Hora hasta, contacto, teléfono, correo, dirección de entrega (a ancho completo) y **notas generales al final**. Prioridad queda oculta (estado interno «Normal»). La versión 1.5 ubicaba notas/prioridad/moneda arriba en Entrega y dirección antes de contacto; ya no coincide con el código.
+Orden de los campos (REQ-278/321): Datos del pedido lleva cliente, código, denominación comercial, RFC (solo lectura), fecha de creación y folio (solo al editar), orden de compra, centro de consumo y **moneda**. Entrega lleva, en este orden: fecha de entrega (con día de la semana como texto auxiliar debajo, REQ-321), Hora desde, Hora hasta, contacto, teléfono, correo, dirección de entrega (a ancho completo) y **notas generales al final**. Prioridad queda oculta (estado interno «Normal»). La versión 1.5 ubicaba notas/prioridad/moneda arriba en Entrega y dirección antes de contacto; ya no coincide con el código.
 
 REQ-279: el aviso de total de solicitud vs total OV es informativo (`avisos-validacion-ov.ts`). El total puede venir del cuerpo/adjuntos en extracción IA o, al reabrir, de `useLeerTotalDesdeAdjuntos` → `GET /api/ov-adjuntos/resolve-occ?path=…` (`totalSolicitud`). No bloquea confirmar ni exige capa Back/BD nueva en este formulario.
 
@@ -131,7 +131,7 @@ Fecha de creación solo aparece al editar un pedido. El input es de solo lectura
 
 RFC (REQ-259) es solo lectura: se toma de `comprador.rfc` / `comprador_rfc` al cargar el detalle o al elegir comprador. No se edita ni se envía como campo propio del payload de captura.
 
-Día de la semana (REQ-257) es solo lectura: `diaSemanaEntregaEsTitulo(fechaEntrega)`. Vacío si no hay fecha de entrega. No se persiste como columna aparte.
+Fecha de entrega (REQ-320/321): valor visual `DD-MMM-AAAA (DÍA)` en el mismo campo (ej. `17-NOV-2026 (MARTES)`), vía `formatFechaEntregaConDia` / `formatCapturaFecha`. Sin hint de formato ni campo «Día de la semana». El canónico del form sigue siendo ISO. El PDF de OT también muestra la fecha con día y mantiene `diaEntrega` aparte. Al escribir, `PolariaDateInputDdMm` solo admite dígitos, letras, `-` `/` `.` espacio y paréntesis (bloquea el resto al teclear).
 
 Precio unitario (REQ-235): `persist-linea-avance` y `createOrdenVenta`/`updateOrdenVenta` aceptan precio vacío o 0 en avance y al confirmar; se normaliza a 0. La cantidad > 0 sigue exigida solo al confirmar (REQ-138).
 

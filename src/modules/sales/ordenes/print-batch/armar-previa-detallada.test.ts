@@ -62,7 +62,7 @@ describe("armarPreviaDetallada", () => {
     expect(previa.partes).toHaveLength(2);
     expect(previa.resumenPdf).toBe(resumenPdf);
     expect(armarConOc).toHaveBeenCalledWith(
-      expect.objectContaining({ hojas: HOJAS, subtitulo: "Impresión detallada · entrega 06/11/2026", generado: expect.stringMatching(/^Generado /) }),
+      expect.objectContaining({ hojas: HOJAS, subtitulo: "Impresión detallada · entrega 06-NOV-2026", generado: expect.stringMatching(/^Generado /) }),
       { marca: "dependencias" },
     );
   });

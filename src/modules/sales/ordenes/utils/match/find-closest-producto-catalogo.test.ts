@@ -130,6 +130,7 @@ describe("limón fruta vs jugo de limón", () => {
     const match = findClosestProductoCatalogo(query, [limonPersa, jugoLimon]);
     expect(match?.idProducto).toBe("jugo");
   });
+
 });
 
 describe("ANTICIPO vs jugo de limón", () => {

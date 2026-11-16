@@ -254,7 +254,7 @@ export function shouldAutoAssignComprador(
   if (result.exact) return result.exact;
 
   const top = result.candidates[0];
-  if (!top || top.score < 0.82) return null;
+  if (!top || top.score < 0.75) return null;
 
   const second = result.candidates[1];
   if (second && top.score - second.score < 0.12) return null;
@@ -264,13 +264,23 @@ export function shouldAutoAssignComprador(
     `${top.comprador.comprador} ${top.comprador.codigo}`,
   );
   const distinctive = qTokens.filter((t) => t.length >= 5);
-  if (distinctive.length < 2) return null;
   const covered = distinctive.filter(
     (qt) =>
       pTokens.includes(qt) ||
       pTokens.some((pt) => tokensNearlyEqual(qt, pt) || pt.includes(qt)),
   );
-  if (covered.length < 2) return null;
+  // Caso normal (REQ-116): ≥2 tokens fuertes cubiertos y score ≥ 0.82.
+  if (covered.length >= 2 && top.score >= 0.82) return top.comprador;
 
-  return top.comprador;
+  // REQ-311: un solo token de marca largo (≥8) con contención fuerte y gap claro
+  // (ej. «FAIRMONT» → FAIRMONT MAYAKOBA). «Hilton» (6) sigue sin auto-asignar.
+  if (
+    covered.length === 1 &&
+    (covered[0]?.length ?? 0) >= 8 &&
+    top.score >= 0.75
+  ) {
+    return top.comprador;
+  }
+
+  return null;
 }

@@ -83,7 +83,7 @@ describe("avisos validación fecha (REQ-118)", () => {
       warnFields: new Set(["fechaEntrega"]),
     });
     const fecha = avisos.find((a) => a.fieldKey === "fechaEntrega");
-    expect(fecha?.ia).toContain("22/10/2026");
-    expect(fecha?.ia).not.toContain("21/10/2026");
+    expect(fecha?.ia).toContain("22-OCT-2026 (JUEVES)");
+    expect(fecha?.ia).not.toContain("21-OCT-2026");
   });
 });

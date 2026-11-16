@@ -7,14 +7,14 @@ import {
   ordenTrasNotasEsCorrecto,
 } from "./orden-campos-datos-pedido";
 
-describe("orden logística OV (REQ-278)", () => {
-  it("programación: Fecha → Día → Hora desde → Hora hasta", () => {
+describe("orden logística OV (REQ-278/321)", () => {
+  it("programación: Fecha → Hora desde → Hora hasta (día auxiliar, no campo)", () => {
     expect([...ORDEN_TRAS_NOTAS_GENERALES]).toEqual([
       "Fecha de entrega",
-      "Día de la semana",
       "Hora desde",
       "Hora hasta",
     ]);
+    expect(ORDEN_TRAS_NOTAS_GENERALES).not.toContain("Día de la semana");
     expect(
       ordenTrasNotasEsCorrecto(
         [...ORDEN_TRAS_NOTAS_GENERALES],
@@ -30,9 +30,9 @@ describe("orden logística OV (REQ-278)", () => {
     );
     expect(ORDEN_TRAS_NOTAS_GENERALES_DETALLE).toEqual([
       "Fecha de entrega",
-      "Día de la semana",
       "Hora desde",
       "Hora hasta",
     ]);
+    expect(ORDEN_BLOQUE_ENTREGA_DETALLE).not.toContain("Día de la semana");
   });
 });

@@ -29,10 +29,8 @@ import {
 } from "../../../shared/constants/sales-status";
 import { useOrdenesVentaSubscription } from "../../../shared/hooks/useOrdenesVentaSubscription";
 import { ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS } from "../../constants/ordenes-venta-table-layout";
-import {
-  buildOrdenTareaAlmacenLandscapePdfBlob,
-  printOrdenTareaAlmacenLandscape,
-} from "../../print/download-orden-tarea-almacen-pdf";
+import { printOrdenTareaAlmacenLandscape } from "../../print/download-orden-tarea-almacen-pdf";
+import { buildOvPdfBlobConTimeout } from "../../utils/pdf/build-ov-pdf-con-timeout";
 import {
   autoPrintOrdenVentaTrasEmitir,
   autoPrintResultToFeedback,
@@ -736,10 +734,7 @@ export function OperadorOrdenesVentaPageContent({
         const sheets = ots?.length
           ? filtrarHojasElegidas(await loadPrintSheets(row), ots)
           : await loadPrintSheets(row);
-        if (sheets.length === 0) {
-          throw new Error("No hay datos para generar el PDF.");
-        }
-        const { blob } = await buildOrdenTareaAlmacenLandscapePdfBlob(sheets);
+        const blob = await buildOvPdfBlobConTimeout(sheets);
         setPdfPreview({
           title: `Previsualizacion · ${row.venta}`,
           blob,

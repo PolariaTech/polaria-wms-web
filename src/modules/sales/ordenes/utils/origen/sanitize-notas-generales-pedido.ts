@@ -15,10 +15,23 @@ const HEADER_START =
  * (REQ-277) o resumenes inventados de entrega (REQ-286).
  */
 const NOTAS_CAMPO_PARAMETRIZADO =
-  /^(Fecha de entrega|Ventana de entrega|Prioridad|Orden de compra(?: del cliente| del hotel)?|Centro de consumo|Vendedor|Moneda|Bodega destino|Dirección de entrega|Andén|Contacto|Teléfono|Turno que prepara|Hora sugerida de salida|Chofer|Unidad|Sustituciones|Requiere lote|Registrar temperatura|Cliente|Razón social|RFC|Subtotal|Total|Archivos|Destino|Entrega|Hora de entrega)\s*:/i;
+  /^(Fecha de entrega|Ventana de entrega|Prioridad|Orden de compra(?: del cliente| del hotel)?|Centro de consumo|Vendedor|Moneda|Bodega destino|Dirección de entrega|Andén|Contacto|Teléfono|Correo|Turno que prepara|Hora sugerida de salida|Chofer|Unidad|Sustituciones|Requiere lote|Registrar temperatura|Cliente|Razón social|RFC|Subtotal|Total|Archivos|Destino|Entrega|Hora de entrega|Emisi[oó]n|Asesor|Lista|Factura|Folio)\s*:/i;
 
 const NOTAS_RESUMEN_ENTREGA_INVENTADO =
   /^(Entrega\s+\d{1,2}\s+DE\s+[A-ZÁÉÍÓÚÑ]|Destino:\s*|Hora de entrega\b)/i;
+
+/** Señal de instrucción real de almacén / cliente (no metadatos de PDF). */
+const NOTAS_SENAL_UTIL =
+  /\b(madur|and[eé]n|sin sustitut|no muy|enriad|enrriad|equivalente|domo|entregar por|sin bolsa|con hielo|no verde|no madur|urgente para almac|juego de oc|observaci[oó]n(?:es)? del cliente)\b/i;
+
+const PEDIDO_HEADER_MARKERS = [
+  /\bEmisi[oó]n\s*:/i,
+  /\bAsesor\s*:/i,
+  /\bPEDIDO\b[\s\S]{0,80}\bORDINARIO\b/i,
+  /\bCotizaci[oó]n\s*\/\s*Pedido\b/i,
+  /\bLista\s*:/i,
+  /\bFactura\s*:\s*(S[ií]|No)\b/i,
+] as const;
 
 /**
  * Detecta cuando “notas generales” trae el cuerpo del correo (forward, cabeceras, hilo)
@@ -59,21 +72,73 @@ export function looksLikeEmailHeaderJunk(raw: string): boolean {
   return stripped.length < 16;
 }
 
-/** Quita del texto de notas las líneas que solo duplican campos del formulario. */
+/**
+ * Encabezado de cotización/pedido (folio, emisión, asesor, cliente…)
+ * colado como “notas generales” — no es instrucción de almacén.
+ */
+export function looksLikePedidoHeaderJunk(raw: string): boolean {
+  const text = flattenNotasForPdf(raw).trim();
+  if (!text) return false;
+  if (NOTAS_SENAL_UTIL.test(text)) return false;
+
+  const markerHits = PEDIDO_HEADER_MARKERS.filter((re) => re.test(text)).length;
+  if (markerHits >= 2) return true;
+
+  const labelHits = (
+    text.match(
+      /\b(Cliente|Tel[eé]fono|Correo|Emisi[oó]n|Asesor|Lista|Factura|Entrega|Folio)\s*:/gi,
+    ) ?? []
+  ).length;
+  if (labelHits >= 3) return true;
+
+  if (/^PEDIDO\s+\S+/i.test(text) && labelHits >= 2 && text.length < 320) {
+    return true;
+  }
+  return false;
+}
+
+function esFragmentoParametrizado(fragment: string): boolean {
+  const piece = fragment.trim().replace(/[.·•]+$/g, "").trim();
+  if (!piece) return true;
+  if (NOTAS_CAMPO_PARAMETRIZADO.test(piece)) return true;
+  if (NOTAS_RESUMEN_ENTREGA_INVENTADO.test(piece)) return true;
+  if (/^PEDIDO\s+\S+/i.test(piece) && !NOTAS_SENAL_UTIL.test(piece)) {
+    return true;
+  }
+  return false;
+}
+
+/** Quita del texto de notas las líneas/fragmentos que solo duplican campos del formulario. */
 export function stripCamposParametrizadosDeNotas(raw: string): string {
   const text = raw.trim();
   if (!text) return "";
-  return text
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter((line) => {
-      if (!line) return false;
-      if (NOTAS_CAMPO_PARAMETRIZADO.test(line)) return false;
-      if (NOTAS_RESUMEN_ENTREGA_INVENTADO.test(line)) return false;
-      return true;
-    })
-    .join("\n")
-    .trim();
+
+  if (text.includes("\n")) {
+    return text
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter((line) => !esFragmentoParametrizado(line))
+      .join("\n")
+      .trim();
+  }
+
+  // Párrafo único tipo encabezado ADP: “Emisión: …. Asesor: …. Cliente: …”
+  if (/\.\s+/.test(text) && /:\s/.test(text)) {
+    return text
+      .split(/\.\s+/)
+      .map((line) => line.trim())
+      .filter((line) => !esFragmentoParametrizado(line))
+      .join(". ")
+      .trim();
+  }
+
+  return esFragmentoParametrizado(text) ? "" : text;
+}
+
+function limpiarNotaCorta(raw: string): string {
+  const cleaned = stripCamposParametrizadosDeNotas(raw);
+  if (!cleaned || looksLikePedidoHeaderJunk(cleaned)) return "";
+  return cleaned;
 }
 
 /**
@@ -88,32 +153,36 @@ export function sanitizeNotasGeneralesPedido(
   const text = raw.trim();
   const origen = origenTexto?.trim() ?? "";
 
+  if (text && looksLikePedidoHeaderJunk(text)) {
+    return limpiarNotaCorta(text);
+  }
+
   if (
     text &&
     !looksLikeCorreoCuerpoEnNotas(text) &&
     !looksLikeEmailHeaderJunk(text)
   ) {
-    return stripCamposParametrizadosDeNotas(text);
+    return limpiarNotaCorta(text);
   }
 
   const fromObservaciones = origen
     ? fitNotasGeneralesPdf(extractObservacionesClienteBlock(origen))
     : "";
   if (fromObservaciones && !looksLikeEmailHeaderJunk(fromObservaciones)) {
-    return stripCamposParametrizadosDeNotas(fromObservaciones);
+    return limpiarNotaCorta(fromObservaciones);
   }
 
   const fromOrigen = origen
     ? fitNotasGeneralesPdf(extractNotasClaveCorreo(origen))
     : "";
   if (fromOrigen && !looksLikeEmailHeaderJunk(fromOrigen)) {
-    return stripCamposParametrizadosDeNotas(fromOrigen);
+    return limpiarNotaCorta(fromOrigen);
   }
 
   if (!text) return "";
   const fromRaw = fitNotasGeneralesPdf(extractNotasClaveCorreo(text));
   if (fromRaw && !looksLikeEmailHeaderJunk(fromRaw)) {
-    return stripCamposParametrizadosDeNotas(fromRaw);
+    return limpiarNotaCorta(fromRaw);
   }
   return "";
 }

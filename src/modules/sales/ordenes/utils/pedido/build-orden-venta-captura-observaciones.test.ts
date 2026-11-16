@@ -199,15 +199,15 @@ describe("parseOrdenVentaCapturaObservaciones", () => {
   });
 
   it("formatea fecha ISO y nota de línea por producto", () => {
-    expect(formatCapturaFecha("2026-09-03")).toBe("03/09/2026");
+    expect(formatCapturaFecha("2026-09-03")).toBe("03-SEP-2026 (JUEVES)");
     expect(
       notaCapturaForProducto("Fresa: Firme · 2 cajas", "Fresa"),
     ).toBe("Firme · 2 cajas");
   });
 
-  it("REQ-144: fecha slash US (MM/DD) se muestra como DD/MM/AAAA", () => {
-    expect(formatCapturaFecha("10/24/2026")).toBe("24/10/2026");
-    expect(formatCapturaFecha("24/10/2026")).toBe("24/10/2026");
+  it("REQ-144/320/321: fecha slash US o LatAm se muestra como DD-MMM-AAAA (DÍA)", () => {
+    expect(formatCapturaFecha("10/24/2026")).toBe("24-OCT-2026 (SÁBADO)");
+    expect(formatCapturaFecha("24/10/2026")).toBe("24-OCT-2026 (SÁBADO)");
   });
 
   it("no aplica especificación legado a otra OT del mismo producto", () => {

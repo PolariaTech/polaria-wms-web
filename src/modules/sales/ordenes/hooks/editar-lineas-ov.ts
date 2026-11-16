@@ -62,8 +62,22 @@ import {
   sanitizePrecioInputMx,
 } from "@/lib/utils/decimal-es";
 
+/** REQ-311: OT activa del pager, o la única OT si no hay pager. */
+export function resolveOtIdParaLineaNueva(params: {
+  hijaFormActivaId?: string | null;
+  ordenesTrabajoIds: readonly string[];
+}): string | undefined {
+  const activa = params.hijaFormActivaId?.trim();
+  if (activa) return activa;
+  if (params.ordenesTrabajoIds.length === 1) {
+    const unica = params.ordenesTrabajoIds[0]?.trim();
+    return unica || undefined;
+  }
+  return undefined;
+}
+
 export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
-  const { replaceLineaIndex, setLineas, setReplaceLineaIndex, setCantidadFocusId, setError, setIdBodegaDestino, restoreFormScroll, hijaFormActiva, setOrdenesTrabajoPreview, origenCorreoDraft, setOrigenCorreoDraft, captureFormScroll, setPicker, cantidadFocusId, picker, lineas, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias } = estado;
+  const { replaceLineaIndex, setLineas, setReplaceLineaIndex, setCantidadFocusId, setError, setIdBodegaDestino, restoreFormScroll, hijaFormActiva, ordenesTrabajoForm, setOrdenesTrabajoPreview, origenCorreoDraft, setOrigenCorreoDraft, captureFormScroll, setPicker, cantidadFocusId, picker, lineas, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias } = estado;
   const handleSelectProducto = useCallback(
     (row: ProductoVentaOption) => {
       if (replaceLineaIndex != null) {
@@ -82,7 +96,10 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
       }
 
       setCantidadFocusId(row.idProducto);
-      const otId = hijaFormActiva?.id;
+      const otId = resolveOtIdParaLineaNueva({
+        hijaFormActivaId: hijaFormActiva?.id,
+        ordenesTrabajoIds: ordenesTrabajoForm.map((hija) => hija.id),
+      });
       setLineas((prev) => [...prev, crearLineaDesdeProducto(row, otId)]);
       if (otId) {
         setOrdenesTrabajoPreview((prev) => {
@@ -133,6 +150,7 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
     },
     [
       hijaFormActiva?.id,
+      ordenesTrabajoForm,
       origenCorreoDraft,
       replaceLineaIndex,
       restoreFormScroll,

@@ -31,11 +31,14 @@ function propsBase(
 }
 
 describe("OrdenVentaCaptureFormProgramacion (REQ-278)", () => {
-  it("muestra fecha, día y horas; sin notas, prioridad ni moneda", () => {
+  it("muestra fecha con día en el valor, horas; sin campo día, notas, prioridad ni moneda", () => {
     render(<OrdenVentaCaptureFormProgramacion {...propsBase()} />);
 
-    expect(screen.getByLabelText(/Fecha de entrega/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Día de la semana/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Fecha de entrega/)).toHaveValue(
+      "15-ENE-2099 (JUEVES)",
+    );
+    expect(screen.queryByLabelText(/Día de la semana/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Formato DD-MMM-AAAA/)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^Hora desde$/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Hora hasta$/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Notas generales/)).not.toBeInTheDocument();

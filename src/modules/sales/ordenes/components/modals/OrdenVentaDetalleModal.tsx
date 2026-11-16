@@ -29,14 +29,8 @@ import type {
 import {
   notaCapturaForLinea,
   parseOrdenVentaCapturaObservaciones,
-  stripSurtidoFotoQrFromNotas,
 } from "../../utils/pedido/build-orden-venta-captura-observaciones";
-import {
-  cleanCorreoBodyForNotas,
-  isCuerpoMensajeFormato,
-  looksLikeCorreoCuerpoEnNotas,
-  sanitizeNotasGeneralesPedido,
-} from "../../utils/origen/texto-origen-pedido";
+import { resolveNotasGeneralesDesdeDetalle } from "../../print/resolve-cabecera-print-desde-detalle";
 import { filterLineasByOrdenTrabajoHija } from "../../utils/ot/filter-lineas-by-orden-trabajo";
 import {
   groupOrigenCorreoToOrdenesTrabajo,
@@ -216,30 +210,11 @@ function DetalleContent({
       cancelled = true;
     };
   }, [codigoCuenta, hija?.id, idOrdenVenta, recargaFolio]);
-  // Cuerpo: origen_texto / bloque "Pedido original" / observaciones crudas del correo.
-  const cuerpoMensaje = (() => {
-    const fromOrigen = captura.origenTexto.trim();
-    if (fromOrigen) return fromOrigen;
-    const obsRaw = (orden.observaciones ?? "").trim();
-    const obsParsed = captura.observaciones.trim();
-    const candidate =
-      (looksLikeCorreoCuerpoEnNotas(obsParsed) || obsParsed.length > 180
-        ? obsParsed
-        : "") ||
-      (looksLikeCorreoCuerpoEnNotas(obsRaw) || obsRaw.length > 180
-        ? obsRaw
-        : "");
-    if (!candidate) return "";
-    if (isCuerpoMensajeFormato(candidate)) return candidate;
-    return cleanCorreoBodyForNotas(candidate) || candidate;
-  })();
-  const notasGenerales = sanitizeNotasGeneralesPedido(
-    stripSurtidoFotoQrFromNotas(orden.notas_almacen ?? "") ||
-      (looksLikeCorreoCuerpoEnNotas(captura.observaciones)
-        ? ""
-        : captura.observaciones.trim()),
-    cuerpoMensaje,
-  );
+  // REQ-311 / REQ-281: mismo contrato que el PDF — sello (también vacío) manda.
+  const notasGenerales = resolveNotasGeneralesDesdeDetalle({
+    notas_almacen: orden.notas_almacen,
+    origen_correo: orden.origen_correo,
+  });
   const montosLinea = lineItems.map((linea) => {
     const titulo = resolveOrdenVentaLineaTitulo(linea);
     const nota = notaCapturaForLinea(captura.notasLineas, {
