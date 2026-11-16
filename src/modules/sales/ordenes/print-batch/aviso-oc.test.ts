@@ -78,4 +78,26 @@ describe("avisoDeOcSinImprimir", () => {
     expect(aviso?.titulo).toBe("Hay 1 archivo de OC sin imprimir.");
     expect(aviso?.detalle).toBe("El detalle está en la hoja de notas del resumen.");
   });
+
+  it("una fila sin OC cuyas notas son solo «ya va impresa con …» no cuenta como sin OC ni como archivo fallido", () => {
+    const aviso = avisoDeOcSinImprimir(
+      conOc(
+        [{ venta: "OV-1", oc: 2 }, { venta: "OV-2" }],
+        ["OV-2: C.PRINCIPAL.pdf: ya va impresa con OV-1.", "OV-2: COMEDOR.pdf: ya va impresa con OV-1."],
+      ),
+    );
+
+    expect(aviso).toBeNull();
+  });
+
+  it("las notas de OC repetida no cuentan como archivos que no se pudieron convertir", () => {
+    const aviso = avisoDeOcSinImprimir(
+      conOc(
+        [{ venta: "OV-1", oc: 1 }, { venta: "OV-2" }],
+        ["OV-2: a.pdf: ya va impresa con OV-1.", "OV-1: lista.xlsx: el servidor respondió 404."],
+      ),
+    );
+
+    expect(aviso?.titulo).toBe("Hay 1 archivo de OC sin imprimir.");
+  });
 });

@@ -27,10 +27,13 @@ export function OrigenAdjuntosCards({
   className,
   /** REQ-266: si hay callback, el ojo previsualiza dockeado (no abre pestaña). */
   onPreviewAdjunto,
+  /** REQ-313: marca con «De esta OV» el adjunto de la OC de esta OV cuando el correo se partió en varias. */
+  esDeEstaOv,
 }: {
   adjuntos: readonly OrigenAdjunto[];
   className?: string;
   onPreviewAdjunto?: (item: OrigenAdjunto, viewUrl: string) => void;
+  esDeEstaOv?: (item: OrigenAdjunto) => boolean;
 }) {
   const unique = dedupeOrigenAdjuntos(adjuntos);
   if (unique.length === 0) return null;
@@ -55,13 +58,22 @@ export function OrigenAdjuntosCards({
           const tipo = labelTipoOrigenAdjunto(item);
           const previewable = canPreviewOrigenAdjunto(item);
           const size = formatBytes(item.bytes);
+          const propia = esDeEstaOv?.(item) === true;
 
           return (
             <li
               key={`${item.nombre}-${index}`}
               data-adjunto-card=""
-              className="flex h-[5.25rem] min-w-0 flex-col overflow-hidden rounded-md border border-polaria-t-20 bg-polaria-bg/40"
+              className={cn(
+                "relative flex h-[5.25rem] min-w-0 flex-col overflow-hidden rounded-md border bg-polaria-bg/40",
+                propia ? "border-polaria-teal" : "border-polaria-t-20",
+              )}
             >
+              {propia ? (
+                <span className="absolute left-0.5 top-0.5 z-10 rounded border border-polaria-t-20 bg-polaria-t-08 px-1 py-px polaria-text-caption font-semibold leading-none text-polaria-teal">
+                  De esta OV
+                </span>
+              ) : null}
               <div className="flex h-10 shrink-0 items-center justify-center overflow-hidden bg-polaria-t-08">
                 {previewable && url && tipo === "IMG" ? (
                   // eslint-disable-next-line @next/next/no-img-element

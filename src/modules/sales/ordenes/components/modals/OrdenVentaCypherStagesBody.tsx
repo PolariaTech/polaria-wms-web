@@ -46,6 +46,8 @@ export function OrdenVentaCypherStagesBody({
   return (
     <>
       <CypherRecepcionCorreoStage
+        orden={orden}
+        codigoCuenta={codigoCuenta}
         openStages={openStages}
         toggleAccordionStage={toggleAccordionStage}
         correoChrome={correoChrome}

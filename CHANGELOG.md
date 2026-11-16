@@ -5,6 +5,7 @@ Versión de producto alineada con Polaria WMS.
 ## Sin publicar
 
 ### Ventas / OV
+- Correo partido en varias OV (REQ-313): el panel de la OV avisa cuando el correo se partió en varias OV y marca la OC de esa OV; la impresión con OC ya no repite las OC entre OV del mismo correo.
 - Especificación sin pérdidas (REQ-323): si el pedido del aplicativo trae entre paréntesis algo del producto («FRESAS (DOMO) (Domo de 1 kg)») y Mateo lo lee sin ese paréntesis, la especificación de la línea lo conserva («Domo de 1 kg»), junto a la observación del renglón. Aplica al abrir la OV, al formulario y a Modificar con IA.
 - Familia ajena por calificativo (REQ-299): si el texto pide «Pimiento rojo» o «Naranja Primera», la búsqueda por parecido ya no asigna sola PULPA DE FRUTOS ROJOS ni AGUACATE PRIMERA. Descarta el producto cuyo sustantivo no está en el texto cuando el cliente escribió otra palabra distintiva, y trata pimiento/morrón como chile morrón.
 - Código que contradice el nombre (REQ-299): si Mateo escribe en «Código producto» un SKU de otro ítem (p. ej. «Pepino» con 115001005 = AGUACATE EXTRA), la web ya no asigna ni sugiere ese producto. Busca por el nombre o deja la línea por validar.

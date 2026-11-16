@@ -93,4 +93,24 @@ describe("CypherOrigenAdjuntosBlock", () => {
     await user.click(screen.getByLabelText("Ver b.eml"));
     expect(screen.getByRole("heading", { name: "b.eml" })).toBeInTheDocument();
   });
+
+  it("pasa esDeEstaOv a las tarjetas: la insignia sale solo en la OC de esta OV (REQ-313)", () => {
+    render(
+      <CypherOrigenAdjuntosBlock
+        adjuntos={[
+          { nombre: "OC-140188.pdf", path: "c/u-OC-140188.pdf", mime: "application/pdf" },
+          { nombre: "OC-140182.pdf", path: "c/u-OC-140182.pdf", mime: "application/pdf" },
+        ]}
+        esDeEstaOv={(adjunto) => adjunto.nombre === "OC-140188.pdf"}
+      />,
+    );
+
+    expect(screen.getAllByText("De esta OV")).toHaveLength(1);
+  });
+
+  it("sin esDeEstaOv no hay insignias (control)", () => {
+    render(<CypherOrigenAdjuntosBlock adjuntos={[{ nombre: "a.pdf", path: "c/u-a.pdf" }]} />);
+
+    expect(screen.queryByText("De esta OV")).not.toBeInTheDocument();
+  });
 });

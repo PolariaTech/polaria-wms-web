@@ -107,5 +107,28 @@ describe("OrigenAdjuntosCards", () => {
       ),
     ).toHaveClass("truncate");
   });
+
+  it("con esDeEstaOv marca solo la tarjeta que devuelve true (REQ-313)", () => {
+    render(
+      <OrigenAdjuntosCards
+        adjuntos={[
+          { nombre: "OC-140188.pdf", path: "c/u-OC-140188.pdf", mime: "application/pdf" },
+          { nombre: "OC-140182.pdf", path: "c/u-OC-140182.pdf", mime: "application/pdf" },
+        ]}
+        esDeEstaOv={(adjunto) => adjunto.nombre === "OC-140188.pdf"}
+      />,
+    );
+
+    expect(screen.getAllByText("De esta OV")).toHaveLength(1);
+    const tarjeta = screen.getByText("OC-140188.pdf").closest("li")!;
+    expect(tarjeta).toHaveTextContent("De esta OV");
+    expect(screen.getByText("OC-140182.pdf").closest("li")).not.toHaveTextContent("De esta OV");
+  });
+
+  it("sin esDeEstaOv no hay insignias (control)", () => {
+    render(<OrigenAdjuntosCards adjuntos={[{ nombre: "a.pdf", path: "c/u-a.pdf" }]} />);
+
+    expect(screen.queryByText("De esta OV")).not.toBeInTheDocument();
+  });
 });
 

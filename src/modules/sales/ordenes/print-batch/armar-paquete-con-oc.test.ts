@@ -52,11 +52,15 @@ async function ocDe(paginas: number, base: number, bytesExtra = 0, avisos: strin
   return { documentos: [{ nombre: `oc-${base}.pdf`, bytes, paginas }], paginas, avisos };
 }
 
+/** `origen_archivos` con un PDF de ruta propia; `dependencias` lo reconoce por su nombre (sin `.pdf`). */
+const origenDe = (...claves: string[]): string =>
+  JSON.stringify(claves.map((clave) => ({ nombre: `${clave}.pdf`, path: `c/${clave}.pdf`, mime: "application/pdf" })));
+
 async function dependencias(ocPorOrigen: Record<string, OcPreparada>, hojas: number): Promise<DependenciasPaquete> {
   // Cada hoja de OT es una página de ancho 100+n.
   const base = await pdfConAnchos(...Array.from({ length: hojas }, (_, i) => 101 + i));
   return {
-    prepararOc: vi.fn(async (origen) => ocPorOrigen[String(origen)] ?? { documentos: [], paginas: 0, avisos: [] }),
+    prepararOc: vi.fn(async (oc) => ocPorOrigen[oc.documentos[0]?.nombre.replace(/\.pdf$/, "") ?? ""] ?? { documentos: [], paginas: 0, avisos: [] }),
     construirBaseOt: vi.fn(async () => base),
   };
 }
@@ -69,7 +73,7 @@ describe("dependenciasReales", () => {
 
     expect(deps.construirBaseOt).toBe(construirBaseOt);
     // Una OV sin adjuntos no baja nada: resultado vacío, sin tocar la red.
-    await expect(deps.prepararOc(null)).resolves.toEqual({ documentos: [], paginas: 0, avisos: [] });
+    await expect(deps.prepararOc({ documentos: [], omitidos: [] })).resolves.toEqual({ documentos: [], paginas: 0, avisos: [] });
   });
 });
 
@@ -82,7 +86,7 @@ describe("armarPaqueteConOc", () => {
       {
         hojas,
         resumen: [ov("a", 2), ov("b")],
-        origenPorOv: new Map([["a", "oa"], ["b", "ob"]]),
+        origenPorOv: new Map([["a", origenDe("oa")], ["b", origenDe("ob")]]),
         subtitulo: "Impresión rápida",
         generado: "Generado",
       },
@@ -108,7 +112,7 @@ describe("armarPaqueteConOc", () => {
       {
         hojas,
         resumen: [ov("a"), ov("b")],
-        origenPorOv: new Map([["a", "oa"], ["b", "sin"]]),
+        origenPorOv: new Map([["a", origenDe("oa")], ["b", origenDe("sin")]]),
         subtitulo: "x",
         generado: "y",
       },
@@ -124,7 +128,7 @@ describe("armarPaqueteConOc", () => {
     const deps = await dependencias({ oa: await ocDe(0, 0, 0, ["lista.xlsx: el servidor respondió 404."]) }, 1);
 
     const { resumenPdf } = await armarPaqueteConOc(
-      { hojas: hojaDe("a", 1), resumen: [ov("a")], origenPorOv: new Map([["a", "oa"]]), subtitulo: "x", generado: "y" },
+      { hojas: hojaDe("a", 1), resumen: [ov("a")], origenPorOv: new Map([["a", origenDe("oa")]]), subtitulo: "x", generado: "y" },
       deps,
     );
 
@@ -143,7 +147,7 @@ describe("armarPaqueteConOc", () => {
       {
         hojas,
         resumen: [ov("a"), ov("b"), ov("c")],
-        origenPorOv: new Map([["a", "oa"], ["b", "ob"], ["c", "oc"]]),
+        origenPorOv: new Map([["a", origenDe("oa")], ["b", origenDe("ob")], ["c", origenDe("oc")]]),
         subtitulo: "Impresión rápida",
         generado: "y",
       },
@@ -208,5 +212,52 @@ describe("armarPaqueteConOc", () => {
 
     expect(maximo).toBeGreaterThan(1);
     expect(maximo).toBeLessThanOrEqual(4);
+  });
+
+  it("dos OV hermanas con los mismos documentos: salen una sola vez, tras la primera, y queda nota", async () => {
+    const hojas = [...hojaDe("a", 1), ...hojaDe("b", 1)];
+    const deps = await dependencias({ x1: await ocDe(2, 201) }, 2);
+    const mismoOrigen = origenDe("x1", "x2");
+
+    const { partes, resumenPdf } = await armarPaqueteConOc(
+      {
+        hojas,
+        resumen: [ov("a"), ov("b")],
+        origenPorOv: new Map([["a", mismoOrigen], ["b", mismoOrigen]]),
+        subtitulo: "x",
+        generado: "y",
+      },
+      deps,
+    );
+
+    // Resumen (tabla y notas), OV a (OT 101, sus 2 documentos) y OV b (OT 102, sin documentos).
+    expect(await anchosDe(partes[0]!.pdf)).toEqual([612, 612, 101, 201, 202, 102]);
+    expect(resumenPdf.notas).toEqual([
+      "OV-b: x1.pdf: ya va impresa con OV-a.",
+      "OV-b: x2.pdf: ya va impresa con OV-a.",
+    ]);
+  });
+
+  it("dos hermanas cuyos PDF traen la OC en el nombre: cada una imprime solo el suyo", async () => {
+    const hojas = [...hojaDe("a", 1), ...hojaDe("b", 1)];
+    const deps = await dependencias({ "OC-140182": await ocDe(1, 201), "OC-140188": await ocDe(1, 301) }, 2);
+    const mismoOrigen = origenDe("OC-140182", "OC-140188");
+    const resumen = [ov("a"), ov("b")];
+    resumen[0]!.row.occ = "4500140182";
+    resumen[1]!.row.occ = "4500140188";
+
+    const { partes, resumenPdf } = await armarPaqueteConOc(
+      {
+        hojas,
+        resumen,
+        origenPorOv: new Map([["a", mismoOrigen], ["b", mismoOrigen]]),
+        subtitulo: "x",
+        generado: "y",
+      },
+      deps,
+    );
+
+    expect(await anchosDe(partes[0]!.pdf)).toEqual([612, 101, 201, 102, 301]);
+    expect(resumenPdf.notas).toBeUndefined();
   });
 });

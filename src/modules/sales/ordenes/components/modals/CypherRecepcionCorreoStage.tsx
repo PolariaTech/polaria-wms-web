@@ -4,11 +4,15 @@ import { cn } from "@/lib/utils/cn";
 import { isCuerpoMensajeFormato } from "../../utils/origen/texto-origen-pedido";
 import type { CorreoChrome } from "../../utils/origen/correo-chrome";
 import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
+import { nombreTraeOc } from "../../utils/origen/oc-en-nombre-de-archivo";
+import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 import { OrigenPedidoBodyView } from "../shared/OrigenPedidoBodyView";
+import { CypherCorreoPartidoAviso } from "./CypherCorreoPartidoAviso";
 import { CypherOrigenAdjuntosBlock } from "./CypherOrigenAdjuntosBlock";
 import { CypherStageAccordion } from "./CypherStageAccordion";
 import type { CypherStageId } from "./cypher-stages";
 import { MetaRow } from "./CypherStageMeta";
+import { useOvsDelMismoCorreo } from "./use-ovs-del-mismo-correo";
 
 export interface CypherRecepcionCorreoStageProps {
   openStages: ReadonlySet<CypherStageId>;
@@ -22,6 +26,8 @@ export interface CypherRecepcionCorreoStageProps {
   emlInnerAdjuntos: OrigenAdjunto[];
   emlInnerLoading: boolean;
   origenAdjuntos: OrigenAdjunto[];
+  orden: OrdenVentaDetalleRow;
+  codigoCuenta: string;
 }
 
 export function CypherRecepcionCorreoStage({
@@ -36,7 +42,16 @@ export function CypherRecepcionCorreoStage({
   emlInnerAdjuntos,
   emlInnerLoading,
   origenAdjuntos,
+  orden,
+  codigoCuenta,
 }: CypherRecepcionCorreoStageProps) {
+  const { hermanas } = useOvsDelMismoCorreo({
+    codigoCuenta,
+    idOrdenVenta: orden.id_orden_venta,
+    origenArchivos: orden.origen_archivos,
+  });
+  const partido = hermanas.length >= 2;
+
   return (
     <CypherStageAccordion
       stageId="correo"
@@ -82,6 +97,11 @@ export function CypherRecepcionCorreoStage({
           Sin cuerpo de mensaje registrado.
         </p>
       )}
+      <CypherCorreoPartidoAviso
+        hermanas={hermanas}
+        idOrdenVenta={orden.id_orden_venta}
+        ordenCompra={orden.orden_compra_hotel}
+      />
       {origenAdjuntosStored.length > 0 || emlInnerAdjuntos.length > 0 || emlInnerLoading ? (
         <div className="mt-4">
           <p className="polaria-text-caption font-bold tracking-[0.14em] text-polaria-w-20">
@@ -91,7 +111,14 @@ export function CypherRecepcionCorreoStage({
             {emlInnerLoading && emlInnerAdjuntos.length === 0 ? (
               <p className="polaria-text-caption text-polaria-w-50">Leyendo adjuntos del correo…</p>
             ) : null}
-            <CypherOrigenAdjuntosBlock adjuntos={origenAdjuntos} />
+            <CypherOrigenAdjuntosBlock
+              adjuntos={origenAdjuntos}
+              esDeEstaOv={
+                partido
+                  ? (adjunto) => nombreTraeOc(adjunto.nombre, orden.orden_compra_hotel)
+                  : undefined
+              }
+            />
           </div>
         </div>
       ) : null}
