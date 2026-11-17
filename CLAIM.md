@@ -31,6 +31,7 @@
 - `src/modules/sales/correos/components/CorreosTable.paginacion.test.tsx` — autorizada por el usuario el 2026-11-17
 - `src/modules/sales/correos/components/CorreosTable.test.tsx` — autorizada por el usuario el 2026-11-17
 - `src/modules/sales/correos/components/CorreosTable.url.test.tsx` — autorizada por el usuario el 2026-11-17
+- `src/modules/sales/ordenes/ai/openai-pedido.prompt-snapshot.test.ts` — autorizada por el usuario el 2026-11-17
 
 ### Compartidos (cambio mínimo y aviso)
 - `CHANGELOG.md`
