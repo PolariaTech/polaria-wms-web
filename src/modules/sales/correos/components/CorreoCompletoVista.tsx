@@ -1,23 +1,23 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
-import { ROUTES } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { CargaConPolo } from "@/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel";
 import type { RangoEspera } from "@/modules/sales/ordenes/utils/ot/aplicar-correccion-correo";
 import { useCorreoCompleto } from "../hooks/useCorreoCompleto";
-import type { CorreoContenido } from "../types/correos.types";
+import { useFilaCorreo } from "../hooks/useFilaCorreo";
+import type { AdjuntoCorreo, CorreoContenido, CorreoFila } from "../types/correos.types";
 import { formatearFechaCompleta } from "../utils/correos-formato";
 import { recordarCorreoAbierto } from "../utils/ultimo-correo-abierto";
 import { BOTON_SECUNDARIO } from "./AccionIngreso";
 import { AdjuntosDelCorreo } from "./AdjuntosDelCorreo";
+import { BarraCorreoCompleto } from "./BarraCorreoCompleto";
 import { CorreoCuerpo } from "./CorreoCuerpo";
 import { Personas } from "./DetalleCorreoPartes";
 import { IngresoDesdeCorreo } from "./IngresoDesdeCorreo";
+import { VisorAdjuntoCorreo } from "./VisorAdjuntoCorreo";
 
 /** Lo que suele tardar la primera lectura en Gmail; la siguiente, desde la memoria del api, es casi inmediata. */
 const ESPERA_LECTURA_DEL_CORREO: RangoEspera = { minSeg: 3, maxSeg: 15 };
@@ -66,25 +66,6 @@ function useAltoDisponible(panel: RefObject<HTMLElement | null>, remedir: unknow
   return alto;
 }
 
-/**
- * Regresa a la lista de donde se vino. Si la pantalla se abrió directo (sin historial en esta
- * pestaña), lleva a los correos descartados para no sacar a la persona de la aplicación.
- */
-function VolverALosCorreos() {
-  const router = useRouter();
-  const volver = () => {
-    if (window.history.length > 1) router.back();
-    else router.push(ROUTES.dashboardVentasCorreosDescartados);
-  };
-
-  return (
-    <button type="button" onClick={volver} className={cn(BOTON_SECUNDARIO, "self-start")}>
-      <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-      Volver a los correos
-    </button>
-  );
-}
-
 function EncabezadoDelCorreo({ correo }: { correo: CorreoContenido }) {
   return (
     <dl className="polaria-text-body-sm grid grid-cols-[3.25rem_minmax(0,1fr)] gap-x-3 gap-y-3">
@@ -121,6 +102,69 @@ function ErrorDeLectura({
   );
 }
 
+interface ColumnasDelCorreoProps {
+  messageId: string;
+  fila: CorreoFila | null;
+  fallo: boolean;
+  error: string | null;
+  reintentar: () => void;
+  correo: CorreoContenido | null;
+  hayCorreo: boolean;
+  visor: AdjuntoCorreo | null;
+  onVerAdjunto: (adjunto: AdjuntoCorreo) => void;
+  onCerrarVisor: () => void;
+  onCuerpoListo: () => void;
+}
+
+function ColumnasDelCorreo({
+  messageId,
+  fila,
+  fallo,
+  error,
+  reintentar,
+  correo,
+  hayCorreo,
+  visor,
+  onVerAdjunto,
+  onCerrarVisor,
+  onCuerpoListo,
+}: ColumnasDelCorreoProps) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
+      <div className="flex min-h-0 flex-col gap-6 lg:w-[22rem] lg:shrink-0 lg:overflow-y-auto lg:pr-2">
+        <IngresoDesdeCorreo fila={fila} fallo={fallo} />
+        {error ? <ErrorDeLectura mensaje={error} onReintentar={reintentar} /> : null}
+        {correo && hayCorreo ? (
+          <>
+            <EncabezadoDelCorreo correo={correo} />
+            <AdjuntosDelCorreo
+              messageId={messageId}
+              adjuntos={correo.adjuntos}
+              onVer={onVerAdjunto}
+            />
+          </>
+        ) : null}
+      </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {correo && hayCorreo && visor ? (
+          <VisorAdjuntoCorreo
+            messageId={messageId}
+            adjunto={visor}
+            onCerrar={onCerrarVisor}
+          />
+        ) : null}
+        {correo && hayCorreo && !visor ? (
+          <CorreoCuerpo
+            html={correo.html}
+            texto={correo.texto}
+            onCargado={onCuerpoListo}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 interface CorreoCompletoVistaProps {
   messageId: string;
   /** Avisa el asunto cuando el correo ya se muestra, para ponerlo como título de la pantalla. */
@@ -134,11 +178,18 @@ interface CorreoCompletoVistaProps {
  */
 export function CorreoCompletoVista({ messageId, onAsunto }: CorreoCompletoVistaProps) {
   const { correo, error, cargando, reintentar } = useCorreoCompleto(messageId);
+  const { fila, fallo, ingresar } = useFilaCorreo(messageId);
   const [cuerpoListo, setCuerpoListo] = useState(false);
+  const [visor, setVisor] = useState<AdjuntoCorreo | null>(null);
   const panel = useRef<HTMLElement | null>(null);
   const alto = useAltoDisponible(panel, cuerpoListo);
   const hayCorreo = !cargando && correo !== null;
   const asunto = correo?.asunto || "Correo sin asunto";
+
+  useEffect(() => {
+    setCuerpoListo(false);
+    setVisor(null);
+  }, [messageId]);
 
   // Si el marco nunca avisara que cargó, no se deja a la persona esperando para siempre.
   useEffect(() => {
@@ -160,31 +211,29 @@ export function CorreoCompletoVista({ messageId, onAsunto }: CorreoCompletoVista
       aria-busy={!cuerpoListo}
       style={alto ? { maxHeight: alto } : undefined}
       className={cn(
-        "flex flex-col gap-6 lg:flex-row",
+        "flex flex-col gap-6",
         // Se arma mientras Polo sigue a la vista, para que la persona vea el correo ya completo.
         !cuerpoListo && !error && "invisible",
       )}
     >
-      <div className="flex min-h-0 flex-col gap-6 lg:w-[22rem] lg:shrink-0 lg:overflow-y-auto lg:pr-2">
-        <VolverALosCorreos />
-        <IngresoDesdeCorreo messageId={messageId} />
-        {error ? <ErrorDeLectura mensaje={error} onReintentar={reintentar} /> : null}
-        {correo && hayCorreo ? (
-          <>
-            <EncabezadoDelCorreo correo={correo} />
-            <AdjuntosDelCorreo messageId={messageId} adjuntos={correo.adjuntos} />
-          </>
-        ) : null}
-      </div>
-      <div className="flex min-h-0 min-w-0 flex-col lg:flex-1">
-        {correo && hayCorreo ? (
-          <CorreoCuerpo
-            html={correo.html}
-            texto={correo.texto}
-            onCargado={() => setCuerpoListo(true)}
-          />
-        ) : null}
-      </div>
+      <BarraCorreoCompleto
+        messageId={messageId}
+        fila={fila}
+        onIngresar={(id) => void ingresar(id)}
+      />
+      <ColumnasDelCorreo
+        messageId={messageId}
+        fila={fila}
+        fallo={fallo}
+        error={error}
+        reintentar={reintentar}
+        correo={correo}
+        hayCorreo={hayCorreo}
+        visor={visor}
+        onVerAdjunto={setVisor}
+        onCerrarVisor={() => setVisor(null)}
+        onCuerpoListo={() => setCuerpoListo(true)}
+      />
       {cuerpoListo || error ? null : (
         <CargaConPolo
           titulo="Abriendo el correo…"

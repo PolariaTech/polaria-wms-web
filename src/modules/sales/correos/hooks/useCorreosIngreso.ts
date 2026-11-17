@@ -94,6 +94,7 @@ export function useCorreosIngreso(modo: ModoCorreos) {
     limpiarFiltros: filtrado.limpiarFiltros,
     hayFiltros: filtrado.hayFiltros,
     filas,
+    idsDelBloque: bloques.idsDelBloque,
     total: bloques.total,
     pagina: bloques.pagina,
     setPagina: bloques.setPagina,

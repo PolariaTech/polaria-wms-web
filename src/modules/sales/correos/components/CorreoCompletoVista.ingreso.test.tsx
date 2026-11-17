@@ -16,7 +16,7 @@ vi.mock("../services/correos.client", async (importarOriginal) => ({
 }));
 vi.mock("../services/correo-fila.client", () => filaCliente);
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ back: vi.fn(), push: vi.fn() }),
+  useRouter: () => ({ back: vi.fn(), push: vi.fn(), replace: vi.fn() }),
 }));
 vi.mock("@/components/shared/toast/PolariaToastProvider", () => ({
   usePolariaToast: () => ({ showToast: vi.fn() }),
@@ -54,6 +54,57 @@ describe("CorreoCompletoVista — ingreso (REQ-318)", () => {
   afterEach(() => {
     vi.useRealTimers();
     sessionStorage.clear();
+  });
+
+  it("muestra la seguridad del clasificador sin términos técnicos", async () => {
+    await abrir(
+      fila({
+        messageId: ID,
+        nuevoPedido: null,
+        motivo: null,
+        resultado: "duplicado",
+        confianza: "baja",
+        ingreso: null,
+      }),
+    );
+
+    expect(screen.getByText("Ya había una orden con ese número")).toBeInTheDocument();
+    expect(screen.getByText("Seguridad del clasificador: baja")).toBeInTheDocument();
+    expect(screen.queryByText(/duplicado|no_es_pedido|recibido/)).not.toBeInTheDocument();
+  });
+
+  it("muestra el veredicto del flujo junto al ingreso", async () => {
+    await abrir(
+      fila({
+        messageId: ID,
+        nuevoPedido: false,
+        motivo: "Es una cotización y no pide surtir mercancía",
+        ingreso: null,
+      }),
+    );
+
+    expect(screen.getByText("Descartado por el flujo")).toBeInTheDocument();
+    expect(
+      screen.getByText("Es una cotización y no pide surtir mercancía"),
+    ).toBeInTheDocument();
+  });
+
+  it("pone Ingresar como OV al lado de Volver, a todo el ancho", async () => {
+    await abrir(
+      fila({
+        messageId: ID,
+        nuevoPedido: false,
+        resultado: "no_es_pedido",
+        confianza: "alta",
+        ingreso: null,
+      }),
+    );
+
+    const barra = screen.getByRole("toolbar", { name: "Acciones del correo" });
+    expect(barra.className).toContain("w-full");
+    const volver = screen.getByRole("button", { name: "Volver a los correos" });
+    const ingresar = screen.getByRole("button", { name: /Ingresar como OV/ });
+    expect(volver.parentElement).toBe(ingresar.parentElement);
   });
 
   it("en un descartado muestra Ingresar como OV y lo dispara", async () => {
@@ -96,8 +147,8 @@ describe("CorreoCompletoVista — ingreso (REQ-318)", () => {
       }),
     );
 
-    expect(screen.getByText(/Ingresado como/)).toBeInTheDocument();
-    expect(screen.getByText("OV-00000123")).toBeInTheDocument();
+    expect(screen.getAllByText(/Ingresado como/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("OV-00000123").length).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", { name: /Ingresar como OV/ }),
     ).not.toBeInTheDocument();

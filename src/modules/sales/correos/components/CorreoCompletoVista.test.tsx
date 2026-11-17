@@ -7,7 +7,7 @@ const cliente = vi.hoisted(() => ({
 }));
 vi.mock("../services/correos.client", () => cliente);
 
-const navegacion = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn() }));
+const navegacion = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navegacion }));
 vi.mock("../services/correo-fila.client", () => ({
   obtenerFilaCorreo: vi.fn(() => new Promise(() => {})),
@@ -191,13 +191,8 @@ describe("CorreoCompletoVista — aislamiento del mensaje (REQ-104)", () => {
     expect(documento).not.toContain("<form");
   });
 
-  it("bloquea las imágenes de internet hasta que se pidan", async () => {
-    const usr = usuario();
+  it("las imágenes de internet se ven al abrir, sin pedirlas", async () => {
     await abrir({ html: '<img src="https://rastreo.example/p.png">' });
-
-    expect(marco().getAttribute("srcdoc")).toContain("img-src data: blob:;");
-    expect(marco().getAttribute("srcdoc")).not.toContain("https:;");
-    await usr.click(screen.getByRole("button", { name: "Mostrar imágenes" }));
 
     expect(marco().getAttribute("srcdoc")).toContain("img-src data: blob: https:;");
     expect(screen.queryByRole("button", { name: "Mostrar imágenes" })).not.toBeInTheDocument();
@@ -238,19 +233,17 @@ describe("CorreoCompletoVista — aislamiento del mensaje (REQ-104)", () => {
     await waitFor(() => expect(documento.parentElement?.getAttribute("style")).toContain("96px"));
   });
 
-  it("no ofrece mostrar imágenes si el correo no trae ninguna de internet", async () => {
+  it("no muestra el aviso de bloquear imágenes", async () => {
     await abrir({ html: '<p>Hola</p><img src="data:image/png;base64,AAAA">' });
     expect(screen.queryByRole("button", { name: "Mostrar imágenes" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Se bloquearon las imágenes/)).not.toBeInTheDocument();
   });
 });
 
-describe("CorreoCompletoVista — adjuntos (REQ-104)", () => {
-  const pestana = { location: { href: "" }, close: vi.fn() };
-
+describe("CorreoCompletoVista — adjuntos (REQ-317)", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
-    pestana.location.href = "";
     Object.defineProperty(URL, "createObjectURL", {
       value: vi.fn(() => "blob:adjunto"),
       configurable: true,
@@ -262,7 +255,7 @@ describe("CorreoCompletoVista — adjuntos (REQ-104)", () => {
       writable: true,
     });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
-    vi.spyOn(window, "open").mockReturnValue(pestana as unknown as Window);
+    vi.spyOn(window, "open");
     cliente.descargarAdjunto.mockResolvedValue(new Blob(["contenido"]));
   });
   afterEach(() => {
@@ -281,43 +274,65 @@ describe("CorreoCompletoVista — adjuntos (REQ-104)", () => {
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
   });
 
-  it("«Ver» abre la pestaña en el mismo clic y la lleva al archivo", async () => {
+  it("«Ver» muestra el PDF en esta pantalla, sin abrir otra pestaña", async () => {
     const usr = usuario();
     await abrir();
 
-    await usr.click(screen.getByRole("button", { name: "Ver pedido.pdf" }));
+    await usr.click(screen.getByRole("button", { name: "Ver pedido.pdf en esta pantalla" }));
 
-    expect(window.open).toHaveBeenCalledWith("", "_blank");
-    await waitFor(() => expect(pestana.location.href).toBe("blob:adjunto"));
+    expect(window.open).not.toHaveBeenCalled();
+    expect(screen.queryByTitle("Cuerpo del correo")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTitle("Vista previa de pedido.pdf")).toBeInTheDocument(),
+    );
     expect(HTMLAnchorElement.prototype.click).not.toHaveBeenCalled();
+
+    await usr.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(screen.getByTitle("Cuerpo del correo")).toBeInTheDocument();
   });
 
-  it("si el navegador bloquea la pestaña, lo descarga en lugar de perderlo", async () => {
-    const usr = usuario();
-    vi.spyOn(window, "open").mockReturnValue(null);
-    await abrir();
-
-    await usr.click(screen.getByRole("button", { name: "Ver pedido.pdf" }));
-
-    await waitFor(() => expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1));
-  });
-
-  it("solo ofrece «Ver» para PDF e imágenes seguras, nunca para una hoja de cálculo", async () => {
-    await abrir();
-    expect(screen.getByRole("button", { name: "Ver pedido.pdf" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ver detalle.xlsx" })).not.toBeInTheDocument();
+  it("solo ofrece «Ver» para PDF, imágenes y XML, nunca para una hoja de cálculo", async () => {
+    await abrir({
+      adjuntos: [
+        { indice: 0, nombre: "pedido.pdf", mimeType: "application/pdf", tamano: 10 },
+        { indice: 1, nombre: "detalle.xlsx", mimeType: "application/vnd.ms-excel", tamano: 20 },
+        { indice: 2, nombre: "factura.xml", mimeType: "application/xml", tamano: 30 },
+      ],
+    });
+    expect(
+      screen.getByRole("button", { name: "Ver pedido.pdf en esta pantalla" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Ver factura.xml en esta pantalla" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Ver detalle.xlsx/ }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Descargar detalle.xlsx" })).toBeInTheDocument();
   });
 
-  it("si falla la descarga muestra el motivo y cierra la pestaña que abrió", async () => {
+  it("«Ver» un XML lo muestra como texto en esta pantalla", async () => {
+    const usr = usuario();
+    cliente.descargarAdjunto.mockResolvedValue(new Blob(["<Pedido id=\"1\"/>"]));
+    await abrir({
+      adjuntos: [{ indice: 0, nombre: "factura.xml", mimeType: "text/xml", tamano: 20 }],
+    });
+
+    await usr.click(screen.getByRole("button", { name: "Ver factura.xml en esta pantalla" }));
+
+    expect(await screen.findByText('<Pedido id="1"/>')).toBeInTheDocument();
+    expect(screen.queryByTitle("Vista previa de factura.xml")).not.toBeInTheDocument();
+  });
+
+  it("si falla la lectura del adjunto muestra el motivo en esta pantalla", async () => {
     const usr = usuario();
     cliente.descargarAdjunto.mockRejectedValue(new Error("El correo no tiene ese adjunto."));
     await abrir();
 
-    await usr.click(screen.getByRole("button", { name: "Ver pedido.pdf" }));
+    await usr.click(screen.getByRole("button", { name: "Ver pedido.pdf en esta pantalla" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("El correo no tiene ese adjunto.");
-    expect(pestana.close).toHaveBeenCalledTimes(1);
+    expect(window.open).not.toHaveBeenCalled();
   });
 
   it("mientras baja un archivo, su botón queda deshabilitado", async () => {

@@ -23,7 +23,7 @@ vi.mock("../services/correos.client", async (importarOriginal) => ({
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/dashboard/ventas/correos-descartados",
-  useRouter: () => ({ replace: vi.fn() }),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 
 import { TAMANO_BLOQUE_CORREOS, TAMANO_PAGINA_CORREOS } from "../types/correos.types";

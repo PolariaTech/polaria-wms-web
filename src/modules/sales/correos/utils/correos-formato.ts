@@ -108,9 +108,19 @@ export function formatearTamano(bytes: number): string {
   return `${FORMATO_TAMANO.format(bytes / (1024 * 1024))} MB`;
 }
 
-/** Solo estos tipos se abren en una pestaña: PDF e imágenes que no ejecutan nada (no SVG). */
-export function esVistaPreviaSegura(mimeType: string): boolean {
-  return /^(application\/pdf|image\/(png|jpe?g|gif|webp))$/i.test(mimeType.trim());
+/** XML de pedido o factura. No SVG: eso ejecuta. Si el correo miente el tipo, vale el `.xml`. */
+export function esVistaPreviaXml(mimeType: string, nombre = ""): boolean {
+  const tipo = mimeType.trim();
+  if (/^(application\/xml|text\/xml)$/i.test(tipo)) return true;
+  return /\.xml$/i.test(nombre.trim()) && !/^image\/svg/i.test(tipo);
+}
+
+/** PDF, imágenes que no ejecutan (no SVG) y XML: se ven en esta pantalla, no en otra pestaña. */
+export function esVistaPreviaSegura(mimeType: string, nombre = ""): boolean {
+  return (
+    /^(application\/pdf|image\/(png|jpe?g|gif|webp))$/i.test(mimeType.trim()) ||
+    esVistaPreviaXml(mimeType, nombre)
+  );
 }
 
 function escaparHtml(texto: string): string {
@@ -168,7 +178,7 @@ const ESTILO_OSCURO =
 
 /**
  * El documento que se muestra dentro del marco aislado. Su política de contenido bloquea
- * scripts, formularios y conexiones; las imágenes de internet solo se permiten si se pide.
+ * scripts, formularios y conexiones. El visor pide las imágenes de internet al abrir.
  */
 export function armarDocumentoDelCorreo(opciones: {
   html: string;

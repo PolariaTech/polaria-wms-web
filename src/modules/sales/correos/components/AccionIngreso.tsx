@@ -12,6 +12,15 @@ import {
 
 export { puedeIngresarAMano };
 
+/** Qué hace «Ingresar como OV»: va junto al botón, donde el texto tiene ancho para leerse. */
+export function AvisoDelBoton() {
+  return (
+    <p className="polaria-text-caption text-polaria-w-50">
+      Crea una orden de venta por confirmar leyendo el correo y su adjunto.
+    </p>
+  );
+}
+
 export const BOTON_SECUNDARIO = cn(
   "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-polaria-t-20 px-3.5",
   "polaria-text-body-sm font-semibold text-polaria-teal transition",
@@ -72,8 +81,8 @@ function IngresadoPorElFlujo() {
 }
 
 /**
- * Solo el botón: el motivo de un fallo no cabe en la tabla sin romper la fila. Se lee en el modal
- * del detalle (alerta del cuerpo) y, mientras tanto, en el tooltip del botón.
+ * Solo el botón: el motivo de un fallo no cabe en la tabla sin romper la fila. Se lee en el
+ * correo completo (alerta junto al botón) y, mientras tanto, en el tooltip del botón.
  */
 function BotonIngresar({
   fila,
