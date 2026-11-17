@@ -22,6 +22,15 @@
 - `src/modules/sales/correos/hooks/useBloquesCorreos.ts`
 - `src/modules/sales/correos/hooks/useCorreosIngreso.ts`
 - `CHANGELOG.md`
+- `src/modules/sales/correos/components/CorreoCuerpo.tsx` — autorizada por el usuario el 2026-11-17
+- `src/modules/sales/correos/utils/correos-formato.ts` — autorizada por el usuario el 2026-11-17
+- `src/modules/sales/correos/utils/correos-formato.test.ts` — autorizada por el usuario el 2026-11-17
+- `src/modules/sales/correos/components/CorreosTable.estado.test.tsx` — autorizada por el usuario el 2026-11-17
+- `src/modules/sales/correos/components/CorreosTable.ingresado.test.tsx` — autorizada por el usuario el 2026-11-17
+- `src/modules/sales/correos/components/CorreosTable.ingreso.test.tsx` — autorizada por el usuario el 2026-11-17
+- `src/modules/sales/correos/components/CorreosTable.paginacion.test.tsx` — autorizada por el usuario el 2026-11-17
+- `src/modules/sales/correos/components/CorreosTable.test.tsx` — autorizada por el usuario el 2026-11-17
+- `src/modules/sales/correos/components/CorreosTable.url.test.tsx` — autorizada por el usuario el 2026-11-17
 
 ### Compartidos (cambio mínimo y aviso)
 - `CHANGELOG.md`
