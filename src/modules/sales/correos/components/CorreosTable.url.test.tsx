@@ -43,6 +43,7 @@ describe("CorreosTable — URL (REQ-318)", () => {
   });
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
     sessionStorage.clear();
   });
 

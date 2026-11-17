@@ -1,14 +1,14 @@
 "use client";
 
 import { RotateCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { getTableBodyMinHeightStyle } from "@/components/shared/table/polaria-table-layout";
 import { PolariaTablePaginationFooter } from "@/components/shared/table/PolariaTablePaginationFooter";
 import { cn } from "@/lib/utils/cn";
 import { useCorreosIngreso } from "../hooks/useCorreosIngreso";
+import { useUltimoCorreoAbierto } from "../hooks/useUltimoCorreoAbierto";
 import type { ModoCorreos } from "../types/correos.types";
-import { leerCorreoAbierto, recordarCorreoAbierto } from "../utils/ultimo-correo-abierto";
 import { BOTON_SECUNDARIO } from "./AccionIngreso";
 import { CorreosCuerpoTabla } from "./CorreosCuerpoTabla";
 import { CorreosFiltros } from "./CorreosFiltros";
@@ -145,14 +145,12 @@ function ContenidoDeLista({
 export function CorreosTable({ modo }: { modo: ModoCorreos }) {
   const correos = useCorreosIngreso(modo);
   const [detalleId, setDetalleId] = useState<string | null>(null);
-  const [abierto, setAbierto] = useState<string | null>(null);
-  useEffect(() => setAbierto(leerCorreoAbierto()), []);
+  const { abierto, marcarAbierto } = useUltimoCorreoAbierto();
 
   const primeraCarga = correos.cargando && correos.filas.length === 0;
   const alIngresar = (messageId: string) => void correos.ingresar(messageId);
   const verDetalle = (id: string) => {
-    recordarCorreoAbierto(id);
-    setAbierto(id);
+    marcarAbierto(id);
     setDetalleId(id);
   };
   // Se busca en las filas vigentes: el modal refleja el avance del ingreso y se cierra solo
