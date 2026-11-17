@@ -1,19 +1,20 @@
 "use client";
 
 import { RotateCw } from "lucide-react";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { getTableBodyMinHeightStyle } from "@/components/shared/table/polaria-table-layout";
 import { PolariaTablePaginationFooter } from "@/components/shared/table/PolariaTablePaginationFooter";
+import { TABLA_COMPACTA_PANTALLA_BAJA } from "@/components/shared/table/tabla-compacta";
+import { ROUTES } from "@/config/routes";
 import { cn } from "@/lib/utils/cn";
 import { useCorreosIngreso } from "../hooks/useCorreosIngreso";
 import { useUltimoCorreoAbierto } from "../hooks/useUltimoCorreoAbierto";
 import type { ModoCorreos } from "../types/correos.types";
+import { guardarRecorrido } from "../utils/recorrido-correos";
 import { BOTON_SECUNDARIO } from "./AccionIngreso";
 import { CorreosCuerpoTabla } from "./CorreosCuerpoTabla";
 import { CorreosFiltros } from "./CorreosFiltros";
-import { DetalleCorreoModal } from "./DetalleCorreoModal";
-import { TABLA_COMPACTA_PANTALLA_BAJA } from "@/components/shared/table/tabla-compacta";
 
 const TEXTOS_VACIO: Record<ModoCorreos, { sinFiltros: string; conFiltros: string }> = {
   todos: {
@@ -139,62 +140,51 @@ function ContenidoDeLista({
 }
 
 /**
- * Lista de correos de pedidos (REQ-104): filtros, tabla y paginación, con la columna que ingresa
- * un correo como OV y el detalle completo en un modal al hacer clic en una fila.
+ * Lista de correos de pedidos (REQ-104 / REQ-317): filtros, tabla y paginación. El clic de
+ * una fila abre el correo completo en esta pestaña; «Ingresar como OV» no navega.
  */
 export function CorreosTable({ modo }: { modo: ModoCorreos }) {
+  const router = useRouter();
   const correos = useCorreosIngreso(modo);
-  const [detalleId, setDetalleId] = useState<string | null>(null);
   const { abierto, marcarAbierto } = useUltimoCorreoAbierto();
 
   const primeraCarga = correos.cargando && correos.filas.length === 0;
   const alIngresar = (messageId: string) => void correos.ingresar(messageId);
   const verDetalle = (id: string) => {
     marcarAbierto(id);
-    setDetalleId(id);
+    if (correos.idsDelBloque.length > 0) {
+      guardarRecorrido({ modo, ids: correos.idsDelBloque });
+    }
+    router.push(ROUTES.dashboardVentasCorreo(id));
   };
-  // Se busca en las filas vigentes: el modal refleja el avance del ingreso y se cierra solo
-  // si el correo sale de la página (otra página, otros filtros).
-  const detalle = correos.filas.find((fila) => fila.messageId === detalleId) ?? null;
   const textos = TEXTOS_VACIO[modo];
 
   return (
-    <>
-      <section
-        className={cn(
-          "overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-sm",
-          TABLA_COMPACTA_PANTALLA_BAJA,
-        )}
-      >
-        <EncabezadoLista
-          total={primeraCarga ? null : correos.total}
-          cargando={correos.cargando}
-          onActualizar={correos.recargar}
-        />
-        <CorreosFiltros
-          filtros={correos.filtros}
-          onChange={correos.setFiltro}
-          onLimpiar={correos.limpiarFiltros}
-          hayFiltros={correos.hayFiltros}
-        />
-        <ContenidoDeLista
-          correos={correos}
-          primeraCarga={primeraCarga}
-          textoVacio={correos.hayFiltros ? textos.conFiltros : textos.sinFiltros}
-          abierto={abierto}
-          onVerDetalle={verDetalle}
-          onIngresar={alIngresar}
-        />
-      </section>
-
-      {/* Fuera del <section>: su `backdrop-blur` volvería «relativo» al `fixed` del modal. */}
-      {detalle ? (
-        <DetalleCorreoModal
-          fila={detalle}
-          onClose={() => setDetalleId(null)}
-          onIngresar={alIngresar}
-        />
-      ) : null}
-    </>
+    <section
+      className={cn(
+        "overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-sm",
+        TABLA_COMPACTA_PANTALLA_BAJA,
+      )}
+    >
+      <EncabezadoLista
+        total={primeraCarga ? null : correos.total}
+        cargando={correos.cargando}
+        onActualizar={correos.recargar}
+      />
+      <CorreosFiltros
+        filtros={correos.filtros}
+        onChange={correos.setFiltro}
+        onLimpiar={correos.limpiarFiltros}
+        hayFiltros={correos.hayFiltros}
+      />
+      <ContenidoDeLista
+        correos={correos}
+        primeraCarga={primeraCarga}
+        textoVacio={correos.hayFiltros ? textos.conFiltros : textos.sinFiltros}
+        abierto={abierto}
+        onVerDetalle={verDetalle}
+        onIngresar={alIngresar}
+      />
+    </section>
   );
 }

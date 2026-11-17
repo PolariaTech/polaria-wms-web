@@ -42,8 +42,7 @@ function BotonAsunto({
   return (
     <button
       type="button"
-      aria-haspopup="dialog"
-      title={fila.asunto ?? "Ver el detalle del correo"}
+      title={fila.asunto ?? "Ver el correo completo"}
       onClick={(evento) => {
         evento.stopPropagation();
         onVerDetalle(fila.messageId);
@@ -66,7 +65,7 @@ function CeldaMotivo({ fila }: { fila: CorreoFila }) {
   if (!motivo) return SIN_DATO;
   // El recorte va sobre el texto de adentro: un badge `inline-flex` no recorta a su hijo, y un
   // motivo largo estiraba la fila. Con dos líneas máximo la fila conserva su alto; el motivo
-  // completo se lee en el modal del detalle (clic en la fila).
+  // completo se lee en el correo completo (clic en la fila).
   return (
     <span
       title={motivo}
@@ -84,7 +83,7 @@ interface FilaCorreoProps {
   onIngresar: (messageId: string) => void;
 }
 
-/** Una fila de la lista: todo el renglón abre el detalle, salvo la columna de ingreso. */
+/** Una fila de la lista: todo el renglón abre el correo completo, salvo la columna de ingreso. */
 export function FilaCorreo({ fila, abierta, onVerDetalle, onIngresar }: FilaCorreoProps) {
   return (
     <tr

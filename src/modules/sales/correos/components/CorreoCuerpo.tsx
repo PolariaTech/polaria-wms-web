@@ -3,25 +3,7 @@
 import { Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { cn } from "@/lib/utils/cn";
-import {
-  armarDocumentoDelCorreo,
-  tieneImagenesExternas,
-} from "../utils/correos-formato";
-import { BOTON_SECUNDARIO } from "./AccionIngreso";
-
-function AvisoDeImagenes({ onMostrar }: { onMostrar: () => void }) {
-  return (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-polaria-w-08 px-4 py-3">
-      <p className="polaria-text-body-sm text-polaria-w-50">
-        Se bloquearon las imágenes de internet: al cargarlas, quien envió el correo sabría que
-        se abrió.
-      </p>
-      <button type="button" onClick={onMostrar} className={BOTON_SECUNDARIO}>
-        Mostrar imágenes
-      </button>
-    </div>
-  );
-}
+import { armarDocumentoDelCorreo } from "../utils/correos-formato";
 
 /**
  * Sin scripts, formularios ni ventanas con acceso a esta página. `allow-same-origin` solo deja que
@@ -85,8 +67,8 @@ function BotonDeFondo({ oscuro, onCambiar }: { oscuro: boolean; onCambiar: () =>
 
 /**
  * El mensaje del correo, dentro de un marco aislado: sin scripts, sin formularios, sin acceso a
- * esta página y con las imágenes de internet bloqueadas hasta que se pidan. El cuerpo de un
- * correo es contenido ajeno, nunca se inserta directo en la pantalla.
+ * esta página. Las imágenes (también las de internet) se ven al abrir. El cuerpo de un correo es
+ * contenido ajeno, nunca se inserta directo en la pantalla.
  */
 export function CorreoCuerpo({
   html,
@@ -98,22 +80,17 @@ export function CorreoCuerpo({
   /** Avisa que el marco terminó de dibujar el mensaje. */
   onCargado?: () => void;
 }) {
-  const [permitirImagenes, setPermitirImagenes] = useState(false);
   const [oscuro, setOscuro] = useState(false);
   const marco = useRef<HTMLIFrameElement | null>(null);
   const { alto, alCargar } = useAltoDelContenido(marco);
   const documento = useMemo(
-    () => armarDocumentoDelCorreo({ html, texto, permitirImagenes, oscuro }),
-    [html, texto, permitirImagenes, oscuro],
+    () => armarDocumentoDelCorreo({ html, texto, permitirImagenes: true, oscuro }),
+    [html, texto, oscuro],
   );
-  const hayImagenesBloqueadas = !permitirImagenes && tieneImagenesExternas(html);
 
   return (
     <section className="flex min-h-0 flex-col">
       <h3 className="polaria-text-body font-semibold">Mensaje</h3>
-      {hayImagenesBloqueadas ? (
-        <AvisoDeImagenes onMostrar={() => setPermitirImagenes(true)} />
-      ) : null}
       {/* El recuadro mide lo que mide el mensaje; si no cabe en la ventana (o en 70 % apilado), se encoge y el mensaje se desplaza dentro. */}
       <div
         className="relative mt-3 max-h-[70vh] min-h-24 lg:max-h-none"

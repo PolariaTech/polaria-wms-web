@@ -100,16 +100,27 @@ describe("formatearTamano", () => {
 });
 
 describe("esVistaPreviaSegura", () => {
-  it("acepta PDF e imágenes que no ejecutan nada", () => {
-    for (const tipo of ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"]) {
+  it("acepta PDF, imágenes que no ejecutan nada y XML", () => {
+    for (const tipo of [
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/gif",
+      "image/webp",
+      "application/xml",
+      "text/xml",
+    ]) {
       expect(esVistaPreviaSegura(tipo)).toBe(true);
     }
+    expect(esVistaPreviaSegura("application/octet-stream", "pedido.xml")).toBe(true);
   });
 
   it("rechaza SVG, HTML y cualquier otro tipo, aunque lo diga el correo", () => {
     for (const tipo of ["image/svg+xml", "text/html", "application/x-msdownload", "application/pdf; x", "pdf", ""]) {
       expect(esVistaPreviaSegura(tipo)).toBe(false);
     }
+    expect(esVistaPreviaSegura("image/svg+xml", "dibujo.xml")).toBe(false);
   });
 });
 

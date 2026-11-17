@@ -149,10 +149,15 @@ export function useBloquesCorreos(
       (actual?.filas ?? []).slice(desplazamiento, desplazamiento + TAMANO_PAGINA_CORREOS),
     [actual, desplazamiento],
   );
+  const idsDelBloque = useMemo(
+    () => (actual?.filas ?? []).map((fila) => fila.messageId),
+    [actual],
+  );
   const recargar = useCallback(() => setRecarga((previo) => previo + 1), []);
 
   return {
     filas,
+    idsDelBloque,
     total,
     pagina,
     setPagina,

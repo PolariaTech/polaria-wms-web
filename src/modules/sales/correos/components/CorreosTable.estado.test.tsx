@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => ({
@@ -22,10 +22,10 @@ vi.mock("../services/correos.client", async (importarOriginal) => ({
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/dashboard/ventas/correos-descartados",
-  useRouter: () => ({ replace: vi.fn() }),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 
-import { BOTON_INGRESAR, fila, lista, usuario } from "../testing/correos.fixtures";
+import { BOTON_INGRESAR, fila, lista } from "../testing/correos.fixtures";
 import { CorreosTable } from "./CorreosTable";
 
 const base = { nuevoPedido: null, motivo: null } as const;
@@ -90,18 +90,4 @@ describe("CorreosTable — estado de cada correo (REQ-275)", () => {
     expect(screen.getByRole("button", { name: BOTON_INGRESAR })).toBeInTheDocument();
   });
 
-  it("el modal repite el estado y la seguridad del clasificador, sin términos técnicos", async () => {
-    api.listarCorreos.mockResolvedValue(
-      lista([fila({ ...base, resultado: "duplicado", confianza: "baja" })]),
-    );
-    const user = usuario();
-    render(<CorreosTable modo="todos" />);
-
-    await user.click(await screen.findByText("compras@hotel.com"));
-
-    const dialogo = await screen.findByRole("dialog");
-    expect(within(dialogo).getAllByText("Ya había una orden con ese número").length).toBeGreaterThan(0);
-    expect(within(dialogo).getByText("Seguridad del clasificador: baja")).toBeInTheDocument();
-    expect(within(dialogo).queryByText(/duplicado|no_es_pedido|recibido/)).not.toBeInTheDocument();
-  });
 });

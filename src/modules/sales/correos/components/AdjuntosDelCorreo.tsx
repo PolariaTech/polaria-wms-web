@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, ExternalLink, Loader2, Paperclip } from "lucide-react";
+import { Download, Eye, Loader2, Paperclip } from "lucide-react";
 import { useDescargaDeAdjuntos } from "../hooks/useCorreoCompleto";
 import type { AdjuntoCorreo } from "../types/correos.types";
 import { esVistaPreviaSegura, formatearTamano } from "../utils/correos-formato";
@@ -26,15 +26,15 @@ function ItemAdjunto({ adjunto, ocupado, onDescargar, onVer }: ItemAdjuntoProps)
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {esVistaPreviaSegura(adjunto.mimeType) ? (
+        {esVistaPreviaSegura(adjunto.mimeType, adjunto.nombre) ? (
           <button
             type="button"
             disabled={ocupado}
             onClick={() => onVer(adjunto)}
-            aria-label={`Ver ${adjunto.nombre}`}
+            aria-label={`Ver ${adjunto.nombre} en esta pantalla`}
             className={BOTON_SECUNDARIO}
           >
-            <ExternalLink className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            <Eye className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             Ver
           </button>
         ) : null}
@@ -57,13 +57,15 @@ function ItemAdjunto({ adjunto, ocupado, onDescargar, onVer }: ItemAdjuntoProps)
   );
 }
 
-/** Los adjuntos del correo: nombre, tamaño, y botones para descargarlos o verlos (PDF e imágenes). */
+/** Los adjuntos del correo: nombre, tamaño, y botones para descargarlos o verlos en esta pantalla. */
 export function AdjuntosDelCorreo({
   messageId,
   adjuntos,
+  onVer,
 }: {
   messageId: string;
   adjuntos: AdjuntoCorreo[];
+  onVer: (adjunto: AdjuntoCorreo) => void;
 }) {
   const descarga = useDescargaDeAdjuntos(messageId);
   if (adjuntos.length === 0) return null;
@@ -79,7 +81,7 @@ export function AdjuntosDelCorreo({
             adjunto={adjunto}
             ocupado={descarga.ocupado === adjunto.indice}
             onDescargar={descarga.descargar}
-            onVer={descarga.ver}
+            onVer={onVer}
           />
         ))}
       </ul>

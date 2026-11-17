@@ -50,26 +50,23 @@ function guardarComoArchivo(url: string, nombre: string): void {
 const REVOCAR_URL_EN_MS = 60_000;
 
 /**
- * Descarga o abre un adjunto. Va con la sesión (no es un enlace simple), así que se baja como
- * archivo en memoria. Para «ver», la pestaña se abre dentro del clic para que el navegador no la bloquee.
+ * Descarga un adjunto con la sesión (no es un enlace simple) y lo guarda como archivo.
+ * «Ver» vive en la columna derecha (`VisorAdjuntoCorreo`), no aquí.
  */
 export function useDescargaDeAdjuntos(messageId: string) {
   const [ocupado, setOcupado] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const bajar = useCallback(
-    async (adjunto: AdjuntoCorreo, verEnPestana: boolean) => {
-      const pestana = verEnPestana ? window.open("", "_blank") : null;
+  const descargar = useCallback(
+    async (adjunto: AdjuntoCorreo) => {
       setOcupado(adjunto.indice);
       setError(null);
       try {
         const archivo = await descargarAdjunto(messageId, adjunto.indice);
         const url = URL.createObjectURL(archivo);
-        if (pestana) pestana.location.href = url;
-        else guardarComoArchivo(url, adjunto.nombre);
+        guardarComoArchivo(url, adjunto.nombre);
         setTimeout(() => URL.revokeObjectURL(url), REVOCAR_URL_EN_MS);
       } catch (causa) {
-        pestana?.close();
         setError(mensajeDeError(causa));
       } finally {
         setOcupado(null);
@@ -78,10 +75,5 @@ export function useDescargaDeAdjuntos(messageId: string) {
     [messageId],
   );
 
-  return {
-    ocupado,
-    error,
-    descargar: (adjunto: AdjuntoCorreo) => bajar(adjunto, false),
-    ver: (adjunto: AdjuntoCorreo) => bajar(adjunto, true),
-  };
+  return { ocupado, error, descargar };
 }
