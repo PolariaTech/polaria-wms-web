@@ -9,6 +9,12 @@ vi.mock("../services/correos.client", () => cliente);
 
 const navegacion = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navegacion }));
+vi.mock("../services/correo-fila.client", () => ({
+  obtenerFilaCorreo: vi.fn(() => new Promise(() => {})),
+}));
+vi.mock("@/components/shared/toast/PolariaToastProvider", () => ({
+  usePolariaToast: () => ({ showToast: vi.fn() }),
+}));
 
 import { usuario } from "../testing/correos.fixtures";
 import type { CorreoContenido } from "../types/correos.types";

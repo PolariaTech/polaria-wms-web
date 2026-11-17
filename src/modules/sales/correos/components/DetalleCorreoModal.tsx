@@ -26,7 +26,7 @@ function descripcionDeRecepcion(recibidoEn: string | null): string {
 }
 
 /** Qué hace «Ingresar como OV»: va en el cuerpo, donde el texto tiene ancho para leerse completo. */
-function AvisoDelBoton() {
+export function AvisoDelBoton() {
   return (
     <p className="polaria-text-caption text-polaria-w-50">
       Crea una orden de venta por confirmar leyendo el correo y su adjunto.

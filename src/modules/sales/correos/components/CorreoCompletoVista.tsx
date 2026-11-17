@@ -12,10 +12,12 @@ import type { RangoEspera } from "@/modules/sales/ordenes/utils/ot/aplicar-corre
 import { useCorreoCompleto } from "../hooks/useCorreoCompleto";
 import type { CorreoContenido } from "../types/correos.types";
 import { formatearFechaCompleta } from "../utils/correos-formato";
+import { recordarCorreoAbierto } from "../utils/ultimo-correo-abierto";
 import { BOTON_SECUNDARIO } from "./AccionIngreso";
 import { AdjuntosDelCorreo } from "./AdjuntosDelCorreo";
 import { CorreoCuerpo } from "./CorreoCuerpo";
 import { Personas } from "./DetalleCorreoPartes";
+import { IngresoDesdeCorreo } from "./IngresoDesdeCorreo";
 
 /** Lo que suele tardar la primera lectura en Gmail; la siguiente, desde la memoria del api, es casi inmediata. */
 const ESPERA_LECTURA_DEL_CORREO: RangoEspera = { minSeg: 3, maxSeg: 15 };
@@ -149,6 +151,8 @@ export function CorreoCompletoVista({ messageId, onAsunto }: CorreoCompletoVista
     if (cuerpoListo && hayCorreo) onAsunto?.(asunto);
   }, [cuerpoListo, hayCorreo, asunto, onAsunto]);
 
+  useEffect(() => recordarCorreoAbierto(messageId), [messageId]);
+
   return (
     <section
       ref={panel}
@@ -163,6 +167,7 @@ export function CorreoCompletoVista({ messageId, onAsunto }: CorreoCompletoVista
     >
       <div className="flex min-h-0 flex-col gap-6 lg:w-[22rem] lg:shrink-0 lg:overflow-y-auto lg:pr-2">
         <VolverALosCorreos />
+        <IngresoDesdeCorreo messageId={messageId} />
         {error ? <ErrorDeLectura mensaje={error} onReintentar={reintentar} /> : null}
         {correo && hayCorreo ? (
           <>

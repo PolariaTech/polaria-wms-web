@@ -20,6 +20,11 @@ vi.mock("../services/correos.client", async (importarOriginal) => ({
   ...(await importarOriginal<typeof import("../services/correos.client")>()),
   ...api,
 }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/dashboard/ventas/correos-descartados",
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 
 import { CorreosApiError } from "../services/correos.client";
 import { BOTON_INGRESAR, MSG, fila, ingreso, lista, usuario } from "../testing/correos.fixtures";
@@ -83,6 +88,7 @@ describe("CorreosTable — ingreso como OV (REQ-104)", () => {
 
     await user.click(await screen.findByRole("button", { name: BOTON_INGRESAR }));
 
+    await act(() => vi.advanceTimersByTimeAsync(0));
     expect(await screen.findByText("OV-00001318")).toBeInTheDocument();
     expect(toast.showToast).toHaveBeenCalledWith(
       expect.objectContaining({ variant: "info" }),

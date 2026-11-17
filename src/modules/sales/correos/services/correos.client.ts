@@ -17,6 +17,7 @@ import { leerCamposDelFlujo } from "./correos.lectura";
 /**
  * Cliente de REQ-104:
  *  - `GET  /ventas/correos`                          lista los correos que registra n8n.
+ *  - `GET  /ventas/correos/:messageId`                una fila de la lista (REQ-318).
  *  - `POST /ventas/correos/:messageId/ingresar`      crea la OV en segundo plano (202).
  *  - `GET  /ventas/correos/:messageId/ingreso`       avance del ingreso (se sondea).
  *  - `GET  /ventas/correos/:messageId/contenido`     el correo completo, para mostrarlo.
@@ -181,7 +182,7 @@ async function enviar(
   return respuesta;
 }
 
-async function pedir(
+export async function pedir(
   ruta: string,
   opciones: { method: "GET" | "POST"; signal?: AbortSignal },
 ): Promise<unknown> {
@@ -189,7 +190,7 @@ async function pedir(
   return respuesta.json().catch(() => ({}));
 }
 
-function inesperada(): CorreosApiError {
+export function inesperada(): CorreosApiError {
   return new CorreosApiError(
     "La respuesta del servidor no tiene el formato esperado.",
     "RESPUESTA_INESPERADA",
@@ -210,7 +211,7 @@ export function leerIngreso(valor: unknown): IngresoCorreo | null {
   };
 }
 
-function leerFila(valor: unknown): CorreoFila | null {
+export function leerFila(valor: unknown): CorreoFila | null {
   if (!esObjeto(valor) || typeof valor.messageId !== "string") return null;
   return {
     messageId: valor.messageId,

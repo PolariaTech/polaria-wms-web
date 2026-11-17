@@ -20,6 +20,11 @@ vi.mock("../services/correos.client", async (importarOriginal) => ({
   ...(await importarOriginal<typeof import("../services/correos.client")>()),
   ...api,
 }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/dashboard/ventas/correos-descartados",
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 
 import { CorreosApiError } from "../services/correos.client";
 import { TAMANO_BLOQUE_CORREOS, TAMANO_PAGINA_CORREOS } from "../types/correos.types";
@@ -153,7 +158,7 @@ describe("CorreosTable — lista, filtros y estados (REQ-104)", () => {
   it("explica el vacío según el modo y si hay filtros", async () => {
     api.listarCorreos.mockResolvedValue(lista([]));
     const { unmount } = render(<CorreosTable modo="descartados" />);
-    expect(await screen.findByText("El flujo no ha descartado ningún correo.")).toBeInTheDocument();
+    expect(await screen.findByText("No hay correos descartados por revisar.")).toBeInTheDocument();
     unmount();
 
     api.listarCorreos.mockResolvedValue(lista([]));

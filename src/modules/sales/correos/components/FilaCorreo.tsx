@@ -79,18 +79,21 @@ function CeldaMotivo({ fila }: { fila: CorreoFila }) {
 
 interface FilaCorreoProps {
   fila: CorreoFila;
+  abierta: boolean;
   onVerDetalle: (messageId: string) => void;
   onIngresar: (messageId: string) => void;
 }
 
 /** Una fila de la lista: todo el renglón abre el detalle, salvo la columna de ingreso. */
-export function FilaCorreo({ fila, onVerDetalle, onIngresar }: FilaCorreoProps) {
+export function FilaCorreo({ fila, abierta, onVerDetalle, onIngresar }: FilaCorreoProps) {
   return (
     <tr
+      aria-current={abierta ? "true" : undefined}
       onClick={() => onVerDetalle(fila.messageId)}
       className={cn(
         POLARIA_TABLE_ROW_HEIGHT_CLASS,
         "cursor-pointer border-t border-polaria-w-08 text-polaria-w transition-colors hover:bg-polaria-t-08",
+        abierta && "border-l-2 border-l-polaria-teal bg-polaria-t-08",
       )}
     >
       <td className={cn(CELDA, "polaria-text-body-sm tabular-nums text-polaria-w-50")}>
@@ -100,6 +103,9 @@ export function FilaCorreo({ fila, onVerDetalle, onIngresar }: FilaCorreoProps) 
         <span className="polaria-text-body-sm block truncate" title={fila.de ?? undefined}>
           {fila.de ?? "—"}
         </span>
+        {abierta ? (
+          <span className="polaria-text-caption block text-polaria-teal">Último abierto</span>
+        ) : null}
       </td>
       <td className={CELDA}>
         <BotonAsunto fila={fila} onVerDetalle={onVerDetalle} />
