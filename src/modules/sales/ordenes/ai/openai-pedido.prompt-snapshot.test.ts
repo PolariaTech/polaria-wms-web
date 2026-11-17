@@ -134,7 +134,8 @@ function compararSnap(nombre: string, valor: string) {
     fs.mkdirSync(SNAP_DIR, { recursive: true });
     fs.writeFileSync(archivo, valor);
   }
-  expect(fs.readFileSync(archivo, "utf8")).toBe(valor);
+  const enDisco = fs.readFileSync(archivo, "utf8").replaceAll("\r\n", "\n");
+  expect(enDisco).toBe(valor.replaceAll("\r\n", "\n"));
 }
 
 function textoUsuario(content: unknown): string {
