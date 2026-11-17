@@ -2,7 +2,7 @@ import { DEFAULT_TABLE_PAGE_SIZE } from "@/constants/ui/table-pagination";
 
 /** REQ-104: correos de pedidos que registra n8n y su ingreso manual como OV. */
 
-export type ModoCorreos = "todos" | "descartados";
+export type ModoCorreos = "todos" | "descartados" | "procesados";
 
 export type EstadoIngresoCorreo = "procesando" | "ingresado" | "error";
 

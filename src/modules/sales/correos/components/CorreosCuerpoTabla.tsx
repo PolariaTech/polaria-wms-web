@@ -56,6 +56,7 @@ interface CorreosCuerpoTablaProps {
   tamano: number;
   cargando: boolean;
   textoVacio: string;
+  abierto: string | null;
   onVerDetalle: (messageId: string) => void;
   onIngresar: (messageId: string) => void;
 }
@@ -65,6 +66,7 @@ export function CorreosCuerpoTabla({
   tamano,
   cargando,
   textoVacio,
+  abierto,
   onVerDetalle,
   onIngresar,
 }: CorreosCuerpoTablaProps) {
@@ -97,6 +99,7 @@ export function CorreosCuerpoTabla({
             <FilaCorreo
               key={fila.messageId}
               fila={fila}
+              abierta={fila.messageId === abierto}
               onVerDetalle={onVerDetalle}
               onIngresar={onIngresar}
             />

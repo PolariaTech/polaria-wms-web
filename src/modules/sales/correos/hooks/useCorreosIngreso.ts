@@ -9,15 +9,16 @@ import {
   type ModoCorreos,
 } from "../types/correos.types";
 import { useBloquesCorreos } from "./useBloquesCorreos";
+import { useEstadoListaEnUrl } from "./useEstadoListaEnUrl";
 import { useIngresoCorreo } from "./useIngresoCorreo";
 
 const RETARDO_FILTROS_MS = 350;
 
 /** Los filtros que se escriben, y los que se aplican tras un breve retardo para no pedir por tecla. */
-export function useFiltrosCorreos() {
-  const [filtros, setFiltros] = useState<FiltrosCorreos>(FILTROS_CORREOS_VACIOS);
-  const [aplicados, setAplicados] = useState<FiltrosCorreos>(FILTROS_CORREOS_VACIOS);
-  const aplicadosRef = useRef<FiltrosCorreos>(FILTROS_CORREOS_VACIOS);
+export function useFiltrosCorreos(inicial: FiltrosCorreos = FILTROS_CORREOS_VACIOS) {
+  const [filtros, setFiltros] = useState<FiltrosCorreos>(inicial);
+  const [aplicados, setAplicados] = useState<FiltrosCorreos>(inicial);
+  const aplicadosRef = useRef<FiltrosCorreos>(inicial);
 
   useEffect(() => {
     const temporizador = setTimeout(() => {
@@ -48,9 +49,28 @@ export function useFiltrosCorreos() {
  * se piden al servidor) y el ingreso manual de un correo como OV con el seguimiento de su avance.
  */
 export function useCorreosIngreso(modo: ModoCorreos) {
-  const filtrado = useFiltrosCorreos();
-  const bloques = useBloquesCorreos(modo, filtrado.aplicados);
+  const url = useEstadoListaEnUrl();
+  const { guardar } = url;
+  const filtrado = useFiltrosCorreos(url.inicial.filtros);
+  const bloques = useBloquesCorreos(modo, filtrado.aplicados, url.inicial.pagina);
   const { locales, ingresar, sondear } = useIngresoCorreo();
+  const recargar = bloques.recargar;
+  const recargados = useRef(new Set<string>());
+
+  useEffect(() => {
+    guardar({ filtros: filtrado.aplicados, pagina: bloques.pagina });
+  }, [filtrado.aplicados, bloques.pagina, guardar]);
+
+  // REQ-314: en descartados, un correo recién ingresado sale de la lista sin pulsar Actualizar; el aviso de éxito ya dice la OV.
+  useEffect(() => {
+    if (modo !== "descartados") return;
+    const nuevos = Object.keys(locales).filter(
+      (id) => locales[id]?.estado === "ingresado" && !recargados.current.has(id),
+    );
+    if (nuevos.length === 0) return;
+    for (const id of nuevos) recargados.current.add(id);
+    recargar();
+  }, [locales, modo, recargar]);
 
   const filas = useMemo<CorreoFila[]>(
     () =>

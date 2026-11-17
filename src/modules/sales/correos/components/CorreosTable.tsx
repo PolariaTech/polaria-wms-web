@@ -7,6 +7,7 @@ import { getTableBodyMinHeightStyle } from "@/components/shared/table/polaria-ta
 import { PolariaTablePaginationFooter } from "@/components/shared/table/PolariaTablePaginationFooter";
 import { cn } from "@/lib/utils/cn";
 import { useCorreosIngreso } from "../hooks/useCorreosIngreso";
+import { useUltimoCorreoAbierto } from "../hooks/useUltimoCorreoAbierto";
 import type { ModoCorreos } from "../types/correos.types";
 import { BOTON_SECUNDARIO } from "./AccionIngreso";
 import { CorreosCuerpoTabla } from "./CorreosCuerpoTabla";
@@ -20,8 +21,12 @@ const TEXTOS_VACIO: Record<ModoCorreos, { sinFiltros: string; conFiltros: string
     conFiltros: "Ningún correo coincide con los filtros.",
   },
   descartados: {
-    sinFiltros: "El flujo no ha descartado ningún correo.",
+    sinFiltros: "No hay correos descartados por revisar.",
     conFiltros: "Ningún correo descartado coincide con los filtros.",
+  },
+  procesados: {
+    sinFiltros: "Todavía no hay correos procesados.",
+    conFiltros: "Ningún correo procesado coincide con los filtros.",
   },
 };
 
@@ -88,6 +93,7 @@ interface ContenidoDeListaProps {
   correos: ReturnType<typeof useCorreosIngreso>;
   primeraCarga: boolean;
   textoVacio: string;
+  abierto: string | null;
   onVerDetalle: (messageId: string) => void;
   onIngresar: (messageId: string) => void;
 }
@@ -97,6 +103,7 @@ function ContenidoDeLista({
   correos,
   primeraCarga,
   textoVacio,
+  abierto,
   onVerDetalle,
   onIngresar,
 }: ContenidoDeListaProps) {
@@ -117,6 +124,7 @@ function ContenidoDeLista({
         tamano={correos.tamano}
         cargando={correos.cargando}
         textoVacio={textoVacio}
+        abierto={abierto}
         onVerDetalle={onVerDetalle}
         onIngresar={onIngresar}
       />
@@ -137,9 +145,14 @@ function ContenidoDeLista({
 export function CorreosTable({ modo }: { modo: ModoCorreos }) {
   const correos = useCorreosIngreso(modo);
   const [detalleId, setDetalleId] = useState<string | null>(null);
+  const { abierto, marcarAbierto } = useUltimoCorreoAbierto();
 
   const primeraCarga = correos.cargando && correos.filas.length === 0;
   const alIngresar = (messageId: string) => void correos.ingresar(messageId);
+  const verDetalle = (id: string) => {
+    marcarAbierto(id);
+    setDetalleId(id);
+  };
   // Se busca en las filas vigentes: el modal refleja el avance del ingreso y se cierra solo
   // si el correo sale de la página (otra página, otros filtros).
   const detalle = correos.filas.find((fila) => fila.messageId === detalleId) ?? null;
@@ -168,7 +181,8 @@ export function CorreosTable({ modo }: { modo: ModoCorreos }) {
           correos={correos}
           primeraCarga={primeraCarga}
           textoVacio={correos.hayFiltros ? textos.conFiltros : textos.sinFiltros}
-          onVerDetalle={setDetalleId}
+          abierto={abierto}
+          onVerDetalle={verDetalle}
           onIngresar={alIngresar}
         />
       </section>

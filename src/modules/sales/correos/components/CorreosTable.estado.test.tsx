@@ -19,6 +19,11 @@ vi.mock("../services/correos.client", async (importarOriginal) => ({
   ...(await importarOriginal<typeof import("../services/correos.client")>()),
   ...api,
 }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/dashboard/ventas/correos-descartados",
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 
 import { BOTON_INGRESAR, fila, lista, usuario } from "../testing/correos.fixtures";
 import { CorreosTable } from "./CorreosTable";

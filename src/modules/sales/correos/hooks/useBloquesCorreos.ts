@@ -35,8 +35,8 @@ export function posicionDePagina(pagina: number) {
 }
 
 /** La página elegida; vuelve a la primera cuando cambia la consulta (otros filtros, otro modo). */
-function usePaginaElegida(claveFiltros: string) {
-  const [eleccion, setEleccion] = useState({ clave: claveFiltros, pagina: 1 });
+function usePaginaElegida(claveFiltros: string, paginaInicial = 1) {
+  const [eleccion, setEleccion] = useState({ clave: claveFiltros, pagina: paginaInicial });
   const pagina = eleccion.clave === claveFiltros ? eleccion.pagina : 1;
   const setPagina = useCallback(
     (nueva: number) => setEleccion({ clave: claveFiltros, pagina: nueva }),
@@ -101,10 +101,17 @@ function useAdelantoDelSiguiente(opciones: {
  * Los correos de la página que se ve, sacados de bloques de 50 que se piden al servidor: cada
  * clic en «siguiente» no hace un viaje nuevo. Cambiar de filtros, de modo o actualizar los descarta.
  */
-export function useBloquesCorreos(modo: ModoCorreos, aplicados: FiltrosCorreos) {
+export function useBloquesCorreos(
+  modo: ModoCorreos,
+  aplicados: FiltrosCorreos,
+  paginaInicial = 1,
+) {
   const [recarga, setRecarga] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const { pagina, setPagina } = usePaginaElegida(JSON.stringify([modo, aplicados]));
+  const { pagina, setPagina } = usePaginaElegida(
+    JSON.stringify([modo, aplicados]),
+    paginaInicial,
+  );
   const { bloques, traerBloque } = useCacheDeBloques(modo, aplicados, recarga);
 
   const { bloque, paginaEnBloque, desplazamiento } = posicionDePagina(pagina);
