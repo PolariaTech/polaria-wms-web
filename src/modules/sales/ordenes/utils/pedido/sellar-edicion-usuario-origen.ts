@@ -109,6 +109,9 @@ export function cabeceraUsuarioDesdeForm(params: {
 /**
  * Alinea hijas/renglones con el sello para que la reinyección de OT
  * (`aplicar-reagrupacion-ov`) no vuelva a meter valores de Mateo.
+ *
+ * REQ-344: no pisa `almacen` / `Almacen` — el centro es por OT (como la OC);
+ * el sello solo guarda el centro de cabecera OV para el form.
  */
 export function aplicarSelloCabeceraAHijas<
   T extends {
@@ -121,13 +124,11 @@ export function aplicarSelloCabeceraAHijas<
 >(hijas: readonly T[], sello: CabeceraUsuarioSello): T[] {
   return hijas.map((hija) => ({
     ...hija,
-    almacen: sello.centroConsumo,
     referenciaPedido: sello.referenciaPedido || hija.referenciaPedido,
     fecha: sello.fechaEntrega || hija.fecha,
     responsableExterno: sello.contacto,
     renglones: hija.renglones.map((row) => ({
       ...row,
-      Almacen: sello.centroConsumo,
       "Referencia pedido": sello.referenciaPedido,
       Fecha: sello.fechaEntrega || row.Fecha,
       "Responsable externo": sello.contacto,
