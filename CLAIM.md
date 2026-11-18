@@ -23,6 +23,7 @@
 - `src/modules/sales/ordenes/components/modals/detalle-venta-presentacion.ts`
 - `src/modules/sales/ordenes/components/modals/detalle-venta-presentacion.test.ts`
 - `package.json` — autorizada por el usuario el 2026-11-18
+- `CHANGELOG.md` — autorizada por el usuario el 2026-11-18
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
