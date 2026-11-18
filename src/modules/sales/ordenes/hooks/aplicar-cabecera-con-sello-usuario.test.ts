@@ -61,6 +61,76 @@ describe("resolverCabeceraFormConSelloUsuario (REQ-281)", () => {
     expect(out.telefono).toBe("");
     expect(out.contacto).toBe("");
     expect(out.direccion).toBe("");
+    // REQ-344: al aplicar sello, el almacén de la hija no se aplastó.
+    expect(out.hijasParaForm[0]?.almacen).toBe("SUSHI");
+  });
+
+  it("REQ-344: dos OT con centros distintos no se unifican al cargar con sello", () => {
+    const filas = sellarCabeceraUsuarioEnOrigen(
+      [
+        { Producto: "A", Cantidad: 1, Almacen: "COCINA A" },
+        { Producto: "B", Cantidad: 1, Almacen: "COCINA B" },
+      ],
+      {
+        notasGenerales: "ok",
+        centroConsumo: "CABECERA OV",
+        referenciaPedido: "",
+        fechaEntrega: "2026-11-18",
+        direccionEntrega: "",
+        contacto: "",
+        telefono: "",
+        correo: "",
+      },
+    );
+    const out = resolverCabeceraFormConSelloUsuario({
+      origenCorreoRows: filas,
+      detalle: {
+        notas_almacen: "ok",
+        centro_consumo: "CABECERA OV",
+        fecha_entrega: "2026-11-18",
+      },
+      mapped: {
+        centroConsumo: "CABECERA OV",
+        observaciones: "ok",
+        ordenCompraHotel: "",
+        direccion: "",
+        anden: "",
+        contacto: "",
+        telefono: "",
+        correo: "",
+        fechaEntrega: "2026-11-18",
+      },
+      hijasEdit: [
+        {
+          id: "ot-a",
+          label: "1",
+          numeroPedido: "",
+          almacen: "COCINA A",
+          referenciaPedido: "",
+          fecha: "2026-11-18",
+          responsableExterno: "",
+          renglones: [filas[0]!],
+          totalCantidad: 1,
+        },
+        {
+          id: "ot-b",
+          label: "2",
+          numeroPedido: "",
+          almacen: "COCINA B",
+          referenciaPedido: "",
+          fecha: "2026-11-18",
+          responsableExterno: "",
+          renglones: [filas[1]!],
+          totalCantidad: 1,
+        },
+      ],
+      telefonoForMap: "",
+    });
+    expect(out.centroConsumo).toBe("CABECERA OV");
+    expect(out.hijasParaForm.map((h) => h.almacen)).toEqual([
+      "COCINA A",
+      "COCINA B",
+    ]);
   });
 });
 

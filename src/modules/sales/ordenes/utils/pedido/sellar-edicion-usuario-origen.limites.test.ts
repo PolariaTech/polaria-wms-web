@@ -214,10 +214,24 @@ describe("aplicarSelloCabeceraAHijas: valores límite", () => {
     renglones: [{ Producto: "Aguacate", Cantidad: 1 } as OrigenCorreoRenglon],
   };
 
-  it("con sello vacío, el almacén y el contacto quedan vacíos (el sello manda)", () => {
+  it("REQ-344: el sello no pisa el almacén de la hija; el contacto sí manda", () => {
     const [resultado] = aplicarSelloCabeceraAHijas([hija], selloVacio);
-    expect(resultado.almacen).toBe("");
+    expect(resultado.almacen).toBe("ALMACEN-MATEO");
     expect(resultado.responsableExterno).toBe("");
+  });
+
+  it("REQ-344: centros distintos por OT sobreviven al sello de cabecera", () => {
+    const hijas = [
+      { ...hija, almacen: "COCINA A" },
+      { ...hija, almacen: "COCINA B", renglones: [{ Producto: "Limón", Cantidad: 2 } as OrigenCorreoRenglon] },
+    ];
+    const sello = { ...selloVacio, centroConsumo: "UN SOLO CENTRO OV" };
+    const out = aplicarSelloCabeceraAHijas(hijas, sello);
+    expect(out.map((h) => h.almacen)).toEqual(["COCINA A", "COCINA B"]);
+    expect(out[0]?.renglones[0]?.Almacen).toBeUndefined();
+    expect(leerCabeceraUsuarioSello(out[0]!.renglones)?.centroConsumo).toBe(
+      "UN SOLO CENTRO OV",
+    );
   });
 
   it("con referencia o fecha vacías en el sello conserva las de la hija", () => {

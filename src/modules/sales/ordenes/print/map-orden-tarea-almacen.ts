@@ -291,8 +291,8 @@ function buildBaseSheet(input: {
       detalle.comprador_razon_social?.trim() ||
       formatCompradorNombreOrdenVenta(detalle),
     clienteDenominacionComercial: (detalle.denominacion_comercial_override ?? detalle.comprador_denominacion_comercial_override)?.trim() || detalle.comprador_apodo?.trim() || "",
-    // REQ-281: cabecera del PDF = detalle BD (no Almacen/Fecha de Mateo por OT).
-    centroConsumo: resolveCentroConsumoDesdeDetalle({
+    // REQ-344: centro por OT; si falta, OV/captura.
+    centroConsumo: hija?.almacen?.trim() || resolveCentroConsumoDesdeDetalle({
       centroBd: detalle.centro_consumo,
       centroCaptura: captura.centroConsumo,
     }),
