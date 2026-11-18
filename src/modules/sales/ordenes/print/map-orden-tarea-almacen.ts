@@ -291,13 +291,11 @@ function buildBaseSheet(input: {
       detalle.comprador_razon_social?.trim() ||
       formatCompradorNombreOrdenVenta(detalle),
     clienteDenominacionComercial: (detalle.denominacion_comercial_override ?? detalle.comprador_denominacion_comercial_override)?.trim() || detalle.comprador_apodo?.trim() || "",
-    // REQ-344: centro por OT (hija.almacen); si falta, cabecera OV / captura.
-    centroConsumo:
-      hija?.almacen?.trim() ||
-      resolveCentroConsumoDesdeDetalle({
-        centroBd: detalle.centro_consumo,
-        centroCaptura: captura.centroConsumo,
-      }),
+    // REQ-344: centro por OT; si falta, OV/captura.
+    centroConsumo: hija?.almacen?.trim() || resolveCentroConsumoDesdeDetalle({
+      centroBd: detalle.centro_consumo,
+      centroCaptura: captura.centroConsumo,
+    }),
     numeroOrdenCliente: resolveNumeroOrdenClientePrint({ ordenCompraHotel: detalle.orden_compra_hotel, hijaNumeroPedido: hija?.numeroPedido, capturaOrdenCompra: captura.ordenCompraHotel, tareaTotal }),
     ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
     fechaEntrega,

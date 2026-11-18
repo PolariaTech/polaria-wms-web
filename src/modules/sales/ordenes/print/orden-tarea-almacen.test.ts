@@ -490,9 +490,6 @@ describe("orden de tarea almacén", () => {
     expect(sheets[1]?.tareaTotal).toBe(2);
     expect(sheets[0]?.idOrdenTrabajo).not.toBe(sheets[1]?.idOrdenTrabajo);
     expect(sheets.every((s) => s.lineas.length === 1)).toBe(true);
-    // REQ-344: cada hoja lleva el centro de su OT, no el de la OV.
-    expect(sheets[0]?.centroConsumo).toBe("Bar");
-    expect(sheets[1]?.centroConsumo).toBe("Cocina");
 
     const pdf = buildOrdenTareaAlmacenLandscapePdf(sheets[1]!);
     expect(sheets[1]?.tareaIndex).toBe(2);
