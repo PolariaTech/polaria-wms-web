@@ -74,7 +74,8 @@ describe("seleccionarCompradorOv", () => {
     expect(ui.setCompradorLabel).toHaveBeenCalledWith("Hotel Sur");
     expect(ui.setDenominacionComercial).toHaveBeenCalledWith("");
     expect(ui.setExigeOc).toHaveBeenCalledWith(false);
-    expect(ui.setCompradorNombreIa).toHaveBeenCalledWith(null);
+    // REQ-326: por defecto se conserva el nombre de Mateo para el picker.
+    expect(ui.setCompradorNombreIa).not.toHaveBeenCalled();
     expect(getCompradorAdmin).not.toHaveBeenCalled();
     const updater = ui.setMissingFields.mock.calls[0][0] as (prev: Set<string>) => Set<string>;
     expect(updater(new Set(["cliente"])).has("cliente")).toBe(false);
