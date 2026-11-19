@@ -18,6 +18,7 @@
 - `package.json` — autorizada por el usuario el 2026-11-19
 - `package-lock.json` — autorizada por el usuario el 2026-11-19
 - `src/constants/brand/brand.ts` — autorizada por el usuario el 2026-11-19
+- `VERSION` — autorizada por el usuario el 2026-11-19
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
