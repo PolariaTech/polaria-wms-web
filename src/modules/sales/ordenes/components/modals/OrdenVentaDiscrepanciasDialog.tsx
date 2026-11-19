@@ -122,6 +122,7 @@ export function OrdenVentaModalOverlays({ estado }: { estado: OrdenVentaFormEsta
         pendingEmitId={estado.pendingEmitId}
         setPicker={estado.setPicker}
         compradores={estado.compradores}
+        compradoresParaPicker={estado.compradoresParaPicker}
         compradorPickerPriorityIds={estado.compradorPickerPriorityIds}
         idComprador={estado.idComprador}
         handleSelectComprador={estado.handleSelectComprador}

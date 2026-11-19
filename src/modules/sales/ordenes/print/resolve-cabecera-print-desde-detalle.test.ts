@@ -17,6 +17,12 @@ describe("resolve-cabecera-print-desde-detalle (REQ-281 / REQ-032 PDF)", () => {
     ).toMatch(/dos facturas/i);
   });
 
+  it("REQ-340: nota floja persistida no se vacía al imprimir", () => {
+    expect(
+      resolveNotasGeneralesDesdeDetalle("Favor de confirmar de recibido"),
+    ).toMatch(/confirmar de recibido/i);
+  });
+
   it("REQ-032: con sello manda el texto del form aunque notas_almacen traiga el correo", () => {
     const editadas =
       "que su chofer traiga la OC impresa al momento de la entrega junto con su factura fiscal. Por favor traer únicamente dos facturas junto con la orden de compra";

@@ -86,6 +86,13 @@ export interface OrdenVentaOperadorRow {
   potencialDuplicado?: boolean;
   /** Códigos de otras OV candidatas a duplicado. */
   potencialDuplicadoDe?: string[];
+  /**
+   * REQ-338: el correo de origen se partió en varias OV (mismo envío/adjunto).
+   * En listado se anota dentro del lote cargado.
+   */
+  correoPartido?: boolean;
+  /** Códigos de las otras OV del mismo correo partido. */
+  correoPartidoDe?: string[];
   /** REQ-180: soft-lock — quién edita ahora (presencia listado). */
   editLockedBy?: string | null;
   editLockedAt?: string | null;

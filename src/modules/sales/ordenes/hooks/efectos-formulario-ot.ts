@@ -29,6 +29,7 @@ export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
     hijaFormActiva,
     setCentroConsumo,
     setOrdenCompraHotel,
+    setReferenciaPedido,
     setFechaEntrega,
     setAnden,
     setVentanaDesde,
@@ -104,6 +105,14 @@ export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
       }
     }
     if (cab.numeroPedido) setOrdenCompraHotel(cab.numeroPedido);
+    // REQ-328: con pager, la referencia de la OT activa; sin pager, solo si estaba vacío.
+    if (cab.referenciaPedido) {
+      if (hijaFormActiva) {
+        setReferenciaPedido(cab.referenciaPedido);
+      } else {
+        setReferenciaPedido((prev) => prev.trim() || cab.referenciaPedido);
+      }
+    }
     if (cab.fechaIso) setFechaEntrega(cab.fechaIso);
     if (cab.anden) setAnden(cab.anden);
     if (cab.ventanaDesde) setVentanaDesde(cab.ventanaDesde);
@@ -114,6 +123,7 @@ export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
       const next = new Set(prev);
       if (cab.almacen) next.add("centroConsumo");
       if (cab.numeroPedido) next.add("ordenCompraHotel");
+      if (cab.referenciaPedido) next.add("referenciaPedido");
       if (cab.fechaIso) next.add("fechaEntrega");
       if (cab.anden) next.add("anden");
       if (cab.ventanaDesde) next.add("ventanaDesde");
@@ -124,6 +134,7 @@ export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
       const next = new Set(prev);
       next.delete("centroConsumo");
       next.delete("ordenCompraHotel");
+      next.delete("referenciaPedido");
       next.delete("fechaEntrega");
       next.delete("contacto");
       next.delete("telefono");
@@ -137,6 +148,7 @@ export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
       const next = new Set(prev);
       next.delete("centroConsumo");
       next.delete("ordenCompraHotel");
+      next.delete("referenciaPedido");
       next.delete("fechaEntrega");
       next.delete("contacto");
       next.delete("telefono");

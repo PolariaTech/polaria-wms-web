@@ -25,12 +25,12 @@ export const RESPONSE_SCHEMA = {
       observaciones: {
         type: ["string", "null"],
         description:
-          "Observación general corta del pedido completo (no de una línea de producto). PRIORIDAD ALTA si el documento trae secciones rotuladas: «Observaciones del cliente», «Observaciones», «Notas del cliente», «Comentarios del cliente», «Indicaciones del cliente», «Instrucciones», «Notas», «Aviso al almacén». Copia ahí lo que diga el cliente (madurez, calidad, empaque, etc.). NUNCA inventes conclusiones, inconsistencias entre correo y adjuntos, ni análisis del documento — eso no es una nota de alistamiento. null solo si de verdad no hay ninguna.",
+          "Observación general corta del pedido completo (no de una línea). PRIORIDAD ALTA si hay «Observaciones/Notas/Comentarios/Indicaciones del cliente». Copia lo del cliente aunque sea flojo (REQ-340). NUNCA inventes conclusiones ni inconsistencias. null solo si de verdad no hay ninguna.",
       },
       notasGeneralesAlmacen: {
         type: ["string", "null"],
         description:
-          "SOLO palabras clave / especificaciones de almacén (máx. 160 caracteres, 3 renglones). PRIORIDAD: bloque «Observaciones del cliente» (o Notas/Comentarios/Indicaciones del cliente), madurez (no muy maduro, enrriados, amarillo, etc.), andén, sin sustitutos, juegos de OC. Incluye viñetas del cliente si existen. NO copies el cuerpo del correo, saludos, tablas de productos, firma, vigencia, horario genérico de recepción ni dirección. NUNCA escribas conclusiones tipo «el correo dice X pero el PDF dice Y» — solo aclaraciones útiles para surtir/entregar. null solo si no hay ninguna especificación útil.",
+          "REQ-340: palabras clave / notas de almacén (máx. 160 chars). PRIORIDAD: bloque Observaciones/Notas del cliente, madurez, andén, sin sustitutos, etc. Prefiere texto flojo antes que null. NO copies el cuerpo del correo ni conclusiones inventadas. null SOLO si no hay ni una frase del documento.",
       },
       ordenCompraHotel: {
         type: ["string", "null"],
@@ -59,7 +59,7 @@ export const RESPONSE_SCHEMA = {
       direccion: {
         type: ["string", "null"],
         description:
-          "Dirección de ENTREGA tal como aparece en el correo, mensaje o PDF. Busca Ship To, Deliver To, Enviar a, Entregar en, Domicilio de entrega, Dirección de envío. Copia calle, número, colonia, ciudad y CP si vienen. Si hay Bill To (facturación) y Ship To (entrega), usa Ship To. Solo dirección física: NUNCA incluyas correos, fax ni teléfonos (van en sus propios campos), aunque aparezcan junto a la dirección; si el único dato junto a la etiqueta es un correo, no es la dirección. null solo si el documento no trae ninguna dirección de entrega.",
+          "Dirección de ENTREGA tal como aparece en el correo, mensaje o PDF. Busca Ship To, Deliver To, Enviar a, Entregar en, Domicilio de entrega, Dirección de envío. Copia calle, número, colonia, ciudad y CP si vienen. Si hay Bill To (facturación) y Ship To (entrega), usa Ship To. Solo dirección física: NUNCA incluyas correos, fax, teléfonos, Attn/Attention/Atención (van en contacto) ni Sent From / Enviado desde (metadato del correo), aunque vengan en la misma línea; si el único dato junto a la etiqueta es un correo, no es la dirección. null solo si el documento no trae ninguna dirección de entrega.",
       },
       anden: {
         type: ["string", "null"],

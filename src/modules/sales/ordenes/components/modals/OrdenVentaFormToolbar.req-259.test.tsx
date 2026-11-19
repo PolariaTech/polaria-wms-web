@@ -19,6 +19,7 @@ function estadoConRfc(parcial: Record<string, unknown> = {}) {
     compradorLabel: "Cliente",
     compradorNombreIa: null,
     compradorSugerencias: [],
+    compradorPickerPriorityIds: [],
     missingFields: new Set(),
     autoFields: new Set(),
     warnFields: new Set(),

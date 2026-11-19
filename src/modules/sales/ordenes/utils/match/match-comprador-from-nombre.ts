@@ -100,8 +100,29 @@ function tokensNearlyEqual(a: string, b: string): boolean {
   return editDistanceAtMost(a, b, 1);
 }
 
+/** D. Comercial: `apodo` (sync) y override WMS — mismo criterio que el buscador del picker. */
+function compradorNombresComerciales(row: CompradorListRow): string[] {
+  return [row.apodo, row.denominacionComercialOverride]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean);
+}
+
 function compradorSearchText(row: CompradorListRow): string {
-  return `${row.comprador} ${row.codigo}`;
+  return [row.comprador, row.codigo, ...compradorNombresComerciales(row)]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function esMatchExactoComprador(
+  needle: string,
+  row: CompradorListRow,
+): boolean {
+  if (!needle) return false;
+  if (normalizeMatchText(row.comprador) === needle) return true;
+  if (normalizeMatchText(row.codigo) === needle) return true;
+  return compradorNombresComerciales(row).some(
+    (nombre) => normalizeMatchText(nombre) === needle,
+  );
 }
 
 /**
@@ -116,19 +137,25 @@ export function scoreCompradorMatch(
 
   const nombre = normalizeMatchText(row.comprador);
   const codigo = normalizeMatchText(row.codigo);
-  if (!nombre && !codigo) return 0;
+  const comerciales = compradorNombresComerciales(row).map(normalizeMatchText);
+  if (!nombre && !codigo && comerciales.length === 0) return 0;
 
-  if (needle === nombre || needle === codigo) return 1;
+  if (esMatchExactoComprador(needle, row)) return 1;
   if (codigo && (needle === codigo || codigo.includes(needle) || needle.includes(codigo))) {
     return 0.95;
   }
 
-  // Contención fuerte: el nombre del catálogo está completo en el texto IA o viceversa.
-  if (nombre.length >= 5 && (needle.includes(nombre) || nombre.includes(needle))) {
-    const ratio =
-      Math.min(needle.length, nombre.length) /
-      Math.max(needle.length, nombre.length);
-    return Math.max(0.75, 0.55 + 0.4 * ratio);
+  // Contención fuerte: razón social o D. Comercial ↔ texto IA.
+  for (const etiqueta of [nombre, ...comerciales]) {
+    if (
+      etiqueta.length >= 5 &&
+      (needle.includes(etiqueta) || etiqueta.includes(needle))
+    ) {
+      const ratio =
+        Math.min(needle.length, etiqueta.length) /
+        Math.max(needle.length, etiqueta.length);
+      return Math.max(0.75, 0.55 + 0.4 * ratio);
+    }
   }
 
   const qTokens = tokenList(query);
@@ -201,11 +228,7 @@ export function rankCompradoresFromNombre(
   const pool = poolActivos(compradores);
 
   const exact =
-    pool.find((row) => {
-      const nombre = normalizeMatchText(row.comprador);
-      const codigo = normalizeMatchText(row.codigo);
-      return nombre === needle || codigo === needle;
-    }) ?? null;
+    pool.find((row) => esMatchExactoComprador(needle, row)) ?? null;
 
   const scored: CompradorScored[] = pool.map((row) => ({
     comprador: row,
@@ -217,7 +240,7 @@ export function rankCompradoresFromNombre(
     return a.comprador.comprador.localeCompare(b.comprador.comprador, "es");
   });
 
-  // Exacto → no sugerir (el caller auto-asigna).
+  // Exacto → no listar en candidates (el caller auto-asigna).
   // Sin exacto → solo candidatos con score ≥ umbral (sin inventar el más cercano).
   let candidates: CompradorScored[] = [];
   if (!exact) {
@@ -229,6 +252,44 @@ export function rankCompradoresFromNombre(
     best: exact ?? candidates[0]?.comprador ?? null,
     candidates,
   };
+}
+
+/**
+ * REQ-326: sugerencias para el picker (cualquier cliente).
+ * Incluye match exacto (nombre / código / D. Comercial / apodo) y fuzzy
+ * por encima de un umbral más permisivo que el de auto-asignar.
+ */
+export function sugerenciasCompradorParaPicker(
+  nombreExtraido: string | null | undefined,
+  compradores: readonly CompradorListRow[],
+  options?: { limit?: number; minScore?: number },
+): CompradorListRow[] {
+  const limit = options?.limit ?? MAX_CANDIDATES;
+  const minScore = options?.minScore ?? 0.35;
+  const needle = normalizeMatchText(nombreExtraido ?? "");
+  if (!needle || compradores.length === 0) return [];
+
+  const pool = poolActivos(compradores);
+  const exact = pool.find((row) => esMatchExactoComprador(needle, row)) ?? null;
+  const scored: CompradorScored[] = pool
+    .map((row) => ({
+      comprador: row,
+      score: scoreCompradorMatch(nombreExtraido ?? "", row),
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.comprador.comprador.localeCompare(b.comprador.comprador, "es");
+    });
+
+  const out: CompradorListRow[] = [];
+  if (exact) out.push(exact);
+  for (const row of scored) {
+    if (out.length >= limit) break;
+    if (exact && row.comprador.idComprador === exact.idComprador) continue;
+    if (row.score < minScore) continue;
+    out.push(row.comprador);
+  }
+  return out;
 }
 
 /**
@@ -260,9 +321,7 @@ export function shouldAutoAssignComprador(
   if (second && top.score - second.score < 0.12) return null;
 
   const qTokens = tokenList(nombreExtraido ?? top.comprador.comprador);
-  const pTokens = tokenList(
-    `${top.comprador.comprador} ${top.comprador.codigo}`,
-  );
+  const pTokens = tokenList(compradorSearchText(top.comprador));
   const distinctive = qTokens.filter((t) => t.length >= 5);
   const covered = distinctive.filter(
     (qt) =>

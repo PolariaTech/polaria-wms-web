@@ -91,6 +91,18 @@ describe("aplicarCabeceraOvARenglonHermano (REQ-281)", () => {
     expect(next["Responsable externo"]).toBe("");
     expect(next.Almacen).toBe("COCINA A");
   });
+
+  it("REQ-337: propaga la fecha de cabecera a OT hermanas", () => {
+    const next = aplicarCabeceraOvARenglonHermano(base, {
+      notasOt: "n",
+      direccionOt: "d",
+      telefonoOt: "",
+      correoOt: "",
+      responsableExterno: "",
+      fecha: "2099-06-01",
+    });
+    expect(next.Fecha).toBe("2099-06-01");
+  });
 });
 
 describe("propagarCabeceraOvATodasLasHijas (REQ-141)", () => {
@@ -131,10 +143,15 @@ describe("propagarCabeceraOvATodasLasHijas (REQ-141)", () => {
       telefonoOt: "",
       correoOt: "",
       responsableExterno: "",
+      fecha: "2099-06-01",
     });
     expect(next[0]?.renglones[0]?.["Notas generales"]).toBe("");
     expect(next[1]?.renglones[0]?.["Notas generales"]).toBe("");
     expect(next[0]?.almacen).toBe("COCINA A");
     expect(next[1]?.almacen).toBe("COCINA B");
+    expect(next[0]?.fecha).toBe("2099-06-01");
+    expect(next[1]?.fecha).toBe("2099-06-01");
+    expect(next[0]?.renglones[0]?.Fecha).toBe("2099-06-01");
+    expect(next[1]?.renglones[0]?.Fecha).toBe("2099-06-01");
   });
 });

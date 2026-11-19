@@ -6,6 +6,7 @@ import type { OrdenVentaOperadorRow } from "../../../shared/types/sales.types";
 import { fetchOrdenVentaLog } from "../../services/orden-venta-log.client";
 import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
 import { filterLogEntriesVisible } from "../../utils/ot/filter-log-entries-visible";
+import { buildCypherLogQuery } from "./cypher-drawer-log-query";
 
 interface UseCypherDrawerLogArgs {
   idOrdenVenta: string | null;
@@ -35,13 +36,14 @@ export function useCypherDrawerLog({
 
     let cancelled = false;
     setLogLoading(true);
-    void fetchOrdenVentaLog({
-      idOrdenVenta,
-      codigoCuenta,
-      idOrdenTrabajo: idOrdenTrabajoBitacora,
-      createdAt: orden?.created_at || orden?.fecha_pedido || row?.fecha,
-      autor: orden?.vendedor ?? null,
-    })
+    void fetchOrdenVentaLog(
+      buildCypherLogQuery({
+        idOrdenVenta,
+        codigoCuenta,
+        idOrdenTrabajo: idOrdenTrabajoBitacora,
+        createdAt: orden?.created_at || orden?.fecha_pedido || row?.fecha,
+      }),
+    )
       .then((rows) => {
         if (!cancelled) setLogEntries(filterLogEntriesVisible(rows));
       })
@@ -61,7 +63,6 @@ export function useCypherDrawerLog({
     idOrdenVenta,
     orden?.created_at,
     orden?.fecha_pedido,
-    orden?.vendedor,
     row?.fecha,
     logNonce,
   ]);

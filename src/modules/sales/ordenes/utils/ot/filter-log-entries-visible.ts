@@ -10,6 +10,7 @@ export function isLogEventoEnvioBodega(
   const mensaje = entry.mensaje.trim().toLowerCase();
   return (
     mensaje.includes("pedido enviado a bodega") ||
+    mensaje.includes("pedido confirmado y enviado a bodega") ||
     /^pedido emitido por\b/.test(mensaje)
   );
 }

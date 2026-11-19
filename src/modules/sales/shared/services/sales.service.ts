@@ -48,7 +48,7 @@ import {
   normalizeOvSlaConfig,
   type OvSlaConfig,
 } from "../utils/ov-sla";
-import { annotatePotencialDuplicadoOv } from "../../ordenes/utils/match/find-potencial-duplicado-ov";
+import { enrichOperadorListadoAnnotations } from "./enrich-operador-listado-annotations";
 import { resolveClienteCuentaDefault } from "./sales-resolve-cliente-cuenta-default";
 import {
   insertOrdenVentaOrigenOnlyDraft,
@@ -66,13 +66,14 @@ const ORDEN_VENTA_LINEA_IN_CHUNK = 80;
 const ORDEN_VENTA_COLUMNS =
   "id_orden_venta,codigo_cuenta,id_bodega,id_cliente,id_comprador,id_planta,id_creador,id_bodega_destino,codigo,estado,fecha_pedido,observaciones,created_at,updated_at,estado_desde,edit_locked_by,edit_locked_at,edit_locked_nombre";
 
-/** Listado operador: OCC, origen_correo y fecha de entrega para el filtro del topbar. */
+/** Listado operador: OCC, origen (correo/archivos) y fecha de entrega. */
 const ORDEN_VENTA_OPERADOR_LIST_COLUMNS =
-  `${ORDEN_VENTA_COLUMNS},orden_compra_hotel,origen_correo,fecha_entrega`;
+  `${ORDEN_VENTA_COLUMNS},orden_compra_hotel,origen_correo,origen_archivos,fecha_entrega`;
 
 type OrdenVentaOperadorListRow = OrdenVentaRow & {
   orden_compra_hotel?: string | null;
   origen_correo?: unknown;
+  origen_archivos?: string | null;
   fecha_entrega?: string | null;
 };
 
@@ -912,26 +913,8 @@ async function enrichOrdenesVentaOperador(
     ),
   );
 
-  // REQ-151: marca potencial duplicado dentro del listado cargado.
-  const dupMap = annotatePotencialDuplicadoOv(
-    mapped.map((row) => ({
-      idOrdenVenta: row.idOrdenVenta,
-      codigo: row.venta,
-      occTodas: row.occTodas,
-      comprador: row.comprador,
-      fecha: row.fecha,
-      estado: row.estado,
-    })),
-  );
-  return mapped.map((row) => {
-    const ann = dupMap.get(row.idOrdenVenta);
-    if (!ann) return row;
-    return {
-      ...row,
-      potencialDuplicado: ann.potencialDuplicado,
-      potencialDuplicadoDe: ann.potencialDuplicadoDe,
-    };
-  });
+  // REQ-151 / REQ-338: duplicado y correo partido sobre el lote cargado.
+  return enrichOperadorListadoAnnotations(mapped, rows);
 }
 
 export interface ListProductosVentaCatalogoParams {

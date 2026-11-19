@@ -64,7 +64,7 @@ describe("OrdenVentaAdjuntoPreviewModal", () => {
     await waitFor(() => {
       expect(
         document.querySelector('iframe[title="pedido.pdf"]'),
-      ).toHaveAttribute("src", "blob:mock-pdf");
+      ).toHaveAttribute("src", "blob:mock-pdf#zoom=75");
     });
     expect(fetch).toHaveBeenCalledWith(
       "/api/ov-adjuntos/file?path=cuenta%2Fuuid.pdf",
@@ -87,6 +87,45 @@ describe("OrdenVentaAdjuntoPreviewModal", () => {
     );
 
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "false");
+  });
+
+  it("REQ-330: con dock expone el rail de resize del Cypher", () => {
+    render(
+      <OrdenVentaAdjuntoPreviewModal
+        open
+        adjunto={{
+          nombre: "oc.html",
+          mime: "text/html",
+          path: "cuenta/oc.html",
+        }}
+        viewUrl="/api/ov-adjuntos/file?path=cuenta%2Foc.html"
+        dockWithCypher
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("separator", { name: "Redimensionar panel Cypher" }),
+    ).toBeInTheDocument();
+  });
+
+  it("REQ-330: sin dock no muestra el rail de resize", () => {
+    render(
+      <OrdenVentaAdjuntoPreviewModal
+        open
+        adjunto={{
+          nombre: "foto.png",
+          mime: "image/png",
+          url: "https://example.com/foto.png",
+        }}
+        viewUrl="https://example.com/foto.png"
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("separator", { name: "Redimensionar panel Cypher" }),
+    ).not.toBeInTheDocument();
   });
 
   it("nombre largo no empuja Cerrar: el título trunca con title completo", () => {
@@ -134,6 +173,42 @@ describe("OrdenVentaAdjuntoPreviewModal", () => {
     expect(
       screen.getByRole("button", { name: "Restablecer zoom" }),
     ).toHaveTextContent("100%");
+  });
+
+  it("REQ-327: iframe HTML llena el panel; Polaria en 100%", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({ "content-type": "text/html; charset=utf-8" }),
+        text: async () => "<html><head></head><body><p>OC</p></body></html>",
+      }),
+    );
+
+    render(
+      <OrdenVentaAdjuntoPreviewModal
+        open
+        adjunto={{
+          nombre: "oc-altura.html",
+          mime: "text/html",
+          path: "cuenta/oc-altura.html",
+        }}
+        viewUrl="/api/ov-adjuntos/file?path=cuenta%2Foc-altura.html"
+        dockWithCypher
+        onClose={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      const iframe = document.querySelector(
+        'iframe[title="oc-altura.html"]',
+      ) as HTMLIFrameElement | null;
+      expect(iframe).toBeTruthy();
+      expect(iframe?.className).not.toMatch(/72vh/);
+      expect(iframe?.style.height).toBe("100%");
+      expect(iframe?.style.transform).toContain("scale(1)");
+      expect(iframe?.getAttribute("srcdoc")).toContain("zoom:0.75");
+    });
   });
 
   it("REQ-293: con dock el panel va a la derecha (justify-end), no tapa la edición", () => {

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { OrdenVentaLogEntry } from "../types/orden-venta-log.types";
 import {
+  AUTOR_BITACORA_SISTEMA,
   buildCreacionSintetica,
   ensureCreacionEntry,
   filterLogEntriesForOt,
-} from "./orden-venta-log.server";
+} from "./orden-venta-log-entries";
 
 function entry(
   partial: Partial<OrdenVentaLogEntry> & Pick<OrdenVentaLogEntry, "id" | "mensaje">,
@@ -38,6 +39,28 @@ describe("filterLogEntriesForOt", () => {
       "2",
     ]);
   });
+
+  it("no pisa la creación: reinyecta creacion de otra OT al filtrar", () => {
+    const rows = [
+      entry({
+        id: "creacion-mateo",
+        mensaje: "Esta orden de trabajo fue creada por ingestión Mateo / bot.",
+        accion: "creacion",
+        autor: "Mateo / bot",
+        idOrdenTrabajo: "ot-vieja",
+      }),
+      entry({
+        id: "edit-andres",
+        mensaje: "Orden de trabajo editada por Andrés.",
+        accion: "actualizacion",
+        autor: "Andrés",
+        idOrdenTrabajo: "ot-nueva",
+      }),
+    ];
+    const next = filterLogEntriesForOt(rows, "ot-nueva");
+    expect(next.map((r) => r.id)).toEqual(["edit-andres", "creacion-mateo"]);
+    expect(next.find((r) => r.accion === "creacion")?.autor).toBe("Mateo / bot");
+  });
 });
 
 describe("ensureCreacionEntry", () => {
@@ -53,10 +76,26 @@ describe("ensureCreacionEntry", () => {
     expect(next[1]?.mensaje).toContain("Ana");
   });
 
-  it("no duplica si ya hay creación", () => {
+  it("sin autor explícito usa SISTEMA, nunca un editor posterior", () => {
     const rows = [
-      entry({ id: "1", mensaje: "creada", accion: "creacion" }),
+      entry({
+        id: "1",
+        mensaje: "Orden de trabajo editada por Andrés.",
+        accion: "actualizacion",
+        autor: "Andrés",
+      }),
     ];
+    const next = ensureCreacionEntry(rows, {
+      createdAt: "2026-06-01T10:00:00.000Z",
+      autorNombre: null,
+    });
+    expect(next[1]?.autor).toBe(AUTOR_BITACORA_SISTEMA);
+    expect(next[1]?.mensaje).toContain(AUTOR_BITACORA_SISTEMA);
+    expect(next[1]?.mensaje).not.toContain("Andrés");
+  });
+
+  it("no duplica si ya hay creación", () => {
+    const rows = [entry({ id: "1", mensaje: "creada", accion: "creacion" })];
     expect(
       ensureCreacionEntry(rows, {
         createdAt: "2026-06-01T10:00:00.000Z",
@@ -75,5 +114,13 @@ describe("buildCreacionSintetica", () => {
     expect(row.mensaje).toMatch(/orden de trabajo fue creada el/i);
     expect(row.mensaje).toContain("Luis");
     expect(row.idOrdenTrabajo).toBeNull();
+  });
+
+  it("sin autor nombra SISTEMA", () => {
+    const row = buildCreacionSintetica({
+      createdAt: "2026-06-28T15:30:00.000Z",
+    });
+    expect(row.autor).toBe(AUTOR_BITACORA_SISTEMA);
+    expect(row.mensaje).toContain(`por ${AUTOR_BITACORA_SISTEMA}`);
   });
 });

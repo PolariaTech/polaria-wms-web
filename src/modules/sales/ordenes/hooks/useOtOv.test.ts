@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CompradorListRow } from "@/modules/admin-panel";
 import { leerPedidoConIaApi } from "../services/sales-ai.api";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import { crearBorradorDesdeDocs } from "./crear-borrador-desde-docs";
@@ -6,6 +7,10 @@ import { abrirFormularioDesdeDocs } from "./useOtOv";
 
 vi.mock("../services/sales-ai.api", () => ({ leerPedidoConIaApi: vi.fn() }));
 vi.mock("./crear-borrador-desde-docs", () => ({ crearBorradorDesdeDocs: vi.fn() }));
+vi.mock("@/modules/admin-panel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/admin-panel")>();
+  return { ...actual, getCompradorAdmin: vi.fn().mockResolvedValue({ ficha: null }) };
+});
 
 describe("abrirFormularioDesdeDocs", () => {
   it("sin cuenta avisa y no llama a Mateo", async () => {
@@ -78,7 +83,7 @@ describe("abrirFormularioDesdeDocs — borrador al leer (REQ-199)", () => {
   };
 
   /** Estado con los datos que la lectura consulta y un espía por cada setter. */
-  function estadoLectura() {
+  function estadoLectura(extra: Record<string, unknown> = {}) {
     const espias: Record<string, ReturnType<typeof vi.fn>> = {};
     const datos: Record<string, unknown> = {
       codigoCuenta: "demo",
@@ -89,8 +94,10 @@ describe("abrirFormularioDesdeDocs — borrador al leer (REQ-199)", () => {
       idComprador: "",
       selectedCompradorIdRef: { current: "" },
       ensureFormDataReady: vi.fn().mockResolvedValue(true),
+      bootstrapPromiseRef: { current: Promise.resolve(null) },
       productos: [],
       fichaComprador: null,
+      ...extra,
       anden: "",
       centroConsumo: "",
       contacto: "",
@@ -149,5 +156,39 @@ describe("abrirFormularioDesdeDocs — borrador al leer (REQ-199)", () => {
       expect.stringContaining("No se pudo preparar Cypher: sin conexión"),
     );
     expect(espias.setStep).toHaveBeenCalledWith("form");
+  });
+
+  it("REQ-326: con compradores stale [] usa el bootstrap (D. Comercial / apodo)", async () => {
+    const fairmont: CompradorListRow = {
+      idComprador: "c-fairmont",
+      codigo: "2010010999",
+      comprador: "OPERADORA HOTELERA DE CANCUN SA DE CV",
+      apodo: "FAIRMONT MAYAKOBA",
+      denominacionComercialOverride: "",
+      telefono: null,
+      rfc: "OHC010101AAA",
+      grupo: "",
+      estaActivo: true,
+    };
+    vi.mocked(leerPedidoConIaApi).mockResolvedValue({
+      ...pedido,
+      nombreCliente: "Fairmont Mayakoba",
+    } as never);
+    vi.mocked(crearBorradorDesdeDocs).mockResolvedValue(null);
+    const handleSelectComprador = vi.fn();
+    const { estado } = estadoLectura({
+      compradores: [],
+      bootstrapPromiseRef: {
+        current: Promise.resolve({ compradores: [fairmont], productos: [] }),
+      },
+      handleSelectComprador,
+    });
+
+    await abrirFormularioDesdeDocs(estado);
+
+    expect(handleSelectComprador).toHaveBeenCalledWith(
+      expect.objectContaining({ idComprador: "c-fairmont" }),
+      expect.any(Object),
+    );
   });
 });

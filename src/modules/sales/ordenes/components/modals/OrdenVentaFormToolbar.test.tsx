@@ -83,6 +83,7 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
       compradorLabel: "",
       compradorNombreIa: null,
       compradorSugerencias: [],
+      compradorPickerPriorityIds: [],
       missingFields: new Set<string>(),
       autoFields: new Set<string>(),
       warnFields: new Set<string>(),

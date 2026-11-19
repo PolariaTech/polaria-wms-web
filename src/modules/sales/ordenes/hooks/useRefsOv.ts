@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import type { RevisionPendiente } from "../utils/ot/por-confirmar-revision-alert";
+import type { OvFormBootstrapCatalogo } from "./ov-form-bootstrap-catalogo";
 
 /**
  * Las refs que el modal de OV comparte con sus hooks (selección de cliente, envío, sembrado de
@@ -15,7 +16,10 @@ export function useRefsOv() {
   /** `draft` = icono disco (sigue Por confirmar); `emit` = Confirmar → Confirmada (REQ-133). */
   const submitIntentRef = useRef<"emit" | "draft">("emit");
   const docsFileInputRef = useRef<HTMLInputElement | null>(null);
-  const bootstrapPromiseRef = useRef<Promise<void> | null>(null);
+  /** REQ-326: resuelve con el catálogo cargado (no solo void) para rankear sin stale. */
+  const bootstrapPromiseRef = useRef<Promise<OvFormBootstrapCatalogo | null> | null>(
+    null,
+  );
   const seededOtIdsRef = useRef<Set<string>>(new Set());
   /** REQ-195: no re-sembrar catalogPending desde origen si ya hay líneas BD. */
   const skipOtSeedFromOrigenRef = useRef(false);

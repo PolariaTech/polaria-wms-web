@@ -92,6 +92,7 @@ function setters() {
     setMoneda: vi.fn(),
     setOrdenCompraHotel: vi.fn(),
     setCentroConsumo: vi.fn(),
+    setReferenciaPedido: vi.fn(),
     setObservaciones: vi.fn(),
     setDireccion: vi.fn(),
     setEntregaLat: vi.fn(),

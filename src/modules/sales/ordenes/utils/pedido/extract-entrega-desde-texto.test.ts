@@ -184,4 +184,5 @@ describe("quitarContactoDeDireccion", () => {
     expect(quitarContactoDeDireccion("Tel: 998 166 0605")).toBeNull();
     expect(quitarContactoDeDireccion(null)).toBeNull();
   });
+
 });

@@ -58,6 +58,8 @@ export function resolverCabeceraFormConSelloUsuario(params: {
   hijasParaForm: OrdenTrabajoHija[];
   fechaEntrega: string;
   centroConsumo: string;
+  /** REQ-328 */
+  referenciaPedido: string;
   observaciones: string;
   ordenCompraHotel: string;
   direccion: string;
@@ -88,6 +90,9 @@ export function resolverCabeceraFormConSelloUsuario(params: {
     guardadoBd: isFechaEntregaIsoValida(fechaDb) ? fechaDb : "",
     propuestaMateo: fechaOrigen || fechaMapped || "",
   });
+  const referenciaDesdeHijas = hijasEdit
+    .map((hija) => hija.referenciaPedido?.trim())
+    .find(Boolean);
 
   return {
     selloUsuario,
@@ -100,6 +105,12 @@ export function resolverCabeceraFormConSelloUsuario(params: {
       key: "centroConsumo",
       guardadoBd: detalle.centro_consumo?.trim() || "",
       propuestaMateo: mapped.centroConsumo,
+    }),
+    referenciaPedido: resolveCampoConSelloUsuario({
+      sello: selloUsuario,
+      key: "referenciaPedido",
+      guardadoBd: "",
+      propuestaMateo: referenciaDesdeHijas || "",
     }),
     observaciones: selloUsuario
       ? selloUsuario.notasGenerales

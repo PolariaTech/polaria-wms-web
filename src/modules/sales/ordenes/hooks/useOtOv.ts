@@ -11,10 +11,15 @@ import { mapPedidoExtraidoToForm } from "../utils/pedido/map-pedido-extraido-to-
 import { isGarbageOcValue, resolveOrdenCompraLimpia } from "../utils/pedido/normalize-numero-pedido";
 import { formatPrecioInput } from "../utils/pedido/orden-venta-create-helpers";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/pedido/prefill-orden-venta-from-comprador";
-import { rankCompradoresFromNombre, shouldAutoAssignComprador } from "../utils/match/match-comprador-from-nombre";
+import {
+  rankCompradoresFromNombre,
+  shouldAutoAssignComprador,
+  sugerenciasCompradorParaPicker,
+} from "../utils/match/match-comprador-from-nombre";
+import { catalogoDesdeBootstrap } from "./ov-form-bootstrap-catalogo";
 
 export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
-  const { codigoCuenta, origenTexto, origenArchivoFiles, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, fechaEntrega, ordenCompraHotel, aceptaSustituciones, requiereLote, registrarTemperatura, autoFields, warnFields, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields, setTotalSolicitudDetectado } = input;
+  const { codigoCuenta, origenTexto, origenArchivoFiles, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, bootstrapPromiseRef, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, fechaEntrega, ordenCompraHotel, aceptaSustituciones, requiereLote, registrarTemperatura, autoFields, warnFields, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields, setTotalSolicitudDetectado } = input;
     if (!codigoCuenta) {
       setError("No hay cuenta activa.");
       return;
@@ -26,6 +31,12 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
 
     const ready = await ensureFormDataReady();
     if (!ready) return;
+
+    // REQ-326: no rankear con `compradores` stale del render anterior a setState.
+    const boot = bootstrapPromiseRef?.current
+      ? await bootstrapPromiseRef.current
+      : null;
+    const catalogo = catalogoDesdeBootstrap(boot, { compradores, productos });
 
     setIsReadingIa(true);
     setError(null);
@@ -49,7 +60,7 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
 
       const compradorRank = rankCompradoresFromNombre(
         pedido.nombreCliente,
-        compradores,
+        catalogo.compradores,
       );
       const autoComprador = shouldAutoAssignComprador(
         compradorRank,
@@ -66,14 +77,20 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
       let telefonoForMap = telefono;
 
       // Solo auto-asigna con match exacto si el usuario aún no eligió uno.
+      // REQ-326: sugerencias del picker para cualquier cliente (exacto + fuzzy).
+      const sugerenciasPicker = nombreEscritoIa
+        ? sugerenciasCompradorParaPicker(nombreEscritoIa, catalogo.compradores)
+        : [];
+
       if (autoComprador && !idComprador) {
         handleSelectComprador(autoComprador, {
-          keepNombreIa: Boolean(nombreEscritoIa),
+          // Nombre Mateo se conserva por defecto (REQ-326).
           // Ficha solo rellena huecos vía map; no pisa Ship To del documento.
           preservePedidoData: true,
         });
         idCompradorForMap = autoComprador.idComprador;
         telefonoForMap = autoComprador.telefono?.trim() || telefono;
+        setCompradorSugerencias(sugerenciasPicker);
         try {
           const detalle = await getCompradorAdmin({
             codigoCuenta,
@@ -95,9 +112,7 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
         selectedCompradorIdRef.current = "";
         setIdComprador("");
         setCompradorLabel(nombreEscritoIa);
-        setCompradorSugerencias(
-          compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
-        );
+        setCompradorSugerencias(sugerenciasPicker);
         setFichaComprador(null);
         setExigeOc(false);
       } else if (!idComprador) {
@@ -114,7 +129,7 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
         ? buildOrdenVentaPrefillFromComprador({
             ficha: fichaForMap,
             telefonoComprador:
-              compradores.find((row: { idComprador: string; telefono?: string | null }) => row.idComprador === idCompradorForMap)
+              catalogo.compradores.find((row: { idComprador: string; telefono?: string | null }) => row.idComprador === idCompradorForMap)
                 ?.telefono ?? telefonoForMap,
           })
         : {
@@ -134,7 +149,7 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
 
       const mapped = mapPedidoExtraidoToForm({
         pedido,
-        productos,
+        productos: catalogo.productos,
         ficha: {
           centroConsumo: fichaBase.centroConsumo,
           ventanaDesde: fichaBase.ventanaDesde,

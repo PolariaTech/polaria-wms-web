@@ -232,6 +232,8 @@ export interface OrdenVentaModalPickersProps {
   ) => void;
   compradores: CompradorListRow[];
   compradorPickerPriorityIds: string[];
+  /** Si viene, el modal usa esta lista (sugerencias primero). */
+  compradoresParaPicker?: CompradorListRow[];
   idComprador: string;
   handleSelectComprador: (
     row: CompradorListRow,

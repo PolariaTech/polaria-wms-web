@@ -11,7 +11,7 @@ type Marks = {
 };
 
 /**
- * Datos del pedido: OC, centro y moneda (REQ-278: moneda sube aquí desde Entrega).
+ * Datos del pedido: OC, centro, moneda y referencia (REQ-278/328).
  */
 export function OrdenVentaCaptureFormPedido(props: {
   ordenCompraHotel: string;
@@ -21,6 +21,8 @@ export function OrdenVentaCaptureFormPedido(props: {
   onCentroConsumo: (value: string) => void;
   moneda: string;
   onBuscarMoneda: () => void;
+  /** REQ-328: Mateo la extrae; en captura solo se muestra (como en detalle). */
+  referenciaPedido: string;
   onClearField: (field: string) => void;
   marks: Marks;
 }) {
@@ -73,6 +75,14 @@ export function OrdenVentaCaptureFormPedido(props: {
           onSearchClick={props.onBuscarMoneda}
         />
       </PolariaFormField>
+      <PolariaFormInput
+        id="orden-venta-referencia-pedido"
+        label="Referencia de pedido"
+        value={props.referenciaPedido}
+        readOnly
+        placeholder="—"
+        compact
+      />
     </>
   );
 }

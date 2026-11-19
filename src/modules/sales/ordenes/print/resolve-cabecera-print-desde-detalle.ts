@@ -5,9 +5,13 @@ import {
 import { diaSemanaEntregaEs } from "../utils/pedido/dia-semana-entrega";
 import { parseOrigenCorreoJson } from "../utils/origen/origen-correo-ordenes-trabajo";
 import {
-  fitNotasGeneralesPdf,
-  looksLikeEmailHeaderJunk,
+  persistirNotasGeneralesDesdeForm,
   sanitizeNotasGeneralesPedido,
+} from "../utils/origen/sanitize-notas-generales-pedido";
+import {
+  fitNotasGeneralesPdf,
+  looksLikeCorreoCuerpoEnNotas,
+  looksLikeEmailHeaderJunk,
 } from "../utils/origen/texto-origen-pedido";
 import { leerCabeceraUsuarioSello } from "../utils/pedido/sellar-edicion-usuario-origen";
 
@@ -22,9 +26,10 @@ type DetalleNotasPrint = {
 };
 
 /**
- * REQ-032 / REQ-281: notas del PDF.
- * Con sello `_cabeceraUsuario` manda el texto del form (también vacío).
+ * REQ-032 / REQ-281 / REQ-340: notas del PDF.
+ * Con sello `_cabeceraUsuario` manda el texto del form (también vacío = borró).
  * Sin sello: `notas_almacen`. Nunca reinyecta `origen_texto`.
+ * Si hay texto guardado, no lo vaciamos al re-sanitizar (prioridad usuario/Mateo persistido).
  */
 export function resolveNotasGeneralesDesdeDetalle(
   notasAlmacenOrDetalle: string | DetalleNotasPrint,
@@ -40,13 +45,16 @@ export function resolveNotasGeneralesDesdeDetalle(
       : notasAlmacenOrDetalle.origen_correo;
   const sello = leerCabeceraUsuarioSello(parseOrigenCorreoJson(origen));
   const fuente = sello ? sello.notasGenerales : notasAlmacen;
-  const deUsuario = sanitizeNotasGeneralesPedido(
-    stripSurtidoFotoQrFromNotas(fuente),
-  );
-  if (deUsuario && !looksLikeEmailHeaderJunk(deUsuario)) {
-    return fitNotasGeneralesPdf(deUsuario);
+  const raw = stripSurtidoFotoQrFromNotas(fuente).trim();
+  if (!raw) return "";
+  // Texto ya persistido (usuario o Mateo): mostrar con strip suave.
+  const persistido = persistirNotasGeneralesDesdeForm(raw);
+  if (persistido) return fitNotasGeneralesPdf(persistido);
+  if (looksLikeCorreoCuerpoEnNotas(raw) || looksLikeEmailHeaderJunk(raw)) {
+    const cleaned = sanitizeNotasGeneralesPedido(raw);
+    return cleaned ? fitNotasGeneralesPdf(cleaned) : "";
   }
-  return "";
+  return fitNotasGeneralesPdf(raw);
 }
 
 /** Centro = columna BD; si falta, captura en observaciones. Sin fallback a OT/Mateo. */

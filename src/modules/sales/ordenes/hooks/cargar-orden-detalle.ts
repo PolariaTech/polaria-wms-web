@@ -17,6 +17,7 @@ import { resolveOccCampoFormulario } from "../utils/pedido/occ-alineada-listado-
 import { sanitizeOrigenCorreoNumeroPedido } from "../utils/pedido/normalize-numero-pedido";
 import { resolverFechaCreacionEdicion } from "../utils/pedido/resolver-fecha-creacion-edicion";
 import { sanitizeTelefonoContacto } from "../utils/pedido/sanitize-telefono-contacto";
+import { quitarContactoDeDireccion } from "../utils/pedido/quitar-contacto-direccion";
 import {
   aplicarSelloCabeceraAHijas,
   leerCabeceraUsuarioSello,
@@ -33,7 +34,7 @@ import { aplicarDetalleExternoPorConfirmar, aplicarDetalleSinMateo, cargarFichaY
 import { notasCanonConSelloUsuario } from "./aplicar-cabecera-con-sello-usuario";
 
 export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
-  const { productoRows, compradorRows, internas, externas, idBodegaDefault, detalle, codigoCuenta, editingId, codigoVenta, handleSelectComprador, selectedCompradorIdRef, skipOtSeedFromOrigenRef, setProductosBase, setCompradores, setBodegasDestino, setIdBodegaDestino, setEditingEstado, setFechaCreacion, setOrdenCargadaId, setEditingCodigo, setIdComprador, setCompradorLabel, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setObservaciones, setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setOrigenAdjuntos, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setCompradorNombreIa, setCompradorSugerencias, setLineas, setStartMode, setFormOtPage, setStep, setMissingFields, setDiscrepancias, setAutoFields, setWarnFields, setFichaComprador, setExigeOc, setPrecioOverrideByProducto, setEquivalenciaByProducto } = entrada;
+  const { productoRows, compradorRows, internas, externas, idBodegaDefault, detalle, codigoCuenta, editingId, codigoVenta, handleSelectComprador, selectedCompradorIdRef, skipOtSeedFromOrigenRef, setProductosBase, setCompradores, setBodegasDestino, setIdBodegaDestino, setEditingEstado, setFechaCreacion, setOrdenCargadaId, setEditingCodigo, setIdComprador, setCompradorLabel, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setReferenciaPedido, setObservaciones, setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setOrigenAdjuntos, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setCompradorNombreIa, setCompradorSugerencias, setLineas, setStartMode, setFormOtPage, setStep, setMissingFields, setDiscrepancias, setAutoFields, setWarnFields, setFichaComprador, setExigeOc, setPrecioOverrideByProducto, setEquivalenciaByProducto } = entrada;
         setProductosBase(productoRows);
         setCompradores(compradorRows);
         const incluirTipo = internas.length > 0 && externas.length > 0;
@@ -116,10 +117,15 @@ export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
           origenTexto: detalle.origen_texto,
         });
         setObservaciones(notasCanon);
-        setDireccion(
-          selloEarly?.direccionEntrega ??
-            (detalle.direccion_entrega?.trim() || ""),
-        );
+        {
+          // REQ-332: limpia Attn/Sent From ya guardados (BirchStreet Hilton/Waldorf).
+          const direccionRaw =
+            selloEarly?.direccionEntrega ??
+            (detalle.direccion_entrega?.trim() || "");
+          setDireccion(
+            quitarContactoDeDireccion(direccionRaw) || direccionRaw,
+          );
+        }
         setEntregaLat(
           typeof detalle.entrega_lat === "number" &&
             Number.isFinite(detalle.entrega_lat)
@@ -165,6 +171,14 @@ export function aplicarDetalleCargado(entrada: OrdenVentaFormEstado) {
         const hijasEdit = selloEarly
           ? aplicarSelloCabeceraAHijas(hijasBase, selloEarly)
           : hijasBase;
+        // REQ-328: sello (vacío gana) o primera OT con referencia.
+        setReferenciaPedido?.(
+          selloEarly
+            ? selloEarly.referenciaPedido
+            : hijasEdit
+                .map((hija) => hija.referenciaPedido?.trim())
+                .find(Boolean) ?? "",
+        );
         setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(hijasEdit));
         setOrdenesTrabajoPreview(hijasEdit);
         if (detalle.id_bodega_destino?.trim()) {

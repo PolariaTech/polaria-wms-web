@@ -12,6 +12,8 @@ describe("camposInicialesFilaOperador (REQ-180)", () => {
     ).toEqual({
       potencialDuplicado: false,
       potencialDuplicadoDe: [],
+      correoPartido: false,
+      correoPartidoDe: [],
       editLockedBy: "u1",
       editLockedAt: "2026-11-11T13:00:00.000Z",
       editLockedNombre: "Ana",
@@ -28,9 +30,11 @@ describe("camposInicialesFilaOperador (REQ-180)", () => {
     expect(campos.editLockedNombre).toBeNull();
   });
 
-  it("el posible duplicado empieza en falso y sin coincidencias", () => {
+  it("el posible duplicado y el correo partido empiezan en falso", () => {
     const campos = camposInicialesFilaOperador({});
     expect(campos.potencialDuplicado).toBe(false);
     expect(campos.potencialDuplicadoDe).toEqual([]);
+    expect(campos.correoPartido).toBe(false);
+    expect(campos.correoPartidoDe).toEqual([]);
   });
 });

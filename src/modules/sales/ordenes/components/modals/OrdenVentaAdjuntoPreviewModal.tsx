@@ -4,12 +4,17 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils/cn";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
-import { useShellOverlayStore } from "@/stores/shell-overlay.store";
 import { cypherPanelWidthClass } from "../../constants/cypher-layout";
 import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
 import { labelTipoOrigenAdjunto } from "../../utils/origen/origen-adjuntos";
 import { AdjuntoPreviewZoomControls } from "./AdjuntoPreviewZoomControls";
-import { ADJUNTO_PREVIEW_ZOOM_DEFAULT } from "./adjunto-preview-zoom";
+import {
+  ADJUNTO_PREVIEW_HTML_DOC_STYLE,
+  ADJUNTO_PREVIEW_ZOOM_DEFAULT,
+  withBrowserPdfZoom,
+} from "./adjunto-preview-zoom";
+import { CypherResizeRail } from "./CypherResizeRail";
+import { useCypherDrawerResize } from "./cypher-drawer-resize";
 
 function esAdjuntoImagen(item: OrigenAdjunto): boolean {
   const mime = (item.mime ?? "").toLowerCase();
@@ -42,7 +47,13 @@ export function OrdenVentaAdjuntoPreviewModal({
 }: OrdenVentaAdjuntoPreviewModalProps) {
   const titleId = useId();
   const descriptionId = useId();
-  const cypherWidthMode = useShellOverlayStore((s) => s.cypherWidthMode);
+  const {
+    cypherWidthMode,
+    isResizingWidth,
+    handleResizePointerDown,
+    handleResizePointerMove,
+    handleResizePointerUp,
+  } = useCypherDrawerResize();
   const title = adjunto?.nombre?.trim() || "Adjunto";
   const tipo = adjunto ? labelTipoOrigenAdjunto(adjunto) : "";
   const esImagen = adjunto ? esAdjuntoImagen(adjunto) : false;
@@ -97,16 +108,17 @@ export function OrdenVentaAdjuntoPreviewModal({
           const conFondo = html.includes("<head")
             ? html.replace(
                 /<head([^>]*)>/i,
-                '<head$1><base target="_blank"><style>html,body{background:#fff!important;color:#111!important}</style>',
+                `<head$1><base target="_blank"><style>${ADJUNTO_PREVIEW_HTML_DOC_STYLE}</style>`,
               )
-            : `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{background:#fff!important;color:#111!important}</style></head><body>${html}</body></html>`;
+            : `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${ADJUNTO_PREVIEW_HTML_DOC_STYLE}</style></head><body>${html}</body></html>`;
           setHtmlSrcDoc(conFondo);
           setObjectUrl(null);
         } else {
           const blob = await response.blob();
           if (cancelled) return;
           created = URL.createObjectURL(blob);
-          setObjectUrl(created);
+          // REQ-327: visor PDF del navegador al 75%; controles Polaria siguen en 100%.
+          setObjectUrl(withBrowserPdfZoom(created));
           setHtmlSrcDoc(null);
         }
       } catch (err: unknown) {
@@ -142,17 +154,23 @@ export function OrdenVentaAdjuntoPreviewModal({
   if (!open || typeof document === "undefined") return null;
 
   const panelWidth = cypherPanelWidthClass(cypherWidthMode);
+  // REQ-327: el área escalada debe ser 100/zoom del viewport para que,
+  // tras scale, ocupe todo el alto/ancho disponible (sin hueco negro).
   const zoomStyle = {
     transform: `scale(${zoom})`,
     transformOrigin: "top left" as const,
     width: `${100 / zoom}%`,
     height: `${100 / zoom}%`,
+    minHeight: `${100 / zoom}%`,
   };
 
   return createPortal(
     <div
       className={cn(
-        "fixed inset-0 z-[100] flex overflow-hidden",
+        // REQ-330: dock por encima del Cypher (z-110) para cubrir el panel y
+        // exponer el rail de resize del documento.
+        "fixed inset-0 flex overflow-hidden",
+        dockWithCypher ? "z-[120]" : "z-[100]",
         dockWithCypher
           ? "pointer-events-none items-stretch justify-end pt-[var(--polaria-shell-top,4.75rem)]"
           : "items-center justify-center px-4 py-6 sm:px-6 sm:py-10",
@@ -177,11 +195,23 @@ export function OrdenVentaAdjuntoPreviewModal({
           dockWithCypher
             ? cn(
                 "pointer-events-auto h-full rounded-none border-0 border-l border-t border-polaria-t-20 p-6 sm:p-8",
+                "box-border will-change-transform",
+                isResizingWidth
+                  ? "transition-transform duration-[320ms] ease-out"
+                  : "transition-[transform,width,max-width] duration-[320ms] ease-out",
                 panelWidth,
               )
             : "polaria-card-glow w-full max-w-5xl max-h-[min(85dvh,calc(100dvh-5rem))] rounded-2xl border p-6 sm:p-8",
         )}
       >
+        {dockWithCypher ? (
+          <CypherResizeRail
+            isResizingWidth={isResizingWidth}
+            onPointerDown={handleResizePointerDown}
+            onPointerMove={handleResizePointerMove}
+            onPointerUp={handleResizePointerUp}
+          />
+        ) : null}
         <div className="mb-6 flex shrink-0 items-start gap-3">
           <div className="min-w-0 flex-1 overflow-hidden">
             <h2
@@ -209,52 +239,54 @@ export function OrdenVentaAdjuntoPreviewModal({
           </div>
         </div>
 
-        <div className="polaria-scrollbar min-h-0 flex-1 overflow-auto bg-polaria-bg p-0">
+        <div className="relative min-h-0 flex-1 bg-polaria-bg">
           {!viewUrl ? (
-            <div className="flex min-h-[16rem] items-center justify-center px-6 py-10 text-polaria-w-50">
+            <div className="flex h-full min-h-[16rem] items-center justify-center px-6 py-10 text-polaria-w-50">
               No hay archivo para mostrar.
             </div>
           ) : esImagen ? (
-            <div className="flex min-h-[16rem] items-start justify-center p-4">
+            <div className="polaria-scrollbar absolute inset-0 overflow-auto p-4">
               <div style={zoomStyle}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={viewUrl}
                   alt={title}
-                  className="max-h-[min(72vh,48rem)] max-w-full object-contain"
+                  className="max-h-full max-w-full object-contain"
                 />
               </div>
             </div>
           ) : loading ? (
-            <div className="flex min-h-[16rem] items-center justify-center px-6 py-10 text-polaria-w-50">
+            <div className="flex h-full min-h-[16rem] items-center justify-center px-6 py-10 text-polaria-w-50">
               Cargando adjunto…
             </div>
           ) : error ? (
             <div
               role="alert"
-              className="flex min-h-[16rem] items-center justify-center px-6 py-10 text-center text-polaria-danger"
+              className="flex h-full min-h-[16rem] items-center justify-center px-6 py-10 text-center text-polaria-danger"
             >
               {error}
             </div>
           ) : htmlSrcDoc ? (
-            <div style={zoomStyle}>
+            <div className="absolute inset-0 overflow-hidden">
               <iframe
                 title={title}
                 srcDoc={htmlSrcDoc}
                 sandbox="allow-same-origin"
-                className="h-[min(72vh,48rem)] w-full border-0 bg-white"
+                style={zoomStyle}
+                className="block border-0 bg-white"
               />
             </div>
           ) : objectUrl ? (
-            <div style={zoomStyle}>
+            <div className="absolute inset-0 overflow-hidden">
               <iframe
                 title={title}
                 src={objectUrl}
-                className="h-[min(72vh,48rem)] w-full border-0 bg-polaria-bg"
+                style={zoomStyle}
+                className="block border-0 bg-polaria-bg"
               />
             </div>
           ) : (
-            <div className="flex min-h-[16rem] items-center justify-center px-6 py-10 text-polaria-w-50">
+            <div className="flex h-full min-h-[16rem] items-center justify-center px-6 py-10 text-polaria-w-50">
               No hay archivo para mostrar.
             </div>
           )}

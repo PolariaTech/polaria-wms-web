@@ -6,8 +6,8 @@ import { resolveCantidadPrecioParaPersistir } from "./persist-linea-avance";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
-  stripCamposParametrizadosDeNotas,
 } from "../origen/texto-origen-pedido";
+import { persistirNotasGeneralesDesdeForm } from "../origen/sanitize-notas-generales-pedido";
 import { buildOrigenCorreoFromOrdenesYLineas } from "../origen/origen-correo-ordenes-trabajo";
 import type {
   OrdenTrabajoHija,
@@ -17,7 +17,6 @@ import { resolvePropuestaClienteMateoParaGuardar, sellarNombreClienteMateoEnOrig
 import {
   buildNotasLineasText,
   buildOrdenVentaCapturaObservaciones,
-  stripSurtidoFotoQrFromNotas,
 } from "./build-orden-venta-captura-observaciones";
 import type { LineaVentaForm } from "../../types/orden-venta-create-modal.types";
 import { nombresOrigenAdjuntos } from "../origen/origen-adjuntos";
@@ -226,10 +225,9 @@ export function buildPayloadEnvioOv(params: {
     origenArchivos: params.origenArchivos,
     origenCorreo: params.origenCorreo,
     notasLineas: params.notasLineas,
-    // REQ-032: el textarea manda a notas_almacen (sin re-extraer fragmentos del correo).
-    notasAlmacen: stripCamposParametrizadosDeNotas(
-      stripSurtidoFotoQrFromNotas(params.observaciones),
-    ).trim(),
+    // REQ-032 / REQ-340: el textarea manda a notas_almacen. Prioridad usuario;
+    // no vaciar si el strip de campos parametrizados deja el texto en blanco.
+    notasAlmacen: persistirNotasGeneralesDesdeForm(params.observaciones),
     observaciones: buildOrdenVentaCapturaObservaciones({
       fechaEntrega: params.fechaEntrega,
       ventanaDesde: params.ventanaDesde,
