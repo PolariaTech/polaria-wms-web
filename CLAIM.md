@@ -12,6 +12,7 @@
 - `src/modules/sales/correos/` — carpeta (excepción)
 - `src/modules/sales/shared/` — carpeta (excepción)
 - `src/components/shared/form/PolariaConfirmDialog.tsx` — autorizada por el usuario el 2026-11-19
+- `src/components/shared/form/PolariaConfirmDialog.test.tsx` — autorizada por el usuario el 2026-11-19
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
