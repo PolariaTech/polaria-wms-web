@@ -16,6 +16,7 @@
 - `src/services/api/api.ts`
 - `src/services/api/api.test.ts`
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaTipos.tsx` — autorizada por el usuario el 2026-11-19
+- `src/modules/sales/ordenes/print-batch/ImpresionRapidaTipos.test.tsx` — autorizada por el usuario el 2026-11-19
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
