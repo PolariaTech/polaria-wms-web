@@ -6,8 +6,8 @@ import { resolveCantidadPrecioParaPersistir } from "./persist-linea-avance";
 import {
   cleanCorreoBodyForNotas,
   isCuerpoMensajeFormato,
-  persistirNotasGeneralesDesdeForm,
 } from "../origen/texto-origen-pedido";
+import { persistirNotasGeneralesDesdeForm } from "../origen/sanitize-notas-generales-pedido";
 import { buildOrigenCorreoFromOrdenesYLineas } from "../origen/origen-correo-ordenes-trabajo";
 import type {
   OrdenTrabajoHija,

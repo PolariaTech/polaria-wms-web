@@ -380,11 +380,8 @@ export function fitNotasGeneralesPdf(
 }
 
 export {
-  asegurarNotasGeneralesPedido,
   looksLikeCorreoCuerpoEnNotas,
   looksLikeEmailHeaderJunk,
-  MSG_NOTAS_SIN_TEXTO_ORIGEN,
-  persistirNotasGeneralesDesdeForm,
   sanitizeNotasGeneralesPedido,
   stripCamposParametrizadosDeNotas,
 } from "./sanitize-notas-generales-pedido";

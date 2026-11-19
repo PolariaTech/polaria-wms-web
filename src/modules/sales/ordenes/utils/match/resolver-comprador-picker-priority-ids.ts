@@ -69,15 +69,3 @@ export function resolverCompradorPickerSugerencias(params: {
 
   return { priorityIds, compradoresParaPicker };
 }
-
-/** @deprecated usar resolverCompradorPickerSugerencias */
-export function resolverCompradorPickerPriorityIds(params: {
-  compradores: readonly CompradorListRow[];
-  compradorNombreIa?: string | null;
-  compradorLabel?: string | null;
-  idComprador?: string | null;
-  compradorSugerencias?: readonly CompradorListRow[];
-  nombreEnOrigen?: string | null;
-}): string[] {
-  return resolverCompradorPickerSugerencias(params).priorityIds;
-}

@@ -137,7 +137,6 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
     return aplicarCabeceraFormAOrdenesTrabajo(ordenesTrabajoForm, targetHija.id, {
       almacen: centroConsumo.trim(),
       numeroPedido: ordenCompraHotel.trim(),
-      fecha: fechaEntrega.trim(),
       andenOt: anden.trim(),
       ventanaDesdeOt: ventanaDesde.trim(),
       ventanaHastaOt: ventanaHasta.trim(),

@@ -47,7 +47,7 @@ describe("CypherOrigenAdjuntosBlock", () => {
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(dialog.querySelector("iframe")?.getAttribute("src")).toBe(
-        "blob:oc",
+        "blob:oc#zoom=75",
       );
     });
   });

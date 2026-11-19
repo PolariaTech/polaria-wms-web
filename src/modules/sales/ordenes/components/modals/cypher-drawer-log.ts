@@ -8,8 +8,6 @@ import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
 import { filterLogEntriesVisible } from "../../utils/ot/filter-log-entries-visible";
 import { buildCypherLogQuery } from "./cypher-drawer-log-query";
 
-export { buildCypherLogQuery } from "./cypher-drawer-log-query";
-
 interface UseCypherDrawerLogArgs {
   idOrdenVenta: string | null;
   codigoCuenta: string | null;

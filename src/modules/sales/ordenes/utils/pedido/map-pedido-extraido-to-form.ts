@@ -30,7 +30,7 @@ import {
 import { familiaUnidadCatalogo } from "./resolve-cantidad-envase";
 import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedido-linea";
 import { resolveLineaCantidadPrecioEmpaque } from "./resolve-linea-cantidad-precio-empaque";
-import { asegurarNotasGeneralesPedido } from "../origen/texto-origen-pedido";
+import { asegurarNotasGeneralesPedido } from "../origen/sanitize-notas-generales-pedido";
 import { resolveOrdenCompraLimpia } from "./normalize-numero-pedido";
 
 export interface SugerenciaProductoCatalogo {

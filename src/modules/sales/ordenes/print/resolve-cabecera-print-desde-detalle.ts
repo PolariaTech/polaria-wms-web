@@ -5,11 +5,13 @@ import {
 import { diaSemanaEntregaEs } from "../utils/pedido/dia-semana-entrega";
 import { parseOrigenCorreoJson } from "../utils/origen/origen-correo-ordenes-trabajo";
 import {
+  persistirNotasGeneralesDesdeForm,
+  sanitizeNotasGeneralesPedido,
+} from "../utils/origen/sanitize-notas-generales-pedido";
+import {
   fitNotasGeneralesPdf,
   looksLikeCorreoCuerpoEnNotas,
   looksLikeEmailHeaderJunk,
-  persistirNotasGeneralesDesdeForm,
-  sanitizeNotasGeneralesPedido,
 } from "../utils/origen/texto-origen-pedido";
 import { leerCabeceraUsuarioSello } from "../utils/pedido/sellar-edicion-usuario-origen";
 
