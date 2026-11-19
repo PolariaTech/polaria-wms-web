@@ -15,6 +15,7 @@
 - `src/components/shared/form/PolariaConfirmDialog.test.tsx` — autorizada por el usuario el 2026-11-19
 - `schemas/schema_editar_pedido.md` — autorizada por el usuario el 2026-11-19
 - `schemas/checklist_manual_lote_revision_ov.md` — autorizada por el usuario el 2026-11-19
+- `package.json` — autorizada por el usuario el 2026-11-19
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
