@@ -29,6 +29,7 @@
 - `src/modules/sales/ordenes/utils/pedido/orden-venta-create-helpers.test.ts` — autorizada por el usuario el 2026-11-19
 - `src/modules/sales/ordenes/utils/origen/materialize-ov-desde-origen.ts` — autorizada por el usuario el 2026-11-19
 - `src/modules/sales/ordenes/utils/pedido/linea-sembrada-desde-origen.ts` — autorizada por el usuario el 2026-11-19
+- `src/modules/sales/ordenes/utils/origen/materialize-ov-desde-origen.test.ts` — autorizada por el usuario el 2026-11-19
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
