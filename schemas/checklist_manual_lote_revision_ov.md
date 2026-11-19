@@ -1,6 +1,6 @@
-# Checklist manual — lote En Revisión OV + lote UI OV/correo Cypher (REQ-199…294)
+# Checklist manual — lote En Revisión OV + lote UI OV/correo Cypher + lote REQ-325 (REQ-199…340)
 
-Fecha: 09/11/2026 · Repo: polaria-wms-web · Resultado global: **PASS**
+Fecha: 19/11/2026 · Repo: polaria-wms-web · Resultado global: **PASS**
 
 | # | Formulario / superficie | Ítem | Resultado |
 |---|---|---|---|
@@ -10,7 +10,10 @@ Fecha: 09/11/2026 · Repo: polaria-wms-web · Resultado global: **PASS**
 | 4 | Nueva venta + archivo | Tras Continuar aparece (+); Cypher con interpretación; Guardar avance crea borrador | PASS |
 | 5 | Editar pedido (avance) | Verificar productos → Guardar avance → reabrir: siguen verificados | PASS |
 | 6 | Nueva venta | Elegir razón social con OV confirmada previa → dirección prellena la última confirmada | PASS |
-| 7 | Editar pedido | Modal no cierra por clic afuera con datos sin guardar; Cancelar pide confirmación; tabulación sigue el orden de Tabla 2 del schema v1.6 | PASS |
+| 7 | Editar pedido | Modal no cierra por clic afuera con datos sin guardar; Cancelar pide confirmación; tabulación sigue el orden de Tabla 2 del schema v1.8 | PASS |
 | 8 | Editar pedido | REQ-279: con total en cuerpo/PDF/EML, el aviso de total solicitud vs OV aparece; no bloquea confirmar | PASS |
 | 9 | Editar pedido / preview | REQ-285/289: hint de campo sin inventar notas; zoom +/− en preview de adjunto | PASS |
 | 10 | Editar pedido | REQ-286: notas no inventan «Entrega … / Destino:» ni muestran cutoff inventado en toolbar | PASS |
+| 11 | Editar pedido | REQ-328: «Referencia de pedido» visible solo lectura en Datos del pedido; no editable ni tabulable | PASS |
+| 12 | Editar pedido | REQ-337: confirmar con fechas distintas entre OT muestra `MSG_FECHAS_DISTINTAS_ENTRE_OT` y no confirma; avance sí puede seguir | PASS |
+| 13 | Editar pedido | REQ-340: al mapear desde Mateo las notas no quedan vacías (respaldo); al guardar manda el textarea (prioridad usuario); vacío deliberado se respeta | PASS |

@@ -5,7 +5,7 @@
 | Formulario | Editar pedido |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Formato visual de fechas DD-MMM-AAAA (REQ-320) en Fecha de entrega, listados, preview, avisos y PDF de impresión (valor canónico sigue ISO); Día de entrega como texto auxiliar bajo Fecha (REQ-321; ya no campo aparte REQ-257); Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287) |
+| Campos nuevos o modificados | Formato visual de fechas DD-MMM-AAAA (REQ-320) en Fecha de entrega, listados, preview, avisos y PDF de impresión (valor canónico sigue ISO); Día de entrega como texto auxiliar bajo Fecha (REQ-321; ya no campo aparte REQ-257); Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277; respaldo al mapear desde Mateo REQ-340); Referencia de pedido solo lectura (REQ-328); bloqueo al confirmar con fechas de entrega distintas entre OT (REQ-337); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287) |
 | ¿Vive en un modal? | Sí |
 | ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | Sí |
 | Responsable (Desarrollador) | Desarrollador frontend |
@@ -27,7 +27,9 @@
 | Dirección de entrega | Texto | No | — | Última OV confirmada del comprador, o dirección de ficha | No | Razón social (comprador) | Al elegir razón social se prellena; si el usuario ya escribió y onlyEmpty, no se pisa | Sin mensaje de bloqueo al confirmar: vacío se guarda; puede marcarse en missingFields si el origen no la trajo. | Front |
 | Latitud de entrega (`entrega_lat`) | Número | No | Finito | null | No | Dirección de entrega / mapa | REQ-251: pin opcional vía mapa (Leaflet + Nominatim); no bloquea confirmar; se guarda con la OV | Sin mensaje de bloqueo: vacío/null se guarda. | Front / BD |
 | Longitud de entrega (`entrega_lng`) | Número | No | Finito | null | No | Dirección de entrega / mapa | REQ-251: pin opcional vía mapa (Leaflet + Nominatim); no bloquea confirmar; se guarda con la OV | Sin mensaje de bloqueo: vacío/null se guarda. | Front / BD |
-| Notas generales del pedido | Texto | No | — | — | No | — | REQ-286/277: no inventar Entrega/Destino ni duplicar campos parametrizados | Sin mensaje de error: vacío se guarda. | Front |
+| Notas generales del pedido | Texto | No | — | Al mapear desde Mateo: `asegurarNotasGeneralesPedido` (si no hay texto útil → `MSG_NOTAS_SIN_TEXTO_ORIGEN`); al guardar: texto del form con prioridad usuario (`persistirNotasGeneralesDesdeForm`) | No | — | REQ-286/277: no inventar Entrega/Destino ni duplicar campos parametrizados. REQ-340: al mapear desde Mateo el form no queda vacío; al guardar manda lo del textarea (prioridad usuario) | Sin mensaje de error de validación: vacío al guardar se respeta (usuario borró a propósito); al mapear desde Mateo el vacío se reemplaza por el respaldo. | Front |
+| Referencia de pedido | Texto | No | — | Extracción IA (Mateo) / OT hija | No | — | REQ-328: solo lectura en Datos del pedido; no se edita ni se tabula como campo editable | Sin mensaje de error: no se edita desde este campo. | Front |
+| Fechas de entrega entre OT | Validación al confirmar | Sí al confirmar (todas las OT deben compartir el mismo día) | — | — | No | Órdenes de trabajo del formulario | REQ-337: una OV = un día; si `diasEntregaDistintosEnHijas` > 1 al confirmar (no en avance), se bloquea antes del sync que unifica fechas | «Esta orden tiene fechas de entrega distintas entre tareas. Divide la orden de venta por día de entrega (Mateo → Dividir → Por día de entrega) antes de confirmar.» (`MSG_FECHAS_DISTINTAS_ENTRE_OT`) | Front |
 | Aviso total solicitud vs OV | Número (solo lectura / banner) | No | > 0 para mostrar | Extracción IA o resolve-occ de adjuntos PDF/EML | No | Líneas del pedido | REQ-279: si `totalSolicitudDetectado` > 0 y difiere del total OV, muestra aviso; no bloquea confirmar | Sin mensaje de bloqueo: es informativo. | Front |
 | Bloqueo de edición (soft-lock) | Estado (usuario, última actividad, nombre) | No | Caduca a los 90 s sin latido; el latido se refresca cada 30 s | Sin bloqueo | No | Usuario que abre el pedido | REQ-180: si otro usuario tiene un bloqueo vigente (no caducado), el formulario se abre en solo lectura; si el bloqueo es propio o está caducado, se abre en edición y el usuario toma el bloqueo; al cerrar se libera | Descripción del modal: «<Nombre> está editando este pedido · solo lectura». Botón de guardar deshabilitado con el texto «Solo lectura: otro usuario está editando». | Front / BD |
 | Cabecera sellada por el usuario | Texto (notas generales, centro de consumo, orden de compra, fecha de entrega, dirección, contacto, teléfono, correo) | No | — | — | No | Guardado desde el formulario | REQ-281: al guardar desde el formulario se guarda un sello con esos ocho valores; al reabrir manda el sello, incluido el vacío, sobre la información de BD y sobre lo que sugiere Mateo; sin sello (pedido que aún no se guardó desde el formulario) rige BD y luego Mateo; el sello se recorta con trim | Sin mensaje de error: un valor vacío en el sello se respeta y no se vuelve a rellenar. | Front |
@@ -41,6 +43,7 @@
 | Denominación comercial | En Datos del pedido, después de código de cliente (REQ-241) | No | — |
 | RFC | En Datos del pedido, después de denominación comercial (REQ-259) | Sí (solo lectura) | — |
 | Moneda | En Datos del pedido, junto a centro de consumo / OC (REQ-278) | No | — |
+| Referencia de pedido | En Datos del pedido, después de moneda (REQ-328); fuera del orden de tabulación editable | Sí (solo lectura) | — |
 | Día de entrega (en valor) | No aplica tabulación: parte del valor de Fecha de entrega (REQ-321) | Sí (solo lectura / no campo) | — |
 | Hora desde | En Entrega, después de Fecha de entrega (REQ-278/321) | No | — |
 | Hora hasta | En Entrega, después de Hora desde (REQ-278) | No | — |
@@ -72,7 +75,8 @@
 | Dirección de entrega | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
 | Latitud de entrega | Sí | Información de BD (`entrega_lat`) o geocodificación del mapa (REQ-251) | Sí (vía mapa) |
 | Longitud de entrega | Sí | Información de BD (`entrega_lng`) o geocodificación del mapa (REQ-251) | Sí (vía mapa) |
-| Notas generales del pedido | Sí | Extracción IA / Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
+| Notas generales del pedido | Sí | Extracción IA / Información de BD (si hay sello del usuario, manda el sello, REQ-281); al mapear desde Mateo, `asegurarNotasGeneralesPedido` (REQ-340) | Sí |
+| Referencia de pedido | Sí | Extracción IA (Mateo) / Información de BD (OT hija) | No |
 | Aviso total solicitud vs OV | Sí | Extracción IA / adjuntos vía resolve-occ (Front) | No |
 | Contacto del cliente | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
 | Teléfono del contacto | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
@@ -114,16 +118,23 @@
 | Contacto del cliente | textbox "Contacto del cliente" | Ana Pérez |
 | Dirección de entrega | textbox / textarea de dirección de entrega | Av. Prueba 100 |
 | Notas generales del pedido | textbox / textarea de notas generales | Entregar en andén 2 |
+| Referencia de pedido | textbox "Referencia de pedido" (solo lectura) | REF-77 |
 
 ### Notas y justificaciones
 
-Esta versión del schema documenta el lote UI OV/correo Cypher (REQ-276…294) sobre el schema previo (REQ-241/252/254/257/259/235). Contrato Front↔Back de denominación cubierto por `map-denominacion-detalle.test.ts` y `orden-venta-capture-fields.test.ts`. Layout Entrega y orden de campos: `orden-campos-datos-pedido.ts`, `OrdenVentaCaptureFormEntrega.tsx`, `OrdenVentaCaptureFormPedido.tsx`, `OrdenVentaCaptureFormProgramacion.tsx`.
+Esta versión del schema documenta el lote REQ-325 (bugs/mejoras OV: REQ-328/337/340) sobre el schema previo del lote UI OV/correo Cypher (REQ-276…294) y REQ-241/252/254/257/259/235. Contrato Front↔Back de denominación cubierto por `map-denominacion-detalle.test.ts` y `orden-venta-capture-fields.test.ts`. Layout Entrega y orden de campos: `orden-campos-datos-pedido.ts`, `OrdenVentaCaptureFormEntrega.tsx`, `OrdenVentaCaptureFormPedido.tsx`, `OrdenVentaCaptureFormProgramacion.tsx`.
 
-Orden de los campos (REQ-278/321): Datos del pedido lleva cliente, código, denominación comercial, RFC (solo lectura), fecha de creación y folio (solo al editar), orden de compra, centro de consumo y **moneda**. Entrega lleva, en este orden: fecha de entrega (con día de la semana como texto auxiliar debajo, REQ-321), Hora desde, Hora hasta, contacto, teléfono, correo, dirección de entrega (a ancho completo) y **notas generales al final**. Prioridad queda oculta (estado interno «Normal»). La versión 1.5 ubicaba notas/prioridad/moneda arriba en Entrega y dirección antes de contacto; ya no coincide con el código.
+Orden de los campos (REQ-278/321/328): Datos del pedido lleva cliente, código, denominación comercial, RFC (solo lectura), fecha de creación y folio (solo al editar), orden de compra, centro de consumo, **moneda** y **referencia de pedido** (solo lectura, REQ-328). Entrega lleva, en este orden: fecha de entrega (con día de la semana como texto auxiliar debajo, REQ-321), Hora desde, Hora hasta, contacto, teléfono, correo, dirección de entrega (a ancho completo) y **notas generales al final**. Prioridad queda oculta (estado interno «Normal»). La versión 1.5 ubicaba notas/prioridad/moneda arriba en Entrega y dirección antes de contacto; ya no coincide con el código.
 
 REQ-279: el aviso de total de solicitud vs total OV es informativo (`avisos-validacion-ov.ts`). El total puede venir del cuerpo/adjuntos en extracción IA o, al reabrir, de `useLeerTotalDesdeAdjuntos` → `GET /api/ov-adjuntos/resolve-occ?path=…` (`totalSolicitud`). No bloquea confirmar ni exige capa Back/BD nueva en este formulario.
 
 REQ-286/277: `sanitizeNotasGeneralesPedido` evita inventar «Entrega … / Destino:» y quita líneas que solo duplican campos parametrizados.
+
+REQ-340: al mapear desde Mateo, `asegurarNotasGeneralesPedido` rellena notas si el sanitize deja vacío (texto flojo del origen o `MSG_NOTAS_SIN_TEXTO_ORIGEN` = «Sin notas explícitas en el origen; revisar correo o adjunto.»). Al guardar, `persistirNotasGeneralesDesdeForm` manda el textarea con prioridad usuario (vacío deliberado se respeta; no se reinyecta el respaldo al reabrir si el usuario borró). Tests: `sanitize-notas-generales-pedido.test.ts`, `resolve-cabecera-print-desde-detalle.test.ts`.
+
+REQ-328: «Referencia de pedido» es solo lectura (`OrdenVentaCaptureFormPedido`); se prellena desde Mateo / OT hija y no entra al orden de tabulación editable.
+
+REQ-337: al confirmar (no en avance), `validar-envio-ov` bloquea si hay más de un día de entrega entre OT (`diasEntregaDistintosEnHijas`) con `MSG_FECHAS_DISTINTAS_ENTRE_OT`, antes del sync que unifica fechas. Tests: `validar-envio-ov.test.ts`, `sync-ot-cabecera-renglon.test.ts`.
 
 Confirmar no exige dirección no vacía; la obligatoriedad visual vía `missingFields` es orientativa desde el origen IA.
 
@@ -155,7 +166,7 @@ La prueba automatizada del Nivel 2 (Tabla 4) cubre el modo edición. El modo sol
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.7 |
-| Fecha de aprobación | 11/11/2026 |
+| Versión del schema | v1.8 |
+| Fecha de aprobación | 19/11/2026 |
 | Aprobado por | Desarrollador frontend |
 | Próxima revisión | Cuando el formulario cambie de campos o de reglas |
