@@ -34,11 +34,17 @@ export function propagarCabeceraOvATodasLasHijas(
   hijas: OrdenTrabajoHija[],
   cabecera: Pick<
     CabeceraFormParaOt,
-    "notasOt" | "direccionOt" | "telefonoOt" | "correoOt" | "responsableExterno"
+    | "notasOt"
+    | "direccionOt"
+    | "telefonoOt"
+    | "correoOt"
+    | "responsableExterno"
+    | "fecha"
   >,
 ): OrdenTrabajoHija[] {
   return hijas.map((hija) => ({
     ...hija,
+    fecha: cabecera.fecha || hija.fecha,
     renglones: renglonesBase(hija).map((row) =>
       aplicarCabeceraOvARenglonHermano(row, cabecera),
     ),
@@ -55,6 +61,8 @@ export function aplicarCabeceraFormAOrdenesTrabajo(
     if (hija.id !== targetHijaId) {
       return {
         ...hija,
+        // REQ-337: misma fecha de entrega en todas las OT de la OV.
+        fecha: cabecera.fecha || hija.fecha,
         renglones: renglonesBase(hija).map((row) =>
           aplicarCabeceraOvARenglonHermano(row, cabecera),
         ),
@@ -107,12 +115,17 @@ export function aplicarCabeceraFormARenglonActivo(
   };
 }
 
-/** Cabecera de OV que se propaga a todas las OT (REQ-141 / REQ-281). */
+/** Cabecera de OV que se propaga a todas las OT (REQ-141 / REQ-281 / REQ-337 fecha). */
 export function aplicarCabeceraOvARenglonHermano(
   row: OrigenCorreoRenglon,
   cabecera: Pick<
     CabeceraFormParaOt,
-    "notasOt" | "direccionOt" | "telefonoOt" | "correoOt" | "responsableExterno"
+    | "notasOt"
+    | "direccionOt"
+    | "telefonoOt"
+    | "correoOt"
+    | "responsableExterno"
+    | "fecha"
   >,
 ): OrigenCorreoRenglon {
   return {
@@ -123,5 +136,7 @@ export function aplicarCabeceraOvARenglonHermano(
     "Telefono contacto": cabecera.telefonoOt,
     "Correo contacto": cabecera.correoOt,
     "Responsable externo": cabecera.responsableExterno,
+    // REQ-337: una OV = un día de entrega; la fecha del form llega a todas las OT.
+    Fecha: cabecera.fecha || row.Fecha,
   };
 }

@@ -7,9 +7,12 @@ import type {
 } from "../utils/origen/origen-correo-ordenes-trabajo";
 import { resolvePropuestaClienteMateoAlReabrir } from "../utils/pedido/resolve-cabecera-guardada";
 import { mergeLineasBdConOrigenPendiente } from "../utils/pedido/merge-lineas-bd-y-origen";
-import {
-  rankCompradoresFromNombre,
-} from "../utils/match/match-comprador-from-nombre";
+import { sugerenciasCompradorParaPicker } from "../utils/match/match-comprador-from-nombre";
+
+function limpioCliente(value: string | null | undefined): string {
+  const t = (value ?? "").trim();
+  return t && t !== "—" ? t : "";
+}
 
 /** Carga detalle OV sin remapeo Mateo (no externa por_confirmar). */
 export function aplicarDetalleSinMateo(input: {
@@ -70,20 +73,22 @@ export function aplicarDetalleSinMateo(input: {
     setFormOtPage(0);
     setStep("form");
   }
+  // REQ-326: el nombre de Mateo vive en origen aunque la OV ya tenga id_comprador.
+  // Sin esto el picker no rankea en cuentas donde el cliente ya venía matcheado.
+  const nombreMateo = limpioCliente(nombreEscritoOrigen);
+  if (nombreMateo) {
+    setCompradorNombreIa(nombreMateo);
+    setCompradorSugerencias(
+      sugerenciasCompradorParaPicker(nombreMateo, compradorRows),
+    );
+  }
+
   const propuestaMateo = resolvePropuestaClienteMateoAlReabrir({
     idComprador: idCompradorDetalle,
     nombreEnOrigen: nombreEscritoOrigen,
   });
   if (!propuestaMateo) return;
-  setCompradorNombreIa(propuestaMateo);
   setCompradorLabel(propuestaMateo);
-  const compradorRank = rankCompradoresFromNombre(
-    propuestaMateo,
-    compradorRows,
-  );
-  setCompradorSugerencias(
-    compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
-  );
   setMissingFields((prev) => {
     const next = new Set(prev);
     next.add("cliente");

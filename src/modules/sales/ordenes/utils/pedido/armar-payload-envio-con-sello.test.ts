@@ -138,4 +138,62 @@ describe("armarPayloadEnvioConSelloUsuario (REQ-281)", () => {
     );
     expect(sello?.notasGenerales).toBe(editadas);
   });
+
+  it("REQ-328: form vacío no pisa la referencia de Mateo en la hija", () => {
+    const hija = createEmptyOrdenTrabajoHija({
+      id: "ot-1",
+      almacen: "SUSHI",
+      referenciaPedido: "REF-HIJA",
+    });
+    const payload = armarPayloadEnvioConSelloUsuario({
+      codigoCuenta: "demo",
+      lineasParsed: [
+        {
+          idProducto: "p1",
+          cantidad: 1,
+          precioUnitario: 10,
+          unidadMedida: "KG",
+        },
+      ],
+      lineas: [linea("ot-1")],
+      hijasSynced: [hija],
+      origenCorreoDraft: [],
+      idBodegaDestino: "b1",
+      idComprador: "c1",
+      fechaEntregaPersist: "2026-11-06",
+      ventanaDesde: "",
+      ventanaHasta: "",
+      prioridad: "Normal",
+      moneda: "MXN",
+      ordenCompraHotel: "",
+      centroConsumo: "",
+      referenciaPedido: "",
+      vendedorNombre: "",
+      bodegaDestinoLabel: "",
+      direccion: "",
+      anden: "",
+      contacto: "",
+      telefono: "",
+      correo: "",
+      turno: "",
+      horaSalida: "",
+      chofer: "",
+      unidad: "",
+      aceptaSustituciones: "",
+      requiereLote: "",
+      registrarTemperatura: "",
+      persistOrigenTexto: "",
+      persistOrigenAdjuntos: [],
+      compradorNombreIa: null,
+      compradorLabel: "Cliente",
+      observaciones: "",
+      idCreador: "u1",
+      isDraft: true,
+    });
+    const sello = leerCabeceraUsuarioSello(
+      (payload.origenCorreo as Parameters<typeof leerCabeceraUsuarioSello>[0]) ??
+        [],
+    );
+    expect(sello?.referenciaPedido).toBe("REF-HIJA");
+  });
 });

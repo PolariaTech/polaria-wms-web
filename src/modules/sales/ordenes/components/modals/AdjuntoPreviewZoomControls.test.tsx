@@ -16,7 +16,7 @@ describe("AdjuntoPreviewZoomControls", () => {
     expect(onZoomChange).toHaveBeenCalledWith(0.75);
   });
 
-  it("Restablecer vuelve a 100%", async () => {
+  it("REQ-327: Restablecer vuelve al zoom Polaria por defecto (100%)", async () => {
     const user = userEvent.setup();
     const onZoomChange = vi.fn();
     render(

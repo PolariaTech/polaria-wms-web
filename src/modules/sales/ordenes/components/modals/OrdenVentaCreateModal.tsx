@@ -29,6 +29,7 @@ import {useAbrirCapturaOv, useAvisosValidacionOv, usePrefillYDiscrepanciasOv} fr
 import {useCierreCapturaOv, useFolioDesdeLista} from "../../utils/pedido/aviso-direccion-ov";
 import {useSyncOtFormulario, useTotalesVentaOv} from "../../hooks/sync-ot-formulario";
 import {useScrollFormularioOv, useSeleccionarCompradorModal} from "../../hooks/seleccionar-comprador-ov";
+import {useOrdenVentaCreateCabeceraState} from "../../hooks/use-orden-venta-create-cabecera-state";
 
 export function OrdenVentaCreateModal({
   open,
@@ -66,29 +67,19 @@ export function OrdenVentaCreateModal({
   const [startMode, setStartMode] = useState<StartMode | null>(null);
   const [idComprador, setIdComprador] = useState("");
   const [compradorLabel, setCompradorLabel] = useState("");
-  const [fechaEntrega, setFechaEntrega] = useState("");
-  const [ventanaDesde, setVentanaDesde] = useState("");
-  const [ventanaHasta, setVentanaHasta] = useState("");
-  const [prioridad, setPrioridad] = useState("Normal");
-  const [moneda, setMoneda] = useState("MXN");
-  const [ordenCompraHotel, setOrdenCompraHotel] = useState("");
-  const [centroConsumo, setCentroConsumo] = useState("");
-  const [observaciones, setObservaciones] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [entregaLat, setEntregaLat] = useState<number | null>(null);
-  const [entregaLng, setEntregaLng] = useState<number | null>(null);
-  const [anden, setAnden] = useState("");
-  const [contacto, setContacto] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [correo, setCorreo] = useState("");
-  const [denominacionComercial, setDenominacionComercial] = useState("");
-  const [turno, setTurno] = useState("");
-  const [horaSalida, setHoraSalida] = useState("");
-  const [chofer, setChofer] = useState("");
-  const [unidad, setUnidad] = useState("");
-  const [aceptaSustituciones, setAceptaSustituciones] = useState("");
-  const [requiereLote, setRequiereLote] = useState("");
-  const [registrarTemperatura, setRegistrarTemperatura] = useState("");
+  const cabecera = useOrdenVentaCreateCabeceraState();
+  const {
+    fechaEntrega, setFechaEntrega, ventanaDesde, setVentanaDesde,
+    ventanaHasta, setVentanaHasta, prioridad, setPrioridad, moneda, setMoneda,
+    ordenCompraHotel, setOrdenCompraHotel, centroConsumo, setCentroConsumo,
+    referenciaPedido, setReferenciaPedido, observaciones, setObservaciones,
+    direccion, setDireccion, entregaLat, setEntregaLat, entregaLng, setEntregaLng,
+    anden, setAnden, contacto, setContacto, telefono, setTelefono, correo, setCorreo,
+    denominacionComercial, setDenominacionComercial, turno, setTurno,
+    horaSalida, setHoraSalida, chofer, setChofer, unidad, setUnidad,
+    aceptaSustituciones, setAceptaSustituciones, requiereLote, setRequiereLote,
+    registrarTemperatura, setRegistrarTemperatura,
+  } = cabecera;
   const [origenTexto, setOrigenTexto] = useState("");
   const [totalSolicitudDetectado, setTotalSolicitudDetectado] = useState<number | null>(null);
   const [origenArchivoFiles, setOrigenArchivoFiles] = useState<File[]>([]);
@@ -239,7 +230,8 @@ export function OrdenVentaCreateModal({
     step, setStep, startMode, setStartMode, idComprador, setIdComprador, compradorLabel, setCompradorLabel,
     fechaEntrega, setFechaEntrega, ventanaDesde, setVentanaDesde, ventanaHasta, setVentanaHasta,
     prioridad, setPrioridad, moneda, setMoneda, ordenCompraHotel, setOrdenCompraHotel,
-    centroConsumo, setCentroConsumo, observaciones, setObservaciones, direccion, setDireccion,
+    centroConsumo, setCentroConsumo, referenciaPedido, setReferenciaPedido,
+    observaciones, setObservaciones, direccion, setDireccion,
     entregaLat, setEntregaLat, entregaLng, setEntregaLng,
     anden, setAnden, contacto, setContacto, telefono, setTelefono, correo, setCorreo,
     denominacionComercial, setDenominacionComercial,

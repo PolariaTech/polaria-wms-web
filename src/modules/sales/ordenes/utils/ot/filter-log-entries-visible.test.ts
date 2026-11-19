@@ -13,6 +13,14 @@ describe("isLogEventoEnvioBodega", () => {
     ).toBe(true);
   });
 
+  it("detecta confirmado y enviado a bodega (REQ-325)", () => {
+    expect(
+      isLogEventoEnvioBodega({
+        mensaje: "Pedido confirmado y enviado a bodega por Andrés.",
+      }),
+    ).toBe(true);
+  });
+
   it("detecta pedido emitido por…", () => {
     expect(
       isLogEventoEnvioBodega({

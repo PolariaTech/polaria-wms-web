@@ -42,6 +42,9 @@ describe("CypherCorreoPartidoAviso (REQ-313)", () => {
     expect(aviso).toHaveTextContent("OV-00001876 · OC 4500140200");
     expect(aviso).not.toHaveTextContent("OV-00001874");
     expect(aviso.textContent).not.toContain("id-secreto");
+    // REQ-338: glow / ring para que se vea sin sacarlo del Cypher.
+    expect(aviso.className).toMatch(/shadow-\[0_0_22px_var\(--warning-border\)\]/);
+    expect(aviso.className).toMatch(/ring-polaria-warning/);
   });
 
   it("si la OV no tiene OC lo dice, y una hermana sin OC se muestra «sin OC»", () => {

@@ -38,4 +38,31 @@ describe("PolariaConfirmDialog (REQ-304)", () => {
 
     host.remove();
   });
+
+  it("REQ-335: en dock-left el portal deja pasar clics al Cypher", () => {
+    render(
+      <PolariaConfirmDialog
+        open
+        stackLevel="nested"
+        layout="dock-left"
+        title="¿Confirmar el pedido?"
+        onClose={() => {}}
+        onConfirm={() => {}}
+      />,
+    );
+
+    const portal = document.body.querySelector(
+      "[data-polaria-confirm-portal]",
+    );
+    expect(portal?.className).toContain("pointer-events-none");
+    expect(portal?.className).not.toMatch(
+      /(?:^|\s)pointer-events-auto(?:\s|$)/,
+    );
+    expect(screen.getByRole("alertdialog").className).toContain(
+      "pointer-events-auto",
+    );
+    expect(screen.getByRole("button", { name: "Cerrar" }).className).toContain(
+      "pointer-events-auto",
+    );
+  });
 });

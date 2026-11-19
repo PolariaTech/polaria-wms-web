@@ -17,6 +17,7 @@ import { flattenOrdenesTrabajoToOrigenCorreo } from "../utils/origen/origen-corr
 import { resolverCabeceraFormConSelloUsuario } from "./aplicar-cabecera-con-sello-usuario";
 import {
   rankCompradoresFromNombre,
+  sugerenciasCompradorParaPicker,
   shouldAutoAssignComprador,
 } from "../utils/match/match-comprador-from-nombre";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
@@ -75,7 +76,7 @@ export function cargarFichaYPreciosDeComprador(input: {
 
 
 export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
-  const { origenCorreoRows, detalle, idCompradorDetalle, nombreEscritoOrigen, setCompradorNombreIa, compradorRows, handleSelectComprador, selectedCompradorIdRef, ovMaterializada, setCompradorSugerencias, setIdComprador, setCompradorLabel, setPrioridad, productoRows, hijasEdit, setFechaEntrega, setCentroConsumo, setObservaciones, setOrdenCompraHotel, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setVentanaDesde, setVentanaHasta, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias, skipOtSeedFromOrigenRef, lineasDesdeDetalle, setLineas, setStartMode, setFormOtPage, setStep, setOrdenesTrabajoPreview, setOrigenCorreoDraft } = input;
+  const { origenCorreoRows, detalle, idCompradorDetalle, nombreEscritoOrigen, setCompradorNombreIa, compradorRows, handleSelectComprador, selectedCompradorIdRef, ovMaterializada, setCompradorSugerencias, setIdComprador, setCompradorLabel, setPrioridad, productoRows, hijasEdit, setFechaEntrega, setCentroConsumo, setReferenciaPedido, setObservaciones, setOrdenCompraHotel, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setVentanaDesde, setVentanaHasta, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias, skipOtSeedFromOrigenRef, lineasDesdeDetalle, setLineas, setStartMode, setFormOtPage, setStep, setOrdenesTrabajoPreview, setOrigenCorreoDraft } = input;
   if (!detalle) return;
           const selloUsuario = leerCabeceraUsuarioSello(origenCorreoRows);
           const pedido = buildPedidoExtraidoFromOrigenCorreo({
@@ -84,23 +85,31 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
             notasAlmacen: detalle.notas_almacen,
           });
 
+          // REQ-326: nombre de Mateo para el picker (cualquier cuenta), aunque ya
+          // haya id_comprador. resolvePropuesta* lo oculta si hay id — no sirve aquí.
+          const nombreMateoPicker = (
+            pedido.nombreCliente?.trim() ||
+            nombreEscritoOrigen?.trim() ||
+            ""
+          ).replace(/^—$/, "");
+          if (nombreMateoPicker) {
+            setCompradorNombreIa(nombreMateoPicker);
+          }
+
           // REQ-166: propuesta de Mateo (pedido/origen), no el Cliente del Cypher-correo.
           const propuestaMateo = resolvePropuestaClienteMateoAlReabrir({
             idComprador: idCompradorDetalle,
             nombrePedidoMateo: pedido.nombreCliente,
             nombreEnOrigen: nombreEscritoOrigen,
           });
-          if (propuestaMateo) {
-            setCompradorNombreIa(propuestaMateo);
-          }
 
           const compradorRank = rankCompradoresFromNombre(
-            propuestaMateo || pedido.nombreCliente,
+            nombreMateoPicker || propuestaMateo,
             compradorRows,
           );
           const autoComprador = shouldAutoAssignComprador(
             compradorRank,
-            propuestaMateo || pedido.nombreCliente,
+            nombreMateoPicker || propuestaMateo,
           );
           // Si ya venía un comprador de materialización pero no es match exacto
           // del texto del cliente, no lo dejamos elegido: solo sugerencias.
@@ -110,10 +119,17 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
           let idCompradorForMap = detalleEsExacto ? idCompradorDetalle : "";
           let telefonoForMap = "";
 
+          const sugerenciasPicker = nombreMateoPicker
+            ? sugerenciasCompradorParaPicker(nombreMateoPicker, compradorRows)
+            : [];
+          if (sugerenciasPicker.length > 0) {
+            setCompradorSugerencias(sugerenciasPicker);
+          }
+
           if (autoComprador) {
             handleSelectComprador(autoComprador, {
-              keepNombreIa: Boolean(propuestaMateo || nombreEscritoOrigen),
               // No pisar Ship To del origen con la ficha del comprador.
+              // Nombre Mateo se conserva por defecto (REQ-326).
               preservePedidoData: true,
             });
             idCompradorForMap = autoComprador.idComprador;
@@ -121,18 +137,10 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
           } else if (propuestaMateo) {
             // REQ-166: no dejar el campo vacío («Falta cliente») si Mateo ya propuso.
             // REQ-195: si la OV ya tiene comprador en BD, no lo borramos al reabrir.
-            if (ovMaterializada && idCompradorDetalle) {
-              setCompradorSugerencias(
-                compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
-              );
-    
-            } else {
+            if (!(ovMaterializada && idCompradorDetalle)) {
               selectedCompradorIdRef.current = "";
               setIdComprador("");
               setCompradorLabel(propuestaMateo);
-              setCompradorSugerencias(
-                compradorRank.candidates.map((c) => c.comprador).slice(0, 4),
-              );
             }
           }
 
@@ -179,6 +187,7 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
           });
           setFechaEntrega(cabeceraForm.fechaEntrega);
           setCentroConsumo(cabeceraForm.centroConsumo);
+          setReferenciaPedido?.(cabeceraForm.referenciaPedido);
           setObservaciones(cabeceraForm.observaciones);
           setOrdenCompraHotel(cabeceraForm.ordenCompraHotel);
           setDireccion(cabeceraForm.direccion);

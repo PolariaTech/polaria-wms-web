@@ -29,6 +29,8 @@ export function armarPayloadEnvioConSelloUsuario(params: {
   moneda: string;
   ordenCompraHotel: string;
   centroConsumo: string;
+  /** REQ-328: valor del form; si falta, primera hija con referencia. */
+  referenciaPedido?: string | null;
   vendedorNombre: string;
   bodegaDestinoLabel: string;
   direccion: string;
@@ -96,9 +98,12 @@ export function armarPayloadEnvioConSelloUsuario(params: {
       cabeceraUsuario: cabeceraUsuarioDesdeForm({
         observaciones: params.observaciones,
         centroConsumo: params.centroConsumo,
-        referenciaPedido: params.hijasSynced
-          .map((hija) => hija.referenciaPedido?.trim())
-          .find(Boolean),
+        // REQ-328: solo lectura en UI; no pisar Mateo con vacío del form.
+        referenciaPedido:
+          (params.referenciaPedido ?? "").trim() ||
+          params.hijasSynced
+            .map((hija) => hija.referenciaPedido?.trim())
+            .find(Boolean),
         fechaEntrega: params.fechaEntregaPersist,
         direccion: params.direccion,
         contacto: params.contacto,

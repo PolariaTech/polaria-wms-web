@@ -4,6 +4,7 @@ import {
   matchCompradorFromNombre,
   rankCompradoresFromNombre,
   shouldAutoAssignComprador,
+  sugerenciasCompradorParaPicker,
 } from "./match-comprador-from-nombre";
 
 const rows: CompradorListRow[] = [
@@ -202,6 +203,89 @@ describe("rankCompradoresFromNombre", () => {
     expect(
       shouldAutoAssignComprador(ranked, "FAIRMONT")?.idComprador,
     ).toBe("c-fairmont");
+  });
+
+  it("REQ-326: sugiere por D. Comercial aunque la razón social no coincida", () => {
+    const catalogo: CompradorListRow[] = [
+      {
+        idComprador: "c-fairmont",
+        codigo: "2010010999",
+        comprador: "OPERADORA HOTELERA DE CANCUN SA DE CV",
+        apodo: "FAIRMONT MAYAKOBA",
+        denominacionComercialOverride: "",
+        telefono: null,
+        rfc: "OHC010101AAA",
+        grupo: "",
+        estaActivo: true,
+      },
+      {
+        idComprador: "c-otro",
+        codigo: "OTRO",
+        comprador: "Otro Hotel Local",
+        apodo: "",
+        denominacionComercialOverride: "",
+        telefono: null,
+        rfc: "",
+        grupo: "",
+        estaActivo: true,
+      },
+    ];
+    const ranked = rankCompradoresFromNombre("Fairmont Mayakoba", catalogo);
+    expect(ranked.exact?.idComprador).toBe("c-fairmont");
+    expect(
+      shouldAutoAssignComprador(ranked, "Fairmont Mayakoba")?.idComprador,
+    ).toBe("c-fairmont");
+  });
+
+  it("REQ-326: también rankea por denominacionComercialOverride", () => {
+    const catalogo: CompradorListRow[] = [
+      {
+        idComprador: "c-override",
+        codigo: "OV1",
+        comprador: "RAZON SOCIAL LARGA SIN MARCA",
+        apodo: "",
+        denominacionComercialOverride: "Fairmont Mayakoba",
+        telefono: null,
+        rfc: "",
+        grupo: "",
+        estaActivo: true,
+      },
+    ];
+    const ranked = rankCompradoresFromNombre("Fairmont Mayakoba", catalogo);
+    expect(ranked.exact?.idComprador).toBe("c-override");
+    expect(ranked.candidates).toEqual([]);
+  });
+
+  it("REQ-326: el picker incluye exacto por D. Comercial (cualquier cliente)", () => {
+    const catalogo: CompradorListRow[] = [
+      {
+        idComprador: "c-1",
+        codigo: "1",
+        comprador: "RAZON SOCIAL A",
+        apodo: "Marca Comercial A",
+        denominacionComercialOverride: "",
+        telefono: null,
+        rfc: "",
+        grupo: "",
+        estaActivo: true,
+      },
+      {
+        idComprador: "c-2",
+        codigo: "2",
+        comprador: "RAZON SOCIAL B",
+        apodo: "",
+        denominacionComercialOverride: "",
+        telefono: null,
+        rfc: "",
+        grupo: "",
+        estaActivo: true,
+      },
+    ];
+    expect(
+      sugerenciasCompradorParaPicker("Marca Comercial A", catalogo).map(
+        (row) => row.idComprador,
+      ),
+    ).toEqual(["c-1"]);
   });
 
   it("token genérico Cancun no auto-asigna ni fuerza sugerencia débil", () => {

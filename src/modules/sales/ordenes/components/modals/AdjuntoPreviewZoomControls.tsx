@@ -2,6 +2,7 @@
 
 import { ZoomIn, ZoomOut } from "lucide-react";
 import {
+  ADJUNTO_PREVIEW_ZOOM_DEFAULT,
   ADJUNTO_PREVIEW_ZOOM_MAX,
   ADJUNTO_PREVIEW_ZOOM_MIN,
   ADJUNTO_PREVIEW_ZOOM_STEP,
@@ -38,7 +39,7 @@ export function AdjuntoPreviewZoomControls(props: {
         type="button"
         aria-label="Restablecer zoom"
         title="Restablecer zoom"
-        onClick={() => onZoomChange(1)}
+        onClick={() => onZoomChange(ADJUNTO_PREVIEW_ZOOM_DEFAULT)}
         className="inline-flex h-9 min-w-12 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 px-2 polaria-text-body-sm text-polaria-w-50 transition hover:bg-polaria-t-08 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
       >
         {Math.round(zoom * 100)}%

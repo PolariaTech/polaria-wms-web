@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  asegurarNotasGeneralesPedido,
   looksLikePedidoHeaderJunk,
+  MSG_NOTAS_SIN_TEXTO_ORIGEN,
+  persistirNotasGeneralesDesdeForm,
   sanitizeNotasGeneralesPedido,
 } from "./sanitize-notas-generales-pedido";
 
@@ -16,6 +19,12 @@ describe("sanitizeNotasGeneralesPedido", () => {
       "PEDIDO ADP-261116-0520-ARN · ORDINARIO. Emisión: 16/11/2026 05:22 hrs. Asesor: Atención al Cliente. Cliente: PALAPITA ARCO RANCHO VIEJO EVENTO. Teléfono:";
     expect(looksLikePedidoHeaderJunk(junk)).toBe(true);
     expect(sanitizeNotasGeneralesPedido(junk)).toBe("");
+  });
+
+  it("REQ-340: conserva nota floja sin señal de madurez/andén", () => {
+    expect(sanitizeNotasGeneralesPedido("Favor de confirmar de recibido")).toBe(
+      "Favor de confirmar de recibido",
+    );
   });
 
   it("conserva instrucción útil aunque venga junto a metadatos", () => {
@@ -65,5 +74,37 @@ describe("sanitizeNotasGeneralesPedido", () => {
     expect(notes).not.toMatch(/Fecha de entrega/i);
     expect(notes).not.toMatch(/Prioridad/i);
     expect(notes).not.toMatch(/^Andén:/m);
+  });
+});
+
+describe("asegurarNotasGeneralesPedido (REQ-340)", () => {
+  it("si sanitize deja vacío, pone el mensaje de respaldo", () => {
+    expect(
+      asegurarNotasGeneralesPedido(
+        "---------- Forwarded message ----------. De: Daniel Galvis. Date: jue.",
+      ),
+    ).toBe(MSG_NOTAS_SIN_TEXTO_ORIGEN);
+  });
+
+  it("si Mateo trae texto flojo, lo conserva", () => {
+    expect(asegurarNotasGeneralesPedido("Confirmar recepción")).toBe(
+      "Confirmar recepción",
+    );
+  });
+});
+
+describe("persistirNotasGeneralesDesdeForm (REQ-340)", () => {
+  it("conserva el texto del usuario aunque solo queden campos parametrizados al strip", () => {
+    expect(persistirNotasGeneralesDesdeForm("Traer dos facturas")).toBe(
+      "Traer dos facturas",
+    );
+  });
+
+  it("si el strip quita todo pero el usuario escribió, conserva el original", () => {
+    expect(persistirNotasGeneralesDesdeForm("Andén: 3")).toBe("Andén: 3");
+  });
+
+  it("vacío sigue vacío (borrado intencional)", () => {
+    expect(persistirNotasGeneralesDesdeForm("   ")).toBe("");
   });
 });

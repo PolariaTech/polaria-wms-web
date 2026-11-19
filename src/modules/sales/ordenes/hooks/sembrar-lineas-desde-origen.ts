@@ -64,6 +64,7 @@ import {
   puedeReagruparOt,
   type PropuestaReagrupacionApi,
 } from "../utils/ot/reagrupar-ordenes-trabajo";
+import { resolverCompradorPickerSugerencias } from "../utils/match/resolver-comprador-picker-priority-ids";
 
 export function useSembrarLineasDesdeOrigen(estado: OrdenVentaFormEstado) {
   const { lineas, hijaFormActiva, productos, open, seededOtIdsRef, skipOtSeedFromOrigenRef, step, correo, setLineas, equivalenciaByProducto } = estado;
@@ -207,7 +208,7 @@ export function useEfectosCompaneroOv(estado: OrdenVentaFormEstado) {
 }
 
 export function useCatalogoPickerOv(estado: OrdenVentaFormEstado) {
-  const { replaceLineaIndex, productosParaAgregar, lineas, idComprador, compradorSugerencias, compradores, picker, setLineas, precioOverrideByProducto, productosBase } = estado;
+  const { replaceLineaIndex, productosParaAgregar, lineas, idComprador, compradorSugerencias, compradores, compradorNombreIa, compradorLabel, origenCorreoDraft, picker, setLineas, precioOverrideByProducto, productosBase } = estado;
   const productosParaPicker = useMemo(() => {
     if (replaceLineaIndex == null) return productosParaAgregar;
     const lineaActiva = lineas[replaceLineaIndex];
@@ -233,14 +234,35 @@ export function useCatalogoPickerOv(estado: OrdenVentaFormEstado) {
     return collectSugerenciasLinea(linea).map((s) => s.idProducto);
   }, [lineas, replaceLineaIndex]);
 
-  /** Catálogo completo de clientes; arriba las sugerencias de Mateo (REQ-068). */
-  const compradorPickerPriorityIds = useMemo(
-    () =>
-      !idComprador && compradorSugerencias.length > 0
-        ? compradorSugerencias.map((row) => row.idComprador)
-        : ([] as string[]),
-    [compradorSugerencias, idComprador],
-  );
+  const nombreEnOrigen = useMemo(() => {
+    const rows = Array.isArray(origenCorreoDraft) ? origenCorreoDraft : [];
+    return (
+      rows.map((row) => row["Nombre cliente"]?.trim()).find(Boolean) || ""
+    );
+  }, [origenCorreoDraft]);
+
+  /** REQ-068/326: mismo patrón que productos — sugerencias arriba + badge. */
+  const { compradorPickerPriorityIds, compradoresParaPicker } = useMemo(() => {
+    const out = resolverCompradorPickerSugerencias({
+      compradores,
+      compradorNombreIa,
+      compradorLabel,
+      idComprador,
+      nombreEnOrigen,
+      compradorSugerencias,
+    });
+    return {
+      compradorPickerPriorityIds: out.priorityIds,
+      compradoresParaPicker: out.compradoresParaPicker,
+    };
+  }, [
+    compradores,
+    compradorNombreIa,
+    compradorLabel,
+    idComprador,
+    nombreEnOrigen,
+    compradorSugerencias,
+  ]);
 
   /** REQ-097: identidad comercial del cliente elegido (solo lectura). */
   const compradorCatalogo = useMemo(
@@ -294,5 +316,15 @@ export function useCatalogoPickerOv(estado: OrdenVentaFormEstado) {
     });
   }, [precioOverrideByProducto, productosBase]);
 
-  return { productosParaPicker, productoPickerPriorityIds, compradorPickerPriorityIds, compradorCatalogo, codigoClienteCatalogo, denominacionComercialCatalogo, puedeAgregarProducto, hasCatalogPending };
+  return {
+    productosParaPicker,
+    productoPickerPriorityIds,
+    compradorPickerPriorityIds,
+    compradoresParaPicker,
+    compradorCatalogo,
+    codigoClienteCatalogo,
+    denominacionComercialCatalogo,
+    puedeAgregarProducto,
+    hasCatalogPending,
+  };
 }

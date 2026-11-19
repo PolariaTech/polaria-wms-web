@@ -40,11 +40,15 @@ export interface OrdenVentaFormEstado
   bodegasDestino: BodegaDestinoOption[];
   canReemplazarDiscrepancia: (item: CampoDiscrepancia) => boolean;
   centroConsumo: string;
+  /** REQ-328: misma referencia que el detalle; editable en captura. */
+  referenciaPedido: string;
   clearFieldMarks: AccionModal;
   codigoClienteCatalogo: string;
   compradorLabel: string;
   compradorNombreIa: string | null;
   compradorPickerPriorityIds: string[];
+  /** Catálogo de clientes con sugerencias de Mateo primero (REQ-326). */
+  compradoresParaPicker: CompradorListRow[];
   compradorSugerencias: CompradorListRow[];
   compradores: CompradorListRow[];
   confirmBloqueoReason: string | null;
@@ -155,6 +159,7 @@ export interface OrdenVentaFormEstado
   setAddOtOpen: Dispatch<SetStateAction<boolean>>;
   setAvisoVerificarDireccion: Dispatch<SetStateAction<boolean>>;
   setCentroConsumo: Dispatch<SetStateAction<string>>;
+  setReferenciaPedido: Dispatch<SetStateAction<string>>;
   setConfirmDiscardOpen: Dispatch<SetStateAction<boolean>>;
   setConfirmDiscrepanciasOpen: Dispatch<SetStateAction<boolean>>;
   setConfirmRemoveOtId: Dispatch<SetStateAction<string | null>>;
@@ -209,7 +214,9 @@ export interface OrdenVentaFormEstado
   applyOrdenesTrabajo: AccionModal;
   avisosCatalogoValidacion: CampoDiscrepancia[];
   bodegaDestinoLabel: string;
-  bootstrapPromiseRef: { current: Promise<void> | null };
+  bootstrapPromiseRef: {
+    current: Promise<import("../hooks/ov-form-bootstrap-catalogo").OvFormBootstrapCatalogo | null> | null;
+  };
   cantidadFocusId: string | null;
   captureFormScroll: AccionModal;
   chofer: string;

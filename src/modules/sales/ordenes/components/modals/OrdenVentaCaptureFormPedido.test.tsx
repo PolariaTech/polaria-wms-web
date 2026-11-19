@@ -18,19 +18,21 @@ function propsBase(parcial: Record<string, unknown> = {}) {
     onCentroConsumo: vi.fn(),
     moneda: "MXN",
     onBuscarMoneda: vi.fn(),
+    referenciaPedido: "",
     onClearField: vi.fn(),
     marks,
     ...parcial,
   };
 }
 
-describe("OrdenVentaCaptureFormPedido (REQ-278)", () => {
-  it("lleva OC, centro y moneda", () => {
+describe("OrdenVentaCaptureFormPedido (REQ-278/328)", () => {
+  it("lleva OC, centro, moneda y referencia de pedido", () => {
     render(<OrdenVentaCaptureFormPedido {...propsBase()} />);
 
     expect(screen.getByLabelText(/Orden de compra del cliente/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Centro de consumo/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Moneda$/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Referencia de pedido/)).toBeInTheDocument();
     for (const etiqueta of [/Notas generales/, /Prioridad/, /Fecha de entrega/, /Hora desde/]) {
       expect(screen.queryByLabelText(etiqueta)).not.toBeInTheDocument();
     }
@@ -82,5 +84,18 @@ describe("OrdenVentaCaptureFormPedido (REQ-278)", () => {
     await user.click(screen.getByRole("button", { name: /Moneda|Buscar/i }));
 
     expect(props.onBuscarMoneda).toHaveBeenCalledOnce();
+  });
+
+  it("REQ-328: la referencia es solo lectura (Mateo)", () => {
+    render(
+      <OrdenVentaCaptureFormPedido
+        {...propsBase({ referenciaPedido: "REF-77" })}
+      />,
+    );
+
+    expect(screen.getByLabelText(/Referencia de pedido/)).toHaveAttribute(
+      "readonly",
+    );
+    expect(screen.getByLabelText(/Referencia de pedido/)).toHaveValue("REF-77");
   });
 });

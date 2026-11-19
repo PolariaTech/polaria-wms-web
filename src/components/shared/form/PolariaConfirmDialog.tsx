@@ -80,12 +80,14 @@ export function PolariaConfirmDialog({
   if (!open || typeof document === "undefined") return null;
 
   // REQ-304: portal a body para no quedar detrás de Cypher (stacking del modal OV).
+  // REQ-335: en dock-left el portal no captura clics/scroll sobre Cypher;
+  // solo backdrop + alertdialog reciben pointer-events (mismo patrón que adjunto preview).
   return createPortal(
     <div
       data-polaria-confirm-portal=""
       className={cn(
-        // auto: si el padre (p. ej. Cypher) tiene pointer-events-none, sin esto Conservar/Borrar no clicable.
-        "pointer-events-auto fixed inset-0 flex overflow-hidden",
+        "fixed inset-0 flex overflow-hidden",
+        dockLeft ? "pointer-events-none" : "pointer-events-auto",
         dockLeft
           ? cn(
               "items-stretch justify-start pt-[var(--polaria-shell-top,4.75rem)]",
@@ -102,7 +104,7 @@ export function PolariaConfirmDialog({
         disabled={isSubmitting}
         onClick={onClose}
         className={cn(
-          "absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm disabled:cursor-not-allowed",
+          "pointer-events-auto absolute inset-0 bg-polaria-bg/80 backdrop-blur-sm disabled:cursor-not-allowed",
           dockLeft &&
             cn(dockBackdropRight, "top-[var(--polaria-shell-top,4.75rem)]"),
         )}
@@ -114,7 +116,7 @@ export function PolariaConfirmDialog({
         aria-labelledby={titleId}
         aria-describedby={description || children ? descriptionId : undefined}
         className={cn(
-          "relative z-10 flex min-h-0 w-full flex-col overflow-hidden border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
+          "pointer-events-auto relative z-10 flex min-h-0 w-full flex-col overflow-hidden border-polaria-t-20 bg-polaria-t-08 backdrop-blur-xl",
           dockLeft
             ? "h-full max-h-none max-w-none flex-1 rounded-none border-0 border-t border-r"
             : cn(

@@ -58,11 +58,47 @@ describe("resolverCabeceraFormConSelloUsuario (REQ-281)", () => {
     });
     expect(out.observaciones).toBe("");
     expect(out.centroConsumo).toBe("");
+    expect(out.referenciaPedido).toBe("");
     expect(out.telefono).toBe("");
     expect(out.contacto).toBe("");
     expect(out.direccion).toBe("");
     // REQ-344: al aplicar sello, el almacén de la hija no se aplastó.
     expect(out.hijasParaForm[0]?.almacen).toBe("SUSHI");
+  });
+
+  it("REQ-328: sin sello toma la referencia de la hija", () => {
+    const out = resolverCabeceraFormConSelloUsuario({
+      origenCorreoRows: [{ Producto: "A", Cantidad: 1 }],
+      detalle: {
+        fecha_entrega: "2026-11-06",
+      },
+      mapped: {
+        centroConsumo: "",
+        observaciones: "",
+        ordenCompraHotel: "",
+        direccion: "",
+        anden: "",
+        contacto: "",
+        telefono: "",
+        correo: "",
+        fechaEntrega: "2026-11-06",
+      },
+      hijasEdit: [
+        {
+          id: "ot-1",
+          label: "1",
+          numeroPedido: "",
+          almacen: "",
+          referenciaPedido: "REF-MATEO",
+          fecha: "2026-11-06",
+          responsableExterno: "",
+          renglones: [{ Producto: "A", Cantidad: 1 }],
+          totalCantidad: 1,
+        },
+      ],
+      telefonoForMap: "",
+    });
+    expect(out.referenciaPedido).toBe("REF-MATEO");
   });
 
   it("REQ-344: dos OT con centros distintos no se unifican al cargar con sello", () => {

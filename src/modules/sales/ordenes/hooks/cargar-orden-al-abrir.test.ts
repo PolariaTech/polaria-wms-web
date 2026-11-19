@@ -214,6 +214,7 @@ describe("aplicarDetalleExternoPorConfirmar", () => {
       hijasEdit: [],
       setFechaEntrega,
       setCentroConsumo: vi.fn(),
+      setReferenciaPedido: vi.fn(),
       setObservaciones: vi.fn(),
       setOrdenCompraHotel: vi.fn(),
       setDireccion: vi.fn(),

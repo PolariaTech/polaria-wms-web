@@ -38,6 +38,7 @@ function envio(partial: Record<string, unknown> = {}) {
     moneda: "MXN",
     ordenCompraHotel: "",
     centroConsumo: "",
+    referenciaPedido: "",
     vendedorNombre: "Ana",
     direccion: "",
     entregaLat: null,

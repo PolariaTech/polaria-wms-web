@@ -137,7 +137,9 @@ export function stripCamposParametrizadosDeNotas(raw: string): string {
 
 function limpiarNotaCorta(raw: string): string {
   const cleaned = stripCamposParametrizadosDeNotas(raw);
-  if (!cleaned || looksLikePedidoHeaderJunk(cleaned)) return "";
+  if (!cleaned) return "";
+  // Encabezado ADP/folio puro sigue vacío; notas flojas van por otra rama.
+  if (looksLikePedidoHeaderJunk(cleaned)) return "";
   return cleaned;
 }
 
@@ -154,35 +156,110 @@ export function sanitizeNotasGeneralesPedido(
   const origen = origenTexto?.trim() ?? "";
 
   if (text && looksLikePedidoHeaderJunk(text)) {
-    return limpiarNotaCorta(text);
-  }
-
-  if (
+    const fromJunk = limpiarNotaCorta(text);
+    if (fromJunk) return fromJunk;
+    // Encabezado ADP puro: no conservar el raw; seguir a origen / vacío.
+  } else if (
     text &&
     !looksLikeCorreoCuerpoEnNotas(text) &&
     !looksLikeEmailHeaderJunk(text)
   ) {
-    return limpiarNotaCorta(text);
+    const corta = limpiarNotaCorta(text);
+    if (corta) return corta;
+    // REQ-340: Mateo/usuario escribió algo flojo → no tirarlo a vacío.
+    if (text.length <= 200) return fitNotasGeneralesPdf(text);
   }
 
   const fromObservaciones = origen
     ? fitNotasGeneralesPdf(extractObservacionesClienteBlock(origen))
     : "";
   if (fromObservaciones && !looksLikeEmailHeaderJunk(fromObservaciones)) {
-    return limpiarNotaCorta(fromObservaciones);
+    const limpia = limpiarNotaCorta(fromObservaciones);
+    if (limpia) return limpia;
+    if (fromObservaciones.length <= 200) return fromObservaciones;
   }
 
   const fromOrigen = origen
     ? fitNotasGeneralesPdf(extractNotasClaveCorreo(origen))
     : "";
   if (fromOrigen && !looksLikeEmailHeaderJunk(fromOrigen)) {
-    return limpiarNotaCorta(fromOrigen);
+    const limpia = limpiarNotaCorta(fromOrigen);
+    if (limpia) return limpia;
+    if (fromOrigen.length <= 200) return fromOrigen;
   }
 
   if (!text) return "";
   const fromRaw = fitNotasGeneralesPdf(extractNotasClaveCorreo(text));
   if (fromRaw && !looksLikeEmailHeaderJunk(fromRaw)) {
-    return limpiarNotaCorta(fromRaw);
+    const limpia = limpiarNotaCorta(fromRaw);
+    if (limpia) return limpia;
+  }
+  if (
+    text &&
+    !looksLikePedidoHeaderJunk(text) &&
+    !looksLikeCorreoCuerpoEnNotas(text) &&
+    !looksLikeEmailHeaderJunk(text) &&
+    text.length <= 200
+  ) {
+    return fitNotasGeneralesPdf(text);
   }
   return "";
+}
+
+export const MSG_NOTAS_SIN_TEXTO_ORIGEN =
+  "Sin notas explícitas en el origen; revisar correo o adjunto.";
+
+/**
+ * REQ-340: al mapear desde Mateo, el form no debe quedar con notas vacías.
+ * No usar al reabrir una OV donde el usuario borró a propósito (REQ-141).
+ */
+export function asegurarNotasGeneralesPedido(
+  raw: string,
+  origenTexto?: string | null,
+): string {
+  const sanitized = sanitizeNotasGeneralesPedido(raw, origenTexto);
+  if (sanitized) return sanitized;
+  const light = stripCamposParametrizadosDeNotas((raw ?? "").trim());
+  if (
+    light &&
+    !looksLikeCorreoCuerpoEnNotas(light) &&
+    !looksLikeEmailHeaderJunk(light)
+  ) {
+    return fitNotasGeneralesPdf(light);
+  }
+  const origen = (origenTexto ?? "").trim();
+  if (origen) {
+    const bloque = fitNotasGeneralesPdf(extractObservacionesClienteBlock(origen));
+    if (bloque && !looksLikeEmailHeaderJunk(bloque)) {
+      return limpiarNotaCorta(bloque) || fitNotasGeneralesPdf(bloque);
+    }
+    const clave = fitNotasGeneralesPdf(extractNotasClaveCorreo(origen));
+    if (clave && !looksLikeEmailHeaderJunk(clave)) {
+      return limpiarNotaCorta(clave) || fitNotasGeneralesPdf(clave);
+    }
+  }
+  return MSG_NOTAS_SIN_TEXTO_ORIGEN;
+}
+
+/**
+ * REQ-340: al guardar, manda el texto del form. Prioridad usuario.
+ * Solo quita líneas que duplican campos; si el strip deja vacío, se conserva
+ * lo que escribió el usuario (o Mateo, si el usuario no lo tocó).
+ */
+export function persistirNotasGeneralesDesdeForm(raw: string): string {
+  const text = stripSurtidoLocal(raw);
+  if (!text) return "";
+  const stripped = stripCamposParametrizadosDeNotas(text);
+  if (stripped) return stripped;
+  // REQ-340: prioridad usuario — si escribió algo que el strip vació (p. ej. solo
+  // “Andén: 3”), se conserva salvo que sea un cuerpo de correo pegado.
+  if (looksLikeCorreoCuerpoEnNotas(text)) return "";
+  return text;
+}
+
+function stripSurtidoLocal(raw: string): string {
+  // Espejo de stripSurtidoFotoQrFromNotas (evita import circular).
+  return raw
+    .replace(/(?:\n\n+)?Surtido\s*\(\s*foto\s*qr\s*\)\s*:[\s\S]*$/i, "")
+    .trim();
 }

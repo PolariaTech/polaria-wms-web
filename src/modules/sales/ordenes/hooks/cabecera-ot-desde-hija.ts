@@ -10,6 +10,8 @@ import { isFechaEntregaIsoValida } from "../utils/pedido/pedido-form-validation"
 export type CabeceraOtDesdeHija = {
   almacen: string;
   numeroPedido: string;
+  /** REQ-328: por OT, como en el detalle. */
+  referenciaPedido: string;
   fechaIso: string;
   anden: string;
   ventanaDesde: string;
@@ -29,9 +31,14 @@ export function cabeceraOtDesdeHija(hija: OrdenTrabajoHija): CabeceraOtDesdeHija
     numeroPedidoRaw && !isGarbageOcValue(numeroPedidoRaw) ? numeroPedidoRaw : "";
   const fechaHija = toDateInputValue(hija.fecha);
   const fechaIso = isFechaEntregaIsoValida(fechaHija) ? fechaHija : "";
+  const referenciaPedido =
+    hija.referenciaPedido?.trim() ||
+    first?.["Referencia pedido"]?.trim() ||
+    "";
   return {
     almacen,
     numeroPedido,
+    referenciaPedido,
     fechaIso,
     anden: first?.Anden?.trim() || "",
     ventanaDesde: first?.["Ventana desde"]?.trim() || "",

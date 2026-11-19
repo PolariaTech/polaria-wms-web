@@ -124,6 +124,8 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
       correoOt: correo.trim(),
       direccionOt: direccion.trim(),
       notasOt: observaciones.trim(),
+      // REQ-337: propagar día de entrega a todas las OT.
+      fecha: fechaEntrega.trim(),
     };
 
     // Multi-OT sin pager: igual propagar cabecera OV (notas/contacto/…) a todas.

@@ -78,7 +78,10 @@ export function seleccionarCompradorOv(input: {
   );
   // REQ-117: no dejar OCC obligatorio del cliente anterior mientras carga la ficha.
   setExigeOc(false);
-  if (!options?.keepNombreIa) {
+  // REQ-326: no borrar el nombre de Mateo al elegir del catálogo — el picker
+  // lo necesita para rankear sugerencias en cualquier cuenta (no solo Aguacate).
+  // keepNombreIa=false solo si el caller quiere limpiar a propósito.
+  if (options?.keepNombreIa === false) {
     setCompradorNombreIa(null);
   }
   setCompradorSugerencias([]);

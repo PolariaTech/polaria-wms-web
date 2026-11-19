@@ -6,6 +6,20 @@ import type {
   OrdenVentaLogEntry,
   RecordOrdenVentaLogInput,
 } from "../types/orden-venta-log.types";
+import {
+  AUTOR_BITACORA_SISTEMA,
+  buildCreacionSintetica,
+  ensureCreacionEntry,
+  filterLogEntriesForOt,
+} from "./orden-venta-log-entries";
+
+export {
+  AUTOR_BITACORA_SISTEMA,
+  buildCreacionSintetica,
+  ensureCreacionEntry,
+  filterLogEntriesForOt,
+  formatFechaLog,
+} from "./orden-venta-log-entries";
 
 const ENTIDAD_ORDEN_VENTA = "orden_venta";
 
@@ -78,88 +92,14 @@ function defaultMensaje(accion: AuditoriaOperacionRow["accion"]): string {
   }
 }
 
-export function formatFechaLog(
-  iso: string,
-  timeZone = "America/Cancun",
-): string {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return iso;
-  try {
-    return new Intl.DateTimeFormat("es-MX", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone,
-    }).format(new Date(ms));
-  } catch {
-    return iso;
-  }
-}
-
-/** Entrada sintética cuando aún no hay filas de auditoría de creación. */
-export function buildCreacionSintetica(params: {
-  createdAt: string;
-  autorNombre?: string | null;
-}): OrdenVentaLogEntry {
-  const autor = params.autorNombre?.trim() || null;
-  const when = params.createdAt;
-  const mensaje = autor
-    ? `Esta orden de trabajo fue creada el ${formatFechaLog(when)} por ${autor}.`
-    : `Esta orden de trabajo fue creada el ${formatFechaLog(when)}.`;
-  return {
-    id: `sintetico-creacion-${when}`,
-    createdAt: when,
-    accion: "sintetico",
-    mensaje,
-    autor,
-    idOrdenTrabajo: null,
-  };
-}
-
-/**
- * Eventos de toda la OV (sin OT) + los de la OT pedida.
- * Sin filtro OT → todos.
- */
-export function filterLogEntriesForOt(
-  entries: OrdenVentaLogEntry[],
-  idOrdenTrabajo?: string | null,
-): OrdenVentaLogEntry[] {
-  const ot = idOrdenTrabajo?.trim() || "";
-  if (!ot) return entries;
-  return entries.filter((entry) => {
-    const entryOt = entry.idOrdenTrabajo?.trim() || "";
-    return !entryOt || entryOt === ot;
-  });
-}
-
-/** Garantiza que el historial empiece con la creación (real o sintética). */
-export function ensureCreacionEntry(
-  entries: OrdenVentaLogEntry[],
-  fallback: { createdAt: string; autorNombre?: string | null } | null,
-): OrdenVentaLogEntry[] {
-  const hasCreacion = entries.some(
-    (entry) => entry.accion === "creacion" || entry.accion === "sintetico",
-  );
-  if (hasCreacion || !fallback?.createdAt) return entries;
-  return [
-    ...entries,
-    buildCreacionSintetica({
-      createdAt: fallback.createdAt,
-      autorNombre: fallback.autorNombre,
-    }),
-  ];
-}
-
-async function loadOrdenFallback(
+async function loadOrdenCreatedAt(
   admin: SupabaseClient,
   codigoCuenta: string,
   idOrdenVenta: string,
   schemaName: string | null,
-): Promise<{ createdAt: string | null; autor: string | null }> {
+): Promise<string | null> {
   const { data } = await adminFrom(admin, schemaName, "orden_venta")
-    .select("created_at,fecha_pedido,vendedor")
+    .select("created_at,fecha_pedido")
     .eq("id_orden_venta", idOrdenVenta)
     .eq("codigo_cuenta", codigoCuenta)
     .maybeSingle();
@@ -167,13 +107,9 @@ async function loadOrdenFallback(
   const row = data as {
     created_at?: string;
     fecha_pedido?: string;
-    vendedor?: string | null;
   } | null;
 
-  return {
-    createdAt: row?.created_at || row?.fecha_pedido || null,
-    autor: row?.vendedor?.trim() || null,
-  };
+  return row?.created_at || row?.fecha_pedido || null;
 }
 
 export async function listOrdenVentaLogServer(params: {
@@ -181,6 +117,7 @@ export async function listOrdenVentaLogServer(params: {
   codigoCuenta: string;
   idOrdenTrabajo?: string | null;
   fallbackCreatedAt?: string | null;
+  /** Solo si el caller conoce al creador real; nunca el vendedor vivo de la OV. */
   fallbackAutor?: string | null;
 }): Promise<OrdenVentaLogEntry[]> {
   const idOrdenVenta = params.idOrdenVenta.trim();
@@ -190,7 +127,8 @@ export async function listOrdenVentaLogServer(params: {
   const admin = getSupabaseAdminClient();
 
   let fallbackCreatedAt = params.fallbackCreatedAt?.trim() || null;
-  let fallbackAutor = params.fallbackAutor?.trim() || null;
+  const fallbackAutor =
+    params.fallbackAutor?.trim() || AUTOR_BITACORA_SISTEMA;
   let schemaName: string | null = null;
 
   if (admin) {
@@ -200,26 +138,23 @@ export async function listOrdenVentaLogServer(params: {
       schemaName = null;
     }
 
-    if (!fallbackCreatedAt || !fallbackAutor) {
+    if (!fallbackCreatedAt) {
       try {
-        const ov = await loadOrdenFallback(
+        fallbackCreatedAt = await loadOrdenCreatedAt(
           admin,
           codigoCuenta,
           idOrdenVenta,
           schemaName,
         );
-        fallbackCreatedAt = fallbackCreatedAt || ov.createdAt;
-        fallbackAutor = fallbackAutor || ov.autor;
       } catch {
         /* ignore */
       }
     }
   }
 
-  const fallback =
-    fallbackCreatedAt
-      ? { createdAt: fallbackCreatedAt, autorNombre: fallbackAutor }
-      : null;
+  const fallback = fallbackCreatedAt
+    ? { createdAt: fallbackCreatedAt, autorNombre: fallbackAutor }
+    : null;
 
   if (!admin) {
     return fallback

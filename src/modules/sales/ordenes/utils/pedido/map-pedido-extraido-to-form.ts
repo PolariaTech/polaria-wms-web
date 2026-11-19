@@ -30,7 +30,7 @@ import {
 import { familiaUnidadCatalogo } from "./resolve-cantidad-envase";
 import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedido-linea";
 import { resolveLineaCantidadPrecioEmpaque } from "./resolve-linea-cantidad-precio-empaque";
-import { sanitizeNotasGeneralesPedido } from "../origen/texto-origen-pedido";
+import { asegurarNotasGeneralesPedido } from "../origen/texto-origen-pedido";
 import { resolveOrdenCompraLimpia } from "./normalize-numero-pedido";
 
 export interface SugerenciaProductoCatalogo {
@@ -665,19 +665,17 @@ export function mapPedidoExtraidoToForm(params: {
     preferFicha: true,
   });
 
-  // Notas generales: IA corta o especificaciones del correo (nunca el hilo).
+  // REQ-340: Mateo (o scrap del origen) siempre deja algo en notas; el usuario puede
+  // sobrescribir después. No usar asegurar al reabrir OV con borrado intencional.
   const notasIa =
     pedido.notasGeneralesAlmacen?.trim() ||
     pedido.observaciones?.trim() ||
     "";
-  const sanitized = sanitizeNotasGeneralesPedido(
+  patch.observaciones = asegurarNotasGeneralesPedido(
     notasIa,
     pedido.textoOrigen,
   );
-  if (sanitized) {
-    patch.observaciones = sanitized;
-    autoFields.add("observaciones");
-  }
+  autoFields.add("observaciones");
 
   const byKey = new Map(
     productos.map((p) => [catalogKey(p.nombre, p.codigo), p] as const),

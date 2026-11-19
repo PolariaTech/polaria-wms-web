@@ -158,6 +158,81 @@ describe("validarEnvioOv", () => {
     expect(input.setError).toHaveBeenCalledWith("Ingresa la fecha de entrega.");
   });
 
+  it("REQ-337: confirmar con fechas distintas entre OT se detiene y pide dividir", () => {
+    const ordenesTrabajoForm = [
+      {
+        id: "ot-1",
+        label: "1",
+        numeroPedido: "A",
+        almacen: "COCINA A",
+        referenciaPedido: "",
+        fecha: "2026-04-10",
+        responsableExterno: "",
+        renglones: [{ Producto: "X", Cantidad: 1, Fecha: "2026-04-10" }],
+        totalCantidad: 1,
+      },
+      {
+        id: "ot-2",
+        label: "2",
+        numeroPedido: "B",
+        almacen: "COCINA B",
+        referenciaPedido: "",
+        fecha: "2026-04-11",
+        responsableExterno: "",
+        renglones: [{ Producto: "Y", Cantidad: 1, Fecha: "2026-04-11" }],
+        totalCantidad: 1,
+      },
+    ];
+    const input = entrada({
+      ordenesTrabajoForm,
+      syncActiveOtFromForm: () => ordenesTrabajoForm,
+    });
+    expect(validarEnvioOv(input)).toBeNull();
+    expect(input.setError).toHaveBeenCalledWith(
+      expect.stringContaining("fechas de entrega distintas"),
+    );
+    expect(input.showToast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "No se pudo confirmar", variant: "error" }),
+    );
+  });
+
+  it("REQ-337: un avance con fechas distintas entre OT sí puede seguir", () => {
+    const ordenesTrabajoForm = [
+      {
+        id: "ot-1",
+        label: "1",
+        numeroPedido: "A",
+        almacen: "COCINA A",
+        referenciaPedido: "",
+        fecha: "2026-04-10",
+        responsableExterno: "",
+        renglones: [{ Producto: "X", Cantidad: 1, Fecha: "2026-04-10" }],
+        totalCantidad: 1,
+      },
+      {
+        id: "ot-2",
+        label: "2",
+        numeroPedido: "B",
+        almacen: "COCINA B",
+        referenciaPedido: "",
+        fecha: "2026-04-11",
+        responsableExterno: "",
+        renglones: [{ Producto: "Y", Cantidad: 1, Fecha: "2026-04-11" }],
+        totalCantidad: 1,
+      },
+    ];
+    const input = entrada({
+      isDraft: true,
+      isEditing: true,
+      ordenesTrabajoForm,
+      syncActiveOtFromForm: () => ordenesTrabajoForm,
+    });
+    expect(validarEnvioOv(input)).not.toBeNull();
+    expect(input.setError).not.toHaveBeenCalledWith(
+      expect.stringContaining("fechas de entrega distintas"),
+    );
+  });
+
   it("con datos mínimos y la confirmación ya aceptada devuelve las líneas", () => {
     const input = entrada();
     const preparado = validarEnvioOv(input);

@@ -1,6 +1,6 @@
 "use client";
 
-import { Printer } from "lucide-react";
+import { Printer, TriangleAlert } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import {
   PolariaTableBadge,
@@ -15,6 +15,7 @@ import type {
   OrdenVentaOperadorRow,
 } from "../../../shared/types/sales.types";
 import { ordenVentaTableColumnClass } from "../../constants/ordenes-venta-table-layout";
+import { tooltipCorreoPartidoListado } from "../../utils/match/annotate-correo-partido-ov";
 import { OvAlertaDot } from "../shared/OvAlertaDot";
 import { OvEditPresenceBadge } from "../shared/OvEditPresenceBadge";
 import { BotonDetalleOrden } from "./BotonDetalleOrden";
@@ -136,7 +137,30 @@ export function buildOperadorOrdenesVentaColumns(params: {
       header: "Tareas",
       headerClassName: ordenVentaTableColumnClass("ot", "header"),
       cellClassName: ordenVentaTableColumnClass("ot"),
-      cell: (row: OrdenVentaOperadorRow) => String(row.ordenesTrabajo),
+      cell: (row: OrdenVentaOperadorRow) => {
+        const otras = row.correoPartidoDe ?? [];
+        const partido = Boolean(row.correoPartido) && otras.length > 0;
+        const tip = partido
+          ? tooltipCorreoPartidoListado({
+              totalHermanas: otras.length + 1,
+              otrasCodigos: otras,
+            })
+          : "";
+        return (
+          <span className="inline-flex items-center gap-1.5 tabular-nums">
+            <span>{row.ordenesTrabajo}</span>
+            {partido ? (
+              <span
+                title={tip}
+                aria-label={tip}
+                className="inline-flex shrink-0 text-polaria-warning drop-shadow-[0_0_6px_var(--warning)]"
+              >
+                <TriangleAlert className="h-3.5 w-3.5" aria-hidden strokeWidth={2.25} />
+              </span>
+            ) : null}
+          </span>
+        );
+      },
     },
     ...(inspect
       ? []

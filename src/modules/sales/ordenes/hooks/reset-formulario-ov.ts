@@ -38,7 +38,7 @@ import {
 import { abrirFormularioDesdeDocs } from "./useOtOv";
 
 export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
-  const { open, setOrdenCargadaId, setFechaCreacion, setStep, isEditing, setStartMode, setIsCompradorCreateOpen, setIdComprador, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, selectedCompradorIdRef, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setDenominacionComercial, setObservaciones, setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setTotalSolicitudDetectado, setOrigenArchivoFiles, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setFormOtPage, setLineas, setProductosBase, setPrecioOverrideByProducto, setEquivalenciaByProducto, setCompradores, setBodegasDestino, setIdBodegaDestino, setPendingEmitId, setEditingEstado, setEditingCodigo, setReagruparOpen, setReagruparAplicada, setPicker, setReplaceLineaIndex, setAutoFields, setWarnFields, setAvisoVerificarDireccion, setMissingFields, setDiscrepancias, setConfirmDiscrepanciasOpen, setConfirmSaveOpen, setIsReadingIa, skipDiscrepanciaConfirmRef, skipSaveConfirmRef, skipOtSeedFromOrigenRef, pendingDraftSaveAfterReorgRef, setCantidadFocusId, setError, setSuccessMessage, setIsSaving, submitIntentRef, setOrigenAdjuntos, setEmlInnerAdjuntos, setConfirmDiscardOpen, setFichaComprador, setExigeOc, codigoCuenta, setFormDataReady, setIsLoading, editingId, codigoVenta, handleSelectComprador, bootstrapPromiseRef, compradores, formDataReady } = estado;
+  const { open, setOrdenCargadaId, setFechaCreacion, setStep, isEditing, setStartMode, setIsCompradorCreateOpen, setIdComprador, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, selectedCompradorIdRef, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setReferenciaPedido, setDenominacionComercial, setObservaciones, setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setTotalSolicitudDetectado, setOrigenArchivoFiles, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setFormOtPage, setLineas, setProductosBase, setPrecioOverrideByProducto, setEquivalenciaByProducto, setCompradores, setBodegasDestino, setIdBodegaDestino, setPendingEmitId, setEditingEstado, setEditingCodigo, setReagruparOpen, setReagruparAplicada, setPicker, setReplaceLineaIndex, setAutoFields, setWarnFields, setAvisoVerificarDireccion, setMissingFields, setDiscrepancias, setConfirmDiscrepanciasOpen, setConfirmSaveOpen, setIsReadingIa, skipDiscrepanciaConfirmRef, skipSaveConfirmRef, skipOtSeedFromOrigenRef, pendingDraftSaveAfterReorgRef, setCantidadFocusId, setError, setSuccessMessage, setIsSaving, submitIntentRef, setOrigenAdjuntos, setEmlInnerAdjuntos, setConfirmDiscardOpen, setFichaComprador, setExigeOc, codigoCuenta, setFormDataReady, setIsLoading, editingId, codigoVenta, handleSelectComprador, bootstrapPromiseRef, compradores, formDataReady } = estado;
   useEffect(() => {
     if (!open) {
       // Al cerrar el formulario su detalle queda en memoria: que no se tome por el de la
@@ -64,6 +64,7 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
     setMoneda("MXN");
     setOrdenCompraHotel("");
     setCentroConsumo("");
+    setReferenciaPedido("");
     setDenominacionComercial("");
     setObservaciones("");
     setDireccion("");
@@ -162,7 +163,7 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
           setProductosBase, setCompradores, setBodegasDestino, setIdBodegaDestino,
           setEditingEstado, setFechaCreacion, setOrdenCargadaId, setEditingCodigo,
           setIdComprador, setCompradorLabel, setFechaEntrega, setVentanaDesde, setVentanaHasta,
-          setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setObservaciones,
+          setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setReferenciaPedido, setObservaciones,
           setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida,
           setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura,
           setOrigenTexto, setOrigenAdjuntos, setOrigenCorreoDraft, setOrdenesTrabajoPreview,
@@ -170,6 +171,8 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
           setStep, setMissingFields, setDiscrepancias, setAutoFields, setWarnFields,
           setFichaComprador, setExigeOc, setPrecioOverrideByProducto,           setEquivalenciaByProducto,
         } as OrdenVentaFormEstado);
+        // REQ-326: devolver filas aquí; setState aún no se refleja en el closure del form.
+        return { compradores: compradorRows, productos: productoRows };
       });
 
     bootstrapPromiseRef.current = bootstrap
@@ -179,6 +182,7 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
             ? err.message
             : "No se pudieron cargar los datos del formulario.",
         );
+        return null;
       })
       .finally(() => {
         setFormDataReady(true);
@@ -192,8 +196,8 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
     if (formDataReady) return true;
     setIsLoading(true);
     try {
-      await bootstrapPromiseRef.current;
-      return true;
+      const boot = await bootstrapPromiseRef.current;
+      return boot !== null;
     } catch {
       return false;
     } finally {

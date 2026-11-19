@@ -152,7 +152,7 @@ export function OrdenVentaCapturePickOt({
 
 export function OrdenVentaModalPickers(props: OrdenVentaModalPickersProps) {
   const {
-    picker, setPicker, compradores, compradorPickerPriorityIds, idComprador,
+    picker, setPicker, compradores, compradoresParaPicker, compradorPickerPriorityIds, idComprador,
     handleSelectComprador, compradorNombreIa, compradorSugerencias, cypherOpen,
     isEditing, pendingEmitId, productosParaPicker, productoPickerPriorityIds, replaceLineaIndex,
     setReplaceLineaIndex, lineas, handleSelectProducto, handleAcceptSugerencia,
@@ -167,26 +167,30 @@ export function OrdenVentaModalPickers(props: OrdenVentaModalPickersProps) {
       <OrdenVentaCompradorPickerModal
         open={picker === "comprador"}
         onClose={() => setPicker(null)}
-        compradores={compradores}
+        compradores={
+          compradoresParaPicker?.length ? compradoresParaPicker : compradores
+        }
         priorityIds={compradorPickerPriorityIds}
         selectedId={idComprador}
         onSelect={(row) => {
           handleSelectComprador(row, {
             verificarDireccionEntrega: true,
-            keepNombreIa: Boolean(compradorNombreIa),
+            // REQ-326: conservar nombre Mateo para volver a rankear el picker.
             preservePedidoData: true,
           });
         }}
         title={
           !idComprador &&
-          (Boolean(compradorNombreIa) || compradorSugerencias.length > 0)
+          (Boolean(compradorNombreIa) ||
+            compradorPickerPriorityIds.length > 0 ||
+            compradorSugerencias.length > 0)
             ? "Elegir cliente"
             : idComprador
               ? "Cambiar cliente"
               : "Seleccionar cliente"
         }
         description={
-          !idComprador && compradorPickerPriorityIds.length > 0
+          compradorPickerPriorityIds.length > 0
             ? compradorNombreIa?.trim()
               ? `Catálogo completo. Arriba van primero las opciones más parecidas a «${compradorNombreIa.trim()}».`
               : "Catálogo completo. Arriba van primero las opciones más parecidas a lo del pedido."

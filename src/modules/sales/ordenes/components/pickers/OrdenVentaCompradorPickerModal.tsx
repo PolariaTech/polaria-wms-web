@@ -21,7 +21,32 @@ interface OrdenVentaCompradorPickerModalProps {
 }
 
 function normalizeSearch(value: string): string {
-  return value.trim().toLowerCase();
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
+
+function compradorHaystack(row: CompradorListRow): string {
+  return normalizeSearch(
+    [
+      row.codigo,
+      row.comprador,
+      row.apodo ?? "",
+      row.denominacionComercialOverride ?? "",
+      row.rfc ?? "",
+      row.telefono ?? "",
+    ].join(" "),
+  );
+}
+
+function denominacionComercialVisible(row: CompradorListRow): string {
+  return (
+    row.apodo?.trim() ||
+    row.denominacionComercialOverride?.trim() ||
+    "—"
+  );
 }
 
 export function OrdenVentaCompradorPickerModal({
@@ -53,11 +78,7 @@ export function OrdenVentaCompradorPickerModal({
     const needle = normalizeSearch(query);
     const rows = !needle
       ? compradores
-      : compradores.filter((row) => {
-          const haystack =
-            `${row.codigo} ${row.comprador} ${row.apodo ?? ""} ${row.rfc ?? ""} ${row.telefono ?? ""}`.toLowerCase();
-          return haystack.includes(needle);
-        });
+      : compradores.filter((row) => compradorHaystack(row).includes(needle));
     if (priorityIds.length === 0) return rows;
     const rank = new Map(priorityIds.map((id, i) => [id, i]));
     return [...rows].sort((a, b) => {
@@ -195,7 +216,7 @@ export function OrdenVentaCompradorPickerModal({
                       ) : null}
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
-                      {row.apodo?.trim() || "—"}
+                      {denominacionComercialVisible(row)}
                     </td>
                     <td className="px-3 py-2.5 align-middle polaria-text-body-sm text-polaria-w-50">
                       {row.rfc?.trim() || "—"}

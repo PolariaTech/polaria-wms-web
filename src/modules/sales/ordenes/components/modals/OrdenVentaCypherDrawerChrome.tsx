@@ -11,6 +11,7 @@ import {
   isCypherNavStageActive,
   type CypherStageId,
 } from "./cypher-stages";
+import { CypherResizeRail } from "./CypherResizeRail";
 
 export interface OrdenVentaCypherDrawerChromeProps {
   titleId: string;
@@ -47,22 +48,11 @@ export function OrdenVentaCypherDrawerChrome({
 }: OrdenVentaCypherDrawerChromeProps) {
   return (
     <>
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Redimensionar panel Cypher"
-        title="Arrastra para achicar o agrandar"
+      <CypherResizeRail
+        isResizingWidth={isResizingWidth}
         onPointerDown={handleResizePointerDown}
         onPointerMove={handleResizePointerMove}
         onPointerUp={handleResizePointerUp}
-        onPointerCancel={handleResizePointerUp}
-        className={cn(
-          // REQ-307: rail hacia dentro del Cypher (sin -translate) para que
-          // el drag no caiga sobre el editor dock-left.
-          "absolute inset-y-0 left-0 z-30 w-3 cursor-col-resize touch-none",
-          "hover:bg-polaria-teal/40",
-          isResizingWidth && "bg-polaria-teal/50",
-        )}
       />
       <header className="relative z-20 flex shrink-0 flex-col border-b border-polaria-t-20 bg-polaria-bg">
         <div className="flex items-start gap-2 px-3 pb-2 pt-3 sm:gap-3 sm:px-4 sm:pt-4">

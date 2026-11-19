@@ -21,9 +21,12 @@ export function CypherCorreoPartidoAviso({
   return (
     <div
       role="status"
-      className="mt-4 flex items-start gap-2 rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-4 py-3 polaria-text-body-sm text-polaria-warning"
+      className="mt-4 flex items-start gap-2 rounded-xl border border-polaria-warning-border bg-polaria-warning-bg px-4 py-3 polaria-text-body-sm text-polaria-warning shadow-[0_0_22px_var(--warning-border)] ring-1 ring-polaria-warning/40"
     >
-      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <TriangleAlert
+        className="mt-0.5 h-4 w-4 shrink-0 drop-shadow-[0_0_6px_var(--warning)]"
+        aria-hidden
+      />
       <div className="min-w-0 space-y-1">
         <p className="font-semibold tabular-nums">
           Este correo se partió en {hermanas.length} OV, una por orden de compra.

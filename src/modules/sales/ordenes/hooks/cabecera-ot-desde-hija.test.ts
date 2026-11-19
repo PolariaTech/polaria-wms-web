@@ -10,7 +10,7 @@ const hijaBase = (over: Partial<OrdenTrabajoHija> = {}): OrdenTrabajoHija => ({
   label: "OC-1 — COCINA",
   numeroPedido: "OC-1",
   almacen: "COCINA A",
-  referenciaPedido: "",
+  referenciaPedido: "REF-OT",
   fecha: "2026-04-01",
   responsableExterno: "Ana",
   renglones: [
@@ -19,6 +19,7 @@ const hijaBase = (over: Partial<OrdenTrabajoHija> = {}): OrdenTrabajoHija => ({
       Cantidad: 1,
       Unidad: "KGS",
       Almacen: "COCINA A",
+      "Referencia pedido": "REF-OT",
       "Responsable externo": "Ana",
       "Telefono contacto": "555",
       "Correo contacto": "a@b.c",
@@ -34,12 +35,13 @@ const hijaBase = (over: Partial<OrdenTrabajoHija> = {}): OrdenTrabajoHija => ({
   ...over,
 });
 
-describe("cabeceraOtDesdeHija (REQ-281)", () => {
+describe("cabeceraOtDesdeHija (REQ-281/328)", () => {
   it("trae solo campos de OT (sin contacto/teléfono/correo)", () => {
     const cab = cabeceraOtDesdeHija(hijaBase());
     expect(cab).toEqual({
       almacen: "COCINA A",
       numeroPedido: "OC-1",
+      referenciaPedido: "REF-OT",
       fechaIso: "2026-04-01",
       anden: "A1",
       ventanaDesde: "08:00",
