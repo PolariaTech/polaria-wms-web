@@ -25,6 +25,7 @@
 - `src/modules/sales/ordenes/utils/pedido/resolve-especificacion-pedido-linea.test.ts`
 - `src/modules/sales/ordenes/utils/pedido/orden-venta-create-helpers.ts`
 - `src/modules/sales/ordenes/utils/pedido/map-pedido-extraido-to-form.ts` — autorizada por el usuario el 2026-11-19
+- `src/modules/sales/ordenes/utils/pedido/map-pedido-extraido-to-form.test.ts` — autorizada por el usuario el 2026-11-19
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
