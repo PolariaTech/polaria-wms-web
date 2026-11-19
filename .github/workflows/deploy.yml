@@ -1,0 +1,334 @@
+name: Deploy
+
+# Despliegue MANUAL del frontend (Next.js) a ECS Fargate (POL-349, decisión D1; mismo patrón que el
+# deploy.yml de la API, POL-357 / ADR-006).
+#
+# Cómo se usa: pestaña Actions > "Deploy" > Run workflow, eligiendo la rama main y escribiendo en
+# `ref` el tag a desplegar (por ejemplo v2.13.23).
+#   1. build:  construye la imagen linux/arm64 con el código del tag y el Dockerfile de main, la
+#              prueba con scripts/docker-smoke.sh y la sube a ECR. Asume github-actions-build-role-web
+#              (solo ECR).
+#   2. deploy: espera la aprobación del Environment "aws-production" (Daniel o Lucho). Con ella asume
+#              github-actions-deploy-role-web (solo ECS), registra una revisión nueva de la task
+#              definition con esa imagen y actualiza el servicio.
+#
+# Dos checkout (decisión de Daniel, 2026-11-19, opción «a»): el repo está en debug con el tag fijo
+# v2.13.23, que no contiene el Dockerfile. El código sale del tag y los archivos de construcción
+# (Dockerfile, .dockerignore, scripts/docker-smoke.*) salen de main. Si algún día se crea un tag
+# nuevo que ya los incluya, este paso se simplifica.
+#
+# Etiqueta de la imagen: <SHA completo del código>-<huella de 12 caracteres de los archivos de
+# construcción y de las variables NEXT_PUBLIC_*>. La huella es necesaria porque las etiquetas de ECR
+# son inmutables y las NEXT_PUBLIC_* se escriben dentro de la imagen: sin ella, cambiar el Dockerfile
+# o una variable pública reutilizaría una imagen vieja con el mismo SHA.
+#
+# Lo que este workflow NUNCA hace: subir ni bajar desired_count (es una acción manual aprobada por
+# la regla de costos), usar llaves de acceso (todo es OIDC), guardar secretos en la imagen (los de
+# servidor van en Secrets Manager) ni correr solo con cada merge (sin despliegue continuo).
+#
+# Requisitos fuera de este archivo (ver infra/github/polaria-wms-web/README.md en el repo de
+# infraestructura): variables del repositorio (AWS_ACCOUNT_ID y las NEXT_PUBLIC_*), Environment
+# "aws-production" con revisores y regla «Deployment branches: solo main», y los dos roles de AWS ya
+# aplicados con Terraform.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: >-
+          Tag a desplegar (por ejemplo v2.13.23). Es obligatorio: AWS queda fijo en un tag y solo
+          cambia cuando alguien elige otro a mano. El workflow se lanza SIEMPRE desde main (los
+          roles de AWS solo confían en main); este campo solo elige qué código se construye.
+        required: true
+        type: string
+
+# Sin permisos por defecto; cada job pide solo lo que necesita.
+permissions: {}
+
+# Un despliegue a la vez, y nunca se cancela uno en curso a la mitad.
+concurrency:
+  group: deploy-frontend-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REPOSITORY: polaria-wms-web
+  ECS_CLUSTER: polaria-wms
+  ECS_SERVICE: polaria-wms-web
+  ECS_TASK_FAMILY: polaria-wms-web
+  CONTAINER_NAME: wms-web
+  # Decisión D1: en AWS el navegador habla con la API por su dominio propio.
+  NEXT_PUBLIC_API_BASE_URL: https://api.polaria.tech
+
+jobs:
+  build:
+    name: Build y push a ECR
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image: ${{ steps.image.outputs.uri }}
+
+    steps:
+      # El build-role solo confía en la rama main; este paso falla antes y con un mensaje claro.
+      - name: Solo desde main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Este workflow solo se ejecuta desde la rama main (ref actual: ${GITHUB_REF})."
+          exit 1
+
+      # `ref` es texto libre: aceptaría una rama o un SHA. AWS debe quedar fijo en un TAG de versión.
+      # Va por env (nunca dentro de la expresión del run) para que no pueda inyectar comandos.
+      - name: Validar que ref sea un tag de versión
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          if [[ ! "${REF}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::ref debe ser un tag de versión como v2.13.23 (recibido: ${REF:0:60})."
+            exit 1
+          fi
+
+      - name: Validar las variables del repositorio
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_MATEO_URL: ${{ vars.NEXT_PUBLIC_MATEO_URL || 'https://chatbot-mateo.vercel.app' }}
+          NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL: ${{ vars.NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL || '/assets/mateo-widget.js' }}
+        run: |
+          if [[ ! "${AWS_ACCOUNT_ID}" =~ ^[0-9]{12}$ ]]; then
+            echo "::error::Falta la variable del repositorio AWS_ACCOUNT_ID (12 dígitos)."
+            exit 1
+          fi
+          missing=0
+          # Las de Mateo son opcionales: sin variable se usa el mismo valor por defecto que trae el codigo
+          # (src/config/env.ts). Una variable VACIA no activaria ese valor (`??` no cubre cadena vacia),
+          # por eso el valor por defecto se aplica aqui con `||`.
+          for v in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_APP_URL; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Falta la variable del repositorio ${v}."
+              missing=1
+            fi
+          done
+          exit "${missing}"
+
+      # 1) El código: el tag elegido.
+      - name: Checkout del código (tag elegido)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          path: app
+          persist-credentials: false
+
+      # 2) Los archivos de construcción: main (el commit desde el que se lanzó el workflow).
+      - name: Checkout de los archivos de construcción (main)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: build-files
+          persist-credentials: false
+          sparse-checkout: |
+            Dockerfile
+            .dockerignore
+            scripts/docker-smoke.sh
+            scripts/docker-smoke.env
+          sparse-checkout-cone-mode: false
+
+      - name: Copiar los archivos de construcción junto al código
+        run: |
+          set -euo pipefail
+          for f in Dockerfile .dockerignore scripts/docker-smoke.sh scripts/docker-smoke.env; do
+            [ -f "build-files/${f}" ] || { echo "::error::Falta ${f} en main."; exit 1; }
+          done
+          mkdir -p app/scripts
+          cp build-files/Dockerfile build-files/.dockerignore app/
+          cp build-files/scripts/docker-smoke.sh build-files/scripts/docker-smoke.env app/scripts/
+
+      - name: Credenciales de AWS (OIDC, github-actions-build-role-web)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-build-role-web
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login a ECR
+        id: ecr
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+        run: |
+          registry="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${registry}"
+          echo "registry=${registry}" >> "${GITHUB_OUTPUT}"
+
+      - name: Calcular la imagen (etiqueta = SHA del código + huella de construcción)
+        id: image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_MATEO_URL: ${{ vars.NEXT_PUBLIC_MATEO_URL || 'https://chatbot-mateo.vercel.app' }}
+          NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL: ${{ vars.NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL || '/assets/mateo-widget.js' }}
+        run: |
+          set -euo pipefail
+          # El SHA del código que se construye (si se eligió un tag, el commit de ese tag).
+          sha="$(git -C app rev-parse HEAD)"
+          # Huella: archivos de construcción + valores públicos. Solo se publica el hash.
+          fingerprint="$(
+            {
+              cat app/Dockerfile app/.dockerignore app/scripts/docker-smoke.sh app/scripts/docker-smoke.env
+              printf '%s\n' "${NEXT_PUBLIC_API_BASE_URL}" "${NEXT_PUBLIC_SUPABASE_URL}" \
+                "${NEXT_PUBLIC_SUPABASE_ANON_KEY}" "${NEXT_PUBLIC_APP_URL}" \
+                "${NEXT_PUBLIC_MATEO_URL}" "${NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL}"
+            } | sha256sum | cut -c1-12
+          )"
+          echo "uri=${REGISTRY}/${ECR_REPOSITORY}:${sha}-${fingerprint}" >> "${GITHUB_OUTPUT}"
+
+      # Las etiquetas de ECR son inmutables: volver a subir la misma etiqueta fallaría. Si la imagen
+      # ya existe (por ejemplo, se repite un despliegue fallido), se reutiliza.
+      - name: ¿Ya existe esta imagen en ECR?
+        id: exists
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          if docker manifest inspect "${IMAGE}" > /dev/null 2>&1; then
+            echo "La imagen ya existe en ECR; se reutiliza."
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      # Las NEXT_PUBLIC_* son públicas por diseño (la clave anon de Supabase la protege RLS), por eso
+      # pueden ser variables y no secretos. Los secretos de servidor NO entran a la imagen.
+      - name: Construir linux/arm64
+        if: steps.exists.outputs.exists != 'true'
+        working-directory: app
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_MATEO_URL: ${{ vars.NEXT_PUBLIC_MATEO_URL || 'https://chatbot-mateo.vercel.app' }}
+          NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL: ${{ vars.NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL || '/assets/mateo-widget.js' }}
+        run: |
+          docker buildx build --platform linux/arm64 --provenance=false --load \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL}" \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL}" \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
+            --build-arg NEXT_PUBLIC_APP_URL="${NEXT_PUBLIC_APP_URL}" \
+            --build-arg NEXT_PUBLIC_MATEO_URL="${NEXT_PUBLIC_MATEO_URL}" \
+            --build-arg NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL="${NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL}" \
+            --tag "${IMAGE}" .
+
+      - name: Prueba de humo (GET / 200, usuario no root, tamaño)
+        if: steps.exists.outputs.exists != 'true'
+        working-directory: app
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: bash scripts/docker-smoke.sh "${IMAGE}"
+
+      - name: Subir a ECR
+        if: steps.exists.outputs.exists != 'true'
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: docker push "${IMAGE}"
+
+  deploy:
+    name: Desplegar a ECS (producción)
+    needs: build
+    # Defensa en profundidad: el trust del rol de despliegue solo mira el Environment, no la rama. La
+    # regla «Deployment branches: solo main» del Environment es la barrera principal; esta condición
+    # es la segunda, y cuesta cero.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # La aprobación de Daniel o Lucho se configura en el Environment, no aquí. El token OIDC de un
+    # job con Environment lleva sub = repo:PolariaTech/polaria-wms-web:environment:aws-production, que
+    # es lo único que acepta github-actions-deploy-role-web.
+    environment:
+      name: aws-production
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Validar la variable AWS_ACCOUNT_ID
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+        run: |
+          if [[ ! "${AWS_ACCOUNT_ID}" =~ ^[0-9]{12}$ ]]; then
+            echo "::error::Falta la variable del repositorio AWS_ACCOUNT_ID (12 dígitos)."
+            exit 1
+          fi
+
+      - name: Credenciales de AWS (OIDC, github-actions-deploy-role-web)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-deploy-role-web
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Registrar la revisión y actualizar el servicio
+        env:
+          IMAGE: ${{ needs.build.outputs.image }}
+        run: |
+          set -euo pipefail
+
+          # desired_count antes de tocar nada: el despliegue no lo cambia (se verifica al final).
+          desired_before="$(aws ecs describe-services --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}" \
+            --query 'services[0].desiredCount' --output text)"
+          if [[ ! "${desired_before}" =~ ^[0-9]+$ ]]; then
+            echo "::error::No se encontró el servicio ${ECS_SERVICE} en el cluster ${ECS_CLUSTER}."
+            exit 1
+          fi
+
+          # Base = la última revisión ACTIVA de la familia: incluye los cambios de infraestructura
+          # que Terraform haya registrado (variables, tamaño). Solo se cambia la imagen.
+          aws ecs describe-task-definition --task-definition "${ECS_TASK_FAMILY}" \
+            --query taskDefinition --output json > current.json
+
+          jq -e --arg name "${CONTAINER_NAME}" '.containerDefinitions | any(.name == $name)' current.json > /dev/null \
+            || { echo "::error::La task definition no tiene un contenedor llamado ${CONTAINER_NAME}."; exit 1; }
+
+          jq --arg name "${CONTAINER_NAME}" --arg image "${IMAGE}" '
+            .containerDefinitions |= map(if .name == $name then .image = $image else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities,
+                  .registeredAt, .registeredBy, .deregisteredAt)
+          ' current.json > new.json
+
+          new_arn="$(aws ecs register-task-definition --cli-input-json file://new.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)"
+          echo "Revisión registrada: ${new_arn}"
+
+          # Sin --desired-count: el servicio conserva el que tenía.
+          aws ecs update-service --cluster "${ECS_CLUSTER}" --service "${ECS_SERVICE}" \
+            --task-definition "${new_arn}" --query 'service.taskDefinition' --output text
+
+          desired_after="$(aws ecs describe-services --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}" \
+            --query 'services[0].desiredCount' --output text)"
+          if [[ "${desired_after}" != "${desired_before}" ]]; then
+            echo "::error::desired_count cambió de ${desired_before} a ${desired_after}; el despliegue no debe tocarlo."
+            exit 1
+          fi
+
+          # Con desired_count = 0 no hay tareas que reemplazar: no hay nada que esperar. Con
+          # desired_count > 0 se espera a que el servicio se estabilice (el circuit breaker de ECS
+          # revierte solo si la tarea nueva no arranca) y se comprueba que el despliegue terminó.
+          if [[ "${desired_after}" -gt 0 ]]; then
+            aws ecs wait services-stable --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}"
+            rollout="$(aws ecs describe-services --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}" \
+              --query "services[0].deployments[?status=='PRIMARY'].rolloutState | [0]" --output text)"
+            if [[ "${rollout}" != "COMPLETED" ]]; then
+              echo "::error::El despliegue terminó en estado ${rollout}."
+              exit 1
+            fi
+          fi
+
+          {
+            echo "### Despliegue del frontend a producción"
+            echo ""
+            echo "- Imagen: \`${IMAGE}\`"
+            echo "- Task definition: \`${new_arn}\`"
+            echo "- desired_count: ${desired_after} (sin cambios)"
+          } >> "${GITHUB_STEP_SUMMARY}"
