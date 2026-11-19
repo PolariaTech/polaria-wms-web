@@ -18,6 +18,7 @@
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaTipos.tsx` — autorizada por el usuario el 2026-11-19
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaTipos.test.tsx` — autorizada por el usuario el 2026-11-19
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaPageContent.tsx` — autorizada por el usuario el 2026-11-19
+- `src/modules/sales/ordenes/print-batch/armar-previa-rapida.ts` — autorizada por el usuario el 2026-11-19
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
