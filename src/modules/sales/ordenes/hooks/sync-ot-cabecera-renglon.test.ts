@@ -51,6 +51,25 @@ describe("aplicarCabeceraFormARenglonActivo (REQ-281)", () => {
     expect(next["Numero pedido"]).toBe("OC-NEW");
   });
 
+  it("REQ-344: vacío de hora desde/hasta limpia el valor de Mateo en el origen", () => {
+    const next = aplicarCabeceraFormARenglonActivo(base, {
+      almacen: "COCINA A",
+      numeroPedido: "OC-1",
+      fecha: "2026-03-01",
+      responsableExterno: "Ana",
+      telefonoOt: "555",
+      correoOt: "a@b.c",
+      direccionOt: "X",
+      andenOt: "",
+      ventanaDesdeOt: "",
+      ventanaHastaOt: "",
+      notasOt: "n",
+      prioridadOt: "Normal",
+    });
+    expect(next["Ventana desde"]).toBe("");
+    expect(next["Ventana hasta"]).toBe("");
+  });
+
   it("limpia OC basura OCR cuando el form no trae número", () => {
     const conBasura: OrigenCorreoRenglon = {
       ...base,

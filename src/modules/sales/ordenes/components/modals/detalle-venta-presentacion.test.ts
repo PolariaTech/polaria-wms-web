@@ -129,16 +129,16 @@ describe("detalle de venta", () => {
     ).toBe(false);
   });
 
-  it("REQ-311: centro del sello (vacío) no reinyecta almacén de OT", () => {
+  it("REQ-344: Cypher usa el almacén de la OT aunque el sello/cabecera digan otra cosa", () => {
     const orden = {
-      centro_consumo: "COCINA VIEJA",
+      centro_consumo: "CABECERA OV",
       origen_correo: [
         {
           Producto: "X",
           Cantidad: 1,
           _cabeceraUsuario: {
             notasGenerales: "",
-            centroConsumo: "",
+            centroConsumo: "SELLO OV",
             referenciaPedido: "",
             fechaEntrega: "",
             direccionEntrega: "",
@@ -155,7 +155,7 @@ describe("detalle de venta", () => {
         id: "ot-1",
         label: "OT",
         numeroPedido: "",
-        almacen: "BANQUETES",
+        almacen: "Ayb Rest Veracruz",
         referenciaPedido: "",
         fecha: "",
         responsableExterno: "",
@@ -166,7 +166,47 @@ describe("detalle de venta", () => {
       1,
       "",
     );
-    expect(captura.centroConsumo).toBe("");
+    expect(captura.centroConsumo).toBe("Ayb Rest Veracruz");
+  });
+
+  it("REQ-344: sin almacén de OT cae a sello y luego a cabecera", () => {
+    const orden = {
+      centro_consumo: "CABECERA OV",
+      origen_correo: [
+        {
+          Producto: "X",
+          Cantidad: 1,
+          _cabeceraUsuario: {
+            notasGenerales: "",
+            centroConsumo: "SELLO OV",
+            referenciaPedido: "",
+            fechaEntrega: "",
+            direccionEntrega: "",
+            contacto: "",
+            telefono: "",
+            correo: "",
+          },
+        },
+      ],
+    } as OrdenVentaDetalleRow;
+    const captura = buildCapturaDetalleVista(
+      orden,
+      {
+        id: "ot-1",
+        label: "OT",
+        numeroPedido: "",
+        almacen: "",
+        referenciaPedido: "",
+        fecha: "",
+        responsableExterno: "",
+        renglones: [],
+        totalCantidad: 0,
+      },
+      fromObsVacio,
+      1,
+      "",
+    );
+    expect(captura.centroConsumo).toBe("SELLO OV");
   });
 });
 

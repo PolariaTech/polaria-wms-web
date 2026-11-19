@@ -108,8 +108,9 @@ export function aplicarCabeceraFormARenglonActivo(
     "Direccion entrega": cabecera.direccionOt,
     Destino: cabecera.direccionOt,
     Anden: cabecera.andenOt || row.Anden,
-    "Ventana desde": cabecera.ventanaDesdeOt || row["Ventana desde"],
-    "Ventana hasta": cabecera.ventanaHastaOt || row["Ventana hasta"],
+    // REQ-344: vacío del usuario manda (no conservar hora de Mateo con ||).
+    "Ventana desde": cabecera.ventanaDesdeOt,
+    "Ventana hasta": cabecera.ventanaHastaOt,
     "Notas generales": cabecera.notasOt,
     Prioridad: cabecera.prioridadOt || row.Prioridad,
   };

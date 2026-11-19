@@ -201,8 +201,14 @@ export function aplicarDetalleExternoPorConfirmar(input: OrdenVentaFormEstado) {
               flattenOrdenesTrabajoToOrigenCorreo(cabeceraForm.hijasParaForm),
             );
           }
-          setVentanaDesde(mapped.ventanaDesde);
-          setVentanaHasta(mapped.ventanaHasta);
+          // REQ-344: si ya guardó desde el form (sello), BD manda también vacío.
+          if (selloUsuario) {
+            setVentanaDesde(detalle.ventana_desde?.trim() || "");
+            setVentanaHasta(detalle.ventana_hasta?.trim() || "");
+          } else {
+            setVentanaDesde(mapped.ventanaDesde);
+            setVentanaHasta(mapped.ventanaHasta);
+          }
           setAceptaSustituciones(mapped.aceptaSustituciones);
           setRequiereLote(mapped.requiereLote);
           setRegistrarTemperatura(mapped.registrarTemperatura);
