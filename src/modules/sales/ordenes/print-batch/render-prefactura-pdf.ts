@@ -6,6 +6,9 @@ const ANCHO = 215.9;
 const ALTO = 279.4;
 const M = 10;
 const CONTENIDO = ANCHO - M * 2;
+const ANCHO_LOGO = 56;
+const ALTO_LOGO = 24;
+const X_DATOS = 136;
 
 const COLUMNAS: { titulo: string; ancho: number; clave: keyof PartidaPrefactura }[] = [
   { titulo: "Cantidad", ancho: 22, clave: "cantidad" },
@@ -45,44 +48,112 @@ function franja(doc: jsPDF, y: number, titulo: string): number {
   return y + 8;
 }
 
-function colocarLogo(doc: jsPDF, prefactura: PrefacturaDocumento): void {
-  if (!prefactura.logo) return;
+function medida(bytes: Uint8Array, offset: number, largo: 2 | 4): number {
+  const vista = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return largo === 4 ? vista.getUint32(offset) : vista.getUint16(offset);
+}
+
+function pixelesPng(bytes: Uint8Array): { ancho: number; alto: number } | null {
+  if (bytes.length < 24 || bytes[0] !== 0x89) return null;
+  const ancho = medida(bytes, 16, 4);
+  const alto = medida(bytes, 20, 4);
+  return ancho > 0 && alto > 0 ? { ancho, alto } : null;
+}
+
+function pixelesJpeg(bytes: Uint8Array): { ancho: number; alto: number } | null {
+  let i = 2;
+  while (i + 9 < bytes.length) {
+    if (bytes[i] !== 0xff) return null;
+    const marca = bytes[i + 1];
+    if (marca === 0xc0 || marca === 0xc1 || marca === 0xc2) {
+      const alto = medida(bytes, i + 5, 2);
+      const ancho = medida(bytes, i + 7, 2);
+      return ancho > 0 && alto > 0 ? { ancho, alto } : null;
+    }
+    const largo = (bytes[i + 2] << 8) | bytes[i + 3];
+    if (largo < 2) return null;
+    i += 2 + largo;
+  }
+  return null;
+}
+
+/** Alto fijo de 24 mm; el ancho sigue la proporción de la imagen para no aplastar el logo. */
+export function cajaDelLogo(logo: LogoPrefactura): { ancho: number; alto: number } {
+  const pixeles = logo.formato === "PNG" ? pixelesPng(logo.bytes) : pixelesJpeg(logo.bytes);
+  const relacion = pixeles ? pixeles.ancho / pixeles.alto : ANCHO_LOGO / ALTO_LOGO;
+  const alto = Math.min(ALTO_LOGO, ANCHO_LOGO / relacion);
+  return { ancho: Math.round(alto * relacion * 10) / 10, alto: Math.round(alto * 10) / 10 };
+}
+
+function enLinea(doc: jsPDF, x: number, y: number, etiqueta: string, valor: string, tope: number): void {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(40);
+  doc.text(etiqueta, x, y);
+  const inicio = x + doc.getTextWidth(etiqueta) + 1.6;
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(0);
+  const visible = valor.trim() || "—";
+  const linea = doc.splitTextToSize(visible, Math.max(8, tope - inicio))[0] ?? "—";
+  doc.text(String(linea), inicio, y);
+}
+
+function colocarLogo(doc: jsPDF, prefactura: PrefacturaDocumento): number {
+  if (!prefactura.logo) return 0;
+  const caja = cajaDelLogo(prefactura.logo);
   try {
-    doc.addImage(logoDataUrl(prefactura.logo), prefactura.logo.formato, M, 8, 24, 24);
+    doc.addImage(logoDataUrl(prefactura.logo), prefactura.logo.formato, M, 8, caja.ancho, caja.alto);
   } catch (error) {
     const detalle = error instanceof Error ? error.message : "imagen ilegible";
     throw new Error(`No se pudo colocar el logo en la prefactura. ${detalle}`);
   }
+  return caja.ancho;
+}
+
+function bloqueComprobante(doc: jsPDF, prefactura: PrefacturaDocumento): void {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(0);
+  doc.text("PREFACTURA", X_DATOS, 12);
+  enLinea(doc, X_DATOS, 18, "Tipo de comprobante", "I - Ingreso", ANCHO - M);
+  enLinea(doc, X_DATOS, 23.5, "Serie", prefactura.serie, X_DATOS + 30);
+  enLinea(doc, X_DATOS + 32, 23.5, "Folio", prefactura.folio, ANCHO - M);
+  enLinea(doc, X_DATOS, 29, "Fecha", prefactura.fecha, ANCHO - M);
 }
 
 function dibujarEmisor(doc: jsPDF, prefactura: PrefacturaDocumento): number {
-  colocarLogo(doc, prefactura);
-  const x = prefactura.logo ? M + 28 : M;
+  const anchoLogo = colocarLogo(doc, prefactura);
+  const x = anchoLogo > 0 ? M + anchoLogo + 4 : M;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("PREFACTURA", x, 12);
-  doc.setFontSize(8);
-  doc.text("Tipo de comprobante: I - Ingreso", x, 16.5);
-  doc.setFontSize(13);
-  doc.text(prefactura.razonSocial, x, 23);
-  campo(doc, M, 36, "RFC", prefactura.rfc, 55);
-  campo(doc, M + 60, 36, "Serie", prefactura.serie, 30);
-  campo(doc, M + 95, 36, "Folio", prefactura.folio, 40);
-  campo(doc, M + 140, 36, "Fecha", prefactura.fecha, 45);
-  campo(doc, M, 46, "Régimen fiscal", prefactura.regimen, 120);
-  campo(doc, M + 125, 46, "Lugar de expedición (C.P.)", prefactura.codigoPostal, 60);
-  return 56;
+  doc.setFontSize(12);
+  doc.setTextColor(0);
+  const nombre = doc.splitTextToSize(prefactura.razonSocial, X_DATOS - x - 3)[0] ?? "";
+  doc.text(String(nombre), x, 14);
+  enLinea(doc, x, 20, "RFC", prefactura.rfc, X_DATOS - 3);
+  enLinea(doc, x, 26, "Régimen fiscal", prefactura.regimen, X_DATOS - 3);
+  bloqueComprobante(doc, prefactura);
+  return 38;
 }
 
 function dibujarReceptor(doc: jsPDF, prefactura: PrefacturaDocumento, y: number): number {
-  const siguiente = franja(doc, y, "Receptor");
-  campo(doc, M, siguiente, "Cliente", prefactura.cliente, 100);
-  campo(doc, M + 105, siguiente, "RFC", prefactura.rfcCliente, 80);
-  campo(doc, M, siguiente + 10, "Domicilio", prefactura.domicilio, 100);
-  campo(doc, M + 105, siguiente + 10, "Moneda", prefactura.moneda, 80);
-  campo(doc, M, siguiente + 20, "Referencia", prefactura.referencia, 100);
-  campo(doc, M + 105, siguiente + 20, "Realizó", prefactura.realizo, 80);
-  return siguiente + 28;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(0);
+  doc.text("Receptor", M, y);
+  const fila = y + 6;
+  const paso = 5.2;
+  enLinea(doc, M, fila, "Cliente", prefactura.cliente, X_DATOS - 4);
+  enLinea(doc, M, fila + paso, "RFC", prefactura.rfcCliente, X_DATOS - 4);
+  enLinea(doc, M, fila + paso * 2, "Régimen Fiscal", prefactura.regimenComprador, X_DATOS - 4);
+  enLinea(doc, M, fila + paso * 3, "Domicilio Fiscal", prefactura.domicilioFiscal, X_DATOS - 4);
+  enLinea(doc, M, fila + paso * 4, "Domicilio", prefactura.domicilio, X_DATOS - 4);
+  enLinea(doc, X_DATOS, fila, "Lugar de expedición (C.P.)", prefactura.codigoPostal, ANCHO - M);
+  enLinea(doc, X_DATOS, fila + paso, "Método de Pago", prefactura.metodoPago, ANCHO - M);
+  enLinea(doc, X_DATOS, fila + paso * 2, "Forma de Pago", prefactura.formaPago, ANCHO - M);
+  enLinea(doc, X_DATOS, fila + paso * 3, "Moneda", prefactura.moneda, ANCHO - M);
+  enLinea(doc, X_DATOS, fila + paso * 4, "Referencia", prefactura.referencia, ANCHO - M);
+  enLinea(doc, X_DATOS, fila + paso * 5, "Realizó", prefactura.realizo, ANCHO - M);
+  return fila + paso * 5 + 6;
 }
 
 function encabezadoPartidas(doc: jsPDF, y: number): number {
@@ -97,7 +168,7 @@ function encabezadoPartidas(doc: jsPDF, y: number): number {
     x += columna.ancho;
   }
   doc.setTextColor(0);
-  return y + 8;
+  return y + 10;
 }
 
 function filaPartida(doc: jsPDF, y: number, partida: PartidaPrefactura): void {
@@ -158,13 +229,26 @@ function dibujarUna(doc: jsPDF, prefactura: PrefacturaDocumento): void {
   dibujarCierre(doc, prefactura, dibujarPartidas(doc, prefactura, trasReceptor));
 }
 
+function numerarHojas(doc: jsPDF, desde: number): void {
+  const hasta = doc.getNumberOfPages();
+  for (let pagina = desde; pagina <= hasta; pagina += 1) {
+    doc.setPage(pagina);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(0);
+    doc.text(`Hoja ${pagina - desde + 1}`, ANCHO - M, ALTO - 8, { align: "right" });
+  }
+}
+
 /** Una hoja (o más, si hay muchas partidas) por prefactura, tamaño carta. */
 export function renderPrefacturasPdf(documentos: readonly PrefacturaDocumento[]): jsPDF {
   if (documentos.length === 0) throw new Error("No hay prefacturas para imprimir.");
   const doc = new jsPDF({ unit: "mm", format: [ANCHO, ALTO], compress: true });
   documentos.forEach((prefactura, indice) => {
     if (indice > 0) doc.addPage();
+    const desde = doc.getNumberOfPages();
     dibujarUna(doc, prefactura);
+    numerarHojas(doc, desde);
   });
   return doc;
 }

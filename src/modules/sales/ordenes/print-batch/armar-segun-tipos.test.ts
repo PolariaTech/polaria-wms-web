@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OrdenVentaDetalleRow, OrdenVentaOperadorRow } from "../../shared/types/sales.types";
 import type { EmpresaPrefactura } from "./cargar-empresa-prefactura";
+import { FISCAL_COMPRADOR_VACIO } from "./prefactura-documento";
 import { armarSegunTipos, type EntradaSegunTipos } from "./armar-segun-tipos";
 import type { TipoDocumentoRapida } from "./ImpresionRapidaTipos";
 
@@ -67,6 +68,7 @@ function entrada(tipos: TipoDocumentoRapida[]): EntradaSegunTipos {
     codigoEmpresa: "Y9IHZ",
     leerEmpresa: async () => empresa,
     leerDetalle: async () => detalle(),
+    leerComprador: async () => ({ ...FISCAL_COMPRADOR_VACIO }),
   };
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OrdenVentaDetalleRow } from "../../shared/types/sales.types";
 import type { EmpresaPrefactura } from "./cargar-empresa-prefactura";
-import { documentoPrefactura, etiquetaRegimen } from "./prefactura-documento";
+import { documentoPrefactura, etiquetaRegimen, type FiscalCompradorPrefactura } from "./prefactura-documento";
 
 const empresa: EmpresaPrefactura = {
   razonSocial: "Aguacates de puebla",
@@ -59,6 +59,22 @@ describe("documentoPrefactura", () => {
     expect(doc.total).toBe("$69.00");
     expect(doc.totalLetra).toBe("sesenta y nueve Pesos 00/100 M.N.");
     expect(doc.clabe).toBe("012528001186364430");
+  });
+
+  it("toma régimen, domicilio fiscal y pago del comprador sin cambiar el de la empresa", () => {
+    const fiscal: FiscalCompradorPrefactura = {
+      regimenFiscal: "626 — RESICO",
+      domicilioFiscal: "05348",
+      metodoPago: "PPD — Parcialidades o diferido",
+      formaPago: "99 — Por definir",
+    };
+    const doc = documentoPrefactura(empresa, detalle(), fiscal);
+
+    expect(doc.regimen).toBe("601 · General de Ley Personas Morales");
+    expect(doc.regimenComprador).toBe("626 — RESICO");
+    expect(doc.domicilioFiscal).toBe("05348");
+    expect(doc.metodoPago).toBe("PPD — Parcialidades o diferido");
+    expect(doc.formaPago).toBe("99 — Por definir");
   });
 
   it("deja el logo vacío cuando la empresa todavía no lo tiene", () => {

@@ -4,9 +4,10 @@ import type { OrdenVentaDetalleRow } from "../../shared/types/sales.types";
 import { armarPartePdf } from "./armar-parte-pdf";
 import { armarPreviaRapida, type EntradaPreviaRapida } from "./armar-previa-rapida";
 import type { ResumenOvBatch } from "./batch-seleccion";
+import { cargarCompradorPrefactura } from "./cargar-comprador-prefactura";
 import { cargarEmpresaPrefactura, type EmpresaPrefactura } from "./cargar-empresa-prefactura";
 import { cargarHojasBatch, type CargarHojasBatchInput } from "./cargar-hojas-batch";
-import { documentoPrefactura } from "./prefactura-documento";
+import { documentoPrefactura, type FiscalCompradorPrefactura } from "./prefactura-documento";
 import { previaSoloPrefacturas, sumarPrefacturas, type AnexoPrefactura } from "./pegar-prefacturas";
 import { renderPrefacturasPdf } from "./render-prefactura-pdf";
 import type { TipoDocumentoRapida } from "./ImpresionRapidaTipos";
@@ -25,6 +26,7 @@ export interface EntradaSegunTipos {
   codigoEmpresa?: string;
   leerEmpresa?: (codigo: string) => Promise<EmpresaPrefactura>;
   leerDetalle?: (idOrdenVenta: string) => Promise<OrdenVentaDetalleRow>;
+  leerComprador?: (idComprador: string | null) => Promise<FiscalCompradorPrefactura>;
 }
 
 function codigoEmpresaDeSesion(explicito: string | undefined): string {
@@ -78,14 +80,24 @@ async function detalleDe(entrada: EntradaSegunTipos, item: ResumenOvBatch): Prom
   }
 }
 
+async function fiscalDe(entrada: EntradaSegunTipos, detalle: OrdenVentaDetalleRow): Promise<FiscalCompradorPrefactura> {
+  if (entrada.leerComprador) return entrada.leerComprador(detalle.id_comprador);
+  return entrada.runScoped(() => cargarCompradorPrefactura(detalle.id_comprador));
+}
+
+async function anexoDe(entrada: EntradaSegunTipos, empresa: EmpresaPrefactura, item: ResumenOvBatch): Promise<AnexoPrefactura> {
+  const detalle = await detalleDe(entrada, item);
+  const doc = renderPrefacturasPdf([documentoPrefactura(empresa, detalle, await fiscalDe(entrada, detalle))]);
+  return { idOrdenVenta: item.row.idOrdenVenta, pdf: new Blob([doc.output("arraybuffer")], { type: "application/pdf" }) };
+}
+
 async function anexosDe(entrada: EntradaSegunTipos): Promise<AnexoPrefactura[]> {
   const empresa = await (entrada.leerEmpresa ?? cargarEmpresaPrefactura)(codigoEmpresaDeSesion(entrada.codigoEmpresa));
   const anexos: AnexoPrefactura[] = [];
   for (let i = 0; i < entrada.resumen.length; i += 1) {
     const item = entrada.resumen[i]!;
     entrada.alProgreso(`Armando prefactura ${i + 1} de ${entrada.resumen.length}…`);
-    const doc = renderPrefacturasPdf([documentoPrefactura(empresa, await detalleDe(entrada, item))]);
-    anexos.push({ idOrdenVenta: item.row.idOrdenVenta, pdf: new Blob([doc.output("arraybuffer")], { type: "application/pdf" }) });
+    anexos.push(await anexoDe(entrada, empresa, item));
   }
   return anexos;
 }

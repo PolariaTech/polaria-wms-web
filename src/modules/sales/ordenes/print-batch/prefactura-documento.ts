@@ -22,6 +22,20 @@ export interface PartidaPrefactura {
   importe: string;
 }
 
+export interface FiscalCompradorPrefactura {
+  regimenFiscal: string;
+  domicilioFiscal: string;
+  metodoPago: string;
+  formaPago: string;
+}
+
+export const FISCAL_COMPRADOR_VACIO: FiscalCompradorPrefactura = {
+  regimenFiscal: "",
+  domicilioFiscal: "",
+  metodoPago: "",
+  formaPago: "",
+};
+
 export interface PrefacturaDocumento {
   razonSocial: string;
   rfc: string;
@@ -32,6 +46,10 @@ export interface PrefacturaDocumento {
   fecha: string;
   cliente: string;
   rfcCliente: string;
+  regimenComprador: string;
+  domicilioFiscal: string;
+  metodoPago: string;
+  formaPago: string;
   domicilio: string;
   moneda: string;
   referencia: string;
@@ -84,7 +102,11 @@ function partidaDe(linea: OrdenVentaDetalleRow["lineas"][number]): { partida: Pa
 }
 
 /** Arma una prefactura con la ficha de public.empresa y el detalle de la OV del schema actual. */
-export function documentoPrefactura(empresa: EmpresaPrefactura, detalle: OrdenVentaDetalleRow): PrefacturaDocumento {
+export function documentoPrefactura(
+  empresa: EmpresaPrefactura,
+  detalle: OrdenVentaDetalleRow,
+  fiscal: FiscalCompradorPrefactura = FISCAL_COMPRADOR_VACIO,
+): PrefacturaDocumento {
   const partidas = detalle.lineas.map(partidaDe);
   if (partidas.length === 0) {
     throw new Error(`La orden ${detalle.codigo} no tiene partidas para la prefactura.`);
@@ -100,6 +122,10 @@ export function documentoPrefactura(empresa: EmpresaPrefactura, detalle: OrdenVe
     fecha: dia(detalle.fecha_pedido) || dia(detalle.fecha_entrega),
     cliente: texto(detalle.comprador_razon_social) || texto(detalle.comprador_nombre) || "Cliente",
     rfcCliente: texto(detalle.comprador_rfc),
+    regimenComprador: texto(fiscal.regimenFiscal),
+    domicilioFiscal: texto(fiscal.domicilioFiscal),
+    metodoPago: texto(fiscal.metodoPago),
+    formaPago: texto(fiscal.formaPago),
     domicilio: texto(detalle.direccion_entrega),
     moneda: texto(detalle.moneda) || "MXN",
     referencia: texto(detalle.orden_compra_hotel) || detalle.codigo,
