@@ -105,4 +105,31 @@ describe("OrdenVentaCaptureFormPedido (REQ-278/328)", () => {
     expect(screen.getByText(/Aplica a todas las OT/)).toBeInTheDocument();
     expect(screen.getAllByText("Solo esta OT.").length).toBeGreaterThanOrEqual(2);
   });
+
+  it("REQ-349: exigeOc + multiOt combina ambos hints en OC", () => {
+    render(
+      <OrdenVentaCaptureFormPedido
+        {...propsBase({ multiOt: true, exigeOc: true })}
+      />,
+    );
+    expect(
+      screen.getByText("Este cliente exige OC para facturar. Aplica a todas las OT."),
+    ).toBeInTheDocument();
+  });
+
+  it("REQ-349: warn de centro manda sobre «Solo esta OT.» en centro", () => {
+    render(
+      <OrdenVentaCaptureFormPedido
+        {...propsBase({
+          multiOt: true,
+          marks: { ...marks, warnFields: new Set(["centroConsumo"]) },
+        })}
+      />,
+    );
+    expect(
+      screen.getByText("Registrado en ficha distinto al del pedido"),
+    ).toBeInTheDocument();
+    // Solo queda el hint de referencia (centro usa el warn).
+    expect(screen.getAllByText("Solo esta OT.")).toHaveLength(1);
+  });
 });
