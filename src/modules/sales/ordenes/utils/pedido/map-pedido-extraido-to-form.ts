@@ -29,7 +29,7 @@ import {
 } from "./pedido-form-validation";
 import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedido-linea";
 import { resolveLineaCantidadPrecioEmpaque } from "./resolve-linea-cantidad-precio-empaque";
-import { resolveUnidadPedidoLinea } from "./resolve-unidad-pedido-linea";
+import { unidadLineaPedidoForm } from "./resolve-unidad-pedido-linea";
 import { asegurarNotasGeneralesPedido } from "../origen/sanitize-notas-generales-pedido";
 import { resolveOrdenCompraLimpia } from "./normalize-numero-pedido";
 
@@ -222,23 +222,6 @@ function resolveProductoMatch(
   );
   if (porCodigoClave) return { producto: porCodigoClave, fuente: "catalogo" };
   return undefined;
-}
-
-/** REQ-363: unidad del pedido/documento gana sobre catálogo cuando chocan. */
-function unidadLineaPedido(params: {
-  texto: string;
-  unidadCatalogo: string;
-  unidadOrigen?: string | null;
-  especificacion?: string | null;
-}): string {
-  return (
-    resolveUnidadPedidoLinea({
-      unidadOrigen: params.unidadOrigen,
-      unidadCatalogo: params.unidadCatalogo,
-      textoProducto: params.texto,
-      textoExtra: params.especificacion,
-    }) || params.unidadCatalogo.trim()
-  );
 }
 
 function toSugerencia(
@@ -739,12 +722,7 @@ export function mapPedidoExtraidoToForm(params: {
           especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
           ivaPct: "0",
           kgDisponible: match.kgDisponible,
-          unidadMedida: unidadLineaPedido({
-            texto: textoOriginal,
-            unidadCatalogo: match.unidadMedida,
-            unidadOrigen: linea.unidad,
-            especificacion: linea.especificacion,
-          }),
+          unidadMedida: unidadLineaPedidoForm(textoOriginal, match.unidadMedida, linea.unidad, linea.especificacion),
           precioUnitario: qty.precioUnitario,
           precioManual: qty.precioManual,
           aliasCliente: textoOriginal,
@@ -772,12 +750,7 @@ export function mapPedidoExtraidoToForm(params: {
         especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
         ivaPct: "0",
         kgDisponible: match.kgDisponible,
-        unidadMedida: unidadLineaPedido({
-          texto: textoOriginal,
-          unidadCatalogo: match.unidadMedida,
-          unidadOrigen: linea.unidad,
-          especificacion: linea.especificacion,
-        }),
+        unidadMedida: unidadLineaPedidoForm(textoOriginal, match.unidadMedida, linea.unidad, linea.especificacion),
         precioUnitario: qty.precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -849,12 +822,7 @@ export function mapPedidoExtraidoToForm(params: {
         especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
         ivaPct: "0",
         kgDisponible: sugerencia.kgDisponible,
-        unidadMedida: unidadLineaPedido({
-          texto: textoOriginal,
-          unidadCatalogo: sugerencia.unidadMedida,
-          unidadOrigen: linea.unidad,
-          especificacion: linea.especificacion,
-        }),
+        unidadMedida: unidadLineaPedidoForm(textoOriginal, sugerencia.unidadMedida, linea.unidad, linea.especificacion),
         precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -893,12 +861,7 @@ export function mapPedidoExtraidoToForm(params: {
       especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
       ivaPct: "0",
       kgDisponible: sugerencia?.kgDisponible ?? 0,
-      unidadMedida: unidadLineaPedido({
-        texto: textoOriginal,
-        unidadCatalogo: sugerencia?.unidadMedida ?? "",
-        unidadOrigen: linea.unidad,
-        especificacion: linea.especificacion,
-      }),
+      unidadMedida: unidadLineaPedidoForm(textoOriginal, sugerencia?.unidadMedida ?? "", linea.unidad, linea.especificacion),
       precioUnitario,
       precioManual: qty.precioManual,
       aliasCliente: textoOriginal,
