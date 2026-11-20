@@ -19,6 +19,11 @@
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaTipos.test.tsx` — autorizada por el usuario el 2026-11-19
 - `src/modules/sales/ordenes/print-batch/ImpresionRapidaPageContent.tsx` — autorizada por el usuario el 2026-11-19
 - `src/modules/sales/ordenes/print-batch/armar-previa-rapida.ts` — autorizada por el usuario el 2026-11-19
+- `src/modules/sales/ordenes/components/modals/cypher-stages.ts` — autorizada por el usuario el 2026-11-20
+- `src/modules/sales/ordenes/components/modals/cypher-stages.test.ts` — autorizada por el usuario el 2026-11-20
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCypherStagesBody.tsx` — autorizada por el usuario el 2026-11-20
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCypherStagesBody.test.tsx` — autorizada por el usuario el 2026-11-20
+- `src/modules/sales/ordenes/components/modals/CypherCambioEstadoPipelineStage.tsx` — autorizada por el usuario el 2026-11-20
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
