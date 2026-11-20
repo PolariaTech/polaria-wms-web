@@ -170,11 +170,13 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                       referenciaPedido={referenciaPedido}
                       onClearField={clearFieldMarks}
                       marks={{ autoFields, warnFields, missingFields }}
+                      multiOt={ordenesTrabajoForm.length > 1}
                     />
 </div>
                 </CaptureSection>
 
                 <OrdenVentaCaptureFormEntrega
+                  multiOt={ordenesTrabajoForm.length > 1}
                   direccion={direccion}
                   onDireccion={(value) => {
                     setDireccion(value);
