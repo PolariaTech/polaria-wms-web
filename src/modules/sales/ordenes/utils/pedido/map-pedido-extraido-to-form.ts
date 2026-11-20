@@ -27,9 +27,9 @@ import {
   FECHA_ENTREGA_DEFAULT_WARNING,
   isFechaEntregaAtrasada,
 } from "./pedido-form-validation";
-import { familiaUnidadCatalogo } from "./resolve-cantidad-envase";
 import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedido-linea";
 import { resolveLineaCantidadPrecioEmpaque } from "./resolve-linea-cantidad-precio-empaque";
+import { unidadLineaPedidoForm } from "./resolve-unidad-pedido-linea";
 import { asegurarNotasGeneralesPedido } from "../origen/sanitize-notas-generales-pedido";
 import { resolveOrdenCompraLimpia } from "./normalize-numero-pedido";
 
@@ -222,27 +222,6 @@ function resolveProductoMatch(
   );
   if (porCodigoClave) return { producto: porCodigoClave, fuente: "catalogo" };
   return undefined;
-}
-
-/**
- * Unidad de la línea: prioriza el catálogo si es coherente con el texto.
- * Si el cliente dijo "litros" y el match/sugerencia trae KGM (o vacío), usa LTR.
- */
-function inferUnidadDesdeTexto(
-  texto: string,
-  unidadCatalogo: string,
-): string {
-  const t = texto.toLowerCase();
-  const fromText = /\b(litros?|lts?|ml)\b/.test(t)
-    ? "LTR"
-    : /\b(kilos?|kgs?|\bkg\b)\b/.test(t)
-      ? "KGM"
-      : "";
-  const cat = unidadCatalogo.trim();
-  const famCat = familiaUnidadCatalogo(cat);
-  if (fromText === "LTR" && famCat !== "ltr") return "LTR";
-  if (fromText === "KGM" && (famCat === "unknown" || !cat)) return "KGM";
-  return cat || fromText;
 }
 
 function toSugerencia(
@@ -743,7 +722,7 @@ export function mapPedidoExtraidoToForm(params: {
           especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
           ivaPct: "0",
           kgDisponible: match.kgDisponible,
-          unidadMedida: inferUnidadDesdeTexto(textoOriginal, match.unidadMedida),
+          unidadMedida: unidadLineaPedidoForm(textoOriginal, match.unidadMedida, linea.unidad, linea.especificacion),
           precioUnitario: qty.precioUnitario,
           precioManual: qty.precioManual,
           aliasCliente: textoOriginal,
@@ -771,7 +750,7 @@ export function mapPedidoExtraidoToForm(params: {
         especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
         ivaPct: "0",
         kgDisponible: match.kgDisponible,
-        unidadMedida: inferUnidadDesdeTexto(textoOriginal, match.unidadMedida),
+        unidadMedida: unidadLineaPedidoForm(textoOriginal, match.unidadMedida, linea.unidad, linea.especificacion),
         precioUnitario: qty.precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -843,7 +822,7 @@ export function mapPedidoExtraidoToForm(params: {
         especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
         ivaPct: "0",
         kgDisponible: sugerencia.kgDisponible,
-        unidadMedida: inferUnidadDesdeTexto(textoOriginal, sugerencia.unidadMedida),
+        unidadMedida: unidadLineaPedidoForm(textoOriginal, sugerencia.unidadMedida, linea.unidad, linea.especificacion),
         precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -882,7 +861,7 @@ export function mapPedidoExtraidoToForm(params: {
       especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
       ivaPct: "0",
       kgDisponible: sugerencia?.kgDisponible ?? 0,
-      unidadMedida: inferUnidadDesdeTexto(textoOriginal, sugerencia?.unidadMedida ?? ""),
+      unidadMedida: unidadLineaPedidoForm(textoOriginal, sugerencia?.unidadMedida ?? "", linea.unidad, linea.especificacion),
       precioUnitario,
       precioManual: qty.precioManual,
       aliasCliente: textoOriginal,

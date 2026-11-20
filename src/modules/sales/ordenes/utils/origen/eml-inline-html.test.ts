@@ -62,7 +62,50 @@ describe("splitEmailHtmlStyles", () => {
   });
 });
 
-describe("buildEmlInlineHtml (REQ-132)", () => {
+function buildMimeWithOutlookStackedTable(): Buffer {
+  const boundary = "BOUNDOUTLOOK";
+  const htmlPart = [
+    "<html><head><style>",
+    "td{display:block !important; float:left; width:100%;}",
+    "table{width:100%;}",
+    "</style></head><body>",
+    "<table><tr><th>Clave</th><th>Um</th><th>Pedido</th></tr>",
+    "<tr><td>X200011700</td><td>KG</td><td>37</td></tr>",
+    "</table>",
+    "</body></html>",
+  ].join("");
+  const plainAplastado = [
+    "Clave",
+    "Um",
+    "Pedido",
+    "X200011700",
+    "KG",
+    "37",
+  ].join("\n");
+  const mime = [
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    "MIME-Version: 1.0",
+    "Subject: OC Outlook apilada",
+    "From: cocina@hotel.com",
+    "To: pedidos@polaria.co",
+    "",
+    `--${boundary}`,
+    "Content-Type: text/plain; charset=UTF-8",
+    "",
+    plainAplastado,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "",
+    htmlPart,
+    "",
+    `--${boundary}--`,
+    "",
+  ].join("\r\n");
+  return Buffer.from(mime, "utf8");
+}
+
+describe("buildEmlInlineHtml (REQ-132 + REQ-343)", () => {
   it("conserva la tabla y aplica CSS de forma", async () => {
     const html = await buildEmlInlineHtml(buildMimeWithHtmlTable());
     expect(html).toContain("<table");
@@ -71,5 +114,17 @@ describe("buildEmlInlineHtml (REQ-132)", () => {
     expect(html).toContain(EML_INLINE_TABLE_CSS.slice(0, 40));
     expect(html).toContain("td{color:#063;}");
     expect(html).not.toContain("<script");
+  });
+
+  it("CSS de tabla va después del CSS del mail y fuerza table-cell (general)", async () => {
+    const html = await buildEmlInlineHtml(buildMimeWithOutlookStackedTable());
+    expect(html).toContain("<table");
+    expect(html).toContain("X200011700");
+    expect(html).not.toMatch(/<pre>[\s\S]*X200011700/);
+    const mailCssIdx = html.indexOf("td{display:block");
+    const forceCssIdx = html.indexOf("display: table-cell !important");
+    expect(mailCssIdx).toBeGreaterThan(-1);
+    expect(forceCssIdx).toBeGreaterThan(mailCssIdx);
+    expect(html).toContain("display: table !important");
   });
 });

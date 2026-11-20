@@ -73,6 +73,9 @@ export function OrdenVentaCypherDrawerContent(props: OrdenVentaCypherDrawerProps
             <OrdenVentaCypherStagesBody
               orden={drawer.orden}
               codigoCuenta={drawer.codigoCuenta}
+              codigoOvListado={drawer.row?.venta ?? drawer.orden.codigo}
+              correoPartido={drawer.row?.correoPartido}
+              correoPartidoDe={drawer.row?.correoPartidoDe}
               companionIdComprador={drawer.companionIdComprador}
               openStages={drawer.openStages}
               toggleAccordionStage={drawer.toggleAccordionStage}

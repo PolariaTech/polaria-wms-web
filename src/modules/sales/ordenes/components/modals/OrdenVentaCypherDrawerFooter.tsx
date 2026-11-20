@@ -89,7 +89,7 @@ export function OrdenVentaCypherDrawerFooter({
           title={
             puedeBorrar
               ? "Cancelar orden (queda en listado como Cancelada)"
-              : "Solo disponible en órdenes por confirmar"
+              : "Solo disponible en órdenes por confirmar, confirmadas o en alistamiento"
           }
           disabled={!puedeBorrar || busyKind === "borrar"}
           aria-disabled={!puedeBorrar || busyKind === "borrar"}

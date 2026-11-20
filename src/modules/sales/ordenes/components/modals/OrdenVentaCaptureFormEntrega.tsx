@@ -35,10 +35,14 @@ export function OrdenVentaCaptureFormEntrega({
   autoFields,
   warnFields,
   missingFields,
+  /** REQ-349: más de una OT → aclarar que entrega es de toda la orden. */
+  multiOt = false,
   children,
 }: {
   /** REQ-278: fecha/día/horas primero; luego contacto; dirección; notas al final. */
   children?: ReactNode;
+  /** REQ-349 */
+  multiOt?: boolean;
   direccion: string;
   onDireccion: (value: string) => void;
   avisoVerificarDireccion: boolean;
@@ -61,7 +65,10 @@ export function OrdenVentaCaptureFormEntrega({
 }) {
   const marks = { autoFields, warnFields, missingFields };
   return (
-    <CaptureSection title="Entrega">
+    <CaptureSection
+      title="Entrega"
+      optional={multiOt ? "Aplica a todas las OT" : undefined}
+    >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {children}
         <PolariaFormInput

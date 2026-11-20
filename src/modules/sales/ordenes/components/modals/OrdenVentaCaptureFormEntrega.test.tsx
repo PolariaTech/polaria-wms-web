@@ -69,6 +69,16 @@ describe("OrdenVentaCaptureFormEntrega (REQ-217/254)", () => {
     expect(screen.getByText(/Cambiaste el cliente/)).toBeInTheDocument();
   });
 
+  it("REQ-349: con multiOt marca que la entrega aplica a todas las OT", () => {
+    render(<OrdenVentaCaptureFormEntrega {...propsBase({ multiOt: true })} />);
+    expect(screen.getByText("Aplica a todas las OT")).toBeInTheDocument();
+  });
+
+  it("REQ-349: sin multiOt no muestra el alcance de entrega", () => {
+    render(<OrdenVentaCaptureFormEntrega {...propsBase()} />);
+    expect(screen.queryByText("Aplica a todas las OT")).not.toBeInTheDocument();
+  });
+
   it.each([
     ["Contacto del cliente", "onContacto", "contacto"],
     ["Teléfono del contacto", "onTelefono", "telefono"],

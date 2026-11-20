@@ -28,6 +28,7 @@ const emptyPedido = (): PedidoExtraido => ({
 });
 
 describe("mapPedidoExtraidoToForm", () => {
+
   it("llena notas generales desde observaciones de la IA si notasGeneralesAlmacen viene vacío", () => {
     const mapped = mapPedidoExtraidoToForm({
       pedido: {

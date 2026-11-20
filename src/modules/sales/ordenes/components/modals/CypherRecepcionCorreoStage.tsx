@@ -1,11 +1,15 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
-import { isCuerpoMensajeFormato } from "../../utils/origen/texto-origen-pedido";
+import {
+  isCuerpoMensajeFormato,
+  looksLikeAsciiTableRow,
+} from "../../utils/origen/texto-origen-pedido";
 import type { CorreoChrome } from "../../utils/origen/correo-chrome";
 import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
 import { nombreTraeOc } from "../../utils/origen/oc-en-nombre-de-archivo";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
+import type { OvDelMismoCorreo } from "../../../shared/services/ovs-del-mismo-correo";
 import { OrigenPedidoBodyView } from "../shared/OrigenPedidoBodyView";
 import { CypherCorreoPartidoAviso } from "./CypherCorreoPartidoAviso";
 import { CypherOrigenAdjuntosBlock } from "./CypherOrigenAdjuntosBlock";
@@ -13,6 +17,38 @@ import { CypherStageAccordion } from "./CypherStageAccordion";
 import type { CypherStageId } from "./cypher-stages";
 import { MetaRow } from "./CypherStageMeta";
 import { useOvsDelMismoCorreo } from "./use-ovs-del-mismo-correo";
+
+/** REQ-343: cuerpo con columnas dataTable o bloques [[tabla]] → vista con tabla HTML. */
+function cuerpoSeVeComoTabla(raw: string): boolean {
+  const text = raw.trim();
+  if (!text) return false;
+  if (isCuerpoMensajeFormato(text)) return true;
+  return text.split(/\r?\n/).some((line) => looksLikeAsciiTableRow(line));
+}
+
+/** REQ-347: hermanas mínimas desde la anotación del listado (códigos). */
+export function hermanasDesdeListadoPartido(input: {
+  idOrdenVenta: string;
+  codigoOv: string;
+  ordenCompra: string | null | undefined;
+  correoPartido?: boolean;
+  correoPartidoDe?: readonly string[];
+}): OvDelMismoCorreo[] {
+  const otras = input.correoPartidoDe ?? [];
+  if (!input.correoPartido || otras.length === 0) return [];
+  return [
+    {
+      idOrdenVenta: input.idOrdenVenta,
+      codigo: input.codigoOv,
+      ordenCompra: input.ordenCompra?.trim() || null,
+    },
+    ...otras.map((codigo) => ({
+      idOrdenVenta: `listado-${codigo}`,
+      codigo,
+      ordenCompra: null as string | null,
+    })),
+  ];
+}
 
 export interface CypherRecepcionCorreoStageProps {
   openStages: ReadonlySet<CypherStageId>;
@@ -28,6 +64,10 @@ export interface CypherRecepcionCorreoStageProps {
   origenAdjuntos: OrigenAdjunto[];
   orden: OrdenVentaDetalleRow;
   codigoCuenta: string;
+  /** Código OV del listado (venta) para fallback del aviso partido. */
+  codigoOvListado?: string | null;
+  correoPartido?: boolean;
+  correoPartidoDe?: readonly string[];
 }
 
 export function CypherRecepcionCorreoStage({
@@ -44,11 +84,22 @@ export function CypherRecepcionCorreoStage({
   origenAdjuntos,
   orden,
   codigoCuenta,
+  codigoOvListado,
+  correoPartido,
+  correoPartidoDe,
 }: CypherRecepcionCorreoStageProps) {
+  const fallbackHermanas = hermanasDesdeListadoPartido({
+    idOrdenVenta: orden.id_orden_venta,
+    codigoOv: (codigoOvListado?.trim() || orden.codigo || "").trim() || orden.id_orden_venta,
+    ordenCompra: orden.orden_compra_hotel,
+    correoPartido,
+    correoPartidoDe,
+  });
   const { hermanas } = useOvsDelMismoCorreo({
     codigoCuenta,
     idOrdenVenta: orden.id_orden_venta,
     origenArchivos: orden.origen_archivos,
+    fallbackHermanas,
   });
   const partido = hermanas.length >= 2;
 
@@ -79,8 +130,10 @@ export function CypherRecepcionCorreoStage({
           tabIndex={0}
           aria-label="Cuerpo del correo"
         >
-          {isCuerpoMensajeFormato(cuerpoCompleto) ? (
+          {cuerpoSeVeComoTabla(cuerpoCompleto) ? (
             <OrigenPedidoBodyView text={cuerpoCompleto} className="mt-0" />
+          ) : cuerpoSeVeComoTabla(cuerpoMensaje) ? (
+            <OrigenPedidoBodyView text={cuerpoMensaje} className="mt-0" />
           ) : (
             <pre
               className={cn(

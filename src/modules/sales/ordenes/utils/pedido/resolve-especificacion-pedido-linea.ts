@@ -13,6 +13,10 @@ import {
   formatEspecificacionEnvase,
   type CantidadEnvaseResuelta,
 } from "./resolve-cantidad-envase";
+import {
+  atributosCalidadDesdeSolicitado,
+  calibresDesdeSolicitado,
+} from "./atributos-calidad-desde-solicitado";
 
 function quitarAcentos(texto: string): string {
   return texto.normalize("NFD").replace(/\p{M}/gu, "");
@@ -41,6 +45,8 @@ export function resolveEspecificacionPedidoLinea(params: {
   /** Frase de envase ya formateada (alternativa a `envase`). */
   envaseTexto?: string | null | undefined;
   textoOriginal?: string | null | undefined;
+  /** Nombre del SKU de catálogo: no repetir su variedad como especificación. */
+  nombreCatalogo?: string | null | undefined;
   /** REQ-287: `Especificacion` del renglón de origen_correo (lo que Mateo leyó del documento). */
   especificacionOrigen?: string | null | undefined;
 }): string {
@@ -52,21 +58,32 @@ export function resolveEspecificacionPedidoLinea(params: {
   const frasesOrigen = frasesDeEspecificacion(params.especificacionOrigen).filter(
     (frase) => !esSoloCantidadYUnidad(frase),
   );
+  // REQ-363: no dejar la unidad suelta («KG») como especificación.
+  const textoIaSinUnidad = (() => {
+    const limpio = textoIa
+      .replace(/^\s*(?:KGM|KG|LTR|L|PZA|PZ)\s*[,;·-]?\s*/i, "")
+      .trim();
+    return esSoloCantidadYUnidad(limpio) ? "" : limpio;
+  })();
   const madurez =
     extractMadurezEspecificacion(params.textoOriginal) ||
-    extractMadurezEspecificacion(textoIa) ||
+    extractMadurezEspecificacion(textoIaSinUnidad) ||
     frasesOrigen.map(extractMadurezEspecificacion).find(Boolean) ||
     "";
   const domo =
     extractDomoEspecificacion(params.textoOriginal) ||
-    extractDomoEspecificacion(textoIa) ||
+    extractDomoEspecificacion(textoIaSinUnidad) ||
     extractDomoEspecificacion(params.especificacionOrigen) ||
     "";
+  const calidadSolicitado = atributosCalidadDesdeSolicitado(
+    params.textoOriginal,
+    { nombreCatalogo: params.nombreCatalogo },
+  );
 
   const parts: string[] = [];
   if (envaseTxt) parts.push(envaseTxt);
 
-  if (madurez && !textoYaTraeMadurez(textoIa, madurez)) {
+  if (madurez && !textoYaTraeMadurez(textoIaSinUnidad, madurez)) {
     const already = parts.some((p) => textoYaTraeMadurez(p, madurez));
     if (!already) parts.push(madurez);
   }
@@ -75,25 +92,37 @@ export function resolveEspecificacionPedidoLinea(params: {
     const already = parts.some((parte) =>
       quitarAcentos(parte).toLowerCase().includes(quitarAcentos(domo).toLowerCase()),
     );
-    const iaYaTrae = quitarAcentos(textoIa)
+    const iaYaTrae = quitarAcentos(textoIaSinUnidad)
       .toLowerCase()
       .includes(quitarAcentos(domo).toLowerCase());
     if (!already && !iaYaTrae) parts.push(domo);
   }
 
-  if (textoIa) {
+  for (const atributo of calidadSolicitado) {
+    const already = parts.some((parte) =>
+      quitarAcentos(parte)
+        .toLowerCase()
+        .includes(quitarAcentos(atributo).toLowerCase()),
+    );
+    if (!already) parts.push(atributo);
+  }
+
+  if (textoIaSinUnidad) {
     const iaEsSoloMadurez =
       Boolean(madurez) &&
-      (quitarAcentos(textoIa) === quitarAcentos(madurez) ||
-        quitarAcentos(textoIa) === quitarAcentos(stripEtiquetaMadurez(madurez)));
+      (quitarAcentos(textoIaSinUnidad) === quitarAcentos(madurez) ||
+        quitarAcentos(textoIaSinUnidad) ===
+          quitarAcentos(stripEtiquetaMadurez(madurez)));
     const iaEsSoloDomo =
-      Boolean(domo) && quitarAcentos(textoIa) === quitarAcentos(domo);
-    const iaEsEnvase = Boolean(envaseTxt) && pareceFraseEnvase(textoIa);
+      Boolean(domo) &&
+      quitarAcentos(textoIaSinUnidad) === quitarAcentos(domo);
+    const iaEsEnvase =
+      Boolean(envaseTxt) && pareceFraseEnvase(textoIaSinUnidad);
     if (!iaEsSoloMadurez && !iaEsSoloDomo && !iaEsEnvase) {
       const already = parts.some((parte) =>
-        quitarAcentos(parte).includes(quitarAcentos(textoIa)),
+        quitarAcentos(parte).includes(quitarAcentos(textoIaSinUnidad)),
       );
-      if (!already) parts.push(textoIa);
+      if (!already) parts.push(textoIaSinUnidad);
     }
   }
 
@@ -110,9 +139,26 @@ export function resolveEspecificacionPedidoLinea(params: {
     parts.splice(envaseTxt ? 1 : 0, 0, madurez);
   }
 
-  return textoEspecificacionTrasFiltroSolicitado(
+  const filtrado = textoEspecificacionTrasFiltroSolicitado(
     parts,
     params.textoOriginal ?? "",
-    textoIa,
+    textoIaSinUnidad,
   );
+  // REQ-346: calibre/talla debe verse en Especificación aunque también esté en Solicitado
+  // (el filtro REQ-287 lo trataría como redundante).
+  const calibres = calibresDesdeSolicitado(params.textoOriginal).filter(
+    (calibre) =>
+      !params.nombreCatalogo ||
+      !quitarAcentos(params.nombreCatalogo)
+        .toLowerCase()
+        .includes(quitarAcentos(calibre).toLowerCase()),
+  );
+  const faltan = calibres.filter(
+    (calibre) =>
+      !quitarAcentos(filtrado)
+        .toLowerCase()
+        .includes(quitarAcentos(calibre).toLowerCase()),
+  );
+  if (faltan.length === 0) return filtrado;
+  return [filtrado, ...faltan].filter(Boolean).join(" · ");
 }

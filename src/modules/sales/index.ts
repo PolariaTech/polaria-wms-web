@@ -34,6 +34,7 @@ export {
 
 export {
   emitirOrdenVentaApi,
+  cancelarOrdenVentaApi,
   listOrdenesVentaApi,
   listOrdenesVentaParaSalida,
 } from "./shared/services/sales-api.service";

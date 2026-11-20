@@ -1472,8 +1472,9 @@ export async function updateOrdenVenta(
 }
 
 /**
- * Soft-delete: marca la OV como `cancelada` (UI «Borrar»).
- * Solo `por_confirmar`. No elimina filas en BD.
+ * Soft-delete / cancelar (UI «Borrar»).
+ * `por_confirmar` → Supabase directo.
+ * `confirmada` / `alistamiento` (REQ-350) → API Nest (libera reserva + OT).
  */
 export async function borrarOrdenVenta(params: {
   codigoCuenta: string;
@@ -1513,9 +1514,16 @@ export async function borrarOrdenVenta(params: {
 
   if (!puedeBorrarOrdenVenta(existing.estado)) {
     throw new DomainServiceError(
-      "Solo se pueden borrar órdenes por confirmar.",
+      "Solo se pueden cancelar órdenes por confirmar, confirmadas o en alistamiento.",
       "MUTATION_FAILED",
     );
+  }
+
+  const estado = normalizeEstadoOrdenVenta(existing.estado);
+  if (estado === "confirmada" || estado === "alistamiento") {
+    const { cancelarOrdenVentaApi } = await import("./sales-api.service");
+    await cancelarOrdenVentaApi(idOrdenVenta);
+    return;
   }
 
   const updated = await runDomainMutation<{ id_orden_venta: string } | null>(
