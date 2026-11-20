@@ -8,6 +8,7 @@ import type { LineaVentaForm } from "../../types/orden-venta-create-modal.types"
 import type { OrigenCorreoRenglon } from "../origen/origen-correo-ordenes-trabajo";
 import { codigoContradiceNombre } from "../match/codigo-contradice-nombre";
 import { formatPrecioInput, suggestFromCatalogo } from "./orden-venta-create-helpers";
+import { resolveUnidadPedidoLinea } from "./resolve-unidad-pedido-linea";
 
 interface LineaSembradaParams {
   row: OrigenCorreoRenglon;
@@ -30,6 +31,25 @@ function cantidadYPrecio(row: OrigenCorreoRenglon) {
  * REQ-201: si el renglón ya se verificó al grabar avance (`_idProducto` en origen_correo y el
  * producto sigue en el catálogo), la línea nace con ese producto y no vuelve a pedir match.
  */
+function unidadDesdeRenglonYCatalogo(
+  row: OrigenCorreoRenglon,
+  nombre: string,
+  unidadCatalogo: string | null | undefined,
+): string {
+  // REQ-363: la OC puede pedir KG o PZA aunque el SKU esté en otra unidad.
+  return (
+    resolveUnidadPedidoLinea({
+      unidadOrigen: typeof row.Unidad === "string" ? row.Unidad : null,
+      unidadCatalogo,
+      textoProducto: nombre,
+      textoExtra:
+        typeof row.Especificacion === "string" ? row.Especificacion : null,
+    }) ||
+    unidadCatalogo?.trim() ||
+    UNIDAD_MEDIDA_VENTA_DEFAULT
+  );
+}
+
 function lineaYaVerificada(
   catalogo: ProductoVentaOption,
   params: LineaSembradaParams & { nombre: string },
@@ -47,7 +67,11 @@ function lineaYaVerificada(
     especificacion: "",
     ivaPct: "0",
     kgDisponible: catalogo.kgDisponible,
-    unidadMedida: catalogo.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+    unidadMedida: unidadDesdeRenglonYCatalogo(
+      params.row,
+      params.nombre,
+      catalogo.unidadMedida,
+    ),
     precioUnitario: precioFinal,
     precioInput: formatPrecioInput(precioFinal),
     precioManual: precio > 0,
@@ -103,7 +127,11 @@ export function lineaSembradaDesdeRenglon(params: LineaSembradaParams): LineaVen
     especificacion: "",
     ivaPct: "0",
     kgDisponible: suggested.sugerencia?.kgDisponible ?? 0,
-    unidadMedida: suggested.sugerencia?.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+    unidadMedida: unidadDesdeRenglonYCatalogo(
+      row,
+      nombre,
+      suggested.sugerencia?.unidadMedida,
+    ),
     precioUnitario: precio,
     precioInput: formatPrecioInput(precio),
     precioManual: precio > 0,

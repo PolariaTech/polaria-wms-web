@@ -185,6 +185,22 @@ describe("applyProductoToLinea", () => {
     expect(next.catalogPending).toBe(false);
     expect(next.idProducto).toBe("p1");
   });
+
+  it("REQ-363: si el pedido viene en KG y el catálogo es PZA, conserva KGM", () => {
+    const next = applyProductoToLinea(
+      linea({
+        aliasCliente: "Coliflor Blanca 20.00 KG (Sin Oxidacion)",
+        unidadMedida: "PZA",
+        especificacion: "Sin Oxidacion",
+      }),
+      producto({
+        nombre: "COLIFLOR",
+        codigo: "105001501",
+        unidadMedida: "PZA",
+      }),
+    );
+    expect(next.unidadMedida).toBe("KGM");
+  });
 });
 
 describe("suggestFromCatalogo", () => {
