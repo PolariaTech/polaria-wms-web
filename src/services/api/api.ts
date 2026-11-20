@@ -89,9 +89,14 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const { body, auth = false, headers, ...rest } = options;
 
+  const esArchivo =
+    typeof FormData !== "undefined" && body instanceof FormData;
+
   const buildHeaders = (): Headers => {
     const requestHeaders = new Headers(headers);
-    requestHeaders.set("Content-Type", "application/json");
+    if (!esArchivo) {
+      requestHeaders.set("Content-Type", "application/json");
+    }
 
     if (auth) {
       const token = accessTokenGetter?.();
@@ -109,7 +114,11 @@ export async function apiRequest<T>(
       return await fetch(`${getApiBaseUrl()}${path}`, {
         ...rest,
         headers: buildHeaders(),
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        body: esArchivo
+          ? body
+          : body !== undefined
+            ? JSON.stringify(body)
+            : undefined,
       });
     } catch (error) {
       const isOffline =

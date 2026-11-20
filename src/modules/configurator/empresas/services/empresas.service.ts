@@ -9,8 +9,15 @@ import {
   normalizeInternationalPhone,
 } from "@/constants/ui/phone-countries";
 import { ApiError, apiRequest } from "@/services/api/api";
+import {
+  cuerpoConLogo,
+  mensajeFicha,
+  mensajeLogo,
+  type EmpresaFichaCampos,
+  type EmpresaFichaGuardada,
+} from "../domain/empresa-ficha-fiscal";
 
-export interface EmpresaListRow {
+export interface EmpresaListRow extends EmpresaFichaGuardada {
   codigoEmpresa: string;
   razonSocial: string;
   telefono: string | null;
@@ -24,10 +31,19 @@ interface EmpresaDbRow {
   telefono: string | null;
   esta_activa: boolean;
   schema_name: string | null;
+  rfc: string | null;
+  regimen_fiscal: string | null;
+  codigo_postal_expedicion: string | null;
+  nombre_cuenta_bancaria: string | null;
+  banco: string | null;
+  clabe: string | null;
+  correo_cobranza: string | null;
+  serie_factura: string | null;
+  logo_path: string | null;
 }
 
 const EMPRESA_LIST_COLUMNS =
-  "codigo_empresa,razon_social,telefono,esta_activa,schema_name";
+  "codigo_empresa,razon_social,telefono,esta_activa,schema_name,rfc,regimen_fiscal,codigo_postal_expedicion,nombre_cuenta_bancaria,banco,clabe,correo_cobranza,serie_factura,logo_path";
 
 function mapEmpresaRow(row: EmpresaDbRow): EmpresaListRow {
   return {
@@ -35,7 +51,16 @@ function mapEmpresaRow(row: EmpresaDbRow): EmpresaListRow {
     razonSocial: row.razon_social,
     telefono: row.telefono,
     estaActiva: row.esta_activa,
-    schemaName: row.schema_name,
+    schemaName: row.schema_name ?? null,
+    rfc: row.rfc ?? null,
+    regimenFiscal: row.regimen_fiscal ?? null,
+    codigoPostalExpedicion: row.codigo_postal_expedicion ?? null,
+    nombreCuentaBancaria: row.nombre_cuenta_bancaria ?? null,
+    banco: row.banco ?? null,
+    clabe: row.clabe ?? null,
+    correoCobranza: row.correo_cobranza ?? null,
+    serieFactura: row.serie_factura ?? null,
+    logoPath: row.logo_path ?? null,
   };
 }
 
@@ -57,11 +82,51 @@ export async function listEmpresasConfigurator(): Promise<EmpresaListRow[]> {
   return rows.map(mapEmpresaRow);
 }
 
-export interface CreateEmpresaInput {
+export interface EmpresaFichaInput extends Partial<
+  Omit<EmpresaFichaGuardada, "logoPath">
+> {
+  logo?: File | null;
+  quitarLogo?: boolean;
+}
+
+export interface CreateEmpresaInput extends EmpresaFichaInput {
   codigoEmpresa: string;
   razonSocial: string;
   telefono?: string | null;
   idCreador?: string | null;
+}
+
+function fichaDelInput(input: EmpresaFichaInput) {
+  return {
+    rfc: input.rfc ?? null,
+    regimenFiscal: input.regimenFiscal ?? null,
+    codigoPostalExpedicion: input.codigoPostalExpedicion ?? null,
+    nombreCuentaBancaria: input.nombreCuentaBancaria ?? null,
+    banco: input.banco ?? null,
+    clabe: input.clabe ?? null,
+    correoCobranza: input.correoCobranza ?? null,
+    serieFactura: input.serieFactura ?? null,
+  };
+}
+
+function exigirFicha(input: EmpresaFichaInput): void {
+  const mensaje = mensajeFicha({
+    rfc: input.rfc ?? "",
+    regimenFiscal: input.regimenFiscal ?? "",
+    codigoPostalExpedicion: input.codigoPostalExpedicion ?? "",
+    nombreCuentaBancaria: input.nombreCuentaBancaria ?? "",
+    banco: input.banco ?? "",
+    clabe: input.clabe ?? "",
+    correoCobranza: input.correoCobranza ?? "",
+    serieFactura: input.serieFactura ?? "",
+  } satisfies EmpresaFichaCampos);
+  if (mensaje) {
+    throw new DomainServiceError(mensaje, "INVALID_ARGUMENT");
+  }
+  if (input.logo) {
+    const logo = mensajeLogo(input.logo);
+    if (logo) throw new DomainServiceError(logo, "INVALID_ARGUMENT");
+  }
 }
 
 async function assertCodigoEmpresaDisponible(codigoEmpresa: string): Promise<void> {
@@ -110,7 +175,7 @@ export async function createEmpresaConfigurator(
 
   if (telefonoRaw && !isValidInternationalPhone(telefonoRaw)) {
     throw new DomainServiceError(
-      "El teléfono de la empresa no es válido.",
+      "Ingresa un número de teléfono válido.",
       "INVALID_ARGUMENT",
     );
   }
@@ -120,17 +185,21 @@ export async function createEmpresaConfigurator(
     : null;
 
   await assertCodigoEmpresaDisponible(codigoEmpresa);
+  exigirFicha(input);
+  const ficha = fichaDelInput(input);
+  const campos = {
+    codigoEmpresa,
+    razonSocial,
+    telefono,
+    idCreador: input.idCreador ?? null,
+    ...ficha,
+  };
 
   try {
     return await apiRequest<EmpresaListRow>("/configuracion/empresas", {
       method: "POST",
       auth: true,
-      body: {
-        codigoEmpresa,
-        razonSocial,
-        telefono,
-        idCreador: input.idCreador ?? null,
-      },
+      body: input.logo ? cuerpoConLogo(campos, input.logo) : campos,
     });
   } catch (error: unknown) {
     if (error instanceof ApiError) {
@@ -140,7 +209,7 @@ export async function createEmpresaConfigurator(
   }
 }
 
-export interface UpdateEmpresaInput {
+export interface UpdateEmpresaInput extends EmpresaFichaInput {
   codigoEmpresa: string;
   razonSocial: string;
   telefono?: string | null;
@@ -171,7 +240,7 @@ export async function updateEmpresaConfigurator(
 
   if (telefonoRaw && !isValidInternationalPhone(telefonoRaw)) {
     throw new DomainServiceError(
-      "El teléfono de la empresa no es válido.",
+      "Ingresa un número de teléfono válido.",
       "INVALID_ARGUMENT",
     );
   }
@@ -180,17 +249,23 @@ export async function updateEmpresaConfigurator(
     ? normalizeInternationalPhone(telefonoRaw)
     : null;
 
+  exigirFicha(input);
+  const ficha = fichaDelInput(input);
+  const campos = {
+    razonSocial,
+    telefono,
+    estaActiva: input.estaActiva,
+    ...ficha,
+    ...(input.quitarLogo ? { logoPath: null } : {}),
+  };
+
   try {
     return await apiRequest<EmpresaListRow>(
       `/configuracion/empresas/${encodeURIComponent(codigoEmpresa)}`,
       {
         method: "PATCH",
         auth: true,
-        body: {
-          razonSocial,
-          telefono,
-          estaActiva: input.estaActiva,
-        },
+        body: input.logo ? cuerpoConLogo(campos, input.logo) : campos,
       },
     );
   } catch (error: unknown) {

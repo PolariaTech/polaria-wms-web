@@ -9,9 +9,8 @@ import { cn } from "@/lib/utils/cn";
 import { useAdminMaestroScope } from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
 import { useCuentaZonaHoraria } from "@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria";
 import { listOrdenesVentaOperador } from "../../shared/services/sales.service";
-import { armarPreviaRapida } from "./armar-previa-rapida";
+import { armarSegunTipos } from "./armar-segun-tipos";
 import { contarSeleccion } from "./batch-seleccion";
-import { cargarHojasBatch } from "./cargar-hojas-batch";
 import { esperaEntrePartes, partesDe } from "./enviar-paquete";
 import { ImpresionBatchMensaje } from "./ImpresionBatchMensaje";
 import { ImpresionRapidaAvisoOc } from "./ImpresionRapidaAvisoOc";
@@ -39,8 +38,10 @@ const ORDEN_RAPIDA_CON_OC =
 
 /** Qué dice la vista previa de sí misma: con varios envíos solo se ve el primero. */
 function descripcionDeLaVista(previa: PreviaBatch): string {
+  if (previa.hojas.length === 0) return "prefacturas de las órdenes con entrega en la fecha elegida";
   const partes = previa.partes ?? [];
-  const base = partes.some((parte) => parte.pdf) ? ORDEN_RAPIDA_CON_OC : ORDEN_RAPIDA;
+  const conOc = Boolean(previa.resumenPdf) && partes.some((parte) => parte.pdf);
+  const base = conOc ? ORDEN_RAPIDA_CON_OC : ORDEN_RAPIDA;
   return partes.length > 1 && partes[0]?.pdf ? `${base} (vista previa del envío 1 de ${partes.length})` : base;
 }
 
@@ -89,27 +90,13 @@ export function ImpresionRapidaPageContent() {
         });
         return;
       }
-      const conOc = tipos.has("oc");
-      // El detalle de cada OV ya se lee para armar sus hojas: de ahí salen también sus adjuntos.
-      const origenPorOv = new Map<string, string | null | undefined>();
-      const hojas = await cargarHojasBatch({
-        codigoCuenta,
-        resumen,
-        zonaHoraria,
-        runScoped,
-        orden: "resumen",
-        onProgreso: (leidas, total) => setProgreso(`Leyendo OV ${leidas} de ${total}…`),
-        alLeerDetalle: conOc ? (id, origen) => origenPorOv.set(id, origen) : undefined,
-      });
-      if (hojas.length === 0) throw new Error("No hay hojas para las OT de estas órdenes.");
-      const nueva = await armarPreviaRapida({
+      const nueva = await armarSegunTipos({
+        tipos,
         codigoCuenta,
         fecha,
         zonaHoraria,
-        hojas,
         resumen,
-        conOc,
-        origenPorOv,
+        runScoped,
         alProgreso: setProgreso,
       });
       reiniciarPartes();
@@ -203,7 +190,7 @@ export function ImpresionRapidaPageContent() {
             <div className="flex items-center gap-3">
               <button
                 type="submit"
-                disabled={preparando || !fecha || !codigoCuenta || !tipos.has("ot")}
+                disabled={preparando || !fecha || !codigoCuenta || (!tipos.has("ot") && !tipos.has("factura"))}
                 className={cn(
                   "inline-flex min-h-11 items-center gap-2 rounded-xl border border-polaria-teal bg-polaria-teal px-4 py-2.5 text-sm font-semibold text-polaria-on-teal transition hover:opacity-90 motion-reduce:transition-none",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg disabled:cursor-not-allowed disabled:opacity-60",

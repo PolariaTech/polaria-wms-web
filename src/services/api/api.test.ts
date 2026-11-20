@@ -126,4 +126,27 @@ describe("apiRequest tenant headers", () => {
     const secondHeaders = vi.mocked(fetch).mock.calls[1][1]?.headers as Headers;
     expect(secondHeaders.get("Authorization")).toBe("Bearer new-token");
   });
+
+  it("no fuerza JSON cuando el cuerpo es un archivo", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+      }),
+    );
+
+    const { apiRequest } = await import("@/services/api/api");
+    const cuerpo = new FormData();
+    cuerpo.append("logo", new Blob(["png"]), "logo.png");
+    await apiRequest("/configuracion/empresas", {
+      method: "POST",
+      auth: true,
+      body: cuerpo,
+    });
+
+    const headers = vi.mocked(fetch).mock.calls.at(-1)?.[1]?.headers as Headers;
+    expect(headers.get("Content-Type")).toBeNull();
+  });
 });

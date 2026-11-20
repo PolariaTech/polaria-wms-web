@@ -42,7 +42,7 @@ describe("ImpresionRapidaTipos", () => {
     expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
       "Órdenes de tarea",
       "Órdenes de compra originales",
-      "FacturasPróximamente",
+      "Prefacturas",
     ]);
     expect(screen.queryByRole("option", { name: /Resumen/ })).not.toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Órdenes de tarea" })).toHaveAttribute("aria-selected", "true");
@@ -69,21 +69,17 @@ describe("ImpresionRapidaTipos", () => {
     expect(onChange).toHaveBeenCalledWith(new Set(["ot", "oc"]));
   });
 
-  it.each(["Facturas"])(
-    "«%s» está apagada: no se marca y su «Próximamente» aparece con el mouse encima",
-    async (nombre) => {
-      const { boton, onChange } = montar();
-      await userEvent.click(boton);
-      const opcion = screen.getByRole("option", { name: new RegExp(nombre) });
+  it("las prefacturas se pueden marcar junto a las órdenes de tarea", async () => {
+    const { boton, onChange } = montar();
+    await userEvent.click(boton);
 
-      expect(opcion).toHaveAttribute("aria-disabled", "true");
-      expect(opcion).toHaveClass("cursor-not-allowed");
-      expect(opcion.querySelector(".group-hover\\:opacity-100")).toHaveClass("opacity-0");
-      await userEvent.click(opcion);
+    const prefactura = screen.getByRole("option", { name: "Prefacturas" });
+    expect(prefactura).not.toHaveAttribute("aria-disabled");
+    await userEvent.click(prefactura);
 
-      expect(onChange).not.toHaveBeenCalled();
-    },
-  );
+    expect(onChange).toHaveBeenCalledWith(new Set(["ot", "factura"]));
+    expect(screen.queryByText("Próximamente")).not.toBeInTheDocument();
+  });
 
   it("sin nada elegido el botón pide elegir al menos un tipo", () => {
     const { boton } = montar(new Set());
@@ -111,10 +107,8 @@ describe("ImpresionRapidaTipos", () => {
       "aria-activedescendant",
       expect.stringMatching(/-op-factura$/),
     );
-    // La apagada muestra su aviso al llegar con el teclado y no se marca.
-    expect(screen.getByText("Próximamente", { selector: "span.opacity-100" })).toBeInTheDocument();
     await userEvent.keyboard("{Enter}");
-    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith(new Set(["factura"]));
 
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();

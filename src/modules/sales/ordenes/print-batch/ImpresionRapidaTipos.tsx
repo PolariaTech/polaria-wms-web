@@ -17,7 +17,7 @@ export const TIPOS_RAPIDA_INICIALES: ReadonlySet<TipoDocumentoRapida> = new Set(
 interface OpcionTipo {
   id: TipoDocumentoRapida;
   etiqueta: string;
-  /** Las facturas todavía no existen: esa opción queda apagada hasta que se construyan. */
+  /** Apagada: se ve, pero no se puede marcar, y dice «Próximamente». */
   disponible: boolean;
 }
 
@@ -26,7 +26,7 @@ const OPCIONES: readonly OpcionTipo[] = [
   { id: "ot", etiqueta: "Órdenes de tarea", disponible: true },
   // REQ-260: los adjuntos HTML, PDF y Excel de la OV, detrás de sus órdenes de tarea.
   { id: "oc", etiqueta: "Órdenes de compra originales", disponible: true },
-  { id: "factura", etiqueta: "Facturas", disponible: false },
+  { id: "factura", etiqueta: "Prefacturas", disponible: true },
 ];
 
 const CONTROL =

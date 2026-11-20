@@ -58,6 +58,16 @@ describe("empresas.service", () => {
         razonSocial: "ACME Corp",
         telefono: "+573001112233",
         estaActiva: true,
+        schemaName: null,
+        rfc: null,
+        regimenFiscal: null,
+        codigoPostalExpedicion: null,
+        nombreCuentaBancaria: null,
+        banco: null,
+        clabe: null,
+        correoCobranza: null,
+        serieFactura: null,
+        logoPath: null,
       },
     ]);
   });
@@ -107,6 +117,14 @@ describe("empresas.service", () => {
           razonSocial: "Mitre S.A.",
           telefono: null,
           idCreador: "user-1",
+          rfc: null,
+          regimenFiscal: null,
+          codigoPostalExpedicion: null,
+          nombreCuentaBancaria: null,
+          banco: null,
+          clabe: null,
+          correoCobranza: null,
+          serieFactura: null,
         },
       }),
     );
@@ -181,6 +199,14 @@ describe("empresas.service", () => {
           razonSocial: "Tecno SpA",
           telefono: null,
           estaActiva: false,
+          rfc: null,
+          regimenFiscal: null,
+          codigoPostalExpedicion: null,
+          nombreCuentaBancaria: null,
+          banco: null,
+          clabe: null,
+          correoCobranza: null,
+          serieFactura: null,
         },
       }),
     );
@@ -190,5 +216,24 @@ describe("empresas.service", () => {
       telefono: null,
       estaActiva: false,
     });
+  });
+
+  it("guarda un RFC de 10 caracteres", async () => {
+    vi.mocked(apiRequest).mockClear();
+    vi.mocked(apiRequest).mockResolvedValue({
+      codigoEmpresa: "Y9IHZ",
+      razonSocial: "Aguacates de puebla",
+      telefono: null,
+      estaActiva: true,
+    });
+
+    await updateEmpresaConfigurator({
+      codigoEmpresa: "Y9IHZ",
+      razonSocial: "Aguacates de puebla",
+      estaActiva: true,
+      rfc: "APU2103256",
+    });
+
+    expect(apiRequest).toHaveBeenCalled();
   });
 });

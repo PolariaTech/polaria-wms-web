@@ -19,6 +19,7 @@ import type { EmpresaListRow } from "../services/empresas.service";
 import { ConfiguratorListShell } from "@/modules/configurator/shared/components/ConfiguratorListShell";
 import { EmpresaCreateModal } from "./EmpresaCreateModal";
 import { EmpresaEditModal } from "./EmpresaEditModal";
+import { empresaTieneFicha } from "../domain/empresa-ficha-fiscal";
 
 export function EmpresasListView() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -60,6 +61,16 @@ export function EmpresasListView() {
               <PolariaTableBadge>Activa</PolariaTableBadge>
             ) : (
               <PolariaTableBadge variant="neutral">Inactiva</PolariaTableBadge>
+            ),
+        },
+        {
+          id: "ficha",
+          header: "Ficha",
+          cell: (row: EmpresaListRow) =>
+            empresaTieneFicha(row) ? (
+              <PolariaTableBadge>Fiscal</PolariaTableBadge>
+            ) : (
+              <PolariaTableBadge variant="neutral">Sin ficha</PolariaTableBadge>
             ),
         },
         {
