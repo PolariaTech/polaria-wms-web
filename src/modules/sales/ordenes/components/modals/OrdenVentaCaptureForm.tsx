@@ -29,16 +29,18 @@ export function OrdenVentaCaptureFormCliente({
   onElegirCliente: () => void;
 }) {
   const solicitado = compradorNombreIa?.trim() ?? "";
+  // REQ-363: si ya hay razón social elegida, NUNCA mostrar «Falta seleccionar…»
+  // aunque sigan sugerencias/priorityIds del picker (eran para rankear, no para validar).
   return (
     <>
-      {idComprador && !haySugerencias ? (
+      {idComprador ? (
         <ClienteCoincide
           compradorLabel={compradorLabel}
           missingFields={missingFields}
           idComprador={idComprador}
           onElegirCliente={onElegirCliente}
         />
-      ) : !idComprador && (Boolean(solicitado) || haySugerencias) ? (
+      ) : Boolean(solicitado) || haySugerencias ? (
         <ClienteSinMatch
           compradorLabel={compradorLabel}
           compradorNombreIa={solicitado}

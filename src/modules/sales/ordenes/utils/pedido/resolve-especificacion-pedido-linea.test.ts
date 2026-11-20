@@ -2,6 +2,36 @@ import { describe, expect, it } from "vitest";
 import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedido-linea";
 
 describe("resolveEspecificacionPedidoLinea (REQ-287)", () => {
+  it("REQ-363: saca calidad del paréntesis y no deja la unidad suelta como espec", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "KG, Sin Oxidacion",
+        textoOriginal: "Coliflor Blanca (Sin Oxidacion)",
+      }),
+    ).toBe("Sin Oxidacion");
+  });
+
+  it("REQ-346: calibre en Solicitado pasa a Especificación (general)", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: null,
+        textoOriginal: "APIO DE 24 A 30 CM",
+      }),
+    ).toBe("DE 24 A 30 CM");
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: null,
+        textoOriginal: "CALABAZA ITALIANA 15 CM",
+      }),
+    ).toBe("15 CM");
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "DE 24 A 30 CM",
+        textoOriginal: "APIO DE 24 A 30 CM",
+      }),
+    ).toBe("DE 24 A 30 CM");
+  });
+
   it("pone Madurez: completa y Domo de 500g desde el texto del producto", () => {
     expect(
       resolveEspecificacionPedidoLinea({

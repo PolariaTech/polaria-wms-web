@@ -4,6 +4,21 @@ import { findTypoRivalProductos } from "../match/find-closest-producto-catalogo"
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
 
 describe("buildPedidoExtraidoFromOrigenCorreo", () => {
+  it("REQ-363: conserva Unidad del renglón y calidad del nombre en especificación", () => {
+    const pedido = buildPedidoExtraidoFromOrigenCorreo({
+      origenCorreo: [
+        {
+          Cantidad: 20,
+          Unidad: "KGM",
+          Producto: "Coliflor Blanca (Sin Oxidacion)",
+          "Numero pedido": "CUNQR0076609",
+        },
+      ],
+    });
+    expect(pedido.lineas[0]?.unidad).toBe("KGM");
+    expect(pedido.lineas[0]?.especificacion).toMatch(/Sin Oxidacion/i);
+  });
+
   it("arma cabecera y líneas desde el JSON del tercero", () => {
     const pedido = buildPedidoExtraidoFromOrigenCorreo({
       origenCorreo: [

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { patchCompradorDenominacionOverride } from "@/modules/admin-panel";
 import { createOrdenVenta, updateOrdenVenta } from "../../shared/services/sales.service";
 import { emitirOrdenVentaApi } from "../../shared/services/sales-api.service";
@@ -175,7 +174,7 @@ describe("ejecutarPersistenciaEnvio", () => {
     expect(onOrdenIdReady).not.toHaveBeenCalled();
   });
 
-  it("REQ-241: si falla el patch de denominación (RLS operador), no tumba el confirm", async () => {
+  it("REQ-363: no escribe la denominación comercial en el catálogo del comprador", async () => {
     vi.mocked(updateOrdenVenta).mockResolvedValue({
       idOrdenVenta: "ov-2151",
       venta: "OV-00002151",
@@ -184,12 +183,6 @@ describe("ejecutarPersistenciaEnvio", () => {
       idOrdenVenta: "ov-2151",
       venta: "OV-00002151",
     } as never);
-    vi.mocked(patchCompradorDenominacionOverride).mockRejectedValue(
-      new DomainServiceError(
-        "No se pudo guardar la denominación comercial del cliente.",
-        "MUTATION_FAILED",
-      ),
-    );
 
     const showToast = vi.fn();
     const onClose = vi.fn();
@@ -227,73 +220,10 @@ describe("ejecutarPersistenciaEnvio", () => {
       onClose,
     });
 
-    expect(patchCompradorDenominacionOverride).toHaveBeenCalled();
-    expect(showToast).not.toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Aviso" }),
-    );
+    expect(patchCompradorDenominacionOverride).not.toHaveBeenCalled();
     expect(setError).not.toHaveBeenCalled();
     expect(onCreated).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("REQ-241: si el patch de denominación falla por otra causa, sí reporta error", async () => {
-    vi.mocked(updateOrdenVenta).mockResolvedValue({
-      idOrdenVenta: "ov-2151",
-      venta: "OV-00002151",
-    } as never);
-    vi.mocked(patchCompradorDenominacionOverride).mockRejectedValue(
-      new DomainServiceError(
-        "Falta el identificador del comprador.",
-        "INVALID_ARGUMENT",
-      ),
-    );
-
-    const showToast = vi.fn();
-    const onClose = vi.fn();
-    const onCreated = vi.fn();
-    const setError = vi.fn();
-
-    await ejecutarPersistenciaEnvio({
-      isDraft: false,
-      isEditing: true,
-      pendingEmitId: null,
-      editingId: "ov-2151",
-      editingEstado: "por_confirmar",
-      codigoCuenta: "49M04",
-      idCreador: "u1",
-      idComprador: "comp-1",
-      session: { nombre: "Operador" },
-      payload: {
-        vendedor: "Operador",
-        idBodega: "b1",
-        denominacionComercialOverride: "FIESTA AMERICANA",
-      },
-      fechaEntrega: "2026-11-17",
-      fechaEntregaPersist: "2026-11-17",
-      ordenesTrabajoForm: [{ id: "ot-1" }],
-      folioFactura: { guardar: vi.fn() },
-      reagruparAplicada: null,
-      setPendingEmitId: vi.fn(),
-      setEditingEstado: vi.fn(),
-      setFechaEntrega: vi.fn(),
-      setIsSaving: vi.fn(),
-      setMateoBusyMessage: vi.fn(),
-      setError,
-      showToast,
-      onCreated,
-      onClose,
-    });
-
-    expect(setError).toHaveBeenCalledWith(
-      "Falta el identificador del comprador.",
-    );
-    expect(showToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "No se pudo confirmar",
-        variant: "error",
-      }),
-    );
-    expect(onCreated).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
-  });
 });
