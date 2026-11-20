@@ -9,6 +9,10 @@ import type { CypherStageId } from "./cypher-stages";
 export interface OrdenVentaCypherStagesBodyProps {
   orden: OrdenVentaDetalleRow;
   codigoCuenta: string;
+  /** REQ-347: anotación del listado para el aviso de correo partido. */
+  codigoOvListado?: string | null;
+  correoPartido?: boolean;
+  correoPartidoDe?: readonly string[];
   companionIdComprador: string | null | undefined;
   openStages: ReadonlySet<CypherStageId>;
   toggleAccordionStage: (stageId: CypherStageId) => void;

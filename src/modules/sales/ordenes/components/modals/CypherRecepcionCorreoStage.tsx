@@ -9,6 +9,7 @@ import type { CorreoChrome } from "../../utils/origen/correo-chrome";
 import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
 import { nombreTraeOc } from "../../utils/origen/oc-en-nombre-de-archivo";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
+import type { OvDelMismoCorreo } from "../../../shared/services/ovs-del-mismo-correo";
 import { OrigenPedidoBodyView } from "../shared/OrigenPedidoBodyView";
 import { CypherCorreoPartidoAviso } from "./CypherCorreoPartidoAviso";
 import { CypherOrigenAdjuntosBlock } from "./CypherOrigenAdjuntosBlock";
@@ -25,6 +26,30 @@ function cuerpoSeVeComoTabla(raw: string): boolean {
   return text.split(/\r?\n/).some((line) => looksLikeAsciiTableRow(line));
 }
 
+/** REQ-347: hermanas mínimas desde la anotación del listado (códigos). */
+export function hermanasDesdeListadoPartido(input: {
+  idOrdenVenta: string;
+  codigoOv: string;
+  ordenCompra: string | null | undefined;
+  correoPartido?: boolean;
+  correoPartidoDe?: readonly string[];
+}): OvDelMismoCorreo[] {
+  const otras = input.correoPartidoDe ?? [];
+  if (!input.correoPartido || otras.length === 0) return [];
+  return [
+    {
+      idOrdenVenta: input.idOrdenVenta,
+      codigo: input.codigoOv,
+      ordenCompra: input.ordenCompra?.trim() || null,
+    },
+    ...otras.map((codigo) => ({
+      idOrdenVenta: `listado-${codigo}`,
+      codigo,
+      ordenCompra: null as string | null,
+    })),
+  ];
+}
+
 export interface CypherRecepcionCorreoStageProps {
   openStages: ReadonlySet<CypherStageId>;
   toggleAccordionStage: (stageId: CypherStageId) => void;
@@ -39,6 +64,10 @@ export interface CypherRecepcionCorreoStageProps {
   origenAdjuntos: OrigenAdjunto[];
   orden: OrdenVentaDetalleRow;
   codigoCuenta: string;
+  /** Código OV del listado (venta) para fallback del aviso partido. */
+  codigoOvListado?: string | null;
+  correoPartido?: boolean;
+  correoPartidoDe?: readonly string[];
 }
 
 export function CypherRecepcionCorreoStage({
@@ -55,11 +84,22 @@ export function CypherRecepcionCorreoStage({
   origenAdjuntos,
   orden,
   codigoCuenta,
+  codigoOvListado,
+  correoPartido,
+  correoPartidoDe,
 }: CypherRecepcionCorreoStageProps) {
+  const fallbackHermanas = hermanasDesdeListadoPartido({
+    idOrdenVenta: orden.id_orden_venta,
+    codigoOv: (codigoOvListado?.trim() || orden.codigo || "").trim() || orden.id_orden_venta,
+    ordenCompra: orden.orden_compra_hotel,
+    correoPartido,
+    correoPartidoDe,
+  });
   const { hermanas } = useOvsDelMismoCorreo({
     codigoCuenta,
     idOrdenVenta: orden.id_orden_venta,
     origenArchivos: orden.origen_archivos,
+    fallbackHermanas,
   });
   const partido = hermanas.length >= 2;
 

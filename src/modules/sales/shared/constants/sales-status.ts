@@ -106,10 +106,18 @@ export function puedeEditarOrdenVentaDesdeLista(estado: string): boolean {
 }
 
 /**
- * Soft-delete («Borrar» en UI): solo OV por confirmar (p. ej. duplicados).
+ * Soft-delete / cancelar («Borrar» en UI).
+ * REQ-255: por confirmar (duplicados).
+ * REQ-350: también confirmada y alistamiento (antes de despacho).
  */
+const ESTADOS_ORDEN_VENTA_CANCELABLES: ReadonlySet<EstadoOrdenVenta> = new Set([
+  "por_confirmar",
+  "confirmada",
+  "alistamiento",
+]);
+
 export function puedeBorrarOrdenVenta(estado: string): boolean {
-  return normalizeEstadoOrdenVenta(estado) === "por_confirmar";
+  return ESTADOS_ORDEN_VENTA_CANCELABLES.has(normalizeEstadoOrdenVenta(estado));
 }
 
 /** Imprimir / PDF / fotos: solo desde confirmada en adelante. */

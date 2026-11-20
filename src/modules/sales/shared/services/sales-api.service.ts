@@ -36,6 +36,23 @@ export async function emitirOrdenVentaApi(
   );
 }
 
+/** REQ-350: cancela OV confirmada/alistamiento (libera reserva + OT). */
+export async function cancelarOrdenVentaApi(
+  idOrdenVenta: string,
+): Promise<OrdenVentaOperadorRow> {
+  const id = idOrdenVenta.trim();
+  if (!id) {
+    throw new DomainServiceError(
+      "La orden de venta no es válida.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  return postVentasApi<OrdenVentaOperadorRow>(
+    `/ventas/ordenes/${encodeURIComponent(id)}/cancelar`,
+  );
+}
+
 export async function listOrdenesVentaApi(params: {
   codigoCuenta: string;
   idBodega?: string;

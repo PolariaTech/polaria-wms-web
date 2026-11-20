@@ -43,6 +43,23 @@ describe("useOvsDelMismoCorreo (REQ-313)", () => {
     expect(result.current.hermanas).toEqual([]);
   });
 
+  it("REQ-347: si la consulta falla pero hay fallback del listado, muestra el aviso", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    buscar.mockRejectedValue(new Error("falló"));
+
+    const { result } = renderHook(() =>
+      useOvsDelMismoCorreo({
+        codigoCuenta: "c",
+        idOrdenVenta: "a",
+        origenArchivos: "[]",
+        fallbackHermanas: hermanas,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.cargando).toBe(false));
+    expect(result.current.hermanas).toEqual(hermanas);
+  });
+
   it("ignora la respuesta vieja si cambia la OV", async () => {
     let resolverPrimera: (valor: unknown) => void = () => undefined;
     buscar.mockImplementationOnce(() => new Promise((resolver) => (resolverPrimera = resolver)));

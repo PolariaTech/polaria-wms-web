@@ -7,7 +7,18 @@ import { CypherRecepcionCorreoStage } from "./CypherRecepcionCorreoStage";
 let hermanasSimuladas: OvDelMismoCorreo[] = [];
 
 vi.mock("./use-ovs-del-mismo-correo", () => ({
-  useOvsDelMismoCorreo: () => ({ hermanas: hermanasSimuladas, cargando: false }),
+  useOvsDelMismoCorreo: (input: {
+    fallbackHermanas?: Array<{ idOrdenVenta: string; codigo: string; ordenCompra: string | null }>;
+  }) => {
+    const fallback = input.fallbackHermanas ?? [];
+    const hermanas =
+      hermanasSimuladas.length >= 2
+        ? hermanasSimuladas
+        : fallback.length >= 2
+          ? fallback
+          : hermanasSimuladas;
+    return { hermanas, cargando: false };
+  },
 }));
 
 vi.mock("./CypherOrigenAdjuntosBlock", () => ({
@@ -78,6 +89,33 @@ describe("CypherRecepcionCorreoStage (REQ-271, REQ-313)", () => {
     const adjuntos = screen.getByText("ADJUNTOS");
     expect(aviso.compareDocumentPosition(adjuntos) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId("adjuntos")).toHaveTextContent("propia:true/false");
+  });
+
+  it("REQ-347: sin hermanas de query pero con anotación del listado muestra el aviso", () => {
+    hermanasSimuladas = [];
+    render(
+      <CypherRecepcionCorreoStage
+        openStages={new Set(["correo"])}
+        toggleAccordionStage={vi.fn()}
+        correoChrome={{}}
+        origenNombres={[]}
+        recibida=""
+        cuerpoCompleto=""
+        cuerpoMensaje=""
+        origenAdjuntosStored={[{ nombre: "OC-140188.pdf" }]}
+        emlInnerAdjuntos={[]}
+        emlInnerLoading={false}
+        origenAdjuntos={[{ nombre: "OC-140188.pdf" }]}
+        orden={orden}
+        codigoCuenta="1YW43"
+        codigoOvListado="OV-00001874"
+        correoPartido
+        correoPartidoDe={["OV-00001873"]}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Este correo se partió en 2 OV");
+    expect(screen.getByRole("status")).toHaveTextContent("OC 4500140188");
   });
 
   it("REQ-343: cuerpo con columnas dataTable se pinta como tabla, no <pre>", () => {
