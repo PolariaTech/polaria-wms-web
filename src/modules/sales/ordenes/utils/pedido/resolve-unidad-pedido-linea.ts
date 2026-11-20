@@ -25,6 +25,18 @@ function unidadDesdeTextoLibre(texto: string): string {
   return "";
 }
 
+/** Unidad tipada de Mateo (`LineaExtraida.unidad`) desde texto libre / origen. */
+export function unidadMateoDesdeRaw(
+  raw: string | null | undefined,
+): "KGM" | "CJ" | "UN" | null {
+  const t = (raw ?? "").trim().toUpperCase().replace(/\./g, "");
+  if (!t) return null;
+  if (/^(KGM|KG|KGS|KILO|KILOS)$/.test(t)) return "KGM";
+  if (/^(CJ|CAJA|CAJAS)$/.test(t)) return "CJ";
+  if (/^(UN|UND|PZA|PZ|PIEZA|PIEZAS)$/.test(t)) return "UN";
+  return null;
+}
+
 export function resolveUnidadPedidoLinea(params: {
   /** Unidad que Mateo/origen guardó en el renglón. */
   unidadOrigen?: string | null;
@@ -70,3 +82,21 @@ export function resolveUnidadPedidoLinea(params: {
   if (catRaw) return catRaw;
   return fromOrigen || fromText || "";
 }
+
+/** REQ-363: unidad de línea en el form (pedido/documento vs catálogo). */
+export function unidadLineaPedidoForm(
+  texto: string,
+  unidadCatalogo: string,
+  unidadOrigen?: string | null,
+  especificacion?: string | null,
+): string {
+  return (
+    resolveUnidadPedidoLinea({
+      unidadOrigen,
+      unidadCatalogo,
+      textoProducto: texto,
+      textoExtra: especificacion,
+    }) || unidadCatalogo.trim()
+  );
+}
+

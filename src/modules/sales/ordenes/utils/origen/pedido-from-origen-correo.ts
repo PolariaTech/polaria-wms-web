@@ -21,6 +21,7 @@ import {
 } from "../pedido/normalize-numero-pedido";
 import { filtrarRenglonesOrigenPedibles } from "./renglon-origen-pedible";
 import { atributosCalidadDesdeSolicitado } from "../pedido/atributos-calidad-desde-solicitado";
+import { unidadMateoDesdeRaw } from "../pedido/resolve-unidad-pedido-linea";
 
 function mostFrequent(values: string[]): string | null {
   const counts = new Map<string, number>();
@@ -114,7 +115,9 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
       textoOriginal,
       productoCatalogo: null,
       cantidad: parseCantidad(row.Cantidad),
-      unidad: row.Unidad?.trim() || null,
+      unidad: unidadMateoDesdeRaw(
+        typeof row.Unidad === "string" ? row.Unidad : null,
+      ),
       cajas: null,
       presentacion: null,
       especificacion: especUnica || null,
