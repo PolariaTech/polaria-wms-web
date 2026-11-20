@@ -137,10 +137,10 @@ jobs:
             gh pr view "$1" --repo "${REPO}" --json statusCheckRollup | jq -r '
               def listo: (.conclusion // .state) | IN("SUCCESS","SKIPPED","NEUTRAL");
               def rojo: (.conclusion // .state) | IN("FAILURE","CANCELLED","TIMED_OUT","ERROR","ACTION_REQUIRED","STARTUP_FAILURE");
-              .statusCheckRollup as $c
-              | if ($c | length) == 0 then "pendiente"
-                elif ($c | any(rojo)) then "rojo"
-                elif ($c | all(listo)) then "verde"
+              .statusCheckRollup as $checks
+              | if ($checks | length) == 0 then "pendiente"
+                elif ($checks | any(rojo)) then "rojo"
+                elif ($checks | all(listo)) then "verde"
                 else "pendiente" end'
           }
 
