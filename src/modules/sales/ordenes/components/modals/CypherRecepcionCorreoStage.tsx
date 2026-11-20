@@ -1,7 +1,10 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
-import { isCuerpoMensajeFormato } from "../../utils/origen/texto-origen-pedido";
+import {
+  isCuerpoMensajeFormato,
+  looksLikeAsciiTableRow,
+} from "../../utils/origen/texto-origen-pedido";
 import type { CorreoChrome } from "../../utils/origen/correo-chrome";
 import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
 import { nombreTraeOc } from "../../utils/origen/oc-en-nombre-de-archivo";
@@ -13,6 +16,14 @@ import { CypherStageAccordion } from "./CypherStageAccordion";
 import type { CypherStageId } from "./cypher-stages";
 import { MetaRow } from "./CypherStageMeta";
 import { useOvsDelMismoCorreo } from "./use-ovs-del-mismo-correo";
+
+/** REQ-343: cuerpo con columnas dataTable o bloques [[tabla]] → vista con tabla HTML. */
+function cuerpoSeVeComoTabla(raw: string): boolean {
+  const text = raw.trim();
+  if (!text) return false;
+  if (isCuerpoMensajeFormato(text)) return true;
+  return text.split(/\r?\n/).some((line) => looksLikeAsciiTableRow(line));
+}
 
 export interface CypherRecepcionCorreoStageProps {
   openStages: ReadonlySet<CypherStageId>;
@@ -79,8 +90,10 @@ export function CypherRecepcionCorreoStage({
           tabIndex={0}
           aria-label="Cuerpo del correo"
         >
-          {isCuerpoMensajeFormato(cuerpoCompleto) ? (
+          {cuerpoSeVeComoTabla(cuerpoCompleto) ? (
             <OrigenPedidoBodyView text={cuerpoCompleto} className="mt-0" />
+          ) : cuerpoSeVeComoTabla(cuerpoMensaje) ? (
+            <OrigenPedidoBodyView text={cuerpoMensaje} className="mt-0" />
           ) : (
             <pre
               className={cn(

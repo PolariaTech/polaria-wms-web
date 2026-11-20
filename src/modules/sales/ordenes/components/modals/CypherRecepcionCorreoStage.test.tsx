@@ -26,7 +26,7 @@ const orden = {
   origen_archivos: "[]",
 } as unknown as OrdenVentaDetalleRow;
 
-function pintar() {
+function pintar(extra?: { cuerpoCompleto?: string; cuerpoMensaje?: string }) {
   return render(
     <CypherRecepcionCorreoStage
       openStages={new Set(["correo"])}
@@ -34,8 +34,8 @@ function pintar() {
       correoChrome={{}}
       origenNombres={[]}
       recibida=""
-      cuerpoCompleto=""
-      cuerpoMensaje=""
+      cuerpoCompleto={extra?.cuerpoCompleto ?? ""}
+      cuerpoMensaje={extra?.cuerpoMensaje ?? ""}
       origenAdjuntosStored={[{ nombre: "OC-140188.pdf" }]}
       emlInnerAdjuntos={[]}
       emlInnerLoading={false}
@@ -78,5 +78,17 @@ describe("CypherRecepcionCorreoStage (REQ-271, REQ-313)", () => {
     const adjuntos = screen.getByText("ADJUNTOS");
     expect(aviso.compareDocumentPosition(adjuntos) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId("adjuntos")).toHaveTextContent("propia:true/false");
+  });
+
+  it("REQ-343: cuerpo con columnas dataTable se pinta como tabla, no <pre>", () => {
+    const cuerpo = [
+      "Buenas tardes,",
+      "Fecha de entrega   Clave Sap    Texto breve   Um   Pedido",
+      "27.08.2026         X200011700   AGUACATE      KG   37",
+    ].join("\n");
+    pintar({ cuerpoCompleto: cuerpo });
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("AGUACATE")).toBeInTheDocument();
+    expect(document.querySelector("pre")).toBeNull();
   });
 });

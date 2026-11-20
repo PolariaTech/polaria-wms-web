@@ -39,41 +39,53 @@ export function splitEmailHtmlStyles(html: string): {
   return { styles: styles.join("\n"), bodyHtml: bodyHtml.trim() };
 }
 
-/** CSS base para que tablas de .eml se lean como tabla (REQ-132). */
+/**
+ * CSS de tablas para .eml (REQ-132 + REQ-343 general).
+ * Va DESPUÉS de los estilos del correo y usa !important para que
+ * `td{display:block}` / apilados de Outlook no dejen la tabla en columna.
+ */
 export const EML_INLINE_TABLE_CSS = `
     .body table {
-      border-collapse: collapse;
-      width: 100%;
-      max-width: 100%;
-      margin: 0.75rem 0;
-      font-size: 0.875rem;
-      table-layout: auto;
+      display: table !important;
+      border-collapse: collapse !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0.75rem 0 !important;
+      font-size: 0.875rem !important;
+      table-layout: auto !important;
     }
+    .body thead { display: table-header-group !important; }
+    .body tbody { display: table-row-group !important; }
+    .body tr { display: table-row !important; }
     .body th,
     .body td {
-      border: 1px solid #c8c8c8;
-      padding: 0.4rem 0.55rem;
-      text-align: left;
-      vertical-align: top;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      display: table-cell !important;
+      border: 1px solid #c8c8c8 !important;
+      padding: 0.4rem 0.55rem !important;
+      text-align: left !important;
+      vertical-align: top !important;
+      overflow-wrap: anywhere !important;
+      word-break: break-word !important;
+      float: none !important;
+      width: auto !important;
+      max-width: none !important;
     }
     .body th {
-      background: #f0f0f0;
-      font-weight: 700;
+      background: #f0f0f0 !important;
+      font-weight: 700 !important;
     }
     .body tr:nth-child(even) td {
-      background: #fafafa;
+      background: #fafafa !important;
     }
     .body table[border="0"] th,
     .body table[border="0"] td {
-      border-color: #ddd;
+      border-color: #ddd !important;
     }
 `.trim();
 
 /**
- * REQ-159 + REQ-132: HTML legible del .eml para vista inline.
- * Conserva estilos del correo y fuerza forma de tablas.
+ * REQ-159 + REQ-132 + REQ-343: HTML legible del .eml para vista inline.
+ * Conserva estilos del correo; fuerza forma de tablas al final (cualquier cliente).
  */
 export async function buildEmlInlineHtml(buffer: Buffer): Promise<string> {
   const parsed = await simpleParser(buffer);
@@ -88,6 +100,7 @@ export async function buildEmlInlineHtml(buffer: Buffer): Promise<string> {
     ? splitEmailHtmlStyles(rawHtml)
     : { styles: "", bodyHtml: "" };
 
+  // Preferir HTML del correo; plain solo si no hay HTML (evita tabla aplastada).
   const bodyInner = bodyHtml
     ? bodyHtml
     : textBody
@@ -137,9 +150,11 @@ export async function buildEmlInlineHtml(buffer: Buffer): Promise<string> {
       font-size: 0.875rem;
     }
     .body img { max-width: 100%; height: auto; }
-    ${EML_INLINE_TABLE_CSS}
   </style>
   ${emailStyles ? `<style>\n${emailStyles}\n</style>` : ""}
+  <style>
+    ${EML_INLINE_TABLE_CSS}
+  </style>
 </head>
 <body>
   <header>

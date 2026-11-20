@@ -8,7 +8,11 @@
 // `object`" incluso para un CSV sin relación con .eml. Forzar `node` aquí (que ya soporta
 // vitest por archivo) evita ese choque de entornos sin tocar la config global.
 import { describe, expect, it } from "vitest";
-import { extractFiles, type ArchivoSubido } from "./file-extractors";
+import {
+  extractFiles,
+  plainPareceTablaAplastada,
+  type ArchivoSubido,
+} from "./file-extractors";
 
 // GIF transparente de 1x1 — solo para probar que un adjunto "inline" (logo de firma) se
 // ignora, el contenido real no importa.
@@ -91,6 +95,26 @@ describe("extractFiles — correos .eml", () => {
       expect(resultado[0].contenido).toContain("15 kilos de mango");
       expect(resultado[0].contenido).not.toContain("<b>");
     }
+  });
+
+  it("plainPareceTablaAplastada: muchas celdas en columna sin filas multi-col", () => {
+    const aplastado = [
+      "Fecha de entrega",
+      "Clave Sap",
+      "Texto breve",
+      "Um",
+      "Pedido",
+      "X200011700",
+      "AGUACATE JASS",
+      "KG",
+      "37",
+    ].join("\n");
+    expect(plainPareceTablaAplastada(aplastado)).toBe(true);
+    expect(
+      plainPareceTablaAplastada(
+        "Clave Sap   Texto breve   Um\nX200011700   AGUACATE   KG",
+      ),
+    ).toBe(false);
   });
 
   it("correo HTML con tabla: el cuerpo mantiene columnas (no lista vertical)", async () => {
