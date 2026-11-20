@@ -25,7 +25,21 @@ export function OrdenVentaCaptureFormPedido(props: {
   referenciaPedido: string;
   onClearField: (field: string) => void;
   marks: Marks;
+  /** REQ-349: hay más de una OT en la OV. */
+  multiOt?: boolean;
 }) {
+  const hintOc = [
+    props.exigeOc ? "Este cliente exige OC para facturar." : "",
+    props.multiOt ? "Aplica a todas las OT." : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const hintCentro = props.marks.warnFields.has("centroConsumo")
+    ? "Registrado en ficha distinto al del pedido"
+    : props.multiOt
+      ? "Solo esta OT."
+      : undefined;
+
   return (
     <>
       <PolariaFormInput
@@ -36,7 +50,7 @@ export function OrdenVentaCaptureFormPedido(props: {
           props.onOrdenCompraHotel(event.target.value);
           props.onClearField("ordenCompraHotel");
         }}
-        hint={props.exigeOc ? "Este cliente exige OC para facturar." : undefined}
+        hint={hintOc || undefined}
         required={props.exigeOc}
         data-ov-revision="ordenCompra"
         controlClassName={fieldControlClass({
@@ -58,11 +72,7 @@ export function OrdenVentaCaptureFormPedido(props: {
           field: "centroConsumo",
           ...props.marks,
         })}
-        hint={
-          props.marks.warnFields.has("centroConsumo")
-            ? "Registrado en ficha distinto al del pedido"
-            : undefined
-        }
+        hint={hintCentro}
         compact
       />
       <PolariaFormField id="orden-venta-moneda" label="Moneda" compact>
@@ -81,6 +91,7 @@ export function OrdenVentaCaptureFormPedido(props: {
         value={props.referenciaPedido}
         readOnly
         placeholder="—"
+        hint={props.multiOt ? "Solo esta OT." : undefined}
         compact
       />
     </>

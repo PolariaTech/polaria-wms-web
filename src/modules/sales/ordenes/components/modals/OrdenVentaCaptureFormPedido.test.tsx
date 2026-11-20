@@ -98,4 +98,11 @@ describe("OrdenVentaCaptureFormPedido (REQ-278/328)", () => {
     );
     expect(screen.getByLabelText(/Referencia de pedido/)).toHaveValue("REF-77");
   });
+
+  it("REQ-349: con varias OT aclara alcance global vs por OT", () => {
+    render(<OrdenVentaCaptureFormPedido {...propsBase({ multiOt: true })} />);
+
+    expect(screen.getByText(/Aplica a todas las OT/)).toBeInTheDocument();
+    expect(screen.getAllByText("Solo esta OT.").length).toBeGreaterThanOrEqual(2);
+  });
 });
