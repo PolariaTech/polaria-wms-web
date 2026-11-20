@@ -99,8 +99,38 @@ function htmlTieneTabla(html: string): boolean {
 }
 
 /**
+ * REQ-343 (general): text/plain de Outlook/Gmail con tabla aplastada =
+ * muchas líneas cortas seguidas y ninguna fila con columnas alineadas.
+ */
+export function plainPareceTablaAplastada(plain: string): boolean {
+  const lines = plain
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\u00a0/g, " ").trim())
+    .filter(Boolean);
+  if (lines.length < 6) return false;
+  let shortRun = 0;
+  let maxShortRun = 0;
+  let multiCol = 0;
+  for (const line of lines) {
+    const cols = line.split(/ {2,}/).filter(Boolean).length;
+    if (cols >= 3) {
+      multiCol += 1;
+      shortRun = 0;
+      continue;
+    }
+    if (line.length <= 48 && !/[.!?…]$/.test(line)) {
+      shortRun += 1;
+      maxShortRun = Math.max(maxShortRun, shortRun);
+    } else {
+      shortRun = 0;
+    }
+  }
+  return maxShortRun >= 5 && multiCol === 0;
+}
+
+/**
  * El text/plain de Outlook/Gmail suele “aplastar” tablas (una celda por línea).
- * Si hay HTML con <table>, preferimos ese camino con dataTable.
+ * Si hay HTML con <table>, preferimos ese camino con dataTable (cualquier cliente).
  */
 function extractCuerpoCorreo(parsed: {
   text?: string | null;
@@ -112,10 +142,11 @@ function extractCuerpoCorreo(parsed: {
       ? parsed.html
       : "";
   const fromHtml = htmlRaw ? extractFromHtml(Buffer.from(htmlRaw)) : "";
+  const htmlConTabla = Boolean(htmlRaw && htmlTieneTabla(htmlRaw) && fromHtml);
 
-  if (htmlRaw && htmlTieneTabla(htmlRaw) && fromHtml) {
-    return fromHtml;
-  }
+  if (htmlConTabla) return fromHtml;
+  // Plain aplastado + HTML útil aunque no detectemos <table> crudo (p. ej. basura MSO).
+  if (fromHtml && plain && plainPareceTablaAplastada(plain)) return fromHtml;
   return plain || fromHtml;
 }
 
