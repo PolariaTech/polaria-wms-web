@@ -144,7 +144,7 @@ describe("lineaSembradaDesdeRenglon (REQ-201)", () => {
     expect(linea.sugerencia?.idProducto).not.toBe("p-aguacate-extra");
   });
 
-  it("REQ-363: verificado con OC en KG y catálogo PZA → KGM en la línea", () => {
+  it("REQ-380: verificado con OC en KG y catálogo PZA → PZA + Pedido en KGM", () => {
     const coliflor: ProductoVentaOption = {
       ...AGUACATE,
       idProducto: "p-coliflor",
@@ -164,6 +164,7 @@ describe("lineaSembradaDesdeRenglon (REQ-201)", () => {
       otId: "ot-1",
     });
     expect(linea.idProducto).toBe("p-coliflor");
-    expect(linea.unidadMedida).toBe("KGM");
+    expect(linea.unidadMedida).toBe("PZA");
+    expect(linea.especificacion).toBe("Pedido en KGM");
   });
 });

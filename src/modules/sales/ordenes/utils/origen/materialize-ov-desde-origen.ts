@@ -16,7 +16,10 @@ import {
 } from "../pedido/piezas-aprox-kg";
 import { resolveCantidadPrecioDesdeEnvase } from "../pedido/resolve-cantidad-envase";
 import { resolveEspecificacionPedidoLinea } from "../pedido/resolve-especificacion-pedido-linea";
-import { resolveUnidadPedidoLinea } from "../pedido/resolve-unidad-pedido-linea";
+import {
+  fraseUnidadPedidoDiscrepante,
+  resolveUnidadPedidoLinea,
+} from "../pedido/resolve-unidad-pedido-linea";
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
 import {
   parseCantidad,
@@ -157,7 +160,7 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
       typeof renglon.Especificacion === "string"
         ? renglon.Especificacion
         : null;
-    // REQ-363: unidad OC/Mateo gana sobre catálogo (KG↔PZA).
+    // REQ-380: con SKU, unidad del catálogo; discrepancia del pedido → espec.
     const unidadMedida =
       resolveUnidadPedidoLinea({
         unidadOrigen,
@@ -187,6 +190,12 @@ export function buildMaterializeOvDesdeOrigenPlan(params: {
         resolveEspecificacionPedidoLinea({
           especificacionIa: niveles[index] ?? null,
           envase: converted,
+          unidadPedidoDiscrepante: fraseUnidadPedidoDiscrepante({
+            unidadOrigen,
+            unidadCatalogo: match.unidadMedida,
+            textoProducto: alias,
+            textoExtra: especOrigen,
+          }),
           textoOriginal: alias,
           nombreCatalogo: nombreProducto,
           especificacionOrigen: especOrigen,

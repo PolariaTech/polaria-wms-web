@@ -186,11 +186,11 @@ describe("applyProductoToLinea", () => {
     expect(next.idProducto).toBe("p1");
   });
 
-  it("REQ-363: si el pedido viene en KG y el catálogo es PZA, conserva KGM", () => {
+  it("REQ-380: al aplicar catálogo PZA, la línea queda en PZA aunque el alias diga KG", () => {
     const next = applyProductoToLinea(
       linea({
         aliasCliente: "Coliflor Blanca 20.00 KG (Sin Oxidacion)",
-        unidadMedida: "PZA",
+        unidadMedida: "KGM",
         especificacion: "Sin Oxidacion",
       }),
       producto({
@@ -199,7 +199,7 @@ describe("applyProductoToLinea", () => {
         unidadMedida: "PZA",
       }),
     );
-    expect(next.unidadMedida).toBe("KGM");
+    expect(next.unidadMedida).toBe("PZA");
   });
 });
 

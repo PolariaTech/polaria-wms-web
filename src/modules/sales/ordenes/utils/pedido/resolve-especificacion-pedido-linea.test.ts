@@ -11,6 +11,16 @@ describe("resolveEspecificacionPedidoLinea (REQ-287)", () => {
     ).toBe("Sin Oxidacion");
   });
 
+  it("REQ-380: antepone Pedido en PZA cuando la unidad del documento discrepa", () => {
+    expect(
+      resolveEspecificacionPedidoLinea({
+        especificacionIa: "Sin Oxidacion",
+        textoOriginal: "Coliflor Blanca",
+        unidadPedidoDiscrepante: "Pedido en PZA",
+      }),
+    ).toBe("Pedido en PZA · Sin Oxidacion");
+  });
+
   it("REQ-346: calibre en Solicitado pasa a Especificación (general)", () => {
     expect(
       resolveEspecificacionPedidoLinea({
