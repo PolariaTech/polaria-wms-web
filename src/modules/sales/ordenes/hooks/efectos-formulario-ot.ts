@@ -72,13 +72,14 @@ export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
     open,
     ordenCargadaId,
     ordenesTrabajoForm.length,
+    setReagruparOpen,
   ]);
 
   // El chat vive con el Cypher: al cerrar éste (la X, o el formulario) el chat se cierra
   // con él, y al reabrirlo no debe reaparecer solo.
   useEffect(() => {
     setReagruparOpen((actual) => reagruparAbiertoSegunCypher(actual, cypherOpen));
-  }, [cypherOpen]);
+  }, [cypherOpen, setReagruparOpen]);
 
   // REQ-126: Cypher fiscal usa el cliente del formulario (no solo el guardado).
   useEffect(() => {
@@ -196,7 +197,7 @@ export function useCamposDeLaOtActiva(estado: OrdenVentaFormEstado) {
     return () => {
       cancelled = true;
     };
-  }, [origenAdjuntos]);
+  }, [origenAdjuntos, setEmlInnerAdjuntos]);
 
   // Si OCC quedó vacía tras limpiar rAutorizado, recuperar REQUISICION # desde el .eml/PDFs.
   useLeerOcDesdeAdjuntos({

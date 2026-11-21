@@ -32,7 +32,7 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
     setFormOtPage((page) =>
       next.length === 0 ? 0 : Math.min(page, next.length - 1),
     );
-  }, []);
+  }, [setFormOtPage, setOrdenesTrabajoPreview, setOrigenCorreoDraft]);
 
   const handleAddOrdenTrabajo = useCallback(() => {
     const almacen = addOtAlmacen.trim();
@@ -61,6 +61,12 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
     fechaEntrega,
     ordenCompraHotel,
     ordenesTrabajoForm,
+    setAddOtAlmacen,
+    setAddOtNumeroPedido,
+    setAddOtOpen,
+    setError,
+    setFormOtPage,
+    setStep,
   ]);
 
   const handleConfirmRemoveOrdenTrabajo = useCallback(() => {
@@ -77,7 +83,18 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
       else if (next.length === 1) setStep("form");
       setFormOtPage(0);
     }
-  }, [applyOrdenesTrabajo, confirmRemoveOtId, ordenesTrabajoForm, step]);
+  }, [
+    applyOrdenesTrabajo,
+    confirmRemoveOtId,
+    ordenesTrabajoForm,
+    seededOtIdsRef,
+    setConfirmRemoveOtId,
+    setError,
+    setFormOtPage,
+    setLineas,
+    setStep,
+    step,
+  ]);
 
   const previewHijas = ordenesTrabajoForm;
 
