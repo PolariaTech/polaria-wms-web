@@ -75,6 +75,7 @@ function OpcionesDecision({
             name="decision"
             value={opcion.valor}
             checked={decision === opcion.valor}
+            autoFocus={opcion.valor === "aceptar"}
             onChange={() => onElegir(opcion.valor)}
           />
           <span className="polaria-text-body">{opcion.etiqueta}</span>

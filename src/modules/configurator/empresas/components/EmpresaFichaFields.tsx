@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { PolariaFormField, PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import type { EmpresaFichaCampos } from "../domain/empresa-ficha-fiscal";
 
@@ -131,9 +132,12 @@ function MarcoLogo({ src }: { src: string | null }) {
   return (
     <div className="polaria-card-glow flex h-72 items-center justify-center overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-bg">
       {visible ? (
-        <img
-          src={src ?? undefined}
+        <Image
+          src={src ?? ""}
           alt="Logo"
+          width={512}
+          height={256}
+          unoptimized
           className="max-h-64 w-full object-contain p-6"
           onError={() => setFallo(true)}
         />

@@ -20,6 +20,7 @@ describe("RecepcionPrefacturaForm", () => {
     expect(screen.getByText("Hotel Chicome")).toBeTruthy();
     expect(screen.getByText("4500140182")).toBeTruthy();
     expect(screen.getByText("Cantina")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Aceptar" })).toHaveFocus();
 
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
     expect(screen.getByRole("alert")).toHaveTextContent(

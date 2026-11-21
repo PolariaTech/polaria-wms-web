@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { FICHA_EN_BLANCO } from "../domain/empresa-ficha-fiscal";
 import { EmpresaFichaFields } from "./EmpresaFichaFields";
 
+vi.mock("next/image", () => ({
+  // eslint-disable-next-line @next/next/no-img-element -- mock de next/image en tests
+  default: ({ alt, src }: { alt: string; src: string }) => <img alt={alt} src={src} />,
+}));
+
 describe("EmpresaFichaFields", () => {
   it("muestra los campos fiscales y el logo", () => {
     render(
@@ -44,5 +49,22 @@ describe("EmpresaFichaFields", () => {
     });
 
     expect(onChange).toHaveBeenCalledWith("correoCobranza", "ab@c.com");
+  });
+
+  it("muestra el logo elegido", () => {
+    render(
+      <EmpresaFichaFields
+        idPrefix="empresa"
+        valores={FICHA_EN_BLANCO}
+        disabled={false}
+        logoNombreActual={null}
+        vistaPrevia="blob:logo"
+        onChange={vi.fn()}
+        onLogo={vi.fn()}
+        onQuitarLogo={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "Logo" })).toHaveAttribute("src", "blob:logo");
   });
 });
