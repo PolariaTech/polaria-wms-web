@@ -493,9 +493,11 @@ export function productosFamiliasSinonimoConflictivas(
 export function productoCompatibleConTextoCliente(
   textoCliente: string | null | undefined,
   producto: ProductoVentaOption,
+  opts?: { codigoYaCoincide?: boolean },
 ): boolean {
   const texto = (textoCliente ?? "").trim();
   if (!texto) return true;
+  const codigoYaCoincide = Boolean(opts?.codigoYaCoincide);
   if (codigoCoincideEnQuery(texto, producto.codigo)) return true;
   if (productoPreparacionIncompatibleConTexto(texto, producto)) return false;
   if (productosFamiliasSinonimoConflictivas(texto, producto)) return false;
@@ -504,6 +506,7 @@ export function productoCompatibleConTextoCliente(
   // REQ-369: variedad/calibre del cliente no cubiertos → no “compatible seguro”
   // (Mateo cae a fuzzy/pending; no pisa código exacto ni sinónimos orejona↔romana).
   if (
+    !codigoYaCoincide &&
     matchRequiereConfirmacionPorVariedadOCalibre({
       textoCliente: texto,
       nombreCatalogo: producto.nombre,
