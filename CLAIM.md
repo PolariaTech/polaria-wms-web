@@ -29,6 +29,15 @@
 - `src/modules/sales/ordenes/utils/pedido/avisos-validacion-ov.ts`
 - `src/modules/sales/ordenes/utils/pedido/avisos-validacion-ov.test.ts`
 - `src/modules/sales/ordenes/ai/__snapshots__/openai-pedido.prompt/extraer.system.txt` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/pedido/resolve-unidad-pedido-linea.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/pedido/resolve-unidad-pedido-linea.test.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/pedido/map-pedido-extraido-to-form.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/pedido/map-pedido-extraido-to-form.unidad.test.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.tsx` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/components/modals/OrdenVentaFormToolbar.tsx` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/pedido/linea-sembrada-desde-origen.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/origen/materialize-ov-desde-origen.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/pedido/resolve-especificacion-pedido-linea.ts` — autorizada por el usuario el 2026-11-21
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
