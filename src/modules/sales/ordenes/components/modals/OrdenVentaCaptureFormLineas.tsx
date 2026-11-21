@@ -9,7 +9,6 @@ import {
 import { formatPrecioEs, parseDecimalEs } from "@/lib/utils/decimal-es";
 import { textoConteoProductos } from "./detalle-venta-presentacion";
 import { cn } from "@/lib/utils/cn";
-import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../../shared/types/sales.types";
 import { IVA_PCT_OPTIONS } from "../../types/orden-venta-create-modal.types";
 import type { LineaVentaForm } from "../../types/orden-venta-create-modal.types";
 import {
@@ -21,6 +20,7 @@ import {
 import { CaptureSection } from "./CaptureSection";
 import { CatalogStatusHint } from "./catalog-status-hint";
 import { ETIQUETA_TAREA } from "./etiqueta-tarea-ot";
+import { CeldaUnidad } from "./OrdenVentaCaptureFormCeldaUnidad";
 import {
   CeldaCantidad,
   CeldaEspecificacion,
@@ -32,6 +32,8 @@ export type LineaConIndice = { linea: LineaVentaForm; index: number };
 type LineaHandlers = {
   onOpenReplace: (index: number) => void;
   onEspecificacion: (index: number, value: string) => void;
+  /** REQ-380: corrige unidad; si falta, la celda queda solo lectura. */
+  onUnidad?: (index: number, value: string) => void;
   onIva: (index: number, value: string) => void;
   onCantidadChange: (index: number, value: string) => void;
   onCantidadBlur: (index: number, value: string) => void;
@@ -182,7 +184,8 @@ function LineaFila({ row, handlers }: { row: LineaConIndice; handlers: LineaHand
       </td>
       <td className="h-px px-1 py-2"><CeldaEspecificacion linea={linea} index={index} onChange={handlers.onEspecificacion} /></td>
       <td className="h-px px-1 py-2"><CeldaCantidad linea={linea} index={index} onChange={handlers.onCantidadChange} onBlur={handlers.onCantidadBlur} /></td>
-      <td className="h-px px-1 py-2"><CeldaUnidad linea={linea} /></td>
+      <td className="h-px px-1 py-2"><CeldaUnidad linea={linea} index={index} onChange={handlers.onUnidad} /></td>
+
       <td className="h-px px-1 py-2"><CeldaPrecio linea={linea} index={index} onChange={handlers.onPrecioChange} onBlur={handlers.onPrecioBlur} /></td>
       <td className="h-px px-1 py-2"><CeldaIva linea={linea} index={index} onChange={handlers.onIva} /></td>
       <td className="h-px px-1 py-2">
@@ -203,20 +206,6 @@ function LineaFila({ row, handlers }: { row: LineaConIndice; handlers: LineaHand
         </div>
       </td>
     </tr>
-  );
-}
-
-function CeldaUnidad({ linea }: { linea: LineaVentaForm }) {
-  return (
-    <div className="flex h-full min-h-full items-stretch">
-      <input
-        aria-label={`Unidad de ${linea.nombre}`}
-        value={linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT}
-        disabled
-        tabIndex={-1}
-        className={cn(POLARIA_FORM_INPUT_CLASS_COMPACT, "h-full min-h-full px-1.5 text-center")}
-      />
-    </div>
   );
 }
 

@@ -27,8 +27,8 @@ const emptyPedido = (): PedidoExtraido => ({
   archivosNoLegibles: [],
 });
 
-describe("mapPedidoExtraidoToForm unidad (REQ-363)", () => {
-  it("REQ-363: si el pedido pide KG y el catálogo es PZA, la línea queda en KGM", () => {
+describe("mapPedidoExtraidoToForm unidad (REQ-380)", () => {
+  it("si el pedido pide KG y el catálogo es PZA, la línea queda en PZA", () => {
     const mapped = mapPedidoExtraidoToForm({
       pedido: {
         ...emptyPedido(),
@@ -82,8 +82,66 @@ describe("mapPedidoExtraidoToForm unidad (REQ-363)", () => {
       todayIso: "2026-09-06",
     });
 
-    expect(mapped.lineas[0]?.unidadMedida).toBe("KGM");
+    expect(mapped.lineas[0]?.unidadMedida).toBe("PZA");
     expect(mapped.lineas[0]?.especificacion).toMatch(/Sin Oxidacion/i);
-    expect(mapped.lineas[0]?.especificacion).not.toMatch(/^KG\b/i);
+    expect(mapped.lineas[0]?.especificacion).toMatch(/Pedido en KGM/i);
+  });
+
+  it("REQ-380: PZA del correo con catálogo KGM → unidad KGM y Pedido en PZA", () => {
+    const mapped = mapPedidoExtraidoToForm({
+      pedido: {
+        ...emptyPedido(),
+        lineas: [
+          {
+            textoOriginal: "Plátano macho",
+            productoCatalogo: "PLATANO MACHO (105001500)",
+            cantidad: 4,
+            unidad: "PZA",
+            cajas: null,
+            presentacion: null,
+            especificacion: null,
+            numeroPedido: null,
+            almacen: null,
+            numeroAlmacen: null,
+            referenciaPedido: null,
+            codigoProductoCliente: "105001500",
+            responsableExterno: null,
+            precioUnitario: 10,
+          },
+        ],
+      },
+      productos: [
+        {
+          idProducto: "plat-1",
+          label: "PLATANO MACHO (105001500)",
+          idCliente: null,
+          idBodega: "b1",
+          codigo: "105001500",
+          nombre: "PLATANO MACHO",
+          kgDisponible: 50,
+          precioUnitario: 10,
+          unidadMedida: "KGM",
+        },
+      ],
+      ficha: {
+        centroConsumo: "",
+        ventanaDesde: "",
+        ventanaHasta: "",
+        direccion: "",
+        anden: "",
+        contacto: "",
+        telefono: "",
+        correo: "",
+        aceptaSustituciones: "",
+        requiereLote: "",
+        registrarTemperatura: "",
+        observaciones: "",
+      },
+      tomorrowIso: "2026-09-07",
+      todayIso: "2026-09-06",
+    });
+
+    expect(mapped.lineas[0]?.unidadMedida).toBe("KGM");
+    expect(mapped.lineas[0]?.especificacion).toMatch(/Pedido en PZA/i);
   });
 });

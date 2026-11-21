@@ -216,8 +216,7 @@ export function applyProductoToLinea(
     Boolean(linea.precioManual) &&
     linea.precioUnitario > 0 &&
     linea.precioInput.trim().length > 0;
-  // REQ-363: no pisar la unidad del pedido con la del catálogo si el documento
-  // pedía kg/litro (p. ej. PDF en KG y ficha en PZA).
+  // REQ-380: al elegir producto del catálogo, la unidad es la del SKU.
   const unidadMedida =
     resolveUnidadPedidoLinea({
       unidadOrigen: linea.unidadMedida,

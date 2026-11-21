@@ -232,6 +232,15 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                   onEspecificacion={(index, value) =>
                     handleLineaFieldChange(index, "especificacion", value)
                   }
+                  onUnidad={(index, value) =>
+                    setLineas((prev) =>
+                      prev.map((row, i) =>
+                        i === index
+                          ? { ...row, unidadMedida: value, filledByIa: false }
+                          : row,
+                      ),
+                    )
+                  }
                   onIva={(index, value) =>
                     handleLineaFieldChange(index, "ivaPct", value)
                   }
