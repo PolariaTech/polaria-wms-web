@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { EmpresaListRow } from "../services/empresas.service";
 import { EmpresaEditModal } from "./EmpresaEditModal";
 
+vi.mock("next/image", () => ({
+  // eslint-disable-next-line @next/next/no-img-element -- mock de next/image en tests
+  default: ({ alt, src }: { alt: string; src: string }) => <img alt={alt} src={src} />,
+}));
+
 vi.mock("../services/empresas.service", () => ({
   updateEmpresaConfigurator: vi.fn(),
 }));
