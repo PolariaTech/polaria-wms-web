@@ -292,7 +292,12 @@ describe("OrdenVentaCorreccionCorreoPanel", () => {
       }),
     });
     expect(screen.getByText(/No cuadra/)).toBeTruthy();
-    expect((screen.getByRole("button", { name: /Aplicar al borrador/ }) as HTMLButtonElement).disabled).toBe(true);
+    // REQ-372: con cambios estructurales se puede aplicar (aviso de mejor esfuerzo).
+    expect(
+      (screen.getByRole("button", { name: /Aplicar al borrador/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    expect(screen.getByText(/mejor esfuerzo/i)).toBeTruthy();
   });
 
   it("si la orden ya coincide con los documentos lo dice y no deja aplicar", () => {

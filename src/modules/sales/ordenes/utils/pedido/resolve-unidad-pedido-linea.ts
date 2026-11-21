@@ -1,10 +1,10 @@
 import { familiaUnidadCatalogo } from "./resolve-cantidad-envase";
 
 /**
- * REQ-363: unidad de la línea del pedido (general, no por cliente).
- * El documento / Mateo manda sobre el catálogo cuando piden otra familia
- * (KG↔PZA↔LTR). Así el mismo SKU (p. ej. Coliflor en PZA) puede ir en KGM
- * si la OC pide kilos, o en PZA si pide piezas.
+ * REQ-380: con SKU de catálogo, la unidad de la línea es la del catálogo.
+ * La unidad del pedido/correo (otra familia) no pisa el catálogo: va a
+ * especificación vía `fraseUnidadPedidoDiscrepante`.
+ * Sin catálogo, se conserva origen/texto como antes.
  */
 
 function normalizarUnidadPedido(raw: string | null | undefined): string {
@@ -14,6 +14,7 @@ function normalizarUnidadPedido(raw: string | null | undefined): string {
   if (/^(LTR|LT|L|LITRO|LITROS|LTS|ML)$/.test(t)) return "LTR";
   if (/^(PZA|PZ|PZS|PIEZA|PIEZAS|UN|UND|UNIDAD|UNIDADES)$/.test(t))
     return "PZA";
+  if (/^(CJ|CAJA|CAJAS)$/.test(t)) return "CJ";
   return t;
 }
 
@@ -23,6 +24,20 @@ function unidadDesdeTextoLibre(texto: string): string {
   if (/\b(kilos?|kgs?|\bkg\b)\b/.test(t)) return "KGM";
   if (/\b(piezas?|pzas?|\bpz\b)\b/.test(t)) return "PZA";
   return "";
+}
+
+function unidadPedidoDetectada(params: {
+  unidadOrigen?: string | null;
+  textoProducto?: string | null;
+  textoExtra?: string | null;
+}): string {
+  const texto =
+    `${params.textoProducto ?? ""} ${params.textoExtra ?? ""}`.trim();
+  const fromOrigen = normalizarUnidadPedido(params.unidadOrigen);
+  const fromText = unidadDesdeTextoLibre(texto);
+  // Litros/kg en el texto (contenido) mandan sobre UN/PZA del origen.
+  if (fromText === "LTR" || fromText === "KGM") return fromText;
+  return fromOrigen || fromText || "";
 }
 
 /** Unidad tipada de Mateo (`LineaExtraida.unidad`) desde texto libre / origen. */
@@ -47,43 +62,39 @@ export function resolveUnidadPedidoLinea(params: {
   /** Especificación u otras notas donde a veces viene la unidad. */
   textoExtra?: string | null;
 }): string {
-  const texto =
-    `${params.textoProducto ?? ""} ${params.textoExtra ?? ""}`.trim();
-  const fromText = unidadDesdeTextoLibre(texto);
-  const fromOrigen = normalizarUnidadPedido(params.unidadOrigen);
   const catRaw = params.unidadCatalogo?.trim() || "";
-  const catNorm = normalizarUnidadPedido(catRaw);
-  const famCat = familiaUnidadCatalogo(catNorm || catRaw);
-  const famText = familiaUnidadCatalogo(fromText);
-  const famOrigen = familiaUnidadCatalogo(fromOrigen);
-
-  // Litros/kg en el texto (p. ej. «galón de 5 litros» con Unidad UN) mandan
-  // sobre UN/PZA del origen: es la unidad de contenido, no del envase.
-  if (fromText === "LTR") {
-    if (famCat === "ltr" && catRaw) return catRaw;
-    return "LTR";
-  }
-  if (fromText === "KGM") {
-    if (famCat === "kg" && catRaw) return catRaw;
-    return "KGM";
-  }
-
-  // Pedido (origen o texto) vs otra familia de catálogo → gana el pedido.
-  if (fromOrigen === "LTR" && famCat !== "ltr") return "LTR";
-  if (fromOrigen === "KGM" && famCat !== "kg") return "KGM";
-  if (fromOrigen === "PZA" && famCat !== "pza") return "PZA";
-  if (fromText === "PZA" && famCat !== "pza") return "PZA";
-
-  // Misma familia: conservar el string del catálogo (p. ej. "kg").
-  if (catRaw && fromOrigen && famOrigen === famCat) return catRaw;
-  if (catRaw && fromText && famText === famCat) return catRaw;
-  if (fromOrigen && (famCat === "unknown" || !catRaw)) return fromOrigen;
-  if (fromText && (famCat === "unknown" || !catRaw)) return fromText;
+  // REQ-380: con catálogo, siempre la unidad del SKU.
   if (catRaw) return catRaw;
-  return fromOrigen || fromText || "";
+
+  const fromPedido = unidadPedidoDetectada(params);
+  if (fromPedido) return fromPedido;
+  return "";
 }
 
-/** REQ-363: unidad de línea en el form (pedido/documento vs catálogo). */
+/**
+ * REQ-380: si el pedido pide otra familia que el catálogo, frase para
+ * especificación (p. ej. «Pedido en PZA»). Vacío si no hay discrepancia.
+ */
+export function fraseUnidadPedidoDiscrepante(params: {
+  unidadOrigen?: string | null;
+  unidadCatalogo?: string | null;
+  textoProducto?: string | null;
+  textoExtra?: string | null;
+}): string {
+  const catRaw = params.unidadCatalogo?.trim() || "";
+  if (!catRaw) return "";
+  const fromPedido = unidadPedidoDetectada(params);
+  if (!fromPedido) return "";
+  const famCat = familiaUnidadCatalogo(
+    normalizarUnidadPedido(catRaw) || catRaw,
+  );
+  const famPedido = familiaUnidadCatalogo(fromPedido);
+  if (famPedido === "unknown" || famCat === "unknown") return "";
+  if (famPedido === famCat) return "";
+  return `Pedido en ${fromPedido}`;
+}
+
+/** Unidad de línea en el form: catálogo si hay SKU; si no, pedido/documento. */
 export function unidadLineaPedidoForm(
   texto: string,
   unidadCatalogo: string,
@@ -99,4 +110,3 @@ export function unidadLineaPedidoForm(
     }) || unidadCatalogo.trim()
   );
 }
-

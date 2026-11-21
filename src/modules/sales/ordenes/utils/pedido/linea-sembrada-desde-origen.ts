@@ -8,7 +8,10 @@ import type { LineaVentaForm } from "../../types/orden-venta-create-modal.types"
 import type { OrigenCorreoRenglon } from "../origen/origen-correo-ordenes-trabajo";
 import { codigoContradiceNombre } from "../match/codigo-contradice-nombre";
 import { formatPrecioInput, suggestFromCatalogo } from "./orden-venta-create-helpers";
-import { resolveUnidadPedidoLinea } from "./resolve-unidad-pedido-linea";
+import {
+  fraseUnidadPedidoDiscrepante,
+  resolveUnidadPedidoLinea,
+} from "./resolve-unidad-pedido-linea";
 
 interface LineaSembradaParams {
   row: OrigenCorreoRenglon;
@@ -36,7 +39,7 @@ function unidadDesdeRenglonYCatalogo(
   nombre: string,
   unidadCatalogo: string | null | undefined,
 ): string {
-  // REQ-363: la OC puede pedir KG o PZA aunque el SKU esté en otra unidad.
+  // REQ-380: con catálogo, unidad del SKU (discrepancia del pedido → espec).
   return (
     resolveUnidadPedidoLinea({
       unidadOrigen: typeof row.Unidad === "string" ? row.Unidad : null,
@@ -48,6 +51,22 @@ function unidadDesdeRenglonYCatalogo(
     unidadCatalogo?.trim() ||
     UNIDAD_MEDIDA_VENTA_DEFAULT
   );
+}
+
+/** Solo la discrepancia de unidad; el resto de espec lo arma merge/map. */
+function especDesdeRenglon(
+  row: OrigenCorreoRenglon,
+  nombre: string,
+  unidadCatalogo: string | null | undefined,
+): string {
+  const propia =
+    typeof row.Especificacion === "string" ? row.Especificacion.trim() : "";
+  return fraseUnidadPedidoDiscrepante({
+    unidadOrigen: typeof row.Unidad === "string" ? row.Unidad : null,
+    unidadCatalogo,
+    textoProducto: nombre,
+    textoExtra: propia,
+  });
 }
 
 function lineaYaVerificada(
@@ -64,7 +83,11 @@ function lineaYaVerificada(
     cantidadInput: qty > 0 ? formatDecimalInputEs(qty) : "",
     cajasInput: "",
     presentacion: "",
-    especificacion: "",
+    especificacion: especDesdeRenglon(
+      params.row,
+      params.nombre,
+      catalogo.unidadMedida,
+    ),
     ivaPct: "0",
     kgDisponible: catalogo.kgDisponible,
     unidadMedida: unidadDesdeRenglonYCatalogo(
@@ -124,7 +147,11 @@ export function lineaSembradaDesdeRenglon(params: LineaSembradaParams): LineaVen
     cantidadInput: qty > 0 ? formatDecimalInputEs(qty) : "",
     cajasInput: "",
     presentacion: "",
-    especificacion: "",
+    especificacion: especDesdeRenglon(
+      row,
+      nombre,
+      suggested.sugerencia?.unidadMedida,
+    ),
     ivaPct: "0",
     kgDisponible: suggested.sugerencia?.kgDisponible ?? 0,
     unidadMedida: unidadDesdeRenglonYCatalogo(

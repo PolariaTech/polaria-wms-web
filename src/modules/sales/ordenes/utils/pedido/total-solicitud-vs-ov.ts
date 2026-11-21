@@ -3,8 +3,15 @@
  * antes de confirmar (mismo patrón que cliente/producto).
  */
 
+/**
+ * TOTAL / Total pedido / Gran total, con o sin moneda (MXN, $).
+ * REQ-369: el PDF Hard Rock usa «Total pedido: MXN 59,798.90» — sin MXN no matcheaba.
+ */
 const TOTAL_SOLICITUD_RE =
-  /(?:^|\n)\s*(?:total(?:\s+(?:del\s+)?(?:documento|pedido|factura|cotizaci[oó]n))?|importe\s+total|gran\s+total)\s*[:=]?\s*\$?\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})|\d+(?:[.,]\d{2})?)/i;
+  /(?:^|[\n\r])\s*(?:total(?:\s+(?:del\s+)?(?:documento|pedido|factura|cotizaci[oó]n))?|importe\s+total|gran\s+total)\b\s*[:=]?\s*(?:(?:MXN|USD|EUR)\s*)?\$?\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})|\d+(?:[.,]\d{2})?)/gi;
+
+const PREFER_TOTAL_LABEL_RE =
+  /total\s+(?:del\s+)?pedido|gran\s+total|importe\s+total/i;
 
 /** Interpreta montos estilo MX: 1,234.56 o 1.234,56 o 1234.56 */
 export function parseMontoSolicitud(raw: string): number | null {
@@ -35,9 +42,20 @@ export function extractTotalSolicitudFromTexto(
 ): number | null {
   const text = origenTexto?.trim() ?? "";
   if (!text) return null;
-  const match = TOTAL_SOLICITUD_RE.exec(text);
-  if (!match?.[1]) return null;
-  return parseMontoSolicitud(match[1]);
+  const hits: { label: string; value: number }[] = [];
+  TOTAL_SOLICITUD_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = TOTAL_SOLICITUD_RE.exec(text)) != null) {
+    const value = parseMontoSolicitud(match[1] ?? "");
+    if (value == null) continue;
+    hits.push({ label: match[0] ?? "", value });
+  }
+  if (hits.length === 0) return null;
+  // Prefiere «Total pedido» / gran total; si no, el último (suele ser el pie).
+  const preferred =
+    hits.find((h) => PREFER_TOTAL_LABEL_RE.test(h.label)) ??
+    hits[hits.length - 1]!;
+  return preferred.value;
 }
 
 /**

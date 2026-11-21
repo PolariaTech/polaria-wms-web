@@ -49,6 +49,8 @@ export function resolveEspecificacionPedidoLinea(params: {
   nombreCatalogo?: string | null | undefined;
   /** REQ-287: `Especificacion` del renglón de origen_correo (lo que Mateo leyó del documento). */
   especificacionOrigen?: string | null | undefined;
+  /** REQ-380: frase «Pedido en PZA» cuando la unidad del documento ≠ catálogo. */
+  unidadPedidoDiscrepante?: string | null | undefined;
 }): string {
   const envaseTxt = params.envase
     ? formatEspecificacionEnvase(params.envase)
@@ -81,6 +83,8 @@ export function resolveEspecificacionPedidoLinea(params: {
   );
 
   const parts: string[] = [];
+  const unidadPedido = params.unidadPedidoDiscrepante?.trim() || "";
+  if (unidadPedido) parts.push(unidadPedido);
   if (envaseTxt) parts.push(envaseTxt);
 
   if (madurez && !textoYaTraeMadurez(textoIaSinUnidad, madurez)) {

@@ -1,9 +1,10 @@
 import type { ArchivoExtraido, ArchivoTexto } from "./file-extractors";
-import { calcularCantidadDesdeCajas } from "../utils/pedido/empaque-lineas";
 import {
   extractCorreoContactoDesdeTexto,
   isCorreoRemitenteGenerico,
 } from "../utils/origen/correo-chrome";
+import { alinearOrdenLineasConDocumento } from "./alinear-orden-lineas-postproceso";
+import { resolverCantidadEmpaqueLineaPostproceso } from "./resolve-cantidad-empaque-postproceso";
 import {
   extractDireccionShipToDesdeTexto,
   extractEntregaDesdeTexto,
@@ -119,31 +120,34 @@ export function postprocesarPedido(params: {
   ].join("\n");
 
   // Post-proceso: Oc Generada / REQUISICION # vs basura OCR (rAutorizado, Usuario…).
-  const lineasRaw = parsed.lineas.map((linea) => ({
-    textoOriginal: linea.textoOriginal,
-    productoCatalogo: coerceProductoCatalogo(linea.productoCatalogo, catalogoClaves),
-    // El cálculo determinista manda siempre que sea posible (cajas + presentación con
-    // peso parseable); el número que haya dado la IA solo se usa cuando no hay nada
-    // que calcular — así el resultado no depende de si el modelo decidió o no hacer
-    // la multiplicación por su cuenta.
-    cantidad: calcularCantidadDesdeCajas(linea.cajas, linea.presentacion) ?? linea.cantidad,
-    unidad: linea.unidad,
-    cajas: linea.cajas,
-    presentacion: linea.presentacion,
-    especificacion: linea.especificacion,
-    numeroPedido: linea.numeroPedido?.trim() || null,
-    almacen: linea.almacen?.trim() || null,
-    numeroAlmacen: linea.numeroAlmacen?.trim() || null,
-    referenciaPedido: linea.referenciaPedido?.trim() || null,
-    codigoProductoCliente: linea.codigoProductoCliente?.trim() || null,
-    responsableExterno: linea.responsableExterno?.trim() || null,
-    precioUnitario:
-      linea.precioUnitario != null &&
-      Number.isFinite(linea.precioUnitario) &&
-      linea.precioUnitario > 0
-        ? linea.precioUnitario
-        : null,
-  }));
+  const lineasRaw = parsed.lineas.map((linea) => {
+    // REQ-369: cantidad total explícita manda sobre cajas×presentación inventadas.
+    const empaque = resolverCantidadEmpaqueLineaPostproceso(linea);
+    return {
+      textoOriginal: linea.textoOriginal,
+      productoCatalogo: coerceProductoCatalogo(
+        linea.productoCatalogo,
+        catalogoClaves,
+      ),
+      cantidad: empaque.cantidad,
+      unidad: linea.unidad,
+      cajas: empaque.cajas,
+      presentacion: empaque.presentacion,
+      especificacion: linea.especificacion,
+      numeroPedido: linea.numeroPedido?.trim() || null,
+      almacen: linea.almacen?.trim() || null,
+      numeroAlmacen: linea.numeroAlmacen?.trim() || null,
+      referenciaPedido: linea.referenciaPedido?.trim() || null,
+      codigoProductoCliente: linea.codigoProductoCliente?.trim() || null,
+      responsableExterno: linea.responsableExterno?.trim() || null,
+      precioUnitario:
+        linea.precioUnitario != null &&
+        Number.isFinite(linea.precioUnitario) &&
+        linea.precioUnitario > 0
+          ? linea.precioUnitario
+          : null,
+    };
+  });
   const normalizedPedidos = normalizeNumeroPedidoFields({
     ordenCompraHotel: parsed.ordenCompraHotel?.trim() || null,
     lineas: lineasRaw,
@@ -153,7 +157,7 @@ export function postprocesarPedido(params: {
   const ordenCompraHotelNormalizado = normalizedPedidos.ordenCompraHotel;
 
   // REQ-234: excluir SKUs con cantidad <= 0 antes de armar origen_correo.
-  const lineas: LineaExtraida[] = aplicarPiezasAproxKg(
+  const lineasEnriquecidas: LineaExtraida[] = aplicarPiezasAproxKg(
     aplicarMadurezDesdeTexto(
       enrichLineasAlmacenConCodigoDesdeTexto(
         filtrarLineasExtraidasPedibles(normalizedPedidos.lineas),
@@ -162,6 +166,26 @@ export function postprocesarPedido(params: {
       sourceForEntrega,
     ),
     sourceForEntrega,
+  );
+  // REQ-370: conservar orden del documento (Mateo a veces reordena el array).
+  const cuerpoBloques = normalizeCuerpoMensaje(parsed.cuerpoMensaje);
+  // Pedidos grandes: puede haber varias tablas (páginas); concatenar en orden.
+  const filasTablaCuerpo = cuerpoBloques
+    .filter((bloque) => bloque.tipo === "tabla" && Array.isArray(bloque.filas))
+    .flatMap((bloque, idx) => {
+      const filas = bloque.filas ?? [];
+      // Tras la 1ª tabla, omitir fila de encabezados repetida si parece header.
+      if (idx === 0 || filas.length === 0) return filas;
+      const primera = filas[0] ?? [];
+      const pareceHeader = primera.some((celda) =>
+        /producto|cantidad|qty|precio|unidad|descripci/i.test(celda),
+      );
+      return pareceHeader ? filas.slice(1) : filas;
+    });
+  const lineas: LineaExtraida[] = alinearOrdenLineasConDocumento(
+    lineasEnriquecidas,
+    sourceForEntrega,
+    filasTablaCuerpo.length > 0 ? filasTablaCuerpo : null,
   );
 
   const entregaBody = extractEntregaDesdeTexto(sourceForEntrega, hoyISO);
@@ -246,9 +270,7 @@ export function postprocesarPedido(params: {
   const nombreCliente = parsed.nombreCliente?.trim() || null;
   const centroDesdeLineas =
     lineas.find((l) => l.almacen?.trim())?.almacen?.trim() || null;
-  const textoOrigen =
-    serializeCuerpoMensaje(normalizeCuerpoMensaje(parsed.cuerpoMensaje)) ||
-    null;
+  const textoOrigen = serializeCuerpoMensaje(cuerpoBloques) || null;
   // REQ-279: total en cuerpo o en textos ya extraídos de adjuntos (PDF/EML).
   const totalSolicitud = extractTotalSolicitudFromTextos([
     texto,

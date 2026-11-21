@@ -9,4 +9,12 @@ describe("buildSystemPromptPedido (REQ-311)", () => {
     expect(prompt).toMatch(/pimiento.*pulpa|pulpa.*pimiento/i);
     expect(prompt).toMatch(/colores/i);
   });
+
+  it("exige conservar el orden de productos del documento (REQ-370)", () => {
+    const prompt = buildSystemPromptPedido([], []);
+    expect(prompt).toMatch(/ORDEN de "lineas"/i);
+    expect(prompt).toMatch(/arriba hacia abajo/i);
+    expect(prompt).toMatch(/Prohibido reordenar/i);
+    expect(prompt).toMatch(/cuerpoMensaje tipo=tabla/i);
+  });
 });
