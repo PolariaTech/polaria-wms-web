@@ -1,14 +1,14 @@
 "use client";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   decidirAperturaReagruparAlCargar,
   reagruparAbiertoSegunCypher,
 } from "../utils/ot/reagrupacion-modal-estado";
 import { origenAdjuntosFromEmlParts } from "../utils/origen/origen-adjuntos";
 import { useLeerOcDesdeAdjuntos } from "../utils/pedido/aviso-direccion-ov";
-import { cabeceraOtDesdeHija } from "./cabecera-ot-desde-hija";
+import { hidratarFormularioDesdeHija } from "./hidratar-formulario-desde-hija";
 
 export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
   const {
@@ -39,6 +39,15 @@ export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
     setWarnFields,
     setMissingFields,
   } = estado;
+  const hijaActivaId =
+    hijaFormActiva?.id ??
+    (ordenesTrabajoForm.length === 1 ? ordenesTrabajoForm[0]?.id : undefined);
+  const hijaFormActivaRef = useRef(hijaFormActiva);
+  const ordenesTrabajoFormRef = useRef(ordenesTrabajoForm);
+  useEffect(() => {
+    hijaFormActivaRef.current = hijaFormActiva;
+    ordenesTrabajoFormRef.current = ordenesTrabajoForm;
+  }, [hijaFormActiva, ordenesTrabajoForm]);
   // REQ-188: «Modificar con IA» pedido desde el «+» de Acciones: abrir el chat en
   // cuanto el formulario trae las OT (y solo si la OV todavía lo permite). Se decide solo
   // con el detalle de LA OV pedida: el formulario conserva el de la anterior al cerrarse.
@@ -63,13 +72,14 @@ export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
     open,
     ordenCargadaId,
     ordenesTrabajoForm.length,
+    setReagruparOpen,
   ]);
 
   // El chat vive con el Cypher: al cerrar éste (la X, o el formulario) el chat se cierra
   // con él, y al reabrirlo no debe reaparecer solo.
   useEffect(() => {
     setReagruparOpen((actual) => reagruparAbiertoSegunCypher(actual, cypherOpen));
-  }, [cypherOpen]);
+  }, [cypherOpen, setReagruparOpen]);
 
   // REQ-126: Cypher fiscal usa el cliente del formulario (no solo el guardado).
   useEffect(() => {
@@ -84,83 +94,49 @@ export function useEfectosFormularioOt(estado: OrdenVentaFormEstado) {
     };
   }, [cypherOpen, idComprador, onCompanionIdCompradorChange, open]);
 
+  // REQ-374: solo al cambiar de OT (id), no en cada mutación de ordenesTrabajoForm.
   useEffect(() => {
     if (step !== "form" || startMode !== "docs") return;
 
+    const hijaPager = hijaFormActivaRef.current;
+    const hijasActuales = ordenesTrabajoFormRef.current;
     const hija =
-      hijaFormActiva ??
-      (ordenesTrabajoForm.length === 1 ? ordenesTrabajoForm[0] : null);
+      hijaPager ?? (hijasActuales.length === 1 ? hijasActuales[0] : null);
     if (!hija) return;
 
     // REQ-112 / REQ-141 / REQ-281: contacto / teléfono / correo / dirección / notas
-    // son de la OV — no reinyectar (cabeceraOtDesdeHija solo trae campos de OT).
-    const cab = cabeceraOtDesdeHija(hija);
-    // REQ-311: con 1 OT (sin pager) no pisar centro ya editado; solo rellenar vacío.
-    // Con pager multi-OT sí aplica el almacén de la hija activa.
-    if (cab.almacen) {
-      if (hijaFormActiva) {
-        setCentroConsumo(cab.almacen);
-      } else {
-        setCentroConsumo((prev) => prev.trim() || cab.almacen);
-      }
-    }
-    if (cab.numeroPedido) setOrdenCompraHotel(cab.numeroPedido);
-    // REQ-328: con pager, la referencia de la OT activa; sin pager, solo si estaba vacío.
-    if (cab.referenciaPedido) {
-      if (hijaFormActiva) {
-        setReferenciaPedido(cab.referenciaPedido);
-      } else {
-        setReferenciaPedido((prev) => prev.trim() || cab.referenciaPedido);
-      }
-    }
-    if (cab.fechaIso) setFechaEntrega(cab.fechaIso);
-    if (cab.anden) setAnden(cab.anden);
-    if (cab.ventanaDesde) setVentanaDesde(cab.ventanaDesde);
-    if (cab.ventanaHasta) setVentanaHasta(cab.ventanaHasta);
-    if (cab.prioridad) setPrioridad(cab.prioridad);
-
-    setAutoFields((prev) => {
-      const next = new Set(prev);
-      if (cab.almacen) next.add("centroConsumo");
-      if (cab.numeroPedido) next.add("ordenCompraHotel");
-      if (cab.referenciaPedido) next.add("referenciaPedido");
-      if (cab.fechaIso) next.add("fechaEntrega");
-      if (cab.anden) next.add("anden");
-      if (cab.ventanaDesde) next.add("ventanaDesde");
-      if (cab.ventanaHasta) next.add("ventanaHasta");
-      return next;
-    });
-    setWarnFields((prev) => {
-      const next = new Set(prev);
-      next.delete("centroConsumo");
-      next.delete("ordenCompraHotel");
-      next.delete("referenciaPedido");
-      next.delete("fechaEntrega");
-      next.delete("contacto");
-      next.delete("telefono");
-      next.delete("correo");
-      next.delete("anden");
-      next.delete("ventanaDesde");
-      next.delete("ventanaHasta");
-      return next;
-    });
-    setMissingFields((prev) => {
-      const next = new Set(prev);
-      next.delete("centroConsumo");
-      next.delete("ordenCompraHotel");
-      next.delete("referenciaPedido");
-      next.delete("fechaEntrega");
-      next.delete("contacto");
-      next.delete("telefono");
-      next.delete("correo");
-      next.delete("anden");
-      next.delete("ventanaDesde");
-      next.delete("ventanaHasta");
-      return next;
-    });
+    // son de la OV — no reinyectar (hidratar solo trae campos de OT).
+    // REQ-311: sin pager no pisar centro editado; con pager sí fuerza la hija activa.
+    hidratarFormularioDesdeHija(
+      hija,
+      {
+        setCentroConsumo,
+        setOrdenCompraHotel,
+        setReferenciaPedido,
+        setFechaEntrega,
+        setAnden,
+        setVentanaDesde,
+        setVentanaHasta,
+        setPrioridad,
+        setAutoFields,
+        setWarnFields,
+        setMissingFields,
+      },
+      { forzarCamposOt: Boolean(hijaPager) },
+    );
   }, [
-    hijaFormActiva,
-    ordenesTrabajoForm,
+    hijaActivaId,
+    setAnden,
+    setAutoFields,
+    setCentroConsumo,
+    setFechaEntrega,
+    setMissingFields,
+    setOrdenCompraHotel,
+    setPrioridad,
+    setReferenciaPedido,
+    setVentanaDesde,
+    setVentanaHasta,
+    setWarnFields,
     startMode,
     step,
   ]);
@@ -221,7 +197,7 @@ export function useCamposDeLaOtActiva(estado: OrdenVentaFormEstado) {
     return () => {
       cancelled = true;
     };
-  }, [origenAdjuntos]);
+  }, [origenAdjuntos, setEmlInnerAdjuntos]);
 
   // Si OCC quedó vacía tras limpiar rAutorizado, recuperar REQUISICION # desde el .eml/PDFs.
   useLeerOcDesdeAdjuntos({
