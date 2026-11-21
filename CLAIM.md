@@ -28,6 +28,8 @@
 - `src/modules/sales/ordenes/utils/origen/origen-correo-ordenes-trabajo.ts`
 - `src/modules/sales/ordenes/hooks/aplicar-cabecera-con-sello-usuario.ts`
 - `src/modules/sales/ordenes/hooks/aplicar-cabecera-con-sello-usuario.test.ts`
+- `src/modules/sales/ordenes/components/modals/detalle-venta-presentacion.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/components/modals/detalle-venta-presentacion.test.ts` — autorizada por el usuario el 2026-11-21
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/ordenes/types/orden-venta-form-estado.ts`
