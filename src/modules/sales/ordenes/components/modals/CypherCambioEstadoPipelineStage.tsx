@@ -40,7 +40,7 @@ export function CypherCambioEstadoPipelineStage({
   return (
     <CypherStageAccordion
       stageId="cambio-estado"
-      num="04"
+      num="05"
       title="Cambiar estado"
       open={openStages.has("cambio-estado")}
       onToggle={toggleAccordionStage}

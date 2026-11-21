@@ -1,6 +1,7 @@
 "use client";
 
 import { CypherClienteVsMateoSection } from "./CypherClienteVsMateoSection";
+import { CypherPrefacturaStage } from "./CypherPrefacturaStage";
 import { CypherDatosFiscalesSection } from "./CypherDatosFiscalesSection";
 import { CypherStageAccordion } from "./CypherStageAccordion";
 import { CypherBitacoraSection } from "./CypherBitacoraSection";
@@ -102,6 +103,12 @@ export function OrdenVentaCypherStagesBody({
         )}
       </CypherStageAccordion>
 
+      <CypherPrefacturaStage
+        openStages={openStages}
+        toggleAccordionStage={toggleAccordionStage}
+        orden={orden}
+      />
+
       <CypherCambioEstadoPipelineStage
         openStages={openStages}
         toggleAccordionStage={toggleAccordionStage}
@@ -118,7 +125,7 @@ export function OrdenVentaCypherStagesBody({
 
       <CypherStageAccordion
         stageId="bitacora"
-        num="05"
+        num="06"
         title="Bitácora de eventos"
         open={openStages.has("bitacora")}
         onToggle={toggleAccordionStage}

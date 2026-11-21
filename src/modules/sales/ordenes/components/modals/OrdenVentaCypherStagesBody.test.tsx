@@ -15,6 +15,9 @@ vi.mock("./CypherConfirmacionStage", () => ({
 vi.mock("./CypherClienteVsMateoSection", () => ({
   CypherClienteVsMateoSection: () => <div data-testid="mock-cliente-vs" />,
 }));
+vi.mock("./CypherPrefacturaStage", () => ({
+  CypherPrefacturaStage: () => <div data-testid="mock-prefactura" />,
+}));
 vi.mock("./CypherCambioEstadoPipelineStage", () => ({
   CypherCambioEstadoPipelineStage: () => <div data-testid="mock-cambio-estado" />,
 }));
@@ -77,6 +80,14 @@ describe("OrdenVentaCypherStagesBody", () => {
     ).toBeTruthy();
     expect(getByTestId("mock-confirmacion")).toBeInTheDocument();
     expect(getByTestId("mock-cliente-vs")).toBeInTheDocument();
+    expect(
+      getByTestId("mock-cliente-vs").compareDocumentPosition(getByTestId("mock-prefactura")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      getByTestId("mock-prefactura").compareDocumentPosition(getByTestId("mock-cambio-estado")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(getByTestId("mock-cambio-estado")).toBeInTheDocument();
     expect(getByTestId("mock-bitacora")).toBeInTheDocument();
   });

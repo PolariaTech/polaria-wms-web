@@ -12,6 +12,12 @@ async function bytesDe(blob: Blob): Promise<Uint8Array> {
   return new Uint8Array(await blob.arrayBuffer());
 }
 
+function bytesParaBlob(bytes: Uint8Array): ArrayBuffer {
+  const copia = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copia).set(bytes);
+  return copia;
+}
+
 /** Pega al PDF base las prefacturas de esas OV. Sin anexos devuelve el mismo blob. */
 export async function pegarPrefacturas(
   base: Blob,
@@ -23,7 +29,7 @@ export async function pegarPrefacturas(
   if (extras.length === 0) return base;
   const partes = [await bytesDe(base)];
   for (const extra of extras) partes.push(await bytesDe(extra.pdf));
-  return new Blob([await unirPdfs(partes)], { type: "application/pdf" });
+  return new Blob([bytesParaBlob(await unirPdfs(partes))], { type: "application/pdf" });
 }
 
 type ArmarParte = (parte: ParteEnvio, indice: number, total: number) => Promise<Blob>;
@@ -76,7 +82,7 @@ export async function sumarPrefacturas(
 /** Solo prefacturas: el PDF que se ve es el que se manda, sin hojas de orden de tarea. */
 export async function previaSoloPrefacturas(resumen: ResumenOvBatch[], anexos: readonly AnexoPrefactura[], nombreArchivo: string): Promise<PreviaBatch> {
   const unido = await unirPdfs(await Promise.all(anexos.map((anexo) => bytesDe(anexo.pdf))));
-  const blob = new Blob([unido], { type: "application/pdf" });
+  const blob = new Blob([bytesParaBlob(unido)], { type: "application/pdf" });
   return {
     blob,
     hojas: [],

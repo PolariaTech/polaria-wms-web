@@ -7,8 +7,9 @@ import type { ResumenOvBatch } from "./batch-seleccion";
 import { cargarCompradorPrefactura } from "./cargar-comprador-prefactura";
 import { cargarEmpresaPrefactura, type EmpresaPrefactura } from "./cargar-empresa-prefactura";
 import { cargarHojasBatch, type CargarHojasBatchInput } from "./cargar-hojas-batch";
-import { documentoPrefactura, type FiscalCompradorPrefactura } from "./prefactura-documento";
+import { documentosPrefactura, type FiscalCompradorPrefactura } from "./prefactura-documento";
 import { previaSoloPrefacturas, sumarPrefacturas, type AnexoPrefactura } from "./pegar-prefacturas";
+import { adjuntarQrRecepcion } from "./recepcion-prefactura-qr";
 import { renderPrefacturasPdf } from "./render-prefactura-pdf";
 import type { TipoDocumentoRapida } from "./ImpresionRapidaTipos";
 import { nombreArchivoBatch, type PreviaBatch } from "./utilidades-batch";
@@ -85,19 +86,28 @@ async function fiscalDe(entrada: EntradaSegunTipos, detalle: OrdenVentaDetalleRo
   return entrada.runScoped(() => cargarCompradorPrefactura(detalle.id_comprador));
 }
 
-async function anexoDe(entrada: EntradaSegunTipos, empresa: EmpresaPrefactura, item: ResumenOvBatch): Promise<AnexoPrefactura> {
+async function anexoDe(
+  entrada: EntradaSegunTipos,
+  empresa: EmpresaPrefactura,
+  item: ResumenOvBatch,
+  codigoEmpresa: string,
+): Promise<AnexoPrefactura> {
   const detalle = await detalleDe(entrada, item);
-  const doc = renderPrefacturasPdf([documentoPrefactura(empresa, detalle, await fiscalDe(entrada, detalle))]);
+  const documentos = await adjuntarQrRecepcion(
+    documentosPrefactura(empresa, detalle, await fiscalDe(entrada, detalle), codigoEmpresa),
+  );
+  const doc = renderPrefacturasPdf(documentos);
   return { idOrdenVenta: item.row.idOrdenVenta, pdf: new Blob([doc.output("arraybuffer")], { type: "application/pdf" }) };
 }
 
 async function anexosDe(entrada: EntradaSegunTipos): Promise<AnexoPrefactura[]> {
-  const empresa = await (entrada.leerEmpresa ?? cargarEmpresaPrefactura)(codigoEmpresaDeSesion(entrada.codigoEmpresa));
+  const codigoEmpresa = codigoEmpresaDeSesion(entrada.codigoEmpresa);
+  const empresa = await (entrada.leerEmpresa ?? cargarEmpresaPrefactura)(codigoEmpresa);
   const anexos: AnexoPrefactura[] = [];
   for (let i = 0; i < entrada.resumen.length; i += 1) {
     const item = entrada.resumen[i]!;
     entrada.alProgreso(`Armando prefactura ${i + 1} de ${entrada.resumen.length}…`);
-    anexos.push(await anexoDe(entrada, empresa, item));
+    anexos.push(await anexoDe(entrada, empresa, item, codigoEmpresa));
   }
   return anexos;
 }
