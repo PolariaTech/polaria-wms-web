@@ -12,7 +12,6 @@ import { rankSinCodigoContradicho } from "../match/codigo-contradice-nombre";
 import {
   findTypoRivalProductos,
   productoCompatibleConTextoCliente,
-  scoreProductoMatch,
   shouldAutoAcceptProductoSuggestion,
 } from "../match/find-closest-producto-catalogo";
 import { sustantivoPrincipalAusente } from "../match/sustantivo-principal";

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Plus, Replace, Trash2, XCircle } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   POLARIA_FORM_INPUT_CLASS_COMPACT,
@@ -12,13 +12,10 @@ import { cn } from "@/lib/utils/cn";
 import { IVA_PCT_OPTIONS } from "../../types/orden-venta-create-modal.types";
 import type { LineaVentaForm } from "../../types/orden-venta-create-modal.types";
 import {
-  collectSugerenciasLinea,
   fieldControlClass,
-  formatProductoNombreConSku,
   lineAmounts,
 } from "../../utils/pedido/orden-venta-create-helpers";
 import { CaptureSection } from "./CaptureSection";
-import { CatalogStatusHint } from "./catalog-status-hint";
 import { ETIQUETA_TAREA } from "./etiqueta-tarea-ot";
 import { CeldaUnidad } from "./OrdenVentaCaptureFormCeldaUnidad";
 import {
