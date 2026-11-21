@@ -5,7 +5,7 @@
 | Formulario | Editar pedido |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Formato visual de fechas DD-MMM-AAAA (REQ-320) en Fecha de entrega, listados, preview, avisos y PDF de impresión (valor canónico sigue ISO); Día de entrega como texto auxiliar bajo Fecha (REQ-321; ya no campo aparte REQ-257); Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277; respaldo al mapear desde Mateo REQ-340); Referencia de pedido solo lectura (REQ-328); bloqueo al confirmar con fechas de entrega distintas entre OT (REQ-337); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287) |
+| Campos nuevos o modificados | **Unidad (línea)** editable en captura (REQ-380 / REQ-369): select KGM/PZA/LTR/CJ; normaliza `kg`/`kilos`→KGM y sinónimos a mayúsculas; capa Front (`CeldaUnidad`); Formato visual de fechas DD-MMM-AAAA (REQ-320) en Fecha de entrega, listados, preview, avisos y PDF de impresión (valor canónico sigue ISO); Día de entrega como texto auxiliar bajo Fecha (REQ-321; ya no campo aparte REQ-257); Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277; respaldo al mapear desde Mateo REQ-340); Referencia de pedido solo lectura (REQ-328); bloqueo al confirmar con fechas de entrega distintas entre OT (REQ-337); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287) |
 | ¿Vive en un modal? | Sí |
 | ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | Sí |
 | Responsable (Desarrollador) | Desarrollador frontend |
@@ -24,6 +24,7 @@
 | Hora desde | Texto (hora) | No | — | — | No | — | REQ-278: etiqueta «Hora desde» (antes ventana desde) | Sin mensaje de bloqueo al confirmar. | Front |
 | Hora hasta | Texto (hora) | No | — | — | No | — | REQ-278: etiqueta «Hora hasta» (antes ventana hasta) | Sin mensaje de bloqueo al confirmar. | Front |
 | Precio unitario (línea) | Número | No | ≥ 0; vacío se trata como 0 | — | No | — | REQ-235: al confirmar y en avance, precio vacío o 0 se persiste como 0; no bloquea confirmación | Sin mensaje de bloqueo por precio vacío/0 al confirmar. | Front / Back |
+| Unidad (línea) | Texto (catálogo corto) | No | Valores de captura: KGM, PZA, LTR, CJ (se muestran en mayúsculas); si el valor actual no está en esa lista, se ofrece como opción extra | Unidad del catálogo del producto o `KGM` si viene vacía; al mapear desde Mateo/origen manda el catálogo cuando hay SKU (REQ-380) y la unidad discrepante del cliente puede ir a especificación | No | Producto de la línea / catálogo | REQ-380/REQ-369: editable en grilla con `CeldaUnidad` cuando hay `onUnidad`; sin handler queda solo lectura (`tabIndex={-1}`). Normaliza `kg`/`kilos`/`kgs`→KGM, `lt`/`litro(s)`→LTR, `pz`/`pieza(s)`→PZA, `caja(s)`→CJ. No bloquea confirmar. | Sin mensaje de error de validación: cualquier valor del select se guarda; vacío se trata como KGM al normalizar. | Front |
 | Dirección de entrega | Texto | No | — | Última OV confirmada del comprador, o dirección de ficha | No | Razón social (comprador) | Al elegir razón social se prellena; si el usuario ya escribió y onlyEmpty, no se pisa | Sin mensaje de bloqueo al confirmar: vacío se guarda; puede marcarse en missingFields si el origen no la trajo. | Front |
 | Latitud de entrega (`entrega_lat`) | Número | No | Finito | null | No | Dirección de entrega / mapa | REQ-251: pin opcional vía mapa (Leaflet + Nominatim); no bloquea confirmar; se guarda con la OV | Sin mensaje de bloqueo: vacío/null se guarda. | Front / BD |
 | Longitud de entrega (`entrega_lng`) | Número | No | Finito | null | No | Dirección de entrega / mapa | REQ-251: pin opcional vía mapa (Leaflet + Nominatim); no bloquea confirmar; se guarda con la OV | Sin mensaje de bloqueo: vacío/null se guarda. | Front / BD |
@@ -48,6 +49,7 @@
 | Hora desde | En Entrega, después de Fecha de entrega (REQ-278/321) | No | — |
 | Hora hasta | En Entrega, después de Hora desde (REQ-278) | No | — |
 | Precio unitario (línea) | Dentro de la grilla de líneas del pedido | No | — |
+| Unidad (línea) | Dentro de la grilla de líneas del pedido (columna Unidad; `data-ov-revision=unidad-{i}`); en el orden de tabulación de la fila junto a cantidad/precio | No (Sí si no hay `onUnidad` o el modal está en solo lectura REQ-180) | — |
 | Contacto del cliente | En Entrega, después de Hora hasta y antes de teléfono (REQ-278) | No | — |
 | Teléfono del contacto | En Entrega, después de contacto (REQ-278) | No | — |
 | Correo del contacto | En Entrega, después de teléfono y antes de dirección (REQ-278) | No | — |
@@ -72,6 +74,7 @@
 | Hora desde | Sí | Extracción IA / Información de BD | Sí |
 | Hora hasta | Sí | Extracción IA / Información de BD | Sí |
 | Precio unitario (línea) | Sí | Extracción IA / Información de BD | Sí |
+| Unidad (línea) | Sí | Extracción IA / Información de BD / catálogo del producto (REQ-380: con SKU manda unidad del catálogo; discrepancia del cliente → especificación) | Sí (select en captura; solo lectura si no hay handler o modo REQ-180) |
 | Dirección de entrega | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
 | Latitud de entrega | Sí | Información de BD (`entrega_lat`) o geocodificación del mapa (REQ-251) | Sí (vía mapa) |
 | Longitud de entrega | Sí | Información de BD (`entrega_lng`) o geocodificación del mapa (REQ-251) | Sí (vía mapa) |
@@ -95,7 +98,7 @@
 | Ruta | /dashboard/ventas/ordenes |
 | Pasos para abrir el formulario | clic button "Editar" en la orden → esperar dialog "Editar pedido" |
 | Registro que debe existir | Una orden de venta de la cuenta, con al menos una orden de trabajo |
-| Archivos del formulario | src/modules/sales/ordenes/components/modals/OrdenVentaCreateModal.tsx; src/modules/sales/ordenes/surtido/folio-factura-captura.ts; src/modules/sales/ordenes/surtido/guardar-folio-factura-captura.client.ts |
+| Archivos del formulario | src/modules/sales/ordenes/components/modals/OrdenVentaCreateModal.tsx; src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormCeldaUnidad.tsx; src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.tsx; src/modules/sales/ordenes/components/modals/OrdenVentaFormToolbar.tsx; src/modules/sales/ordenes/surtido/folio-factura-captura.ts; src/modules/sales/ordenes/surtido/guardar-folio-factura-captura.client.ts |
 | Botón Guardar | button "Actualizar" |
 | Botón Cancelar / Cerrar | button "Cancelar" |
 | Diálogo de descarte: botón que confirma descartar | button "Salir" |
@@ -115,6 +118,7 @@
 | Hora desde | textbox / time "Hora desde" | 06:00 |
 | Hora hasta | textbox / time "Hora hasta" | 08:00 |
 | Precio unitario (línea) | spinbutton / textbox de precio en línea | vacío o 0 al confirmar |
+| Unidad (línea) | combobox / select `aria-label` «Unidad de {nombre}» (`OrdenVentaCaptureFormCeldaUnidad`) | KGM → PZA |
 | Contacto del cliente | textbox "Contacto del cliente" | Ana Pérez |
 | Dirección de entrega | textbox / textarea de dirección de entrega | Av. Prueba 100 |
 | Notas generales del pedido | textbox / textarea de notas generales | Entregar en andén 2 |
@@ -160,13 +164,25 @@ REQ-281 (sello del usuario): `sellarCabeceraUsuarioEnOrigen` guarda el sello en 
 
 REQ-287: la especificación de línea muestra la madurez con la etiqueta «Madurez: <nivel>» y no la repite si el texto ya la trae (`formatMadurezConEtiqueta`, `textoYaTraeMadurez`). REQ-297 (impresión en carta) no cambia campos de este formulario.
 
+REQ-380 / REQ-369 (Unidad línea): `CeldaUnidad` en la grilla (`OrdenVentaCaptureFormCeldaUnidad.tsx` / toolbar con `onUnidad`). Opciones KGM/PZA/LTR/CJ; normaliza sinónimos a mayúsculas. Tests: `OrdenVentaCaptureFormCeldaUnidad.test.tsx`, `map-pedido-unidad-y-espec.test.ts`, `resolve-unidad-pedido-linea.test.ts`, `*.unidad.test.ts`.
+
 La prueba automatizada del Nivel 2 (Tabla 4) cubre el modo edición. El modo solo lectura exige dos sesiones de usuarios distintos sobre la misma orden, y se recorre a mano en el checklist del lote.
+
+### Checklist de prueba manual — Unidad (línea) REQ-380/REQ-369
+
+| Ítem | Resultado |
+|---|---|
+| Nivel 1: con handler, el select muestra KGM (no `kg`) y opciones en mayúsculas | PASS (`CeldaUnidad` test «muestra KGM») |
+| Nivel 1: elegir PZA llama `onChange(index, "PZA")` | PASS (`CeldaUnidad` test «permite cambiar») |
+| Nivel 2: sin `onUnidad` / solo lectura, el control está deshabilitado y fuera de tabulación | PASS (`CeldaUnidad` test «sin onChange queda deshabilitada»; REQ-180 fieldset) |
+| Nivel 2: modal no cierra por clic afuera con datos sin guardar | PASS (comportamiento existente: `closeOnBackdrop` false) |
+| Nivel 3: al mapear con SKU, manda unidad de catálogo; discrepancia del cliente puede ir a especificación | PASS (tests `*.unidad.test.ts` / `map-pedido-unidad-y-espec`) |
 
 ### Versión y revisión (del schema de ese formulario, no de esta plantilla)
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.8 |
-| Fecha de aprobación | 19/11/2026 |
+| Versión del schema | v1.9 |
+| Fecha de aprobación | 21/11/2026 |
 | Aprobado por | Desarrollador frontend |
 | Próxima revisión | Cuando el formulario cambie de campos o de reglas |
