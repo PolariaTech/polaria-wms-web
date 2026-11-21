@@ -5,7 +5,7 @@
 | Formulario | Editar pedido |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Formato visual de fechas DD-MMM-AAAA (REQ-320) en Fecha de entrega, listados, preview, avisos y PDF de impresión (valor canónico sigue ISO); Día de entrega como texto auxiliar bajo Fecha (REQ-321; ya no campo aparte REQ-257); Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277; respaldo al mapear desde Mateo REQ-340); Referencia de pedido solo lectura (REQ-328); bloqueo al confirmar con fechas de entrega distintas entre OT (REQ-337); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287) |
+| Campos nuevos o modificados | Formato visual de fechas DD-MMM-AAAA (REQ-320) en Fecha de entrega, listados, preview, avisos y PDF de impresión (valor canónico sigue ISO); Día de entrega como texto auxiliar bajo Fecha (REQ-321; ya no campo aparte REQ-257); Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277; respaldo al mapear desde Mateo REQ-340); Referencia de pedido solo lectura (REQ-328); bloqueo al confirmar con fechas de entrega distintas entre OT (REQ-337); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287); Centro de consumo por OT activa en multi-OT — hidratación síncrona al paginar, detalle Cypher usa `hija.almacen`, sin hint «Solo esta OT.» bajo centro, `propagarFechaOv: false` al paginar (REQ-374) |
 | ¿Vive en un modal? | Sí |
 | ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | Sí |
 | Responsable (Desarrollador) | Desarrollador frontend |
@@ -82,7 +82,7 @@
 | Teléfono del contacto | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
 | Correo del contacto | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
 | Fecha de entrega | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
-| Centro de consumo | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
+| Centro de consumo | Sí | Multi-OT (REQ-374): almacén de la OT activa (`hija.almacen`) al paginar o al cambiar OT en detalle/Cypher; con 1 OT, si hay sello del usuario manda el sello (REQ-281/311) | Sí |
 | Orden de compra | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
 
 ### Tabla 4 — Prueba automatizada (Nivel 2)
@@ -136,6 +136,18 @@ REQ-328: «Referencia de pedido» es solo lectura (`OrdenVentaCaptureFormPedido`
 
 REQ-337: al confirmar (no en avance), `validar-envio-ov` bloquea si hay más de un día de entrega entre OT (`diasEntregaDistintosEnHijas`) con `MSG_FECHAS_DISTINTAS_ENTRE_OT`, antes del sync que unifica fechas. Tests: `validar-envio-ov.test.ts`, `sync-ot-cabecera-renglon.test.ts`.
 
+REQ-374: con varias OT, el centro de consumo es por OT activa. En edición, `ejecutarCambioPaginaOt` persiste la OT, cambia de página e hidrata el centro en el mismo tick; el efecto de cabecera solo reacciona al id de OT (no a cada mutación de hijas); al paginar no se propaga la fecha OV a hermanas (`propagarFechaOv: false`). En detalle multi-OT, `buildCapturaDetalleVista` muestra `hija.almacen` al cambiar OT en Cypher. Se quitó el hint «Solo esta OT.» bajo el campo Centro de consumo. Tests: `cambiar-pagina-ot.test.ts`, `hidratar-formulario-desde-hija.test.ts`, `detalle-venta-presentacion.test.ts`, `sync-ot-formulario.test.ts`.
+
+#### Checklist manual REQ-374 (Nivel 2 / multi-OT)
+
+| Ítem | Resultado |
+|---|---|
+| OV multi-OT en detalle: Cypher → cambiar OT → centro de consumo cambia con cada OT | PASS |
+| Editar pedido multi-OT: paginar Prev/Next → centro de la OT activa se muestra y no homogeniza hermanas | PASS |
+| Con 1 OT: sello vacío de centro no reinyecta almacén de OT (REQ-311) | PASS |
+| Bajo Centro de consumo no aparece el texto «Solo esta OT.» | PASS |
+| Foco/tab en Datos del pedido al cambiar OT: centro editable recibe el valor de la OT activa | PASS |
+
 Confirmar no exige dirección no vacía; la obligatoriedad visual vía `missingFields` es orientativa desde el origen IA.
 
 Fecha de creación solo aparece al editar un pedido. El input es de solo lectura: muestra formatDateTime de created_at, y si no hay, de fecha_pedido. No se envía al guardar.
@@ -166,7 +178,7 @@ La prueba automatizada del Nivel 2 (Tabla 4) cubre el modo edición. El modo sol
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.8 |
-| Fecha de aprobación | 19/11/2026 |
+| Versión del schema | v1.9 |
+| Fecha de aprobación | 21/11/2026 |
 | Aprobado por | Desarrollador frontend |
 | Próxima revisión | Cuando el formulario cambie de campos o de reglas |

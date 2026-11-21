@@ -36,9 +36,7 @@ export function OrdenVentaCaptureFormPedido(props: {
     .join(" ");
   const hintCentro = props.marks.warnFields.has("centroConsumo")
     ? "Registrado en ficha distinto al del pedido"
-    : props.multiOt
-      ? "Solo esta OT."
-      : undefined;
+    : undefined;
 
   return (
     <>

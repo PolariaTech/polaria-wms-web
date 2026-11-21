@@ -275,7 +275,9 @@ export interface OrdenVentaFormEstado
   session: { idUsuario?: string; nombre?: string | null } | null;
   showToast: (aviso: PolariaToastInput) => void;
   skipOtSeedFromOrigenRef: { current: boolean };
-  syncActiveOtFromForm: () => OrdenTrabajoHija[];
+  syncActiveOtFromForm: (opciones?: {
+    propagarFechaOv?: boolean;
+  }) => OrdenTrabajoHija[];
   turno: string;
   unidad: string;
 }
