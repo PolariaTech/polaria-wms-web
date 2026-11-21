@@ -28,7 +28,7 @@ import {
   isFechaEntregaAtrasada,
 } from "./pedido-form-validation";
 import { resolveLineaCantidadPrecioEmpaque } from "./resolve-linea-cantidad-precio-empaque";
-import { unidadYEspecificacionLineaForm } from "./map-pedido-unidad-y-espec";
+import { camposUnidadEspecLinea } from "./map-pedido-unidad-y-espec";
 import { asegurarNotasGeneralesPedido } from "../origen/sanitize-notas-generales-pedido";
 import { resolveOrdenCompraLimpia } from "./normalize-numero-pedido";
 
@@ -698,14 +698,8 @@ export function mapPedidoExtraidoToForm(params: {
           linea.codigoProductoCliente?.trim() ||
           extractCodigoFromCatalogKey(textoOriginal) ||
           "";
-        const ueAmbiguo = unidadYEspecificacionLineaForm({
-          textoOriginal,
-          especificacionIa: linea.especificacion,
-          especificacionEnvase: qty.especificacionEnvase,
-          unidadOrigen: linea.unidad,
-          unidadCatalogo: match.unidadMedida,
-        });
         lineas.push({
+          ...camposUnidadEspecLinea({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase, unidadOrigen: linea.unidad, unidadCatalogo: match.unidadMedida }),
           idProducto: "",
           nombre: textoOriginal || stripLeadingProductoCodigo(match.nombre, match.codigo),
           codigo: codigoCliente || "—",
@@ -713,10 +707,8 @@ export function mapPedidoExtraidoToForm(params: {
           cantidadInput: qty.cantidadInput,
           cajasInput: qty.cajasInput,
           presentacion: qty.presentacion,
-          especificacion: ueAmbiguo.especificacion,
           ivaPct: "0",
           kgDisponible: match.kgDisponible,
-          unidadMedida: ueAmbiguo.unidadMedida,
           precioUnitario: qty.precioUnitario,
           precioManual: qty.precioManual,
           aliasCliente: textoOriginal,
@@ -733,14 +725,8 @@ export function mapPedidoExtraidoToForm(params: {
         continue;
       }
 
-      const ueMatch = unidadYEspecificacionLineaForm({
-        textoOriginal,
-        especificacionIa: linea.especificacion,
-        especificacionEnvase: qty.especificacionEnvase,
-        unidadOrigen: linea.unidad,
-        unidadCatalogo: match.unidadMedida,
-      });
       lineas.push({
+        ...camposUnidadEspecLinea({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase, unidadOrigen: linea.unidad, unidadCatalogo: match.unidadMedida }),
         idProducto: match.idProducto,
         nombre: stripLeadingProductoCodigo(match.nombre, match.codigo),
         codigo: match.codigo,
@@ -748,10 +734,8 @@ export function mapPedidoExtraidoToForm(params: {
         cantidadInput: qty.cantidadInput,
         cajasInput: qty.cajasInput,
         presentacion: qty.presentacion,
-        especificacion: ueMatch.especificacion,
         ivaPct: "0",
         kgDisponible: match.kgDisponible,
-        unidadMedida: ueMatch.unidadMedida,
         precioUnitario: qty.precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -812,14 +796,8 @@ export function mapPedidoExtraidoToForm(params: {
       const catalogo = productos.find(
         (p) => p.idProducto === sugerencia.idProducto,
       );
-      const ueAuto = unidadYEspecificacionLineaForm({
-        textoOriginal,
-        especificacionIa: linea.especificacion,
-        especificacionEnvase: qty.especificacionEnvase,
-        unidadOrigen: linea.unidad,
-        unidadCatalogo: sugerencia.unidadMedida,
-      });
       lineas.push({
+        ...camposUnidadEspecLinea({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase, unidadOrigen: linea.unidad, unidadCatalogo: sugerencia.unidadMedida }),
         idProducto: sugerencia.idProducto,
         nombre: stripLeadingProductoCodigo(catalogo?.nombre ?? sugerencia.nombre, sugerencia.codigo),
         codigo: sugerencia.codigo,
@@ -827,10 +805,8 @@ export function mapPedidoExtraidoToForm(params: {
         cantidadInput: qty.cantidadInput,
         cajasInput: qty.cajasInput,
         presentacion: qty.presentacion,
-        especificacion: ueAuto.especificacion,
         ivaPct: "0",
         kgDisponible: sugerencia.kgDisponible,
-        unidadMedida: ueAuto.unidadMedida,
         precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -858,14 +834,8 @@ export function mapPedidoExtraidoToForm(params: {
       linea.codigoProductoCliente?.trim() ||
       extractCodigoFromCatalogKey(textoOriginal) ||
       "";
-    const uePendiente = unidadYEspecificacionLineaForm({
-      textoOriginal,
-      especificacionIa: linea.especificacion,
-      especificacionEnvase: qty.especificacionEnvase,
-      unidadOrigen: linea.unidad,
-      unidadCatalogo: sugerencia?.unidadMedida ?? "",
-    });
     lineas.push({
+      ...camposUnidadEspecLinea({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase, unidadOrigen: linea.unidad, unidadCatalogo: sugerencia?.unidadMedida ?? "" }),
       idProducto: "",
       nombre: textoOriginal || "Producto no identificado",
       codigo: codigoClientePending || "—",
@@ -873,10 +843,8 @@ export function mapPedidoExtraidoToForm(params: {
       cantidadInput: qty.cantidadInput,
       cajasInput: qty.cajasInput,
       presentacion: qty.presentacion,
-      especificacion: uePendiente.especificacion,
       ivaPct: "0",
       kgDisponible: sugerencia?.kgDisponible ?? 0,
-      unidadMedida: uePendiente.unidadMedida,
       precioUnitario,
       precioManual: qty.precioManual,
       aliasCliente: textoOriginal,

@@ -31,3 +31,17 @@ export function unidadYEspecificacionLineaForm(params: {
   });
   return { unidadMedida, especificacion };
 }
+
+/** Campos de línea listos para `...spread` en el map del pedido. */
+export function camposUnidadEspecLinea(params: {
+  textoOriginal: string;
+  especificacionIa: string | null | undefined;
+  especificacionEnvase: string;
+  unidadOrigen?: string | null;
+  unidadCatalogo: string;
+}): Pick<
+  { unidadMedida: string; especificacion: string },
+  "unidadMedida" | "especificacion"
+> {
+  return unidadYEspecificacionLineaForm(params);
+}
