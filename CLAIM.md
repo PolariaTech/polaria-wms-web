@@ -48,6 +48,7 @@
 - `src/modules/sales/ordenes/utils/pedido/orden-venta-create-helpers.ts` — autorizada por el usuario el 2026-11-21
 - `src/modules/sales/ordenes/utils/pedido/orden-venta-create-helpers.test.ts` — autorizada por el usuario el 2026-11-21
 - `src/modules/sales/ordenes/utils/pedido/resolve-especificacion-pedido-linea.test.ts` — autorizada por el usuario el 2026-11-21
+- `schemas/schema_editar_pedido.md` — autorizada por el usuario el 2026-11-21
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
