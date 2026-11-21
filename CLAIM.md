@@ -24,6 +24,7 @@
 - `src/modules/sales/ordenes/utils/origen/pedido-from-origen-correo.ts`
 - `src/modules/sales/ordenes/utils/origen/pedido-from-origen-correo.test.ts`
 - `src/modules/sales/ordenes/components/modals/OrdenVentaFormToolbar.tsx` — autorizada por el usuario el 2026-11-21
+- `schemas/schema_editar_pedido.md` — autorizada por el usuario el 2026-11-21
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
