@@ -43,6 +43,11 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.tsx` — autorizada por el usuario el 2026-11-21
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.test.tsx` — autorizada por el usuario el 2026-11-21
 - `src/modules/sales/ordenes/services/correccion-correo.client.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/origen/materialize-ov-desde-origen.unidad.test.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/pedido/linea-sembrada-desde-origen.test.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/pedido/orden-venta-create-helpers.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/pedido/orden-venta-create-helpers.test.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/pedido/resolve-especificacion-pedido-linea.test.ts` — autorizada por el usuario el 2026-11-21
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
