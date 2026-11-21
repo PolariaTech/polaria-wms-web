@@ -51,20 +51,30 @@ export function propagarCabeceraOvATodasLasHijas(
   }));
 }
 
+export type OpcionesSyncCabeceraOt = {
+  /**
+   * REQ-337: al guardar, misma fecha en todas las OT.
+   * REQ-374: al paginar debe ser false para no pisar hermanas.
+   */
+  propagarFechaOv?: boolean;
+};
+
 /** Sync form → OT activa + cabecera OV a hermanas (REQ-141 / REQ-281). */
 export function aplicarCabeceraFormAOrdenesTrabajo(
   hijas: OrdenTrabajoHija[],
   targetHijaId: string,
   cabecera: CabeceraFormParaOt,
+  opciones?: OpcionesSyncCabeceraOt,
 ): OrdenTrabajoHija[] {
+  const propagarFechaOv = opciones?.propagarFechaOv !== false;
   return hijas.map((hija) => {
     if (hija.id !== targetHijaId) {
       return {
         ...hija,
-        // REQ-337: misma fecha de entrega en todas las OT de la OV.
-        fecha: cabecera.fecha || hija.fecha,
+        // REQ-337: misma fecha de entrega en todas las OT de la OV (solo si se pide).
+        fecha: propagarFechaOv ? cabecera.fecha || hija.fecha : hija.fecha,
         renglones: renglonesBase(hija).map((row) =>
-          aplicarCabeceraOvARenglonHermano(row, cabecera),
+          aplicarCabeceraOvARenglonHermano(row, cabecera, { propagarFechaOv }),
         ),
       };
     }
@@ -127,7 +137,9 @@ export function aplicarCabeceraOvARenglonHermano(
     | "responsableExterno"
     | "fecha"
   >,
+  opciones?: OpcionesSyncCabeceraOt,
 ): OrigenCorreoRenglon {
+  const propagarFechaOv = opciones?.propagarFechaOv !== false;
   return {
     ...row,
     "Notas generales": cabecera.notasOt,
@@ -136,7 +148,7 @@ export function aplicarCabeceraOvARenglonHermano(
     "Telefono contacto": cabecera.telefonoOt,
     "Correo contacto": cabecera.correoOt,
     "Responsable externo": cabecera.responsableExterno,
-    // REQ-337: una OV = un día de entrega; la fecha del form llega a todas las OT.
-    Fecha: cabecera.fecha || row.Fecha,
+    // REQ-337: una OV = un día de entrega; al paginar (REQ-374) no se pisa.
+    Fecha: propagarFechaOv ? cabecera.fecha || row.Fecha : row.Fecha,
   };
 }

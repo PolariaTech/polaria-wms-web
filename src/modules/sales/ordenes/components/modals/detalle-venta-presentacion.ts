@@ -147,13 +147,17 @@ export function buildCapturaDetalleVista(
       capturaOrdenCompra: fromObs.ordenCompraHotel,
       tareaTotal,
     }),
-    // REQ-311: sello (también vacío) manda; si no, BD/captura antes que OT vieja.
-    centroConsumo: sello
-      ? sello.centroConsumo
-      : orden.centro_consumo?.trim() ||
-        fromObs.centroConsumo ||
-        hija?.almacen ||
-        "",
+    // REQ-374: en detalle multi-OT, el centro es el de la OT activa (Cypher).
+    // REQ-311: con 1 OT, sello (también vacío) manda; si no, BD/captura antes que OT vieja.
+    centroConsumo:
+      tareaTotal > 1 && hija
+        ? hija.almacen?.trim() || ""
+        : sello
+          ? sello.centroConsumo
+          : orden.centro_consumo?.trim() ||
+            fromObs.centroConsumo ||
+            hija?.almacen ||
+            "",
     moneda: orden.moneda?.trim() || fromObs.moneda,
     bodegaDestino:
       orden.bodega_destino_label?.trim() || fromObs.bodegaDestino,
