@@ -101,7 +101,7 @@ function CamposBanco({
         type="email"
         value={valores.correoCobranza}
         disabled={disabled}
-        onChange={(event) => onChange("correoCobranza", event.target.value)}
+        onChange={(event) => onChange("correoCobranza", event.target.value.replace(/ /g, ""))}
       />
       <PolariaFormInput
         id={`${idPrefix}-serie`}

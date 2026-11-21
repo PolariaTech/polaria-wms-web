@@ -78,7 +78,7 @@
 
 ### Notas y justificaciones
 
-El código de empresa no es un campo visible: se genera con generateCodigoCuentaFromNombre a partir de la razón social y se envía en el POST. idCreador sale de la sesión y no se muestra. Nombre de cuenta, banco y serie aceptan cualquier texto; por eso no tienen mensaje de error. El logo no se guarda en la columna como bytes: el back lo sube a Storage y la base guarda logo_path. Un formato inválido no llama a la API. Crear con solo razón social envía los campos fiscales vacíos como null y no envía archivo.
+El código de empresa no es un campo visible: se genera con generateCodigoCuentaFromNombre a partir de la razón social y se envía en el POST. idCreador sale de la sesión y no se muestra. Nombre de cuenta, banco y serie aceptan cualquier texto; por eso no tienen mensaje de error. El logo no se guarda en la columna como bytes: el back lo sube a Storage y la base guarda logo_path. Un formato inválido no llama a la API. Crear con solo razón social envía los campos fiscales vacíos como null y no envía archivo. La capa de base de datos no vive en este repo: el tipo, la nulabilidad y el límite del régimen y del correo los aplica el API Nest.
 
 ### Versión y revisión (del schema de ese formulario, no de esta plantilla)
 

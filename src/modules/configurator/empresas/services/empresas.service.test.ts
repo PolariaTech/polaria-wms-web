@@ -6,6 +6,11 @@ import { createSupabaseMock } from "@/test/create-supabase-mock";
 import { getCreationOptionHref } from "@/modules/configurator/shared/constants/creation-options";
 import { apiRequest } from "@/services/api/api";
 import {
+  FICHA_EN_BLANCO,
+  mensajeFicha,
+  mensajeLogo,
+} from "../domain/empresa-ficha-fiscal";
+import {
   createEmpresaConfigurator,
   listEmpresasConfigurator,
   updateEmpresaConfigurator,
@@ -235,5 +240,42 @@ describe("empresas.service", () => {
     });
 
     expect(apiRequest).toHaveBeenCalled();
+  });
+
+  it("create y update usan el mismo límite que el formulario y no llaman a la API", async () => {
+    const selectChain = { select: vi.fn(), eq: vi.fn(), limit: vi.fn() };
+    selectChain.select.mockReturnValue(selectChain);
+    selectChain.eq.mockReturnValue(selectChain);
+    selectChain.limit.mockResolvedValue({ data: [], error: null });
+    setSupabaseClientForTests({ from: vi.fn(() => selectChain) } as never);
+    vi.mocked(apiRequest).mockClear();
+    const logo = { size: 1_048_577, type: "image/jpeg" } as File;
+    const base = {
+      codigoEmpresa: "MIT00",
+      razonSocial: "Mitre S.A.",
+      regimenFiscal: "12",
+    };
+
+    await expect(createEmpresaConfigurator(base)).rejects.toMatchObject({
+      message: mensajeFicha({ ...FICHA_EN_BLANCO, regimenFiscal: "12" }),
+      code: "INVALID_ARGUMENT",
+    });
+    await expect(
+      createEmpresaConfigurator({ ...base, regimenFiscal: "601", logo }),
+    ).rejects.toMatchObject({ message: mensajeLogo(logo) });
+    await expect(
+      updateEmpresaConfigurator({
+        ...base,
+        estaActiva: true,
+        regimenFiscal: "601",
+        correoCobranza: "a@b",
+      }),
+    ).rejects.toMatchObject({
+      message: mensajeFicha({ ...FICHA_EN_BLANCO, correoCobranza: "a@b" }),
+    });
+    await expect(
+      updateEmpresaConfigurator({ ...base, estaActiva: true, regimenFiscal: "601", logo }),
+    ).rejects.toMatchObject({ message: mensajeLogo(logo) });
+    expect(apiRequest).not.toHaveBeenCalled();
   });
 });

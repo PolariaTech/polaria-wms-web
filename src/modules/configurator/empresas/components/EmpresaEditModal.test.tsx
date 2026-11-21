@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { EmpresaListRow } from "../services/empresas.service";
 import { EmpresaEditModal } from "./EmpresaEditModal";
@@ -37,6 +37,27 @@ describe("EmpresaEditModal", () => {
 
     expect(screen.getByLabelText("RFC")).toHaveValue("APU210325668");
     expect(screen.getByLabelText("CLABE")).toHaveValue("012528001186364430");
+    expect(screen.getByRole("img", { name: "Logo" })).toHaveAttribute(
+      "src",
+      "/api/empresa-logo?path=Y9IHZ%2Flogo.jpg",
+    );
+  });
+
+  it("rechaza un GIF al elegirlo y conserva el logo guardado", () => {
+    render(
+      <EmpresaEditModal
+        open
+        empresa={empresa}
+        onClose={vi.fn()}
+        onUpdated={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Logo"), {
+      target: { files: [new File(["gif"], "logo.gif", { type: "image/gif" })] },
+    });
+
+    expect(screen.getByText("El logo debe ser JPEG o PNG.")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Logo" })).toHaveAttribute(
       "src",
       "/api/empresa-logo?path=Y9IHZ%2Flogo.jpg",

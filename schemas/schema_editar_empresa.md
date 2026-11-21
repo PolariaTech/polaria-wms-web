@@ -102,7 +102,7 @@
 
 ### Notas y justificaciones
 
-El pre-llenado viene de una sola fuente, la fila de la empresa, así que no hay advertencia de discrepancia. Nombre de cuenta, banco, serie y estado no tienen mensaje de error: estado solo admite Activa o Inactiva, y los otros tres aceptan cualquier texto. El logo visible sale de logo_path. Si el usuario no elige un archivo nuevo, el PATCH no lo borra. Quitar el logo ya guardado es una acción aparte. El código no se envía como cambio. Un formato inválido no llama a updateEmpresaConfigurator.
+El pre-llenado viene de una sola fuente, la fila de la empresa, así que no hay advertencia de discrepancia. Nombre de cuenta, banco, serie y estado no tienen mensaje de error: estado solo admite Activa o Inactiva, y los otros tres aceptan cualquier texto. El logo visible sale de logo_path. Si el usuario no elige un archivo nuevo, el PATCH no lo borra. Quitar el logo ya guardado es una acción aparte. El código no se envía como cambio. Un formato inválido no llama a updateEmpresaConfigurator. La capa de base de datos no vive en este repo: el tipo, la nulabilidad y el límite del régimen y del correo los aplica el API Nest.
 
 ### Versión y revisión (del schema de ese formulario, no de esta plantilla)
 

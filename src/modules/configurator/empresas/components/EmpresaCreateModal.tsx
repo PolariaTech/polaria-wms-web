@@ -84,6 +84,14 @@ export function EmpresaCreateModal({
   };
 
   const elegirLogo = (archivo: File | null) => {
+    const mensaje = archivo ? mensajeLogo(archivo) : null;
+    if (mensaje) {
+      setError(mensaje);
+      setLogo(null);
+      setVistaPrevia(null);
+      return;
+    }
+    setError(null);
     setLogo(archivo);
     setVistaPrevia(archivo ? URL.createObjectURL(archivo) : null);
   };
