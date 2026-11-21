@@ -38,6 +38,11 @@
 - `src/modules/sales/ordenes/utils/pedido/linea-sembrada-desde-origen.ts` — autorizada por el usuario el 2026-11-21
 - `src/modules/sales/ordenes/utils/origen/materialize-ov-desde-origen.ts` — autorizada por el usuario el 2026-11-21
 - `src/modules/sales/ordenes/utils/pedido/resolve-especificacion-pedido-linea.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/ot/aplicar-correccion-correo.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/utils/ot/aplicar-correccion-correo.test.ts` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.tsx` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCorreccionCorreoPanel.test.tsx` — autorizada por el usuario el 2026-11-21
+- `src/modules/sales/ordenes/services/correccion-correo.client.ts` — autorizada por el usuario el 2026-11-21
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
