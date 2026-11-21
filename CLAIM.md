@@ -28,6 +28,7 @@
 - `src/modules/sales/ordenes/utils/pedido/total-solicitud-vs-ov.test.ts`
 - `src/modules/sales/ordenes/utils/pedido/avisos-validacion-ov.ts`
 - `src/modules/sales/ordenes/utils/pedido/avisos-validacion-ov.test.ts`
+- `src/modules/sales/ordenes/ai/__snapshots__/openai-pedido.prompt/extraer.system.txt` — autorizada por el usuario el 2026-11-21
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
