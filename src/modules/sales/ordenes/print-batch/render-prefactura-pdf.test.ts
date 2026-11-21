@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { textoPdf } from "../print/texto-pdf-flate";
 import type { EmpresaPrefactura } from "./cargar-empresa-prefactura";
-import { documentoPrefactura, type FiscalCompradorPrefactura } from "./prefactura-documento";
+import { documentoPrefactura, documentosPrefactura, type FiscalCompradorPrefactura } from "./prefactura-documento";
 import { cajaDelLogo, renderPrefacturasPdf } from "./render-prefactura-pdf";
 import type { OrdenVentaDetalleRow } from "../../shared/types/sales.types";
 
@@ -74,6 +74,8 @@ describe("renderPrefacturasPdf", () => {
     expect(texto).toContain("$69.00");
     expect(texto).toContain("Prefactura sin timbre fiscal");
     expect(texto).toContain("601 · General de Ley Personas Morales");
+    expect(texto).toContain("Orden de tarea");
+    expect(texto).toContain("Orden de trabajo");
     expect(texto).toContain("Hoja 1");
     expect(texto).not.toContain("Hoja 2");
     expect(pdf.getNumberOfPages()).toBe(1);
@@ -119,11 +121,60 @@ describe("renderPrefacturasPdf", () => {
     expect(cajaDelLogo({ bytes: PNG, formato: "PNG" })).toEqual({ ancho: 24, alto: 24 });
   });
 
+  it("escribe el folio completo de la OV debajo del QR, sin recortarlo", () => {
+    const venta = orden();
+    venta.codigo = "OV-00002487";
+    const documento = documentoPrefactura(empresa, venta);
+    documento.qrDataUrl = `data:image/png;base64,${btoa(String.fromCharCode(...PNG))}`;
+
+    const texto = textoPdf(renderPrefacturasPdf([documento]));
+    const fragmentos = [...texto.matchAll(/\(([^)]*)\)/g)].map((coincidencia) => coincidencia[1]);
+
+    expect(fragmentos).toContain("OV-00002487");
+    expect(fragmentos).not.toContain("OV-0000");
+  });
+
   it("dibuja el logo cuando la empresa ya lo tiene", () => {
     const conLogo = documentoPrefactura({ ...empresa, logo: { bytes: PNG, formato: "PNG" } }, orden());
 
     expect(() => renderPrefacturasPdf([conLogo])).not.toThrow();
     expect(textoPdf(renderPrefacturasPdf([conLogo]))).toContain("PREFACTURA");
+  });
+
+  it("pinta el encabezado de partidas con el verde de la factura original", () => {
+    const pdf = renderPrefacturasPdf([documentoPrefactura(empresa, orden())]);
+    const contenido = pdf.internal.pages
+      .filter((pagina) => pagina && typeof pagina === "object")
+      .map((pagina) => Object.values(pagina as object).join(""))
+      .join("");
+
+    expect(contenido).toContain("0.67 0.81 0.42 rg");
+  });
+
+  it("escribe el nombre de cada orden de tarea en su prefactura", () => {
+    const venta = orden();
+    venta.lineas = [
+      ...venta.lineas,
+      {
+        id_linea_orden_venta: "l2",
+        id_producto: "p2",
+        cantidad_pedida: 1,
+        precio_unitario: 10,
+        unidad_medida: "KGM",
+        producto: { sku: "TOR", descripcion: "TORONJA LOCAL", metadatos_catalogo: null },
+      },
+    ];
+    venta.origen_correo = [
+      { Producto: "AGUACATE MEDIANO", Cantidad: 1, Almacen: "CANTINA", "Numero pedido": "OC-1", "Codigo producto": "AGU" },
+      { Producto: "TORONJA LOCAL", Cantidad: 1, Almacen: "BAR", "Numero pedido": "OC-2", "Codigo producto": "TOR" },
+    ];
+
+    const pdf = renderPrefacturasPdf(documentosPrefactura(empresa, venta));
+    const texto = textoPdf(pdf);
+
+    expect(pdf.getNumberOfPages()).toBe(2);
+    expect(texto).toContain("Orden de tarea");
+    expect(texto).toContain("CANTINA");
   });
 
   it("rechaza una lista vacía", () => {

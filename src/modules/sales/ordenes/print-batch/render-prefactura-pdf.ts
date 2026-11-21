@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { drawPrintQr } from "@/modules/sales/ordenes/print/draw-print-qr";
 import type { PartidaPrefactura, PrefacturaDocumento } from "./prefactura-documento";
 import type { LogoPrefactura } from "./cargar-empresa-prefactura";
 
@@ -9,6 +10,10 @@ const CONTENIDO = ANCHO - M * 2;
 const ANCHO_LOGO = 56;
 const ALTO_LOGO = 24;
 const X_DATOS = 136;
+const QR_LADO = 16;
+const QR_X = ANCHO - M - QR_LADO;
+const QR_Y = 14;
+const VERDE_ENCABEZADO_PARTIDAS = [171, 206, 106] as const;
 
 const COLUMNAS: { titulo: string; ancho: number; clave: keyof PartidaPrefactura }[] = [
   { titulo: "Cantidad", ancho: 22, clave: "cantidad" },
@@ -110,15 +115,19 @@ function colocarLogo(doc: jsPDF, prefactura: PrefacturaDocumento): number {
   return caja.ancho;
 }
 
-function bloqueComprobante(doc: jsPDF, prefactura: PrefacturaDocumento): void {
+function bloqueComprobante(doc: jsPDF, prefactura: PrefacturaDocumento): number {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(0);
   doc.text("PREFACTURA", X_DATOS, 12);
   enLinea(doc, X_DATOS, 18, "Tipo de comprobante", "I - Ingreso", ANCHO - M);
-  enLinea(doc, X_DATOS, 23.5, "Serie", prefactura.serie, X_DATOS + 30);
-  enLinea(doc, X_DATOS + 32, 23.5, "Folio", prefactura.folio, ANCHO - M);
-  enLinea(doc, X_DATOS, 29, "Fecha", prefactura.fecha, ANCHO - M);
+  const topeJuntoAlQr = prefactura.qrDataUrl ? QR_X - 2 : ANCHO - M;
+  enLinea(doc, X_DATOS, 23.5, "Serie", prefactura.serie, topeJuntoAlQr);
+  enLinea(doc, X_DATOS, 29, "Fecha", prefactura.fecha, topeJuntoAlQr);
+  if (prefactura.qrDataUrl) drawPrintQr(doc, prefactura.qrDataUrl, QR_X, QR_Y, QR_LADO);
+  const yFolio = QR_Y + QR_LADO + 4.5;
+  enLinea(doc, X_DATOS, yFolio, "Folio", prefactura.folio, ANCHO - M);
+  return yFolio;
 }
 
 function dibujarEmisor(doc: jsPDF, prefactura: PrefacturaDocumento): number {
@@ -131,8 +140,7 @@ function dibujarEmisor(doc: jsPDF, prefactura: PrefacturaDocumento): number {
   doc.text(String(nombre), x, 14);
   enLinea(doc, x, 20, "RFC", prefactura.rfc, X_DATOS - 3);
   enLinea(doc, x, 26, "Régimen fiscal", prefactura.regimen, X_DATOS - 3);
-  bloqueComprobante(doc, prefactura);
-  return 38;
+  return bloqueComprobante(doc, prefactura) + 6;
 }
 
 function dibujarReceptor(doc: jsPDF, prefactura: PrefacturaDocumento, y: number): number {
@@ -153,15 +161,16 @@ function dibujarReceptor(doc: jsPDF, prefactura: PrefacturaDocumento, y: number)
   enLinea(doc, X_DATOS, fila + paso * 3, "Moneda", prefactura.moneda, ANCHO - M);
   enLinea(doc, X_DATOS, fila + paso * 4, "Referencia", prefactura.referencia, ANCHO - M);
   enLinea(doc, X_DATOS, fila + paso * 5, "Realizó", prefactura.realizo, ANCHO - M);
-  return fila + paso * 5 + 6;
+  enLinea(doc, M, fila + paso * 6, "Orden de tarea", prefactura.ordenTarea, ANCHO - M);
+  return fila + paso * 6 + 6;
 }
 
 function encabezadoPartidas(doc: jsPDF, y: number): number {
-  doc.setFillColor(20, 20, 20);
+  doc.setFillColor(...VERDE_ENCABEZADO_PARTIDAS);
   doc.rect(M, y, CONTENIDO, 6, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
-  doc.setTextColor(255);
+  doc.setTextColor(0);
   let x = M + 1.5;
   for (const columna of COLUMNAS) {
     doc.text(columna.titulo, x, y + 4);

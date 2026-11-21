@@ -1,5 +1,11 @@
 import { formatIsoToDdMonYyyy } from "@/lib/utils/fecha-dd-mm-yyyy";
-import type { OrdenVentaDetalleRow } from "../../shared/types/sales.types";
+import type { OrdenVentaDetalleRow, OrdenVentaLineaRow } from "../../shared/types/sales.types";
+import { filterLineasByOrdenTrabajoHija } from "../utils/ot/filter-lineas-by-orden-trabajo";
+import {
+  groupOrigenCorreoToOrdenesTrabajo,
+  parseOrigenCorreoJson,
+  type OrdenTrabajoHija,
+} from "../utils/origen/origen-correo-ordenes-trabajo";
 import type { EmpresaPrefactura } from "./cargar-empresa-prefactura";
 import { pesosALetra } from "./pesos-a-letra";
 
@@ -62,6 +68,16 @@ export interface PrefacturaDocumento {
   subtotal: string;
   total: string;
   totalLetra: string;
+  /** Nombre de la orden de tarea (pedido y centro de consumo). Una prefactura por OT. */
+  ordenTarea: string;
+  /** Posición de esta OT dentro de la OV. Empieza en 1. */
+  numeroOt: string;
+  totalOt: string;
+  centroConsumo: string;
+  codigoEmpresa: string;
+  /** Clave estable de la OT. Sin hijas, `unica`. */
+  ordenTrabajoId: string;
+  qrDataUrl?: string;
   logo: EmpresaPrefactura["logo"];
 }
 
@@ -101,16 +117,23 @@ function partidaDe(linea: OrdenVentaDetalleRow["lineas"][number]): { partida: Pa
   };
 }
 
-/** Arma una prefactura con la ficha de public.empresa y el detalle de la OV del schema actual. */
-export function documentoPrefactura(
+interface ContextoOtPrefactura {
+  ordenTarea: string;
+  codigoEmpresa: string;
+  ordenTrabajoId: string;
+  numeroOt: string;
+  totalOt: string;
+  centroConsumo: string;
+}
+
+function armarDocumento(
   empresa: EmpresaPrefactura,
   detalle: OrdenVentaDetalleRow,
-  fiscal: FiscalCompradorPrefactura = FISCAL_COMPRADOR_VACIO,
+  fiscal: FiscalCompradorPrefactura,
+  lineas: readonly OrdenVentaLineaRow[],
+  ot: ContextoOtPrefactura,
 ): PrefacturaDocumento {
-  const partidas = detalle.lineas.map(partidaDe);
-  if (partidas.length === 0) {
-    throw new Error(`La orden ${detalle.codigo} no tiene partidas para la prefactura.`);
-  }
+  const partidas = lineas.map(partidaDe);
   const total = Math.round(partidas.reduce((suma, item) => suma + item.importe, 0) * 100) / 100;
   return {
     razonSocial: empresa.razonSocial,
@@ -138,6 +161,71 @@ export function documentoPrefactura(
     subtotal: dinero(total),
     total: dinero(total),
     totalLetra: pesosALetra(total),
+    ordenTarea: ot.ordenTarea,
+    numeroOt: ot.numeroOt,
+    totalOt: ot.totalOt,
+    centroConsumo: ot.centroConsumo,
+    codigoEmpresa: ot.codigoEmpresa,
+    ordenTrabajoId: ot.ordenTrabajoId,
     logo: empresa.logo,
   };
+}
+
+function lineasDeOt(detalle: OrdenVentaDetalleRow, hija: OrdenTrabajoHija): OrdenVentaLineaRow[] {
+  const lineas = filterLineasByOrdenTrabajoHija(detalle.lineas, hija);
+  if (lineas.length === 0) {
+    throw new Error(`La orden de tarea ${hija.label} de ${detalle.codigo} no tiene partidas para la prefactura.`);
+  }
+  return lineas;
+}
+
+/** Una prefactura por orden de tarea. Sin tareas en el origen, una sola con las partidas de la OV. */
+export function documentosPrefactura(
+  empresa: EmpresaPrefactura,
+  detalle: OrdenVentaDetalleRow,
+  fiscal: FiscalCompradorPrefactura = FISCAL_COMPRADOR_VACIO,
+  codigoEmpresa = "",
+): PrefacturaDocumento[] {
+  const empresaCodigo = codigoEmpresa.trim();
+  const hijas = groupOrigenCorreoToOrdenesTrabajo(parseOrigenCorreoJson(detalle.origen_correo));
+  if (hijas.length === 0) {
+    if (detalle.lineas.length === 0) {
+      throw new Error(`La orden ${detalle.codigo} no tiene partidas para la prefactura.`);
+    }
+    return [
+      armarDocumento(empresa, detalle, fiscal, detalle.lineas, {
+        ordenTarea: texto(detalle.centro_consumo) || "Orden de trabajo",
+        codigoEmpresa: empresaCodigo,
+        ordenTrabajoId: "unica",
+        numeroOt: texto(detalle.orden_compra_hotel),
+        totalOt: "1",
+        centroConsumo: texto(detalle.centro_consumo),
+      }),
+    ];
+  }
+  return hijas.map((hija) =>
+    armarDocumento(empresa, detalle, fiscal, lineasDeOt(detalle, hija), {
+      ordenTarea: hija.label,
+      codigoEmpresa: empresaCodigo,
+      ordenTrabajoId: hija.id,
+      numeroOt: hija.numeroPedido,
+      totalOt: String(hijas.length),
+      centroConsumo: hija.almacen || texto(detalle.centro_consumo),
+    }),
+  );
+}
+
+/** Una sola prefactura. Si la OV tiene varias órdenes de tarea, cada una va en `documentosPrefactura`. */
+export function documentoPrefactura(
+  empresa: EmpresaPrefactura,
+  detalle: OrdenVentaDetalleRow,
+  fiscal: FiscalCompradorPrefactura = FISCAL_COMPRADOR_VACIO,
+): PrefacturaDocumento {
+  const documentos = documentosPrefactura(empresa, detalle, fiscal);
+  if (documentos.length !== 1) {
+    throw new Error(`La orden ${detalle.codigo} tiene ${documentos.length} órdenes de tarea. Cada una lleva su prefactura.`);
+  }
+  const unica = documentos[0];
+  if (!unica) throw new Error(`La orden ${detalle.codigo} no tiene partidas para la prefactura.`);
+  return unica;
 }
