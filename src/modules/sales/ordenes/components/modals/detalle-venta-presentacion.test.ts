@@ -168,5 +168,45 @@ describe("detalle de venta", () => {
     );
     expect(captura.centroConsumo).toBe("");
   });
+
+  it("REQ-374: en detalle multi-OT el centro sigue a la hija aunque haya sello OV", () => {
+    const orden = {
+      centro_consumo: "COCINA UNICA",
+      origen_correo: [
+        {
+          Producto: "X",
+          Cantidad: 1,
+          _cabeceraUsuario: {
+            notasGenerales: "",
+            centroConsumo: "COCINA SELLO",
+            referenciaPedido: "",
+            fechaEntrega: "",
+            direccionEntrega: "",
+            contacto: "",
+            telefono: "",
+            correo: "",
+          },
+        },
+      ],
+    } as OrdenVentaDetalleRow;
+    const hijaA = {
+      id: "ot-a",
+      label: "A",
+      numeroPedido: "",
+      almacen: "COCINA A",
+      referenciaPedido: "",
+      fecha: "",
+      responsableExterno: "",
+      renglones: [],
+      totalCantidad: 0,
+    };
+    const hijaB = { ...hijaA, id: "ot-b", label: "B", almacen: "COCINA B" };
+    expect(
+      buildCapturaDetalleVista(orden, hijaA, fromObsVacio, 3, "").centroConsumo,
+    ).toBe("COCINA A");
+    expect(
+      buildCapturaDetalleVista(orden, hijaB, fromObsVacio, 3, "").centroConsumo,
+    ).toBe("COCINA B");
+  });
 });
 

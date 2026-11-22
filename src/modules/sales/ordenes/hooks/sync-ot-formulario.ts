@@ -2,27 +2,12 @@
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import type { LineaVentaForm } from "../types/orden-venta-create-modal.types";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useCallback, useMemo } from "react";
 import {
   createEmptyOrdenTrabajoHija,
   flattenOrdenesTrabajoToOrigenCorreo,
-  groupOrigenCorreoToOrdenesTrabajo,
-  parseOrigenCorreoJson,
-  type OrigenCorreoRenglon,
   type OrdenTrabajoHija,
 } from "../utils/origen/origen-correo-ordenes-trabajo";
-import {
-  resolveOrdenCompraLimpia,
-  sanitizeOrigenCorreoNumeroPedido,
-} from "../utils/pedido/normalize-numero-pedido";
 import { lineAmounts } from "../utils/pedido/orden-venta-create-helpers";
 import { hasOtPagerRequiredBlocking } from "../utils/ot/ot-pager-required";
 import { todayIsoDate } from "../utils/pedido/build-orden-venta-captura-observaciones";
@@ -32,16 +17,22 @@ import {
   propagarCabeceraOvATodasLasHijas,
 } from "./sync-ot-cabecera-renglon";
 import { useRevisionPendienteOv } from "./aplicar-correccion-correo-ov";
+import { ejecutarCambioPaginaOt } from "./cambiar-pagina-ot";
+
+export type OpcionesSyncActiveOt = {
+  /** Default true (guardar). Al paginar: false (REQ-374). */
+  propagarFechaOv?: boolean;
+};
 
 export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
-  const { setOrdenesTrabajoPreview, setOrigenCorreoDraft, setFormOtPage, addOtAlmacen, setError, addOtNumeroPedido, ordenCompraHotel, fechaEntrega, ordenesTrabajoForm, setAddOtOpen, setAddOtAlmacen, setAddOtNumeroPedido, setStep, confirmRemoveOtId, setLineas, seededOtIdsRef, setConfirmRemoveOtId, step, formOtPage, startMode, lineas, centroConsumo, contacto, telefono, correo, direccion, anden, ventanaDesde, ventanaHasta, observaciones, prioridad, setSuccessMessage } = estado;
+  const { setOrdenesTrabajoPreview, setOrigenCorreoDraft, setFormOtPage, addOtAlmacen, setError, addOtNumeroPedido, ordenCompraHotel, fechaEntrega, ordenesTrabajoForm, setAddOtOpen, setAddOtAlmacen, setAddOtNumeroPedido, setStep, confirmRemoveOtId, setLineas, seededOtIdsRef, setConfirmRemoveOtId, step, formOtPage, startMode, lineas, centroConsumo, contacto, telefono, correo, direccion, anden, ventanaDesde, ventanaHasta, observaciones, prioridad, setSuccessMessage, setCentroConsumo, setOrdenCompraHotel, setReferenciaPedido, setFechaEntrega, setAnden, setVentanaDesde, setVentanaHasta, setPrioridad, setAutoFields, setWarnFields, setMissingFields } = estado;
   const applyOrdenesTrabajo = useCallback((next: OrdenTrabajoHija[]) => {
     setOrdenesTrabajoPreview(next);
     setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(next));
     setFormOtPage((page) =>
       next.length === 0 ? 0 : Math.min(page, next.length - 1),
     );
-  }, []);
+  }, [setFormOtPage, setOrdenesTrabajoPreview, setOrigenCorreoDraft]);
 
   const handleAddOrdenTrabajo = useCallback(() => {
     const almacen = addOtAlmacen.trim();
@@ -70,6 +61,12 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
     fechaEntrega,
     ordenCompraHotel,
     ordenesTrabajoForm,
+    setAddOtAlmacen,
+    setAddOtNumeroPedido,
+    setAddOtOpen,
+    setError,
+    setFormOtPage,
+    setStep,
   ]);
 
   const handleConfirmRemoveOrdenTrabajo = useCallback(() => {
@@ -86,7 +83,18 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
       else if (next.length === 1) setStep("form");
       setFormOtPage(0);
     }
-  }, [applyOrdenesTrabajo, confirmRemoveOtId, ordenesTrabajoForm, step]);
+  }, [
+    applyOrdenesTrabajo,
+    confirmRemoveOtId,
+    ordenesTrabajoForm,
+    seededOtIdsRef,
+    setConfirmRemoveOtId,
+    setError,
+    setFormOtPage,
+    setLineas,
+    setStep,
+    step,
+  ]);
 
   const previewHijas = ordenesTrabajoForm;
 
@@ -109,71 +117,113 @@ export function useSyncOtFormulario(estado: OrdenVentaFormEstado) {
     : null;
 
   /** Escribe los campos del formulario en la OT activa (antes de guardar o cambiar de página). */
-  const syncActiveOtFromForm = useCallback((): OrdenTrabajoHija[] => {
-    // REQ-141: también con 1 OT, para que borrar notas sí limpie el origen.
-    const targetHija =
-      paginarPorOt && hijaFormActiva
-        ? hijaFormActiva
-        : !paginarPorOt && ordenesTrabajoForm.length === 1
-          ? ordenesTrabajoForm[0]
-          : null;
+  const syncActiveOtFromForm = useCallback(
+    (opciones?: OpcionesSyncActiveOt): OrdenTrabajoHija[] => {
+      const propagarFechaOv = opciones?.propagarFechaOv !== false;
+      // REQ-141: también con 1 OT, para que borrar notas sí limpie el origen.
+      const targetHija =
+        paginarPorOt && hijaFormActiva
+          ? hijaFormActiva
+          : !paginarPorOt && ordenesTrabajoForm.length === 1
+            ? ordenesTrabajoForm[0]
+            : null;
 
-    const cabeceraOv = {
-      responsableExterno: contacto.trim(),
-      telefonoOt: telefono.trim(),
-      correoOt: correo.trim(),
-      direccionOt: direccion.trim(),
-      notasOt: observaciones.trim(),
-      // REQ-337: propagar día de entrega a todas las OT.
-      fecha: fechaEntrega.trim(),
-    };
+      const cabeceraOv = {
+        responsableExterno: contacto.trim(),
+        telefonoOt: telefono.trim(),
+        correoOt: correo.trim(),
+        direccionOt: direccion.trim(),
+        notasOt: observaciones.trim(),
+        // REQ-337: propagar día de entrega a todas las OT (al guardar).
+        fecha: fechaEntrega.trim(),
+      };
 
-    // Multi-OT sin pager: igual propagar cabecera OV (notas/contacto/…) a todas.
-    if (!targetHija) {
-      if (ordenesTrabajoForm.length === 0) return ordenesTrabajoForm;
-      return propagarCabeceraOvATodasLasHijas(ordenesTrabajoForm, cabeceraOv);
-    }
+      // Multi-OT sin pager: igual propagar cabecera OV (notas/contacto/…) a todas.
+      if (!targetHija) {
+        if (ordenesTrabajoForm.length === 0) return ordenesTrabajoForm;
+        return propagarCabeceraOvATodasLasHijas(ordenesTrabajoForm, cabeceraOv);
+      }
 
-    return aplicarCabeceraFormAOrdenesTrabajo(ordenesTrabajoForm, targetHija.id, {
-      almacen: centroConsumo.trim(),
-      numeroPedido: ordenCompraHotel.trim(),
-      andenOt: anden.trim(),
-      ventanaDesdeOt: ventanaDesde.trim(),
-      ventanaHastaOt: ventanaHasta.trim(),
-      prioridadOt: prioridad.trim(),
-      ...cabeceraOv,
-    });
-  }, [
-    anden,
-    centroConsumo,
-    contacto,
-    correo,
-    direccion,
-    fechaEntrega,
-    hijaFormActiva,
-    observaciones,
-    ordenCompraHotel,
-    ordenesTrabajoForm,
-    paginarPorOt,
-    prioridad,
-    telefono,
-    ventanaDesde,
-    ventanaHasta,
-  ]);
+      return aplicarCabeceraFormAOrdenesTrabajo(
+        ordenesTrabajoForm,
+        targetHija.id,
+        {
+          almacen: centroConsumo.trim(),
+          numeroPedido: ordenCompraHotel.trim(),
+          andenOt: anden.trim(),
+          ventanaDesdeOt: ventanaDesde.trim(),
+          ventanaHastaOt: ventanaHasta.trim(),
+          prioridadOt: prioridad.trim(),
+          ...cabeceraOv,
+        },
+        { propagarFechaOv },
+      );
+    },
+    [
+      anden,
+      centroConsumo,
+      contacto,
+      correo,
+      direccion,
+      fechaEntrega,
+      hijaFormActiva,
+      observaciones,
+      ordenCompraHotel,
+      ordenesTrabajoForm,
+      paginarPorOt,
+      prioridad,
+      telefono,
+      ventanaDesde,
+      ventanaHasta,
+    ],
+  );
 
   const goToOtPage = useCallback(
     (nextPage: number) => {
-      if (paginarPorOt && hijaFormActiva) {
-        applyOrdenesTrabajo(syncActiveOtFromForm());
-      }
-      setFormOtPage(nextPage);
-      setError(null);
-      setSuccessMessage(null);
+      ejecutarCambioPaginaOt({
+        nextPage,
+        paginarPorOt,
+        hijaFormActiva,
+        ordenesTrabajoForm,
+        syncActiveOtFromForm,
+        applyOrdenesTrabajo,
+        setFormOtPage,
+        setError,
+        setSuccessMessage,
+        settersHidratacion: {
+          setCentroConsumo,
+          setOrdenCompraHotel,
+          setReferenciaPedido,
+          setFechaEntrega,
+          setAnden,
+          setVentanaDesde,
+          setVentanaHasta,
+          setPrioridad,
+          setAutoFields,
+          setWarnFields,
+          setMissingFields,
+        },
+      });
     },
     [
       applyOrdenesTrabajo,
       hijaFormActiva,
+      ordenesTrabajoForm,
       paginarPorOt,
+      setAnden,
+      setAutoFields,
+      setCentroConsumo,
+      setError,
+      setFechaEntrega,
+      setFormOtPage,
+      setMissingFields,
+      setOrdenCompraHotel,
+      setPrioridad,
+      setReferenciaPedido,
+      setSuccessMessage,
+      setVentanaDesde,
+      setVentanaHasta,
+      setWarnFields,
       syncActiveOtFromForm,
     ],
   );
@@ -185,7 +235,7 @@ export function useTotalesVentaOv(estado: OrdenVentaFormEstado) {
     lineasConIndice, paginarPorOt, step, idComprador, exigeOc, ordenCompraHotel,
     idBodegaDestino, fechaEntrega, ventanaDesde, ventanaHasta, isEditing, editingEstado,
     ordenesTrabajoForm, lineas, isLoading, isSaving, hasProductos, hasCatalogPending,
-    formScrollRef, revisionFocusRequestRef, formOtSafePage, codigoVenta, setEditingCodigo,
+    formScrollRef, revisionFocusRequestRef, formOtSafePage,
   } = estado;
   const lineasParaTotales = useMemo(
     () => lineasConIndice.map(({ linea }: { linea: LineaVentaForm }) => linea),
