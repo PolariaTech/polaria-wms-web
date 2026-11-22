@@ -177,19 +177,17 @@ function resolveProductoMatch(
   indiceFrases: ReadonlyMap<string, ProductoVentaOption | null>,
 ): { producto: ProductoVentaOption; fuente: FuenteAsignacion } | undefined {
   const textoCliente = linea.textoOriginal?.trim() || "";
-  const accept = (p: ProductoVentaOption | undefined) =>
-    p &&
-    productoCompatibleConTextoCliente(textoCliente, p) &&
-    !sustantivoPrincipalAusente(textoCliente, p)
+  const skuOk = { codigoYaCoincide: true } as const;
+  const accept = (p: ProductoVentaOption | undefined, opts?: { codigoYaCoincide?: boolean }) =>
+    p && productoCompatibleConTextoCliente(textoCliente, p, opts) && !sustantivoPrincipalAusente(textoCliente, p)
       ? p
       : undefined;
 
-  const porCodigoCliente = accept(
-    productoUnicoPorCodigo(linea.codigoProductoCliente, byCodigo),
-  );
+  const porCodigoCliente = accept(productoUnicoPorCodigo(linea.codigoProductoCliente, byCodigo), skuOk);
   if (porCodigoCliente) return { producto: porCodigoCliente, fuente: "codigo" };
   const porCodigoEnTexto = accept(
     productoUnicoPorCodigo(extractCodigoFromCatalogKey(textoCliente), byCodigo),
+    skuOk,
   );
   if (porCodigoEnTexto) return { producto: porCodigoEnTexto, fuente: "codigo" };
 

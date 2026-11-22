@@ -145,8 +145,10 @@ function errorDeRespuesta(
     );
   }
   if (codigoNegocio === "RELECTURA_NO_CUADRA") {
+    // Servidores viejos aún pueden devolver este 422; la API nueva (REQ-372)
+    // ofrece propuesta con advertencia TOTAL_NO_CUADRA en su lugar.
     return new CorreccionCorreoApiError(
-      "La relectura no coincide con el total de los documentos, así que no se propone ningún cambio. Inténtalo de nuevo o corrige a mano.",
+      "La relectura no coincide con el total de los documentos. Si el servidor aún bloquea la propuesta, actualiza la API o corrige a mano.",
       "RELECTURA_NO_CUADRA",
       status,
     );
