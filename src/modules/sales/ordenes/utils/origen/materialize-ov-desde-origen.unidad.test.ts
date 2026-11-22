@@ -15,8 +15,8 @@ const compradores: CompradorListRow[] = [
   },
 ];
 
-describe("buildMaterializeOvDesdeOrigenPlan — unidad (REQ-363)", () => {
-  it("si la OC pide KG y el catálogo es PZA, materializa KGM", () => {
+describe("buildMaterializeOvDesdeOrigenPlan — unidad (REQ-380)", () => {
+  it("si la OC pide KG y el catálogo es PZA, materializa PZA y anota el pedido", () => {
     const productos: ProductoVentaOption[] = [
       {
         idProducto: "p-coliflor",
@@ -48,6 +48,7 @@ describe("buildMaterializeOvDesdeOrigenPlan — unidad (REQ-363)", () => {
     });
     expect(plan.lineas).toHaveLength(1);
     expect(plan.lineas[0]?.idProducto).toBe("p-coliflor");
-    expect(plan.lineas[0]?.unidadMedida).toBe("KGM");
+    expect(plan.lineas[0]?.unidadMedida).toBe("PZA");
+    expect(plan.lineas[0]?.especificacion).toMatch(/Pedido en KGM/i);
   });
 });

@@ -12,7 +12,6 @@ import { rankSinCodigoContradicho } from "../match/codigo-contradice-nombre";
 import {
   findTypoRivalProductos,
   productoCompatibleConTextoCliente,
-  scoreProductoMatch,
   shouldAutoAcceptProductoSuggestion,
 } from "../match/find-closest-producto-catalogo";
 import { sustantivoPrincipalAusente } from "../match/sustantivo-principal";
@@ -27,9 +26,8 @@ import {
   FECHA_ENTREGA_DEFAULT_WARNING,
   isFechaEntregaAtrasada,
 } from "./pedido-form-validation";
-import { resolveEspecificacionPedidoLinea } from "./resolve-especificacion-pedido-linea";
 import { resolveLineaCantidadPrecioEmpaque } from "./resolve-linea-cantidad-precio-empaque";
-import { unidadLineaPedidoForm } from "./resolve-unidad-pedido-linea";
+import { camposUnidadEspecLinea } from "./map-pedido-unidad-y-espec";
 import { asegurarNotasGeneralesPedido } from "../origen/sanitize-notas-generales-pedido";
 import { resolveOrdenCompraLimpia } from "./normalize-numero-pedido";
 
@@ -150,18 +148,6 @@ function extractCodigoFromCatalogKey(key: string): string | null {
 function parsePrecioIa(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value) || value <= 0) return null;
   return value;
-}
-
-function resolveEspecificacionLineaForm(params: {
-  textoOriginal: string;
-  especificacionIa: string | null | undefined;
-  especificacionEnvase: string;
-}): string {
-  return resolveEspecificacionPedidoLinea({
-    especificacionIa: params.especificacionIa,
-    envaseTexto: params.especificacionEnvase,
-    textoOriginal: params.textoOriginal,
-  });
 }
 
 /** SKU único en el mapa de códigos; si hay varios, no elige. */
@@ -712,6 +698,7 @@ export function mapPedidoExtraidoToForm(params: {
           extractCodigoFromCatalogKey(textoOriginal) ||
           "";
         lineas.push({
+          ...camposUnidadEspecLinea({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase, unidadOrigen: linea.unidad, unidadCatalogo: match.unidadMedida }),
           idProducto: "",
           nombre: textoOriginal || stripLeadingProductoCodigo(match.nombre, match.codigo),
           codigo: codigoCliente || "—",
@@ -719,10 +706,8 @@ export function mapPedidoExtraidoToForm(params: {
           cantidadInput: qty.cantidadInput,
           cajasInput: qty.cajasInput,
           presentacion: qty.presentacion,
-          especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
           ivaPct: "0",
           kgDisponible: match.kgDisponible,
-          unidadMedida: unidadLineaPedidoForm(textoOriginal, match.unidadMedida, linea.unidad, linea.especificacion),
           precioUnitario: qty.precioUnitario,
           precioManual: qty.precioManual,
           aliasCliente: textoOriginal,
@@ -740,6 +725,7 @@ export function mapPedidoExtraidoToForm(params: {
       }
 
       lineas.push({
+        ...camposUnidadEspecLinea({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase, unidadOrigen: linea.unidad, unidadCatalogo: match.unidadMedida }),
         idProducto: match.idProducto,
         nombre: stripLeadingProductoCodigo(match.nombre, match.codigo),
         codigo: match.codigo,
@@ -747,10 +733,8 @@ export function mapPedidoExtraidoToForm(params: {
         cantidadInput: qty.cantidadInput,
         cajasInput: qty.cajasInput,
         presentacion: qty.presentacion,
-        especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
         ivaPct: "0",
         kgDisponible: match.kgDisponible,
-        unidadMedida: unidadLineaPedidoForm(textoOriginal, match.unidadMedida, linea.unidad, linea.especificacion),
         precioUnitario: qty.precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -812,6 +796,7 @@ export function mapPedidoExtraidoToForm(params: {
         (p) => p.idProducto === sugerencia.idProducto,
       );
       lineas.push({
+        ...camposUnidadEspecLinea({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase, unidadOrigen: linea.unidad, unidadCatalogo: sugerencia.unidadMedida }),
         idProducto: sugerencia.idProducto,
         nombre: stripLeadingProductoCodigo(catalogo?.nombre ?? sugerencia.nombre, sugerencia.codigo),
         codigo: sugerencia.codigo,
@@ -819,10 +804,8 @@ export function mapPedidoExtraidoToForm(params: {
         cantidadInput: qty.cantidadInput,
         cajasInput: qty.cajasInput,
         presentacion: qty.presentacion,
-        especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
         ivaPct: "0",
         kgDisponible: sugerencia.kgDisponible,
-        unidadMedida: unidadLineaPedidoForm(textoOriginal, sugerencia.unidadMedida, linea.unidad, linea.especificacion),
         precioUnitario,
         precioManual: qty.precioManual,
         aliasCliente: textoOriginal,
@@ -851,6 +834,7 @@ export function mapPedidoExtraidoToForm(params: {
       extractCodigoFromCatalogKey(textoOriginal) ||
       "";
     lineas.push({
+      ...camposUnidadEspecLinea({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase, unidadOrigen: linea.unidad, unidadCatalogo: sugerencia?.unidadMedida ?? "" }),
       idProducto: "",
       nombre: textoOriginal || "Producto no identificado",
       codigo: codigoClientePending || "—",
@@ -858,10 +842,8 @@ export function mapPedidoExtraidoToForm(params: {
       cantidadInput: qty.cantidadInput,
       cajasInput: qty.cajasInput,
       presentacion: qty.presentacion,
-      especificacion: resolveEspecificacionLineaForm({ textoOriginal, especificacionIa: linea.especificacion, especificacionEnvase: qty.especificacionEnvase }),
       ivaPct: "0",
       kgDisponible: sugerencia?.kgDisponible ?? 0,
-      unidadMedida: unidadLineaPedidoForm(textoOriginal, sugerencia?.unidadMedida ?? "", linea.unidad, linea.especificacion),
       precioUnitario,
       precioManual: qty.precioManual,
       aliasCliente: textoOriginal,

@@ -5,7 +5,7 @@
 | Formulario | Editar pedido |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Formato visual de fechas DD-MMM-AAAA (REQ-320) en Fecha de entrega, listados, preview, avisos y PDF de impresión (valor canónico sigue ISO); Día de entrega como texto auxiliar bajo Fecha (REQ-321; ya no campo aparte REQ-257); Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277; respaldo al mapear desde Mateo REQ-340); Referencia de pedido solo lectura (REQ-328); bloqueo al confirmar con fechas de entrega distintas entre OT (REQ-337); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287); Centro de consumo por OT activa en multi-OT — hidratación síncrona al paginar, detalle Cypher usa `hija.almacen`, sin hint «Solo esta OT.» bajo centro, `propagarFechaOv: false` al paginar (REQ-374) |
+| Campos nuevos o modificados | Formato visual de fechas DD-MMM-AAAA (REQ-320) en Fecha de entrega, listados, preview, avisos y PDF de impresión (valor canónico sigue ISO); Día de entrega como texto auxiliar bajo Fecha (REQ-321; ya no campo aparte REQ-257); Layout Entrega REQ-278 (moneda en Datos del pedido; prioridad oculta; orden fecha/horas → contacto → dirección → notas; etiquetas Hora desde/hasta); aviso total solicitud REQ-279 (`totalSolicitudDetectado`, capa Front); Denominación comercial editable + override (REQ-241); RFC (REQ-259); Precio unitario en líneas — vacío/0 al confirmar (REQ-235); Folio de factura; Fecha de creación; Dirección de entrega (pre-llenado REQ-252); pin de mapa `entrega_lat`/`entrega_lng` opcional (REQ-251); Notas generales del pedido (layout + sanitize REQ-286/277; respaldo al mapear desde Mateo REQ-340); Referencia de pedido solo lectura (REQ-328); bloqueo al confirmar con fechas de entrega distintas entre OT (REQ-337); Título y descripción del modal (layout); Acciones de iconos del footer (Cypher); Etiqueta TAREA / Órdenes de tarea (REQ-214/225); modo solo lectura cuando otro usuario tiene el bloqueo de edición (REQ-180); cabecera y entrega selladas por el usuario al guardar (REQ-281); etiqueta «Madurez: …» en la especificación de línea sin duplicarla (REQ-287); Unidad de línea (REQ-380): con SKU de catálogo manda la unidad del catálogo (KGM/PZA/LTR/CJ en mayúsculas); si el pedido pide otra familia, va a especificación («Pedido en …»); select editable en captura; Centro de consumo por OT activa en multi-OT — hidratación síncrona al paginar, detalle Cypher usa `hija.almacen`, sin hint «Solo esta OT.» bajo centro, `propagarFechaOv: false` al paginar (REQ-374) |
 | ¿Vive en un modal? | Sí |
 | ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | Sí |
 | Responsable (Desarrollador) | Desarrollador frontend |
@@ -72,6 +72,7 @@
 | Hora desde | Sí | Extracción IA / Información de BD | Sí |
 | Hora hasta | Sí | Extracción IA / Información de BD | Sí |
 | Precio unitario (línea) | Sí | Extracción IA / Información de BD | Sí |
+| Unidad (línea) | Sí | Extracción IA / Información de BD (REQ-380: con SKU matcheado = unidad del catálogo; discrepancia del pedido → especificación «Pedido en …») | Sí (select KGM/PZA/LTR/CJ) |
 | Dirección de entrega | Sí | Información de BD (si hay sello del usuario, manda el sello, REQ-281) | Sí |
 | Latitud de entrega | Sí | Información de BD (`entrega_lat`) o geocodificación del mapa (REQ-251) | Sí (vía mapa) |
 | Longitud de entrega | Sí | Información de BD (`entrega_lng`) o geocodificación del mapa (REQ-251) | Sí (vía mapa) |
@@ -172,13 +173,25 @@ REQ-281 (sello del usuario): `sellarCabeceraUsuarioEnOrigen` guarda el sello en 
 
 REQ-287: la especificación de línea muestra la madurez con la etiqueta «Madurez: <nivel>» y no la repite si el texto ya la trae (`formatMadurezConEtiqueta`, `textoYaTraeMadurez`). REQ-297 (impresión en carta) no cambia campos de este formulario.
 
+REQ-380: `resolveUnidadPedidoLinea` / `unidadYEspecificacionLineaForm` — con catálogo, la unidad de línea es la del SKU; si origen/texto piden otra familia, `fraseUnidadPedidoDiscrepante` antepone «Pedido en PZA|KGM|…» en especificación. `CeldaUnidad` es un select (KGM, PZA, LTR, CJ; sin `kg` minúscula).
+
 La prueba automatizada del Nivel 2 (Tabla 4) cubre el modo edición. El modo solo lectura exige dos sesiones de usuarios distintos sobre la misma orden, y se recorre a mano en el checklist del lote.
+
+### Checklist manual REQ-380
+
+| Ítem | Resultado |
+|---|---|
+| OV con SKU en KGM y correo en PZ/PZA → unidad de línea KGM | PASS |
+| Misma línea muestra «Pedido en PZA» (u otra familia) en especificación | PASS |
+| Select de Unidad permite cambiar a KGM/PZA/LTR/CJ (mayúsculas; sin `kg`) | PASS |
+| Sin catálogo, se conserva la unidad del origen | PASS |
+| Tests vitest de unidad/espec/celda en verde | PASS |
 
 ### Versión y revisión (del schema de ese formulario, no de esta plantilla)
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.9 |
+| Versión del schema | v1.10 |
 | Fecha de aprobación | 21/11/2026 |
 | Aprobado por | Desarrollador frontend |
 | Próxima revisión | Cuando el formulario cambie de campos o de reglas |
