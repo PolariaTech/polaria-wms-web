@@ -12,6 +12,7 @@
 - `src/app/recepcion-prefactura/RecepcionPrefacturaForm.tsx` — autorizada por el usuario el 2026-11-23
 - `src/app/recepcion-prefactura/RecepcionPrefacturaForm.test.tsx` — autorizada por el usuario el 2026-11-23
 - `schemas/schema_recepcion_prefactura.md` — autorizada por el usuario el 2026-11-23
+- `src/modules/sales/ordenes/components/modals/CypherPrefacturaStage.tsx` — autorizada por el usuario el 2026-11-23
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
