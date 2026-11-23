@@ -18,6 +18,7 @@
 - `src/modules/sales/correos/utils/estado-lista-url.ts`
 - `src/modules/sales/correos/utils/estado-ingreso.ts`
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCypherDrawerContent.tsx` — autorizada por el usuario el 2026-11-23
+- `src/modules/sales/ordenes/components/modals/use-orden-venta-cypher-drawer-content.ts` — autorizada por el usuario el 2026-11-23
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/correos/utils/estado-lista-url.test.ts`
