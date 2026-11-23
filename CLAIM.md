@@ -9,6 +9,7 @@
 
 ### Zonas que voy a tocar
 - `.env.example`
+- `src/app/recepcion-prefactura/RecepcionPrefacturaForm.tsx` — autorizada por el usuario el 2026-11-23
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
