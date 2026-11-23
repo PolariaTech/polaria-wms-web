@@ -21,6 +21,7 @@
 - `src/modules/sales/ordenes/components/modals/use-orden-venta-cypher-drawer-content.ts` — autorizada por el usuario el 2026-11-23
 - `src/modules/sales/ordenes/components/modals/EntregaMapaModal.tsx` — autorizada por el usuario el 2026-11-23
 - `src/app/captura-orden/[idOrdenVenta]/CapturaOrdenCamera.tsx` — autorizada por el usuario el 2026-11-23
+- `src/modules/sales/ordenes/surtido/guardar-folio-factura-captura.client.ts` — autorizada por el usuario el 2026-11-23
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/correos/utils/estado-lista-url.test.ts`
