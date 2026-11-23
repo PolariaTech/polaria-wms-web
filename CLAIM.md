@@ -16,6 +16,7 @@
 - `src/modules/sales/ordenes/components/modals/CypherPrefacturaStage.test.tsx` — autorizada por el usuario el 2026-11-23
 - `src/modules/sales/ordenes/services/orden-venta-log-entries.ts` — autorizada por el usuario el 2026-11-23
 - `src/modules/sales/ordenes/components/modals/cypher-drawer-log.ts` — autorizada por el usuario el 2026-11-23
+- `src/modules/sales/ordenes/services/orden-venta-log-entries.test.ts` — autorizada por el usuario el 2026-11-23
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
