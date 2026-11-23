@@ -58,7 +58,7 @@ describe("OrdenVentaCaptureFormEntrega (REQ-217/254)", () => {
     await user.type(screen.getByLabelText(/Dirección de entrega/), "A");
 
     expect(props.onDireccion).toHaveBeenCalledWith("A");
-    expect(props.onClearField).toHaveBeenCalledWith("direccion");
+    expect(props.onClearField).toHaveBeenCalledWith("direccion", "A");
   });
 
   it("al cambiar de cliente avisa de revisar la dirección", () => {
@@ -91,6 +91,6 @@ describe("OrdenVentaCaptureFormEntrega (REQ-217/254)", () => {
     await user.type(screen.getByLabelText(etiqueta), "x");
 
     expect((props as Record<string, ReturnType<typeof vi.fn>>)[manejador]).toHaveBeenCalledWith("x");
-    expect(props.onClearField).toHaveBeenCalledWith(campo);
+    expect(props.onClearField).toHaveBeenCalledWith(campo, "x");
   });
 });

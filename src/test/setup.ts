@@ -1,4 +1,36 @@
+import React, { useEffect, useState, type ComponentType } from "react";
+import { vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
+
+/** En tests, `next/dynamic` resuelve el import en `useEffect` (como en cliente). */
+vi.mock("next/dynamic", () => ({
+  default: (
+    loader: () => Promise<{ default: ComponentType<Record<string, unknown>> }>,
+  ) => {
+    function DynamicInTest(props: Record<string, unknown>) {
+      const [Resolved, setResolved] =
+        useState<ComponentType<Record<string, unknown>> | null>(null);
+
+      useEffect(() => {
+        let active = true;
+        void loader().then((mod) => {
+          if (active) {
+            setResolved(() => mod.default);
+          }
+        });
+        return () => {
+          active = false;
+        };
+      }, []);
+
+      if (!Resolved) {
+        return null;
+      }
+      return React.createElement(Resolved, props);
+    }
+    return DynamicInTest;
+  },
+}));
 
 /**
  * Node 25+ expone `globalThis.localStorage` nativo que queda `undefined`

@@ -58,7 +58,7 @@ export function OrdenVentaCaptureFormEntrega({
   onCorreo: (value: string) => void;
   observaciones: string;
   onObservaciones: (value: string) => void;
-  onClearField: (field: string) => void;
+  onClearField: (field: string, valorNuevo?: string) => void;
   autoFields: Set<string>;
   warnFields: Set<string>;
   missingFields: Set<string>;
@@ -77,7 +77,7 @@ export function OrdenVentaCaptureFormEntrega({
           value={contacto}
           onChange={(event) => {
             onContacto(event.target.value);
-            onClearField("contacto");
+            onClearField("contacto", event.target.value);
           }}
           controlClassName={fieldControlClass({ field: "contacto", ...marks })}
           compact
@@ -89,7 +89,7 @@ export function OrdenVentaCaptureFormEntrega({
           value={telefono}
           onChange={(event) => {
             onTelefono(event.target.value);
-            onClearField("telefono");
+            onClearField("telefono", event.target.value);
           }}
           controlClassName={fieldControlClass({ field: "telefono", ...marks })}
           compact
@@ -101,7 +101,7 @@ export function OrdenVentaCaptureFormEntrega({
           value={correo}
           onChange={(event) => {
             onCorreo(event.target.value);
-            onClearField("correo");
+            onClearField("correo", event.target.value);
           }}
           controlClassName={fieldControlClass({ field: "correo", ...marks })}
           compact
@@ -112,14 +112,14 @@ export function OrdenVentaCaptureFormEntrega({
           onChange={(event) => {
             onDireccion(event.target.value);
             onEntregaCoords?.(null);
-            onClearField("direccion");
+            onClearField("direccion", event.target.value);
           }}
           entregaLat={entregaLat}
           entregaLng={entregaLng}
           onEntregaCoords={onEntregaCoords}
           onDireccionFromMapa={(next) => {
             onDireccion(next);
-            onClearField("direccion");
+            onClearField("direccion", next);
           }}
           controlClassName={fieldControlClass({ field: "direccion", ...marks })}
           footer={
@@ -137,7 +137,7 @@ export function OrdenVentaCaptureFormEntrega({
           value={observaciones}
           onChange={(event) => {
             onObservaciones(event.target.value);
-            onClearField("observaciones");
+            onClearField("observaciones", event.target.value);
           }}
           controlClassName={fieldControlClass({
             field: "observaciones",

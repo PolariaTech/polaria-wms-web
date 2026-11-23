@@ -102,8 +102,10 @@ export function useEntregaMapa({
         host = mapHostRef.current;
       }
       if (!host || cancelled) return;
-      const leaflet = await import("leaflet");
-      await import("leaflet/dist/leaflet.css");
+      const [leaflet] = await Promise.all([
+        import("leaflet"),
+        import("leaflet/dist/leaflet.css"),
+      ]);
       if (cancelled) return;
 
       LRef.current = leaflet;

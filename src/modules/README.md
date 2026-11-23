@@ -2,6 +2,8 @@
 
 Módulos de dominio del WMS. Cada carpeta representa un área funcional del negocio.
 
+**Comunicación con backends:** [docs/ARQUITECTURA-COMUNICACION.md](../../docs/ARQUITECTURA-COMUNICACION.md) (Supabase **A**, Nest **B**, Mateo **C**, BFF Next **D**).
+
 ## Estructura interna de un módulo
 
 Los módulos grandes se organizan por **subdominio**:

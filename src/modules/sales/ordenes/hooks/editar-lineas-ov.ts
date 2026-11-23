@@ -61,6 +61,7 @@ import {
   sanitizeDecimalInputEs,
   sanitizePrecioInputMx,
 } from "@/lib/utils/decimal-es";
+import { useClearFieldMarksOv } from "./clear-field-marks-ov";
 
 /** REQ-311: OT activa del pager, o la única OT si no hay pager. */
 export function resolveOtIdParaLineaNueva(params: {
@@ -77,7 +78,7 @@ export function resolveOtIdParaLineaNueva(params: {
 }
 
 export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
-  const { replaceLineaIndex, setLineas, setReplaceLineaIndex, setCantidadFocusId, setError, setIdBodegaDestino, restoreFormScroll, hijaFormActiva, ordenesTrabajoForm, setOrdenesTrabajoPreview, origenCorreoDraft, setOrigenCorreoDraft, captureFormScroll, setPicker, cantidadFocusId, picker, lineas, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias } = estado;
+  const { replaceLineaIndex, setLineas, setReplaceLineaIndex, setCantidadFocusId, setError, setIdBodegaDestino, restoreFormScroll, hijaFormActiva, ordenesTrabajoForm, setOrdenesTrabajoPreview, origenCorreoDraft, setOrigenCorreoDraft, captureFormScroll, setPicker, cantidadFocusId, picker, lineas, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias, warnFields, centroConsumo, direccion, anden, contacto, telefono, correo, ventanaDesde, ventanaHasta, ordenCompraHotel, observaciones, fechaEntrega } = estado;
   const handleSelectProducto = useCallback(
     (row: ProductoVentaOption) => {
       if (replaceLineaIndex != null) {
@@ -214,31 +215,26 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
     setError(null);
   }, []);
 
-  const clearFieldMarks = useCallback((field: string) => {
-    setAutoFields((prev) => {
-      if (!prev.has(field)) return prev;
-      const next = new Set(prev);
-      next.delete(field);
-      return next;
-    });
-    setWarnFields((prev) => {
-      if (!prev.has(field)) return prev;
-      const next = new Set(prev);
-      next.delete(field);
-      return next;
-    });
-    setMissingFields((prev) => {
-      if (!prev.has(field)) return prev;
-      const next = new Set(prev);
-      next.delete(field);
-      return next;
-    });
-    // REQ-118: al editar el campo, quitar la discrepancia vieja (evita falsa alerta).
-    setDiscrepancias((prev) => {
-      if (!prev.some((row) => row.fieldKey === field)) return prev;
-      return prev.filter((row) => row.fieldKey !== field);
-    });
-  }, []);
+  const clearFieldMarks = useClearFieldMarksOv({
+    warnFields,
+    valoresActuales: {
+      centroConsumo,
+      direccion,
+      anden,
+      contacto,
+      telefono,
+      correo,
+      ventanaDesde,
+      ventanaHasta,
+      ordenCompraHotel,
+      observaciones,
+      fechaEntrega,
+    },
+    setAutoFields,
+    setWarnFields,
+    setMissingFields,
+    setDiscrepancias,
+  });
 
   const handleCantidadChange = useCallback((index: number, value: string) => {
     const nextValue = sanitizeDecimalInputEs(value);

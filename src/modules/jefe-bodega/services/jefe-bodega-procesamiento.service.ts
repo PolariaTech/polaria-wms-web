@@ -18,7 +18,7 @@ export async function listSolicitudesProcesamientoPendientesJefe(params: {
     listTareasColaApi({
       codigoCuenta: params.codigoCuenta,
       idBodega: params.idBodega,
-    }).catch(() => []),
+    }),
   ]);
 
   return filterSolicitudesOperadorPendientesJefe(

@@ -94,7 +94,8 @@ async function buscarFilaPorFrase(params: {
       .select("id_alias, id_producto, alias, precio")
       .eq("codigo_cuenta", params.codigoCuenta)
       .eq("id_comprador", params.idComprador)
-      .eq("alias_normalizado", normalizeForMatch(params.aprendizaje.frase));
+      .eq("alias_normalizado", normalizeForMatch(params.aprendizaje.frase))
+      .limit(5);
     return query as unknown as Promise<{
       data: FilaAliasFrase[] | null;
       error: { message: string } | null;

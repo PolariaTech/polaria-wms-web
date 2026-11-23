@@ -38,24 +38,29 @@ export async function listOrdenIdsCorreoNoEnviado(input: {
 
   const marcas: ImpresionMarca[] = [];
   try {
-    for (const grupo of chunks(ids, 80)) {
-      const rows = await runDomainQuery<MarcaRow[]>((client) => {
-        const query = client
-          .from("auditoria_operacion")
-          .select("entidad_id,created_at,payload")
-          .eq("codigo_cuenta", codigoCuenta)
-          .eq("entidad", "orden_venta")
-          .in("entidad_id", grupo)
-          .or(TIPOS.map((tipo) => `payload->>tipo.eq.${tipo}`).join(","))
-          .order("created_at", { ascending: false })
-          .limit(500);
+    const grupos = chunks(ids, 80);
+    const lotes = await Promise.all(
+      grupos.map((grupo) =>
+        runDomainQuery<MarcaRow[]>((client) => {
+          const query = client
+            .from("auditoria_operacion")
+            .select("entidad_id,created_at,payload")
+            .eq("codigo_cuenta", codigoCuenta)
+            .eq("entidad", "orden_venta")
+            .in("entidad_id", grupo)
+            .or(TIPOS.map((tipo) => `payload->>tipo.eq.${tipo}`).join(","))
+            .order("created_at", { ascending: false })
+            .limit(500);
 
-        return query as unknown as Promise<{
-          data: MarcaRow[] | null;
-          error: { message: string } | null;
-        }>;
-      });
+          return query as unknown as Promise<{
+            data: MarcaRow[] | null;
+            error: { message: string } | null;
+          }>;
+        }),
+      ),
+    );
 
+    for (const rows of lotes) {
       for (const row of rows) {
         const idOrdenVenta = row.entidad_id?.trim() ?? "";
         const tipo =

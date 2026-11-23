@@ -20,7 +20,8 @@ export async function productosConFrasesDelComprador(params: {
       .from("comprador_producto_alias")
       .select("id_producto, alias")
       .eq("codigo_cuenta", codigoCuenta)
-      .eq("id_comprador", idComprador);
+      .eq("id_comprador", idComprador)
+      .limit(2000);
 
     return query as unknown as Promise<{
       data: { id_producto: string; alias: string | null }[] | null;

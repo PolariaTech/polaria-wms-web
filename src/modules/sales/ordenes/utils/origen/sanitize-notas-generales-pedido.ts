@@ -173,27 +173,19 @@ export function sanitizeNotasGeneralesPedido(
   const fromObservaciones = origen
     ? fitNotasGeneralesPdf(extractObservacionesClienteBlock(origen))
     : "";
-  if (fromObservaciones && !looksLikeEmailHeaderJunk(fromObservaciones)) {
-    const limpia = limpiarNotaCorta(fromObservaciones);
-    if (limpia) return limpia;
-    if (fromObservaciones.length <= 200) return fromObservaciones;
-  }
+  const limpiaObservaciones = candidataNotaUtil(fromObservaciones);
+  if (limpiaObservaciones) return limpiaObservaciones;
 
   const fromOrigen = origen
     ? fitNotasGeneralesPdf(extractNotasClaveCorreo(origen))
     : "";
-  if (fromOrigen && !looksLikeEmailHeaderJunk(fromOrigen)) {
-    const limpia = limpiarNotaCorta(fromOrigen);
-    if (limpia) return limpia;
-    if (fromOrigen.length <= 200) return fromOrigen;
-  }
+  const limpiaOrigen = candidataNotaUtil(fromOrigen);
+  if (limpiaOrigen) return limpiaOrigen;
 
   if (!text) return "";
   const fromRaw = fitNotasGeneralesPdf(extractNotasClaveCorreo(text));
-  if (fromRaw && !looksLikeEmailHeaderJunk(fromRaw)) {
-    const limpia = limpiarNotaCorta(fromRaw);
-    if (limpia) return limpia;
-  }
+  const limpiaRaw = candidataNotaUtil(fromRaw);
+  if (limpiaRaw) return limpiaRaw;
   if (
     text &&
     !looksLikePedidoHeaderJunk(text) &&
@@ -206,6 +198,21 @@ export function sanitizeNotasGeneralesPedido(
   return "";
 }
 
+/** Conserva solo prosa útil; nunca reinyecta encabezado ADP ni basura de correo. */
+function candidataNotaUtil(candidato: string): string {
+  if (!candidato) return "";
+  const limpia = limpiarNotaCorta(candidato);
+  const texto = limpia || candidato;
+  if (
+    looksLikePedidoHeaderJunk(texto) ||
+    looksLikeCorreoCuerpoEnNotas(texto) ||
+    looksLikeEmailHeaderJunk(texto)
+  ) {
+    return "";
+  }
+  return limpia || candidato;
+}
+
 export const MSG_NOTAS_SIN_TEXTO_ORIGEN =
   "Sin notas explícitas en el origen; revisar correo o adjunto.";
 
@@ -213,29 +220,27 @@ export const MSG_NOTAS_SIN_TEXTO_ORIGEN =
  * REQ-340: al mapear desde Mateo, el form no debe quedar con notas vacías.
  * No usar al reabrir una OV donde el usuario borró a propósito (REQ-141).
  */
+/**
+ * REQ-340: al mapear desde Mateo, el form no debe quedar con notas vacías.
+ * No usar al reabrir una OV donde el usuario borró a propósito (REQ-141).
+ * Nunca reinyectar encabezado ADP (folio/emisión/asesor) aunque el origen lo traiga.
+ */
 export function asegurarNotasGeneralesPedido(
   raw: string,
   origenTexto?: string | null,
 ): string {
   const sanitized = sanitizeNotasGeneralesPedido(raw, origenTexto);
   if (sanitized) return sanitized;
-  const light = stripCamposParametrizadosDeNotas((raw ?? "").trim());
-  if (
-    light &&
-    !looksLikeCorreoCuerpoEnNotas(light) &&
-    !looksLikeEmailHeaderJunk(light)
-  ) {
-    return fitNotasGeneralesPdf(light);
-  }
+  const light = candidataNotaUtil(stripCamposParametrizadosDeNotas((raw ?? "").trim()));
+  if (light) return light;
   const origen = (origenTexto ?? "").trim();
   if (origen) {
-    const bloque = fitNotasGeneralesPdf(extractObservacionesClienteBlock(origen));
-    if (bloque && !looksLikeEmailHeaderJunk(bloque)) {
-      return limpiarNotaCorta(bloque) || fitNotasGeneralesPdf(bloque);
-    }
-    const clave = fitNotasGeneralesPdf(extractNotasClaveCorreo(origen));
-    if (clave && !looksLikeEmailHeaderJunk(clave)) {
-      return limpiarNotaCorta(clave) || fitNotasGeneralesPdf(clave);
+    for (const candidato of [
+      extractObservacionesClienteBlock(origen),
+      extractNotasClaveCorreo(origen),
+    ]) {
+      const util = candidataNotaUtil(fitNotasGeneralesPdf(candidato));
+      if (util) return util;
     }
   }
   return MSG_NOTAS_SIN_TEXTO_ORIGEN;

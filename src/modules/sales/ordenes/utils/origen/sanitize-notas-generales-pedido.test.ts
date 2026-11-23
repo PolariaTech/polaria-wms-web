@@ -91,6 +91,18 @@ describe("asegurarNotasGeneralesPedido (REQ-340)", () => {
       "Confirmar recepción",
     );
   });
+
+  it("no reinyecta encabezado ADP aunque venga también en el origen", () => {
+    const junk =
+      "PEDIDO ADP-261116-0033-JVU · ORDINARIO. Emisión: 16/11/2026 00:33 hrs. Asesor: Atención al Cliente. Cliente: PALAPITA LUNA. Teléfono: 9898989898. Entrega:";
+    const origen = `${junk}\nJITOMATE GUAJE Madurez: Amarillo\nObs.: EQUIVALENTE A 15 PZAS`;
+    const notes = asegurarNotasGeneralesPedido(junk, origen);
+    expect(notes).not.toMatch(/Emisi[oó]n/i);
+    expect(notes).not.toMatch(/Asesor/i);
+    expect(notes).not.toMatch(/^PEDIDO ADP/i);
+    // Sin prosa útil de almacén en el origen → mensaje de respaldo (REQ-340).
+    expect(notes).toBe(MSG_NOTAS_SIN_TEXTO_ORIGEN);
+  });
 });
 
 describe("persistirNotasGeneralesDesdeForm (REQ-340)", () => {

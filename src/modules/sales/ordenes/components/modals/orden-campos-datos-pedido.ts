@@ -29,7 +29,6 @@ export const LABELS_DATOS_PEDIDO_DETALLE = [
   "Folio de factura",
   "Centro de consumo",
   "Moneda",
-  "Referencia de pedido",
   "Fecha de creación",
   "Estado",
 ] as const;

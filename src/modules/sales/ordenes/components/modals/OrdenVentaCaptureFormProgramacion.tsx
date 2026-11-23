@@ -27,7 +27,7 @@ export interface OrdenVentaCaptureFormProgramacionProps {
   onVentanaDesde: (value: string) => void;
   ventanaHasta: string;
   onVentanaHasta: (value: string) => void;
-  onClearField: (field: string) => void;
+  onClearField: (field: string, valorNuevo?: string) => void;
   marks: Marks;
 }
 
@@ -58,7 +58,7 @@ export function OrdenVentaCaptureFormProgramacion(
         required={props.esPorConfirmar}
         onChange={(iso) => {
           props.onFechaEntrega(iso);
-          props.onClearField("fechaEntrega");
+          props.onClearField("fechaEntrega", iso);
           if (iso.trim()) props.onClearFechaError();
         }}
         hint={hintFechaEntrega({
@@ -84,7 +84,7 @@ export function OrdenVentaCaptureFormProgramacion(
         max={props.ventanaHasta || undefined}
         onChange={(event) => {
           props.onVentanaDesde(event.target.value);
-          props.onClearField("ventanaDesde");
+          props.onClearField("ventanaDesde", event.target.value);
           if (
             !isVentanaDesdeMayorQueHasta(event.target.value, props.ventanaHasta)
           ) {
@@ -111,7 +111,7 @@ export function OrdenVentaCaptureFormProgramacion(
         min={props.ventanaDesde || undefined}
         onChange={(event) => {
           props.onVentanaHasta(event.target.value);
-          props.onClearField("ventanaHasta");
+          props.onClearField("ventanaHasta", event.target.value);
           if (
             !isVentanaDesdeMayorQueHasta(props.ventanaDesde, event.target.value)
           ) {

@@ -1,0 +1,135 @@
+import { describe, expect, it } from "vitest";
+import { buildOrdenVentaPatchFromSurtido } from "./sync-surtido-build-patch";
+import type { OrdenSurtidoCapturaPayload } from "./orden-surtido.types";
+
+describe("buildOrdenVentaPatchFromSurtido", () => {
+  const payload: OrdenSurtidoCapturaPayload = {
+    campos: {
+      horaSugeridaSalida: "04:30",
+      chofer: "Luis Mendoza",
+      unidad: "Camión 12",
+      facturaAsociada: "F-99",
+    },
+    checks: { turnoPm: true },
+    lineas: [
+      { indice: 1, cantidadPreparada: "5 kg", nota: "ok" },
+      { indice: 2, cantidadPreparada: "" },
+    ],
+    observacionesIa: null,
+  };
+
+  it("arma flat + lineas solo con valores de la foto", () => {
+    const { flat, lineas } = buildOrdenVentaPatchFromSurtido({
+      payload,
+      observacionesActuales: null,
+      productosByIndex: new Map([[1, "HAMBURGUESA"]]),
+    });
+
+    expect(flat.turno).toBe("PM");
+    expect(flat.hora_salida).toBe("04:30");
+    expect(flat.chofer).toBe("Luis Mendoza");
+    expect(flat.unidad).toBe("Camión 12");
+    expect(flat.observaciones ?? "").not.toContain("Chofer:");
+    expect(flat.notas_almacen).toContain("Folio factura asociada: F-99");
+    expect(flat.notas_lineas).toBeUndefined();
+    expect(lineas).toEqual([
+      { indice: 1, cantidadDespachada: 5, notaLinea: "ok" },
+    ]);
+  });
+
+  it("no guarda especificación manuscrita en notas_lineas (REQ-124)", () => {
+    const { flat } = buildOrdenVentaPatchFromSurtido({
+      payload: {
+        campos: { incidencias: "Retraso en andén" },
+        checks: {},
+        lineas: [
+          {
+            indice: 1,
+            especificacion: "Firme",
+            cantidadPreparada: "5 kg",
+            codigoIncidencia: "A",
+            nota: "ok",
+          },
+        ],
+      },
+      observacionesActuales: null,
+      productosByIndex: new Map([[1, "HAMBURGUESA"]]),
+    });
+
+    expect(flat.notas_lineas).toBeUndefined();
+    expect(flat.notas_almacen).toContain("Incidencias: Retraso en andén");
+  });
+
+  it("rellena campos de pedido manuscritos que estaban vacíos", () => {
+    const { flat } = buildOrdenVentaPatchFromSurtido({
+      payload: {
+        campos: {
+          centroConsumo: "Cocina 2",
+          fechaEntrega: "15/09/2026",
+          numeroOrdenCliente: "OC-88",
+          direccionEntrega: "Calle 10",
+        },
+        checks: {},
+        lineas: [],
+      },
+      observacionesActuales: null,
+    });
+
+    expect(flat.centro_consumo).toBe("Cocina 2");
+    expect(flat.fecha_entrega).toBe("2026-09-15");
+    expect(flat.orden_compra_hotel).toBe("OC-88");
+    expect(flat.direccion_entrega).toBe("Calle 10");
+    expect(flat.observaciones).toContain("Centro de consumo: Cocina 2");
+  });
+
+  it("no pisa observaciones previas; fusiona etiquetas", () => {
+    const prev =
+      "Datos:\nPrioridad: Urgente\nChofer: Viejo\n\nPedido original:\nhola";
+    const { flat } = buildOrdenVentaPatchFromSurtido({
+      payload: {
+        campos: { chofer: "Nuevo" },
+        checks: {},
+        lineas: [],
+      },
+      observacionesActuales: prev,
+    });
+
+    expect(flat.chofer).toBe("Nuevo");
+    expect(flat.observaciones).not.toContain("Chofer:");
+    expect(flat.observaciones).toContain("Prioridad: Urgente");
+  });
+
+  it("lee hora y chofer aunque la IA use etiquetas con espacios", () => {
+    const { flat } = buildOrdenVentaPatchFromSurtido({
+      payload: {
+        campos: {
+          Chofer: "Pepito Perez",
+          Unidad: "Defender",
+          "hora sugerida de salida": "6AM",
+        },
+        checks: { turnoPm: true },
+        lineas: [],
+      },
+      observacionesActuales: null,
+    });
+
+    expect(flat.chofer).toBe("Pepito Perez");
+    expect(flat.unidad).toBe("Defender");
+    expect(flat.hora_salida).toBe("6AM");
+    expect(flat.turno).toBe("PM");
+  });
+
+  it("guarda el folio leído bajo el rótulo Documentación", () => {
+    const { flat } = buildOrdenVentaPatchFromSurtido({
+      payload: {
+        campos: { "Documentación folio": "F-77", "Documentación firma": "Ana Ruiz" },
+        checks: {},
+        lineas: [],
+      },
+      observacionesActuales: null,
+    });
+
+    expect(flat.notas_almacen).toContain("Factura (OK) folio: F-77");
+    expect(flat.notas_almacen).toContain("Factura (OK) firma: Ana Ruiz");
+  });
+});

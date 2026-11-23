@@ -8,8 +8,10 @@ vi.mock("@/modules/sales/ordenes/print-batch/ImpresionRapidaPageContent", () => 
 import DashboardVentasImpresionRapidaPage from "./page";
 
 describe("página de Impresión rápida", () => {
-  it("muestra la pantalla del módulo de ventas", () => {
+  it("muestra la pantalla del módulo de ventas", async () => {
     render(<DashboardVentasImpresionRapidaPage />);
-    expect(screen.getByText("Pantalla de impresión rápida")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Pantalla de impresión rápida"),
+    ).toBeInTheDocument();
   });
 });

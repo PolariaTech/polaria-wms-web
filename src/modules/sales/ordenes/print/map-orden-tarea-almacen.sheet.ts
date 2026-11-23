@@ -1,0 +1,242 @@
+import { formatKgEs } from "@/lib/utils/decimal-es";
+import {
+  getCuentaZonaHorariaOption,
+  resolveCuentaZonaHorariaId,
+} from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
+import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../shared/types/sales.types";
+import type {
+  OrdenVentaDetalleRow,
+  OrdenVentaLineaRow,
+  OrdenVentaOperadorRow,
+} from "../../shared/types/sales.types";
+import {
+  formatCompradorNombreOrdenVenta,
+  resolveOrdenVentaLineaTitulo,
+} from "../utils/display/orden-venta-display";
+import {
+  formatCapturaFecha,
+  notaCapturaForLinea,
+  parseOrdenVentaCapturaObservaciones,
+} from "../utils/pedido/build-orden-venta-captura-observaciones";
+import { filterLineasByOrdenTrabajoHija, resolveNumeroOrdenClientePrint } from "../utils/ot/filter-lineas-by-orden-trabajo";
+import type { OrdenTrabajoHija } from "../utils/origen/origen-correo-ordenes-trabajo";
+import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
+import {
+  resolveCentroConsumoDesdeDetalle,
+  resolveFechaYDiaEntregaDesdeDetalle,
+  resolveNotasGeneralesDesdeDetalle,
+} from "./resolve-cabecera-print-desde-detalle";
+import {
+  diaSemanaEntregaEs,
+  formatOrdenTareaImpresaAt,
+  resolveOrdenTareaCreadaAt,
+} from "./map-orden-tarea-almacen.format";
+
+export const PRODUCTOS_POR_HOJA_TAREA = 30;
+
+function formatFechaEntrega(value: string | null | undefined): string {
+  if (!value) return "";
+  return formatCapturaFecha(value);
+}
+
+export function formatOrdenTrabajoCorto(
+  index: number,
+  total: number,
+  hojaOt = 1,
+  hojasOt = 1,
+): string {
+  const i = index > 0 ? index : 1;
+  const t = total > 0 ? total : 1;
+  if (hojasOt <= 1) return `${i}/${t}`;
+  return `${hojaOt}-${i}/${t}`;
+}
+
+function formatHoraEntrega(input: {
+  ventanaDesde?: string | null;
+  ventanaHasta?: string | null;
+  ventanaEntrega?: string | null;
+}): string {
+  const desde = input.ventanaDesde?.trim() ?? "";
+  const hasta = input.ventanaHasta?.trim() ?? "";
+  if (desde || hasta) {
+    if (desde && hasta) return `${desde} – ${hasta}`;
+    return desde || hasta;
+  }
+  return input.ventanaEntrega?.trim() ?? "";
+}
+
+function mapLineasPrint(
+  lineas: readonly OrdenVentaLineaRow[],
+  notasLineas: string,
+  hija?: OrdenTrabajoHija | null,
+): OrdenTareaAlmacenPrintData["lineas"] {
+  return lineas.map((linea) => {
+    const producto = resolveOrdenVentaLineaTitulo(linea);
+    const nota = notaCapturaForLinea(notasLineas, {
+      nombre: producto,
+      cantidad: linea.cantidad_pedida,
+      otId: hija?.id,
+      idProducto: linea.id_producto,
+      allowUnscoped: !hija,
+    });
+    const unidad =
+      linea.unidad_medida?.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT;
+    return {
+      producto,
+      especificacion: nota,
+      cantidadSolicitada: `${formatKgEs(linea.cantidad_pedida)} ${unidad}`,
+    };
+  });
+}
+
+export function paginarHojaPorProductos(
+  sheet: OrdenTareaAlmacenPrintData,
+): OrdenTareaAlmacenPrintData[] {
+  const lineas = sheet.lineas ?? [];
+  const tareaIndex = sheet.tareaIndex && sheet.tareaIndex > 0 ? sheet.tareaIndex : 1;
+  const tareaTotal = sheet.tareaTotal && sheet.tareaTotal > 0 ? sheet.tareaTotal : 1;
+  const hojasOt = Math.max(1, Math.ceil(lineas.length / PRODUCTOS_POR_HOJA_TAREA));
+  if (hojasOt <= 1) {
+    return [
+      {
+        ...sheet,
+        lineaInicio: 1,
+        ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
+      },
+    ];
+  }
+  const pages: OrdenTareaAlmacenPrintData[] = [];
+  for (let hoja = 0; hoja < hojasOt; hoja += 1) {
+    const start = hoja * PRODUCTOS_POR_HOJA_TAREA;
+    pages.push({
+      ...sheet,
+      lineas: lineas.slice(start, start + PRODUCTOS_POR_HOJA_TAREA),
+      lineaInicio: start + 1,
+      ordenTrabajo: formatOrdenTrabajoCorto(
+        tareaIndex,
+        tareaTotal,
+        hoja + 1,
+        hojasOt,
+      ),
+    });
+  }
+  return pages;
+}
+
+export function buildBaseSheet(input: {
+  listRow: OrdenVentaOperadorRow;
+  detalle: OrdenVentaDetalleRow | null;
+  printedAt: Date;
+  hija?: OrdenTrabajoHija | null;
+  lineas: OrdenVentaLineaRow[];
+  tareaIndex: number;
+  tareaTotal: number;
+  timeZone?: string;
+}): OrdenTareaAlmacenPrintData {
+  const {
+    listRow,
+    detalle,
+    printedAt,
+    hija,
+    lineas,
+    tareaIndex,
+    tareaTotal,
+    timeZone = "America/Cancun",
+  } = input;
+  const zonaId = resolveCuentaZonaHorariaId(timeZone);
+  const zonaImpresionLabel = getCuentaZonaHorariaOption(zonaId).shortLabel;
+
+  if (!detalle) {
+    return {
+      idOrdenVenta: listRow.idOrdenVenta,
+      idOrdenTrabajo: hija?.id ?? "",
+      tareaIndex,
+      tareaTotal,
+      folio: listRow.venta,
+      creada: (() => {
+        const created = resolveOrdenTareaCreadaAt({
+          createdAt: listRow.fecha,
+        });
+        return created ? formatOrdenTareaImpresaAt(created, zonaId) : "";
+      })(),
+      impresa: formatOrdenTareaImpresaAt(printedAt, zonaId),
+      zonaImpresionLabel,
+      cliente: listRow.comprador,
+      centroConsumo: hija?.almacen ?? "",
+      numeroOrdenCliente: resolveNumeroOrdenClientePrint({ hijaNumeroPedido: hija?.numeroPedido, tareaTotal }),
+      ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
+      fechaEntrega: (() => {
+        const f = hija?.fecha
+          ? formatCapturaFecha(hija.fecha)
+          : formatFechaEntrega(listRow.fecha);
+        return f;
+      })(),
+      diaEntrega: (() => {
+        const f = hija?.fecha
+          ? formatCapturaFecha(hija.fecha)
+          : formatFechaEntrega(listRow.fecha);
+        return diaSemanaEntregaEs(f);
+      })(),
+      horaEntrega: "",
+      direccionEntrega:
+        listRow.destino.trim() === "—" ? "" : listRow.destino,
+      notasGenerales: "",
+      lineas: [],
+    };
+  }
+
+  const captura = parseOrdenVentaCapturaObservaciones(detalle.observaciones);
+  const direccionCaptura = captura.direccion.trim();
+  const { fechaEntrega, diaEntrega } = resolveFechaYDiaEntregaDesdeDetalle({
+    fechaCaptura: captura.fechaEntrega,
+    fechaEntregaBd: detalle.fecha_entrega,
+    fechaPedido: detalle.fecha_pedido,
+    createdAt: detalle.created_at,
+  });
+
+  return {
+    idOrdenVenta: detalle.id_orden_venta,
+    idOrdenTrabajo: hija?.id ?? "",
+    tareaIndex,
+    tareaTotal,
+    folio: detalle.codigo,
+    creada: (() => {
+      const created = resolveOrdenTareaCreadaAt({
+        createdAt: detalle.created_at,
+        fechaPedido: detalle.fecha_pedido,
+      });
+      return created ? formatOrdenTareaImpresaAt(created, timeZone) : "";
+    })(),
+    impresa: formatOrdenTareaImpresaAt(printedAt, zonaId),
+    zonaImpresionLabel,
+    cliente:
+      detalle.comprador_razon_social?.trim() ||
+      formatCompradorNombreOrdenVenta(detalle),
+    clienteDenominacionComercial: (detalle.denominacion_comercial_override ?? detalle.comprador_denominacion_comercial_override)?.trim() || detalle.comprador_apodo?.trim() || "",
+    centroConsumo: hija?.almacen?.trim() || resolveCentroConsumoDesdeDetalle({
+      centroBd: detalle.centro_consumo,
+      centroCaptura: captura.centroConsumo,
+    }),
+    numeroOrdenCliente: resolveNumeroOrdenClientePrint({ ordenCompraHotel: detalle.orden_compra_hotel, hijaNumeroPedido: hija?.numeroPedido, capturaOrdenCompra: captura.ordenCompraHotel, tareaTotal }),
+    ordenTrabajo: formatOrdenTrabajoCorto(tareaIndex, tareaTotal),
+    fechaEntrega,
+    diaEntrega,
+    horaEntrega: formatHoraEntrega({
+      ventanaDesde: detalle.ventana_desde,
+      ventanaHasta: detalle.ventana_hasta,
+      ventanaEntrega: captura.ventanaEntrega,
+    }),
+    direccionEntrega:
+      direccionCaptura ||
+      detalle.direccion_entrega?.trim() ||
+      detalle.bodega_destino_nombre?.trim() ||
+      detalle.bodega_nombre?.trim() ||
+      "",
+    notasGenerales: resolveNotasGeneralesDesdeDetalle(detalle),
+    lineas: mapLineasPrint(
+      lineas,
+      detalle.notas_lineas?.trim() || captura.notasLineas,
+      hija,
+    ),
+  };
+}

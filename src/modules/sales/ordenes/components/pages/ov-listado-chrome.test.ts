@@ -7,6 +7,7 @@ import {
 describe("ov-listado-chrome (REQ-199/226)", () => {
   it("expone la clase de chrome del listado", () => {
     expect(OV_LISTADO_DATATABLE_CHROME_CLASS).toContain("justify-end");
+    expect(OV_LISTADO_DATATABLE_CHROME_CLASS).toContain("overflow-x-hidden");
   });
 
   it("abre Cypher con createDraftId sin editingId", () => {

@@ -1,0 +1,26 @@
+import type { PedidoExtraido } from "../../ai/openai-pedido.client";
+
+export const emptyPedido = (): PedidoExtraido => ({
+  fechaEntrega: "2026-09-07",
+  centroConsumo: null,
+  observaciones: null,
+  ordenCompraHotel: null,
+  nombreCliente: null,
+  rfc: null,
+  regimen: null,
+  direccion: null,
+  anden: null,
+  contacto: null,
+  telefono: null,
+  correo: null,
+  horarioDesde: null,
+  horarioHasta: null,
+  tolerancia: null,
+  sustituciones: null,
+  lote: null,
+  temperatura: null,
+  lineas: [],
+  origenCorreo: [],
+  advertencia: null,
+  archivosNoLegibles: [],
+});

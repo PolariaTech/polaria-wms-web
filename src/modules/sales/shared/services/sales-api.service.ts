@@ -1,3 +1,7 @@
+/**
+ * Canal B (Nest): emitir / cancelar / avanzar estado / listado API OV.
+ * Listado/borrador liviano → sales-operador-listado (canal A). Ver wms-channels / ARQUITECTURA-COMUNICACION.
+ */
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { ApiError, apiRequest } from "@/services/api/api";
 import type { OrdenVentaOperadorRow } from "../types/sales.types";
@@ -33,6 +37,26 @@ export async function emitirOrdenVentaApi(
 
   return postVentasApi<OrdenVentaOperadorRow>(
     `/ventas/ordenes/${encodeURIComponent(id)}/emitir`,
+  );
+}
+
+/** Avance manual post-emisión (Cypher): alistamiento, alistada, revisada, etc. */
+export async function avanzarEstadoOrdenVentaApi(
+  idOrdenVenta: string,
+  estado: string,
+): Promise<OrdenVentaOperadorRow> {
+  const id = idOrdenVenta.trim();
+  const destino = estado.trim();
+  if (!id || !destino) {
+    throw new DomainServiceError(
+      "La orden de venta o el estado no es válido.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  return postVentasApi<OrdenVentaOperadorRow>(
+    `/ventas/ordenes/${encodeURIComponent(id)}/avanzar-estado`,
+    { estado: destino },
   );
 }
 

@@ -1,9 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { TenantScopeGuard } from "@/components/auth/guards/TenantScopeGuard";
 import { ModuleRoleGate } from "@/components/shared/module/ModuleRoleGate";
 import { WMS_MODULE } from "@/constants/wms/permissions";
-import { InventarioMercanciaReportView } from "@/modules/admin-panel";
+
+const InventarioMercanciaReportView = dynamic(
+  () =>
+    import("@/modules/admin-panel").then((m) => ({
+      default: m.InventarioMercanciaReportView,
+    })),
+  { loading: () => null, ssr: false },
+);
 
 export default function DashboardReporteriaPage() {
   return (

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
+import { PolariaRemoteImage } from "@/components/shared/media/PolariaRemoteImage";
 import { cn } from "@/lib/utils/cn";
 import { useBodyScrollLock } from "@/lib/utils/use-body-scroll-lock";
 import { cypherPanelWidthClass } from "../../constants/cypher-layout";
@@ -247,10 +248,11 @@ export function OrdenVentaAdjuntoPreviewModal({
           ) : esImagen ? (
             <div className="polaria-scrollbar absolute inset-0 overflow-auto p-4">
               <div style={zoomStyle}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <PolariaRemoteImage
                   src={viewUrl}
                   alt={title}
+                  width={1400}
+                  height={1000}
                   className="max-h-full max-w-full object-contain"
                 />
               </div>

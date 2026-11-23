@@ -1,6 +1,6 @@
 # Polaria WMS Web
 
-**Versión de producto: 2.8.12**
+**Versión de producto: 2.13.53** (misma en `polaria-wms-api` y `polaria-wms-db` — ver `docs/VERSIONADO.md`)
 
 Frontend web del **Sistema de Gestión de Almacenes (WMS)** Polaria. Construido con [Next.js 16](https://nextjs.org), React 19 y TypeScript.
 
@@ -26,7 +26,7 @@ Abre [http://localhost:3001/login](http://localhost:3001/login) en el navegador.
 | `NEXT_PUBLIC_SUPABASE_URL` | Proyecto Supabase (lecturas con RLS) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima de Supabase |
 
-Ver [docs/AUTH.md](docs/AUTH.md) (login + SSO) y [docs/MATEO-WIDGET.md](docs/MATEO-WIDGET.md) (widget embebido).
+Ver [docs/AUTH.md](docs/AUTH.md) (login + SSO), [docs/MATEO-WIDGET.md](docs/MATEO-WIDGET.md) (widget embebido), [docs/VERSIONADO.md](docs/VERSIONADO.md) (versión web/api/db) y [docs/ARQUITECTURA-COMUNICACION.md](docs/ARQUITECTURA-COMUNICACION.md) (canales Supabase / Nest / Mateo / BFF).
 
 ## Scripts disponibles
 

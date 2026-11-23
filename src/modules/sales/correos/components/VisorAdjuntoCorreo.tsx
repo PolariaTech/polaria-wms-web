@@ -2,6 +2,7 @@
 
 import { Download, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { PolariaRemoteImage } from "@/components/shared/media/PolariaRemoteImage";
 import { descargarAdjunto } from "../services/correos.client";
 import type { AdjuntoCorreo } from "../types/correos.types";
 import { esVistaPreviaXml, mensajeDeError } from "../utils/correos-formato";
@@ -114,10 +115,13 @@ export function VisorAdjuntoCorreo({
           </div>
         ) : null}
         {url && esImagen(adjunto.mimeType) ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element -- blob local; next/image no aplica */}
-            <img src={url} alt={adjunto.nombre} className="mx-auto max-w-full" />
-          </>
+          <PolariaRemoteImage
+            src={url}
+            alt={adjunto.nombre}
+            width={1200}
+            height={900}
+            className="mx-auto h-auto max-w-full"
+          />
         ) : null}
         {textoXml != null ? <CuerpoXmlAdjunto texto={textoXml} /> : null}
         {url && !esImagen(adjunto.mimeType) ? (

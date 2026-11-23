@@ -35,6 +35,13 @@ vi.mock("@/modules/operations", async (importOriginal) => {
   };
 });
 
+vi.mock("./processing-api.service", () => ({
+  listSolicitudesProcesamientoApi: vi.fn(),
+  createSolicitudProcesamientoApi: vi.fn(),
+}));
+
+import { listSolicitudesProcesamientoApi } from "./processing-api.service";
+
 describe("processing.service", () => {
   beforeEach(() => {
     setSupabaseClientForTests(null);
@@ -45,43 +52,44 @@ describe("processing.service", () => {
     vi.mocked(listTareasColaApi).mockResolvedValue([]);
   });
 
-  it("listSolicitudesProcesamiento consulta solicitud_procesamiento", async () => {
-    const { client, from } = createSupabaseMock({ data: [] });
-    setSupabaseClientForTests(client);
+  it("listSolicitudesProcesamiento scoped usa API Nest", async () => {
+    vi.mocked(listSolicitudesProcesamientoApi).mockResolvedValue([]);
 
     await listSolicitudesProcesamiento({
       codigoCuenta: "CUENTA-01",
       idBodega: "BOD-01",
     });
 
-    expect(from).toHaveBeenCalledWith("solicitud_procesamiento");
+    expect(listSolicitudesProcesamientoApi).toHaveBeenCalledWith({
+      codigoCuenta: "CUENTA-01",
+      idBodega: "BOD-01",
+    });
   });
 
   it("listSolicitudesProcesamientoOperador enriquece filas con nombres de producto", async () => {
-    const solicitudMock = createSupabaseMock({
-      data: [
-        {
-          id_solicitud_procesamiento: "sol-1",
-          codigo_cuenta: "CUENTA-01",
-          id_bodega: "BOD-01",
-          codigo: "OP-001",
-          id_cliente: null,
-          id_producto_primario: "prod-1",
-          id_producto_secundario: "prod-2",
-          id_solicitante: "user-1",
-          id_procesador: null,
-          estado: "pendiente",
-          kilos_primario: "10",
-          kilos_secundario: null,
-          kilos_merma: null,
-          regla_conversion_cantidad_primario: "1",
-          regla_conversion_unidades_secundario: "2",
-          estimado_unidades_secundario: "20",
-          created_at: "2026-06-28T12:00:00.000Z",
-          updated_at: "2026-06-28T12:00:00.000Z",
-        },
-      ],
-    });
+    vi.mocked(listSolicitudesProcesamientoApi).mockResolvedValue([
+      {
+        id_solicitud_procesamiento: "sol-1",
+        codigo_cuenta: "CUENTA-01",
+        id_bodega: "BOD-01",
+        codigo: "OP-001",
+        id_cliente: null,
+        id_producto_primario: "prod-1",
+        id_producto_secundario: "prod-2",
+        id_solicitante: "user-1",
+        id_procesador: null,
+        estado: "pendiente",
+        kilos_primario: "10",
+        kilos_secundario: null,
+        kilos_merma: null,
+        regla_conversion_cantidad_primario: "1",
+        regla_conversion_unidades_secundario: "2",
+        estimado_unidades_secundario: "20",
+        created_at: "2026-06-28T12:00:00.000Z",
+        updated_at: "2026-06-28T12:00:00.000Z",
+      },
+    ] as never);
+
     const productoMock = createSupabaseMock({
       data: [
         {
@@ -106,7 +114,7 @@ describe("processing.service", () => {
     const client = {
       from: vi.fn((table: string) => {
         if (table === "producto") return productoMock.chain;
-        return solicitudMock.chain;
+        throw new Error(`unexpected ${table}`);
       }),
     } as unknown as SupabaseClient;
 
@@ -117,6 +125,7 @@ describe("processing.service", () => {
       idBodega: "BOD-01",
     });
 
+    expect(listSolicitudesProcesamientoApi).toHaveBeenCalled();
     expect(rows[0]?.orden).toBe("OP-001");
     expect(rows[0]?.primario).toContain("Salmón");
     expect(rows[0]?.secundario).toContain("Filete");

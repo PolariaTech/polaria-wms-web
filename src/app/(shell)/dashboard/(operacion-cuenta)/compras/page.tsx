@@ -1,8 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { WMS_MODULE } from "@/constants/wms/permissions";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
-import { ComprasPageContent } from "@/modules/purchases";
+
+const ComprasPageContent = dynamic(
+  () =>
+    import("@/modules/purchases").then((m) => ({
+      default: m.ComprasPageContent,
+    })),
+  { loading: () => null, ssr: false },
+);
 
 export default function DashboardComprasPage() {
   return (

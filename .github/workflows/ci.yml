@@ -6,9 +6,12 @@ name: CI
 #
 # Qué bloquea y qué solo informa:
 #   - build-and-test: BLOQUEA (compila con `next build` y corre todas las pruebas de vitest).
-#   - lint: INFORMATIVO. Hoy `npm run lint` no está en verde (61 errores y 311 avisos que ya existían en
+#   - lint: INFORMATIVO. Hoy `npm run lint` no está en verde (~68 errores en main con --quiet;
 #     main), así que como obligatorio dejaría rojo cada PR. Mismo criterio que el api, que dejó su lint
 #     pendiente hasta que quedara en verde. Cuando el lint esté limpio, se borra `continue-on-error`.
+#   - lint-architecture: BLOQUEA contratos BFF/Mateo y rutas críticas de ventas/procesamiento.
+#   - lint-sales-channels: BLOQUEA servicios y constantes del canal de ventas (subset acotado).
+#   - lint (global): INFORMATIVO (~68 errores en main; ver conteo en el job). Bloqueará cuando ≤15.
 #   - dependency-audit: INFORMATIVO, igual que en el api.
 #   - docker-image: BLOQUEA la construcción y la prueba de humo; el escaneo con Trivy es INFORMATIVO hasta
 #     la primera corrida real (todavía no se ha medido qué reporta esta imagen).
@@ -73,6 +76,57 @@ jobs:
       - name: ESLint (informativo)
         continue-on-error: true
         run: npm run lint
+
+  lint-architecture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: ESLint arquitectura, mateo-ia y ventas (obligatorio)
+        run: |
+          npx eslint \
+            "src/lib/architecture/**" \
+            "src/lib/mateo-ia/**" \
+            "src/modules/sales/shared/services/sales-orden-venta-estado.service.ts" \
+            "src/modules/sales/shared/services/sales-api.service.ts" \
+            "src/modules/processing/shared/services/processing.service.create.ts" \
+            "src/modules/sales/shared/constants/sales-status.ts"
+
+  lint-sales-channels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: ESLint canal ventas (obligatorio)
+        run: |
+          npx eslint \
+            "src/lib/architecture/wms-channels.ts" \
+            "src/modules/sales/shared/services/sales-orden-venta-estado.service.ts" \
+            "src/modules/sales/shared/services/sales-api.service.ts" \
+            "src/modules/processing/shared/services/processing.service.create.ts" \
+            "src/modules/sales/shared/constants/sales-status.ts"
 
   # Escaneo de dependencias. Solo las de producción (--omit=dev): las de desarrollo no viajan en la imagen.
   dependency-audit:

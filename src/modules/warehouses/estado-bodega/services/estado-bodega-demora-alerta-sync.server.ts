@@ -40,10 +40,13 @@ async function loadTareasPendientes(
 ): Promise<TareaColaRow[]> {
   const { data, error } = await client
     .from("tarea_cola")
-    .select("*")
+    .select(
+      "id_tarea,codigo_cuenta,id_bodega,tipo,estado,id_asignado,id_orden_trabajo,id_solicitud_procesamiento,titulo,descripcion,created_at,updated_at",
+    )
     .eq("codigo_cuenta", params.codigoCuenta)
     .eq("id_bodega", params.idBodega)
-    .in("estado", ["pendiente", "en_proceso"]);
+    .in("estado", ["pendiente", "en_proceso"])
+    .limit(500);
 
   if (error || !data) return [];
   return data as TareaColaRow[];
@@ -96,7 +99,8 @@ async function loadUbicaciones(
     .select(
       "id_ubicacion,codigo,estado_slot,tipo_ubicacion(codigo,es_recepcion,es_almacenamiento,es_picking)",
     )
-    .eq("id_bodega", idBodega);
+    .eq("id_bodega", idBodega)
+    .limit(500);
 
   if (error || !data) return [];
   return data as UbicacionEstadoBodegaDbRow[];
@@ -163,7 +167,8 @@ export async function countAlertasOperativasHistorialServer(params: {
     .from("alerta_operativa")
     .select("id_alerta, metadata")
     .eq("codigo_cuenta", params.codigoCuenta)
-    .eq("id_bodega", params.idBodega);
+    .eq("id_bodega", params.idBodega)
+    .limit(2000);
 
   if (error || !data) return 0;
 
@@ -220,17 +225,21 @@ export async function syncDemoraAlertasHistorialServer(params: {
     salidaUbicacionIds,
   });
 
+  const yaRegistradas = await Promise.all(
+    demoras.map((draft) =>
+      demoraAlertaYaRegistrada(admin, {
+        codigoCuenta,
+        idBodega,
+        idTarea: draft.idTarea,
+      }),
+    ),
+  );
+
   let persisted = 0;
-
-  for (const draft of demoras) {
-    const exists = await demoraAlertaYaRegistrada(admin, {
-      codigoCuenta,
-      idBodega,
-      idTarea: draft.idTarea,
-    });
-
-    if (exists) continue;
-
+  for (let index = 0; index < demoras.length; index += 1) {
+    if (yaRegistradas[index]) continue;
+    const draft = demoras[index];
+    if (!draft) continue;
     await persistDemoraAlerta(admin, { codigoCuenta, idBodega }, draft);
     persisted += 1;
   }

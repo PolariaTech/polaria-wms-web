@@ -170,7 +170,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
 
   const [productos, compradores] = await Promise.all([
     params.listProductos({ codigoCuenta }),
-    listCompradoresAdmin({ codigoCuenta, limit: 5000 }),
+    listCompradoresAdmin({ codigoCuenta, limit: 1000, soloActivos: true }),
   ]);
   const idComprador =
     header.id_comprador?.trim() ||

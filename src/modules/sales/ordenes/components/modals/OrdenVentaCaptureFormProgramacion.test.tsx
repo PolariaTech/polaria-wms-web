@@ -74,6 +74,6 @@ describe("OrdenVentaCaptureFormProgramacion (REQ-278)", () => {
     await user.clear(screen.getByLabelText(/^Hora hasta$/));
 
     expect(props.onVentanaHasta).toHaveBeenCalled();
-    expect(props.onClearField).toHaveBeenCalledWith("ventanaHasta");
+    expect(props.onClearField).toHaveBeenCalledWith("ventanaHasta", "");
   });
 });
