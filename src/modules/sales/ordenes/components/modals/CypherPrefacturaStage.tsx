@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useAuthStore } from "@/stores/auth.store";
+import { normalizeEstadoOrdenVenta } from "../../../shared/constants/sales-status";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
-import { blobPrefactura } from "../../print-batch/blob-prefactura";
+import { ConsolidadoPrefactura } from "./ConsolidadoPrefactura";
 import { CypherStageAccordion } from "./CypherStageAccordion";
 import type { CypherStageId } from "./cypher-stages";
 
@@ -13,49 +13,18 @@ function codigoEmpresaDeSesion(): string {
 }
 
 function VistaPrefactura({ orden }: { orden: OrdenVentaDetalleRow }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let vigente = true;
-    let creada = "";
-    const codigo = codigoEmpresaDeSesion();
-    if (!codigo) {
-      setError("No se encontró la empresa de la sesión.");
-      setUrl(null);
-      return;
-    }
-    setError(null);
-    setUrl(null);
-    blobPrefactura(orden, codigo)
-      .then((blob) => {
-        const siguiente = URL.createObjectURL(blob);
-        if (!vigente) {
-          URL.revokeObjectURL(siguiente);
-          return;
-        }
-        creada = siguiente;
-        setUrl(siguiente);
-      })
-      .catch((causa: unknown) => {
-        if (!vigente) return;
-        setError(causa instanceof Error ? causa.message : "No se pudo armar la prefactura.");
-      });
-    return () => {
-      vigente = false;
-      if (creada) URL.revokeObjectURL(creada);
-    };
-  }, [orden]);
-
-  if (error) return <p className="polaria-text-body-sm text-polaria-w">{error}</p>;
-  if (!url) return <p className="polaria-text-body-sm text-polaria-w-50">Preparando la prefactura…</p>;
-  return (
-    <iframe
-      title="Prefactura"
-      src={url}
-      className="h-[32rem] w-full rounded-xl border border-polaria-w-08 bg-polaria-bg"
-    />
-  );
+  if (normalizeEstadoOrdenVenta(orden.estado) === "por_confirmar") {
+    return (
+      <p className="polaria-text-body-sm text-polaria-w-50">
+        La prefactura se muestra desde Confirmada.
+      </p>
+    );
+  }
+  const codigo = codigoEmpresaDeSesion();
+  if (!codigo) {
+    return <p className="polaria-text-body-sm text-polaria-w">No se encontró la empresa de la sesión.</p>;
+  }
+  return <ConsolidadoPrefactura orden={orden} codigoEmpresa={codigo} />;
 }
 
 export function CypherPrefacturaStage({

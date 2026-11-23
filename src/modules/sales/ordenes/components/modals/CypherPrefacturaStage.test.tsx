@@ -9,18 +9,14 @@ vi.mock("@/stores/auth.store", () => ({
   },
 }));
 
-vi.mock("../../print-batch/blob-prefactura", () => ({
-  blobPrefactura: vi.fn(async () => new Blob(["%PDF"], { type: "application/pdf" })),
+vi.mock("./ConsolidadoPrefactura", () => ({
+  ConsolidadoPrefactura: () => <div>Consolidado de prefacturas</div>,
 }));
 
-const orden = { id_orden_venta: "ov-1", codigo: "OV-9" } as OrdenVentaDetalleRow;
+const orden = { id_orden_venta: "ov-1", codigo: "OV-9", estado: "confirmada" } as OrdenVentaDetalleRow;
 
 describe("CypherPrefacturaStage", () => {
-  it("muestra el 04 y, al abrirlo, el PDF de esa orden", async () => {
-    const { blobPrefactura } = await import("../../print-batch/blob-prefactura");
-    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:prefactura");
-    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-
+  it("muestra el 04 y, al abrirlo, el consolidado de prefacturas", () => {
     render(
       <CypherPrefacturaStage
         openStages={new Set(["prefactura"])}
@@ -31,7 +27,19 @@ describe("CypherPrefacturaStage", () => {
 
     expect(screen.getByText("04")).toBeInTheDocument();
     expect(screen.getByText("Prefactura")).toBeInTheDocument();
-    expect(await screen.findByTitle("Prefactura")).toHaveAttribute("src", "blob:prefactura");
-    expect(blobPrefactura).toHaveBeenCalledWith(orden, "Y9IHZ");
+    expect(screen.getByText("Consolidado de prefacturas")).toBeInTheDocument();
+  });
+
+  it("una orden por confirmar no muestra la prefactura", () => {
+    render(
+      <CypherPrefacturaStage
+        openStages={new Set(["prefactura"])}
+        toggleAccordionStage={vi.fn()}
+        orden={{ ...orden, estado: "por_confirmar" }}
+      />,
+    );
+
+    expect(screen.getByText("La prefactura se muestra desde Confirmada.")).toBeInTheDocument();
+    expect(screen.queryByText("Consolidado de prefacturas")).toBeNull();
   });
 });

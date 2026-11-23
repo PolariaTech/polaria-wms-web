@@ -40,6 +40,36 @@ describe("filterLogEntriesForOt", () => {
     ]);
   });
 
+  it("muestra impresión, aprobación y facturado aunque sean de otra OT", () => {
+    const rows = [
+      entry({
+        id: "impresa",
+        mensaje: "Prefactura Bar impresa.",
+        idOrdenTrabajo: "ot-b",
+        payloadTipo: "impresion_prefactura",
+      }),
+      entry({
+        id: "aprobada",
+        mensaje: "Prefactura Bar aprobada en la recepción.",
+        idOrdenTrabajo: "ot-b",
+        payloadTipo: "prefactura_aceptada",
+      }),
+      entry({
+        id: "facturada",
+        mensaje: "Estado de la orden actualizado a Facturado.",
+        accion: "cambio_estado",
+        idOrdenTrabajo: null,
+      }),
+      entry({ id: "foto", mensaje: "foto", idOrdenTrabajo: "ot-b" }),
+    ];
+
+    expect(filterLogEntriesForOt(rows, "ot-a").map((fila) => fila.id)).toEqual([
+      "impresa",
+      "aprobada",
+      "facturada",
+    ]);
+  });
+
   it("no pisa la creación: reinyecta creacion de otra OT al filtrar", () => {
     const rows = [
       entry({

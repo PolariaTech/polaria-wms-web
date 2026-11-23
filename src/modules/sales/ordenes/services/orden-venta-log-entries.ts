@@ -23,6 +23,21 @@ export function formatFechaLog(
   }
 }
 
+const TIPOS_PREFACTURA_EN_BITACORA = new Set([
+  "impresion_prefactura",
+  "prefactura_aceptada",
+  "impresion_pdf",
+  "impresion_pdf_auto",
+]);
+
+/** Impresión, aprobación y cambios de estado se ven aunque la bitácora esté filtrada por otra OT. */
+function eventoVisibleConOt(entry: OrdenVentaLogEntry, ot: string): boolean {
+  const entryOt = entry.idOrdenTrabajo?.trim() || "";
+  if (!entryOt || entryOt === ot || entry.accion === "cambio_estado") return true;
+  const tipo = entry.payloadTipo?.trim() || "";
+  return TIPOS_PREFACTURA_EN_BITACORA.has(tipo);
+}
+
 /** Entrada sintética cuando aún no hay filas de auditoría de creación. */
 export function buildCreacionSintetica(params: {
   createdAt: string;
@@ -53,10 +68,7 @@ export function filterLogEntriesForOt(
   const ot = idOrdenTrabajo?.trim() || "";
   if (!ot) return entries;
 
-  const filtered = entries.filter((entry) => {
-    const entryOt = entry.idOrdenTrabajo?.trim() || "";
-    return !entryOt || entryOt === ot;
-  });
+  const filtered = entries.filter((entry) => eventoVisibleConOt(entry, ot));
 
   const hasCreacion = filtered.some(
     (entry) => entry.accion === "creacion" || entry.accion === "sintetico",

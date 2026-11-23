@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { aceptarRecepcionPrefactura } from "./aceptar-recepcion";
 import {
   DECISIONES_RECEPCION,
   etiquetaNumeroOt,
@@ -87,11 +88,13 @@ function OpcionesDecision({
 
 function AccionesDecision({
   pregunta,
+  enviando,
   onPedir,
   onConfirmar,
   onVolver,
 }: {
   pregunta: string | null;
+  enviando: boolean;
   onPedir: () => void;
   onConfirmar: () => void;
   onVolver: () => void;
@@ -100,7 +103,8 @@ function AccionesDecision({
     return (
       <button
         type="button"
-        className="rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-on-teal"
+        className="rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-on-teal disabled:opacity-60"
+        disabled={enviando}
         onClick={onPedir}
       >
         Confirmar
@@ -112,14 +116,16 @@ function AccionesDecision({
       <p className="polaria-text-body">{pregunta}</p>
       <button
         type="button"
-        className="rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-on-teal"
+        className="rounded-xl bg-polaria-teal px-4 py-3 font-semibold text-polaria-on-teal disabled:opacity-60"
+        disabled={enviando}
         onClick={onConfirmar}
       >
-        Sí, confirmar
+        {enviando ? "Confirmando..." : "Sí, confirmar"}
       </button>
       <button
         type="button"
-        className="rounded-xl border border-polaria-t-20 px-4 py-3 text-polaria-w"
+        className="rounded-xl border border-polaria-t-20 px-4 py-3 text-polaria-w disabled:opacity-60"
+        disabled={enviando}
         onClick={onVolver}
       >
         Volver
@@ -128,13 +134,16 @@ function AccionesDecision({
   );
 }
 
-function PantallaLista(props: RecepcionPrefacturaFormProps) {
+function PantallaLista({
+  resultado,
+  ...props
+}: RecepcionPrefacturaFormProps & { resultado: string | null }) {
   return (
     <main className="min-h-screen bg-polaria-bg px-4 py-8 text-polaria-w">
       <div className="mx-auto flex w-full max-w-lg flex-col gap-4">
         <h1 className="polaria-text-card-title">Recepción de prefactura</h1>
         <FichaRecepcion {...props} />
-        <p className="polaria-text-body">Próximamente</p>
+        <p className="polaria-text-body">{resultado ?? "Próximamente"}</p>
       </div>
     </main>
   );
@@ -145,13 +154,37 @@ export function RecepcionPrefacturaForm(props: RecepcionPrefacturaFormProps) {
   const [pregunta, setPregunta] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [listo, setListo] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState<string | null>(null);
 
-  if (listo) return <PantallaLista {...props} />;
+  if (listo) return <PantallaLista {...props} resultado={resultado} />;
 
   function pedirConfirmacion() {
     const fallo = validarDecisionRecepcion(decision);
     setError(fallo);
     setPregunta(fallo ? null : preguntaRecepcion(decision));
+  }
+
+  async function confirmar() {
+    if (decision !== "aceptar") {
+      setListo(true);
+      return;
+    }
+    setEnviando(true);
+    setError(null);
+    const respuesta = await aceptarRecepcionPrefactura({
+      empresa: props.empresa,
+      ov: props.ov,
+      ot: props.ot,
+    });
+    setEnviando(false);
+    if (!respuesta.ok) {
+      setError(respuesta.error);
+      setPregunta(null);
+      return;
+    }
+    setResultado(respuesta.mensaje);
+    setListo(true);
   }
 
   return (
@@ -178,8 +211,9 @@ export function RecepcionPrefacturaForm(props: RecepcionPrefacturaFormProps) {
         ) : null}
         <AccionesDecision
           pregunta={pregunta}
+          enviando={enviando}
           onPedir={pedirConfirmacion}
-          onConfirmar={() => setListo(true)}
+          onConfirmar={() => void confirmar()}
           onVolver={() => setPregunta(null)}
         />
       </form>

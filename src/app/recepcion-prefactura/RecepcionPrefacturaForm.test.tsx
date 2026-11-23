@@ -1,6 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { RecepcionPrefacturaForm } from "./RecepcionPrefacturaForm";
+import { aceptarRecepcionPrefactura } from "./aceptar-recepcion";
+
+vi.mock("./aceptar-recepcion", () => ({
+  aceptarRecepcionPrefactura: vi.fn(),
+}));
 
 describe("RecepcionPrefacturaForm", () => {
   it("pide la opción, confirma y deja el flujo en Próximamente", () => {
@@ -35,5 +40,30 @@ describe("RecepcionPrefacturaForm", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Sí, confirmar" }));
     expect(screen.getByText("Próximamente")).toBeTruthy();
+    expect(aceptarRecepcionPrefactura).not.toHaveBeenCalled();
+  });
+
+  it("al aceptar muestra el folio que devolvió Compaq", async () => {
+    vi.mocked(aceptarRecepcionPrefactura).mockResolvedValue({
+      ok: true,
+      mensaje: "Facturado. Folio CS-18.",
+      error: "",
+    });
+    render(
+      <RecepcionPrefacturaForm
+        empresa="1XZ77"
+        ov="OV-00000049"
+        ot="pedido:4501110118|almacen:puebla xo01 xoximilco (consumo interno)"
+        nombreEmpresa="DEMO"
+        cliente="EXPERIENCIAS XCARET PARQUES SAPI DE CV"
+        numeroOt="4501110118"
+        totalOt="1"
+        centroConsumo="PUEBLA XO01 XOXIMILCO (Consumo Interno)"
+      />,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Aceptar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sí, confirmar" }));
+    expect(await screen.findByText("Facturado. Folio CS-18.")).toBeTruthy();
   });
 });

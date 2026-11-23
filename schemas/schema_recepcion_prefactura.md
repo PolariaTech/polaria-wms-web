@@ -5,7 +5,7 @@
 | Formulario | Recepción de prefactura |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Todos (formulario nuevo) |
+| Campos nuevos o modificados | Ninguno. Cambia el resultado de Sí, confirmar cuando la decisión es Aceptar. |
 | ¿Vive en un modal? | No |
 | ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | No |
 | Responsable (Desarrollador) | Desarrollador frontend |
@@ -48,13 +48,13 @@
 
 ### Notas y justificaciones
 
-La empresa, la OV y la OT llegan en el enlace del QR y se muestran; no son campos editables. Confirmar sin opción muestra el mensaje de la Tabla 1. Con una opción marcada, Confirmar pregunta si está de acuerdo con esa operación: aceptar, aceptado parcial o rechazar. Sí, confirmar deja la pantalla en el texto Próximamente. El proceso real de cada opción queda para después, así que no hay capa Back ni BD.
+La empresa, la OV y la OT llegan en el enlace del QR y se muestran; no son campos editables. Confirmar sin opción muestra el mensaje de la Tabla 1. Con una opción marcada, Confirmar pregunta si está de acuerdo con esa operación: aceptar, aceptado parcial o rechazar. Si la decisión es Aceptar y la orden está por confirmar, o su bitácora no muestra que pasó por Confirmada, Alistado y Despachado, Sí, confirmar muestra el error y no llama a Compaq. Si ya pasó por esas etapas y está en Despachado, crea la prefactura en Compaq y guarda la aceptación en la bitácora. La referencia de Compaq es el código corto de la orden (OV- y 8 dígitos) más una huella de 6 caracteres de la hoja del correo. Si el código de la orden es el formato antiguo, no se llama a Compaq y se informa que no se puede facturar. La orden pasa a facturada solo cuando todas sus órdenes de trabajo quedaron aceptadas. Si Compaq falla, se muestra ese error y la orden no cambia. Aceptado parcial y Rechazado siguen en el texto Próximamente.
 
 ### Versión y revisión (del schema de ese formulario, no de esta plantilla)
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.0 |
-| Fecha de aprobación | 20/11/2026 |
+| Versión del schema | v1.1 |
+| Fecha de aprobación | 23/11/2026 |
 | Aprobado por | Desarrollador frontend |
-| Próxima revisión | Cuando el formulario deje de decir Próximamente y ejecute el proceso |
+| Próxima revisión | Cuando Aceptado parcial y Rechazado dejen de decir Próximamente |
