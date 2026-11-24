@@ -76,6 +76,7 @@
 - `src/modules/sales/ordenes/print/build-orden-tarea-almacen-html.ts` — autorizada por el usuario el 2026-11-24
 - `src/modules/sales/ordenes/utils/origen/origen-adjuntos.ts` — autorizada por el usuario el 2026-11-24
 - `src/modules/sales/ordenes/utils/pedido/campos-faltantes-ov.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/components/pages/OperadorOrdenesVentaPageContent.test.tsx` — autorizada por el usuario el 2026-11-24
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/services/sales-api.service.test.ts`
