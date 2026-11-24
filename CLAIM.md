@@ -25,6 +25,10 @@
 - `src/modules/sales/ordenes/ai/file-extractors.ts`
 - `src/modules/sales/ordenes/print-batch/excel-a-pdf.ts`
 - `src/modules/admin-panel/catalogo/utils/catalogo-excel-import.ts`
+- `src/modules/sales/ordenes/despacho/despacho-publico.service.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/despacho/despacho-publico.service.test.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/despacho/despacho-publico.test.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/shared/services/sales-catalog.api.ts` — autorizada por el usuario el 2026-11-24
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/services/sales-api.service.test.ts`
