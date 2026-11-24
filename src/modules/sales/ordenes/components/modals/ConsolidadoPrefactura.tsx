@@ -12,6 +12,8 @@ import {
 } from "../../print-batch/prefactura-seguimiento";
 import { fetchOrdenVentaLog, postOrdenVentaLog } from "../../services/orden-venta-log.client";
 
+const INTERVALO_BITACORA_PREFACTURA_MS = 3000;
+
 function payloadsDe(entradas: { payloadTipo?: string | null; idOrdenTrabajo: string | null }[]) {
   return entradas.map((entrada) => ({
     tipo: entrada.payloadTipo ?? "",
@@ -95,17 +97,72 @@ function IconoPdf() {
   );
 }
 
+function claveDePayload(payload: Record<string, unknown>): string {
+  const tipo = typeof payload.tipo === "string" ? payload.tipo.trim() : "";
+  const idOrdenTrabajo =
+    typeof payload.idOrdenTrabajo === "string" ? payload.idOrdenTrabajo.trim() : "";
+  return `${tipo}|${idOrdenTrabajo}`;
+}
+
+/** La bitácora manda. Lo que aún no llegó al servidor (una impresión recién hecha) se conserva. */
+function unirBitacora(
+  locales: readonly Record<string, unknown>[],
+  remotos: readonly Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const yaLlegaron = new Set(remotos.map(claveDePayload));
+  const soloLocales = locales.filter((payload) => !yaLlegaron.has(claveDePayload(payload)));
+  return [...remotos, ...soloLocales];
+}
+
+function aplicarBitacora(
+  entradas: { payloadTipo?: string | null; idOrdenTrabajo: string | null }[],
+  setPayloads: (valor: (actuales: Record<string, unknown>[]) => Record<string, unknown>[]) => void,
+) {
+  setPayloads((actuales) => unirBitacora(actuales, payloadsDe(entradas)));
+}
+
+function leerBitacoraPrefactura(
+  idOrdenVenta: string,
+  cuenta: string,
+  sigueVigente: () => boolean,
+  setPayloads: (valor: (actuales: Record<string, unknown>[]) => Record<string, unknown>[]) => void,
+) {
+  void fetchOrdenVentaLog({ idOrdenVenta, codigoCuenta: cuenta })
+    .then((entradas) => {
+      if (!sigueVigente()) return;
+      aplicarBitacora(entradas, setPayloads);
+    })
+    .catch((causa: unknown) => {
+      if (!sigueVigente()) return;
+      // La siguiente lectura reintenta. La columna conserva la última bitácora válida.
+      void (causa instanceof Error ? causa.message : "No se pudo leer la bitácora.");
+    });
+}
+
 function useBitacoraPrefactura(orden: OrdenVentaDetalleRow) {
   const [payloads, setPayloads] = useState<Record<string, unknown>[]>([]);
   useEffect(() => {
     const cuenta = orden.codigo_cuenta?.trim();
+    const idOrdenVenta = orden.id_orden_venta;
     if (!cuenta) return;
     let vigente = true;
-    void fetchOrdenVentaLog({ idOrdenVenta: orden.id_orden_venta, codigoCuenta: cuenta }).then((entradas) => {
-      if (vigente) setPayloads(payloadsDe(entradas));
-    });
+    const sigueVigente = () => vigente;
+    const leer = () => leerBitacoraPrefactura(idOrdenVenta, cuenta, sigueVigente, setPayloads);
+    const leerSiVisible = () => {
+      if (document.visibilityState === "visible") leer();
+    };
+
+    leer();
+    const reloj = window.setInterval(leer, INTERVALO_BITACORA_PREFACTURA_MS);
+    window.addEventListener("focus", leer);
+    window.addEventListener("pageshow", leer);
+    document.addEventListener("visibilitychange", leerSiVisible);
     return () => {
       vigente = false;
+      window.clearInterval(reloj);
+      window.removeEventListener("focus", leer);
+      window.removeEventListener("pageshow", leer);
+      document.removeEventListener("visibilitychange", leerSiVisible);
     };
   }, [orden.codigo_cuenta, orden.id_orden_venta]);
   return { payloads, setPayloads };
