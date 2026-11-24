@@ -44,5 +44,8 @@ next-env.d.ts
 # Copia local de referencia; no desplegar
 .tmp-frio/
 
+# Evidencias / capturas locales de tickets (no versionar)
+TMP/
+
 .vercel
 .env*

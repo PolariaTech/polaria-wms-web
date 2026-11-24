@@ -6,12 +6,11 @@ name: CI
 #
 # Qué bloquea y qué solo informa:
 #   - build-and-test: BLOQUEA (compila con `next build` y corre todas las pruebas de vitest).
-#   - lint: INFORMATIVO. Hoy `npm run lint` no está en verde (61 errores y 311 avisos que ya existían en
-#     main), así que como obligatorio dejaría rojo cada PR. Mismo criterio que el api, que dejó su lint
-#     pendiente hasta que quedara en verde. Cuando el lint esté limpio, se borra `continue-on-error`.
-#   - dependency-audit: INFORMATIVO, igual que en el api.
-#   - docker-image: BLOQUEA la construcción y la prueba de humo; el escaneo con Trivy es INFORMATIVO hasta
-#     la primera corrida real (todavía no se ha medido qué reporta esta imagen).
+#   - lint: BLOQUEA (`npm run lint` / eslint --quiet debe quedar en 0 errores).
+#   - lint-architecture: BLOQUEA contratos BFF/Mateo y rutas críticas de ventas/procesamiento.
+#   - lint-sales-channels: BLOQUEA servicios y constantes del canal de ventas (subset acotado).
+#   - dependency-audit: BLOQUEA (severidad alta o crítica; única excepción xlsx, ADR-005).
+#   - docker-image: BLOQUEA la construcción, la prueba de humo y Trivy (CRITICAL con corrección).
 # Todas las acciones de terceros van fijadas por SHA de commit, como en el api.
 
 on:
@@ -69,10 +68,79 @@ jobs:
 
       - run: npm ci --ignore-scripts
 
-      # INFORMATIVO por ahora: muestra el reporte pero no bloquea el PR (ver la cabecera del archivo).
-      - name: ESLint (informativo)
-        continue-on-error: true
+      - name: ESLint (bloqueante)
         run: npm run lint
+
+      - name: Tope de líneas ventas/compras (bloqueante)
+        run: node scripts/max-lines-gate.mjs
+  lint-architecture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: ESLint arquitectura, mateo-ia y ventas (obligatorio)
+        run: |
+          npx eslint \
+            "src/lib/architecture/**" \
+            "src/lib/mateo-ia/**" \
+            "src/modules/sales/shared/services/sales-orden-venta-estado.service.ts" \
+            "src/modules/sales/shared/services/sales-api.service.ts" \
+            "src/modules/processing/shared/services/processing.service.create.ts" \
+            "src/modules/processing/shared/services/processing.service.lists.ts" \
+            "src/modules/sales/shared/constants/sales-status.ts"
+
+      - name: Checkout polaria-wms-mateo-pedido-api (contrato / SSOT)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: PolariaTech/polaria-wms-mateo-pedido-api
+          path: mateo-ia-api
+          token: ${{ secrets.MATEO_REPO_READ_TOKEN }}
+          persist-credentials: false
+
+      - name: Tests arquitectura + contrato Mateo
+        run: |
+          npx vitest run \
+            src/lib/architecture/wms-channels.test.ts \
+            src/lib/mateo-ia/mateo-ia.contract.test.ts
+        env:
+          MATEO_IA_API_SYNC_ROOT: ${{ github.workspace }}/mateo-ia-api
+
+  lint-sales-channels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: ESLint canal ventas (obligatorio)
+        run: |
+          npx eslint \
+            "src/lib/architecture/wms-channels.ts" \
+            "src/modules/sales/shared/services/sales-orden-venta-estado.service.ts" \
+            "src/modules/sales/shared/services/sales-api.service.ts" \
+            "src/modules/processing/shared/services/processing.service.create.ts" \
+            "src/modules/processing/shared/services/processing.service.lists.ts" \
+            "src/modules/sales/shared/constants/sales-status.ts"
 
   # Escaneo de dependencias. Solo las de producción (--omit=dev): las de desarrollo no viajan en la imagen.
   dependency-audit:
@@ -90,10 +158,9 @@ jobs:
 
       - run: npm ci --ignore-scripts
 
-      # INFORMATIVO, igual que en el api: muestra el reporte en rojo pero no bloquea el PR.
-      - name: npm audit (producción, informativo - reporta severidad alta o crítica)
-        continue-on-error: true
-        run: npm audit --omit=dev --audit-level=high
+      # Misma barra que polaria-wms-api (high+); excepción única xlsx → ADR-005.
+      - name: npm audit (producción, severidad alta o crítica)
+        run: node scripts/ci-dependency-audit.mjs
 
   # Construye la imagen de producción (ARM64, como en AWS) y la arranca. No la sube a ningún registro.
   docker-image:
@@ -131,10 +198,8 @@ jobs:
         run: bash scripts/docker-smoke.sh polaria-wms-web:ci
 
       # Escaneo de la imagen. ignore-unfixed: solo cuenta lo que ya tiene una versión corregida.
-      # INFORMATIVO hasta la primera corrida real: cuando se sepa qué reporta, se quita `continue-on-error`
-      # para que falle con las CRÍTICAS con corrección, como en el api.
-      - name: Escaneo de la imagen con Trivy (informativo)
-        continue-on-error: true
+      # Misma política que polaria-wms-api: falla con CRITICAL con corrección.
+      - name: Escaneo de la imagen con Trivy (falla con CRÍTICAS con corrección)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: polaria-wms-web:ci

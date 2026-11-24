@@ -23,7 +23,8 @@ export async function listUbicacionesEstadoBodega(
       .select(UBICACION_ESTADO_COLUMNS)
       .eq("id_bodega", resolvedId)
       .eq("esta_activa", true)
-      .order("codigo", { ascending: true });
+      .order("codigo", { ascending: true })
+      .limit(2000);
 
     return query as unknown as Promise<{
       data: UbicacionEstadoBodegaDbRow[] | null;

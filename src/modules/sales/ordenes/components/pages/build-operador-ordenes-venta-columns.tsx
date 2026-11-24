@@ -55,7 +55,7 @@ export function buildOperadorOrdenesVentaColumns(params: {
       headerClassName: ordenVentaTableColumnClass("venta", "header"),
       cellClassName: ordenVentaTableColumnClass("venta"),
       cell: (row: OrdenVentaOperadorRow) => (
-        <span className="inline-flex items-center gap-2">
+        <span className="inline-flex items-center gap-2 whitespace-nowrap">
           <OvAlertaDot
             alertaStatus={row.alertaStatus}
             minutosEnEstado={row.minutosEnEstado}
@@ -95,7 +95,7 @@ export function buildOperadorOrdenesVentaColumns(params: {
         const tieneMas = row.occTodas.length > 1;
         return (
           <span
-            className="inline-flex max-w-[10rem] items-center gap-1"
+            className="flex min-w-0 max-w-full items-center gap-1 overflow-hidden whitespace-nowrap"
             title={title}
           >
             <span className="min-w-0 truncate">{row.occ}</span>
@@ -130,7 +130,14 @@ export function buildOperadorOrdenesVentaColumns(params: {
       header: "Fecha de entrega",
       headerClassName: ordenVentaTableColumnClass("fecha", "header"),
       cellClassName: ordenVentaTableColumnClass("fecha"),
-      cell: (row: OrdenVentaOperadorRow) => textoFechaEntregaListado(row),
+      cell: (row: OrdenVentaOperadorRow) => {
+        const texto = textoFechaEntregaListado(row);
+        return (
+          <span className="block truncate" title={texto || undefined}>
+            {texto}
+          </span>
+        );
+      },
     },
     {
       id: "ot",

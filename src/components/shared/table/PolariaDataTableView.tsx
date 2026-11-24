@@ -1,0 +1,298 @@
+"use client";
+
+import { Plus, RotateCw } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  PolariaTablePaginationFooter,
+} from "@/components/shared/table/PolariaTablePaginationFooter";
+import {
+  getPaginationPlaceholderCount,
+  getTableBodyMinHeightStyle,
+  POLARIA_TABLE_ROW_HEIGHT_CLASS,
+  POLARIA_TABLE_SCROLL_CLASS,
+} from "@/components/shared/table/polaria-table-layout";
+import { filterRowsBySearch } from "@/components/shared/table/polaria-table-search";
+import { PolariaTableSearchField } from "@/components/shared/table/PolariaTableSearchField";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/constants/ui/table-pagination";
+import { useClientTablePagination } from "@/hooks/table/useClientTablePagination";
+import { cn } from "@/lib/utils/cn";
+import { type PolariaDataTableProps } from "./polaria-data-table.types";
+import { PolariaTableBodySkeleton } from "./PolariaTableBodySkeleton";
+
+const EMPTY_SEARCH_MESSAGE = "No hay resultados para la búsqueda.";
+
+export function PolariaDataTable<T>({
+  title,
+  subtitle,
+  isLoading,
+  error,
+  rows,
+  columns,
+  getRowKey,
+  emptyMessage,
+  onRefresh,
+  isRefreshing = false,
+  primaryAction,
+  additionalActions,
+  search,
+  className,
+  onRowClick,
+  getRowAriaLabel,
+  pageSize = DEFAULT_TABLE_PAGE_SIZE,
+  pagination = true,
+  tableClassName,
+}: PolariaDataTableProps<T>) {
+  const [internalSearch, setInternalSearch] = useState("");
+  const isSearchControlled = search != null;
+  const searchValue = isSearchControlled ? search.value : internalSearch;
+  const filteredRows = useMemo(
+    () => filterRowsBySearch(rows, searchValue),
+    [rows, searchValue],
+  );
+  const showTable = !error;
+  const skeletonRows = pagination ? pageSize : 8;
+  const {
+    paginatedRows,
+    page,
+    totalItems,
+    setPage,
+  } = useClientTablePagination(
+    filteredRows,
+    pagination ? pageSize : filteredRows.length || 1,
+    searchValue,
+  );
+  const visibleRows = pagination ? paginatedRows : filteredRows;
+  const tableEmptyMessage =
+    searchValue.trim() && filteredRows.length === 0
+      ? EMPTY_SEARCH_MESSAGE
+      : emptyMessage;
+  const placeholderCount = getPaginationPlaceholderCount(
+    visibleRows.length,
+    pageSize,
+    pagination,
+  );
+
+  return (
+    <section
+      className={cn(
+        "overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-sm",
+        className,
+      )}
+    >
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-polaria-w-08 px-5 py-4 sm:px-6">
+        <div className="min-w-0 shrink">
+          <h2 className="polaria-text-card-title">{title}</h2>
+          {subtitle ? (
+            <p className="polaria-text-caption mt-1 text-polaria-w-50">
+              {subtitle}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <PolariaTableSearchField
+            value={searchValue}
+            onChange={search?.onChange ?? setInternalSearch}
+            placeholder={search?.placeholder ?? "Buscar…"}
+            disabled={isLoading}
+          />
+
+          <span className="polaria-text-body-sm whitespace-nowrap text-polaria-w-50">
+            Total: {isLoading ? "—" : totalItems}
+          </span>
+
+          {onRefresh ? (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isLoading || isRefreshing}
+              aria-label="Actualizar tabla"
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 text-polaria-teal transition",
+                "hover:bg-polaria-t-08 disabled:cursor-not-allowed disabled:opacity-50",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+              )}
+            >
+              <RotateCw
+                className={cn("h-4 w-4", isRefreshing && "animate-spin")}
+                strokeWidth={1.75}
+                aria-hidden
+              />
+            </button>
+          ) : null}
+
+          {additionalActions?.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              onClick={action.onClick}
+              disabled={action.disabled}
+              title={action.title ?? (action.iconOnly ? action.label : undefined)}
+              aria-label={action.iconOnly ? action.label : undefined}
+              className={cn(
+                "inline-flex shrink-0 items-center transition",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+                action.iconOnly
+                  ? "h-9 w-9 justify-center rounded-lg"
+                  : "h-9 gap-1.5 rounded-xl px-4 polaria-text-body-sm font-semibold",
+                action.disabled
+                  ? "cursor-not-allowed border border-polaria-w-08 text-polaria-w-20 opacity-60"
+                  : action.variant === "primary"
+                    ? "bg-polaria-teal text-polaria-on-teal hover:opacity-90"
+                    : "border border-polaria-t-20 text-polaria-teal hover:bg-polaria-t-08",
+              )}
+            >
+              {action.icon}
+              {action.iconOnly ? null : action.label}
+            </button>
+          ))}
+
+          {primaryAction ? (
+            <button
+              type="button"
+              onClick={primaryAction.onClick}
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-polaria-teal px-4",
+                "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+              )}
+            >
+              {primaryAction.showIcon === false ? null : (
+                <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
+              )}
+              {primaryAction.label}
+            </button>
+          ) : null}
+        </div>
+      </header>
+
+      {error ? (
+        <p
+          role="alert"
+          className="polaria-text-body-sm px-5 py-4 text-polaria-w-50 sm:px-6"
+        >
+          {error}
+        </p>
+      ) : null}
+
+      {showTable ? (
+        <div
+          className={POLARIA_TABLE_SCROLL_CLASS}
+          style={pagination ? getTableBodyMinHeightStyle(pageSize) : undefined}
+          role={isLoading ? "status" : undefined}
+          aria-busy={isLoading || undefined}
+          aria-live={isLoading ? "polite" : undefined}
+        >
+          <table className={cn("w-full text-left", tableClassName)}>
+            <thead className="border-b border-polaria-w-08">
+              <tr>
+                {columns.map((column) => (
+                  <th
+                    key={column.id}
+                    scope="col"
+                    className={cn(
+                      "polaria-text-label px-5 py-3 text-polaria-w-50 sm:px-6",
+                      column.headerClassName,
+                    )}
+                  >
+                    {column.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <PolariaTableBodySkeleton
+                  columnCount={columns.length}
+                  rowCount={skeletonRows}
+                />
+              ) : visibleRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={columns.length}
+                    className="polaria-text-body-sm px-5 py-10 text-center text-polaria-w-50 sm:px-6"
+                  >
+                    {tableEmptyMessage}
+                  </td>
+                </tr>
+              ) : (
+                visibleRows.map((row) => (
+                  <tr
+                    key={getRowKey(row)}
+                    className={cn(
+                      POLARIA_TABLE_ROW_HEIGHT_CLASS,
+                      "border-t border-polaria-w-08 text-polaria-w",
+                      onRowClick &&
+                        "cursor-pointer transition-colors hover:bg-polaria-t-08 focus-visible:bg-polaria-t-08 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-polaria-teal",
+                    )}
+                    onClick={
+                      onRowClick
+                        ? () => {
+                            onRowClick(row);
+                          }
+                        : undefined
+                    }
+                    onKeyDown={
+                      onRowClick
+                        ? (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              onRowClick(row);
+                            }
+                          }
+                        : undefined
+                    }
+                    tabIndex={onRowClick ? 0 : undefined}
+                    role={onRowClick ? "button" : undefined}
+                    aria-label={
+                      onRowClick && getRowAriaLabel
+                        ? getRowAriaLabel(row)
+                        : undefined
+                    }
+                  >
+                    {columns.map((column) => (
+                      <td
+                        key={column.id}
+                        className={cn(
+                          "polaria-text-body align-middle px-5 py-0 sm:px-6",
+                          column.cellClassName,
+                        )}
+                      >
+                        {column.cell(row)}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
+              {!isLoading
+                ? Array.from({ length: placeholderCount }, (_, index) => (
+                    <tr
+                      key={`placeholder-${index}`}
+                      aria-hidden
+                      className={cn(
+                        POLARIA_TABLE_ROW_HEIGHT_CLASS,
+                        "border-t border-polaria-w-08",
+                      )}
+                    >
+                      <td colSpan={columns.length} className="px-5 py-0 sm:px-6">
+                        &nbsp;
+                      </td>
+                    </tr>
+                  ))
+                : null}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {showTable && pagination && !isLoading ? (
+        <PolariaTablePaginationFooter
+          page={page}
+          pageSize={pageSize}
+          totalItems={totalItems}
+          onPageChange={setPage}
+        />
+      ) : null}
+    </section>
+  );
+}

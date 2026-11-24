@@ -1,36 +1,55 @@
-const COLUMN_MIN_WIDTH: Record<string, string> = {
-  venta: "min-w-[8.5rem]",
-  occ: "min-w-[8rem] max-w-[10rem]",
-  comprador: "min-w-[7.5rem] max-w-[12.5rem]",
-  productos: "min-w-[8rem]",
-  cantidadKg: "min-w-[9rem]",
-  total: "min-w-[6.5rem]",
-  estado: "min-w-[8rem]",
-  fecha: "min-w-[8rem]",
-  ot: "min-w-[5rem]",
-  origen: "min-w-[7rem]",
-  imprimir: "min-w-[6.5rem]",
-  descargar: "min-w-[6.5rem]",
-  pdfActualizado: "min-w-[7.5rem]",
-  acciones: "min-w-[3.25rem] w-[3.25rem]",
+/**
+ * Anchos en % (suman 100) con `table-fixed`: la tabla usa todo el card,
+ * mantiene el padding normal de PolariaDataTable y Acciones no se corta.
+ * Solo OCC / Cliente / Fecha truncan; el resto respira.
+ */
+const COLUMN_WIDTH: Record<string, string> = {
+  venta: "w-[20%]",
+  occ: "w-[15%]",
+  comprador: "w-[17%]",
+  productos: "w-[12%]",
+  cantidadKg: "w-[10%]",
+  total: "w-[8%]",
+  estado: "w-[12%]",
+  fecha: "w-[18%]",
+  ot: "w-[8%]",
+  origen: "w-[10%]",
+  imprimir: "w-[8%]",
+  descargar: "w-[8%]",
+  pdfActualizado: "w-[9%]",
+  acciones: "w-[10%]",
 };
 
-export const ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS = "w-full";
+/** Ancho completo + layout fijo. Sin tocar el padding de celdas. */
+export const ORDENES_VENTA_TABLE_MIN_WIDTH_CLASS = "w-full table-fixed";
 
 export function ordenVentaTableColumnClass(
   columnId: string,
   variant: "header" | "cell" = "cell",
 ): string {
-  const width = COLUMN_MIN_WIDTH[columnId] ?? "min-w-[8rem]";
+  const width = COLUMN_WIDTH[columnId] ?? "w-[10%]";
   const nowrap = `${width} whitespace-nowrap`;
 
-  if (columnId === "comprador") {
-    return `${width} truncate`;
+  if (columnId === "venta") {
+    return `${width} whitespace-nowrap`;
   }
 
-  // OCC: el truncate va en el texto; el "+" de extras no debe cortarse.
+  if (columnId === "comprador") {
+    return `${width} overflow-hidden truncate`;
+  }
+
   if (columnId === "occ") {
-    return width;
+    return variant === "header"
+      ? `${width} overflow-hidden whitespace-nowrap truncate`
+      : `${width} overflow-hidden`;
+  }
+
+  if (columnId === "fecha") {
+    return `${width} overflow-hidden whitespace-nowrap truncate`;
+  }
+
+  if (columnId === "acciones") {
+    return nowrap;
   }
 
   if (variant === "cell" && (columnId === "total" || columnId === "ot")) {

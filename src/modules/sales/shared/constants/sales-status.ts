@@ -39,9 +39,8 @@ export function estadosSuperioresOrdenVenta(
   const actual = normalizeEstadoOrdenVenta(estado);
   const index = ESTADOS_AVANCE_MANUAL.indexOf(actual);
   if (index >= 0) return ESTADOS_AVANCE_MANUAL.slice(index + 1);
-  if (actual === "por_confirmar" || actual === "confirmada") {
-    return ESTADOS_AVANCE_MANUAL;
-  }
+  if (actual === "por_confirmar") return [];
+  if (actual === "confirmada") return ESTADOS_AVANCE_MANUAL;
   return [];
 }
 

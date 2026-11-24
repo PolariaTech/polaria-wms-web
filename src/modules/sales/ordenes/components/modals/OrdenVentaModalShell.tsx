@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { FormEvent } from "react";
 import { cn } from "@/lib/utils/cn";
 import { formatPrecioEs } from "@/lib/utils/decimal-es";
@@ -19,6 +19,7 @@ import { OrdenVentaModalCuerpo, OrdenVentaModalOverlays, type OrdenVentaFormEsta
 import { revisionPendienteVisible } from "../../utils/pedido/occ-alineada-listado-ov";
 import { ETIQUETA_TAREA, etiquetaTareaIndice } from "./etiqueta-tarea-ot";
 import { OrdenVentaModalReadonlyBody } from "./orden-venta-modal-readonly-body";
+import { OrdenVentaModalFooterAction } from "./OrdenVentaModalShell-footer-action";
 
 export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado }) {
   const revisionLista = revisionPendienteVisible({
@@ -214,74 +215,10 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
           ) : undefined
         }
         footerAction={
-          soloLectura ? (
-            <></>
-          ) : estado.step === "pickOt" ? (
-            <></>
-          ) : estado.step === "preview" ? (
-            <button
-              type="button"
-              onClick={() => {
-                estado.setFormOtPage(0);
-                estado.setStep("form");
-                estado.setError(null);
-              }}
-              className={cn(
-                "rounded-xl bg-polaria-teal px-5 py-2.5",
-                "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
-              )}
-            >
-              Continuar al formulario
-            </button>
-          ) : estado.step === "start" && estado.startMode === "docs" ? (
-            <button
-              type="button"
-              onClick={() => {
-                void estado.openFormFromDocs();
-              }}
-              disabled={!estado.docsReady || estado.isReadingIa}
-              className={cn(
-                "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-5 py-2.5",
-                "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-              )}
-            >
-              {estado.isReadingIa ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : null}
-              Continuar
-            </button>
-          ) : estado.step === "start" ? (
-            <></>
-          ) : estado.step === "form" ? (
-            <button
-              type="submit"
-              disabled={soloLectura || estado.confirmSubmitDisabled}
-              title={
-                soloLectura
-                  ? "Solo lectura: otro usuario está editando"
-                  : estado.confirmSubmitDisabled
-                    ? (estado.confirmBloqueoReason ?? "Completa lo pendiente para confirmar")
-                    : undefined
-              }
-              aria-disabled={soloLectura || estado.confirmSubmitDisabled}
-              className={cn(
-                "inline-flex min-w-[7rem] items-center justify-center gap-2 rounded-xl bg-polaria-teal px-4 py-2.5",
-                "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
-                "disabled:cursor-not-allowed disabled:opacity-60",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-              )}
-            >
-              {estado.isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : null}
-              {estado.isEditing &&
-              estado.editingEstado !== "por_confirmar" &&
-              !estado.pendingEmitId
-                ? "Actualizar"
-                : "Confirmar"}
-            </button>
-          ) : undefined
+          <OrdenVentaModalFooterAction
+            estado={estado}
+            soloLectura={soloLectura}
+          />
         }
         closeOnEscape={
           estado.picker === null &&

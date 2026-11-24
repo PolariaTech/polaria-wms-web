@@ -1,7 +1,3 @@
-import {
-  isEmlOrigenAdjunto,
-  isHtmlOrigenAdjunto,
-} from "./origen-adjunto-content-type";
 
 /** Adjunto de origen de pedido (Supabase Storage / legado Cloudinary). */
 export type OrigenAdjunto = {

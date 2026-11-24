@@ -12,7 +12,7 @@ import { resolveDireccionDesdeUltimaConfirmada } from "../../utils/pedido/resolv
 export { useAvisosValidacionOv } from "./avisos-validacion-ov";
 
 export function usePrefillYDiscrepanciasOv(estado: OrdenVentaFormEstado) {
-  const { telefono, setFichaComprador, setExigeOc, exigeOc, setMoneda, moneda, setCentroConsumo, centroConsumo, setVentanaDesde, ventanaDesde, setVentanaHasta, ventanaHasta, setDireccion, direccion, setAnden, anden, setContacto, contacto, setTelefono, setCorreo, correo, setAceptaSustituciones, aceptaSustituciones, setRequiereLote, requiereLote, setRegistrarTemperatura, registrarTemperatura, setObservaciones, observaciones, fechaEntrega, setFechaEntrega, setDiscrepancias, setWarnFields, setMissingFields, setAutoFields } = estado;
+  const { setFichaComprador, setExigeOc, setMoneda, setCentroConsumo, setVentanaDesde, setVentanaHasta, setDireccion, setAnden, setContacto, setTelefono, setCorreo, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setObservaciones, setFechaEntrega, setDiscrepancias, setWarnFields, setMissingFields, setAutoFields } = estado;
   const applyCompradorPrefill = useCallback(
     (
       row: CompradorListRow,
@@ -57,7 +57,7 @@ export function usePrefillYDiscrepanciasOv(estado: OrdenVentaFormEstado) {
       );
       setObservaciones((prev) => take(prev, prefill.observaciones));
     },
-    [],
+    [setAceptaSustituciones, setAnden, setCentroConsumo, setContacto, setCorreo, setDireccion, setExigeOc, setFichaComprador, setMoneda, setObservaciones, setRegistrarTemperatura, setRequiereLote, setTelefono, setVentanaDesde, setVentanaHasta],
   );
 
   const applyDiscrepanciaFieldValue = useCallback(
@@ -107,7 +107,7 @@ export function usePrefillYDiscrepanciasOv(estado: OrdenVentaFormEstado) {
           break;
       }
     },
-    [],
+    [setAceptaSustituciones, setAnden, setCentroConsumo, setContacto, setCorreo, setDireccion, setFechaEntrega, setObservaciones, setRegistrarTemperatura, setRequiereLote, setTelefono, setVentanaDesde, setVentanaHasta],
   );
 
   /**
@@ -165,20 +165,20 @@ export function usePrefillYDiscrepanciasOv(estado: OrdenVentaFormEstado) {
       // No cerrar el diálogo: el usuario ve el ítem desaparecer y decide
       // «Usar valores del pedido» o «Volver a editar». Cerrar al instante hacía parecer que no aplicaba.
     },
-    [applyDiscrepanciaFieldValue, canReemplazarDiscrepancia],
+    [applyDiscrepanciaFieldValue, canReemplazarDiscrepancia, setAutoFields, setDiscrepancias, setMissingFields, setWarnFields],
   );
   return { applyCompradorPrefill, canReemplazarDiscrepancia, handleReemplazarDiscrepancia };
 }
 
 export function useAbrirCapturaOv(estado: OrdenVentaFormEstado) {
-  const { setStartMode, setError, ensureFormDataReady, setStep, setIsCompradorCreateOpen, setCompradores, idComprador, handleSelectComprador } = estado;
+  const { setStartMode, setError, ensureFormDataReady, setStep, setIsCompradorCreateOpen, setCompradores, handleSelectComprador } = estado;
   const openFormFromScratch = useCallback(() => {
     setStartMode("scratch");
     setError(null);
     void ensureFormDataReady().then((ok) => {
       if (ok) setStep("form");
     });
-  }, [ensureFormDataReady]);
+  }, [ensureFormDataReady, setError, setStartMode, setStep]);
 
   const openFirstTimeFlow = useCallback(() => {
     setStartMode("first_time");
@@ -186,7 +186,7 @@ export function useAbrirCapturaOv(estado: OrdenVentaFormEstado) {
     setIsCompradorCreateOpen(true);
     // Precarga en background mientras registran al comprador.
     void ensureFormDataReady();
-  }, [ensureFormDataReady]);
+  }, [ensureFormDataReady, setError, setIsCompradorCreateOpen, setStartMode]);
 
   const handleCompradorCreatedForSale = useCallback(
     (created: CompradorListRow) => {
@@ -206,7 +206,7 @@ export function useAbrirCapturaOv(estado: OrdenVentaFormEstado) {
         if (ok) setStep("form");
       });
     },
-    [ensureFormDataReady, handleSelectComprador],
+    [ensureFormDataReady, handleSelectComprador, setCompradores, setError, setIsCompradorCreateOpen, setStartMode, setStep],
   );
 
   return { openFormFromScratch, openFirstTimeFlow, handleCompradorCreatedForSale };

@@ -1,6 +1,6 @@
-/** REQ-226: oculta el título vacío del DataTable y empuja la toolbar a la derecha. */
+/** REQ-226: oculta el título vacío, toolbar a la derecha, sin scroll horizontal. */
 export const OV_LISTADO_DATATABLE_CHROME_CLASS =
-  "[&>header>div:first-child]:hidden [&>header]:justify-end";
+  "[&>header>div:first-child]:hidden [&>header]:justify-end [&_.polaria-scrollbar]:overflow-x-hidden";
 
 export function cypherMatchesCreateDraft(params: {
   cypherId: string | null;

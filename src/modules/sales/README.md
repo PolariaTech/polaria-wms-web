@@ -2,6 +2,16 @@
 
 Órdenes de venta y gestión comercial.
 
+## Comunicación (OV y afines)
+
+Canal híbrido documentado en [docs/ARQUITECTURA-COMUNICACION.md](../../../docs/ARQUITECTURA-COMUNICACION.md) §6:
+
+- Listado / borrador / locks / materializar → **Supabase (A)**
+- Emitir / cancelar / correos / OT / reagrupar → **Nest (B)**
+- Leer pedido IA / impresión / adjuntos / log → **BFF Next (D)** (+ Mateo **C** en lectura)
+
+No mover un bloque de canal sin ticket y tests.
+
 ## Responsabilidades
 
 - Creación y seguimiento de órdenes de venta (OV)

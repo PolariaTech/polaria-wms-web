@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
 import { ROLES_NIVEL_CUENTA } from "@/constants/wms/roles";
@@ -17,7 +18,14 @@ import { BarraCorreoCompleto } from "./BarraCorreoCompleto";
 import { CorreoCuerpo } from "./CorreoCuerpo";
 import { Personas } from "./DetalleCorreoPartes";
 import { IngresoDesdeCorreo } from "./IngresoDesdeCorreo";
-import { VisorAdjuntoCorreo } from "./VisorAdjuntoCorreo";
+
+const VisorAdjuntoCorreo = dynamic(
+  () =>
+    import("./VisorAdjuntoCorreo").then((m) => ({
+      default: m.VisorAdjuntoCorreo,
+    })),
+  { ssr: false, loading: () => null },
+);
 
 /** Lo que suele tardar la primera lectura en Gmail; la siguiente, desde la memoria del api, es casi inmediata. */
 const ESPERA_LECTURA_DEL_CORREO: RangoEspera = { minSeg: 3, maxSeg: 15 };

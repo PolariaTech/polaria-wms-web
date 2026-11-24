@@ -40,6 +40,28 @@ describe("borrarOrdenVenta REQ-350", () => {
     expect(cancelarOrdenVentaApi).toHaveBeenCalledWith("ov-1");
   });
 
+  it("en por_confirmar llama a cancelarOrdenVentaApi", async () => {
+    const selectChain = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    selectChain.select.mockReturnValue(selectChain);
+    selectChain.eq.mockReturnValue(selectChain);
+    selectChain.maybeSingle.mockResolvedValue({
+      data: { estado: "por_confirmar" },
+      error: null,
+    });
+    setSupabaseClientForTests({ from: vi.fn(() => selectChain) } as never);
+
+    await borrarOrdenVenta({
+      codigoCuenta: "CUENTA-01",
+      idOrdenVenta: "ov-pc",
+    });
+
+    expect(cancelarOrdenVentaApi).toHaveBeenCalledWith("ov-pc");
+  });
+
   it("en alistada sigue rechazando", async () => {
     const selectChain = {
       select: vi.fn(),

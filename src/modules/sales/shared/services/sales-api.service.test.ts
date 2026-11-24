@@ -1,78 +1,65 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "@/services/api/api";
+import { DomainServiceError } from "@/lib/utils/domain-service-error";
+import { ApiError, apiRequest } from "@/services/api/api";
+import {
+  avanzarEstadoOrdenVentaApi,
+  cancelarOrdenVentaApi,
+  listOrdenesVentaParaSalida,
+} from "./sales-api.service";
 
 vi.mock("@/services/api/api", () => ({
   ApiError: class ApiError extends Error {
-    status: number;
-    constructor(message: string, status: number) {
+    constructor(message: string) {
       super(message);
-      this.status = status;
     }
   },
   apiRequest: vi.fn(),
 }));
 
-import { apiRequest } from "@/services/api/api";
-import { emitirOrdenVentaApi, listOrdenesVentaApi } from "./sales-api.service";
+const apiRequestMock = vi.mocked(apiRequest);
 
 describe("sales-api.service", () => {
   beforeEach(() => {
-    vi.mocked(apiRequest).mockReset();
+    apiRequestMock.mockReset();
   });
 
-  it("emitirOrdenVentaApi llama POST /ventas/ordenes/:id/emitir", async () => {
-    vi.mocked(apiRequest).mockResolvedValue({
-      idOrdenVenta: "ov-1",
-      venta: "OV-001",
-      estado: "confirmada",
-    });
+  it("listOrdenesVentaParaSalida propaga fallo Nest sin fallback Supabase", async () => {
+    apiRequestMock.mockRejectedValue(new ApiError("nest caído"));
 
-    const row = await emitirOrdenVentaApi("ov-1");
+    await expect(
+      listOrdenesVentaParaSalida({ codigoCuenta: "emp1" }),
+    ).rejects.toBeInstanceOf(DomainServiceError);
 
-    expect(apiRequest).toHaveBeenCalledWith("/ventas/ordenes/ov-1/emitir", {
-      method: "POST",
-      auth: true,
-      body: undefined,
-    });
-    expect(row.estado).toBe("confirmada");
+    expect(apiRequestMock).toHaveBeenCalledTimes(1);
+    expect(apiRequestMock.mock.calls[0]?.[0]).toContain("paraSalida=true");
   });
 
-  it("emitirOrdenVentaApi rechaza id vacío", async () => {
-    await expect(emitirOrdenVentaApi("  ")).rejects.toThrow(
-      "La orden de venta no es válida.",
-    );
-    expect(apiRequest).not.toHaveBeenCalled();
-  });
+  it("avanzarEstadoOrdenVentaApi llama POST avanzar-estado", async () => {
+    apiRequestMock.mockResolvedValue({ idOrdenVenta: "ov-1", estado: "alistada" });
 
-  it("emitirOrdenVentaApi propaga errores del API", async () => {
-    vi.mocked(apiRequest).mockRejectedValue(
-      new ApiError("Solo se pueden emitir ventas en borrador.", 409),
-    );
+    const row = await avanzarEstadoOrdenVentaApi("ov-1", "alistada");
 
-    await expect(emitirOrdenVentaApi("ov-1")).rejects.toThrow(
-      "Solo se pueden emitir ventas en borrador.",
+    expect(row.estado).toBe("alistada");
+    expect(apiRequestMock).toHaveBeenCalledWith(
+      "/ventas/ordenes/ov-1/avanzar-estado",
+      expect.objectContaining({
+        method: "POST",
+        auth: true,
+        body: { estado: "alistada" },
+      }),
     );
   });
 
-  it("listOrdenesVentaApi usa paraSalida=true para el picker del jefe", async () => {
-    vi.mocked(apiRequest).mockResolvedValue([
-      {
-        idOrdenVenta: "ov-1",
-        venta: "OV-001",
-        estado: "confirmada",
-      },
-    ]);
-
-    const rows = await listOrdenesVentaApi({
-      codigoCuenta: "ACME",
-      idBodega: "b1",
-      paraSalida: true,
-    });
-
-    expect(apiRequest).toHaveBeenCalledWith(
-      "/ventas/ordenes?codigoCuenta=ACME&idBodega=b1&paraSalida=true",
-      { auth: true },
+  it("avanzarEstadoOrdenVentaApi rechaza id vacío", async () => {
+    await expect(avanzarEstadoOrdenVentaApi(" ", "alistada")).rejects.toBeInstanceOf(
+      DomainServiceError,
     );
-    expect(rows[0]?.estado).toBe("confirmada");
+  });
+
+  it("cancelarOrdenVentaApi mapea ApiError", async () => {
+    apiRequestMock.mockRejectedValue(new ApiError("conflicto"));
+    await expect(cancelarOrdenVentaApi("ov-1")).rejects.toBeInstanceOf(
+      DomainServiceError,
+    );
   });
 });

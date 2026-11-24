@@ -285,7 +285,8 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
       render(<OrdenVentaFormStep {...estado} />);
 
       expect(screen.getAllByText(/Aplica a todas las OT/).length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText("Solo esta OT.").length).toBeGreaterThanOrEqual(1);
+      // Referencia de pedido (único «Solo esta OT.») está oculta en captura.
+      expect(screen.queryByText("Solo esta OT.")).not.toBeInTheDocument();
     });
   });
 });

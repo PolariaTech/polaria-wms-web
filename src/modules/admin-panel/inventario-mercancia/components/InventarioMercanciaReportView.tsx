@@ -23,29 +23,20 @@ import {
   type InventarioMercanciaBodegaOption,
   type InventarioMercanciaFila,
 } from "../services/inventario-mercancia-listado.service";
-import {
-  getBodegaExternaEmbedEligible,
-  listBodegaExternaEmbedReports,
-  mintBodegaExternaEmbedViewUrl,
-  type BodegaExternaEmbedReportOption,
-} from "../services/cuenta-reporte-embed.client";
 import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
 import {
   useAdminMaestroScope,
   type AdminMaestroViewProps,
 } from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
+import {
+  toolbarButtonClassName,
+  type InventarioMercanciaStep,
+} from "./inventario-mercancia-report.constants";
+import { InventarioMercanciaEmbedPanel } from "./InventarioMercanciaEmbedPanel";
+import { useInventarioMercanciaEmbed } from "./use-inventario-mercancia-embed";
 import { InventarioMercanciaFlow } from "./InventarioMercanciaFlow";
 import { InventarioMercanciaBodegaPicker } from "./InventarioMercanciaBodegaPicker";
 import { InventarioMercanciaListadoTable } from "./InventarioMercanciaListadoTable";
-
-type Step = "flow" | "bodegas" | "detalle" | "reportes";
-
-const toolbarButtonClassName = cn(
-  "inline-flex items-center gap-2 rounded-xl border border-polaria-t-20 bg-polaria-w-08 px-4 py-2.5",
-  "polaria-text-body-sm font-medium text-polaria-w",
-  "transition hover:border-polaria-teal hover:text-polaria-teal",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal",
-);
 
 export function InventarioMercanciaReportView({
   codigoCuenta: codigoCuentaProp,
@@ -56,7 +47,7 @@ export function InventarioMercanciaReportView({
     mode,
   });
 
-  const [step, setStep] = useState<Step>("flow");
+  const [step, setStep] = useState<InventarioMercanciaStep>("flow");
   const [activeEtapa, setActiveEtapa] =
     useState<InventarioMercanciaEtapaId | null>(null);
   const [selectedBodega, setSelectedBodega] =
@@ -70,16 +61,16 @@ export function InventarioMercanciaReportView({
   const [filasLoading, setFilasLoading] = useState(false);
   const [filasError, setFilasError] = useState<string | null>(null);
 
-  const [embedEligible, setEmbedEligible] = useState(false);
-  const [embedReports, setEmbedReports] = useState<
-    BodegaExternaEmbedReportOption[]
-  >([]);
-  const [selectedEmbedReportId, setSelectedEmbedReportId] = useState<
-    string | null
-  >(null);
-  const [embedViewUrl, setEmbedViewUrl] = useState<string | null>(null);
-  const [embedLoading, setEmbedLoading] = useState(false);
-  const [embedError, setEmbedError] = useState<string | null>(null);
+  const {
+    embedEligible,
+    embedReports,
+    selectedEmbedReportId,
+    setSelectedEmbedReportId,
+    embedViewUrl,
+    embedLoading,
+    embedError,
+    resetEmbed,
+  } = useInventarioMercanciaEmbed({ step, codigoCuenta, inspect });
 
   const fetchReport = useCallback(() => {
     if (!codigoCuenta) {
@@ -105,23 +96,6 @@ export function InventarioMercanciaReportView({
     activeEtapa === "bodega_externa" &&
     selectedBodega?.tipo === "externa" &&
     (step === "detalle" || step === "reportes");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (inspect || !codigoCuenta?.trim()) {
-      setEmbedEligible(false);
-      return;
-    }
-
-    void getBodegaExternaEmbedEligible().then((eligible) => {
-      if (!cancelled) setEmbedEligible(eligible);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [codigoCuenta, inspect]);
 
   const loadBodegas = useCallback(
     async (etapaId: InventarioMercanciaEtapaId) => {
@@ -191,76 +165,6 @@ export function InventarioMercanciaReportView({
     }
   }, [loadFilas, selectedBodega, step]);
 
-  useEffect(() => {
-    if (step !== "reportes") {
-      return;
-    }
-
-    let cancelled = false;
-    setEmbedLoading(true);
-    setEmbedError(null);
-    setEmbedViewUrl(null);
-    setSelectedEmbedReportId(null);
-    setEmbedReports([]);
-
-    void listBodegaExternaEmbedReports()
-      .then((reports) => {
-        if (cancelled) return;
-        setEmbedReports(reports);
-        if (reports.length === 1) {
-          setSelectedEmbedReportId(reports[0].id);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setEmbedError(
-            err instanceof Error
-              ? err.message
-              : "No se pudieron cargar los reportes.",
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setEmbedLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [step]);
-
-  useEffect(() => {
-    if (step !== "reportes" || !selectedEmbedReportId) {
-      return;
-    }
-
-    let cancelled = false;
-    setEmbedLoading(true);
-    setEmbedError(null);
-    setEmbedViewUrl(null);
-
-    void mintBodegaExternaEmbedViewUrl(selectedEmbedReportId)
-      .then((viewUrl) => {
-        if (!cancelled) setEmbedViewUrl(viewUrl);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setEmbedError(
-            err instanceof Error
-              ? err.message
-              : "No se pudo obtener el enlace del reporte.",
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setEmbedLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedEmbedReportId, step]);
-
   const handleSelectStage = (id: InventarioMercanciaEtapaId) => {
     setActiveEtapa(id);
     setSelectedBodega(null);
@@ -282,10 +186,7 @@ export function InventarioMercanciaReportView({
 
   const handleBack = () => {
     if (step === "reportes") {
-      setEmbedViewUrl(null);
-      setEmbedError(null);
-      setSelectedEmbedReportId(null);
-      setEmbedReports([]);
+      resetEmbed();
       setStep("detalle");
       return;
     }
@@ -402,73 +303,14 @@ export function InventarioMercanciaReportView({
         ) : null}
 
         {step === "reportes" ? (
-          <div className="space-y-4">
-            {embedReports.length > 1 ? (
-              <div className="flex flex-wrap gap-2">
-                {embedReports.map((report) => {
-                  const selected = report.id === selectedEmbedReportId;
-                  return (
-                    <button
-                      key={report.id}
-                      type="button"
-                      onClick={() => setSelectedEmbedReportId(report.id)}
-                      className={cn(
-                        toolbarButtonClassName,
-                        selected &&
-                          "border-polaria-teal text-polaria-teal shadow-[0_0_20px_var(--teal-glow)]",
-                      )}
-                    >
-                      {report.descripcion?.trim() || "Reporte"}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            <div className="w-full overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-bg">
-              {embedLoading ? (
-                <PolariaStatusLoading
-                  embedded
-                  title="Preparando reporte seguro…"
-                  message="Estamos abriendo la visualización."
-                  className="py-10"
-                />
-              ) : null}
-
-              {embedError ? (
-                <p
-                  role="alert"
-                  className="m-4 rounded-lg border border-polaria-danger-border bg-polaria-danger-bg px-3 py-2 polaria-text-body-sm text-polaria-danger"
-                >
-                  {embedError}
-                </p>
-              ) : null}
-
-              {!embedLoading &&
-              !embedError &&
-              embedReports.length > 1 &&
-              !selectedEmbedReportId ? (
-                <p className="px-4 py-10 text-center polaria-text-body-sm text-polaria-w-50">
-                  Elige un reporte para visualizarlo.
-                </p>
-              ) : null}
-
-              {embedViewUrl ? (
-                <iframe
-                  title={
-                    embedReports.find((r) => r.id === selectedEmbedReportId)
-                      ?.descripcion || "Reportes bodega externa"
-                  }
-                  src={embedViewUrl}
-                  className="block w-full border-0"
-                  style={{ height: "42rem" }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              ) : null}
-            </div>
-          </div>
+          <InventarioMercanciaEmbedPanel
+            embedReports={embedReports}
+            selectedEmbedReportId={selectedEmbedReportId}
+            embedViewUrl={embedViewUrl}
+            embedLoading={embedLoading}
+            embedError={embedError}
+            onSelectReport={setSelectedEmbedReportId}
+          />
         ) : null}
       </section>
     </AdminMaestroViewShell>

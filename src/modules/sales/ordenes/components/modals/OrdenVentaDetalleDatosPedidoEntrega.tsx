@@ -46,7 +46,6 @@ export function OrdenVentaDetalleDatosPedidoEntrega({
   ordenCompraHotel,
   folioFactura,
   centroConsumo,
-  referenciaPedido,
   moneda,
   fechaEntrega,
   ventanaEntrega,
@@ -61,7 +60,6 @@ export function OrdenVentaDetalleDatosPedidoEntrega({
   ordenCompraHotel: string;
   folioFactura: string;
   centroConsumo: string;
-  referenciaPedido: string;
   moneda: string;
   fechaEntrega: string;
   ventanaEntrega: string;
@@ -100,9 +98,6 @@ export function OrdenVentaDetalleDatosPedidoEntrega({
           </MetaField>
           <MetaField label="Moneda">
             <TextValue value={moneda || "MXN"} />
-          </MetaField>
-          <MetaField label="Referencia de pedido">
-            <TextValue value={referenciaPedido} />
           </MetaField>
           <MetaField label="Fecha de creación">
             {formatDateTime(orden.created_at || orden.fecha_pedido)}

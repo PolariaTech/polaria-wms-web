@@ -9,6 +9,8 @@ interface UseAsyncQueryResult<T> {
   isRefreshing: boolean;
   error: string | null;
   reload: () => Promise<void>;
+  /** Actualiza `data` sin disparar fetch (p. ej. patch incremental Realtime). */
+  patchData: (updater: (prev: T) => T) => void;
 }
 
 export function useAsyncQuery<T>(
@@ -25,6 +27,13 @@ export function useAsyncQuery<T>(
   useEffect(() => {
     fetcherRef.current = fetcher;
   }, [fetcher]);
+
+  const patchData = useCallback((updater: (prev: T) => T) => {
+    setData((prev) => {
+      if (prev === null) return prev;
+      return updater(prev);
+    });
+  }, []);
 
   const reload = useCallback(async () => {
     if (!enabled) return;
@@ -62,5 +71,5 @@ export function useAsyncQuery<T>(
     void reload();
   }, [enabled, reload]);
 
-  return { data, isLoading, isRefreshing, error, reload };
+  return { data, isLoading, isRefreshing, error, reload, patchData };
 }

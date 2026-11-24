@@ -72,6 +72,23 @@ describe("puedeEditarOrdenVentaDesdeLista", () => {
 });
 
 describe("estadosSuperioresOrdenVenta", () => {
+  it("desde por_confirmar no ofrece avance manual (emitir solo Nest)", () => {
+    expect(estadosSuperioresOrdenVenta("por_confirmar")).toEqual([]);
+    expect(puedeAvanzarEstadoOrdenVenta("por_confirmar", "alistamiento")).toBe(
+      false,
+    );
+  });
+
+  it("desde confirmada ofrece avance manual de almacén", () => {
+    expect(estadosSuperioresOrdenVenta("confirmada")).toEqual([
+      "alistamiento",
+      "alistada",
+      "revisada",
+      "despachada",
+      "facturada",
+    ]);
+  });
+
   it("desde alistamiento ofrece solo lo que sigue", () => {
     expect(estadosSuperioresOrdenVenta("alistamiento")).toEqual([
       "alistada",

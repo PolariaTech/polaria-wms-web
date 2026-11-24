@@ -85,4 +85,28 @@ describe("findPrimeraRevisionPendiente", () => {
     expect(r?.focusKind).toBe("cantidad");
     expect(revisionFocusSelector(r!)).toBe('[data-ov-revision="cantidad-0"]');
   });
+
+  it("REQ-170: con 1 OT no dice Sin productos si las líneas tienen otro otId", () => {
+    const r = findPrimeraRevisionPendiente({
+      ...base,
+      hijas: [{ id: "pedido:cunqr|almacen:comedor", label: "COMEDOR", almacen: "COMEDOR" }],
+      lineas: [
+        {
+          otId: "pedido:cunqr|almacen:_",
+          idProducto: "p1",
+          cantidadInput: "25",
+          precioInput: "26",
+          nombre: "CALABAZA ITALIANA",
+        },
+        {
+          otId: "default",
+          idProducto: "p2",
+          cantidadInput: "20",
+          precioInput: "36",
+          nombre: "CEBOLLA MORADA",
+        },
+      ],
+    });
+    expect(r).toBeNull();
+  });
 });

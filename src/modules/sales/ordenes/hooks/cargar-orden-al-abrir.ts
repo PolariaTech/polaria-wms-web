@@ -1,11 +1,7 @@
 import { getCompradorAdmin, listCompradorProductoAliasAdmin } from "@/modules/admin-panel";
-import type { CompradorListRow } from "@/modules/admin-panel";
 import { fetchUltimosPreciosPorComprador } from "../../shared/services/sales.service";
 import { buildPedidoExtraidoFromOrigenCorreo } from "../utils/origen/pedido-from-origen-correo";
-import {
-  todayIsoDate,
-  tomorrowIsoDate,
-} from "../utils/pedido/build-orden-venta-captura-observaciones";
+import { todayIsoDate, tomorrowIsoDate } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { mapPedidoExtraidoToForm } from "../utils/pedido/map-pedido-extraido-to-form";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/pedido/prefill-orden-venta-from-comprador";
 import { resolvePropuestaClienteMateoAlReabrir } from "../utils/pedido/resolve-cabecera-guardada";
@@ -15,11 +11,7 @@ import { mergeLineasBdConOrigenPendiente } from "../utils/pedido/merge-lineas-bd
 import { lineaFormDesdeIa } from "../utils/pedido/orden-venta-create-helpers";
 import { flattenOrdenesTrabajoToOrigenCorreo } from "../utils/origen/origen-correo-ordenes-trabajo";
 import { resolverCabeceraFormConSelloUsuario } from "./aplicar-cabecera-con-sello-usuario";
-import {
-  rankCompradoresFromNombre,
-  sugerenciasCompradorParaPicker,
-  shouldAutoAssignComprador,
-} from "../utils/match/match-comprador-from-nombre";
+import { rankCompradoresFromNombre, sugerenciasCompradorParaPicker, shouldAutoAssignComprador } from "../utils/match/match-comprador-from-nombre";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import { preciosYEquivalenciasDeComprador } from "./useClienteOv";
 
