@@ -117,7 +117,7 @@ export function useRevisionPendienteOv(estado: OrdenVentaFormEstado) {
     window.setTimeout(() => {
       el.focus({ preventScroll: true });
     }, 180);
-  }, []);
+  }, [formScrollRef]);
 
   useLayoutEffect(() => {
     const pending = revisionFocusRequestRef.current;
@@ -139,7 +139,7 @@ export function useRevisionPendienteOv(estado: OrdenVentaFormEstado) {
     formOtSafePage,
     lineasConIndice,
     paginarPorOt,
-    step,
+    step, revisionFocusRequestRef,
   ]);
 
   return {

@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WmsRol } from "@/constants/wms/roles";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
-import {
-  createUsuarioConfigurator,
-  listBodegasAssignOptions,
-  listUsuariosConfigurator,
-} from "./usuarios.service";
+import { createUsuarioConfigurator } from "./usuarios.service";
 
 vi.mock("@/config/env", () => ({
   env: { apiBaseUrl: "http://localhost:3000" },

@@ -1,24 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  getOrdersVisibleSinceDate,
-  setSupabaseClientForTests,
-} from "@/lib/supabase/domain-query";
+import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import { createSupabaseMock } from "@/test/create-supabase-mock";
-import {
-  avanzarEstadoOrdenVenta,
-  borrarOrdenVenta,
-  createOrdenVenta,
-  getOrdenVentaDetalle,
-  listOrdenesVenta,
-  listOrdenesVentaOperador,
-  listProductosVentaCatalogo,
-  updateOrdenVenta,
-} from "./sales.service";
-import {
-  mockUpdateOrdenVentaDeps,
-} from "./sales.service.test-helpers";
+import { avanzarEstadoOrdenVenta, borrarOrdenVenta, updateOrdenVenta } from "./sales.service";
+import { mockUpdateOrdenVentaDeps } from "./sales.service.test-helpers";
 
 const cancelarOrdenVentaApi = vi.hoisted(() => vi.fn());
 const avanzarEstadoOrdenVentaApi = vi.hoisted(() => vi.fn());

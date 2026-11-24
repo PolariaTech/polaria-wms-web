@@ -95,7 +95,7 @@ export function useAplicarReagrupacionOv(estado: OrdenVentaFormEstado) {
       lineas,
       pendingEmitId,
       showToast,
-      syncActiveOtFromForm,
+      syncActiveOtFromForm, pendingDraftSaveAfterReorgRef, setError, setFormOtPage, setLineas, setReagruparAplicada, setReagruparOpen,
     ],
   );
   return { obtenerSolicitudReagrupacion, handleAplicarReagrupacion };

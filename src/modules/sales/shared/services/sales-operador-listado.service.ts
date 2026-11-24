@@ -2,45 +2,15 @@
  * Canal A (Supabase+RLS): listado operador OV y enriquecimientos de lectura.
  * Emitir/cancelar → sales-api.service (canal B). Ver wms-channels / ARQUITECTURA-COMUNICACION.
  */
-import {
-  applyTenantFilters,
-  applyRecentOrdersFilter,
-  DEFAULT_LIST_LIMIT,
-  requireCodigoCuenta,
-  requireIdBodega,
-  type TenantListParams,
-  runDomainQuery,
-} from "@/lib/supabase/domain-query";
+import { applyTenantFilters, applyRecentOrdersFilter, DEFAULT_LIST_LIMIT, requireCodigoCuenta, requireIdBodega, type TenantListParams, runDomainQuery } from "@/lib/supabase/domain-query";
 import { normalizeEstadoOrdenVenta } from "../constants/sales-status";
-import {
-  collectOrdenesCompraCliente,
-  countOrdenesTrabajo,
-} from "../../ordenes/utils/display/orden-venta-tabla-meta";
-import type {
-  OrdenVentaOperadorRow,
-  OrdenVentaRow,
-} from "../types/sales.types";
-import {
-  computeOvSla,
-  normalizeOvSlaConfig,
-  type OvSlaConfig,
-} from "../utils/ov-sla";
+import { collectOrdenesCompraCliente, countOrdenesTrabajo } from "../../ordenes/utils/display/orden-venta-tabla-meta";
+import type { OrdenVentaOperadorRow, OrdenVentaRow } from "../types/sales.types";
+import { computeOvSla, normalizeOvSlaConfig, type OvSlaConfig } from "../utils/ov-sla";
 import { enrichOperadorListadoAnnotations } from "./enrich-operador-listado-annotations";
 import { camposInicialesFilaOperador } from "./campos-iniciales-fila-operador";
-import {
-  ORDEN_VENTA_COLUMNS,
-  ORDEN_VENTA_OPERADOR_LIST_COLUMNS,
-  sortOrdenesVentaPorCreacionDesc,
-  type OrdenVentaLineasResumen,
-  type OrdenVentaOperadorListRow,
-} from "./sales-orden-venta.db";
-import {
-  fetchBodegaDestinoLabels,
-  fetchCompradorLabels,
-  fetchCuentaOvSlaByCodigo,
-  fetchLineasResumenByOrden,
-  formatProductosResumen,
-} from "./sales-operador-labels";
+import { ORDEN_VENTA_COLUMNS, ORDEN_VENTA_OPERADOR_LIST_COLUMNS, sortOrdenesVentaPorCreacionDesc, type OrdenVentaLineasResumen, type OrdenVentaOperadorListRow } from "./sales-orden-venta.db";
+import { fetchBodegaDestinoLabels, fetchCompradorLabels, fetchCuentaOvSlaByCodigo, fetchLineasResumenByOrden, formatProductosResumen } from "./sales-operador-labels";
 
 export function mapOrdenVentaOperadorRow(
   row: OrdenVentaOperadorListRow,
@@ -160,7 +130,7 @@ export async function countOrdenesVentaPorConfirmar(
 export async function listOrdenesVentaOperador(
   params: TenantListParams,
 ): Promise<OrdenVentaOperadorRow[]> {
-  const codigoCuenta = requireCodigoCuenta(params.codigoCuenta);
+  requireCodigoCuenta(params.codigoCuenta);
 
   const limit = params.limit ?? DEFAULT_LIST_LIMIT;
 

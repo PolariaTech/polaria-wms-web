@@ -1,33 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildOrigenCorreoFromOrdenesYLineas,
-  groupOrigenCorreoToOrdenesTrabajo,
-  type OrdenTrabajoHija,
-} from "../origen/origen-correo-ordenes-trabajo";
-import {
-  aplicarReagrupacion,
-  construirEstadoBaseApi,
-  crearSnapshotReagrupacion,
-  describirMovimientosPropuesta,
-  describirReagrupacionParaBitacora,
-  firmaEstadoReagrupacion,
-  puedeReagruparOt,
-  PropuestaInvalidaError,
-  validarPropuestaContraBase,
-  type LineaReagrupable,
-  type OtPropuestaApi,
-} from "./reagrupar-ordenes-trabajo";
-import {
-  hija,
-  linea,
-  parseCantidad,
-  escenario,
-  id,
-  existente,
-  nueva,
-  plan5a3,
-  congelarProfundo,
-} from "./reagrupar-ordenes-trabajo.test-helpers";
+import { buildOrigenCorreoFromOrdenesYLineas, groupOrigenCorreoToOrdenesTrabajo } from "../origen/origen-correo-ordenes-trabajo";
+import { aplicarReagrupacion, construirEstadoBaseApi, crearSnapshotReagrupacion } from "./reagrupar-ordenes-trabajo";
+import { hija, linea, parseCantidad, escenario, id, existente, nueva, plan5a3, congelarProfundo } from "./reagrupar-ordenes-trabajo.test-helpers";
 
 describe("construirEstadoBaseApi", () => {
   it("arma ids estables y manda solo OT y renglones (sin notas ni teléfonos)", () => {

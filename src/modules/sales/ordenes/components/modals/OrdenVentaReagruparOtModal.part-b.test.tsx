@@ -1,30 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { CorreccionCorreoApiError } from "../../services/correccion-correo.client";
-import {
-  ReagrupacionApiError,
-  type RespuestaReagrupacion,
-} from "../../services/reagrupar-ot.client";
-import {
-  PropuestaInvalidaError,
-  type EstadoBaseApi,
-  type PropuestaReagrupacionApi,
-} from "../../utils/ot/reagrupar-ordenes-trabajo";
-import {
-  OrdenVentaReagruparOtModal,
-  type OrdenVentaReagruparOtModalProps,
-} from "./OrdenVentaReagruparOtModal";
+import { type RespuestaReagrupacion } from "../../services/reagrupar-ot.client";
+import { type OrdenVentaReagruparOtModalProps } from "./OrdenVentaReagruparOtModal";
 
-import {
-  estadoBase,
-  propuesta,
-  respuestaPropuesta,
-  diferida,
-  montar,
-  escribirYGenerar,
-  cancelarConfirmando,
-} from "./OrdenVentaReagruparOtModal.test-helpers";
+import { estadoBase, respuestaPropuesta, diferida, montar, escribirYGenerar, cancelarConfirmando } from "./OrdenVentaReagruparOtModal.test-helpers";
 
 describe("OrdenVentaReagruparOtModal — un solo «Generar» que decide la función (REQ-187)", () => {
   const propuestaCorreccion = {

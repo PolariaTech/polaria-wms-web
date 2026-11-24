@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   isEntregaCoordsValid,
   type EntregaCoords,
@@ -42,9 +42,15 @@ export function useEntregaMapa({
   const LRef = useRef<typeof import("leaflet") | null>(null);
 
   const textoCampo = direccionInicial.trim();
-  const coordsIniciales = isEntregaCoordsValid(latInicial, lngInicial)
-    ? { lat: latInicial as number, lng: lngInicial as number }
-    : null;
+  // Memorizado por valores primitivos: así el efecto de sincronía puede listarlo
+  // como dependencia sin re-ejecutarse en cada render.
+  const coordsIniciales = useMemo(
+    () =>
+      isEntregaCoordsValid(latInicial, lngInicial)
+        ? { lat: latInicial as number, lng: lngInicial as number }
+        : null,
+    [latInicial, lngInicial],
+  );
 
   const [query, setQuery] = useState(direccionInicial);
   const [hits, setHits] = useState<EntregaMapaHit[]>([]);
@@ -61,7 +67,7 @@ export function useEntregaMapa({
     setHits([]);
     setError(null);
     setCoords(coordsIniciales);
-  }, [open, direccionInicial, textoCampo, latInicial, lngInicial]);
+  }, [open, direccionInicial, textoCampo, latInicial, lngInicial, coordsIniciales]);
 
   const colocarMarcador = useCallback(
     (next: EntregaCoords) => {

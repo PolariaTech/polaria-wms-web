@@ -1,24 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PropuestaReagrupacionApi } from "./reagrupar-ordenes-trabajo";
-import {
-  armarPickerOtRespaldo,
-  decidirAperturaReagruparAlCargar,
-  ESTADO_INICIAL_REAGRUPACION,
-  LIMITE_INSTRUCCION_REAGRUPACION,
-  MENSAJE_FUERA_DE_ALCANCE,
-  puedeGenerar,
-  puedeModificarConIaDesdeLista,
-  reagruparAbiertoSegunCypher,
-  reagruparModalAbierto,
-  reducirModalReagrupacion,
-  type AccionModalReagrupacion,
-  type EstadoModalReagrupacion,
-} from "./reagrupacion-modal-estado";
-import {
-  correr,
-  escribir,
-  generar,
-} from "./reagrupacion-modal-estado.test-helpers";
+import { armarPickerOtRespaldo, decidirAperturaReagruparAlCargar, reagruparAbiertoSegunCypher, reagruparModalAbierto } from "./reagrupacion-modal-estado";
 
 describe("armarPickerOtRespaldo (REQ-188)", () => {
   const hijas = [

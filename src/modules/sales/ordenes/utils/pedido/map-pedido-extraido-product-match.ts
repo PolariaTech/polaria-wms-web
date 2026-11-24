@@ -3,18 +3,10 @@ import type { FuenteAsignacion } from "../../../shared/types/sales.types";
 import { fraseClienteAmbigua, productoPorFraseCliente } from "../match/frase-cliente";
 import { stripLeadingProductoCodigo } from "../../../shared/utils/producto-venta-nombre";
 import { rankSinCodigoContradicho } from "../match/codigo-contradice-nombre";
-import {
-  findTypoRivalProductos,
-  productoCompatibleConTextoCliente,
-} from "../match/find-closest-producto-catalogo";
+import { findTypoRivalProductos, productoCompatibleConTextoCliente } from "../match/find-closest-producto-catalogo";
 import { sustantivoPrincipalAusente } from "../match/sustantivo-principal";
 import type { SugerenciaProductoCatalogo } from "./map-pedido-extraido-to-form.types";
-import {
-  extractCodigoFromCatalogKey,
-  normalizeCatalogKey,
-  norm,
-  productoUnicoPorCodigo,
-} from "./map-pedido-extraido-catalog-helpers";
+import { extractCodigoFromCatalogKey, normalizeCatalogKey, productoUnicoPorCodigo } from "./map-pedido-extraido-catalog-helpers";
 
 /**
  * Orden: código único del cliente, frase del comprador, clave de Mateo.

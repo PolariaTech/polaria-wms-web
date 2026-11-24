@@ -1,26 +1,7 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  getOrdersVisibleSinceDate,
-  setSupabaseClientForTests,
-} from "@/lib/supabase/domain-query";
-import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import { createSupabaseMock } from "@/test/create-supabase-mock";
-import {
-  avanzarEstadoOrdenVenta,
-  borrarOrdenVenta,
-  createOrdenVenta,
-  getOrdenVentaDetalle,
-  listOrdenesVenta,
-  listOrdenesVentaOperador,
-  listProductosVentaCatalogo,
-  updateOrdenVenta,
-} from "./sales.service";
-import {
-  createBodegaChain,
-  createPrecioProductoChain,
-  mockUpdateOrdenVentaDeps,
-} from "./sales.service.test-helpers";
+import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
+import { createOrdenVenta, getOrdenVentaDetalle, updateOrdenVenta } from "./sales.service";
+import { createBodegaChain, createPrecioProductoChain, mockUpdateOrdenVentaDeps } from "./sales.service.test-helpers";
 
 describe("sales.service", () => {
   beforeEach(() => {

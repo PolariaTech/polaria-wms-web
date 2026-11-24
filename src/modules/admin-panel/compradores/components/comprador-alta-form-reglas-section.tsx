@@ -1,40 +1,10 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
-import {
-  PolariaFormField,
-  PolariaFormInput,
-  PolariaFormSelect,
-  POLARIA_FORM_INPUT_CLASS_COMPACT,
-} from "@/components/shared/form/PolariaFormField";
-import { PolariaPhoneInput } from "@/components/shared/form/PolariaPhoneInput";
+import { PolariaFormField, PolariaFormInput, PolariaFormSelect, POLARIA_FORM_INPUT_CLASS_COMPACT } from "@/components/shared/form/PolariaFormField";
 import { cn } from "@/lib/utils/cn";
-import { buildCompradorGrupoSelectOptions } from "../constants/comprador-grupos";
-import {
-  emptyAltaCentroRow,
-  emptyAltaContactoRow,
-  type CompradorAltaFormState,
-} from "../utils/comprador-alta";
-import {
-  REGIMEN_OPTIONS,
-  USO_CFDI_OPTIONS,
-  ESTADO_OPTIONS,
-  METODO_PAGO_OPTIONS,
-  FORMA_PAGO_OPTIONS,
-  SI_NO_OPTIONS,
-  SUSTITUCIONES_OPTIONS,
-  TOLERANCIA_OPTIONS,
-  FORMATO_PEDIDO_OPTIONS,
-  ROL_CONTACTO_OPTIONS,
-  CARRETERA_OPTIONS,
-} from "./comprador-alta-form-options";
-import {
-  AddRowButton,
-  StepShell,
-  patchCentro,
-  patchContacto,
-  patchFicha,
-} from "./comprador-alta-form-shared";
+import { type CompradorAltaFormState } from "../utils/comprador-alta";
+import { SI_NO_OPTIONS, SUSTITUCIONES_OPTIONS, TOLERANCIA_OPTIONS } from "./comprador-alta-form-options";
+import { StepShell, patchFicha } from "./comprador-alta-form-shared";
 
 export type CompradorAltaSectionProps = {
   show: boolean;

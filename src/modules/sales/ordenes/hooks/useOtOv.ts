@@ -8,21 +8,12 @@ import { todayIsoDate, tomorrowIsoDate } from "../utils/pedido/build-orden-venta
 import { mapPedidoExtraidoToForm } from "../utils/pedido/map-pedido-extraido-to-form";
 import { isGarbageOcValue, resolveOrdenCompraLimpia } from "../utils/pedido/normalize-numero-pedido";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/pedido/prefill-orden-venta-from-comprador";
-import {
-  rankCompradoresFromNombre,
-  shouldAutoAssignComprador,
-  sugerenciasCompradorParaPicker,
-} from "../utils/match/match-comprador-from-nombre";
+import { rankCompradoresFromNombre, shouldAutoAssignComprador, sugerenciasCompradorParaPicker } from "../utils/match/match-comprador-from-nombre";
 import { catalogoDesdeBootstrap } from "./ov-form-bootstrap-catalogo";
-import {
-  construirAvisosPedidoIa,
-  construirMissingFieldsPedidoIa,
-  mapLineasPedidoIaAForm,
-  resolverTextoOrigenParaPersistir,
-} from "./useOtOv-helpers";
+import { construirAvisosPedidoIa, construirMissingFieldsPedidoIa, mapLineasPedidoIaAForm, resolverTextoOrigenParaPersistir } from "./useOtOv-helpers";
 
 export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
-  const { codigoCuenta, origenTexto, origenArchivoFiles, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, bootstrapPromiseRef, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, fechaEntrega, ordenCompraHotel, aceptaSustituciones, requiereLote, registrarTemperatura, autoFields, warnFields, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields, setTotalSolicitudDetectado } = input;
+  const { codigoCuenta, origenTexto, origenArchivoFiles, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, bootstrapPromiseRef, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, ordenCompraHotel, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields, setTotalSolicitudDetectado } = input;
     if (!codigoCuenta) {
       setError("No hay cuenta activa.");
       return;

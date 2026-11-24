@@ -1,33 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildOrigenCorreoFromOrdenesYLineas,
-  groupOrigenCorreoToOrdenesTrabajo,
-  type OrdenTrabajoHija,
-} from "../origen/origen-correo-ordenes-trabajo";
-import {
-  aplicarReagrupacion,
-  construirEstadoBaseApi,
-  crearSnapshotReagrupacion,
-  describirMovimientosPropuesta,
-  describirReagrupacionParaBitacora,
-  firmaEstadoReagrupacion,
-  puedeReagruparOt,
-  PropuestaInvalidaError,
-  validarPropuestaContraBase,
-  type LineaReagrupable,
-  type OtPropuestaApi,
-} from "./reagrupar-ordenes-trabajo";
-import {
-  hija,
-  linea,
-  parseCantidad,
-  escenario,
-  id,
-  existente,
-  nueva,
-  plan5a3,
-  congelarProfundo,
-} from "./reagrupar-ordenes-trabajo.test-helpers";
+import { aplicarReagrupacion, construirEstadoBaseApi, describirMovimientosPropuesta, describirReagrupacionParaBitacora, firmaEstadoReagrupacion, puedeReagruparOt, PropuestaInvalidaError, validarPropuestaContraBase, type OtPropuestaApi } from "./reagrupar-ordenes-trabajo";
+import { parseCantidad, escenario, id, existente, nueva, plan5a3 } from "./reagrupar-ordenes-trabajo.test-helpers";
 
 describe("validarPropuestaContraBase (CA8)", () => {
   const preparar = () => {

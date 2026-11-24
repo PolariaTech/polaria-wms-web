@@ -1,30 +1,7 @@
 import { Workbook, type Cell } from "exceljs";
-import {
-  COLOR_BORDER,
-  COLOR_HEADER,
-  COLOR_HEADER_TEXT,
-  COLOR_INK,
-  COLOR_INPUT_BG,
-  COLOR_INPUT_BORDER,
-  COLOR_INPUT_HEADER,
-  COLOR_INPUT_TEXT,
-  COLOR_MODIFIED_BG,
-  COLOR_MODIFIED_TEXT,
-  COLOR_ROW_EVEN,
-  COLOR_ROW_ODD,
-  COMPRADOR_PRECIOS_EDITABLE_COLUMN_INDEXES,
-  COMPRADOR_PRECIOS_EXCEL_COLUMNS,
-  COMPRADOR_PRECIOS_EXCEL_FILE_NAME,
-  COMPRADOR_PRECIOS_SHEET_NAME,
-  PRICE_NUM_FMT,
-  XLSX_MIME,
-  type CompradorPreciosExcelCell,
-} from "./comprador-precios-excel.constants";
+import { COLOR_MODIFIED_BG, COLOR_MODIFIED_TEXT, COMPRADOR_PRECIOS_EXCEL_FILE_NAME, COMPRADOR_PRECIOS_SHEET_NAME, XLSX_MIME, type CompradorPreciosExcelCell } from "./comprador-precios-excel.constants";
 import { buildCompradorPreciosSheetData } from "./comprador-precios-excel.cells";
-import type {
-  CompradorPreciosExcelSourceRow,
-  CompradorPreciosExcelVariant,
-} from "./comprador-precios-excel.constants";
+import type { CompradorPreciosExcelSourceRow, CompradorPreciosExcelVariant } from "./comprador-precios-excel.constants";
 import { buildCompradorPreciosColumnWidths } from "./comprador-precios-excel.rows";
 
 function hexToArgb(hex: string): string {

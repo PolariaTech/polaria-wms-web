@@ -5,11 +5,7 @@ import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { formatPrecioEs } from "@/lib/utils/decimal-es";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
-import {
-  listCatalogoProductosAdmin,
-  listPreciosProductoVigentesAdmin,
-  type CatalogoProductoListRow,
-} from "@/modules/admin-panel/catalogo/services/productos-catalogo.service";
+import { listCatalogoProductosAdmin, listPreciosProductoVigentesAdmin, type CatalogoProductoListRow } from "@/modules/admin-panel/catalogo/services/productos-catalogo.service";
 import type { CompradorListRow } from "../services/compradores.service";
 import { listCompradorProductoAliasAdmin } from "../services/comprador-producto-alias.service";
 
@@ -20,14 +16,7 @@ interface CompradorAliasCreateModalProps {
   onCreated: () => void;
 }
 
-import {
-  formatCompradorLabel,
-  isSamePrecio,
-  matchesSearch,
-  normalizeSearch,
-  precioToTexto,
-  type EquivalenciaCreateDraft,
-} from "./comprador-alias-create-modal.helpers";
+import { formatCompradorLabel, isSamePrecio, matchesSearch, precioToTexto, type EquivalenciaCreateDraft } from "./comprador-alias-create-modal.helpers";
 import { CompradorAliasCreateProductField } from "./comprador-alias-create-modal.product-field";
 import { submitCompradorAliasCreates } from "./comprador-alias-create-modal.submit";
 

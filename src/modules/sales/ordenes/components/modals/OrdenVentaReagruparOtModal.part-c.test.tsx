@@ -1,26 +1,9 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { CorreccionCorreoApiError } from "../../services/correccion-correo.client";
-import {
-  ReagrupacionApiError,
-  type RespuestaReagrupacion,
-} from "../../services/reagrupar-ot.client";
-import {
-  PropuestaInvalidaError,
-  type EstadoBaseApi,
-  type PropuestaReagrupacionApi,
-} from "../../utils/ot/reagrupar-ordenes-trabajo";
-import {
-  OrdenVentaReagruparOtModal,
-  type OrdenVentaReagruparOtModalProps,
-} from "./OrdenVentaReagruparOtModal";
+import { OrdenVentaReagruparOtModal } from "./OrdenVentaReagruparOtModal";
 
-import {
-  estadoBase,
-  propuesta,
-  montar,
-} from "./OrdenVentaReagruparOtModal.test-helpers";
+import { estadoBase } from "./OrdenVentaReagruparOtModal.test-helpers";
 
 describe("OrdenVentaReagruparOtModal — un solo «Generar» que decide la función (REQ-187)", () => {
   const propuestaCorreccion = {
@@ -65,22 +48,6 @@ describe("OrdenVentaReagruparOtModal — un solo «Generar» que decide la funci
     expectativas: { totalOt: 21, importeTotal: 27905.25 },
     porReglas: false,
   };
-  const reorganizar = {
-    intencion: "reorganizar" as const,
-    motivo: "Pide juntar órdenes que ya existen.",
-    expectativas: {},
-    porReglas: false,
-  };
-
-  function montarConCorreccion(extra: Partial<OrdenVentaReagruparOtModalProps> = {}) {
-    return montar({
-      onAplicarCorreccion: vi.fn(),
-      interpretar: vi.fn().mockResolvedValue(releer),
-      solicitarCorreccion: vi.fn().mockResolvedValue(propuestaCorreccion),
-      ...extra,
-    });
-  }
-
   it("al cerrar y reabrir vuelve a la instrucción limpia", async () => {
     const usuario = userEvent.setup();
     const props = {
@@ -106,16 +73,4 @@ describe("OrdenVentaReagruparOtModal — un solo «Generar» que decide la funci
     expect(screen.getByLabelText("Instrucción")).toHaveValue("");
   });
 
-  /** Escribe «Junta las OT», pulsa Generar y espera la propuesta de corrección. */
-  async function escribirYGenerarConCorreccion(
-    extra: Partial<OrdenVentaReagruparOtModalProps> = {},
-    esperarPropuesta = true,
-  ) {
-    const montado = montarConCorreccion(extra);
-    const usuario = userEvent.setup();
-    await usuario.type(screen.getByLabelText("Instrucción"), "Junta las OT");
-    await usuario.click(screen.getByRole("button", { name: "Generar" }));
-    if (esperarPropuesta) await screen.findByText("6 OT → 12 OT");
-    return Object.assign(usuario, { props: montado.props });
-  }
 });

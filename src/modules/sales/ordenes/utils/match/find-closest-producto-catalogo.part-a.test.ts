@@ -1,16 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  codigoCoincideEnQuery,
-  coreProductNameForMatch,
-  findClosestProductoCatalogo,
-  findTypoRivalProductos,
-  matchesProductoCatalogSearch,
-  productNamesLooselyMatch,
-  productoCompatibleConTextoCliente,
-  rankProductosCatalogo,
-  scoreProductoMatch,
-  shouldAutoAcceptProductoSuggestion,
-} from "./find-closest-producto-catalogo";
+import { codigoCoincideEnQuery, findClosestProductoCatalogo, productoCompatibleConTextoCliente, rankProductosCatalogo, scoreProductoMatch, shouldAutoAcceptProductoSuggestion } from "./find-closest-producto-catalogo";
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
 
 const productos: ProductoVentaOption[] = [

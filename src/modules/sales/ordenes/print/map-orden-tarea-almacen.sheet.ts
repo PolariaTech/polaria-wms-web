@@ -1,36 +1,14 @@
 import { formatKgEs } from "@/lib/utils/decimal-es";
-import {
-  getCuentaZonaHorariaOption,
-  resolveCuentaZonaHorariaId,
-} from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
+import { getCuentaZonaHorariaOption, resolveCuentaZonaHorariaId } from "@/modules/configurator/cuentas/constants/cuenta-zona-horaria";
 import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../shared/types/sales.types";
-import type {
-  OrdenVentaDetalleRow,
-  OrdenVentaLineaRow,
-  OrdenVentaOperadorRow,
-} from "../../shared/types/sales.types";
-import {
-  formatCompradorNombreOrdenVenta,
-  resolveOrdenVentaLineaTitulo,
-} from "../utils/display/orden-venta-display";
-import {
-  formatCapturaFecha,
-  notaCapturaForLinea,
-  parseOrdenVentaCapturaObservaciones,
-} from "../utils/pedido/build-orden-venta-captura-observaciones";
-import { filterLineasByOrdenTrabajoHija, resolveNumeroOrdenClientePrint } from "../utils/ot/filter-lineas-by-orden-trabajo";
+import type { OrdenVentaDetalleRow, OrdenVentaLineaRow, OrdenVentaOperadorRow } from "../../shared/types/sales.types";
+import { formatCompradorNombreOrdenVenta, resolveOrdenVentaLineaTitulo } from "../utils/display/orden-venta-display";
+import { formatCapturaFecha, notaCapturaForLinea, parseOrdenVentaCapturaObservaciones } from "../utils/pedido/build-orden-venta-captura-observaciones";
+import { resolveNumeroOrdenClientePrint } from "../utils/ot/filter-lineas-by-orden-trabajo";
 import type { OrdenTrabajoHija } from "../utils/origen/origen-correo-ordenes-trabajo";
 import type { OrdenTareaAlmacenPrintData } from "./orden-tarea-almacen.types";
-import {
-  resolveCentroConsumoDesdeDetalle,
-  resolveFechaYDiaEntregaDesdeDetalle,
-  resolveNotasGeneralesDesdeDetalle,
-} from "./resolve-cabecera-print-desde-detalle";
-import {
-  diaSemanaEntregaEs,
-  formatOrdenTareaImpresaAt,
-  resolveOrdenTareaCreadaAt,
-} from "./map-orden-tarea-almacen.format";
+import { resolveCentroConsumoDesdeDetalle, resolveFechaYDiaEntregaDesdeDetalle, resolveNotasGeneralesDesdeDetalle } from "./resolve-cabecera-print-desde-detalle";
+import { diaSemanaEntregaEs, formatOrdenTareaImpresaAt, resolveOrdenTareaCreadaAt } from "./map-orden-tarea-almacen.format";
 
 export const PRODUCTOS_POR_HOJA_TAREA = 30;
 

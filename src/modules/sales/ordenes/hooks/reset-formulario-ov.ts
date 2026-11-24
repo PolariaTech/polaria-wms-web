@@ -1,44 +1,22 @@
 "use client";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { fetchProductosVentaCatalogo } from "../../shared/services/sales-catalog.api";
-import {
-  getCompradorAdmin,
-  listBodegasExternasVinculadasAdmin,
-  listBodegasInternasVinculadasAdmin,
-  listCompradoresAdmin,
-  CompradorCreateModal,
-  listCompradorProductoAliasAdmin,
-  type CompradorListRow,
-} from "@/modules/admin-panel";
-import {
-  createOrdenVenta,
-  fetchUltimosPreciosPorComprador,
-  getCuentaIdBodegaDefault,
-  getOrdenVentaDetalle,
-  updateOrdenVenta,
-} from "../../shared/services/sales.service";
+import { listBodegasExternasVinculadasAdmin, listBodegasInternasVinculadasAdmin, listCompradoresAdmin } from "@/modules/admin-panel";
+import { getCuentaIdBodegaDefault, getOrdenVentaDetalle } from "../../shared/services/sales.service";
 import { aplicarDetalleCargado } from "./cargar-orden-detalle";
-import {
-  mergeOrigenAdjuntosWithEmlParts,
-  nombresOrigenAdjuntos,
-  origenAdjuntosFromEmlParts,
-  parseOrigenArchivos,
-  type OrigenAdjunto,
-} from "../utils/origen/origen-adjuntos";
+import { mergeOrigenAdjuntosWithEmlParts, nombresOrigenAdjuntos } from "../utils/origen/origen-adjuntos";
 import { abrirFormularioDesdeDocs } from "./useOtOv";
 
 export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
-  const { open, setOrdenCargadaId, setFechaCreacion, setStep, isEditing, setStartMode, setIsCompradorCreateOpen, setIdComprador, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, selectedCompradorIdRef, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setReferenciaPedido, setDenominacionComercial, setObservaciones, setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setTotalSolicitudDetectado, setOrigenArchivoFiles, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setFormOtPage, setLineas, setProductosBase, setPrecioOverrideByProducto, setEquivalenciaByProducto, setCompradores, setBodegasDestino, setIdBodegaDestino, setPendingEmitId, setEditingEstado, setEditingCodigo, setReagruparOpen, setReagruparAplicada, setPicker, setReplaceLineaIndex, setAutoFields, setWarnFields, setAvisoVerificarDireccion, setMissingFields, setDiscrepancias, setConfirmDiscrepanciasOpen, setConfirmSaveOpen, setIsReadingIa, skipDiscrepanciaConfirmRef, skipSaveConfirmRef, skipOtSeedFromOrigenRef, pendingDraftSaveAfterReorgRef, setCantidadFocusId, setError, setSuccessMessage, setIsSaving, submitIntentRef, setOrigenAdjuntos, setEmlInnerAdjuntos, setConfirmDiscardOpen, setFichaComprador, setExigeOc, codigoCuenta, setFormDataReady, setIsLoading, editingId, codigoVenta, handleSelectComprador, bootstrapPromiseRef, compradores, formDataReady } = estado;
+  const { open, setOrdenCargadaId, setFechaCreacion, setStep, isEditing, setStartMode, setIsCompradorCreateOpen, setIdComprador, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, selectedCompradorIdRef, setFechaEntrega, setVentanaDesde, setVentanaHasta, setPrioridad, setMoneda, setOrdenCompraHotel, setCentroConsumo, setReferenciaPedido, setDenominacionComercial, setObservaciones, setDireccion, setEntregaLat, setEntregaLng, setAnden, setContacto, setTelefono, setCorreo, setTurno, setHoraSalida, setChofer, setUnidad, setAceptaSustituciones, setRequiereLote, setRegistrarTemperatura, setOrigenTexto, setTotalSolicitudDetectado, setOrigenArchivoFiles, setOrigenCorreoDraft, setOrdenesTrabajoPreview, setFormOtPage, setLineas, setProductosBase, setPrecioOverrideByProducto, setEquivalenciaByProducto, setCompradores, setBodegasDestino, setIdBodegaDestino, setPendingEmitId, setEditingEstado, setEditingCodigo, setReagruparOpen, setReagruparAplicada, setPicker, setReplaceLineaIndex, setAutoFields, setWarnFields, setAvisoVerificarDireccion, setMissingFields, setDiscrepancias, setConfirmDiscrepanciasOpen, setConfirmSaveOpen, setIsReadingIa, skipDiscrepanciaConfirmRef, skipSaveConfirmRef, skipOtSeedFromOrigenRef, pendingDraftSaveAfterReorgRef, setCantidadFocusId, setError, setSuccessMessage, setIsSaving, submitIntentRef, setOrigenAdjuntos, setEmlInnerAdjuntos, setConfirmDiscardOpen, setFichaComprador, setExigeOc, codigoCuenta, setFormDataReady, setIsLoading, editingId, codigoVenta, handleSelectComprador, bootstrapPromiseRef, formDataReady } = estado;
+  // Último valor de estas dos sin re-disparar el reset: `codigoVenta` cambia al guardar
+  // y no debe borrar el formulario. Este efecto se declara antes que el reset.
+  const ultimoCodigoYSeleccionRef = useRef({ codigoVenta, handleSelectComprador });
+  useEffect(() => {
+    ultimoCodigoYSeleccionRef.current = { codigoVenta, handleSelectComprador };
+  });
   useEffect(() => {
     if (!open) {
       // Al cerrar el formulario su detalle queda en memoria: que no se tome por el de la
@@ -138,6 +116,8 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
       setIsLoading(false);
     }
 
+    const { codigoVenta: codigoAlAbrir, handleSelectComprador: seleccionarComprador } =
+      ultimoCodigoYSeleccionRef.current;
     const bootstrap = Promise.all([
       fetchProductosVentaCatalogo(codigoCuenta),
       listCompradoresAdmin({ codigoCuenta }),
@@ -158,7 +138,7 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
         ]) => {
         aplicarDetalleCargado({
           productoRows, compradorRows, internas, externas, idBodegaDefault, detalle,
-          codigoCuenta, editingId, codigoVenta, handleSelectComprador,
+          codigoCuenta, editingId, codigoVenta: codigoAlAbrir, handleSelectComprador: seleccionarComprador,
           selectedCompradorIdRef, skipOtSeedFromOrigenRef,
           setProductosBase, setCompradores, setBodegasDestino, setIdBodegaDestino,
           setEditingEstado, setFechaCreacion, setOrdenCargadaId, setEditingCodigo,
@@ -189,7 +169,7 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
         setIsLoading(false);
         setIsReadingIa(false);
       });
-  }, [codigoCuenta, editingId, isEditing, open]);
+  }, [codigoCuenta, editingId, isEditing, open, bootstrapPromiseRef, pendingDraftSaveAfterReorgRef, selectedCompradorIdRef, setAceptaSustituciones, setAnden, setAutoFields, setAvisoVerificarDireccion, setBodegasDestino, setCantidadFocusId, setCentroConsumo, setChofer, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setCompradores, setConfirmDiscardOpen, setConfirmDiscrepanciasOpen, setConfirmSaveOpen, setContacto, setCorreo, setDenominacionComercial, setDireccion, setDiscrepancias, setEditingCodigo, setEditingEstado, setEmlInnerAdjuntos, setEntregaLat, setEntregaLng, setEquivalenciaByProducto, setError, setExigeOc, setFechaCreacion, setFechaEntrega, setFichaComprador, setFormDataReady, setFormOtPage, setHoraSalida, setIdBodegaDestino, setIdComprador, setIsCompradorCreateOpen, setIsLoading, setIsReadingIa, setIsSaving, setLineas, setMissingFields, setMoneda, setObservaciones, setOrdenCargadaId, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenAdjuntos, setOrigenArchivoFiles, setOrigenCorreoDraft, setOrigenTexto, setPendingEmitId, setPicker, setPrecioOverrideByProducto, setPrioridad, setProductosBase, setReagruparAplicada, setReagruparOpen, setReferenciaPedido, setRegistrarTemperatura, setReplaceLineaIndex, setRequiereLote, setStartMode, setStep, setSuccessMessage, setTelefono, setTotalSolicitudDetectado, setTurno, setUnidad, setVentanaDesde, setVentanaHasta, setWarnFields, skipDiscrepanciaConfirmRef, skipOtSeedFromOrigenRef, skipSaveConfirmRef, submitIntentRef]);
 
   /** Espera catálogo/compradores/bodegas si aún no terminaron (pedido nuevo). */
   const ensureFormDataReady = useCallback(async () => {
@@ -203,7 +183,7 @@ export function useResetFormularioOv(estado: OrdenVentaFormEstado) {
     } finally {
       setIsLoading(false);
     }
-  }, [formDataReady]);
+  }, [formDataReady, bootstrapPromiseRef, setIsLoading]);
   return { ensureFormDataReady };
 }
 

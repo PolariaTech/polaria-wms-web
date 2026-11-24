@@ -1,75 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  codigoCoincideEnQuery,
-  coreProductNameForMatch,
-  findClosestProductoCatalogo,
-  findTypoRivalProductos,
-  matchesProductoCatalogSearch,
-  productNamesLooselyMatch,
-  productoCompatibleConTextoCliente,
-  rankProductosCatalogo,
-  scoreProductoMatch,
-  shouldAutoAcceptProductoSuggestion,
-} from "./find-closest-producto-catalogo";
+import { matchesProductoCatalogSearch, rankProductosCatalogo, shouldAutoAcceptProductoSuggestion } from "./find-closest-producto-catalogo";
 import type { ProductoVentaOption } from "../../../shared/types/sales.types";
 
-const productos: ProductoVentaOption[] = [
-  {
-    idProducto: "p1",
-    label: "Aguacate Hass (SKU-1)",
-    idCliente: null,
-    idBodega: "b1",
-    codigo: "SKU-1",
-    nombre: "Aguacate Hass",
-    kgDisponible: 100,
-    precioUnitario: 50,
-    unidadMedida: "kg",
-  },
-  {
-    idProducto: "p2",
-    label: "Tomate Saladette (TOM01)",
-    idCliente: null,
-    idBodega: "b1",
-    codigo: "TOM01",
-    nombre: "Tomate Saladette",
-    kgDisponible: 80,
-    precioUnitario: 30,
-    unidadMedida: "kg",
-  },
-  {
-    idProducto: "p3",
-    label: "CHILE JALAPEÑO DE 6 A 8 CM (JAL01)",
-    idCliente: null,
-    idBodega: "b1",
-    codigo: "JAL01",
-    nombre: "CHILE JALAPEÑO DE 6 A 8 CM",
-    kgDisponible: 50,
-    precioUnitario: 33,
-    unidadMedida: "kg",
-  },
-  {
-    idProducto: "p4",
-    label: "CHILE JALAPEÑO DE 8 A 10 CM (JAL02)",
-    idCliente: null,
-    idBodega: "b1",
-    codigo: "JAL02",
-    nombre: "CHILE JALAPEÑO DE 8 A 10 CM",
-    kgDisponible: 40,
-    precioUnitario: 35,
-    unidadMedida: "kg",
-  },
-  {
-    idProducto: "p5",
-    label: "Aguacate Extra Hass (SKU-2)",
-    idCliente: null,
-    idBodega: "b1",
-    codigo: "SKU-2",
-    nombre: "Aguacate Extra Hass",
-    kgDisponible: 90,
-    precioUnitario: 60,
-    unidadMedida: "kg",
-  },
-];
 
 describe("rankProductosCatalogo", () => {
   it("auto-asigna si el código del PDF está en el query", () => {

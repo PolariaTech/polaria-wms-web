@@ -1,73 +1,17 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
-import {
-  formatPrecioEs,
-  formatPrecioInputMx,
-  parseDecimalEs,
-  sanitizeDecimalInputEs,
-  sanitizePrecioInputMx,
-} from "@/lib/utils/decimal-es";
+import { useEffect, useMemo } from "react";
+import { parseDecimalEs } from "@/lib/utils/decimal-es";
 import { filterLineasByOrdenTrabajoHija } from "../utils/ot/filter-lineas-by-orden-trabajo";
 import { lineaSembradaDesdeRenglon } from "../utils/pedido/linea-sembrada-desde-origen";
-import type {
-  BodegaDestinoOption,
-  CaptureStep,
-  LineaSugerenciaCatalogo,
-  LineaVentaForm,
-  OrdenVentaCreateModalProps,
-  PickerKind,
-  ReagrupacionAplicada,
-  StartMode,
-} from "../types/orden-venta-create-modal.types";
+import type { LineaVentaForm } from "../types/orden-venta-create-modal.types";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
-import {
-  applyProductoToLinea,
-  collectSugerenciasLinea,
-  fieldControlClass,
-  formatBodegaDestinoOption,
-  formatCompradorLabel,
-  formatPrecioInput,
-  lineaFormDesdeIa,
-  lineAmounts,
-  parseCantidadReagrupacion,
-  resolveBodegaDestinoInicial,
-  sugerenciaToOption,
-  toDateInputValue,
-} from "../utils/pedido/orden-venta-create-helpers";
-import {
-  type OrdenVentaOperadorRow,
-  type ProductoVentaOption,
-} from "../../shared/types/sales.types";
-import {
-  actualizarSugerenciasDeCatalogo,
-  crearLineaDesdeProducto,
-} from "./useLineasOv";
-import {
-  CATALOGO_VENTA_EMPTY_MESSAGE,
-  normalizeEstadoOrdenVenta,
-} from "../../shared/constants/sales-status";
-import {
-  aplicarReagrupacion,
-  construirEstadoBaseApi,
-  crearSnapshotReagrupacion,
-  describirReagrupacionParaBitacora,
-  firmaEstadoReagrupacion,
-  puedeReagruparOt,
-  type PropuestaReagrupacionApi,
-} from "../utils/ot/reagrupar-ordenes-trabajo";
-import { resolverCompradorPickerSugerencias } from "../utils/match/resolver-comprador-picker-priority-ids";
+import { actualizarSugerenciasDeCatalogo } from "./useLineasOv";
+import { normalizeEstadoOrdenVenta } from "../../shared/constants/sales-status";
+import { puedeReagruparOt } from "../utils/ot/reagrupar-ordenes-trabajo";
 
 export function useSembrarLineasDesdeOrigen(estado: OrdenVentaFormEstado) {
-  const { lineas, hijaFormActiva, productos, open, seededOtIdsRef, skipOtSeedFromOrigenRef, step, correo, setLineas, equivalenciaByProducto } = estado;
+  const { lineas, hijaFormActiva, productos, open, seededOtIdsRef, skipOtSeedFromOrigenRef, step, setLineas, equivalenciaByProducto } = estado;
   const lineasConIndice = useMemo(() => {
     const indexed = lineas.map((linea, index) => ({ linea, index }));
     if (!hijaFormActiva) return indexed;
@@ -135,14 +79,14 @@ export function useSembrarLineasDesdeOrigen(estado: OrdenVentaFormEstado) {
 
     seededOtIdsRef.current.add(hijaFormActiva.id);
     setLineas((prev) => [...prev, ...seeded]);
-  }, [hijaFormActiva, lineas, open, productos, step]);
+  }, [hijaFormActiva, lineas, open, productos, step, seededOtIdsRef, setLineas, skipOtSeedFromOrigenRef]);
 
   // Recalcula sugerencias cuando el catálogo/equivalencias llegan o mejoran
   // (p. ej. después de elegir cliente, o si el match inicial falló por typo).
   useEffect(() => {
     if (!open || productos.length === 0) return;
     setLineas((prev) => actualizarSugerenciasDeCatalogo(prev, productos));
-  }, [equivalenciaByProducto, open, productos]);
+  }, [equivalenciaByProducto, open, productos, setLineas]);
   return { lineasConIndice };
 }
 
@@ -202,7 +146,7 @@ export function useEfectosCompaneroOv(estado: OrdenVentaFormEstado) {
     onCompanionOtPickerChange,
     open,
     ordenesTrabajoForm,
-    step,
+    step, setReagruparOpen, setStep,
   ]);
   return {  };
 }

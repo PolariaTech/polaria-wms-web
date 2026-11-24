@@ -1,13 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  capturaTieneAlistoCompleto,
-  capturaTieneDespacho,
-  capturaTieneFactura,
-  capturaTieneRevisoCompleto,
-  computeEstadoAlistamientoFromCapturas,
-  estadoSurtidoEsAvance,
-  puedeAplicarEstadoAlistamiento,
-} from "./compute-estado-alistamiento";
+import { capturaTieneAlistoCompleto, computeEstadoAlistamientoFromCapturas, estadoSurtidoEsAvance, puedeAplicarEstadoAlistamiento } from "./compute-estado-alistamiento";
 
 describe("computeEstadoAlistamientoFromCapturas", () => {
   it("sin fotos no cambia estado", () => {

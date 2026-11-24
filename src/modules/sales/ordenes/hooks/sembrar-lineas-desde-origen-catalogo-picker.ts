@@ -129,7 +129,7 @@ export function useCatalogoPickerOv(estado: OrdenVentaFormEstado) {
       });
       return changed ? next : prev;
     });
-  }, [precioOverrideByProducto, productosBase]);
+  }, [precioOverrideByProducto, productosBase, setLineas]);
 
   return {
     productosParaPicker,

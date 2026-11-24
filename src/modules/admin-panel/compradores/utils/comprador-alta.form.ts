@@ -1,11 +1,4 @@
-import type {
-  CompradorAltaCentroRow,
-  CompradorAltaContactoRow,
-  CompradorAltaFicha,
-  CompradorAltaFormFicha,
-  CompradorAltaFormState,
-} from "./comprador-alta.types";
-import { emptyCompradorAltaFicha } from "./comprador-alta.parse";
+import type { CompradorAltaCentroRow, CompradorAltaContactoRow, CompradorAltaFicha, CompradorAltaFormState } from "./comprador-alta.types";
 
 function altaRowKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();

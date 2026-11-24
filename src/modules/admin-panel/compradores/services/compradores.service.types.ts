@@ -1,22 +1,4 @@
-import {
-  DEFAULT_LIST_LIMIT,
-  requireCodigoCuenta,
-  runDomainMutation,
-  runDomainQuery,
-} from "@/lib/supabase/domain-query";
-import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import {
-  generateCodigoCuentaFromNombre,
-  normalizeCodigoCuentaInput,
-} from "@/lib/utils/generate-codigo-cuenta";
-import {
-  isValidInternationalPhone,
-  normalizeInternationalPhone,
-} from "@/constants/ui/phone-countries";
-import {
-  emptyCompradorAltaFicha,
-  type CompradorAltaFicha,
-} from "../utils/comprador-alta";
+import { emptyCompradorAltaFicha, type CompradorAltaFicha } from "../utils/comprador-alta";
 
 export interface CompradorListRow {
   idComprador: string;

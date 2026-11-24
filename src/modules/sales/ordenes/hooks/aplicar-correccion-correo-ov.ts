@@ -1,66 +1,15 @@
 "use client";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
-import {
-  aplicarReagrupacion,
-  construirEstadoBaseApi,
-  crearSnapshotReagrupacion,
-  describirReagrupacionParaBitacora,
-  firmaEstadoReagrupacion,
-  puedeReagruparOt,
-  type PropuestaReagrupacionApi,
-} from "../utils/ot/reagrupar-ordenes-trabajo";
-import {
-  describirCorreccionParaBitacora,
-  origenCorreoDePropuesta,
-  type PropuestaCorreccionCorreoApi,
-} from "../utils/ot/aplicar-correccion-correo";
+import { useCallback } from "react";
+import { crearSnapshotReagrupacion } from "../utils/ot/reagrupar-ordenes-trabajo";
+import { origenCorreoDePropuesta, type PropuestaCorreccionCorreoApi } from "../utils/ot/aplicar-correccion-correo";
 import { buildPedidoExtraidoFromOrigenCorreo } from "../utils/origen/pedido-from-origen-correo";
-import {
-  mapPedidoExtraidoToForm,
-  type CampoDiscrepancia,
-} from "../utils/pedido/map-pedido-extraido-to-form";
-import {
-  formatCapturaFecha,
-  isAfterWarehouseCutoff,
-  parseOrdenVentaCapturaObservaciones,
-  stripSurtidoFotoQrFromNotas,
-  todayIsoDate,
-  tomorrowIsoDate,
-} from "../utils/pedido/build-orden-venta-captura-observaciones";
+import { mapPedidoExtraidoToForm } from "../utils/pedido/map-pedido-extraido-to-form";
+import { todayIsoDate, tomorrowIsoDate } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { withNotasGeneralesOnHijas } from "../utils/ot/notas-generales-ot";
-import {
-  createEmptyOrdenTrabajoHija,
-  flattenOrdenesTrabajoToOrigenCorreo,
-  groupOrigenCorreoToOrdenesTrabajo,
-  parseOrigenCorreoJson,
-  type OrigenCorreoRenglon,
-  type OrdenTrabajoHija,
-} from "../utils/origen/origen-correo-ordenes-trabajo";
-import {
-  applyProductoToLinea,
-  collectSugerenciasLinea,
-  fieldControlClass,
-  formatBodegaDestinoOption,
-  formatCompradorLabel,
-  formatPrecioInput,
-  lineaFormDesdeIa,
-  lineAmounts,
-  parseCantidadReagrupacion,
-  resolveBodegaDestinoInicial,
-  suggestFromCatalogo,
-  sugerenciaToOption,
-  toDateInputValue,
-} from "../utils/pedido/orden-venta-create-helpers";
+import { groupOrigenCorreoToOrdenesTrabajo } from "../utils/origen/origen-correo-ordenes-trabajo";
+import { lineaFormDesdeIa } from "../utils/pedido/orden-venta-create-helpers";
 
 export function useAplicarCorreccionCorreoOv(estado: OrdenVentaFormEstado) {
   const { correo, syncActiveOtFromForm, lineas, origenTexto, observaciones, productos, centroConsumo, ventanaDesde, ventanaHasta, direccion, anden, contacto, telefono, aceptaSustituciones, requiereLote, registrarTemperatura, applyOrdenesTrabajo, setLineas, setFormOtPage, setReagruparAplicada, setReagruparOpen, setError, isEditing, pendingEmitId, pendingDraftSaveAfterReorgRef, showToast } = estado;
@@ -173,7 +122,7 @@ export function useAplicarCorreccionCorreoOv(estado: OrdenVentaFormEstado) {
       syncActiveOtFromForm,
       telefono,
       ventanaDesde,
-      ventanaHasta,
+      ventanaHasta, pendingDraftSaveAfterReorgRef, setError, setFormOtPage, setLineas, setReagruparAplicada, setReagruparOpen,
     ],
   );
   return { handleAplicarCorreccionCorreo };
@@ -192,6 +141,6 @@ export function useDeshacerReagrupacionOv(estado: OrdenVentaFormEstado) {
     setLineas(reagruparAplicada.snapshot.lineas);
     setReagruparAplicada(null);
     setError(null);
-  }, [applyOrdenesTrabajo, reagruparAplicada]);
+  }, [applyOrdenesTrabajo, reagruparAplicada, setError, setLineas, setReagruparAplicada]);
   return { handleDeshacerReagrupacion };
 }

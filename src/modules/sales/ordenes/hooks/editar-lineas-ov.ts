@@ -1,71 +1,15 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
-import {
-  applyProductoToLinea,
-  collectSugerenciasLinea,
-  fieldControlClass,
-  formatBodegaDestinoOption,
-  formatCompradorLabel,
-  formatPrecioInput,
-  lineaFormDesdeIa,
-  lineAmounts,
-  parseCantidadReagrupacion,
-  resolveBodegaDestinoInicial,
-  suggestFromCatalogo,
-  sugerenciaToOption,
-  toDateInputValue,
-} from "../utils/pedido/orden-venta-create-helpers";
-import {
-  actualizarSugerenciasDeCatalogo,
-  crearLineaDesdeProducto,
-} from "./useLineasOv";
-import {
-  createEmptyOrdenTrabajoHija,
-  flattenOrdenesTrabajoToOrigenCorreo,
-  groupOrigenCorreoToOrdenesTrabajo,
-  parseOrigenCorreoJson,
-  type OrigenCorreoRenglon,
-  type OrdenTrabajoHija,
-} from "../utils/origen/origen-correo-ordenes-trabajo";
-import { stripLeadingProductoCodigo } from "../../shared/utils/producto-venta-nombre";
-import {
-  UNIDAD_MEDIDA_VENTA_DEFAULT,
-  type OrdenVentaOperadorRow,
-  type ProductoVentaOption,
-} from "../../shared/types/sales.types";
-import type {
-  BodegaDestinoOption,
-  CaptureStep,
-  LineaSugerenciaCatalogo,
-  LineaVentaForm,
-  OrdenVentaCreateModalProps,
-  PickerKind,
-  ReagrupacionAplicada,
-  StartMode,
-} from "../types/orden-venta-create-modal.types";
+import { useCallback, useEffect } from "react";
+import { applyProductoToLinea, sugerenciaToOption } from "../utils/pedido/orden-venta-create-helpers";
+import { crearLineaDesdeProducto } from "./useLineasOv";
+import { flattenOrdenesTrabajoToOrigenCorreo } from "../utils/origen/origen-correo-ordenes-trabajo";
+import { type ProductoVentaOption } from "../../shared/types/sales.types";
+import type { LineaSugerenciaCatalogo } from "../types/orden-venta-create-modal.types";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
-import {
-  formatDecimalInputEs,
-  formatPrecioEs,
-  formatPrecioInputMx,
-  parseDecimalEs,
-  sanitizeDecimalInputEs,
-  sanitizePrecioInputMx,
-} from "@/lib/utils/decimal-es";
+import { formatDecimalInputEs, formatPrecioInputMx, parseDecimalEs, sanitizeDecimalInputEs, sanitizePrecioInputMx } from "@/lib/utils/decimal-es";
 import { useClearFieldMarksOv } from "./clear-field-marks-ov";
-import {
-  agregarProductoAOrdenesTrabajo,
-  resolveOtIdParaLineaNueva,
-} from "./editar-lineas-ov-helpers";
+import { agregarProductoAOrdenesTrabajo, resolveOtIdParaLineaNueva } from "./editar-lineas-ov-helpers";
 
 export { resolveOtIdParaLineaNueva };
 
@@ -114,7 +58,7 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
       ordenesTrabajoForm,
       origenCorreoDraft,
       replaceLineaIndex,
-      restoreFormScroll,
+      restoreFormScroll, setCantidadFocusId, setError, setIdBodegaDestino, setLineas, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setReplaceLineaIndex,
     ],
   );
 
@@ -124,16 +68,7 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
       setReplaceLineaIndex(index);
       setPicker("producto");
     },
-    [captureFormScroll],
-  );
-
-  const handleOpenSugerenciasProducto = useCallback(
-    (index: number) => {
-      captureFormScroll();
-      setReplaceLineaIndex(index);
-      setPicker("sugerencias");
-    },
-    [captureFormScroll],
+    [captureFormScroll, setPicker, setReplaceLineaIndex],
   );
 
   const handleAcceptSugerencia = useCallback(
@@ -153,7 +88,7 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
       setReplaceLineaIndex(null);
       restoreFormScroll();
     },
-    [restoreFormScroll],
+    [restoreFormScroll, setError, setLineas, setPicker, setReplaceLineaIndex],
   );
 
   useEffect(() => {
@@ -168,12 +103,12 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
       setCantidadFocusId(null);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [cantidadFocusId, lineas, picker, restoreFormScroll]);
+  }, [cantidadFocusId, lineas, picker, restoreFormScroll, setCantidadFocusId]);
 
   const handleRemoveLinea = useCallback((index: number) => {
     setLineas((prev) => prev.filter((_, i) => i !== index));
     setError(null);
-  }, []);
+  }, [setError, setLineas]);
 
   const clearFieldMarks = useClearFieldMarksOv({
     warnFields,
@@ -205,7 +140,7 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
           : linea,
       ),
     );
-  }, []);
+  }, [setLineas]);
 
   const handleCantidadBlur = useCallback((index: number, value: string) => {
     const parsed = parseDecimalEs(value);
@@ -217,7 +152,7 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
         i === index ? { ...linea, cantidadInput: formatted } : linea,
       ),
     );
-  }, []);
+  }, [setLineas]);
 
   const handleLineaFieldChange = useCallback(
     (
@@ -233,7 +168,7 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
         ),
       );
     },
-    [],
+    [setLineas],
   );
 
   const handlePrecioChange = useCallback((index: number, value: string) => {
@@ -251,7 +186,7 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
         };
       }),
     );
-  }, []);
+  }, [setLineas]);
 
   const handlePrecioBlur = useCallback((index: number, value: string) => {
     const parsed = parseDecimalEs(value);
@@ -269,6 +204,6 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
           : linea,
       ),
     );
-  }, []);
+  }, [setLineas]);
   return { handleSelectProducto, handleOpenReplaceProducto, handleAcceptSugerencia, handleRemoveLinea, clearFieldMarks, handleCantidadChange, handleCantidadBlur, handleLineaFieldChange, handlePrecioChange, handlePrecioBlur };
 }

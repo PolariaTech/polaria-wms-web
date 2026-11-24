@@ -1,5 +1,3 @@
-import { Workbook, type Cell } from "exceljs";
-import { aliasPrincipalPorPar } from "./comprador-alias-reglas";
 
 export const COMPRADOR_PRECIOS_SHEET_NAME = "Precios";
 

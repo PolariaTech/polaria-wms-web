@@ -1,47 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
-import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import {
-  PolariaTableActionGroup,
-  PolariaTableBadge,
-  PolariaTableCode,
-  PolariaTableDisableButton,
-  PolariaTableEditButton,
-  PolariaTableEnableButton,
-} from "@/components/shared/table/PolariaTableCells";
-import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import {
-  ADMIN_CATALOG_SECTION_LABEL,
-  COMPRADORES_EMPTY_MESSAGE,
-  COMPRADORES_PAGE_HINT,
-  COMPRADORES_PAGE_TITLE,
-  COMPRADORES_TABLE_SUBTITLE,
-  COMPRADORES_TABLE_TITLE,
-} from "@/modules/admin-panel/shared/constants/admin-catalog-list";
+import { ADMIN_CATALOG_SECTION_LABEL, COMPRADORES_EMPTY_MESSAGE, COMPRADORES_PAGE_HINT, COMPRADORES_PAGE_TITLE, COMPRADORES_TABLE_SUBTITLE, COMPRADORES_TABLE_TITLE } from "@/modules/admin-panel/shared/constants/admin-catalog-list";
 import { AdminMaestroViewShell } from "@/modules/admin-panel/shared/components/AdminMaestroViewShell";
-import {
-  useAdminMaestroScope,
-  type AdminMaestroViewProps,
-} from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
-import {
-  listCompradoresAdmin,
-  type CompradorListRow,
-} from "../services/compradores.service";
-import {
-  importCompradorPreciosFromFile,
-  listCompradorPreciosTemplateAdmin,
-} from "../services/comprador-producto-alias.service";
+import { useAdminMaestroScope, type AdminMaestroViewProps } from "@/modules/admin-panel/shared/hooks/useAdminMaestroScope";
+import { listCompradoresAdmin, type CompradorListRow } from "../services/compradores.service";
 import { listProductosMasVendidosAdmin } from "../services/producto-mas-vendido.service";
 import { listGruposPertenecientesAdmin } from "../services/grupo-perteneciente.service";
-import {
-  downloadCompradorPreciosExcelTemplate,
-  type CompradorPreciosExportFilters,
-} from "../utils/comprador-precios-excel";
-import type { CompradorPreciosPrintScope } from "../utils/comprador-precios-print";
 import { CompradorCreateModal } from "./CompradorCreateModal";
 import { CompradorDetalleModal } from "./CompradorDetalleModal";
 import { CompradorEditModal } from "./CompradorEditModal";
@@ -49,10 +17,7 @@ import { CompradorPreciosGestionModal } from "./CompradorPreciosGestionModal";
 
 import { useCompradoresListPreciosHandlers } from "./compradores-list-view.precios";
 import { useCompradoresListColumns } from "./compradores-list-view.columns";
-import {
-  useCompradoresListToggleHandler,
-  type PendingToggle,
-} from "./compradores-list-view.toggle";
+import { useCompradoresListToggleHandler, type PendingToggle } from "./compradores-list-view.toggle";
 
 export function CompradoresListView({
   codigoCuenta: codigoCuentaProp,

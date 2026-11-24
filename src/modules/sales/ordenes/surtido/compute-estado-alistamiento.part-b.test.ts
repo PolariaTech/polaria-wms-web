@@ -1,13 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  capturaTieneAlistoCompleto,
-  capturaTieneDespacho,
-  capturaTieneFactura,
-  capturaTieneRevisoCompleto,
-  computeEstadoAlistamientoFromCapturas,
-  estadoSurtidoEsAvance,
-  puedeAplicarEstadoAlistamiento,
-} from "./compute-estado-alistamiento";
+import { capturaTieneDespacho, capturaTieneFactura, capturaTieneRevisoCompleto } from "./compute-estado-alistamiento";
 
 describe("captura de revisión y despacho", () => {
   it("toma Revisó por chulos de línea o por la firma", () => {

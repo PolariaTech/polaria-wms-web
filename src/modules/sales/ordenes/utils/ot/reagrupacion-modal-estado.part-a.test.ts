@@ -1,25 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import type { PropuestaReagrupacionApi } from "./reagrupar-ordenes-trabajo";
-import {
-  armarPickerOtRespaldo,
-  decidirAperturaReagruparAlCargar,
-  ESTADO_INICIAL_REAGRUPACION,
-  LIMITE_INSTRUCCION_REAGRUPACION,
-  MENSAJE_FUERA_DE_ALCANCE,
-  puedeGenerar,
-  puedeModificarConIaDesdeLista,
-  reagruparAbiertoSegunCypher,
-  reagruparModalAbierto,
-  reducirModalReagrupacion,
-  type AccionModalReagrupacion,
-  type EstadoModalReagrupacion,
-} from "./reagrupacion-modal-estado";
-import {
-  correr,
-  escribir,
-  generar,
-  propuesta,
-} from "./reagrupacion-modal-estado.test-helpers";
+import { describe, expect, it } from "vitest";
+import { ESTADO_INICIAL_REAGRUPACION, LIMITE_INSTRUCCION_REAGRUPACION, MENSAJE_FUERA_DE_ALCANCE, puedeGenerar, puedeModificarConIaDesdeLista, reagruparModalAbierto, reducirModalReagrupacion } from "./reagrupacion-modal-estado";
+import { correr, escribir, generar, propuesta } from "./reagrupacion-modal-estado.test-helpers";
 
 describe("reducirModalReagrupacion", () => {
   it("arranca escribiendo, sin instrucción y sin permitir generar", () => {

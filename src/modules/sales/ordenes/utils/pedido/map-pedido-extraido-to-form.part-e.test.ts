@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PedidoExtraido } from "../../ai/openai-pedido.client";
 import { mapPedidoExtraidoToForm } from "./map-pedido-extraido-to-form";
-import {
-  emptyPedido,
-} from "./map-pedido-extraido-to-form.test-helpers";
+import { emptyPedido } from "./map-pedido-extraido-to-form.test-helpers";
 
 describe("mapPedidoExtraidoToForm", () => {
 

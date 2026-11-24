@@ -42,7 +42,7 @@ export function OrdenVentaDetalleContent({
   mostrarTotalOv,
   tareaTotal = 1,
 }: OrdenVentaDetalleContentProps) {
-  const allLineItems = orden.lineas ?? [];
+  const allLineItems = useMemo(() => orden.lineas ?? [], [orden.lineas]);
   const lineItems: OrdenVentaLineaRow[] = useMemo(() => {
     // Enriquecer con nombre aunque el SKU esté archivado (ARCH-*), para empatar OT.
     const enriched = allLineItems.map((linea) => ({

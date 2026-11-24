@@ -1,17 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type {
-  OrdenVentaDetalleRow,
-  OrdenVentaOperadorRow,
-} from "../../shared/types/sales.types";
 import { buildOrdenTareaAlmacenHtml } from "./build-orden-tarea-almacen-html";
 import { buildOrdenTareaAlmacenLandscapePdf, buildOrdenTareaAlmacenLandscapePdfMulti } from "./render-orden-tarea-almacen-landscape-pdf";
 import { buildOrdenTareaAlmacenPdf } from "./render-orden-tarea-almacen-pdf";
-import {
-  formatOrdenTareaImpresaAt,
-  mapOrdenVentaToAlmacenPrintData,
-  mapOrdenVentaToAlmacenPrintSheets,
-} from "./map-orden-tarea-almacen";
-import { textoPdf } from "./texto-pdf-flate";
+import { mapOrdenVentaToAlmacenPrintData, mapOrdenVentaToAlmacenPrintSheets } from "./map-orden-tarea-almacen";
 import { DETALLE, LIST_ROW } from "./orden-tarea-almacen.test-helpers";
 
 describe("orden de tarea almacén", () => {

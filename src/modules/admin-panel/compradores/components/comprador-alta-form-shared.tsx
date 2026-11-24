@@ -3,12 +3,7 @@
 import { Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
-import type {
-  CompradorAltaCentroRow,
-  CompradorAltaContactoRow,
-  CompradorAltaFormFicha,
-  CompradorAltaFormState,
-} from "../utils/comprador-alta";
+import type { CompradorAltaCentroRow, CompradorAltaContactoRow, CompradorAltaFormFicha, CompradorAltaFormState } from "../utils/comprador-alta";
 
 export function CaptureSection({
   title,
@@ -69,19 +64,6 @@ export type CompradorAltaFormStep =
   | "contactos"
   | "canales"
   | "reglas";
-
-interface CompradorAltaFormFieldsProps {
-  form: CompradorAltaFormState;
-  onChange: (next: CompradorAltaFormState) => void;
-  disabled?: boolean;
-  idPrefix: string;
-  codigoValue: string;
-  nombreAutoFocus?: boolean;
-  /** Catálogo de grupos pertenecientes (viene de BD / tmp). */
-  grupoOptions?: readonly string[];
-  /** Si se indica, solo muestra la sección del paso (wizard). */
-  step?: CompradorAltaFormStep;
-}
 
 export function patchFicha(
   form: CompradorAltaFormState,

@@ -1,26 +1,14 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
-import { PolariaTableCode } from "@/components/shared/table/PolariaTableCells";
 import { formatInternationalPhoneDisplay } from "@/constants/ui/phone-countries";
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
-import {
-  getCompradorAdmin,
-  type CompradorDetalleRow,
-  type CompradorListRow,
-} from "../services/compradores.service";
-import {
-  listCompradorProductoAliasAdmin,
-  type CompradorProductoAliasListRow,
-} from "../services/comprador-producto-alias.service";
-import {
-  displayAltaValue,
-  emptyCompradorAltaFicha,
-  type CompradorAltaFicha,
-} from "../utils/comprador-alta";
+import { getCompradorAdmin, type CompradorDetalleRow, type CompradorListRow } from "../services/compradores.service";
+import { listCompradorProductoAliasAdmin, type CompradorProductoAliasListRow } from "../services/comprador-producto-alias.service";
+import { emptyCompradorAltaFicha, type CompradorAltaFicha } from "../utils/comprador-alta";
 import { CompradorEquivalenciasTable } from "./CompradorEquivalenciasTable";
 import { CompradorModalTabs } from "./CompradorModalTabs";
 

@@ -94,15 +94,6 @@ function fieldValue(value: string): string {
   return escapeOrdenTareaHtml(value);
 }
 
-function sectionTitle(title: string, hint = ""): string {
-  return (
-    `<table class="sec"><tr>` +
-    `<td class="h">${title}</td>` +
-    (hint ? `<td class="hint">${hint}</td>` : `<td></td>`) +
-    `</tr></table><div class="sec-rule"></div>`
-  );
-}
-
 function buildProductRows(
   data: OrdenTareaAlmacenPrintData,
   startIndex: number,

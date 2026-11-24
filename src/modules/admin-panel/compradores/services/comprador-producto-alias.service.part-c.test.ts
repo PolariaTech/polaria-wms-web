@@ -1,13 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setSupabaseClientForTests } from "@/lib/supabase/domain-query";
-import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import {
-  createCompradorProductoAliasAdmin,
-  listCompradorPreciosTemplateAdmin,
-  listCompradorProductoAliasAdmin,
-  listCompradorProductoAliasCuentaAdmin,
-  updateCompradorProductoAliasAdmin,
-} from "./comprador-producto-alias.service";
+import { listCompradorPreciosTemplateAdmin } from "./comprador-producto-alias.service";
 describe("comprador-producto-alias.service", () => {
   beforeEach(() => {
   setSupabaseClientForTests(null);
