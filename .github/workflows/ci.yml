@@ -100,11 +100,12 @@ jobs:
             "src/modules/processing/shared/services/processing.service.lists.ts" \
             "src/modules/sales/shared/constants/sales-status.ts"
 
-      - name: Checkout mateo-ia-api (contrato / SSOT)
+      - name: Checkout polaria-wms-mateo-pedido-api (contrato / SSOT)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: PolariaTech/mateo-ia-api
+          repository: PolariaTech/polaria-wms-mateo-pedido-api
           path: mateo-ia-api
+          token: ${{ secrets.MATEO_REPO_READ_TOKEN }}
           persist-credentials: false
 
       - name: Tests arquitectura + contrato Mateo
