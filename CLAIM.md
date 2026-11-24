@@ -65,6 +65,17 @@
 - `src/modules/sales/ordenes/utils/pedido/resolve-cantidad-envase.ts` — autorizada por el usuario el 2026-11-24
 - `src/modules/sales/shared/services/materializar-lineas-desde-origen.ts` — autorizada por el usuario el 2026-11-24
 - `package-lock.json` — autorizada por el usuario el 2026-11-24
+- `src/components/theme/ThemeBootScript.tsx` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/components/modals/use-entrega-mapa.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/hooks/aplicar-reagrupacion-ov.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/hooks/cargar-orden-al-abrir.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/hooks/reset-formulario-ov.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/hooks/seleccionar-comprador-ov.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/hooks/useEnvioOv.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/hooks/validar-envio-ov.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/print/build-orden-tarea-almacen-html.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/utils/origen/origen-adjuntos.ts` — autorizada por el usuario el 2026-11-24
+- `src/modules/sales/ordenes/utils/pedido/campos-faltantes-ov.ts` — autorizada por el usuario el 2026-11-24
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/services/sales-api.service.test.ts`
