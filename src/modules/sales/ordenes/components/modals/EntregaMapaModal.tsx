@@ -35,7 +35,20 @@ export function EntregaMapaModal({
 }: EntregaMapaModalProps) {
   const titleId = useId();
   const [copiado, setCopiado] = useState(false);
-  const mapa = useEntregaMapa({
+  const {
+    mapHostRef,
+    mapaListo,
+    coords,
+    direccionResuelta,
+    query,
+    setQuery,
+    error,
+    setError,
+    hits,
+    buscando,
+    buscar,
+    elegirHit,
+  } = useEntregaMapa({
     open,
     modo,
     direccionInicial,
@@ -57,31 +70,31 @@ export function EntregaMapaModal({
 
   async function handleCopiar() {
     const texto =
-      mapa.direccionResuelta.trim() ||
-      (mapa.coords ? textoCoords(mapa.coords) : "") ||
-      mapa.query.trim();
+      direccionResuelta.trim() ||
+      (coords ? textoCoords(coords) : "") ||
+      query.trim();
     if (!texto) return;
     try {
       await navigator.clipboard.writeText(texto);
       setCopiado(true);
       window.setTimeout(() => setCopiado(false), 1600);
     } catch {
-      mapa.setError("No se pudo copiar al portapapeles.");
+      setError("No se pudo copiar al portapapeles.");
     }
   }
 
   async function handleCompartir() {
     const texto =
-      mapa.direccionResuelta.trim() ||
-      (mapa.coords ? textoCoords(mapa.coords) : "") ||
-      mapa.query.trim();
+      direccionResuelta.trim() ||
+      (coords ? textoCoords(coords) : "") ||
+      query.trim();
     if (!texto) return;
     if (typeof navigator.share === "function") {
       try {
         await navigator.share({
           title: "Dirección de entrega",
           text: texto,
-          url: mapa.coords ? urlGoogleMaps(mapa.coords, texto) : undefined,
+          url: coords ? urlGoogleMaps(coords, texto) : undefined,
         });
         return;
       } catch {
@@ -92,11 +105,11 @@ export function EntregaMapaModal({
   }
 
   function handleConfirm() {
-    if (!mapa.coords || !onConfirm) return;
+    if (!coords || !onConfirm) return;
     onConfirm({
-      direccion: mapa.direccionResuelta.trim() || mapa.query.trim(),
-      lat: mapa.coords.lat,
-      lng: mapa.coords.lng,
+      direccion: direccionResuelta.trim() || query.trim(),
+      lat: coords.lat,
+      lng: coords.lng,
     });
     onClose();
   }
@@ -151,12 +164,12 @@ export function EntregaMapaModal({
                   aria-hidden
                 />
                 <input
-                  value={mapa.query}
-                  onChange={(event) => mapa.setQuery(event.target.value)}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
-                      void mapa.buscar();
+                      void buscar();
                     }
                   }}
                   placeholder="Buscar dirección…"
@@ -165,11 +178,11 @@ export function EntregaMapaModal({
               </div>
               <button
                 type="button"
-                onClick={() => void mapa.buscar()}
-                disabled={mapa.buscando}
+                onClick={() => void buscar()}
+                disabled={buscando}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-polaria-teal px-3 py-2 text-sm font-semibold text-polaria-on-teal hover:opacity-90 disabled:opacity-60"
               >
-                {mapa.buscando ? (
+                {buscando ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 ) : (
                   <Search className="h-4 w-4" aria-hidden />
@@ -177,14 +190,14 @@ export function EntregaMapaModal({
                 Buscar
               </button>
             </div>
-            {mapa.hits.length > 1 ? (
+            {hits.length > 1 ? (
               <ul className="max-h-28 overflow-y-auto rounded-lg border border-polaria-w-08 bg-polaria-t-08">
-                {mapa.hits.map((hit) => (
+                {hits.map((hit) => (
                   <li key={`${hit.lat}-${hit.lng}-${hit.displayName}`}>
                     <button
                       type="button"
                       className="w-full px-3 py-2 text-left polaria-text-caption text-polaria-w hover:bg-polaria-t-20"
-                      onClick={() => mapa.elegirHit(hit)}
+                      onClick={() => elegirHit(hit)}
                     >
                       {hit.displayName}
                     </button>
@@ -196,8 +209,8 @@ export function EntregaMapaModal({
         ) : null}
 
         <div className="relative min-h-[280px] flex-1 bg-polaria-w-08">
-          <div ref={mapa.mapHostRef} className="absolute inset-0 z-0" />
-          {!mapa.mapaListo ? (
+          <div ref={mapHostRef} className="absolute inset-0 z-0" />
+          {!mapaListo ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-polaria-bg/60">
               <Loader2 className="h-6 w-6 animate-spin text-polaria-teal" />
             </div>
@@ -206,10 +219,10 @@ export function EntregaMapaModal({
 
         <EntregaMapaModalAcciones
           modo={modo}
-          coords={mapa.coords}
-          direccionResuelta={mapa.direccionResuelta}
-          query={mapa.query}
-          error={mapa.error}
+          coords={coords}
+          direccionResuelta={direccionResuelta}
+          query={query}
+          error={error}
           copiado={copiado}
           onCopiar={() => void handleCopiar()}
           onCompartir={() => void handleCompartir()}

@@ -72,8 +72,8 @@ Módulos Nest cableados en `AppModule`: Auth, Configurator, Configuracion, Integ
 | **Warehouses — demora / reportes** | Sync alertas; reportes mixtos | **D**/**A** + **B** parcial | Mantener; no fusionar a ciegas |
 | **Transport** | Listados | **A** | Mantener |
 | **Transport** | Paquetes / entregas / evidencia | **B** / **D** (foto) | Mantener |
-| **Processing** | Listados scoped **B**; legacy sin scope **A**; create/cierre **B** | **A**+**B** | Sin fallback silencioso scoped (`PROCESSING_CHANNEL_CONTRACT`) |
-| **Sales — surtido QR** | Sync estado OV por fotos | **D** (service_role) | Contrato `avanceEstadoSurtidoQr`; distinto del avance manual Nest |
+| **Processing** | Listados y create/cierre solo **B** (exige cuenta+bodega) | **B** | Sin listado legacy sin scope (`PROCESSING_CHANNEL_CONTRACT`) |
+| **Sales — surtido QR** | Sync estado OV por fotos | **D** calcula → **B** escribe | `POST …/avanzar-estado-surtido` + `INTERNAL_API_KEY`; ver ADR-004 |
 | **Operations** | OT, tareas, alertas, reportes API | **B** | Mantener solo **B** |
 | **Configurator** | Empresas/usuarios/bodegas (mixto) | **A**+**B** | Lecturas **A**; altas/bootstrap **B** |
 | **Configurator — cuentas / impresoras** | Zona, SLA, queries | **A** (+ **D** impresión) | Mantener |
@@ -147,6 +147,8 @@ Hoy OV es el dominio más híbrido (y el más importante):
 | Parse/group `origen_correo` para DB/respuestas Nest | Nest `ai/utils/origen-correo-*` (alineado a Mateo) | Web tiene superset UI en `origen/` |
 
 **Regla:** no copiar de nuevo `pedido-ia-documentos`, `texto-origen-pedido` ni reconciliación local en Nest. Si hace falta lógica IA → endpoint en Mateo.
+
+**SSOT web (P1):** barrels `Compat re-export` de la raíz de `ordenes/utils/` viven en `ordenes/utils/_archived/` (no reimportar). Gate: `ordenes-utils-ssot.architecture.test.ts`. Hash parity Nest↔Mateo: `mateo-ai-utils-sync` en CI de API (y e2e-stack).
 
 ## 9. Qué no hace este documento
 

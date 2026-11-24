@@ -22,18 +22,17 @@ describe("wms-channels (frontera híbrida)", () => {
     expect(OV_CHANNEL_CONTRACT.imprimirAdjuntosLog).toBe(WMS_CHANNEL.NEXT_BFF);
   });
 
-  it("Processing: listados scoped y mutaciones solo Nest", () => {
+  it("Processing: listados y mutaciones solo Nest", () => {
     expect(PROCESSING_CHANNEL_CONTRACT.crearYMutar).toBe(WMS_CHANNEL.NEST);
     expect(PROCESSING_CHANNEL_CONTRACT.listadosScoped).toBe(WMS_CHANNEL.NEST);
-    expect(PROCESSING_CHANNEL_CONTRACT.listadosLegacySinScope).toBe(
-      WMS_CHANNEL.SUPABASE,
-    );
+    expect(
+      "listadosLegacySinScope" in PROCESSING_CHANNEL_CONTRACT,
+    ).toBe(false);
   });
 
-  it("OV: avance post-emit en Nest; surtido QR por BFF", () => {
+  it("OV: avance post-emit y surtido QR en Nest", () => {
     expect(OV_CHANNEL_CONTRACT.avanceEstadoPostEmit).toBe(WMS_CHANNEL.NEST);
-    expect(OV_CHANNEL_CONTRACT.avanceEstadoSurtidoQr).toBe(
-      WMS_CHANNEL.NEXT_BFF,
-    );
+    expect(OV_CHANNEL_CONTRACT.avanceEstadoSurtidoQr).toBe(WMS_CHANNEL.NEST);
+    expect(OV_CHANNEL_CONTRACT.despachoPublico).toBe(WMS_CHANNEL.NEST);
   });
 });

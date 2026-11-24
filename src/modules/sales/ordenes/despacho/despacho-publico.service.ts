@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { avanzarEstadoSurtidoEnNest } from "@/modules/sales/ordenes/surtido/avanzar-estado-surtido.server";
 import { recordOrdenVentaLogServer } from "@/modules/sales/ordenes/services/orden-venta-log.server";
 import { resolveTenantSchemaForCuenta } from "@/modules/sales/shared/services/sales-catalog.server";
 import {
@@ -126,36 +127,52 @@ export async function confirmarDespachoPublico(
     };
   }
 
-  const from = fromSchema(admin, encontrada.schemaName);
-  const { data, error } = await from("orden_venta")
-    .update({ estado: ESTADO_DESPACHADA })
-    .eq("id_orden_venta", input.idOrdenVenta)
-    .eq("codigo_cuenta", input.codigoCuenta)
-    .eq("estado", encontrada.estado)
-    .select("id_orden_venta")
-    .maybeSingle();
-  if (error) return { ok: false, error: "No se pudo confirmar el despacho." };
-  if (!data) {
-    return {
-      ok: false,
-      error: "La orden ya no está en alistada ni en alistamiento.",
-    };
+  const escrito = await escribirEstadoDespachoEnNest(input);
+  if (escrito) return escrito;
+
+  try {
+    await recordOrdenVentaLogServer({
+      idOrdenVenta: input.idOrdenVenta,
+      codigoCuenta: input.codigoCuenta,
+      accion: "cambio_estado",
+      mensaje: `Despacho público: ${encontrada.estado} → ${ESTADO_DESPACHADA}. Despachó ${input.despachador}. Transportista ${input.transportista}.`,
+      autorNombre: input.despachador,
+      payloadExtra: {
+        tipo: "despacho_publico",
+        estado_anterior: encontrada.estado,
+        estado: ESTADO_DESPACHADA,
+        despachador: input.despachador,
+        transportista: input.transportista,
+      },
+    });
+    return { ok: true };
+  } catch {
+    return { ok: true };
   }
+}
 
-  await recordOrdenVentaLogServer({
-    idOrdenVenta: input.idOrdenVenta,
-    codigoCuenta: input.codigoCuenta,
-    accion: "cambio_estado",
-    mensaje: `Despacho público: ${encontrada.estado} → ${ESTADO_DESPACHADA}. Despachó ${input.despachador}. Transportista ${input.transportista}.`,
-    autorNombre: input.despachador,
-    payloadExtra: {
-      tipo: "despacho_publico",
-      estado_anterior: encontrada.estado,
+/** El estado lo escribe Nest (mismo writer que el surtido QR). */
+async function escribirEstadoDespachoEnNest(
+  input: ConfirmacionDespacho,
+): Promise<ResultadoDespacho | null> {
+  try {
+    await avanzarEstadoSurtidoEnNest({
+      idOrdenVenta: input.idOrdenVenta,
       estado: ESTADO_DESPACHADA,
-      despachador: input.despachador,
-      transportista: input.transportista,
-    },
-  }).catch(() => undefined);
-
-  return { ok: true };
+      codigoCuenta: input.codigoCuenta,
+    });
+    return null;
+  } catch (error: unknown) {
+    const detalle = error instanceof Error ? error.message : "";
+    const transicionRechazada =
+      detalle.includes("409") ||
+      detalle.toLowerCase().includes("no permitida");
+    if (transicionRechazada) {
+      return {
+        ok: false,
+        error: "La orden ya no está en alistada ni en alistamiento.",
+      };
+    }
+    return { ok: false, error: "No se pudo confirmar el despacho." };
+  }
 }

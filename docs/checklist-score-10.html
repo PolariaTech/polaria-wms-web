@@ -146,7 +146,7 @@
       <div class="stat"><div class="lbl">Ahora</div><div class="val">9.0</div></div>
       <div class="stat"><div class="lbl">Meta</div><div class="val" style="color:var(--teal)">10</div></div>
       <div class="stat"><div class="lbl">Base hecha</div><div class="val">4/4</div></div>
-      <div class="stat"><div class="lbl">Residual hecho</div><div class="val">0/18</div></div>
+      <div class="stat"><div class="lbl">Residual hecho</div><div class="val">10/18</div></div>
       <div class="stat"><div class="lbl">En curso</div><div class="val">0</div></div>
     </div>
 
@@ -212,98 +212,108 @@
     </details>
 
     <!-- P0 -->
-    <details class="section" open>
+    <details class="section">
       <summary>
         <span>P0 — Bloquean el 10</span>
-        <span class="count">0/4 Hecho</span>
+        <span class="count">4/4 Hecho</span>
       </summary>
       <div class="item">
         <div class="item-head">
           <div class="item-title">ESLint global web bloqueante (hoy ~68 errores informativos)</div>
-          <div><span class="pill p0">P0</span> <span class="pill pend">Pendiente</span></div>
+          <div><span class="pill p0">P0</span> <span class="pill hecho">Hecho</span></div>
         </div>
         <div class="meta">Repos: polaria-wms-web</div>
         <div class="done-when"><strong>Hecho cuando:</strong> lint ≤15 (ideal 0) y job sin continue-on-error.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> Job lint sin continue-on-error; 0 errores en CI.</p></div>
       </div>
       <div class="item">
         <div class="item-head">
           <div class="item-title">Procesamiento: eliminar fallback listadosLegacySinScope</div>
-          <div><span class="pill p0">P0</span> <span class="pill pend">Pendiente</span></div>
+          <div><span class="pill p0">P0</span> <span class="pill hecho">Hecho</span></div>
         </div>
         <div class="meta">Repos: polaria-wms-web</div>
         <div class="done-when"><strong>Hecho cuando:</strong> Sin scope → error; test lists; CI cubre lists.ts.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> PROCESSING_CHANNEL_CONTRACT sin listadosLegacySinScope.</p></div>
       </div>
       <div class="item">
         <div class="item-head">
           <div class="item-title">Surtido QR: unificar avance de estado OV en Nest</div>
-          <div><span class="pill p0">P0</span> <span class="pill pend">Pendiente</span></div>
+          <div><span class="pill p0">P0</span> <span class="pill hecho">Hecho</span></div>
         </div>
         <div class="meta">Repos: web · api · db</div>
         <div class="done-when"><strong>Hecho cuando:</strong> Un solo writer Nest; contrato + test SQL/integración.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> POST avanzar-estado-surtido + canal NEST en web.</p></div>
       </div>
       <div class="item">
         <div class="item-head">
           <div class="item-title">ADR + fases dual-write OV (borrador A vs mutaciones B)</div>
-          <div><span class="pill p0">P0</span> <span class="pill pend">Pendiente</span></div>
+          <div><span class="pill p0">P0</span> <span class="pill hecho">Hecho</span></div>
         </div>
         <div class="meta">Repos: web · api · db</div>
         <div class="done-when"><strong>Hecho cuando:</strong> ADR publicado; invariantes + tests paridad en staging.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> ADR-004 en polaria-wms-db + contratos canal.</p></div>
       </div>
     </details>
 
     <!-- P1 -->
-    <details class="section">
+    <details class="section" open>
       <summary>
         <span>P1 — Mateo, CI, deuda activa</span>
-        <span class="count">0/6 Hecho</span>
+        <span class="count">6/6 Hecho</span>
       </summary>
       <div class="item">
         <div class="item-head">
           <div class="item-title">Retirar schemasToSearch / barrido emp_* latente</div>
-          <div><span class="pill p1">P1</span> <span class="pill pend">Pendiente</span></div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
         </div>
         <div class="meta">Repos: polaria-wms-api</div>
         <div class="done-when"><strong>Hecho cuando:</strong> Código muerto eliminado o test anti-regresión.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> Método eliminado; test anti-regresión en orden-venta.repository.tx.spec.</p></div>
       </div>
       <div class="item">
         <div class="item-head">
           <div class="item-title">Web: no duplicar utils de pedido (SSOT Mateo/Nest)</div>
-          <div><span class="pill p1">P1</span> <span class="pill pend">Pendiente</span></div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
         </div>
         <div class="meta">Repos: web · api · mateo</div>
         <div class="done-when"><strong>Hecho cuando:</strong> Utils archivadas; test arquitectura cubre ordenes/utils/**.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> Barrels → _archived/; ordenes-utils-ssot.architecture.test.ts.</p></div>
       </div>
       <div class="item">
         <div class="item-head">
           <div class="item-title">Sync/contrato Mateo bidireccional en CI</div>
-          <div><span class="pill p1">P1</span> <span class="pill pend">Pendiente</span></div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
         </div>
         <div class="meta">Repos: api · mateo · web</div>
         <div class="done-when"><strong>Hecho cuando:</strong> Gate lectura/reagrupar; PR falla si diverge.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> API: mateo-ai-utils-sync en CI; web: checkout Mateo + vitest contract/SSOT.</p></div>
       </div>
       <div class="item">
         <div class="item-head">
           <div class="item-title">CI multi-repo / e2e stack db+api+web[+mateo]</div>
-          <div><span class="pill p1">P1</span> <span class="pill pend">Pendiente</span></div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
         </div>
         <div class="meta">Repos: los cuatro</div>
         <div class="done-when"><strong>Hecho cuando:</strong> Workflow label e2e-stack con Postgres + smoke mínimo.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> .github/workflows/e2e-stack.yml (label e2e-stack / workflow_dispatch).</p></div>
       </div>
       <div class="item">
         <div class="item-head">
           <div class="item-title">Quitar fallback silencioso listado OV Nest→Supabase</div>
-          <div><span class="pill p1">P1</span> <span class="pill pend">Pendiente</span></div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
         </div>
         <div class="meta">Repos: polaria-wms-web</div>
         <div class="done-when"><strong>Hecho cuando:</strong> Error visible + telemetría; test de fallo API.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> listOrdenesVentaParaSalida propaga DomainServiceError; test de fallo Nest.</p></div>
       </div>
       <div class="item">
         <div class="item-head">
           <div class="item-title">Audit/Trivy web = misma política que API</div>
-          <div><span class="pill p1">P1</span> <span class="pill pend">Pendiente</span></div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
         </div>
         <div class="meta">Repos: polaria-wms-web</div>
         <div class="done-when"><strong>Hecho cuando:</strong> High+/CRITICAL bloquean o ADR de excepción único.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> Audit bloqueante + ADR-005 (xlsx); Trivy CRITICAL sin continue-on-error.</p></div>
       </div>
     </details>
 

@@ -4,6 +4,7 @@ import { ApiError, apiRequest } from "@/services/api/api";
 import {
   avanzarEstadoOrdenVentaApi,
   cancelarOrdenVentaApi,
+  listOrdenesVentaParaSalida,
 } from "./sales-api.service";
 
 vi.mock("@/services/api/api", () => ({
@@ -20,6 +21,17 @@ const apiRequestMock = vi.mocked(apiRequest);
 describe("sales-api.service", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
+  });
+
+  it("listOrdenesVentaParaSalida propaga fallo Nest sin fallback Supabase", async () => {
+    apiRequestMock.mockRejectedValue(new ApiError("nest caído"));
+
+    await expect(
+      listOrdenesVentaParaSalida({ codigoCuenta: "emp1" }),
+    ).rejects.toBeInstanceOf(DomainServiceError);
+
+    expect(apiRequestMock).toHaveBeenCalledTimes(1);
+    expect(apiRequestMock.mock.calls[0]?.[0]).toContain("paraSalida=true");
   });
 
   it("avanzarEstadoOrdenVentaApi llama POST avanzar-estado", async () => {

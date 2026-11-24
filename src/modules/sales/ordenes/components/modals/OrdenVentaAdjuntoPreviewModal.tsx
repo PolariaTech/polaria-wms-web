@@ -10,19 +10,17 @@ import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
 import { labelTipoOrigenAdjunto } from "../../utils/origen/origen-adjuntos";
 import { AdjuntoPreviewZoomControls } from "./AdjuntoPreviewZoomControls";
 import {
-  ADJUNTO_PREVIEW_HTML_DOC_STYLE,
   ADJUNTO_PREVIEW_ZOOM_DEFAULT,
   withBrowserPdfZoom,
 } from "./adjunto-preview-zoom";
 import { CypherResizeRail } from "./CypherResizeRail";
 import { useCypherDrawerResize } from "./cypher-drawer-resize";
-
-function esAdjuntoImagen(item: OrigenAdjunto): boolean {
-  const mime = (item.mime ?? "").toLowerCase();
-  const name = item.nombre.toLowerCase();
-  if (mime.startsWith("image/") && !name.endsWith(".pdf")) return true;
-  return /\.(jpe?g|png|gif|webp|bmp)$/i.test(name);
-}
+import {
+  buildAdjuntoHtmlSrcDoc,
+  buildAdjuntoZoomStyle,
+  esAdjuntoHtmlResponse,
+  esAdjuntoImagen,
+} from "./OrdenVentaAdjuntoPreviewModal-helpers";
 
 export interface OrdenVentaAdjuntoPreviewModalProps {
   open: boolean;
@@ -95,24 +93,14 @@ export function OrdenVentaAdjuntoPreviewModal({
             `No se pudo cargar el adjunto (${response.status}).`,
           );
         }
-        const contentType = (
-          response.headers?.get("content-type") ?? ""
-        ).toLowerCase();
-        const esHtml =
-          contentType.includes("text/html") ||
-          /\.html?$/i.test(adjunto?.nombre ?? "");
+        const esHtml = esAdjuntoHtmlResponse(
+          response.headers?.get("content-type"),
+          adjunto?.nombre,
+        );
         if (esHtml) {
-          // REQ-311: blob: no carga CSS relativo → totales/tablas en blanco.
-          // srcdoc + fondo blanco fuerza legibilidad del HTML Accor/OC.
           const html = await response.text();
           if (cancelled) return;
-          const conFondo = html.includes("<head")
-            ? html.replace(
-                /<head([^>]*)>/i,
-                `<head$1><base target="_blank"><style>${ADJUNTO_PREVIEW_HTML_DOC_STYLE}</style>`,
-              )
-            : `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${ADJUNTO_PREVIEW_HTML_DOC_STYLE}</style></head><body>${html}</body></html>`;
-          setHtmlSrcDoc(conFondo);
+          setHtmlSrcDoc(buildAdjuntoHtmlSrcDoc(html));
           setObjectUrl(null);
         } else {
           const blob = await response.blob();
@@ -155,15 +143,7 @@ export function OrdenVentaAdjuntoPreviewModal({
   if (!open || typeof document === "undefined") return null;
 
   const panelWidth = cypherPanelWidthClass(cypherWidthMode);
-  // REQ-327: el área escalada debe ser 100/zoom del viewport para que,
-  // tras scale, ocupe todo el alto/ancho disponible (sin hueco negro).
-  const zoomStyle = {
-    transform: `scale(${zoom})`,
-    transformOrigin: "top left" as const,
-    width: `${100 / zoom}%`,
-    height: `${100 / zoom}%`,
-    minHeight: `${100 / zoom}%`,
-  };
+  const zoomStyle = buildAdjuntoZoomStyle(zoom);
 
   return createPortal(
     <div

@@ -21,18 +21,19 @@ export const OV_CHANNEL_CONTRACT = {
   /** Avance post-emit manual (Cypher): Nest, no JWT authenticated. */
   avanceEstadoPostEmit: WMS_CHANNEL.NEST,
   /**
-   * Sync automático por fotos QR de surtido: BFF Next + service_role
-   * (no JWT authenticated; ver orden-surtido-sync-estado).
+   * Sync automático por fotos QR: BFF calcula el hito y Nest escribe el estado
+   * (INTERNAL_API_KEY; ver orden-surtido-sync-estado).
    */
-  avanceEstadoSurtidoQr: WMS_CHANNEL.NEXT_BFF,
+  avanceEstadoSurtidoQr: WMS_CHANNEL.NEST,
+  /** Confirmación pública de despacho: BFF lee el listado; Nest escribe el estado. */
+  despachoPublico: WMS_CHANNEL.NEST,
   correosYOt: WMS_CHANNEL.NEST,
   leerPedidoIa: WMS_CHANNEL.NEXT_BFF,
   imprimirAdjuntosLog: WMS_CHANNEL.NEXT_BFF,
 } as const;
 
-/** Procesamiento: listados scoped y mutaciones solo Nest (sin fallback silencioso). */
+/** Procesamiento: listados y mutaciones solo Nest (sin listado legacy sin scope). */
 export const PROCESSING_CHANNEL_CONTRACT = {
   listadosScoped: WMS_CHANNEL.NEST,
-  listadosLegacySinScope: WMS_CHANNEL.SUPABASE,
   crearYMutar: WMS_CHANNEL.NEST,
 } as const;

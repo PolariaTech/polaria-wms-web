@@ -1,27 +1,25 @@
-# ADR-005 — Excepción temporal de `npm audit` por `xlsx`
+# ADR-005 — `xlsx` desde el CDN de SheetJS y fin de la excepción de `npm audit`
 
 ## Estado
 
-Aceptado (Score-10 P1). Revisión obligatoria al retirar `xlsx` del árbol de producción.
+Cerrada (reemplaza la excepción temporal aceptada en Score-10 P1). Ya no existe ninguna excepción en el audit.
 
 ## Contexto
 
-`polaria-wms-web` aún usa `xlsx` en extractores de pedido, impresión batch y catálogo. El paquete tiene vulnerabilidades **high** sin fix en el registry (`GHSA-4r6h-8v6p-xvw6`, `GHSA-5pgg-2g8v-p4x9`). El resto del stack ya migró lecturas Excel a `exceljs` donde fue posible (p. ej. compradores).
+`polaria-wms-web` usa `xlsx` en extractores de pedido, impresión batch y catálogo. La última versión publicada en el registro npm (0.18.5) tiene vulnerabilidades **high** sin parche en el registro (`GHSA-4r6h-8v6p-xvw6`, `GHSA-5pgg-2g8v-p4x9`). SheetJS publica las versiones corregidas solo en su propio CDN.
+
+`exceljs`, que usa la API (POL-434), no lee `.xls` y obliga a pasar el código a asíncrono; en la web hay cuatro puntos de la UI que aceptan `.xls`. Por eso no se migró.
 
 ## Decisión
 
-1. El job `dependency-audit` de CI **bloquea** severidad high/critical, igual que `polaria-wms-api`.
-2. La única excepción documentada es el paquete de producción `xlsx` mientras existan los tres consumidores listados abajo.
-3. Cualquier otra high/critical **falla el PR** (sin `continue-on-error`).
-4. Trivy de imagen falla con CRITICAL con corrección (`ignore-unfixed: true`), misma política que API.
-
-## Consumidores pendientes de migrar a exceljs
-
-- `src/modules/sales/ordenes/ai/file-extractors.ts`
-- `src/modules/sales/ordenes/print-batch/excel-a-pdf.ts`
-- `src/modules/admin-panel/catalogo/utils/catalogo-excel-import.ts`
+1. `xlsx` se instala desde `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` (0.20.3, versión con las dos vulnerabilidades corregidas). El código no cambia y se conserva el soporte de `.xls`.
+2. El job `dependency-audit` bloquea severidad high y critical **sin ninguna excepción**, la misma barra que `polaria-wms-api`.
+3. Limitación conocida: `npm audit` no analiza dependencias que vienen de una URL, así que no ve `xlsx`. Para no dejar un punto ciego, `scripts/ci-dependency-audit.mjs` valida también el lockfile y falla si `xlsx` baja de 0.20.3, se resuelve desde un origen distinto de `https://cdn.sheetjs.com/` o pierde su `integrity`.
+4. Trivy de imagen falla con CRITICAL con corrección (`ignore-unfixed: true`), misma política que la API.
 
 ## Consecuencias
 
-- Score ≥9 / P1 audit queda cumplido vía ADR único + gate real.
-- Al eliminar `xlsx` de `package.json`, borrar esta ADR o marcarla Obsoleta y quitar el allowlist del script de CI.
+- El audit ya no tiene excepciones ni depende de este documento para ejecutarse.
+- Quien suba la versión de `xlsx` debe actualizar `XLSX_VERSION_MINIMA` si quiere subir el mínimo exigido.
+- Los avisos nuevos de `xlsx` no los detectará `npm audit`: hay que revisar el sitio de SheetJS al actualizar dependencias.
+- Si en el futuro se migra a `exceljs` o SheetJS vuelve a publicar en npm, esta decisión se puede retirar junto con la comprobación del lockfile.

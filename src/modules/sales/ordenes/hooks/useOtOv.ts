@@ -1,15 +1,12 @@
 import { getCompradorAdmin } from "@/modules/admin-panel";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
-import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../shared/types/sales.types";
 import { leerPedidoConIaApi } from "../services/sales-ai.api";
 import { crearBorradorDesdeDocs } from "./crear-borrador-desde-docs";
 import { extractCorreoContactoDesdeTexto } from "../utils/origen/correo-chrome";
 import { groupOrigenCorreoToOrdenesTrabajo } from "../utils/origen/origen-correo-ordenes-trabajo";
-import { cleanCorreoBodyForNotas, isCuerpoMensajeFormato } from "../utils/origen/texto-origen-pedido";
 import { todayIsoDate, tomorrowIsoDate } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { mapPedidoExtraidoToForm } from "../utils/pedido/map-pedido-extraido-to-form";
 import { isGarbageOcValue, resolveOrdenCompraLimpia } from "../utils/pedido/normalize-numero-pedido";
-import { formatPrecioInput } from "../utils/pedido/orden-venta-create-helpers";
 import { buildOrdenVentaPrefillFromComprador } from "../utils/pedido/prefill-orden-venta-from-comprador";
 import {
   rankCompradoresFromNombre,
@@ -17,6 +14,12 @@ import {
   sugerenciasCompradorParaPicker,
 } from "../utils/match/match-comprador-from-nombre";
 import { catalogoDesdeBootstrap } from "./ov-form-bootstrap-catalogo";
+import {
+  construirAvisosPedidoIa,
+  construirMissingFieldsPedidoIa,
+  mapLineasPedidoIaAForm,
+  resolverTextoOrigenParaPersistir,
+} from "./useOtOv-helpers";
 
 export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
   const { codigoCuenta, origenTexto, origenArchivoFiles, compradorLabel, compradores, handleSelectComprador, idComprador, selectedCompradorIdRef, ensureFormDataReady, bootstrapPromiseRef, productos, fichaComprador, anden, centroConsumo, contacto, correo, direccion, observaciones, telefono, ventanaDesde, ventanaHasta, fechaEntrega, ordenCompraHotel, aceptaSustituciones, requiereLote, registrarTemperatura, autoFields, warnFields, setAceptaSustituciones, setAnden, setAutoFields, setCentroConsumo, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setContacto, setCorreo, setDireccion, setDiscrepancias, setError, setExigeOc, setFechaEntrega, setFichaComprador, setFormOtPage, setIdComprador, setIsReadingIa, setLineas, setMissingFields, setObservaciones, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft, setOrigenTexto, setRegistrarTemperatura, setRequiereLote, setStartMode, setStep, setTelefono, setVentanaDesde, setVentanaHasta, setWarnFields, setTotalSolicitudDetectado } = input;
@@ -197,73 +200,23 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
       setRegistrarTemperatura(mapped.registrarTemperatura);
       setAutoFields(mapped.autoFields);
       setWarnFields(mapped.warnFields);
-      const nextMissing = new Set(mapped.missingFields);
-      if (!autoComprador && !idCompradorForMap) {
-        nextMissing.add("cliente");
-      } else {
-        nextMissing.delete("cliente");
-      }
-      if (!mapped.direccion.trim()) nextMissing.add("direccion");
-      else nextMissing.delete("direccion");
+      const nextMissing = construirMissingFieldsPedidoIa({
+        baseMissingFields: mapped.missingFields,
+        tieneCliente: Boolean(autoComprador || idCompradorForMap),
+        direccion: mapped.direccion,
+      });
       setMissingFields(nextMissing);
       setDiscrepancias(mapped.discrepancias);
-      setLineas(
-        mapped.lineas.map((linea) => ({
-          idProducto: linea.idProducto,
-          nombre: linea.nombre,
-          codigo: linea.codigo,
-          idBodega: linea.idBodega,
-          cantidadInput: linea.cantidadInput,
-          cajasInput: linea.cajasInput,
-          presentacion: linea.presentacion,
-          especificacion: linea.especificacion,
-          ivaPct: "0",
-          kgDisponible: linea.kgDisponible,
-          unidadMedida: linea.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
-          precioUnitario: linea.precioUnitario,
-          precioInput: formatPrecioInput(linea.precioUnitario),
-          precioManual: linea.precioManual,
-          aliasCliente: linea.aliasCliente,
-          filledByIa: linea.filledByIa,
-          otId: linea.otId,
-          catalogPending: linea.catalogPending,
-          catalogAmbiguo: linea.catalogAmbiguo,
-          sugerencia: linea.sugerencia ?? null,
-          sugerenciasAlternativas: linea.sugerenciasAlternativas ?? [],
-        })),
-      );
+      setLineas(mapLineasPedidoIaAForm(mapped.lineas));
 
-      const avisos: string[] = [];
-      if (mapped.advertencia) avisos.push(mapped.advertencia);
-      if (mapped.archivosNoLegibles.length > 0) {
-        avisos.push(
-          `No se pudieron leer: ${mapped.archivosNoLegibles.join(", ")}. Se guardan como respaldo.`,
-        );
-      }
-      const pendingCatalog = mapped.lineas.filter(
-        (linea) => linea.catalogPending,
-      ).length;
-      if (mapped.lineas.length === 0 && !mapped.advertencia) {
-        avisos.push(
-          "No se reconocieron productos del pedido. Revisa el mensaje y agrégalos a mano.",
-        );
-      } else if (pendingCatalog > 0) {
-        avisos.push(
-          pendingCatalog === 1
-            ? "1 producto no identificado."
-            : `${pendingCatalog} productos no identificados.`,
-        );
-      }
-      if (!autoComprador && !idCompradorForMap) {
-        const sugeridos = compradorRank.candidates.length;
-        avisos.push(
-          pedido.nombreCliente?.trim()
-            ? sugeridos > 0
-              ? `El cliente «${pedido.nombreCliente.trim()}» no coincide exacto: revisa la sugerencia o elige otro.`
-              : `El cliente «${pedido.nombreCliente.trim()}» no está en clientes. Selecciónalo para continuar.`
-            : "Selecciona el cliente para continuar.",
-        );
-      }
+      const avisos = construirAvisosPedidoIa({
+        advertencia: mapped.advertencia,
+        archivosNoLegibles: mapped.archivosNoLegibles,
+        lineas: mapped.lineas,
+        tieneCliente: Boolean(autoComprador || idCompradorForMap),
+        nombreCliente: pedido.nombreCliente,
+        cantidadSugeridos: compradorRank.candidates.length,
+      });
 
       setStartMode("docs");
       const origenRows = Array.isArray(pedido.origenCorreo)
@@ -273,13 +226,10 @@ export async function abrirFormularioDesdeDocs(input: OrdenVentaFormEstado) {
       setOrdenesTrabajoPreview(groupOrigenCorreoToOrdenesTrabajo(origenRows));
       setFormOtPage(0);
       // Persistir body del correo / mensaje para notas generales del PDF.
-      const textoOrigenPersist =
-        pedido.textoOrigen?.trim() ||
-        (origenTexto.trim()
-          ? isCuerpoMensajeFormato(origenTexto)
-            ? origenTexto.trim()
-            : cleanCorreoBodyForNotas(origenTexto)
-          : "");
+      const textoOrigenPersist = resolverTextoOrigenParaPersistir(
+        pedido.textoOrigen,
+        origenTexto,
+      );
       if (textoOrigenPersist) setOrigenTexto(textoOrigenPersist);
 
       // REQ-199: crear borrador ya (origen + adjuntos) para el «+» de Cypher y Guardar.

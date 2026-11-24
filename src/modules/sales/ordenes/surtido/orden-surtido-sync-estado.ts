@@ -218,18 +218,14 @@ export async function syncOrdenVentaEstadoAlistamiento(input: {
     return { estado: estadoActual, updated: false };
   }
 
-  const { error: updateError } = await adminFrom(
-    admin,
-    ctx.schemaName,
-    "orden_venta",
-  )
-    .update({
-      estado: siguiente,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id_orden_venta", input.idOrdenVenta);
-
-  if (updateError) throw new Error(updateError.message);
+  const { avanzarEstadoSurtidoEnNest } = await import(
+    "./avanzar-estado-surtido.server"
+  );
+  await avanzarEstadoSurtidoEnNest({
+    idOrdenVenta: input.idOrdenVenta,
+    estado: siguiente,
+    codigoCuenta: ctx.codigoCuenta,
+  });
 
   try {
     const { recordOrdenVentaLogServer } = await import(

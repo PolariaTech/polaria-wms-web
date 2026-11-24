@@ -1,5 +1,4 @@
 import {
-  applyTenantFilters,
   DEFAULT_LIST_LIMIT,
   requireCodigoCuenta,
   requireIdBodega,
@@ -25,43 +24,31 @@ import type {
 import {
   PRODUCTO_PROC_COLUMNS,
   type ProductoProcesamientoDbRow,
-  SOLICITUD_PROC_COLUMNS_SUPABASE,
-  TAREA_COLA_COLUMNS_SUPABASE,
   fetchProductoLabels,
   mapProductoOption,
   mapSolicitudOperadorRow,
 } from "./processing.service.shared";
 
+function exigirScopeListado(params: TenantListParams): {
+  codigoCuenta: string;
+  idBodega: string;
+} {
+  const codigoCuenta = params.codigoCuenta?.trim();
+  const idBodega = params.idBodega?.trim();
+  if (!codigoCuenta || !idBodega) {
+    throw new DomainServiceError(
+      "Selecciona cuenta y bodega para listar procesamiento.",
+      "INVALID_ARGUMENT",
+    );
+  }
+  return { codigoCuenta, idBodega };
+}
+
 export async function listSolicitudesProcesamiento(
   params: TenantListParams,
 ): Promise<SolicitudProcesamientoRow[]> {
-  const codigoCuenta = params.codigoCuenta?.trim();
-  const idBodega = params.idBodega?.trim();
-
-  if (codigoCuenta && idBodega) {
-    return listSolicitudesProcesamientoApi({
-      codigoCuenta,
-      idBodega,
-    });
-  }
-
-  const limit = params.limit ?? DEFAULT_LIST_LIMIT;
-
-  return runDomainQuery((client) => {
-    const query = applyTenantFilters(
-      client
-        .from("solicitud_procesamiento")
-        .select(SOLICITUD_PROC_COLUMNS_SUPABASE),
-      params,
-    )
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    return query as unknown as Promise<{
-      data: SolicitudProcesamientoRow[] | null;
-      error: { message: string } | null;
-    }>;
-  });
+  const { codigoCuenta, idBodega } = exigirScopeListado(params);
+  return listSolicitudesProcesamientoApi({ codigoCuenta, idBodega });
 }
 
 export async function listSolicitudesProcesamientoOperador(
@@ -80,28 +67,8 @@ export async function listSolicitudesProcesamientoOperador(
 export async function listTareasCola(
   params: TenantListParams,
 ): Promise<TareaColaRow[]> {
-  const codigoCuenta = params.codigoCuenta?.trim();
-  const idBodega = params.idBodega?.trim();
-
-  if (codigoCuenta && idBodega) {
-    return listTareasColaApi({ codigoCuenta, idBodega });
-  }
-
-  const limit = params.limit ?? DEFAULT_LIST_LIMIT;
-
-  return runDomainQuery((client) => {
-    const query = applyTenantFilters(
-      client.from("tarea_cola").select(TAREA_COLA_COLUMNS_SUPABASE),
-      params,
-    )
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    return query as unknown as Promise<{
-      data: TareaColaRow[] | null;
-      error: { message: string } | null;
-    }>;
-  });
+  const { codigoCuenta, idBodega } = exigirScopeListado(params);
+  return listTareasColaApi({ codigoCuenta, idBodega });
 }
 
 export async function listProductosPrimariosProcesamiento(

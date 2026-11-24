@@ -40,8 +40,11 @@ vi.mock("next/dynamic", () => ({
               );
             }
           })
-          .catch(() => {
-            if (!cancelled) setNode(null);
+          .catch((error: unknown) => {
+            // Score-10 P2: el harness no traga fallos del loader (antes dejaba el body vacío).
+            if (!cancelled) {
+              throw error;
+            }
           });
         return () => {
           cancelled = true;

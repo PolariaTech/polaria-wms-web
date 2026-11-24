@@ -11,10 +11,70 @@ import type { OrdenVentaCypherDrawerProps } from "./cypher-drawer-props";
 import { useOrdenVentaCypherDrawerContent } from "./use-orden-venta-cypher-drawer-content";
 
 export function OrdenVentaCypherDrawerContent(props: OrdenVentaCypherDrawerProps) {
-  const drawer = useOrdenVentaCypherDrawerContent(props);
+  const {
+    titleId,
+    scrollRef,
+    stageNavRef,
+    orden,
+    codigoCuenta,
+    companionIdComprador,
+    zonaHoraria,
+    confirmBorrarOpen,
+    setConfirmBorrarOpen,
+    borrarError,
+    setBorrarError,
+    cypherWidthMode,
+    isResizingWidth,
+    handleResizePointerDown,
+    handleResizePointerMove,
+    handleResizePointerUp,
+    panelMounted,
+    panelEntered,
+    isLoading,
+    error,
+    activeStage,
+    openStages,
+    scrollToStage,
+    toggleAccordionStage,
+    hijasFromOrden,
+    activeOtPicker,
+    idOrdenTrabajoBitacora,
+    logEntries,
+    logLoading,
+    cuerpoCompleto,
+    cuerpoMensaje,
+    correoChrome,
+    origenAdjuntosStored,
+    emlInnerAdjuntos,
+    emlInnerLoading,
+    origenAdjuntos,
+    origenNombres,
+    estado,
+    estadosSuperiores,
+    estadoCambiando,
+    estadoPendiente,
+    setEstadoPendiente,
+    cambioEstadoError,
+    setCambioEstadoError,
+    cambiarEstado,
+    codigo,
+    comprador,
+    occ,
+    recibida,
+    lineas,
+    puedeEditar,
+    puedeAlmacen,
+    puedeBorrar,
+    bloqueadoHastaConfirmar,
+    onFotos,
+    companionWithEdit,
+    onClose,
+    inspect,
+    row,
+  } = useOrdenVentaCypherDrawerContent(props);
   const { busyKind, onEdit, onPrint, onPreview, onBorrar } = props;
 
-  if (!drawer.panelMounted) return null;
+  if (!panelMounted) return null;
 
   return (
     <div
@@ -23,143 +83,143 @@ export function OrdenVentaCypherDrawerContent(props: OrdenVentaCypherDrawerProps
     >
       <aside
         role="dialog"
-        aria-modal={drawer.companionWithEdit}
-        aria-labelledby={drawer.titleId}
+        aria-modal={companionWithEdit}
+        aria-labelledby={titleId}
         className={cn(
           "pointer-events-auto absolute inset-y-0 right-0 flex h-full max-h-full min-w-0 flex-col overflow-hidden",
           "border-l border-t border-polaria-t-20 bg-polaria-bg shadow-[-20px_0_40px_rgba(0,0,0,0.35)]",
           "box-border will-change-transform",
           "@container/cypher",
-          drawer.isResizingWidth
+          isResizingWidth
             ? "transition-transform duration-[320ms] ease-out"
             : "transition-[transform,width,max-width] duration-[320ms] ease-out",
-          cypherPanelWidthClass(drawer.cypherWidthMode),
-          drawer.panelEntered ? "translate-x-0" : "translate-x-full",
+          cypherPanelWidthClass(cypherWidthMode),
+          panelEntered ? "translate-x-0" : "translate-x-full",
         )}
       >
         <OrdenVentaCypherDrawerChrome
-          titleId={drawer.titleId}
-          codigo={drawer.codigo}
-          comprador={drawer.comprador}
-          occ={drawer.occ}
-          recibida={drawer.recibida}
-          estado={drawer.estado}
-          onClose={drawer.onClose}
-          stageNavRef={drawer.stageNavRef}
-          activeStage={drawer.activeStage}
-          scrollToStage={drawer.scrollToStage}
-          isResizingWidth={drawer.isResizingWidth}
-          handleResizePointerDown={drawer.handleResizePointerDown}
-          handleResizePointerMove={drawer.handleResizePointerMove}
-          handleResizePointerUp={drawer.handleResizePointerUp}
+          titleId={titleId}
+          codigo={codigo}
+          comprador={comprador}
+          occ={occ}
+          recibida={recibida}
+          estado={estado}
+          onClose={onClose}
+          stageNavRef={stageNavRef}
+          activeStage={activeStage}
+          scrollToStage={scrollToStage}
+          isResizingWidth={isResizingWidth}
+          handleResizePointerDown={handleResizePointerDown}
+          handleResizePointerMove={handleResizePointerMove}
+          handleResizePointerUp={handleResizePointerUp}
         />
 
         <div
-          ref={drawer.scrollRef}
+          ref={scrollRef}
           className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 pb-8 pt-1 sm:px-4"
         >
-          {drawer.isLoading ? <PolariaStatusLoading embedded className="py-10" /> : null}
+          {isLoading ? <PolariaStatusLoading embedded className="py-10" /> : null}
 
-          {drawer.error ? (
+          {error ? (
             <p
               role="alert"
               className="mt-6 rounded-xl border border-polaria-danger-border bg-polaria-danger-bg px-4 py-3 polaria-text-body-sm text-polaria-danger"
             >
-              {drawer.error}
+              {error}
             </p>
           ) : null}
 
-          {!drawer.isLoading && !drawer.error && drawer.orden && drawer.codigoCuenta ? (
+          {!isLoading && !error && orden && codigoCuenta ? (
             <OrdenVentaCypherStagesBody
-              orden={drawer.orden}
-              codigoCuenta={drawer.codigoCuenta}
-              codigoOvListado={drawer.row?.venta ?? drawer.orden.codigo}
-              correoPartido={drawer.row?.correoPartido}
-              correoPartidoDe={drawer.row?.correoPartidoDe}
-              companionIdComprador={drawer.companionIdComprador}
-              openStages={drawer.openStages}
-              toggleAccordionStage={drawer.toggleAccordionStage}
-              correoChrome={drawer.correoChrome}
-              origenNombres={drawer.origenNombres}
-              recibida={drawer.recibida}
-              cuerpoCompleto={drawer.cuerpoCompleto}
-              cuerpoMensaje={drawer.cuerpoMensaje}
-              origenAdjuntosStored={drawer.origenAdjuntosStored}
-              emlInnerAdjuntos={drawer.emlInnerAdjuntos}
-              emlInnerLoading={drawer.emlInnerLoading}
-              origenAdjuntos={drawer.origenAdjuntos}
-              activeOtPicker={drawer.activeOtPicker}
-              estado={drawer.estado}
-              comprador={drawer.comprador}
-              occ={drawer.occ}
-              zonaHoraria={drawer.zonaHoraria}
-              lineas={drawer.lineas}
-              hijasFromOrden={drawer.hijasFromOrden}
-              puedeAlmacen={drawer.puedeAlmacen}
-              onFotos={drawer.onFotos}
-              estadosSuperiores={drawer.estadosSuperiores}
-              estadoCambiando={drawer.estadoCambiando}
-              setCambioEstadoError={drawer.setCambioEstadoError}
-              setEstadoPendiente={drawer.setEstadoPendiente}
-              logLoading={drawer.logLoading}
-              logEntries={drawer.logEntries}
-              idOrdenTrabajoBitacora={drawer.idOrdenTrabajoBitacora}
+              orden={orden}
+              codigoCuenta={codigoCuenta}
+              codigoOvListado={row?.venta ?? orden.codigo}
+              correoPartido={row?.correoPartido}
+              correoPartidoDe={row?.correoPartidoDe}
+              companionIdComprador={companionIdComprador}
+              openStages={openStages}
+              toggleAccordionStage={toggleAccordionStage}
+              correoChrome={correoChrome}
+              origenNombres={origenNombres}
+              recibida={recibida}
+              cuerpoCompleto={cuerpoCompleto}
+              cuerpoMensaje={cuerpoMensaje}
+              origenAdjuntosStored={origenAdjuntosStored}
+              emlInnerAdjuntos={emlInnerAdjuntos}
+              emlInnerLoading={emlInnerLoading}
+              origenAdjuntos={origenAdjuntos}
+              activeOtPicker={activeOtPicker}
+              estado={estado}
+              comprador={comprador}
+              occ={occ}
+              zonaHoraria={zonaHoraria}
+              lineas={lineas}
+              hijasFromOrden={hijasFromOrden}
+              puedeAlmacen={puedeAlmacen}
+              onFotos={onFotos}
+              estadosSuperiores={estadosSuperiores}
+              estadoCambiando={estadoCambiando}
+              setCambioEstadoError={setCambioEstadoError}
+              setEstadoPendiente={setEstadoPendiente}
+              logLoading={logLoading}
+              logEntries={logEntries}
+              idOrdenTrabajoBitacora={idOrdenTrabajoBitacora}
             />
           ) : null}
         </div>
 
-        {!drawer.inspect && drawer.row && drawer.row.estado !== "cancelada" ? (
+        {!inspect && row && row.estado !== "cancelada" ? (
           <OrdenVentaCypherDrawerFooter
-            puedeEditar={drawer.puedeEditar}
-            puedeAlmacen={drawer.puedeAlmacen}
-            puedeBorrar={drawer.puedeBorrar}
-            bloqueadoHastaConfirmar={drawer.bloqueadoHastaConfirmar}
+            puedeEditar={puedeEditar}
+            puedeAlmacen={puedeAlmacen}
+            puedeBorrar={puedeBorrar}
+            bloqueadoHastaConfirmar={bloqueadoHastaConfirmar}
             busyKind={busyKind}
             onEdit={onEdit}
             onPrint={onPrint}
             onPreview={onPreview}
             onBorrar={onBorrar}
             onOpenBorrarConfirm={() => {
-              drawer.setBorrarError(null);
-              drawer.setConfirmBorrarOpen(true);
+              setBorrarError(null);
+              setConfirmBorrarOpen(true);
             }}
           />
         ) : null}
       </aside>
 
       <OrdenVentaCypherDrawerDialogs
-        confirmBorrarOpen={drawer.confirmBorrarOpen}
+        confirmBorrarOpen={confirmBorrarOpen}
         busyKind={busyKind}
-        borrarError={drawer.borrarError}
+        borrarError={borrarError}
         onCloseBorrar={() => {
           if (busyKind === "borrar") return;
-          drawer.setConfirmBorrarOpen(false);
-          drawer.setBorrarError(null);
+          setConfirmBorrarOpen(false);
+          setBorrarError(null);
         }}
         onConfirmBorrar={() => {
           if (!onBorrar || busyKind === "borrar") return;
-          drawer.setBorrarError(null);
+          setBorrarError(null);
           void Promise.resolve(onBorrar())
             .then(() => {
-              drawer.setConfirmBorrarOpen(false);
+              setConfirmBorrarOpen(false);
             })
             .catch((err: unknown) => {
-              drawer.setBorrarError(
+              setBorrarError(
                 err instanceof Error ? err.message : "No se pudo borrar la orden.",
               );
             });
         }}
-        estadoPendiente={drawer.estadoPendiente}
-        estadoCambiando={drawer.estadoCambiando}
-        cambioEstadoError={drawer.cambioEstadoError}
+        estadoPendiente={estadoPendiente}
+        estadoCambiando={estadoCambiando}
+        cambioEstadoError={cambioEstadoError}
         onCloseEstado={() => {
-          if (drawer.estadoCambiando) return;
-          drawer.setEstadoPendiente(null);
-          drawer.setCambioEstadoError(null);
+          if (estadoCambiando) return;
+          setEstadoPendiente(null);
+          setCambioEstadoError(null);
         }}
         onConfirmEstado={() => {
-          if (!drawer.estadoPendiente || drawer.estadoCambiando) return;
-          drawer.cambiarEstado(drawer.estadoPendiente);
+          if (!estadoPendiente || estadoCambiando) return;
+          cambiarEstado(estadoPendiente);
         }}
       />
     </div>

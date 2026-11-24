@@ -14,6 +14,12 @@ import { productosConFrasesDelComprador } from "./frases-comprador.service";
 import { parseOrigenCorreoJson } from "../../ordenes/utils/origen/origen-correo-ordenes-trabajo";
 import { leerCabeceraUsuarioSello } from "../../ordenes/utils/pedido/sellar-edicion-usuario-origen";
 import type { ProductoVentaOption } from "../types/sales.types";
+import {
+  buildCabeceraPatchDesdeOrigen,
+  buildFilasInsertarOrdenVentaLinea,
+  necesitaMaterializarCabecera,
+  type OrdenVentaHeaderMaterializacion,
+} from "./materializar-lineas-desde-origen-cabecera";
 
 /** Una reserva sin líneas más vieja que esto se considera caída y se puede retomar. */
 const RESERVA_MATERIALIZACION_VENCE_MS = 2 * 60 * 1000;
@@ -92,43 +98,23 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
   const idOrdenVenta = params.idOrdenVenta.trim();
   if (!idOrdenVenta) return { materializado: false, lineas: 0 };
 
-  const header = await runDomainQuery<{
-    estado: string;
-    id_comprador: string | null;
-    orden_compra_hotel: string | null;
-    centro_consumo: string | null;
-    contacto_entrega: string | null;
-    correo_contacto: string | null;
-    fecha_entrega: string | null;
-    notas_lineas: string | null;
-    origen_correo: unknown;
-    origen_texto: string | null;
-  } | null>((client) => {
-    const query = client
-      .from("orden_venta")
-      .select(
-        "estado,id_comprador,orden_compra_hotel,centro_consumo,contacto_entrega,correo_contacto,fecha_entrega,notas_lineas,origen_correo,origen_texto",
-      )
-      .eq("codigo_cuenta", codigoCuenta)
-      .eq("id_orden_venta", idOrdenVenta)
-      .maybeSingle();
+  const header = await runDomainQuery<OrdenVentaHeaderMaterializacion | null>(
+    (client) => {
+      const query = client
+        .from("orden_venta")
+        .select(
+          "estado,id_comprador,orden_compra_hotel,centro_consumo,contacto_entrega,correo_contacto,fecha_entrega,notas_lineas,origen_correo,origen_texto",
+        )
+        .eq("codigo_cuenta", codigoCuenta)
+        .eq("id_orden_venta", idOrdenVenta)
+        .maybeSingle();
 
-    return query as unknown as Promise<{
-      data: {
-        estado: string;
-        id_comprador: string | null;
-        orden_compra_hotel: string | null;
-        centro_consumo: string | null;
-        contacto_entrega: string | null;
-        correo_contacto: string | null;
-        fecha_entrega: string | null;
-        notas_lineas: string | null;
-        origen_correo: unknown;
-        origen_texto: string | null;
-      } | null;
-      error: { message: string } | null;
-    }>;
-  });
+      return query as unknown as Promise<{
+        data: OrdenVentaHeaderMaterializacion | null;
+        error: { message: string } | null;
+      }>;
+    },
+  );
 
   if (!header) return { materializado: false, lineas: 0 };
   if (normalizeEstadoOrdenVenta(header.estado) !== "por_confirmar") {
@@ -156,13 +142,7 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
   const headerLineasCount = lineasExistentes.length;
   const needsLines = headerLineasCount === 0;
   const sinSello = !leerCabeceraUsuarioSello(origen);
-  const needsHeader =
-    !header.id_comprador?.trim() ||
-    (sinSello &&
-      (!header.orden_compra_hotel?.trim() ||
-        !header.centro_consumo?.trim() ||
-        !header.contacto_entrega?.trim() ||
-        !header.fecha_entrega?.trim()));
+  const needsHeader = necesitaMaterializarCabecera(header, sinSello);
 
   if (!needsLines && !needsHeader) {
     return { materializado: false, lineas: headerLineasCount };
@@ -187,35 +167,12 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
     origenTexto: header.origen_texto,
   });
 
-  const patch: Record<string, unknown> = {};
-  if (!header.id_comprador?.trim() && plan.idComprador) {
-    patch.id_comprador = plan.idComprador;
-  }
-  if (sinSello && !header.orden_compra_hotel?.trim() && plan.ordenCompraHotel) {
-    patch.orden_compra_hotel = plan.ordenCompraHotel;
-  }
-  if (sinSello && !header.centro_consumo?.trim() && plan.centroConsumo) {
-    patch.centro_consumo = plan.centroConsumo;
-  }
-  if (sinSello && !header.contacto_entrega?.trim() && plan.contactoEntrega) {
-    patch.contacto_entrega = plan.contactoEntrega;
-  }
-  if (sinSello && !header.fecha_entrega?.trim() && plan.fechaEntrega) {
-    patch.fecha_entrega = plan.fechaEntrega;
-  }
-  const correoFromOrigen =
-    origen
-      .map((fila) =>
-        typeof fila === "object" && fila && "Correo contacto" in fila
-          ? String(
-              (fila as { "Correo contacto"?: unknown })["Correo contacto"] ?? "",
-            ).trim()
-          : "",
-      )
-      .find(Boolean) || "";
-  if (sinSello && !header.correo_contacto?.trim() && correoFromOrigen) {
-    patch.correo_contacto = correoFromOrigen;
-  }
+  const patch = buildCabeceraPatchDesdeOrigen({
+    header,
+    plan,
+    origen,
+    sinSello,
+  });
 
   if (Object.keys(patch).length > 0) {
     await runDomainMutation((client) => {
@@ -241,19 +198,9 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
   if (reservada) {
     try {
       await runDomainMutation((client) => {
-        const query = client.from("orden_venta_linea").insert(
-          plan.lineas.map((linea) => ({
-            id_orden_venta: idOrdenVenta,
-            id_producto: linea.idProducto,
-            cantidad_pedida: linea.cantidadPedida,
-            precio_unitario:
-              linea.precioUnitario > 0 ? linea.precioUnitario : 0,
-            cajas: null,
-            presentacion: null,
-            unidad_medida: linea.unidadMedida?.trim() || null,
-            match_producto: linea.matchProducto,
-          })),
-        );
+        const query = client
+          .from("orden_venta_linea")
+          .insert(buildFilasInsertarOrdenVentaLinea(idOrdenVenta, plan.lineas));
 
         return query as unknown as Promise<{
           data: unknown;

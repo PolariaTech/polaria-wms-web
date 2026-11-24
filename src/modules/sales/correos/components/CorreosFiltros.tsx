@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { ListFilter, X } from "lucide-react";
 import { useId } from "react";
 import { PolariaTableSearchField } from "@/components/shared/table/PolariaTableSearchField";
 import { cn } from "@/lib/utils/cn";
@@ -11,6 +11,8 @@ interface CorreosFiltrosProps {
   onChange: (campo: keyof FiltrosCorreos, valor: string) => void;
   onLimpiar: () => void;
   hayFiltros: boolean;
+  /** REQ-387: abre el modal de correos por reintentar. */
+  onAbrirReintentar?: () => void;
 }
 
 const CAMPO_FECHA = cn(
@@ -77,6 +79,7 @@ export function CorreosFiltros({
   onChange,
   onLimpiar,
   hayFiltros,
+  onAbrirReintentar,
 }: CorreosFiltrosProps) {
   return (
     <div
@@ -109,6 +112,21 @@ export function CorreosFiltros({
         />
       </div>
       {hayFiltros ? <BotonLimpiar onLimpiar={onLimpiar} /> : null}
+      {onAbrirReintentar ? (
+        <button
+          type="button"
+          onClick={onAbrirReintentar}
+          aria-label="Ver correos por reintentar"
+          title="Ver correos por reintentar"
+          className={cn(
+            "ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-polaria-t-20 text-polaria-teal transition",
+            "hover:bg-polaria-t-08",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
+          )}
+        >
+          <ListFilter className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        </button>
+      ) : null}
     </div>
   );
 }

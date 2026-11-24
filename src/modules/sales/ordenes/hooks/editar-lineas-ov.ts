@@ -62,20 +62,12 @@ import {
   sanitizePrecioInputMx,
 } from "@/lib/utils/decimal-es";
 import { useClearFieldMarksOv } from "./clear-field-marks-ov";
+import {
+  agregarProductoAOrdenesTrabajo,
+  resolveOtIdParaLineaNueva,
+} from "./editar-lineas-ov-helpers";
 
-/** REQ-311: OT activa del pager, o la única OT si no hay pager. */
-export function resolveOtIdParaLineaNueva(params: {
-  hijaFormActivaId?: string | null;
-  ordenesTrabajoIds: readonly string[];
-}): string | undefined {
-  const activa = params.hijaFormActivaId?.trim();
-  if (activa) return activa;
-  if (params.ordenesTrabajoIds.length === 1) {
-    const unica = params.ordenesTrabajoIds[0]?.trim();
-    return unica || undefined;
-  }
-  return undefined;
-}
+export { resolveOtIdParaLineaNueva };
 
 export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
   const { replaceLineaIndex, setLineas, setReplaceLineaIndex, setCantidadFocusId, setError, setIdBodegaDestino, restoreFormScroll, hijaFormActiva, ordenesTrabajoForm, setOrdenesTrabajoPreview, origenCorreoDraft, setOrigenCorreoDraft, captureFormScroll, setPicker, cantidadFocusId, picker, lineas, setAutoFields, setWarnFields, setMissingFields, setDiscrepancias, warnFields, centroConsumo, direccion, anden, contacto, telefono, correo, ventanaDesde, ventanaHasta, ordenCompraHotel, observaciones, fechaEntrega } = estado;
@@ -104,43 +96,11 @@ export function useEditarLineasOv(estado: OrdenVentaFormEstado) {
       setLineas((prev) => [...prev, crearLineaDesdeProducto(row, otId)]);
       if (otId) {
         setOrdenesTrabajoPreview((prev) => {
-          const base =
-            prev.length > 0
-              ? prev
-              : groupOrigenCorreoToOrdenesTrabajo(origenCorreoDraft);
-          const next = base.map((hija) => {
-            if (hija.id !== otId) return hija;
-            const sinPlaceholder = hija.renglones.filter(
-              (renglon) =>
-                (renglon.Producto ?? "").trim() ||
-                (renglon["Codigo producto"] ?? "").trim(),
-            );
-            const renglon: OrigenCorreoRenglon = {
-              _otId: hija.id,
-              Almacen: hija.almacen,
-              "Numero pedido": hija.numeroPedido,
-              Fecha: hija.fecha,
-              "Referencia pedido": hija.referenciaPedido,
-              "Responsable externo": hija.responsableExterno,
-              Producto: stripLeadingProductoCodigo(row.nombre, row.codigo),
-              "Codigo producto": row.codigo,
-              Cantidad: 0,
-              Unidad: row.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
-              Precio: row.precioUnitario,
-            };
-            const renglones = [...sinPlaceholder, renglon];
-            return {
-              ...hija,
-              renglones,
-              totalCantidad: renglones.reduce((sum, item) => {
-                const qty =
-                  typeof item.Cantidad === "number"
-                    ? item.Cantidad
-                    : Number(String(item.Cantidad ?? "").replace(",", ".")) ||
-                      0;
-                return sum + qty;
-              }, 0),
-            };
+          const next = agregarProductoAOrdenesTrabajo({
+            prev,
+            origenCorreoDraft,
+            otId,
+            row,
           });
           setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(next));
           return next;

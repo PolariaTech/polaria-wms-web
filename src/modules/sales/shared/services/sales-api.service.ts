@@ -6,7 +6,6 @@ import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { ApiError, apiRequest } from "@/services/api/api";
 import type { OrdenVentaOperadorRow } from "../types/sales.types";
 import { mapOrdenVentaOperadorApiRow } from "../utils/orden-venta-api.mapper";
-import { listOrdenesVentaOperador } from "./sales.service";
 
 async function postVentasApi<T>(path: string, body?: unknown): Promise<T> {
   try {
@@ -106,7 +105,7 @@ export async function listOrdenesVentaApi(params: {
   return rows.map(mapOrdenVentaOperadorApiRow);
 }
 
-/** OVs confirmadas pendientes de registrar salida (picker del jefe). */
+/** OVs confirmadas pendientes de registrar salida (picker del jefe). Solo canal B — sin fallback silencioso a Supabase. */
 export async function listOrdenesVentaParaSalida(params: {
   codigoCuenta: string;
   idBodega?: string | null;
@@ -120,11 +119,11 @@ export async function listOrdenesVentaParaSalida(params: {
       idBodega: params.idBodega?.trim() || undefined,
       paraSalida: true,
     });
-  } catch {
-    const rows = await listOrdenesVentaOperador({
-      codigoCuenta,
-      idBodega: params.idBodega ?? undefined,
-    });
-    return rows.filter((row) => row.estado === "confirmada");
+  } catch (error) {
+    if (error instanceof DomainServiceError) throw error;
+    if (error instanceof ApiError) {
+      throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
+    }
+    throw error;
   }
 }

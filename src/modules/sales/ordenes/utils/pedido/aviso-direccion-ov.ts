@@ -19,11 +19,12 @@ import {
   CATALOGO_VENTA_EMPTY_MESSAGE,
   normalizeEstadoOrdenVenta,
 } from "../../../shared/constants/sales-status";
+import { useFocoOrdenCompraAlAbrir } from "../../utils/pedido/resolve-cabecera-guardada";
 import {
-  resolveCabeceraGuardada,
-  resolvePropuestaClienteMateoAlReabrir,
-  useFocoOrdenCompraAlAbrir,
-} from "../../utils/pedido/resolve-cabecera-guardada";
+  applyOcPorAlmacenAOrdenesTrabajo,
+  applyOcSinMapaAOrdenesTrabajo,
+  extractOcAdjuntoPaths,
+} from "./aviso-direccion-ov-occ";
 
 export function useLeerOcDesdeAdjuntos(estado: OrdenVentaFormEstado) {
   const { step, open, ordenCompraHotel, origenAdjuntos, setOrdenCompraHotel, setOrdenesTrabajoPreview, setOrigenCorreoDraft } = estado;
@@ -32,22 +33,7 @@ export function useLeerOcDesdeAdjuntos(estado: OrdenVentaFormEstado) {
     if (ordenCompraHotel.trim() && !isGarbageOcValue(ordenCompraHotel)) {
       return;
     }
-    const paths = [
-      ...new Set(
-        origenAdjuntos
-          .filter((item) => {
-            if (!item.path?.trim()) return false;
-            const name = item.nombre.toLowerCase();
-            const mime = (item.mime ?? "").toLowerCase();
-            return (
-              name.endsWith(".eml") ||
-              mime.includes("message") ||
-              name.endsWith(".pdf")
-            );
-          })
-          .map((item) => item.path!.trim()),
-      ),
-    ];
+    const paths = extractOcAdjuntoPaths(origenAdjuntos);
     if (paths.length === 0) return;
 
     let cancelled = false;
@@ -90,23 +76,7 @@ export function useLeerOcDesdeAdjuntos(estado: OrdenVentaFormEstado) {
       if (Object.keys(byAlmacen).length === 0) {
         // Sin mapa por almacén: aplicar la misma OCC a hijas con basura/vacío.
         setOrdenesTrabajoPreview((prev) => {
-          if (prev.length === 0) return prev;
-          let changed = false;
-          const next = prev.map((hija) => {
-            const cur = hija.numeroPedido?.trim() || "";
-            if (cur && !isGarbageOcValue(cur)) return hija;
-            changed = true;
-            return {
-              ...hija,
-              numeroPedido: occ,
-              renglones: hija.renglones.map((row) => ({
-                ...row,
-                "Numero pedido": occ,
-              })),
-              label:
-                occ && hija.almacen ? `${occ} — ${hija.almacen}` : hija.label,
-            };
-          });
+          const { next, changed } = applyOcSinMapaAOrdenesTrabajo(prev, occ);
           if (!changed) return prev;
           setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(next));
           return next;
@@ -115,51 +85,10 @@ export function useLeerOcDesdeAdjuntos(estado: OrdenVentaFormEstado) {
       }
 
       setOrdenesTrabajoPreview((prev) => {
-        if (prev.length === 0) return prev;
-        let changed = false;
-        const next = prev.map((hija) => {
-          const alm = (hija.almacen || "").trim().toLowerCase();
-          if (!alm) return hija;
-          let matched = "";
-          for (const [dep, req] of Object.entries(byAlmacen)) {
-            const depNormalizado = dep.trim().toLowerCase();
-            if (!depNormalizado || !req) continue;
-            if (alm.includes(depNormalizado) || depNormalizado.includes(alm) || alm === depNormalizado) {
-              matched = req;
-              break;
-            }
-            // Match por código corto (CBEEFB vs CBEEFE BEEF BAR).
-            const code = alm.split(/\s+/)[0] ?? "";
-            const depCode = depNormalizado.split(/\s+/)[0] ?? "";
-            if (
-              code &&
-              depCode &&
-              (code.startsWith(depCode.slice(0, 5)) ||
-                depCode.startsWith(code.slice(0, 5)))
-            ) {
-              matched = req;
-              break;
-            }
-          }
-          if (!matched) return hija;
-          const cur = hija.numeroPedido?.trim() || "";
-          if (cur === matched || (!isGarbageOcValue(cur) && cur)) {
-            return hija;
-          }
-          changed = true;
-          return {
-            ...hija,
-            numeroPedido: matched,
-            renglones: hija.renglones.map((row) => ({
-              ...row,
-              "Numero pedido": matched,
-            })),
-            label:
-              matched && hija.almacen
-                ? `${matched} — ${hija.almacen}`
-                : hija.label,
-          };
-        });
+        const { next, changed } = applyOcPorAlmacenAOrdenesTrabajo(
+          prev,
+          byAlmacen,
+        );
         if (!changed) return prev;
         setOrigenCorreoDraft(flattenOrdenesTrabajoToOrigenCorreo(next));
         return next;

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   confirmarDespachoPublico,
@@ -90,6 +93,12 @@ vi.mock("@/modules/sales/ordenes/services/orden-venta-log.server", () => ({
   recordOrdenVentaLogServer: log,
 }));
 
+const avanzarNest = vi.hoisted(() => vi.fn(async () => undefined));
+
+vi.mock("@/modules/sales/ordenes/surtido/avanzar-estado-surtido.server", () => ({
+  avanzarEstadoSurtidoEnNest: (...args: unknown[]) => avanzarNest(...args),
+}));
+
 const resolverEsquema = vi.hoisted(() => vi.fn(async () => "emp_demo" as string | null));
 
 vi.mock("@/modules/sales/shared/services/sales-catalog.server", () => ({
@@ -100,6 +109,8 @@ beforeEach(() => {
   bd.empresas = [{ schema_name: "emp_demo" }];
   bd.ordenes.clear();
   log.mockClear();
+  avanzarNest.mockReset();
+  avanzarNest.mockResolvedValue(undefined);
   resolverEsquema.mockReset();
   resolverEsquema.mockResolvedValue("emp_demo");
   filas("emp_demo").push(
@@ -151,8 +162,13 @@ describe("confirmarDespachoPublico", () => {
     });
 
     expect(resultado).toEqual({ ok: true });
+    expect(avanzarNest).toHaveBeenCalledWith({
+      idOrdenVenta: "ov-1",
+      estado: "despachada",
+      codigoCuenta: "023WA",
+    });
     expect(filas("emp_demo").find((fila) => fila.id_orden_venta === "ov-1"))
-      .toMatchObject({ estado: "despachada" });
+      .toMatchObject({ estado: "alistada" });
     expect(log).toHaveBeenCalledWith(
       expect.objectContaining({
         accion: "cambio_estado",
@@ -165,13 +181,17 @@ describe("confirmarDespachoPublico", () => {
     );
   });
 
-  it("actualiza la copia de la empresa si también está en public", async () => {
-    filas(null).push({
-      id_orden_venta: "ov-1",
-      codigo: "OV-1",
-      estado: "alistada",
-      codigo_cuenta: "023WA",
-    });
+  it("no escribe orden_venta.estado por Supabase", () => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "despacho-publico.service.ts"),
+      "utf8",
+    );
+    expect(source).not.toContain(".update(");
+    expect(source).toContain("avanzarEstadoSurtidoEnNest");
+  });
+
+  it("si Nest rechaza el avance, la orden queda en su estado", async () => {
+    avanzarNest.mockRejectedValue(new Error("Nest avanzar-estado-surtido falló (409): no permitida"));
 
     const resultado = await confirmarDespachoPublico({
       idOrdenVenta: "ov-1",
@@ -180,11 +200,10 @@ describe("confirmarDespachoPublico", () => {
       transportista: "Luis",
     });
 
-    expect(resultado).toEqual({ ok: true });
+    expect(resultado.ok).toBe(false);
     expect(filas("emp_demo").find((fila) => fila.id_orden_venta === "ov-1"))
-      .toMatchObject({ estado: "despachada" });
-    expect(filas(null).find((fila) => fila.id_orden_venta === "ov-1"))
       .toMatchObject({ estado: "alistada" });
+    expect(log).not.toHaveBeenCalled();
   });
 
   it("no cambia una orden que ya no está en alistada ni alistamiento", async () => {

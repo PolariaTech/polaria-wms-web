@@ -136,7 +136,9 @@ export function useOrdenVentaCypherDrawerContent({
     bumpLogNonce,
   });
 
-  resetEstadoUiRef.current = resetEstadoUi;
+  useEffect(() => {
+    resetEstadoUiRef.current = resetEstadoUi;
+  }, [resetEstadoUi]);
 
   const { scrollToStage, toggleAccordionStage } = useCypherDrawerStagesNav({
     setOpenStages,

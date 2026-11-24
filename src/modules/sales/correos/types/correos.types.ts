@@ -4,6 +4,9 @@ import { DEFAULT_TABLE_PAGE_SIZE } from "@/constants/ui/table-pagination";
 
 export type ModoCorreos = "todos" | "descartados" | "procesados";
 
+/** REQ-387: filtro de listado para el modal de reintentos. */
+export type EstadoIngresoFiltro = "reintentar";
+
 export type EstadoIngresoCorreo = "procesando" | "ingresado" | "error";
 
 /** Qué hizo el flujo de n8n con el correo (columna `resultado` del data table). */
