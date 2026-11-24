@@ -34,10 +34,15 @@ export async function fetchFotosCaptura(
 }> {
   const params = new URLSearchParams({ historial: "1" });
   if (idOrdenTrabajo) params.set("ot", idOrdenTrabajo);
-  const response = await fetch(
-    `/captura-orden/${encodeURIComponent(idOrdenVenta)}/api?${params.toString()}`,
-  );
-  const body = (await response.json()) as CuerpoFotosApi;
+  let response: Response;
+  try {
+    response = await fetch(
+      `/captura-orden/${encodeURIComponent(idOrdenVenta)}/api?${params.toString()}`,
+    );
+  } catch {
+    throw new Error(MENSAJE_ERROR_FOTOS);
+  }
+  const body = (await response.json().catch(() => ({}))) as CuerpoFotosApi;
   if (!response.ok) {
     throw new Error(body.error || MENSAJE_ERROR_FOTOS);
   }

@@ -10,29 +10,41 @@ async function resolveTenantSchemaForCuenta(
   const codigo = codigoCuenta.trim();
   if (!codigo) return null;
 
-  const { data: publicCuenta } = await admin
+  const { data: publicCuenta, error: publicError } = await admin
     .from("cuenta")
     .select("codigo_cuenta,codigo_empresa")
     .eq("codigo_cuenta", codigo)
     .limit(1)
     .maybeSingle();
 
+  if (publicError) {
+    throw new Error(publicError.message);
+  }
+
   if (publicCuenta?.codigo_empresa) {
-    const { data: empresa } = await admin
+    const { data: empresa, error: empresaError } = await admin
       .from("empresa")
       .select("schema_name")
       .eq("codigo_empresa", publicCuenta.codigo_empresa)
       .limit(1)
       .maybeSingle();
 
+    if (empresaError) {
+      throw new Error(empresaError.message);
+    }
+
     return empresa?.schema_name?.trim() || null;
   }
 
-  const { data: empresas } = await admin
+  const { data: empresas, error: empresasError } = await admin
     .from("empresa")
     .select("schema_name")
     .not("schema_name", "is", null)
     .limit(500);
+
+  if (empresasError) {
+    throw new Error(empresasError.message);
+  }
 
   for (const empresa of empresas ?? []) {
     const schemaName = empresa.schema_name?.trim();

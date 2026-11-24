@@ -31,10 +31,19 @@ function esMenorQue(a, b) {
   return false;
 }
 
+function parsearJsonSeguro(raw, etiqueta) {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    const detalle = error instanceof Error ? error.message : String(error);
+    throw new Error(`JSON inválido en ${etiqueta}: ${detalle}`);
+  }
+}
+
 /** @returns {{ ok: boolean, bloqueantes: string[] }} */
 export function evaluarAuditJson(reportJson) {
-  const data = JSON.parse(reportJson);
-  const vulns = data.vulnerabilities || {};
+  const data = parsearJsonSeguro(reportJson, "reporte de npm audit");
+  const vulns = data?.vulnerabilities || {};
   const bloqueantes = [];
 
   for (const [name, meta] of Object.entries(vulns)) {
@@ -54,8 +63,8 @@ export function evaluarAuditJson(reportJson) {
  * @returns {{ ok: boolean, bloqueantes: string[] }}
  */
 export function evaluarXlsxLock(lockJson) {
-  const lock = JSON.parse(lockJson);
-  const entrada = lock.packages?.["node_modules/xlsx"];
+  const lock = parsearJsonSeguro(lockJson, "package-lock.json");
+  const entrada = lock?.packages?.["node_modules/xlsx"];
   if (!entrada) return { ok: true, bloqueantes: [] };
 
   const bloqueantes = [];

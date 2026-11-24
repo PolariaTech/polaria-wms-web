@@ -56,9 +56,18 @@ export function evaluarMaxLines(actual, baseline) {
 function main() {
   const actual = {};
   for (const rel of ROOTS) walk(path.join(root, rel), actual);
-  const baseline = existsSync(baselinePath)
-    ? JSON.parse(readFileSync(baselinePath, "utf8"))
-    : {};
+  let baseline = {};
+  if (existsSync(baselinePath)) {
+    try {
+      baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+    } catch (error) {
+      const detalle = error instanceof Error ? error.message : String(error);
+      process.stderr.write(
+        `No se pudo leer ${baselinePath}: JSON inválido (${detalle})\n`,
+      );
+      process.exit(1);
+    }
+  }
   const fallos = evaluarMaxLines(actual, baseline);
   if (fallos.length) {
     process.stderr.write(

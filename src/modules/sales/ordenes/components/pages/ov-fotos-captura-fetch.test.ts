@@ -54,4 +54,17 @@ describe("ov-fotos-captura-fetch", () => {
     responder({}, false);
     await expect(fetchFotosCaptura("ov-1")).rejects.toThrow(MENSAJE_ERROR_FOTOS);
   });
+
+  it("si falla la red o el cuerpo no es JSON lanza el error genérico", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("network down"));
+    await expect(fetchFotosCaptura("ov-1")).rejects.toThrow(MENSAJE_ERROR_FOTOS);
+
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      json: async () => {
+        throw new SyntaxError("invalid json");
+      },
+    });
+    await expect(fetchFotosCaptura("ov-1")).rejects.toThrow(MENSAJE_ERROR_FOTOS);
+  });
 });

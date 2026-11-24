@@ -108,7 +108,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
     const cached = getLeerPedidoCache(cacheKey);
     if (cached && typeof cached === "object") {
-      console.log(
+      console.info(
         JSON.stringify({
           evento: "leer-pedido",
           exito: true,
@@ -146,7 +146,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     };
     setLeerPedidoCache(cacheKey, payload);
 
-    console.log(
+    console.info(
       JSON.stringify({
         evento: "leer-pedido",
         exito: true,
@@ -165,7 +165,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(payload);
   } catch (err) {
     const mensaje = err instanceof Error ? err.message : String(err);
-    console.log(
+    console.error(
       JSON.stringify({
         evento: "leer-pedido",
         exito: false,

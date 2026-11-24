@@ -92,4 +92,9 @@ describe("evaluarXlsxLock", () => {
     assert.equal(r.ok, false);
     assert.equal(r.bloqueantes.length, 2);
   });
+
+  it("falla con mensaje claro si el JSON está malformado", () => {
+    assert.throws(() => evaluarAuditJson("{roto"), /JSON inválido/);
+    assert.throws(() => evaluarXlsxLock("{roto"), /JSON inválido/);
+  });
 });
