@@ -65,6 +65,20 @@ vi.mock("../modals/OrdenVentaCypherDrawer", () => ({
   OrdenVentaCypherDrawer: () => null,
 }));
 
+// Los `next/dynamic` de la página cargan árboles completos de módulos. Si la prueba
+// termina antes de resolverlos, Vitest reporta EnvironmentTeardownError. Se mockean.
+vi.mock("./OperadorOrdenesVentaCypher", () => ({
+  OperadorOrdenesVentaCypher: () => null,
+}));
+
+vi.mock("./OperadorOrdenesVentaFormularios", () => ({
+  OperadorOrdenesVentaFormularios: () => null,
+}));
+
+vi.mock("./OperadorOrdenesVentaImpresionModales", () => ({
+  OperadorOrdenesVentaImpresionModales: () => null,
+}));
+
 describe("OperadorOrdenesVentaPageContent (REQ-226)", () => {
   beforeEach(() => {
     listOrdenesVentaOperador.mockReset();
