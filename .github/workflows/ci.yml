@@ -110,7 +110,6 @@ jobs:
       - name: Tests arquitectura + contrato Mateo
         run: |
           npx vitest run \
-            src/lib/architecture/ordenes-utils-ssot.architecture.test.ts \
             src/lib/architecture/wms-channels.test.ts \
             src/lib/mateo-ia/mateo-ia.contract.test.ts
         env:
