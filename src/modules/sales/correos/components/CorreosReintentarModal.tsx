@@ -80,10 +80,19 @@ export function CorreosReintentarModal({
     };
   }, [open, recargar]);
 
-  const marcarFila = (messageId: string, siguiente: CorreoFila) => {
+  const actualizarFila = (
+    messageId: string,
+    transformar: (fila: CorreoFila) => CorreoFila,
+  ) => {
     setFilas((previas) =>
-      previas.map((actual) => (actual.messageId === messageId ? siguiente : actual)),
+      previas.map((fila) =>
+        fila.messageId === messageId ? transformar(fila) : fila,
+      ),
     );
+  };
+
+  const marcarFila = (messageId: string, siguiente: CorreoFila) => {
+    actualizarFila(messageId, () => siguiente);
   };
 
   const quitarFila = (messageId: string) => {
@@ -98,9 +107,7 @@ export function CorreosReintentarModal({
     if (progreso !== null || activo !== null) return;
     setActivo(messageId);
     setError(null);
-    setFilas((previas) =>
-      previas.map((f) => (f.messageId === messageId ? enProcesoLocal(f) : f)),
-    );
+    actualizarFila(messageId, enProcesoLocal);
     try {
       const resultado = await esperarResultadoIngreso(messageId);
       if (resultado.estado === "ingresado") {
@@ -109,9 +116,7 @@ export function CorreosReintentarModal({
         return;
       }
       const motivo = motivoFallo(resultado);
-      setFilas((previas) =>
-        previas.map((f) => (f.messageId === messageId ? conErrorLocal(f, motivo) : f)),
-      );
+      actualizarFila(messageId, (fila) => conErrorLocal(fila, motivo));
       setError(motivo);
     } catch (causa) {
       if (esErrorYaIngresado(causa)) {
@@ -120,9 +125,7 @@ export function CorreosReintentarModal({
         return;
       }
       const motivo = textoError(causa);
-      setFilas((previas) =>
-        previas.map((f) => (f.messageId === messageId ? conErrorLocal(f, motivo) : f)),
-      );
+      actualizarFila(messageId, (fila) => conErrorLocal(fila, motivo));
       setError(motivo);
     } finally {
       setActivo(null);
