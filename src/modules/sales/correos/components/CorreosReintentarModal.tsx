@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Loader2, Square } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import type { CorreoFila } from "../types/correos.types";
@@ -9,7 +9,11 @@ import {
   cargarReintentables,
   conErrorLocal,
   enProcesoLocal,
+  esAbortado,
+  esErrorQueCortaLote,
+  esErrorYaIngresado,
   motivoFallo,
+  resumenDetenido,
   resumenLote,
   textoError,
 } from "../utils/correos-reintentar.helpers";
@@ -25,6 +29,13 @@ interface CorreosReintentarModalProps {
   onTerminado: () => void;
 }
 
+interface ProgresoLote {
+  hechos: number;
+  total: number;
+  ok: number;
+  asuntoActual: string;
+}
+
 /**
  * REQ-387: lista solo correos en «Reintentar» y permite reintentar uno o todos.
  */
@@ -36,11 +47,9 @@ export function CorreosReintentarModal({
   const [filas, setFilas] = useState<CorreoFila[]>([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [progreso, setProgreso] = useState<{
-    hechos: number;
-    total: number;
-  } | null>(null);
+  const [progreso, setProgreso] = useState<ProgresoLote | null>(null);
   const [activo, setActivo] = useState<string | null>(null);
+  const loteAbortRef = useRef<AbortController | null>(null);
 
   const recargar = useCallback(async (signal: AbortSignal) => {
     setCargando(true);
@@ -57,56 +66,62 @@ export function CorreosReintentarModal({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      loteAbortRef.current?.abort();
+      loteAbortRef.current = null;
+      return;
+    }
     const ac = new AbortController();
     void recargar(ac.signal);
-    return () => ac.abort();
+    return () => {
+      ac.abort();
+      loteAbortRef.current?.abort();
+      loteAbortRef.current = null;
+    };
   }, [open, recargar]);
-
-  const cerrarTrasLote = () => {
-    setProgreso(null);
-    setActivo(null);
-    onTerminado();
-    onClose();
-  };
 
   const marcarFila = (messageId: string, siguiente: CorreoFila) => {
     setFilas((previas) =>
-      previas.map((actual) =>
-        actual.messageId === messageId ? siguiente : actual,
-      ),
+      previas.map((actual) => (actual.messageId === messageId ? siguiente : actual)),
     );
   };
 
+  const quitarFila = (messageId: string) => {
+    setFilas((previas) => previas.filter((actual) => actual.messageId !== messageId));
+  };
+
+  const detenerLote = () => {
+    loteAbortRef.current?.abort();
+  };
+
   const reintentarUno = async (messageId: string) => {
+    if (progreso !== null || activo !== null) return;
     setActivo(messageId);
     setError(null);
     setFilas((previas) =>
-      previas.map((fila) =>
-        fila.messageId === messageId ? enProcesoLocal(fila) : fila,
-      ),
+      previas.map((f) => (f.messageId === messageId ? enProcesoLocal(f) : f)),
     );
     try {
       const resultado = await esperarResultadoIngreso(messageId);
       if (resultado.estado === "ingresado") {
-        setFilas((previas) =>
-          previas.filter((fila) => fila.messageId !== messageId),
-        );
+        quitarFila(messageId);
+        onTerminado();
         return;
       }
       const motivo = motivoFallo(resultado);
       setFilas((previas) =>
-        previas.map((fila) =>
-          fila.messageId === messageId ? conErrorLocal(fila, motivo) : fila,
-        ),
+        previas.map((f) => (f.messageId === messageId ? conErrorLocal(f, motivo) : f)),
       );
       setError(motivo);
     } catch (causa) {
+      if (esErrorYaIngresado(causa)) {
+        quitarFila(messageId);
+        onTerminado();
+        return;
+      }
       const motivo = textoError(causa);
       setFilas((previas) =>
-        previas.map((fila) =>
-          fila.messageId === messageId ? conErrorLocal(fila, motivo) : fila,
-        ),
+        previas.map((f) => (f.messageId === messageId ? conErrorLocal(f, motivo) : f)),
       );
       setError(motivo);
     } finally {
@@ -115,52 +130,93 @@ export function CorreosReintentarModal({
   };
 
   const reintentarTodos = async () => {
-    if (filas.length === 0 || progreso) return;
+    if (filas.length === 0 || progreso !== null || activo !== null) return;
     const lote = [...filas];
-    setProgreso({ hechos: 1, total: lote.length });
+    const control = new AbortController();
+    loteAbortRef.current = control;
     setError(null);
-    const pendientes: CorreoFila[] = [];
+    const fallidas: CorreoFila[] = [];
     let ok = 0;
+    let indiceCorte: number | null = null;
+    let errorCorte: string | null = null;
 
     for (let i = 0; i < lote.length; i += 1) {
+      if (control.signal.aborted) {
+        indiceCorte = i;
+        break;
+      }
       const fila = lote[i]!;
       setActivo(fila.messageId);
-      setProgreso({ hechos: i + 1, total: lote.length });
+      setProgreso({
+        hechos: i + 1,
+        total: lote.length,
+        ok,
+        asuntoActual: fila.asunto?.trim() || "(sin asunto)",
+      });
       marcarFila(fila.messageId, enProcesoLocal(fila));
       try {
-        const resultado = await esperarResultadoIngreso(fila.messageId);
+        const resultado = await esperarResultadoIngreso(
+          fila.messageId,
+          control.signal,
+        );
         if (resultado.estado === "ingresado") {
           ok += 1;
-          setFilas((previas) =>
-            previas.filter((actual) => actual.messageId !== fila.messageId),
-          );
+          quitarFila(fila.messageId);
         } else {
           const fallida = conErrorLocal(fila, motivoFallo(resultado));
-          pendientes.push(fallida);
+          fallidas.push(fallida);
           marcarFila(fila.messageId, fallida);
         }
       } catch (causa) {
-        const fallida = conErrorLocal(fila, textoError(causa));
-        pendientes.push(fallida);
-        marcarFila(fila.messageId, fallida);
+        if (esAbortado(causa) || control.signal.aborted) {
+          marcarFila(fila.messageId, fila);
+          indiceCorte = i;
+          break;
+        }
+        if (esErrorYaIngresado(causa)) {
+          ok += 1;
+          quitarFila(fila.messageId);
+        } else {
+          const motivo = textoError(causa);
+          const fallida = conErrorLocal(fila, motivo);
+          fallidas.push(fallida);
+          marcarFila(fila.messageId, fallida);
+          if (esErrorQueCortaLote(causa)) {
+            errorCorte = motivo;
+            indiceCorte = i + 1;
+            break;
+          }
+        }
       }
       if (i < lote.length - 1) {
         try {
-          await pausaEntreReintentos();
+          await pausaEntreReintentos(control.signal);
         } catch {
+          indiceCorte = i + 1;
           break;
         }
       }
     }
 
+    if (loteAbortRef.current === control) {
+      loteAbortRef.current = null;
+    }
+    const sinProcesar = indiceCorte !== null ? lote.slice(indiceCorte) : [];
+    const pendientes = [...fallidas, ...sinProcesar];
     setActivo(null);
-    setFilas(pendientes);
     setProgreso(null);
+    setFilas(pendientes);
+    if (ok > 0) onTerminado();
+
     if (pendientes.length === 0) {
-      cerrarTrasLote();
+      onClose();
       return;
     }
-    setError(resumenLote(ok, pendientes, lote.length));
+    setError(
+      control.signal.aborted
+        ? resumenDetenido(ok, pendientes.length)
+        : resumenLote(ok, errorCorte ? fallidas : pendientes, lote.length),
+    );
   };
 
   const enLote = progreso !== null;
@@ -179,14 +235,39 @@ export function CorreosReintentarModal({
       asForm={false}
       hideFooter={false}
       hideHeaderClose
-      submitLabel="Reintentar para todos"
+      submitLabel={
+        progreso
+          ? `Procesando ${progreso.hechos}/${progreso.total}`
+          : "Reintentar para todos"
+      }
       cancelLabel="Cerrar"
-      submitDisabled={cargando || enLote || filas.length === 0}
+      submitDisabled={cargando || enLote || activo !== null || filas.length === 0}
       isSubmitting={enLote}
       onSubmit={(evento) => {
         evento.preventDefault();
         void reintentarTodos();
       }}
+      footerLeading={
+        progreso ? (
+          <p className="polaria-text-caption max-w-xs truncate text-polaria-w-50" role="status">
+            Correo {progreso.hechos} de {progreso.total}
+            {progreso.ok > 0 ? ` · ${progreso.ok} ok` : ""}:{" "}
+            <span className="text-polaria-w">{progreso.asuntoActual}</span>
+          </p>
+        ) : undefined
+      }
+      footerBeforeCancel={
+        enLote ? (
+          <button
+            type="button"
+            onClick={detenerLote}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-polaria-t-20 px-3.5 py-2.5 polaria-text-body-sm text-polaria-w transition hover:bg-polaria-t-08 hover:text-polaria-teal"
+          >
+            <Square className="h-3.5 w-3.5" aria-hidden />
+            Detener
+          </button>
+        ) : undefined
+      }
       error={error}
       closeOnEscape={!enLote}
       closeOnBackdrop={!enLote}
@@ -207,18 +288,12 @@ export function CorreosReintentarModal({
               key={fila.messageId}
               fila={fila}
               activo={activo === fila.messageId}
-              ocupado={activo === fila.messageId || enLote}
+              ocupado={activo !== null || enLote}
               onReintentar={(id) => void reintentarUno(id)}
             />
           ))}
         </ul>
       )}
-      {progreso ? (
-        <p className="polaria-text-caption mt-3 text-polaria-w-50" role="status">
-          Correo {progreso.hechos} de {progreso.total}: esperando resultado (máx.
-          ~90 s por correo)…
-        </p>
-      ) : null}
     </PolariaFormModal>,
     document.body,
   );

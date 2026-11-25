@@ -151,4 +151,117 @@ describe("CorreosReintentarModal (REQ-387)", () => {
       await screen.findByText("No hay correos pendientes de reintentar."),
     ).toBeInTheDocument();
   });
+
+  it("permite detener el lote sin perder los correos restantes", async () => {
+    const segundo = fila({
+      messageId: "m-2",
+      asunto: "Segundo pedido",
+      ingreso: ingreso({ messageId: "m-2", estado: "error", error: "Falló" }),
+    });
+    api.listarCorreos.mockResolvedValue({
+      total: 2,
+      pagina: 1,
+      tamano: 50,
+      filas: [pendiente, segundo],
+    });
+    api.ingresarCorreo.mockImplementation(
+      (_id: string, signal?: AbortSignal) =>
+        new Promise((_res, rej) => {
+          signal?.addEventListener("abort", () =>
+            rej(new DOMException("Aborted", "AbortError")),
+          );
+        }),
+    );
+    const usuario = userEvent.setup();
+
+    render(
+      <CorreosReintentarModal open onClose={vi.fn()} onTerminado={vi.fn()} />,
+    );
+    await screen.findByText("Pedido fallido");
+    await usuario.click(
+      screen.getByRole("button", { name: "Reintentar para todos" }),
+    );
+
+    const botonDetener = await screen.findByRole("button", { name: "Detener" });
+    await usuario.click(botonDetener);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /Lote detenido; quedan 2 pendientes/i,
+    );
+    expect(screen.getByText("Pedido fallido")).toBeInTheDocument();
+    expect(screen.getByText("Segundo pedido")).toBeInTheDocument();
+    expect(api.ingresarCorreo).toHaveBeenCalledTimes(1);
+  });
+
+  it("trata YA_INGRESADO (409) como ingresado y refresca la tabla", async () => {
+    api.listarCorreos.mockResolvedValue({
+      total: 1,
+      pagina: 1,
+      tamano: 50,
+      filas: [pendiente],
+    });
+    api.ingresarCorreo.mockRejectedValue(
+      new CorreosApiError(
+        "Este pedido ya fue ingresado como OV-9.",
+        "YA_INGRESADO",
+        409,
+      ),
+    );
+    const onClose = vi.fn();
+    const onTerminado = vi.fn();
+    const usuario = userEvent.setup();
+
+    render(
+      <CorreosReintentarModal
+        open
+        onClose={onClose}
+        onTerminado={onTerminado}
+      />,
+    );
+    await screen.findByText("Pedido fallido");
+    await usuario.click(
+      screen.getByRole("button", { name: "Reintentar para todos" }),
+    );
+
+    await waitFor(() => {
+      expect(onTerminado).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  it("corta el lote ante 429 sin disparar los correos restantes", async () => {
+    const segundo = fila({
+      messageId: "m-2",
+      asunto: "Segundo pedido",
+      ingreso: ingreso({ messageId: "m-2", estado: "error", error: "Falló" }),
+    });
+    api.listarCorreos.mockResolvedValue({
+      total: 2,
+      pagina: 1,
+      tamano: 50,
+      filas: [pendiente, segundo],
+    });
+    api.ingresarCorreo.mockRejectedValue(
+      new CorreosApiError(
+        "Hay demasiadas solicitudes en poco tiempo.",
+        "LIMITE_SOLICITUDES",
+        429,
+      ),
+    );
+    const usuario = userEvent.setup();
+
+    render(
+      <CorreosReintentarModal open onClose={vi.fn()} onTerminado={vi.fn()} />,
+    );
+    await screen.findByText("Pedido fallido");
+    await usuario.click(
+      screen.getByRole("button", { name: "Reintentar para todos" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /demasiadas solicitudes/i,
+    );
+    expect(api.ingresarCorreo).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Segundo pedido")).toBeInTheDocument();
+  });
 });

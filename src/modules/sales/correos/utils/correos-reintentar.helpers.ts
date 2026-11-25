@@ -61,6 +61,33 @@ export function textoError(causa: unknown): string {
   return mensajeDeError(causa);
 }
 
+const ERRORES_QUE_CORTAN_LOTE: ReadonlySet<string> = new Set([
+  "SESION",
+  "SIN_PERMISO",
+  "CUENTA_NO_HABILITADA",
+  "LIMITE_SOLICITUDES",
+]);
+
+export function esErrorYaIngresado(causa: unknown): boolean {
+  return causa instanceof CorreosApiError && causa.codigo === "YA_INGRESADO";
+}
+
+export function esErrorQueCortaLote(causa: unknown): boolean {
+  return (
+    causa instanceof CorreosApiError && ERRORES_QUE_CORTAN_LOTE.has(causa.codigo)
+  );
+}
+
+export function esAbortado(causa: unknown): boolean {
+  return causa instanceof DOMException && causa.name === "AbortError";
+}
+
+export function resumenDetenido(ok: number, restantes: number): string {
+  const prefijo =
+    ok > 0 ? `${ok} ingresado${ok === 1 ? "" : "s"}. ` : "";
+  return `${prefijo}Lote detenido; quedan ${restantes} pendiente${restantes === 1 ? "" : "s"}.`;
+}
+
 export function resumenLote(
   ok: number,
   pendientes: CorreoFila[],
