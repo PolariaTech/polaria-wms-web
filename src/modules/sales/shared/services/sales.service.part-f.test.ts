@@ -165,7 +165,7 @@ describe("sales.service", () => {
   });
 
 
-  it("borrarOrdenVenta en confirmada llama cancelarOrdenVentaApi", async () => {
+  it("borrarOrdenVenta en confirmada rechaza sin llamar cancelarOrdenVentaApi (REQ-419)", async () => {
     const selectChain = {
       select: vi.fn(),
       eq: vi.fn(),
@@ -179,11 +179,13 @@ describe("sales.service", () => {
     });
     setSupabaseClientForTests({ from: vi.fn(() => selectChain) } as never);
 
-    await borrarOrdenVenta({
-      codigoCuenta: "CUENTA-01",
-      idOrdenVenta: "ov-1",
-    });
+    await expect(
+      borrarOrdenVenta({
+        codigoCuenta: "CUENTA-01",
+        idOrdenVenta: "ov-1",
+      }),
+    ).rejects.toBeInstanceOf(DomainServiceError);
 
-    expect(cancelarOrdenVentaApi).toHaveBeenCalledWith("ov-1");
+    expect(cancelarOrdenVentaApi).not.toHaveBeenCalled();
   });
 });

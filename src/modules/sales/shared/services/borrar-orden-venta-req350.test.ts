@@ -18,7 +18,7 @@ describe("borrarOrdenVenta REQ-350", () => {
     cancelarOrdenVentaApi.mockResolvedValue({ estado: "cancelada" });
   });
 
-  it("en confirmada llama a cancelarOrdenVentaApi", async () => {
+  it("en confirmada rechaza sin llamar a cancelarOrdenVentaApi (REQ-419)", async () => {
     const selectChain = {
       select: vi.fn(),
       eq: vi.fn(),
@@ -32,12 +32,14 @@ describe("borrarOrdenVenta REQ-350", () => {
     });
     setSupabaseClientForTests({ from: vi.fn(() => selectChain) } as never);
 
-    await borrarOrdenVenta({
-      codigoCuenta: "CUENTA-01",
-      idOrdenVenta: "ov-1",
-    });
+    await expect(
+      borrarOrdenVenta({
+        codigoCuenta: "CUENTA-01",
+        idOrdenVenta: "ov-1",
+      }),
+    ).rejects.toBeInstanceOf(DomainServiceError);
 
-    expect(cancelarOrdenVentaApi).toHaveBeenCalledWith("ov-1");
+    expect(cancelarOrdenVentaApi).not.toHaveBeenCalled();
   });
 
   it("en por_confirmar llama a cancelarOrdenVentaApi", async () => {

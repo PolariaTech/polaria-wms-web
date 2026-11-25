@@ -49,7 +49,7 @@ export async function borrarOrdenVenta(params: {
 
   if (!puedeBorrarOrdenVenta(existing.estado)) {
     throw new DomainServiceError(
-      "Solo se pueden cancelar órdenes por confirmar, confirmadas o en alistamiento.",
+      "Solo se pueden cancelar órdenes por confirmar.",
       "MUTATION_FAILED",
     );
   }
