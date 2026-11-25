@@ -20,6 +20,9 @@ function orden(
     estado,
     codigoCuenta: "023WA",
     nombreCliente: "Krystal Cancún",
+    denominacionComercial: "Krystal",
+    cantidadOrdenesTrabajo: 1,
+    ordenCompraCliente: "OC-1",
   };
 }
 

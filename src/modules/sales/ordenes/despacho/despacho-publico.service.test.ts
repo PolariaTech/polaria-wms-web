@@ -44,24 +44,37 @@ function consulta(esquema: string | null, tabla: string) {
       return api;
     },
     update(cambios: Fila) {
-      return {
+      const aplicar = async () => {
+        const afectados = filas(esquema).filter((fila) =>
+          filtros.every((filtro) =>
+            Array.isArray(filtro.val)
+              ? filtro.val.includes(fila[filtro.col])
+              : fila[filtro.col] === filtro.val,
+          ),
+        );
+        for (const fila of afectados) Object.assign(fila, cambios);
+        return { data: afectados, error: null };
+      };
+      const cadena = {
         eq(col: string, val: unknown) {
           filtros.push({ col, val });
-          return this;
+          return cadena;
+        },
+        in(col: string, valores: unknown[]) {
+          filtros.push({ col, val: valores });
+          return cadena;
         },
         select() {
-          return {
-            maybeSingle: async () => {
-              const fila = filas(esquema).find((item) =>
-                filtros.every((filtro) => item[filtro.col] === filtro.val),
-              );
-              if (!fila) return { data: null, error: null };
-              Object.assign(fila, cambios);
-              return { data: { id_orden_venta: fila.id_orden_venta }, error: null };
-            },
-          };
+          return aplicar();
+        },
+        then(
+          resolve: (value: { data: Fila[]; error: null }) => unknown,
+          reject?: (reason: unknown) => unknown,
+        ) {
+          return aplicar().then(resolve, reject);
         },
       };
+      return cadena;
     },
     limit: async () => {
       if (tabla === "empresa") return { data: bd.empresas, error: null };
@@ -119,7 +132,10 @@ beforeEach(() => {
       codigo: "OV-1",
       estado: "alistada",
       codigo_cuenta: "023WA",
-      comprador: { nombre: "Krystal Cancún" },
+      comprador: { nombre: "Krystal Cancún", apodo: "Krystal", denominacion_comercial_override: null },
+      orden_compra_hotel: "OC-77",
+      denominacion_comercial_override: null,
+      origen_correo: [{ Cantidad: 1, Almacen: "Cocina" }, { Cantidad: 1, Almacen: "Bar" }],
     },
     {
       id_orden_venta: "ov-2",
@@ -146,9 +162,12 @@ describe("listarOrdenesDespachoPublico", () => {
   it("trae alistada y alistamiento, y deja fuera revisada", async () => {
     const ordenes = await listarOrdenesDespachoPublico("023WA");
     expect(ordenes.map((orden) => orden.codigo)).toEqual(["OV-1", "OV-2"]);
-    expect(ordenes.find((orden) => orden.codigo === "OV-1")?.nombreCliente).toBe(
-      "Krystal Cancún",
-    );
+    expect(ordenes.find((orden) => orden.codigo === "OV-1")).toMatchObject({
+      nombreCliente: "Krystal Cancún",
+      denominacionComercial: "Krystal",
+      ordenCompraCliente: "OC-77",
+      cantidadOrdenesTrabajo: 2,
+    });
   });
 });
 
@@ -181,13 +200,36 @@ describe("confirmarDespachoPublico", () => {
     );
   });
 
-  it("no escribe orden_venta.estado por Supabase", () => {
+  it("en producción el estado lo escribe Nest; el update local queda detrás del API de loopback", () => {
     const source = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "despacho-publico.service.ts"),
       "utf8",
     );
-    expect(source).not.toContain(".update(");
     expect(source).toContain("avanzarEstadoSurtidoEnNest");
+    expect(source).toContain("despachoLocalPuedeEscribirEstado");
+    expect(source).toContain(".update(");
+  });
+
+  it("si el API local no tiene la ruta, deja la orden despachada", async () => {
+    avanzarNest.mockRejectedValue(
+      new Error("Nest avanzar-estado-surtido falló (404): Cannot POST /ventas/ordenes/ov-1/avanzar-estado-surtido"),
+    );
+    vi.stubEnv("NEXT_PUBLIC_API_BASE_URL", "http://127.0.0.1:3000");
+    try {
+      const resultado = await confirmarDespachoPublico({
+        idOrdenVenta: "ov-1",
+        codigoCuenta: "023WA",
+        despachador: "Ana",
+        transportista: "Luis",
+      });
+
+      expect(resultado).toEqual({ ok: true });
+      expect(filas("emp_demo").find((fila) => fila.id_orden_venta === "ov-1"))
+        .toMatchObject({ estado: "despachada" });
+      expect(log).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("si Nest rechaza el avance, la orden queda en su estado", async () => {

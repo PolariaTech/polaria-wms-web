@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DespachoPublicoPage from "./page";
 
@@ -25,6 +25,9 @@ describe("DespachoPublicoPage", () => {
         estado: "alistamiento",
         codigoCuenta: "023WA",
         nombreCliente: "Hive",
+        denominacionComercial: "Hive",
+        cantidadOrdenesTrabajo: 1,
+        ordenCompraCliente: "—",
       },
       {
         idOrdenVenta: "ov-1",
@@ -32,6 +35,9 @@ describe("DespachoPublicoPage", () => {
         estado: "alistada",
         codigoCuenta: "023WA",
         nombreCliente: "Krystal Cancún",
+        denominacionComercial: "Krystal",
+        cantidadOrdenesTrabajo: 2,
+        ordenCompraCliente: "OC-77",
       },
     ]);
 
@@ -42,6 +48,10 @@ describe("DespachoPublicoPage", () => {
     );
 
     expect(listar).toHaveBeenCalledWith("023WA");
+    fireEvent.change(screen.getByLabelText("Quién despachó la mercancía"), {
+      target: { value: "Ana" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByRole("button", { name: /OV-1/ })).toBeInTheDocument();
     expect(screen.getByText("alistamiento (1)")).toBeInTheDocument();
   });

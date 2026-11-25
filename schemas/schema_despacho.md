@@ -5,9 +5,9 @@
 | Formulario | despacho |
 | Proyecto / repo | polaria-wms-web |
 | Protocolo de referencia | PROTOCOLO_DE_VALIDACION_DE_FORMULARIOS_v1.1.md |
-| Campos nuevos o modificados | Todos (formulario nuevo) |
+| Campos nuevos o modificados | quien_despacho se pide una vez por QR y se prellena; al editarlo se pregunta si el nuevo nombre queda por defecto. En la orden se muestran denominación comercial, cantidad de OT y orden de compra. La confirmación muestra quién despacha y el transportista. |
 | ¿Vive en un modal? | Sí |
-| ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | No |
+| ¿Algún campo se pre-llena automáticamente (Extracción IA, información de BD, o ambos)? | Sí: quien_despacho, con el nombre escrito al entrar por el QR |
 | Responsable (Desarrollador) | Desarrollador frontend |
 | Fecha de creación | 10/11/2026 |
 
@@ -16,7 +16,7 @@
 | Campo | Tipo de dato | Obligatorio | Rango/Límite | Valor por defecto | Único | Depende de | Regla de dependencia | Mensaje de error | Capas aplicables (Front/Back/BD) |
 |---|---|---|---|---|---|---|---|---|---|
 | quien_recibio | Texto | Sí | Máximo 120 caracteres; se recortan espacios al validar | — | No | — | — | Escribe quién es el transportista. / El nombre del transportista es demasiado largo. | Front, Back |
-| quien_despacho | Texto | Sí | Máximo 120 caracteres; se recortan espacios al validar | — | No | — | — | Escribe quién despachó la mercancía. / El nombre de quien despachó es demasiado largo. | Front, Back |
+| quien_despacho | Texto | Sí | Máximo 120 caracteres; se recortan espacios al validar | El nombre pedido al entrar por el QR | No | — | Si se edita, se pregunta si ese nombre se repite en las siguientes órdenes o se deja el anterior | Escribe quién despachó la mercancía. / El nombre de quien despachó es demasiado largo. | Front, Back |
 
 ### Tabla 2 — Interacción (Nivel 2)
 
@@ -33,7 +33,7 @@
 |---|---|
 | Rol con que se inicia sesión | Público, sin sesión |
 | Ruta | /despacho?cuenta=023WA |
-| Pasos para abrir el formulario | clic button "OV-00000317 CONDOMINIO FHP MAYAKOBA · alistada" → esperar dialog |
+| Pasos para abrir el formulario | escribir "Ana" en "Quién despachó la mercancía" → clic "Continuar" → clic button "OV-00000317 CONDOMINIO FHP MAYAKOBA · alistada" → esperar dialog |
 | Registro que debe existir | Una orden de venta en estado alistada o alistamiento de la cuenta del enlace |
 | Archivos del formulario | src/app/despacho/DespachoPublicoLista.tsx; src/app/despacho/api/route.ts; src/modules/sales/ordenes/despacho/despacho-publico.ts; src/modules/sales/ordenes/despacho/despacho-publico.service.ts |
 | Botón Guardar | button "Sí, despachar" |
@@ -51,7 +51,7 @@
 
 ### Notas y justificaciones
 
-quien_despacho es el campo de pantalla "Quién despachó la mercancía" y la clave `despachador` del API. quien_recibio es el campo de pantalla "Transportista" y la clave `transportista` del API. No hay Tabla 3: ningún campo se prellena. El botón "Pasar a despachada" sigue habilitado. Si el texto recortado está vacío, al enviarlo muestra "Escribe quién despachó la mercancía." o "Escribe quién es el transportista.". Si pasa de 120 caracteres, el front y el back muestran "El nombre de quien despachó es demasiado largo." o "El nombre del transportista es demasiado largo." y no recortan el texto. Con los dos nombres válidos abre la pregunta "¿Seguro que quieres despachar {codigo} de {cliente}?". Quien guarda es "Sí, despachar". "Volver" regresa al formulario y conserva lo escrito. "Cerrar" cierra el modal sin diálogo de descarte. Los nombres no tienen columna propia: se guardan en el log de la orden, por eso no hay capa BD.
+quien_despacho es el campo de pantalla "Quién despachó la mercancía" y la clave `despachador` del API. Se pregunta una vez al entrar por el QR y ese nombre se prellena en cada OV, editable. Si el texto cambia, antes de confirmar se pregunta "¿Este nombre se repite en las siguientes órdenes?" con "Usar este nombre en las siguientes" o "Dejar el anterior". quien_recibio es el campo de pantalla "Transportista" y la clave `transportista` del API, y se pide en cada OV. La confirmación muestra "Quién despacha:" y "Transportista:". La orden muestra denominación comercial, cantidad de OT y orden de compra; no son campos editables. El botón "Pasar a despachada" sigue habilitado. Si el texto recortado está vacío, al enviarlo muestra "Escribe quién despachó la mercancía." o "Escribe quién es el transportista.". Si pasa de 120 caracteres, el front y el back muestran "El nombre de quien despachó es demasiado largo." o "El nombre del transportista es demasiado largo." y no recortan el texto. Con los dos nombres válidos abre la pregunta "¿Seguro que quieres despachar {codigo} de {cliente}?". Quien guarda es "Sí, despachar". "Volver" regresa al formulario y conserva lo escrito. "Cerrar" cierra el modal sin diálogo de descarte. Los nombres no tienen columna propia: se guardan en el log de la orden, por eso no hay capa BD.
 
 ### Checklist de prueba manual
 
@@ -71,7 +71,7 @@ quien_despacho es el campo de pantalla "Quién despachó la mercancía" y la cla
 
 | Campo | Valor |
 |---|---|
-| Versión del schema | v1.0 |
-| Fecha de aprobación | 10/11/2026 |
+| Versión del schema | v1.1 |
+| Fecha de aprobación | 25/11/2026 |
 | Aprobado por | Desarrollador frontend |
 | Próxima revisión | Cuando el formulario cambie de campos o de reglas |
