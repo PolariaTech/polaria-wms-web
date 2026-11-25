@@ -54,7 +54,8 @@ export function propagarCabeceraOvATodasLasHijas(
 export type OpcionesSyncCabeceraOt = {
   /**
    * REQ-337: al guardar, misma fecha en todas las OT.
-   * REQ-374: al paginar debe ser false para no pisar hermanas.
+   * REQ-374: al paginar sin cambio de fecha debe ser false para no pisar hermanas.
+   * REQ-423: al paginar con la fecha cambiada se propaga a todas las OT.
    */
   propagarFechaOv?: boolean;
 };
