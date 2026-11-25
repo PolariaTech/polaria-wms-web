@@ -8,6 +8,8 @@ import type { OrdenVentaLogEntry } from "../../types/orden-venta-log.types";
 import { filterLogEntriesVisible } from "../../utils/ot/filter-log-entries-visible";
 import { buildCypherLogQuery } from "./cypher-drawer-log-query";
 
+const INTERVALO_BITACORA_MS = 3000;
+
 interface UseCypherDrawerLogArgs {
   idOrdenVenta: string | null;
   codigoCuenta: string | null;
@@ -15,6 +17,44 @@ interface UseCypherDrawerLogArgs {
   orden: OrdenVentaDetalleRow | null;
   row: OrdenVentaOperadorRow | null;
   logNonce: number;
+}
+
+function consultarBitacora(
+  consulta: ReturnType<typeof buildCypherLogQuery>,
+  mostrarCarga: boolean,
+  sigueVigente: () => boolean,
+  setLogEntries: (valor: OrdenVentaLogEntry[]) => void,
+  setLogLoading: (valor: boolean) => void,
+) {
+  if (mostrarCarga) setLogLoading(true);
+  void fetchOrdenVentaLog(consulta)
+    .then((filas) => {
+      if (!sigueVigente()) return;
+      setLogEntries(filterLogEntriesVisible(filas));
+    })
+    .catch(() => {
+      if (!sigueVigente() || !mostrarCarga) return;
+      setLogEntries([]);
+    })
+    .finally(() => {
+      if (sigueVigente() && mostrarCarga) setLogLoading(false);
+    });
+}
+
+function vigilarBitacora(leer: () => void): () => void {
+  const alVisible = () => {
+    if (document.visibilityState === "visible") leer();
+  };
+  const reloj = window.setInterval(leer, INTERVALO_BITACORA_MS);
+  window.addEventListener("focus", alVisible);
+  window.addEventListener("pageshow", alVisible);
+  document.addEventListener("visibilitychange", alVisible);
+  return () => {
+    window.clearInterval(reloj);
+    window.removeEventListener("focus", alVisible);
+    window.removeEventListener("pageshow", alVisible);
+    document.removeEventListener("visibilitychange", alVisible);
+  };
 }
 
 export function useCypherDrawerLog({
@@ -34,28 +74,21 @@ export function useCypherDrawerLog({
       return;
     }
 
-    let cancelled = false;
-    setLogLoading(true);
-    void fetchOrdenVentaLog(
-      buildCypherLogQuery({
-        idOrdenVenta,
-        codigoCuenta,
-        idOrdenTrabajo: idOrdenTrabajoBitacora,
-        createdAt: orden?.created_at || orden?.fecha_pedido || row?.fecha,
-      }),
-    )
-      .then((rows) => {
-        if (!cancelled) setLogEntries(filterLogEntriesVisible(rows));
-      })
-      .catch(() => {
-        if (!cancelled) setLogEntries([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLogLoading(false);
-      });
+    let vigente = true;
+    const consulta = buildCypherLogQuery({
+      idOrdenVenta,
+      codigoCuenta,
+      idOrdenTrabajo: idOrdenTrabajoBitacora,
+      createdAt: orden?.created_at || orden?.fecha_pedido || row?.fecha,
+    });
+    const leer = (mostrarCarga: boolean) =>
+      consultarBitacora(consulta, mostrarCarga, () => vigente, setLogEntries, setLogLoading);
 
+    leer(true);
+    const dejarDeVigilar = vigilarBitacora(() => leer(false));
     return () => {
-      cancelled = true;
+      vigente = false;
+      dejarDeVigilar();
     };
   }, [
     codigoCuenta,

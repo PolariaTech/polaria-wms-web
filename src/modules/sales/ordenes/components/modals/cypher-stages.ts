@@ -6,6 +6,7 @@ export type CypherStageId =
   | "correo"
   | "confirmacion"
   | "cliente-vs-mateo"
+  | "prefactura"
   | "alistamiento"
   | "alistado"
   | "revisado"
@@ -45,14 +46,20 @@ export const CYPHER_STAGES: ReadonlyArray<{
     title: "Correo vs Mateo IA vs usuario",
   },
   {
-    id: "cambio-estado",
+    id: "prefactura",
     num: "04",
+    label: "Prefactura",
+    title: "Prefactura",
+  },
+  {
+    id: "cambio-estado",
+    num: "05",
     label: "Cambiar estado",
     title: "Cambiar estado",
   },
   {
     id: "bitacora",
-    num: "05",
+    num: "06",
     label: "Bitácora",
     title: "Bitácora de eventos",
   },
@@ -97,6 +104,7 @@ export function stageReached(
   if (stage === "correo") return true;
   if (stage === "confirmacion") return current >= 1;
   if (stage === "cliente-vs-mateo") return true;
+  if (stage === "prefactura") return true;
   if (stage === "alistamiento") return current >= 2;
   if (stage === "alistado") return current >= 3;
   if (stage === "revisado") return current >= 4;

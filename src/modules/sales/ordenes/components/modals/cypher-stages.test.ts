@@ -7,14 +7,15 @@ import {
 } from "./cypher-stages";
 
 describe("CYPHER_STAGES (REQ-237 / REQ-271)", () => {
-  it("barra: 00 Correo, 01 Fiscales, … 04 Cambiar estado, 05 Bitácora", () => {
+  it("barra: 00 Correo, 01 Fiscales, … 04 Prefactura, 05 Cambiar estado, 06 Bitácora", () => {
     expect(CYPHER_STAGES.map((s) => `${s.num}:${s.id}`)).toEqual([
       "00:correo",
       "01:fiscales",
       "02:confirmacion",
       "03:cliente-vs-mateo",
-      "04:cambio-estado",
-      "05:bitacora",
+      "04:prefactura",
+      "05:cambio-estado",
+      "06:bitacora",
     ]);
     expect(CYPHER_STAGES.find((s) => s.id === "cambio-estado")?.label).toBe(
       "Cambiar estado",
