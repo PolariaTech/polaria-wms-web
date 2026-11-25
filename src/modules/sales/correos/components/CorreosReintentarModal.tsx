@@ -8,32 +8,20 @@ import type { CorreoFila } from "../types/correos.types";
 import {
   cargarReintentables,
   conErrorLocal,
+  ejecutarLoteReintentos,
   enProcesoLocal,
-  esAbortado,
-  esErrorQueCortaLote,
   esErrorYaIngresado,
   motivoFallo,
-  resumenDetenido,
-  resumenLote,
   textoError,
+  type ProgresoLote,
 } from "../utils/correos-reintentar.helpers";
-import {
-  esperarResultadoIngreso,
-  pausaEntreReintentos,
-} from "../utils/esperar-resultado-ingreso";
+import { esperarResultadoIngreso } from "../utils/esperar-resultado-ingreso";
 import { CorreosReintentarFila } from "./CorreosReintentarFila";
 
 interface CorreosReintentarModalProps {
   open: boolean;
   onClose: () => void;
   onTerminado: () => void;
-}
-
-interface ProgresoLote {
-  hechos: number;
-  total: number;
-  ok: number;
-  asuntoActual: string;
 }
 
 /**
@@ -71,10 +59,10 @@ export function CorreosReintentarModal({
       loteAbortRef.current = null;
       return;
     }
-    const ac = new AbortController();
-    void recargar(ac.signal);
+    const controlCarga = new AbortController();
+    void recargar(controlCarga.signal);
     return () => {
-      ac.abort();
+      controlCarga.abort();
       loteAbortRef.current?.abort();
       loteAbortRef.current = null;
     };
@@ -91,12 +79,10 @@ export function CorreosReintentarModal({
     );
   };
 
-  const marcarFila = (messageId: string, siguiente: CorreoFila) => {
-    actualizarFila(messageId, () => siguiente);
-  };
-
   const quitarFila = (messageId: string) => {
-    setFilas((previas) => previas.filter((actual) => actual.messageId !== messageId));
+    setFilas((previas) =>
+      previas.filter((fila) => fila.messageId !== messageId),
+    );
   };
 
   const detenerLote = () => {
@@ -134,92 +120,28 @@ export function CorreosReintentarModal({
 
   const reintentarTodos = async () => {
     if (filas.length === 0 || progreso !== null || activo !== null) return;
-    const lote = [...filas];
     const control = new AbortController();
     loteAbortRef.current = control;
     setError(null);
-    const fallidas: CorreoFila[] = [];
-    let ok = 0;
-    let indiceCorte: number | null = null;
-    let errorCorte: string | null = null;
-
-    for (let i = 0; i < lote.length; i += 1) {
-      if (control.signal.aborted) {
-        indiceCorte = i;
-        break;
-      }
-      const fila = lote[i]!;
-      setActivo(fila.messageId);
-      setProgreso({
-        hechos: i + 1,
-        total: lote.length,
-        ok,
-        asuntoActual: fila.asunto?.trim() || "(sin asunto)",
-      });
-      marcarFila(fila.messageId, enProcesoLocal(fila));
-      try {
-        const resultado = await esperarResultadoIngreso(
-          fila.messageId,
-          control.signal,
-        );
-        if (resultado.estado === "ingresado") {
-          ok += 1;
-          quitarFila(fila.messageId);
-        } else {
-          const fallida = conErrorLocal(fila, motivoFallo(resultado));
-          fallidas.push(fallida);
-          marcarFila(fila.messageId, fallida);
-        }
-      } catch (causa) {
-        if (esAbortado(causa) || control.signal.aborted) {
-          marcarFila(fila.messageId, fila);
-          indiceCorte = i;
-          break;
-        }
-        if (esErrorYaIngresado(causa)) {
-          ok += 1;
-          quitarFila(fila.messageId);
-        } else {
-          const motivo = textoError(causa);
-          const fallida = conErrorLocal(fila, motivo);
-          fallidas.push(fallida);
-          marcarFila(fila.messageId, fallida);
-          if (esErrorQueCortaLote(causa)) {
-            errorCorte = motivo;
-            indiceCorte = i + 1;
-            break;
-          }
-        }
-      }
-      if (i < lote.length - 1) {
-        try {
-          await pausaEntreReintentos(control.signal);
-        } catch {
-          indiceCorte = i + 1;
-          break;
-        }
-      }
-    }
-
+    const resultado = await ejecutarLoteReintentos([...filas], {
+      signal: control.signal,
+      onProgreso: setProgreso,
+      onActivo: setActivo,
+      onMarcarFila: (id, fila) => actualizarFila(id, () => fila),
+      onQuitarFila: quitarFila,
+    });
     if (loteAbortRef.current === control) {
       loteAbortRef.current = null;
     }
-    const sinProcesar = indiceCorte !== null ? lote.slice(indiceCorte) : [];
-    const pendientes = [...fallidas, ...sinProcesar];
     setActivo(null);
     setProgreso(null);
-    setFilas(pendientes);
-    if (ok > 0) onTerminado();
-
-    if (pendientes.length === 0) {
+    setFilas(resultado.pendientes);
+    if (resultado.ok > 0) onTerminado();
+    if (resultado.pendientes.length === 0) {
       onClose();
       return;
     }
-    setError(
-      control.signal.aborted
-        ? resumenDetenido(ok, pendientes.length)
-        : resumenLote(ok, errorCorte ? fallidas : pendientes, lote.length),
-    );
+    setError(resultado.error);
   };
 
   const enLote = progreso !== null;

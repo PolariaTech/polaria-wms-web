@@ -6,6 +6,31 @@ import {
   type IngresoCorreo,
 } from "../types/correos.types";
 import { mensajeDeError } from "./correos-formato";
+import {
+  esperarResultadoIngreso,
+  pausaEntreReintentos,
+} from "./esperar-resultado-ingreso";
+
+export interface ProgresoLote {
+  hechos: number;
+  total: number;
+  ok: number;
+  asuntoActual: string;
+}
+
+export interface ResultadoLote {
+  ok: number;
+  pendientes: CorreoFila[];
+  error: string | null;
+}
+
+interface CallbacksLote {
+  signal: AbortSignal;
+  onProgreso: (progreso: ProgresoLote) => void;
+  onActivo: (messageId: string) => void;
+  onMarcarFila: (messageId: string, fila: CorreoFila) => void;
+  onQuitarFila: (messageId: string) => void;
+}
 
 export async function cargarReintentables(
   signal: AbortSignal,
@@ -105,4 +130,78 @@ export function motivoFallo(resultado: IngresoCorreo): string {
   return (
     resultado.error?.trim() || "El ingreso terminó en error. Revisa el correo."
   );
+}
+
+export async function ejecutarLoteReintentos(
+  lote: CorreoFila[],
+  callbacks: CallbacksLote,
+): Promise<ResultadoLote> {
+  const { signal, onProgreso, onActivo, onMarcarFila, onQuitarFila } = callbacks;
+  const fallidas: CorreoFila[] = [];
+  let ok = 0;
+  let indiceCorte: number | null = null;
+  let errorCorte: string | null = null;
+
+  for (let indice = 0; indice < lote.length; indice += 1) {
+    if (signal.aborted) {
+      indiceCorte = indice;
+      break;
+    }
+    const fila = lote[indice]!;
+    onActivo(fila.messageId);
+    onProgreso({
+      hechos: indice + 1,
+      total: lote.length,
+      ok,
+      asuntoActual: fila.asunto?.trim() || "(sin asunto)",
+    });
+    onMarcarFila(fila.messageId, enProcesoLocal(fila));
+    try {
+      const resultado = await esperarResultadoIngreso(fila.messageId, signal);
+      if (resultado.estado === "ingresado") {
+        ok += 1;
+        onQuitarFila(fila.messageId);
+      } else {
+        const fallida = conErrorLocal(fila, motivoFallo(resultado));
+        fallidas.push(fallida);
+        onMarcarFila(fila.messageId, fallida);
+      }
+    } catch (causa) {
+      if (esAbortado(causa) || signal.aborted) {
+        onMarcarFila(fila.messageId, fila);
+        indiceCorte = indice;
+        break;
+      }
+      if (esErrorYaIngresado(causa)) {
+        ok += 1;
+        onQuitarFila(fila.messageId);
+      } else {
+        const motivo = textoError(causa);
+        const fallida = conErrorLocal(fila, motivo);
+        fallidas.push(fallida);
+        onMarcarFila(fila.messageId, fallida);
+        if (esErrorQueCortaLote(causa)) {
+          errorCorte = motivo;
+          indiceCorte = indice + 1;
+          break;
+        }
+      }
+    }
+    if (indice < lote.length - 1) {
+      try {
+        await pausaEntreReintentos(signal);
+      } catch {
+        indiceCorte = indice + 1;
+        break;
+      }
+    }
+  }
+
+  const sinProcesar = indiceCorte !== null ? lote.slice(indiceCorte) : [];
+  const pendientes = [...fallidas, ...sinProcesar];
+  if (pendientes.length === 0) return { ok, pendientes, error: null };
+  const error = signal.aborted
+    ? resumenDetenido(ok, pendientes.length)
+    : resumenLote(ok, errorCorte ? fallidas : pendientes, lote.length);
+  return { ok, pendientes, error };
 }
