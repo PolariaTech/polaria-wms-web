@@ -19,6 +19,12 @@ vi.mock("@/modules/sales/shared/services/sales.service", () => ({
 vi.mock("@/modules/sales/shared/hooks/useOrdenesVentaSubscription", () => ({
   useOrdenesVentaSubscription: () => undefined,
 }));
+vi.mock("../../print/list-orden-ids-correo-no-enviado", () => ({
+  listOrdenIdsCorreoNoEnviado: vi.fn().mockResolvedValue(new Set()),
+}));
+vi.mock("../../surtido/list-orden-ids-con-surtido-captura", () => ({
+  listOrdenIdsConSurtidoCaptura: vi.fn().mockResolvedValue(new Set()),
+}));
 vi.mock("@/providers/tenant/CompanyProvider", () => ({
   useCompany: () => ({ codigoCuenta: "CUENTA-01", activeBodegaId: "bod-1" }),
 }));
@@ -107,7 +113,9 @@ describe("Cypher: elegir qué OT salen (OV confirmada)", () => {
   it("«Imprimir» abre el modal en vez de mandar todo, y manda solo las OT elegidas", async () => {
     await abrirCypher();
 
-    await userEvent.click(screen.getByRole("button", { name: "Imprimir desde Cypher" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Imprimir desde Cypher" }),
+    );
     expect(await screen.findByRole("heading", { name: "Imprimir OV-0001" })).toBeInTheDocument();
     expect(imprimirPdf).not.toHaveBeenCalled();
 
@@ -124,7 +132,9 @@ describe("Cypher: elegir qué OT salen (OV confirmada)", () => {
 
   it("con todas marcadas (lo que viene de entrada) imprime la OV completa, como antes", async () => {
     await abrirCypher();
-    await userEvent.click(screen.getByRole("button", { name: "Imprimir desde Cypher" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Imprimir desde Cypher" }),
+    );
 
     await userEvent.click(await screen.findByRole("button", { name: "Imprimir 2 hojas" }));
 

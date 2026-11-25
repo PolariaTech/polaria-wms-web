@@ -27,28 +27,23 @@ import {
 } from "./batch-seleccion";
 import { armarPreviaDetallada } from "./armar-previa-detallada";
 import { cargarCentrosConsumo, cargarHojasBatch } from "./cargar-hojas-batch";
-import { esperaEntrePartes, partesDe } from "./enviar-paquete";
 import { ImpresionBatchBarra } from "./ImpresionBatchBarra";
-import { ImpresionBatchConfirmacion } from "./ImpresionBatchConfirmacion";
 import { ImpresionBatchFiltroImpresion } from "./ImpresionBatchFiltroImpresion";
 import { ImpresionBatchFiltros, filtrosActivos } from "./ImpresionBatchFiltros";
 import { ImpresionBatchLista } from "./ImpresionBatchLista";
 import { ImpresionBatchMensaje } from "./ImpresionBatchMensaje";
+import { ImpresionBatchConfirmaciones } from "./ImpresionBatchPageContent-confirmaciones";
 import { ImpresionBatchVistaPrevia } from "./ImpresionBatchVistaPrevia";
 import { ImpresionRapidaAvisoOc } from "./ImpresionRapidaAvisoOc";
-import { ImpresionRapidaConfirmacion } from "./ImpresionRapidaConfirmacion";
 import {
   ImpresionRapidaTipos,
   TIPOS_RAPIDA_INICIALES,
   type TipoDocumentoRapida,
 } from "./ImpresionRapidaTipos";
-import { hojasPorEnviar } from "./partir-paquete";
 import { useEnvioPaquete, type AvisoEnvio } from "./usar-envio-paquete";
 import { useYaImpresas } from "./usar-ya-impresas";
 import {
   hojasDelPaquete,
-  ordenDeImpresion,
-  paginasDelResumen,
   type PreviaBatch,
 } from "./utilidades-batch";
 
@@ -281,29 +276,16 @@ export function ImpresionBatchPageContent() {
         </div>
       )}
 
-      {previa?.partes ? (
-        <ImpresionRapidaConfirmacion
-          open={confirmando}
-          hojas={hojasPorEnviar(partesDe(previa), siguienteParte, paginasDelResumen(previa.resumenPdf))}
-          orden={partesDe(previa).slice(siguienteParte).flatMap((parte) => parte.resumen)}
-          impresora={impresora}
-          imprimiendo={imprimiendo}
-          partes={partesDe(previa).length - siguienteParte}
-          esperaMinutos={esperaEntrePartes(modoEnvio) / 60_000}
-          onClose={() => setConfirmando(false)}
-          onConfirm={() => void imprimir()}
-        />
-      ) : (
-        <ImpresionBatchConfirmacion
-          open={confirmando && Boolean(previa)}
-          hojas={previa?.hojas.length ?? 0}
-          orden={previa ? ordenDeImpresion(previa) : []}
-          impresora={impresora}
-          imprimiendo={imprimiendo}
-          onClose={() => setConfirmando(false)}
-          onConfirm={() => void imprimir()}
-        />
-      )}
+      <ImpresionBatchConfirmaciones
+        previa={previa}
+        confirmando={confirmando}
+        impresora={impresora}
+        imprimiendo={imprimiendo}
+        siguienteParte={siguienteParte}
+        modoEnvio={modoEnvio}
+        onClose={() => setConfirmando(false)}
+        onConfirm={() => void imprimir()}
+      />
     </OperationalModuleShell>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { WMS_MODULE } from "@/constants/wms/permissions";
@@ -9,8 +10,15 @@ import {
 } from "@/constants/wms/roles";
 import { ROUTES } from "@/config/routes";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
-import { ProcesamientoPageContent } from "@/modules/processing";
 import { useAuthStore } from "@/stores/auth.store";
+
+const ProcesamientoPageContent = dynamic(
+  () =>
+    import("@/modules/processing").then((m) => ({
+      default: m.ProcesamientoPageContent,
+    })),
+  { loading: () => null, ssr: false },
+);
 
 const PROCESAMIENTO_ROLES = [
   WmsRol.procesador,

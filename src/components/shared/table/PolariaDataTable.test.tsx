@@ -215,7 +215,7 @@ describe("PolariaDataTable", () => {
     expect(screen.queryByText("Item 1")).not.toBeInTheDocument();
   });
 
-  it("muestra la carga embebida, sin recuadro interior", () => {
+  it("muestra filas skeleton dentro de la tabla al cargar", () => {
     const { container } = render(
       <PolariaDataTable<Row>
         title="Proveedores"
@@ -225,14 +225,13 @@ describe("PolariaDataTable", () => {
         columns={columns}
         getRowKey={(row) => row.id}
         emptyMessage="Sin registros"
+        pageSize={5}
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Cargando…" })).toBeInTheDocument();
-    expect(
-      screen.getByText("Estamos preparando la información."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("status")).toBeInTheDocument();
-    expect(container.querySelector(".polaria-card-glow")).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Nombre" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+    expect(container.querySelectorAll("tbody tr").length).toBe(5);
+    expect(screen.queryByRole("heading", { name: "Cargando…" })).not.toBeInTheDocument();
   });
 });

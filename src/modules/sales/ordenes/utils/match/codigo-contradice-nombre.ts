@@ -31,7 +31,10 @@ export function codigoContradiceNombre(
   if (!codigo || codigo !== codigoComparable(producto.codigo)) return false;
   const textoRestante = textoSinElCodigo(textoCliente ?? "", codigoLeido ?? "");
   if (!textoRestante) return false;
-  return !productoCompatibleConTextoCliente(textoRestante, producto);
+  // SKU único ya empató: variedad/calibre no anulan el código (REQ-369 / frase vs SKU).
+  return !productoCompatibleConTextoCliente(textoRestante, producto, {
+    codigoYaCoincide: true,
+  });
 }
 
 /** Rankea el catálogo y descarta el producto cuyo SKU contradice el nombre del cliente. */

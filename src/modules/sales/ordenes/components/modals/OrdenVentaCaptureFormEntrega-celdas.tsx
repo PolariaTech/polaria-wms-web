@@ -1,0 +1,162 @@
+"use client";
+
+import { AlertTriangle, CheckCircle2, Replace, XCircle } from "lucide-react";
+import { POLARIA_FORM_INPUT_CLASS_COMPACT } from "@/components/shared/form/PolariaFormField";
+import { parseDecimalEs } from "@/lib/utils/decimal-es";
+import { cn } from "@/lib/utils/cn";
+import type { LineaVentaForm } from "../../types/orden-venta-create-modal.types";
+import {
+  collectSugerenciasLinea,
+  fieldControlClass,
+  formatProductoNombreConSku,
+} from "../../utils/pedido/orden-venta-create-helpers";
+import { CatalogStatusHint } from "./catalog-status-hint";
+
+export function CeldaProducto({
+  linea,
+  index,
+  onOpenReplace,
+}: {
+  linea: LineaVentaForm;
+  index: number;
+  onOpenReplace: (index: number) => void;
+}) {
+  const pending = Boolean(linea.catalogPending || !linea.idProducto);
+  const tieneSugerencias = collectSugerenciasLinea(linea).length > 0;
+  const productoError = pending && !tieneSugerencias;
+  const productoWarn = pending && tieneSugerencias;
+  const nombreVisible = formatProductoNombreConSku(
+    pending ? linea.aliasCliente || linea.nombre : linea.nombre,
+    linea.codigo,
+  );
+  return (
+    <div
+      className={cn(
+        "min-w-0 rounded-lg border px-2 py-1.5 ring-1",
+        !pending && "border-polaria-teal bg-polaria-t-08 ring-polaria-teal/50 shadow-[0_0_18px_var(--teal-glow-strong)]",
+        productoWarn && "border-polaria-warning bg-polaria-warning-bg ring-polaria-warning/50 shadow-[0_0_18px_var(--warning-border)]",
+        productoError && "border-polaria-danger bg-polaria-danger-bg ring-polaria-danger/50 shadow-[0_0_18px_var(--danger-border)]",
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-1.5">
+        <p className="min-w-0 flex-1 truncate polaria-text-body-sm font-medium text-polaria-w" title={nombreVisible}>
+          {nombreVisible}
+        </p>
+        <EstadoProducto pending={pending} warn={productoWarn} />
+        <button
+          type="button"
+          data-ov-revision={`producto-${index}`}
+          onClick={() => onOpenReplace(index)}
+          title={linea.aliasCliente ? `Cliente: ${linea.aliasCliente}` : "Cambiar producto"}
+          aria-label="Cambiar producto"
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 polaria-text-caption font-medium transition hover:opacity-90",
+            productoError
+              ? "border-polaria-danger bg-polaria-danger-bg text-polaria-danger"
+              : productoWarn
+                ? "border-polaria-warning bg-polaria-warning-bg text-polaria-warning"
+                : "border-polaria-t-20 bg-polaria-t-08 text-polaria-w hover:bg-polaria-t-20",
+          )}
+        >
+          <Replace className="h-3 w-3 shrink-0" aria-hidden />
+          Cambiar
+        </button>
+      </div>
+      {linea.aliasCliente?.trim() ? (
+        <p className="mt-1 break-words text-[11px] leading-snug text-polaria-teal/80">
+          Solicitado: <span className="text-polaria-w-50">{linea.aliasCliente.trim()}</span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export function EstadoProducto({ pending, warn }: { pending: boolean; warn: boolean }) {
+  if (!pending) {
+    return (
+      <CatalogStatusHint label="Producto coincide con el catálogo" tone="teal">
+        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+      </CatalogStatusHint>
+    );
+  }
+  if (warn) {
+    return (
+      <CatalogStatusHint label="Producto sin coincidencia exacta en el catálogo" tone="warning">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+      </CatalogStatusHint>
+    );
+  }
+  return (
+    <CatalogStatusHint label="Producto no identificado: elige uno del catálogo" tone="danger">
+      <XCircle className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+    </CatalogStatusHint>
+  );
+}
+
+export function CeldaEspecificacion({
+  linea,
+  index,
+  onChange,
+}: {
+  linea: LineaVentaForm;
+  index: number;
+  onChange: (index: number, value: string) => void;
+}) {
+  return (
+    <div className="flex h-full min-h-full items-stretch">
+      <input
+        aria-label={`Especificación de ${linea.nombre}`}
+        type="text"
+        value={linea.especificacion}
+        onChange={(event) => onChange(index, event.target.value)}
+        className={cn(
+          POLARIA_FORM_INPUT_CLASS_COMPACT,
+          "h-full min-h-full px-2",
+          linea.filledByIa && linea.especificacion && "!border-polaria-teal/50 !bg-polaria-t-08",
+        )}
+      />
+    </div>
+  );
+}
+
+export function CeldaCantidad({
+  linea,
+  index,
+  onChange,
+  onBlur,
+}: {
+  linea: LineaVentaForm;
+  index: number;
+  onChange: (index: number, value: string) => void;
+  onBlur: (index: number, value: string) => void;
+}) {
+  const focusKey = linea.idProducto || `pending-${index}`;
+  return (
+    <div className="flex h-full min-h-full items-stretch">
+      <input
+        id={`orden-venta-cantidad-${focusKey}`}
+        data-ov-revision={`cantidad-${index}`}
+        aria-label={`Cantidad de ${linea.nombre}`}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        value={linea.cantidadInput}
+        placeholder="0"
+        onChange={(event) => onChange(index, event.target.value)}
+        onBlur={(event) => onBlur(index, event.target.value)}
+        className={cn(
+          POLARIA_FORM_INPUT_CLASS_COMPACT,
+          "h-full min-h-full px-2 tabular-nums",
+          fieldMissingCantidad(linea) ??
+            (linea.filledByIa ? "!border-polaria-teal/50 !bg-polaria-t-08" : undefined),
+        )}
+      />
+    </div>
+  );
+}
+
+export function fieldMissingCantidad(linea: LineaVentaForm): string | undefined {
+  return fieldControlClass({
+    missing: !linea.cantidadInput.trim() || (parseDecimalEs(linea.cantidadInput) ?? 0) <= 0,
+  });
+}

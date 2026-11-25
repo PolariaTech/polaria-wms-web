@@ -66,9 +66,12 @@ export function useFolioFacturaEdicion(input: {
 }) {
   const [valores, setValores] = useState<Record<string, string>>({});
   const valoresRef = useRef(valores);
-  valoresRef.current = valores;
   const inicialRef = useRef<Record<string, string>>({});
   const capturaRef = useRef<Map<string, OrdenSurtidoCapturaRow>>(new Map());
+
+  useEffect(() => {
+    valoresRef.current = valores;
+  }, [valores]);
 
   useEffect(() => {
     capturaRef.current = new Map();

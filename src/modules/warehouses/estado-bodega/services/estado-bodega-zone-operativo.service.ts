@@ -52,7 +52,7 @@ export async function loadEstadoBodegaZoneOperativoData(params: {
     listSolicitudesProcesamientoOperador({ codigoCuenta, idBodega }).catch(
       () => [],
     ),
-    listSolicitudesProcesamiento({ codigoCuenta, idBodega }).catch(() => []),
+    listSolicitudesProcesamiento({ codigoCuenta, idBodega }),
   ]);
 
   const tareas = tareasRaw.filter(isTareaPendienteOperativa);

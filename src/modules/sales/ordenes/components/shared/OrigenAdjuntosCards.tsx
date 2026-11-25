@@ -1,6 +1,7 @@
 "use client";
 
 import { Download, Eye, FileText } from "lucide-react";
+import { PolariaRemoteImage } from "@/components/shared/media/PolariaRemoteImage";
 import { cn } from "@/lib/utils/cn";
 import {
   canPreviewOrigenAdjunto,
@@ -76,10 +77,11 @@ export function OrigenAdjuntosCards({
               ) : null}
               <div className="flex h-10 shrink-0 items-center justify-center overflow-hidden bg-polaria-t-08">
                 {previewable && url && tipo === "IMG" ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <PolariaRemoteImage
                     src={url}
                     alt={item.nombre}
+                    width={160}
+                    height={80}
                     className="h-full w-full object-cover"
                   />
                 ) : (

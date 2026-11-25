@@ -143,4 +143,28 @@ describe("lineaSembradaDesdeRenglon (REQ-201)", () => {
     expect(linea.idProducto).toBe("");
     expect(linea.sugerencia?.idProducto).not.toBe("p-aguacate-extra");
   });
+
+  it("REQ-380: verificado con OC en KG y catálogo PZA → PZA + Pedido en KGM", () => {
+    const coliflor: ProductoVentaOption = {
+      ...AGUACATE,
+      idProducto: "p-coliflor",
+      codigo: "105001501",
+      nombre: "COLIFLOR",
+      label: "COLIFLOR (105001501)",
+      unidadMedida: "PZA",
+    };
+    const linea = lineaSembradaDesdeRenglon({
+      row: renglon({
+        Producto: "Coliflor Blanca (Sin Oxidacion)",
+        "Codigo producto": "105001501",
+        Unidad: "KG",
+        _idProducto: "p-coliflor",
+      }),
+      productos: [coliflor],
+      otId: "ot-1",
+    });
+    expect(linea.idProducto).toBe("p-coliflor");
+    expect(linea.unidadMedida).toBe("PZA");
+    expect(linea.especificacion).toBe("Pedido en KGM");
+  });
 });

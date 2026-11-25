@@ -1,8 +1,11 @@
+/**
+ * Canal B (Nest): emitir / cancelar / avanzar estado / listado API OV.
+ * Listado/borrador liviano → sales-operador-listado (canal A). Ver wms-channels / ARQUITECTURA-COMUNICACION.
+ */
 import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { ApiError, apiRequest } from "@/services/api/api";
 import type { OrdenVentaOperadorRow } from "../types/sales.types";
 import { mapOrdenVentaOperadorApiRow } from "../utils/orden-venta-api.mapper";
-import { listOrdenesVentaOperador } from "./sales.service";
 
 async function postVentasApi<T>(path: string, body?: unknown): Promise<T> {
   try {
@@ -36,6 +39,43 @@ export async function emitirOrdenVentaApi(
   );
 }
 
+/** Avance manual post-emisión (Cypher): alistamiento, alistada, revisada, etc. */
+export async function avanzarEstadoOrdenVentaApi(
+  idOrdenVenta: string,
+  estado: string,
+): Promise<OrdenVentaOperadorRow> {
+  const id = idOrdenVenta.trim();
+  const destino = estado.trim();
+  if (!id || !destino) {
+    throw new DomainServiceError(
+      "La orden de venta o el estado no es válido.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  return postVentasApi<OrdenVentaOperadorRow>(
+    `/ventas/ordenes/${encodeURIComponent(id)}/avanzar-estado`,
+    { estado: destino },
+  );
+}
+
+/** REQ-350: cancela OV confirmada/alistamiento (libera reserva + OT). */
+export async function cancelarOrdenVentaApi(
+  idOrdenVenta: string,
+): Promise<OrdenVentaOperadorRow> {
+  const id = idOrdenVenta.trim();
+  if (!id) {
+    throw new DomainServiceError(
+      "La orden de venta no es válida.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  return postVentasApi<OrdenVentaOperadorRow>(
+    `/ventas/ordenes/${encodeURIComponent(id)}/cancelar`,
+  );
+}
+
 export async function listOrdenesVentaApi(params: {
   codigoCuenta: string;
   idBodega?: string;
@@ -65,7 +105,7 @@ export async function listOrdenesVentaApi(params: {
   return rows.map(mapOrdenVentaOperadorApiRow);
 }
 
-/** OVs confirmadas pendientes de registrar salida (picker del jefe). */
+/** OVs confirmadas pendientes de registrar salida (picker del jefe). Solo canal B — sin fallback silencioso a Supabase. */
 export async function listOrdenesVentaParaSalida(params: {
   codigoCuenta: string;
   idBodega?: string | null;
@@ -79,11 +119,11 @@ export async function listOrdenesVentaParaSalida(params: {
       idBodega: params.idBodega?.trim() || undefined,
       paraSalida: true,
     });
-  } catch {
-    const rows = await listOrdenesVentaOperador({
-      codigoCuenta,
-      idBodega: params.idBodega ?? undefined,
-    });
-    return rows.filter((row) => row.estado === "confirmada");
+  } catch (error) {
+    if (error instanceof DomainServiceError) throw error;
+    if (error instanceof ApiError) {
+      throw new DomainServiceError(error.message, "MUTATION_FAILED", error);
+    }
+    throw error;
   }
 }

@@ -282,3 +282,16 @@ describe("purchases-api.service", () => {
     });
   });
 });
+
+describe("purchases-api.service (barrel)", () => {
+  it("reexporta API pública", () => {
+    expect(createSolicitudCompraApi).toBeTypeOf("function");
+    expect(aprobarSolicitudCompraApi).toBeTypeOf("function");
+    expect(cerrarRecepcionCompraApi).toBeTypeOf("function");
+    expect(convertirSolicitudCompraAOrdenApi).toBeTypeOf("function");
+    expect(emitirOrdenCompraApi).toBeTypeOf("function");
+    expect(enviarSolicitudCompraAprobacionApi).toBeTypeOf("function");
+    expect(listBodegasDestinoCompraApi).toBeTypeOf("function");
+    expect(updateOrdenCompraDestinoApi).toBeTypeOf("function");
+  });
+});

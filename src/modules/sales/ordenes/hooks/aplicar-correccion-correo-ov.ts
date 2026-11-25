@@ -1,66 +1,15 @@
 "use client";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
-import {
-  aplicarReagrupacion,
-  construirEstadoBaseApi,
-  crearSnapshotReagrupacion,
-  describirReagrupacionParaBitacora,
-  firmaEstadoReagrupacion,
-  puedeReagruparOt,
-  type PropuestaReagrupacionApi,
-} from "../utils/ot/reagrupar-ordenes-trabajo";
-import {
-  describirCorreccionParaBitacora,
-  origenCorreoDePropuesta,
-  type PropuestaCorreccionCorreoApi,
-} from "../utils/ot/aplicar-correccion-correo";
+import { useCallback } from "react";
+import { crearSnapshotReagrupacion } from "../utils/ot/reagrupar-ordenes-trabajo";
+import { origenCorreoDePropuesta, type PropuestaCorreccionCorreoApi } from "../utils/ot/aplicar-correccion-correo";
 import { buildPedidoExtraidoFromOrigenCorreo } from "../utils/origen/pedido-from-origen-correo";
-import {
-  mapPedidoExtraidoToForm,
-  type CampoDiscrepancia,
-} from "../utils/pedido/map-pedido-extraido-to-form";
-import {
-  formatCapturaFecha,
-  isAfterWarehouseCutoff,
-  parseOrdenVentaCapturaObservaciones,
-  stripSurtidoFotoQrFromNotas,
-  todayIsoDate,
-  tomorrowIsoDate,
-} from "../utils/pedido/build-orden-venta-captura-observaciones";
+import { mapPedidoExtraidoToForm } from "../utils/pedido/map-pedido-extraido-to-form";
+import { todayIsoDate, tomorrowIsoDate } from "../utils/pedido/build-orden-venta-captura-observaciones";
 import { withNotasGeneralesOnHijas } from "../utils/ot/notas-generales-ot";
-import {
-  createEmptyOrdenTrabajoHija,
-  flattenOrdenesTrabajoToOrigenCorreo,
-  groupOrigenCorreoToOrdenesTrabajo,
-  parseOrigenCorreoJson,
-  type OrigenCorreoRenglon,
-  type OrdenTrabajoHija,
-} from "../utils/origen/origen-correo-ordenes-trabajo";
-import {
-  applyProductoToLinea,
-  collectSugerenciasLinea,
-  fieldControlClass,
-  formatBodegaDestinoOption,
-  formatCompradorLabel,
-  formatPrecioInput,
-  lineaFormDesdeIa,
-  lineAmounts,
-  parseCantidadReagrupacion,
-  resolveBodegaDestinoInicial,
-  suggestFromCatalogo,
-  sugerenciaToOption,
-  toDateInputValue,
-} from "../utils/pedido/orden-venta-create-helpers";
+import { groupOrigenCorreoToOrdenesTrabajo } from "../utils/origen/origen-correo-ordenes-trabajo";
+import { lineaFormDesdeIa } from "../utils/pedido/orden-venta-create-helpers";
 
 export function useAplicarCorreccionCorreoOv(estado: OrdenVentaFormEstado) {
   const { correo, syncActiveOtFromForm, lineas, origenTexto, observaciones, productos, centroConsumo, ventanaDesde, ventanaHasta, direccion, anden, contacto, telefono, aceptaSustituciones, requiereLote, registrarTemperatura, applyOrdenesTrabajo, setLineas, setFormOtPage, setReagruparAplicada, setReagruparOpen, setError, isEditing, pendingEmitId, pendingDraftSaveAfterReorgRef, showToast } = estado;
@@ -173,132 +122,16 @@ export function useAplicarCorreccionCorreoOv(estado: OrdenVentaFormEstado) {
       syncActiveOtFromForm,
       telefono,
       ventanaDesde,
-      ventanaHasta,
+      ventanaHasta, pendingDraftSaveAfterReorgRef, setError, setFormOtPage, setLineas, setReagruparAplicada, setReagruparOpen,
     ],
   );
   return { handleAplicarCorreccionCorreo };
 }
 
 
-import {
-  findPrimeraRevisionPendiente,
-  revisionFocusSelector,
-  type RevisionPendiente,
-} from "../utils/ot/por-confirmar-revision-alert";
-import {
-  isConfirmSubmitDisabled,
-  resolveConfirmBloqueoReason,
-} from "../utils/ot/confirm-bloqueo-ov";
+import { useRevisionPendienteOv } from "./aplicar-correccion-correo-ov-revision";
 
-export function useRevisionPendienteOv(estado: OrdenVentaFormEstado) {
-  const { step, esPorConfirmar, idComprador, exigeOc, ordenCompraHotel, fechaEntrega, ventanaDesde, ventanaHasta, ordenesTrabajoForm, lineas, isLoading, isSaving, hasProductos, hasCatalogPending, formScrollRef, revisionFocusRequestRef, paginarPorOt, formOtSafePage, lineasConIndice } = estado;
-  const revisionPendiente = useMemo(() => {
-    if (step !== "form" || !esPorConfirmar) return null;
-    return findPrimeraRevisionPendiente({
-      idComprador,
-      exigeOc,
-      ordenCompraHotel,
-      fechaEntrega,
-      todayIso: todayIsoDate(),
-      ventanaDesde,
-      ventanaHasta,
-      hijas: ordenesTrabajoForm,
-      lineas: lineas.map((linea) => ({
-        otId: linea.otId,
-        catalogPending: linea.catalogPending,
-        idProducto: linea.idProducto,
-        cantidadInput: linea.cantidadInput,
-        precioInput: linea.precioInput,
-        aliasCliente: linea.aliasCliente,
-        nombre: linea.nombre,
-      })),
-    });
-  }, [
-    esPorConfirmar,
-    exigeOc,
-    fechaEntrega,
-    idComprador,
-    lineas,
-    ordenCompraHotel,
-    ordenesTrabajoForm,
-    step,
-    ventanaDesde,
-    ventanaHasta,
-  ]);
-
-  /** REQ-195: motivo explícito cuando Confirmar está deshabilitado. */
-  const confirmBloqueoReason = useMemo(
-    () =>
-      resolveConfirmBloqueoReason({
-        step,
-        isLoading,
-        isSaving,
-        hasProductos,
-        lineasCount: lineas.length,
-        idComprador,
-        hasCatalogPending,
-        esPorConfirmar,
-        revisionMessage: revisionPendiente?.message ?? null,
-      }),
-    [
-      esPorConfirmar,
-      hasCatalogPending,
-      hasProductos,
-      idComprador,
-      isLoading,
-      isSaving,
-      lineas.length,
-      revisionPendiente?.message,
-      step,
-    ],
-  );
-
-  const confirmSubmitDisabled = isConfirmSubmitDisabled({
-    step,
-    isLoading,
-    isSaving,
-    hasProductos,
-    lineasCount: lineas.length,
-    hasCatalogPending,
-    idComprador,
-  });
-
-  const focusRevisionPendiente = useCallback((pendiente: RevisionPendiente) => {
-    const selector = revisionFocusSelector(pendiente);
-    if (!selector) return;
-    const root = formScrollRef.current ?? document;
-    const el = (root as ParentNode).querySelector(selector) as HTMLElement | null;
-    if (!el) return;
-    el.scrollIntoView({ block: "center", behavior: "smooth" });
-    window.setTimeout(() => {
-      el.focus({ preventScroll: true });
-    }, 180);
-  }, []);
-
-  useLayoutEffect(() => {
-    const pending = revisionFocusRequestRef.current;
-    if (!pending || step !== "form") return;
-    if (
-      pending.otIndex != null &&
-      paginarPorOt &&
-      formOtSafePage !== pending.otIndex
-    ) {
-      return;
-    }
-    revisionFocusRequestRef.current = null;
-    const timer = window.setTimeout(() => {
-      focusRevisionPendiente(pending);
-    }, 50);
-    return () => window.clearTimeout(timer);
-  }, [
-    focusRevisionPendiente,
-    formOtSafePage,
-    lineasConIndice,
-    paginarPorOt,
-    step,
-  ]);
-  return { revisionPendiente, confirmBloqueoReason, confirmSubmitDisabled, focusRevisionPendiente };
-}
+export { useRevisionPendienteOv };
 
 export function useDeshacerReagrupacionOv(estado: OrdenVentaFormEstado) {
   const { reagruparAplicada, applyOrdenesTrabajo, setLineas, setReagruparAplicada, setError } = estado;
@@ -308,6 +141,6 @@ export function useDeshacerReagrupacionOv(estado: OrdenVentaFormEstado) {
     setLineas(reagruparAplicada.snapshot.lineas);
     setReagruparAplicada(null);
     setError(null);
-  }, [applyOrdenesTrabajo, reagruparAplicada]);
+  }, [applyOrdenesTrabajo, reagruparAplicada, setError, setLineas, setReagruparAplicada]);
   return { handleDeshacerReagrupacion };
 }

@@ -11,6 +11,7 @@ import {
 import { rankProductosCatalogo } from "../match/find-closest-producto-catalogo";
 import { parseFechaOrigen } from "../origen/materialize-ov-desde-origen";
 import { mapPedidoExtraidoToForm } from "./map-pedido-extraido-to-form";
+import { resolveUnidadPedidoLinea } from "./resolve-unidad-pedido-linea";
 import type {
   BodegaDestinoOption,
   LineaSugerenciaCatalogo,
@@ -215,6 +216,16 @@ export function applyProductoToLinea(
     Boolean(linea.precioManual) &&
     linea.precioUnitario > 0 &&
     linea.precioInput.trim().length > 0;
+  // REQ-380: al elegir producto del catálogo, la unidad es la del SKU.
+  const unidadMedida =
+    resolveUnidadPedidoLinea({
+      unidadOrigen: linea.unidadMedida,
+      unidadCatalogo: row.unidadMedida,
+      textoProducto: linea.aliasCliente || linea.nombre,
+      textoExtra: linea.especificacion,
+    }) ||
+    row.unidadMedida ||
+    UNIDAD_MEDIDA_VENTA_DEFAULT;
   return {
     ...linea,
     idProducto: row.idProducto,
@@ -222,7 +233,7 @@ export function applyProductoToLinea(
     codigo: row.codigo,
     idBodega: row.idBodega,
     kgDisponible: row.kgDisponible,
-    unidadMedida: row.unidadMedida || UNIDAD_MEDIDA_VENTA_DEFAULT,
+    unidadMedida,
     precioUnitario: keepPrecio ? linea.precioUnitario : row.precioUnitario,
     precioInput: keepPrecio
       ? linea.precioInput

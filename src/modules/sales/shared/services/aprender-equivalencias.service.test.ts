@@ -36,6 +36,7 @@ function crearCliente() {
           operacion.eqs.push([columna, valor]);
           return consulta;
         },
+        limit: () => consulta,
         then: (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) =>
           Promise.resolve(respuestas.shift() ?? { data: [], error: null }).then(
             ok,

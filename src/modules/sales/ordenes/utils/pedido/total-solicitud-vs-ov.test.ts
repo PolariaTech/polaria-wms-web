@@ -26,6 +26,22 @@ describe("extractTotalSolicitudFromTexto", () => {
     ).toBe(11500.6);
   });
 
+  it("REQ-369: lee Total pedido con MXN (formato PDF Hard Rock)", () => {
+    expect(
+      extractTotalSolicitudFromTexto(
+        "TOMATE VERDE CON CASCARA 45 KG\nTotal pedido: MXN 59,798.90\n",
+      ),
+    ).toBe(59798.9);
+  });
+
+  it("REQ-369: prefiere Total pedido sobre un TOTAL de línea anterior", () => {
+    expect(
+      extractTotalSolicitudFromTexto(
+        "Subtotal cocina\nTOTAL: $1,350.00\n...\nTotal pedido: MXN 59,798.90\n",
+      ),
+    ).toBe(59798.9);
+  });
+
   it("sin total explícito deja null", () => {
     expect(extractTotalSolicitudFromTexto("Solo lista de kilos")).toBeNull();
   });
@@ -73,6 +89,16 @@ describe("buildAvisoTotalSolicitudVsOv", () => {
     expect(aviso?.fieldKey).toBe("totalSolicitud");
     expect(aviso?.campo).toBe("Total");
     expect(aviso?.ia).toMatch(/no cuadra/i);
+  });
+
+  it("REQ-369: avisa OV ~60815 vs solicitud 59798.90", () => {
+    const aviso = buildAvisoTotalSolicitudVsOv({
+      totalOv: 60815.9,
+      totalSolicitud: 59798.9,
+    });
+    expect(aviso?.fieldKey).toBe("totalSolicitud");
+    expect(aviso?.db).toMatch(/59[,.]798/);
+    expect(aviso?.ia).toMatch(/60[,.]815/);
   });
 
   it("no avisa si cuadra dentro de tolerancia", () => {

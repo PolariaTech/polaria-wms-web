@@ -21,11 +21,21 @@ export function OrdenVentaCaptureFormPedido(props: {
   onCentroConsumo: (value: string) => void;
   moneda: string;
   onBuscarMoneda: () => void;
-  /** REQ-328: Mateo la extrae; en captura solo se muestra (como en detalle). */
-  referenciaPedido: string;
-  onClearField: (field: string) => void;
+  onClearField: (field: string, valorNuevo?: string) => void;
   marks: Marks;
+  /** REQ-349: hay más de una OT en la OV. */
+  multiOt?: boolean;
 }) {
+  const hintOc = [
+    props.exigeOc ? "Este cliente exige OC para facturar." : "",
+    props.multiOt ? "Aplica a todas las OT." : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const hintCentro = props.marks.warnFields.has("centroConsumo")
+    ? "Registrado en ficha distinto al del pedido"
+    : undefined;
+
   return (
     <>
       <PolariaFormInput
@@ -34,9 +44,9 @@ export function OrdenVentaCaptureFormPedido(props: {
         value={props.ordenCompraHotel}
         onChange={(event) => {
           props.onOrdenCompraHotel(event.target.value);
-          props.onClearField("ordenCompraHotel");
+          props.onClearField("ordenCompraHotel", event.target.value);
         }}
-        hint={props.exigeOc ? "Este cliente exige OC para facturar." : undefined}
+        hint={hintOc || undefined}
         required={props.exigeOc}
         data-ov-revision="ordenCompra"
         controlClassName={fieldControlClass({
@@ -52,17 +62,13 @@ export function OrdenVentaCaptureFormPedido(props: {
         value={props.centroConsumo}
         onChange={(event) => {
           props.onCentroConsumo(event.target.value);
-          props.onClearField("centroConsumo");
+          props.onClearField("centroConsumo", event.target.value);
         }}
         controlClassName={fieldControlClass({
           field: "centroConsumo",
           ...props.marks,
         })}
-        hint={
-          props.marks.warnFields.has("centroConsumo")
-            ? "Registrado en ficha distinto al del pedido"
-            : undefined
-        }
+        hint={hintCentro}
         compact
       />
       <PolariaFormField id="orden-venta-moneda" label="Moneda" compact>
@@ -75,14 +81,6 @@ export function OrdenVentaCaptureFormPedido(props: {
           onSearchClick={props.onBuscarMoneda}
         />
       </PolariaFormField>
-      <PolariaFormInput
-        id="orden-venta-referencia-pedido"
-        label="Referencia de pedido"
-        value={props.referenciaPedido}
-        readOnly
-        placeholder="—"
-        compact
-      />
     </>
   );
 }

@@ -15,6 +15,9 @@ export type { OrdenVentaCypherStagesBodyProps } from "./orden-venta-cypher-stage
 export function OrdenVentaCypherStagesBody({
   orden,
   codigoCuenta,
+  codigoOvListado,
+  correoPartido,
+  correoPartidoDe,
   companionIdComprador,
   openStages,
   toggleAccordionStage,
@@ -49,6 +52,9 @@ export function OrdenVentaCypherStagesBody({
       <CypherRecepcionCorreoStage
         orden={orden}
         codigoCuenta={codigoCuenta}
+        codigoOvListado={codigoOvListado}
+        correoPartido={correoPartido}
+        correoPartidoDe={correoPartidoDe}
         openStages={openStages}
         toggleAccordionStage={toggleAccordionStage}
         correoChrome={correoChrome}

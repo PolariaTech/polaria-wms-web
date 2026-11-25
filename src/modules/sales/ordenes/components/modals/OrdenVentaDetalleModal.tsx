@@ -1,61 +1,23 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Plus } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useState } from "react";
 import { PolariaFormModal } from "@/components/shared/form/PolariaFormModal";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
-import { cn } from "@/lib/utils/cn";
-import { formatPrecioEs } from "@/lib/utils/decimal-es";
-import { DomainServiceError } from "@/lib/utils/domain-service-error";
-import { withCuentaSchema } from "@/lib/supabase/cuenta-schema";
-import { emitirOrdenVentaApi } from "../../../shared/services/sales-api.service";
-import { getOrdenVentaDetalle } from "../../../shared/services/sales.service";
-import {
-  autoPrintOrdenVentaTrasEmitir,
-  fetchAutoImprimirFlag,
-  type AutoPrintOvResult,
-} from "../../print/auto-print-ov-tras-emitir";
-import { useAuthStore } from "@/stores/auth.store";
-import type {
-  OrdenVentaDetalleRow,
-  OrdenVentaLineaRow,
-} from "../../../shared/types/sales.types";
-import {
-  notaCapturaForLinea,
-  parseOrdenVentaCapturaObservaciones,
-} from "../../utils/pedido/build-orden-venta-captura-observaciones";
-import { resolveNotasGeneralesDesdeDetalle } from "../../print/resolve-cabecera-print-desde-detalle";
-import { filterLineasByOrdenTrabajoHija } from "../../utils/ot/filter-lineas-by-orden-trabajo";
-import {
-  groupOrigenCorreoToOrdenesTrabajo,
-  parseOrigenCorreoJson,
-  type OrdenTrabajoHija,
-} from "../../utils/origen/origen-correo-ordenes-trabajo";
-import { listOrdenSurtidoCapturasClient } from "../../surtido/list-orden-surtido-capturas.client";
-import {
-  buildCapturaDetalleVista,
-  leerFolioFacturaVista,
-  montoDeNota,
-  textoConteoOrdenesTrabajo,
-  tituloDetalleOvConOt,
-  totalLineaConIva,
-} from "./detalle-venta-presentacion";
-import { useRecargaFolioFactura } from "../../surtido/folio-factura-captura";
-import { OrdenVentaDetalleProductos } from "./OrdenVentaDetalleProductos";
-import { OrdenVentaDetalleDatosPedidoEntrega } from "./OrdenVentaDetalleDatosPedidoEntrega";
+import { useEmitirOrdenVentaDetalle } from "../../hooks/use-emitir-orden-venta-detalle";
+import { useOrdenVentaDetalleData } from "../../hooks/use-orden-venta-detalle-data";
+import { useOrdenVentaDetalleOt } from "../../hooks/use-orden-venta-detalle-ot";
+import type { AutoPrintOvResult } from "../../print/auto-print-ov-tras-emitir";
+import { formatCompradorOrdenVenta } from "../../utils/display/orden-venta-display";
 import { OrdenTrabajoPager } from "../orden-trabajo/OrdenTrabajoPager";
 import {
-  formatCompradorOrdenVenta,
-  formatOrdenVentaCantidadConUnidad,
-  resolveOrdenVentaLineaTitulo,
-} from "../../utils/display/orden-venta-display";
-import { UNIDAD_MEDIDA_VENTA_DEFAULT } from "../../../shared/types/sales.types";
+  textoConteoOrdenesTrabajo,
+  tituloDetalleOvConOt,
+} from "./detalle-venta-presentacion";
+import {
+  DetalleCypherToggleButton,
+  DetalleEmitirButton,
+} from "./OrdenVentaDetalleAcciones";
+import { OrdenVentaDetalleContent } from "./OrdenVentaDetalleContent";
 import type { CypherCompanionOtPicker } from "./OrdenVentaCypherDrawer";
 
 interface OrdenVentaDetalleModalProps {
@@ -79,278 +41,8 @@ interface OrdenVentaDetalleModalProps {
   ) => void;
 }
 
-function CaptureSection({
-  title,
-  children,
-  collapsible = false,
-  defaultOpen = true,
-}: {
-  title: string;
-  children: ReactNode;
-  collapsible?: boolean;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  if (collapsible) {
-    return (
-      <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
-        <button
-          type="button"
-          onClick={() => setOpen((prev) => !prev)}
-          className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left polaria-text-label uppercase tracking-wide text-polaria-teal"
-          aria-expanded={open}
-        >
-          <span>{title}</span>
-          {open ? (
-            <ChevronUp className="h-4 w-4 shrink-0" aria-hidden />
-          ) : (
-            <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
-          )}
-        </button>
-        {open ? (
-          <div className="border-t border-polaria-w-08 p-4">{children}</div>
-        ) : null}
-      </section>
-    );
-  }
-
-  return (
-    <section className="overflow-hidden rounded-xl border border-polaria-t-20 bg-polaria-t-08">
-      <h3 className="border-b border-polaria-w-08 px-4 py-2.5 polaria-text-label uppercase tracking-wide text-polaria-teal">
-        {title}
-      </h3>
-      <div className="p-4">{children}</div>
-    </section>
-  );
-}
-
-function DetalleContent({
-  orden,
-  hija = null,
-  codigoCuenta,
-  idOrdenVenta,
-  mostrarTotalOv,
-  tareaTotal = 1,
-}: {
-  orden: OrdenVentaDetalleRow;
-  hija?: OrdenTrabajoHija | null;
-  codigoCuenta: string | null;
-  idOrdenVenta: string;
-  mostrarTotalOv: boolean;
-  tareaTotal?: number;
-}) {
-  const allLineItems = orden.lineas ?? [];
-  const lineItems: OrdenVentaLineaRow[] = useMemo(() => {
-    // Enriquecer con nombre aunque el SKU esté archivado (ARCH-*), para empatar OT.
-    const enriched = allLineItems.map((linea) => ({
-      ...linea,
-      matchNombre: resolveOrdenVentaLineaTitulo(linea),
-      matchCodigo: linea.producto?.sku ?? "",
-    }));
-    return filterLineasByOrdenTrabajoHija(enriched, hija, {
-      emptyFallback: "none",
-    });
-  }, [allLineItems, hija]);
-
-  const origenRenglonesFallback = useMemo(() => {
-    if (lineItems.length > 0) return [];
-    if (hija?.renglones?.length) return hija.renglones;
-    return parseOrigenCorreoJson(orden.origen_correo);
-  }, [hija, lineItems.length, orden.origen_correo]);
-
-  const clienteOrigenFallback = useMemo(() => {
-    const fromComprador = formatCompradorOrdenVenta(orden);
-    if (fromComprador && fromComprador !== "—") return fromComprador;
-    const rows = parseOrigenCorreoJson(orden.origen_correo);
-    return (
-      rows.map((r) => r["Nombre cliente"]?.trim()).find(Boolean) || "—"
-    );
-  }, [orden]);
-
-  const fromObs = parseOrdenVentaCapturaObservaciones(orden.observaciones);
-  const ventanaFlat =
-    orden.ventana_desde?.trim() || orden.ventana_hasta?.trim()
-      ? `${orden.ventana_desde?.trim() || "—"} – ${orden.ventana_hasta?.trim() || "—"}`
-      : "";
-  const captura = buildCapturaDetalleVista(
-    orden,
-    hija,
-    fromObs,
-    tareaTotal,
-    ventanaFlat,
-  );
-  const [folioFactura, setFolioFactura] = useState("");
-  const recargaFolio = useRecargaFolioFactura(idOrdenVenta);
-
-  useEffect(() => {
-    const cuenta = codigoCuenta?.trim() ?? "";
-    const id = idOrdenVenta.trim();
-    if (!cuenta || !id) {
-      setFolioFactura("");
-      return;
-    }
-    let cancelled = false;
-    void listOrdenSurtidoCapturasClient({
-      codigoCuenta: cuenta,
-      idOrdenVenta: id,
-    })
-      .then((rows) => {
-        if (cancelled) return;
-        const otId = hija?.id?.trim() ?? "";
-        const match = otId
-          ? rows.find((row) => row.idOrdenTrabajo === otId)
-          : rows[0];
-        setFolioFactura(leerFolioFacturaVista(match?.payload.campos));
-      })
-      .catch(() => {
-        if (!cancelled) setFolioFactura("");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [codigoCuenta, hija?.id, idOrdenVenta, recargaFolio]);
-  // REQ-311 / REQ-281: mismo contrato que el PDF — sello (también vacío) manda.
-  const notasGenerales = resolveNotasGeneralesDesdeDetalle({
-    notas_almacen: orden.notas_almacen,
-    origen_correo: orden.origen_correo,
-  });
-  const montosLinea = lineItems.map((linea) => {
-    const titulo = resolveOrdenVentaLineaTitulo(linea);
-    const nota = notaCapturaForLinea(captura.notasLineas, {
-      nombre: titulo,
-      cantidad: linea.cantidad_pedida,
-      otId: hija?.id,
-      idProducto: linea.id_producto,
-      allowUnscoped: !hija,
-    });
-    return {
-      linea,
-      titulo,
-      ...montoDeNota(nota, linea.cantidad_pedida, linea.precio_unitario),
-    };
-  });
-  const subtotalOt = montosLinea.reduce((sum, row) => sum + row.bruto, 0);
-  const ivaOt = montosLinea.reduce((sum, row) => sum + row.iva, 0);
-  const totalOt = Math.max(0, subtotalOt + ivaOt);
-  const totalOv = (orden.lineas ?? []).reduce((sum, linea) => {
-    const nota = notaCapturaForLinea(captura.notasLineas, {
-      nombre: resolveOrdenVentaLineaTitulo(linea),
-      cantidad: linea.cantidad_pedida,
-      idProducto: linea.id_producto,
-      allowUnscoped: true,
-    });
-    return sum + totalLineaConIva(linea.cantidad_pedida, linea.precio_unitario, nota);
-  }, 0);
-
-  return (
-    <>
-      <OrdenVentaDetalleDatosPedidoEntrega
-        orden={orden}
-        clienteNombre={clienteOrigenFallback}
-        ordenCompraHotel={captura.ordenCompraHotel}
-        folioFactura={folioFactura}
-        centroConsumo={captura.centroConsumo}
-        referenciaPedido={hija?.referenciaPedido ?? ""}
-        moneda={captura.moneda}
-        fechaEntrega={captura.fechaEntrega}
-        ventanaEntrega={captura.ventanaEntrega}
-        contacto={captura.contacto}
-        telefono={captura.telefono}
-        correo={captura.correo}
-        direccion={captura.direccion}
-        notasGenerales={notasGenerales}
-      />
-
-      <CaptureSection title="Productos">
-        {lineItems.length === 0 && origenRenglonesFallback.length === 0 ? (
-          <p className="polaria-text-body-sm text-polaria-w-50">
-            Sin líneas registradas.
-          </p>
-        ) : lineItems.length === 0 ? (
-          <div className="overflow-hidden rounded-xl border border-polaria-w-08">
-            <p className="border-b border-polaria-t-20 bg-polaria-warning-bg/40 px-3 py-2 polaria-text-caption text-polaria-warning">
-              Productos del correo (aún sin ligar al catálogo). Se materializan
-              al abrir / confirmar la OV.
-            </p>
-            <table className="w-full table-fixed border-collapse text-left">
-              <colgroup>
-                <col className="w-[52%]" />
-                <col className="w-[24%]" />
-                <col className="w-[24%]" />
-              </colgroup>
-              <thead className="bg-polaria-w-08">
-                <tr className="border-b border-polaria-t-20">
-                  <th className="px-3 py-2.5 text-left polaria-text-caption font-medium text-polaria-w-50">
-                    Producto
-                  </th>
-                  <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
-                    Cantidad
-                  </th>
-                  <th className="px-3 py-2.5 text-right polaria-text-caption font-medium text-polaria-w-50">
-                    Precio
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {origenRenglonesFallback.map((row, index) => {
-                  const qty =
-                    typeof row.Cantidad === "number"
-                      ? row.Cantidad
-                      : Number(String(row.Cantidad ?? "").replace(",", ".")) ||
-                        0;
-                  const precio =
-                    typeof row.Precio === "number"
-                      ? row.Precio
-                      : Number(String(row.Precio ?? "").replace(",", ".")) ||
-                        0;
-                  return (
-                    <tr
-                      key={`origen-${index}-${row.Producto ?? ""}`}
-                      className="border-b border-polaria-w-08 last:border-b-0"
-                    >
-                      <td className="px-3 py-2.5 align-middle">
-                        <p className="polaria-text-body-sm font-medium text-polaria-w">
-                          {row.Producto?.trim() || "Producto"}
-                        </p>
-                        <p className="polaria-text-caption text-polaria-w-50">
-                          {row["Codigo producto"]?.trim()
-                            ? `Cód. ${row["Codigo producto"]}`
-                            : "Del correo"}
-                        </p>
-                      </td>
-                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
-                        {formatOrdenVentaCantidadConUnidad(
-                          qty,
-                          row.Unidad?.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 align-middle text-right polaria-text-body-sm text-polaria-w">
-                        {precio > 0 ? `$${formatPrecioEs(precio)}` : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <OrdenVentaDetalleProductos
-            filas={montosLinea}
-            hija={hija}
-            subtotal={subtotalOt}
-            iva={ivaOt}
-            total={totalOt}
-            mostrarTotalOv={mostrarTotalOv}
-            totalOv={totalOv}
-          />
-        )}
-      </CaptureSection>
-
-      {/* Cuerpo del correo: solo en Cypher → 01 Correo (no duplicar aquí). */}
-    </>
-  );
-}
+const CLASE_ALERTA =
+  "rounded-xl border border-polaria-danger-border bg-polaria-danger-bg px-4 py-3 polaria-text-body-sm text-polaria-danger";
 
 export function OrdenVentaDetalleModal({
   idOrdenVenta,
@@ -364,252 +56,43 @@ export function OrdenVentaDetalleModal({
   onToggleCypher,
   onCompanionOtPickerChange,
 }: OrdenVentaDetalleModalProps) {
-  const [orden, setOrden] = useState<OrdenVentaDetalleRow | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isEmitting, setIsEmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [hijaId, setHijaId] = useState<string | null>(null);
+  const resetHija = useCallback(() => setHijaId(null), []);
 
-  const ordenesTrabajo = useMemo(
-    () => groupOrigenCorreoToOrdenesTrabajo(parseOrigenCorreoJson(orden?.origen_correo)),
-    [orden?.origen_correo],
-  );
+  const {
+    orden,
+    setOrden,
+    isLoading,
+    error,
+    actionError,
+    setActionError,
+    reloadDetalle,
+  } = useOrdenVentaDetalleData({ idOrdenVenta, codigoCuenta, inspect, resetHija });
 
-  const hijaActiva = useMemo(() => {
-    if (ordenesTrabajo.length === 0) return null;
-    if (ordenesTrabajo.length === 1) return ordenesTrabajo[0] ?? null;
-    if (hijaId) {
-      return ordenesTrabajo.find((h) => h.id === hijaId) ?? ordenesTrabajo[0] ?? null;
-    }
-    return ordenesTrabajo[0] ?? null;
-  }, [hijaId, ordenesTrabajo]);
-
-  const indiceOt = Math.max(
-    0,
-    ordenesTrabajo.findIndex((hija) => hija.id === hijaActiva?.id),
-  );
-
-  // El grid de OT vive solo en Cypher; aquí siempre hay OT activa (1ª por defecto).
-  useEffect(() => {
-    if (ordenesTrabajo.length === 0) return;
-    if (hijaId && ordenesTrabajo.some((h) => h.id === hijaId)) return;
-    setHijaId(ordenesTrabajo[0]?.id ?? null);
-  }, [hijaId, ordenesTrabajo]);
-
-  // Publicar selector de OT al Cypher compañero.
-  useEffect(() => {
-    if (!onCompanionOtPickerChange) return;
-
-    const shouldPublish =
-      Boolean(idOrdenVenta) &&
-      cypherOpen &&
-      !inspect &&
-      ordenesTrabajo.length >= 1;
-
-    if (!shouldPublish) {
-      onCompanionOtPickerChange(null);
-      return;
-    }
-
-    onCompanionOtPickerChange({
-      hijas: ordenesTrabajo.map((hija) => ({
-        id: hija.id,
-        label: hija.label,
-        productosCount: hija.renglones.length,
-        totalCantidad: hija.totalCantidad,
-        almacen: hija.almacen,
-      })),
-      selectedId: hijaId ?? ordenesTrabajo[0]?.id ?? null,
-      onSelect: (id: string) => {
-        setHijaId(id);
-      },
-    });
-
-    return () => {
-      onCompanionOtPickerChange(null);
-    };
-  }, [
-    cypherOpen,
-    hijaId,
+  const { ordenesTrabajo, hijaActiva, indiceOt } = useOrdenVentaDetalleOt({
+    origenCorreo:
+      typeof orden?.origen_correo === "string" ? orden.origen_correo : null,
     idOrdenVenta,
+    hijaId,
+    setHijaId,
+    cypherOpen,
     inspect,
     onCompanionOtPickerChange,
-    ordenesTrabajo,
-  ]);
-
-  const loadDetalle = useCallback(
-    (id: string, cuenta: string) => {
-      const run = () =>
-        getOrdenVentaDetalle({ codigoCuenta: cuenta, idOrdenVenta: id });
-      if (inspect) {
-        return withCuentaSchema(cuenta, run);
-      }
-      return run();
-    },
-    [inspect],
-  );
-
-  const reloadDetalle = useCallback(
-    (options?: { silent?: boolean }) => {
-      if (!idOrdenVenta || !codigoCuenta) return;
-
-      if (!options?.silent) {
-        setIsLoading(true);
-      }
-      setError(null);
-
-      void loadDetalle(idOrdenVenta, codigoCuenta)
-        .then((row) => {
-          setOrden(row);
-          setActionError(null);
-        })
-        .catch((err: unknown) => {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "No se pudo cargar el detalle de la venta.",
-          );
-        })
-        .finally(() => {
-          if (!options?.silent) {
-            setIsLoading(false);
-          }
-        });
-    },
-    [codigoCuenta, idOrdenVenta, loadDetalle],
-  );
-
-  useEffect(() => {
-    if (!idOrdenVenta || !codigoCuenta) {
-      setOrden(null);
-      setError(null);
-      setActionError(null);
-      setHijaId(null);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-    setActionError(null);
-    setOrden(null);
-    setHijaId(null);
-
-    void loadDetalle(idOrdenVenta, codigoCuenta)
-      .then((row) => {
-        if (!cancelled) {
-          setOrden(row);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "No se pudo cargar el detalle de la venta.",
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [codigoCuenta, idOrdenVenta, loadDetalle]);
+  });
 
   const puedeEmitir = !inspect && orden?.estado === "por_confirmar";
-
-  const handleEmitir = () => {
-    if (!idOrdenVenta || !puedeEmitir || isEmitting) {
-      return;
-    }
-
-    if (!orden?.id_comprador?.trim()) {
-      setActionError(
-        "Selecciona un cliente del catálogo antes de confirmar el pedido. Ábrelo en Editar y elige el cliente correcto.",
-      );
-      return;
-    }
-
-    const lineaPrecioInvalido = (orden.lineas ?? []).find(
-      (linea) =>
-        !Number.isFinite(linea.precio_unitario) || linea.precio_unitario < 0,
-    );
-    if (lineaPrecioInvalido) {
-      setActionError(
-        "Hay productos con precio inválido. Ábrelo en Editar, captura 0 o mayor y vuelve a confirmar.",
-      );
-      return;
-    }
-
-    setActionError(null);
-    setIsEmitting(true);
-
-    void emitirOrdenVentaApi(idOrdenVenta)
-      .then(async (row) => {
-        setOrden((prev) =>
-          prev
-            ? {
-                ...prev,
-                estado: row.estado,
-                codigo: row.venta?.trim() || prev.codigo,
-              }
-            : prev,
-        );
-        onEmitSuccess?.({
-          idOrdenVenta,
-          codigo:
-            row.venta?.trim() ||
-            orden?.codigo?.trim() ||
-            "OV",
-        });
-        const session = useAuthStore.getState().session;
-        if (codigoCuenta) {
-          // Bitácora de emisión: la escribe el API al confirmar.
-          try {
-            const shouldAutoPrint = await fetchAutoImprimirFlag(codigoCuenta);
-            if (shouldAutoPrint) {
-              const autoPrintResult = await autoPrintOrdenVentaTrasEmitir({
-                codigoCuenta,
-                idOrdenVenta,
-                listRowFallback: row,
-                autorNombre: session?.nombre ?? null,
-                idUsuario: session?.idUsuario ?? null,
-                autoImprimirKnown: true,
-              });
-              if (autoPrintResult.status !== "skipped") {
-                onAutoPrintResult?.(autoPrintResult);
-              }
-            }
-          } catch (flagErr) {
-            onAutoPrintResult?.({
-              status: "error",
-              message:
-                flagErr instanceof Error
-                  ? flagErr.message
-                  : "No se pudo leer la configuración de autoimpresión.",
-            });
-          }
-        }
-        onEmitted?.();
-        reloadDetalle({ silent: true });
-      })
-      .catch((err: unknown) => {
-        setActionError(
-          err instanceof DomainServiceError
-            ? err.message
-            : "No se pudo emitir la venta.",
-        );
-      })
-      .finally(() => {
-        setIsEmitting(false);
-      });
-  };
+  const { isEmitting, handleEmitir } = useEmitirOrdenVentaDetalle({
+    idOrdenVenta,
+    codigoCuenta,
+    orden,
+    puedeEmitir,
+    setOrden,
+    setActionError,
+    reloadDetalle,
+    onEmitted,
+    onEmitSuccess,
+    onAutoPrintResult,
+  });
 
   if (!idOrdenVenta) {
     return null;
@@ -637,45 +120,19 @@ export function OrdenVentaDetalleModal({
       hideHeaderClose
       headerTrailing={
         cypherOpen ? undefined : (
-          <button
-            type="button"
-            title={onToggleCypher ? "Ver detalle Cypher" : "Cerrar"}
-            aria-label={
-              onToggleCypher ? "Abrir detalle Cypher" : "Cerrar detalle"
-            }
-            onClick={() => {
-              if (onToggleCypher) {
-                onToggleCypher();
-                return;
-              }
-              onClose();
-            }}
-            className={cn(
-              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg",
-              onToggleCypher
-                ? "border-polaria-t-20 bg-transparent text-polaria-teal hover:bg-polaria-t-08"
-                : "border-polaria-teal bg-polaria-teal text-polaria-on-teal hover:opacity-90",
-            )}
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-          </button>
+          <DetalleCypherToggleButton
+            onToggleCypher={onToggleCypher}
+            onClose={onClose}
+          />
         )
       }
       footerAction={
         puedeEmitir ? (
-          <button
-            type="button"
-            onClick={handleEmitir}
+          <DetalleEmitirButton
             disabled={isLoading || isEmitting}
-            className={cn(
-              "inline-flex min-w-[7rem] items-center justify-center rounded-xl bg-polaria-teal px-4 py-2.5",
-              "polaria-text-body-sm font-semibold text-polaria-on-teal transition hover:opacity-90",
-              "disabled:cursor-not-allowed disabled:opacity-60",
-            )}
-          >
-            {isEmitting ? "Emitiendo…" : "Emitir venta"}
-          </button>
+            isEmitting={isEmitting}
+            onEmitir={handleEmitir}
+          />
         ) : (
           <></>
         )
@@ -683,24 +140,16 @@ export function OrdenVentaDetalleModal({
       compact
       size="2xl"
     >
-      {isLoading ? (
-        <PolariaStatusLoading embedded className="py-4" />
-      ) : null}
+      {isLoading ? <PolariaStatusLoading embedded className="py-4" /> : null}
 
       {error ? (
-        <p
-          role="alert"
-          className="rounded-xl border border-polaria-danger-border bg-polaria-danger-bg px-4 py-3 polaria-text-body-sm text-polaria-danger"
-        >
+        <p role="alert" className={CLASE_ALERTA}>
           {error}
         </p>
       ) : null}
 
       {actionError ? (
-        <p
-          role="alert"
-          className="rounded-xl border border-polaria-danger-border bg-polaria-danger-bg px-4 py-3 polaria-text-body-sm text-polaria-danger"
-        >
+        <p role="alert" className={CLASE_ALERTA}>
           {actionError}
         </p>
       ) : null}
@@ -712,7 +161,7 @@ export function OrdenVentaDetalleModal({
               {textoConteoOrdenesTrabajo(ordenesTrabajo.length)}
             </p>
           ) : null}
-          <DetalleContent
+          <OrdenVentaDetalleContent
             orden={orden}
             hija={hijaActiva}
             codigoCuenta={codigoCuenta}
@@ -723,12 +172,8 @@ export function OrdenVentaDetalleModal({
           <OrdenTrabajoPager
             page={indiceOt}
             total={ordenesTrabajo.length}
-            onPrev={() =>
-              setHijaId(ordenesTrabajo[indiceOt - 1]?.id ?? null)
-            }
-            onNext={() =>
-              setHijaId(ordenesTrabajo[indiceOt + 1]?.id ?? null)
-            }
+            onPrev={() => setHijaId(ordenesTrabajo[indiceOt - 1]?.id ?? null)}
+            onNext={() => setHijaId(ordenesTrabajo[indiceOt + 1]?.id ?? null)}
           />
         </div>
       ) : null}

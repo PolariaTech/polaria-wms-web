@@ -1,0 +1,61 @@
+import type {
+  OrdenVentaDetalleRow,
+  OrdenVentaOperadorRow,
+} from "../../shared/types/sales.types";
+
+export const LIST_ROW: OrdenVentaOperadorRow = {
+  idOrdenVenta: "ov-1",
+  venta: "OV-001",
+  occ: "—",
+  occTodas: [],
+  cuenta: "CUENTA-01",
+  comprador: "Retail Norte",
+  productos: "1 producto",
+  cantidadKg: 10,
+  total: 10000,
+  estado: "por_confirmar",
+  fecha: "2026-06-28T12:00:00.000Z",
+  ordenesTrabajo: 1,
+  destino: "Bodega central",
+  idBodega: "bod-1",
+  idBodegaDestino: null,
+  slaStatus: "en_tiempo",
+  alertaStatus: "ok",
+  minutosEnEstado: 0,
+  slaMinutos: 60,
+  alertaMinutos: 45,
+};
+
+export const DETALLE: OrdenVentaDetalleRow = {
+  id_orden_venta: "ov-1",
+  codigo_cuenta: "CUENTA-01",
+  id_bodega: "bod-1",
+  id_cliente: "cli-1",
+  id_comprador: "comp-1",
+  id_planta: null,
+  id_creador: null,
+  id_bodega_destino: null,
+  codigo: "OV-001",
+  estado: "por_confirmar",
+  fecha_pedido: "2026-06-28T12:00:00.000Z",
+  observaciones: null,
+  created_at: "2026-06-28T12:00:00.000Z",
+  updated_at: "2026-06-28T12:00:00.000Z",
+  comprador_nombre: "Edgar Escobar",
+  comprador_codigo: "3Q12U",
+  bodega_nombre: "Bodega central",
+  bodega_destino_nombre: null,
+  lineas: [
+    {
+      id_linea_orden_venta: "line-1",
+      id_producto: "prod-1",
+      cantidad_pedida: 10,
+      precio_unitario: 1000,
+      producto: {
+        sku: "IOZ7Z",
+        descripcion: "Pork racks",
+        metadatos_catalogo: { titulo: "HPR FROZEN-PORK RACKS" },
+      },
+    },
+  ],
+};

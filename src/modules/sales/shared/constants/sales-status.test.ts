@@ -32,10 +32,10 @@ describe("puedeEditarOrdenVenta", () => {
 });
 
 describe("puedeBorrarOrdenVenta", () => {
-  it("solo permite por_confirmar (demás estados deshabilitados)", () => {
+  it("REQ-350: permite por_confirmar, confirmada y alistamiento", () => {
     expect(puedeBorrarOrdenVenta("por_confirmar")).toBe(true);
-    expect(puedeBorrarOrdenVenta("confirmada")).toBe(false);
-    expect(puedeBorrarOrdenVenta("alistamiento")).toBe(false);
+    expect(puedeBorrarOrdenVenta("confirmada")).toBe(true);
+    expect(puedeBorrarOrdenVenta("alistamiento")).toBe(true);
     expect(puedeBorrarOrdenVenta("alistada")).toBe(false);
     expect(puedeBorrarOrdenVenta("cancelada")).toBe(false);
   });
@@ -72,6 +72,23 @@ describe("puedeEditarOrdenVentaDesdeLista", () => {
 });
 
 describe("estadosSuperioresOrdenVenta", () => {
+  it("desde por_confirmar no ofrece avance manual (emitir solo Nest)", () => {
+    expect(estadosSuperioresOrdenVenta("por_confirmar")).toEqual([]);
+    expect(puedeAvanzarEstadoOrdenVenta("por_confirmar", "alistamiento")).toBe(
+      false,
+    );
+  });
+
+  it("desde confirmada ofrece avance manual de almacén", () => {
+    expect(estadosSuperioresOrdenVenta("confirmada")).toEqual([
+      "alistamiento",
+      "alistada",
+      "revisada",
+      "despachada",
+      "facturada",
+    ]);
+  });
+
   it("desde alistamiento ofrece solo lo que sigue", () => {
     expect(estadosSuperioresOrdenVenta("alistamiento")).toEqual([
       "alistada",

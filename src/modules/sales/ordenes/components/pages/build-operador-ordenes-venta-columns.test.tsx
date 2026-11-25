@@ -33,6 +33,32 @@ function rowBase(
 }
 
 describe("buildOperadorOrdenesVentaColumns (REQ-180)", () => {
+  it("ORDEN DE COMPRA: header en una línea y valor truncable", () => {
+    const cols = buildOperadorOrdenesVentaColumns({
+      inspect: false,
+      cypherId: null,
+      idsCorreoNoEnviado: new Set(),
+      setDetalleId: vi.fn(),
+      setCypherId: vi.fn(),
+    });
+    const occ = cols.find((c) => c.id === "occ");
+    expect(occ?.header).toBe("Orden de compra");
+    expect(occ?.headerClassName).toContain("whitespace-nowrap");
+    expect(occ?.headerClassName).toContain("truncate");
+
+    const { container } = render(
+      <>
+        {occ?.cell(
+          rowBase({ occ: "ADP-261116-0033-JVU-MUY-LARGA" }),
+        )}
+      </>,
+    );
+    expect(container.querySelector(".truncate")).toHaveTextContent(
+      "ADP-261116-0033-JVU-MUY-LARGA",
+    );
+    expect(container.querySelector(".whitespace-nowrap")).toBeTruthy();
+  });
+
   it("incluye columna OV y acciones fuera de inspect", () => {
     const cols = buildOperadorOrdenesVentaColumns({
       inspect: false,

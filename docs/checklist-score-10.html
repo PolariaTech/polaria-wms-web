@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Checklist Score 10 — WMS + Mateo</title>
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --card: #14181e;
+      --border: #2a313c;
+      --text: #e8eaed;
+      --muted: #9aa3af;
+      --teal: #00e5cc;
+      --green: #3dd68c;
+      --amber: #f5a524;
+      --red: #f76b6b;
+      --blue: #6b9fff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      padding: 24px 16px 64px;
+    }
+    .wrap { max-width: 880px; margin: 0 auto; }
+    h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 8px; }
+    h2 { font-size: 1.05rem; font-weight: 600; margin: 28px 0 12px; color: var(--text); }
+    .sub { color: var(--muted); font-size: 0.95rem; margin: 0 0 20px; }
+    .banner {
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+    .banner strong { color: var(--teal); }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 720px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+    .stat {
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .stat .lbl { font-size: 0.75rem; color: var(--muted); }
+    .stat .val { font-size: 1.35rem; font-weight: 600; margin-top: 4px; }
+    .pill {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .pill.hecho { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, var(--border)); }
+    .pill.curso { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, var(--border)); }
+    .pill.pend { color: var(--muted); }
+    .pill.p0 { color: var(--red); }
+    .pill.p1 { color: var(--amber); }
+    .pill.p2 { color: var(--blue); }
+    .pill.p3 { color: var(--muted); }
+    .pill.base { color: var(--green); }
+    details.section {
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    details.section > summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 14px 16px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+    details.section > summary::-webkit-details-marker { display: none; }
+    details.section[open] > summary { border-bottom: 1px solid var(--border); }
+    .count { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
+    .item {
+      padding: 14px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .item:first-of-type { border-top: none; }
+    .item-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .item-title { font-weight: 560; }
+    .meta { color: var(--muted); font-size: 0.85rem; margin: 4px 0; }
+    .done-when { font-size: 0.9rem; margin: 8px 0; }
+    .log {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border);
+    }
+    .log-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; }
+    .log p {
+      margin: 0 0 6px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .log .date { color: var(--teal); font-weight: 600; }
+    footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Checklist Score 10 — WMS + Mateo</h1>
+    <p class="sub">
+      Plan residual desde consolidado <strong>9.0</strong> → meta <strong>10</strong>
+      (Org / Code / Scale / CI-DX), incluyendo mateo-ia-api. Bitácora con fecha,
+      estilo Checklist Migración AWS.
+    </p>
+
+    <div class="banner">
+      <strong>¿Con esto llegamos al 10?</strong>
+      Sí — cerrar P0+P1+P2 con evidencia; P3 es pulido + re-score oficial.
+      Scale (hoy 8.9) es el eje más duro. Actualizado: 2026-11-23.
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="lbl">Ahora</div><div class="val">9.0</div></div>
+      <div class="stat"><div class="lbl">Meta</div><div class="val" style="color:var(--teal)">10</div></div>
+      <div class="stat"><div class="lbl">Base hecha</div><div class="val">4/4</div></div>
+      <div class="stat"><div class="lbl">Residual hecho</div><div class="val">10/18</div></div>
+      <div class="stat"><div class="lbl">En curso</div><div class="val">0</div></div>
+    </div>
+
+    <div class="banner">
+      <strong>Protocolo:</strong> al cerrar un ítem en el chat de trabajo se marca
+      Hecho aquí con comentario <code>[fecha]</code> de qué cambió (repos, tests, paths).
+    </div>
+
+    <!-- BASE -->
+    <details class="section" open>
+      <summary>
+        <span>Base ya cerrada (consolidado 9.0)</span>
+        <span class="count">4/4 Hecho</span>
+      </summary>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Canal OV: emitir / cancelar / avanzar vía Nest + contratos</div>
+          <div><span class="pill base">BASE</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: web · api · db</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> OV_CHANNEL_CONTRACT + e2e + migración 121/122.</div>
+        <div class="log">
+          <div class="log-title">Bitácora</div>
+          <p><span class="date">[2026-11-23]</span> Hecho en oleada score≥9: POST emitir/cancelar/avanzar-estado Nest; web deja de mutar estado authenticated; wms-channels documenta NEST.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">findById O(1) sin barrido emp_* en camino caliente</div>
+          <div><span class="pill base">BASE</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: polaria-wms-api</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> schemasForFindById solo tenant|public.</div>
+        <div class="log">
+          <div class="log-title">Bitácora</div>
+          <p><span class="date">[2026-11-23]</span> Hecho: schemasForFindById sin preferred → solo public + warn; getAccessibleOrden exige schemaName.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Sync Mateo manifesto 42 + lint Mateo bloqueante + smoke SQL db</div>
+          <div><span class="pill base">BASE</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: api · mateo · db</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Parity SHA en CI API; ESLint mateo bloqueante; sql-smoke-postgres.</div>
+        <div class="log">
+          <div class="log-title">Bitácora</div>
+          <p><span class="date">[2026-11-23]</span> Hecho: manifesto 42, ensure-mateo layout (shims sin .ts), mateo lint bloqueante, db Postgres+REQUIRE_SQL_TESTS=1.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Suites verdes: API Jest + web Vitest completo</div>
+          <div><span class="pill base">BASE</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: api · web</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> API ~947 y web 4166/4166 en verde.</div>
+        <div class="log">
+          <div class="log-title">Bitácora</div>
+          <p><span class="date">[2026-11-23]</span> Hecho: API 947/947; web 970 archivos / 4166 tests tras fix next/dynamic + harness operational-pages.</p>
+        </div>
+      </div>
+    </details>
+
+    <!-- P0 -->
+    <details class="section">
+      <summary>
+        <span>P0 — Bloquean el 10</span>
+        <span class="count">4/4 Hecho</span>
+      </summary>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">ESLint global web bloqueante (hoy ~68 errores informativos)</div>
+          <div><span class="pill p0">P0</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: polaria-wms-web</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> lint ≤15 (ideal 0) y job sin continue-on-error.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> Job lint sin continue-on-error; 0 errores en CI.</p></div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Procesamiento: eliminar fallback listadosLegacySinScope</div>
+          <div><span class="pill p0">P0</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: polaria-wms-web</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Sin scope → error; test lists; CI cubre lists.ts.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> PROCESSING_CHANNEL_CONTRACT sin listadosLegacySinScope.</p></div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Surtido QR: unificar avance de estado OV en Nest</div>
+          <div><span class="pill p0">P0</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: web · api · db</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Un solo writer Nest; contrato + test SQL/integración.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> POST avanzar-estado-surtido + canal NEST en web.</p></div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">ADR + fases dual-write OV (borrador A vs mutaciones B)</div>
+          <div><span class="pill p0">P0</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: web · api · db</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> ADR publicado; invariantes + tests paridad en staging.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> ADR-004 en polaria-wms-db + contratos canal.</p></div>
+      </div>
+    </details>
+
+    <!-- P1 -->
+    <details class="section" open>
+      <summary>
+        <span>P1 — Mateo, CI, deuda activa</span>
+        <span class="count">6/6 Hecho</span>
+      </summary>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Retirar schemasToSearch / barrido emp_* latente</div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: polaria-wms-api</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Código muerto eliminado o test anti-regresión.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> Método eliminado; test anti-regresión en orden-venta.repository.tx.spec.</p></div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Web: no duplicar utils de pedido (SSOT Mateo/Nest)</div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: web · api · mateo</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Utils archivadas; test arquitectura cubre ordenes/utils/**.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> Barrels → _archived/; ordenes-utils-ssot.architecture.test.ts.</p></div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Sync/contrato Mateo bidireccional en CI</div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: api · mateo · web</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Gate lectura/reagrupar; PR falla si diverge.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> API: mateo-ai-utils-sync en CI; web: checkout Mateo + vitest contract/SSOT.</p></div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">CI multi-repo / e2e stack db+api+web[+mateo]</div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: los cuatro</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Workflow label e2e-stack con Postgres + smoke mínimo.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> .github/workflows/e2e-stack.yml (label e2e-stack / workflow_dispatch).</p></div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Quitar fallback silencioso listado OV Nest→Supabase</div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: polaria-wms-web</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Error visible + telemetría; test de fallo API.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> listOrdenesVentaParaSalida propaga DomainServiceError; test de fallo Nest.</p></div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Audit/Trivy web = misma política que API</div>
+          <div><span class="pill p1">P1</span> <span class="pill hecho">Hecho</span></div>
+        </div>
+        <div class="meta">Repos: polaria-wms-web</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> High+/CRITICAL bloquean o ADR de excepción único.</div>
+        <div class="log"><div class="log-title">Bitácora</div><p><span class="date">[2026-11-23]</span> Audit bloqueante + ADR-005 (xlsx); Trivy CRITICAL sin continue-on-error.</p></div>
+      </div>
+    </details>
+
+    <!-- P2 -->
+    <details class="section">
+      <summary>
+        <span>P2 — Performance, LOC, e2e real</span>
+        <span class="count">0/5 Hecho</span>
+      </summary>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Partir archivos prod &gt;300 LOC (ventas/correo/compras)</div>
+          <div><span class="pill p2">P2</span> <span class="pill pend">Pendiente</span></div>
+        </div>
+        <div class="meta">Repos: web · api</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Críticos ≤300 o max-lines bloqueante en sales/**.</div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">E2E API con Postgres real (emitir + triggers 121/122)</div>
+          <div><span class="pill p2">P2</span> <span class="pill pend">Pendiente</span></div>
+        </div>
+        <div class="meta">Repos: api · db</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Suite no mockeada; emitir/cancelar/avance verdes.</div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Harness next/dynamic: no tragar errores en tests</div>
+          <div><span class="pill p2">P2</span> <span class="pill pend">Pendiente</span></div>
+        </div>
+        <div class="meta">Repos: polaria-wms-web</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> catch re-lanza o STRICT_DYNAMIC_LOADER=1.</div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">DB CI: un solo gate SQL (quitar job informativo)</div>
+          <div><span class="pill p2">P2</span> <span class="pill pend">Pendiente</span></div>
+        </div>
+        <div class="meta">Repos: polaria-wms-db</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Solo sql-smoke-postgres bloqueante.</div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Nest PedidoIa: ruta única HTTP a Mateo</div>
+          <div><span class="pill p2">P2</span> <span class="pill pend">Pendiente</span></div>
+        </div>
+        <div class="meta">Repos: api · mateo</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Extractores solo en Mateo; Nest contrato + ingest.</div>
+      </div>
+    </details>
+
+    <!-- P3 -->
+    <details class="section">
+      <summary>
+        <span>P3 — Pulido + re-score oficial 10</span>
+        <span class="count">0/4 Hecho</span>
+      </summary>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Contrato compartido /pedidos/leer + /reagrupar</div>
+          <div><span class="pill p3">P3</span> <span class="pill pend">Pendiente</span></div>
+        </div>
+        <div class="meta">Repos: mateo · api</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Job/paquete contrato en ambos repos.</div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">CI lint cubre processing.service.lists.ts</div>
+          <div><span class="pill p3">P3</span> <span class="pill pend">Pendiente</span></div>
+        </div>
+        <div class="meta">Repos: polaria-wms-web</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Path en job bloqueante.</div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Retirar listadosLegacySinScope del contrato</div>
+          <div><span class="pill p3">P3</span> <span class="pill pend">Pendiente</span></div>
+        </div>
+        <div class="meta">Repos: polaria-wms-web</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> 0 llamadas sin scope; rama A eliminada.</div>
+      </div>
+      <div class="item">
+        <div class="item-head">
+          <div class="item-title">Re-score oficial Org/Code/Scale/CI-DX → consolidado 10</div>
+          <div><span class="pill p3">P3</span> <span class="pill pend">Pendiente</span></div>
+        </div>
+        <div class="meta">Repos: los cuatro</div>
+        <div class="done-when"><strong>Hecho cuando:</strong> Tres skills readonly con evidencia; consolidado ≥10.</div>
+      </div>
+    </details>
+
+    <h2>Orden de ataque</h2>
+    <p class="sub">
+      P0 ESLint → Procesamiento → Surtido Nest → ADR dual-write. En paralelo P1
+      schemasToSearch + Mateo CI. Luego e2e stack y P2 performance. Cierre con re-score (P3).
+    </p>
+
+    <footer>
+      Polaria · Checklist Score 10 · snapshot 2026-11-23 · fuente viva también en Cursor Canvas
+      <code>checklist-score-10.canvas.tsx</code>
+    </footer>
+  </div>
+</body>
+</html>

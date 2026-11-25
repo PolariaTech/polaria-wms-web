@@ -3,21 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { PolariaConfirmDialog } from "@/components/shared/form/PolariaConfirmDialog";
 import { PolariaDataTable } from "@/components/shared/table/PolariaDataTable";
-import {
-  PolariaTableActionGroup,
-  PolariaTableBadge,
-  PolariaTableCode,
-  PolariaTableDisableButton,
-  PolariaTableEditButton,
-  PolariaTableEnableButton,
-} from "@/components/shared/table/PolariaTableCells";
 import { useAsyncQuery } from "@/hooks/shared/useAsyncQuery";
-import {
-  formatCamionCreatedAt,
-  formatCamionDecimal,
-  formatCamionMarcaModelo,
-  getCamionTipoLabel,
-} from "../constants/camion-types";
 import {
   CAMIONES_EMPTY_MESSAGE,
   CAMIONES_PAGE_HINT,
@@ -34,14 +20,15 @@ import {
 import {
   activateCamionAdmin,
   deactivateCamionAdmin,
-  formatCamionId,
   listCamionesAdmin,
   type CamionListRow,
 } from "../services/camiones.service";
+import {
+  buildCamionesListColumns,
+  type CamionPendingToggle,
+} from "./camiones-list-view.columns";
 import { CamionCreateModal } from "./CamionCreateModal";
 import { CamionEditModal } from "./CamionEditModal";
-
-type PendingToggle = { row: CamionListRow; mode: "disable" | "enable" };
 
 export function CamionesListView({
   codigoCuenta: codigoCuentaProp,
@@ -55,7 +42,7 @@ export function CamionesListView({
   const [editingCamion, setEditingCamion] = useState<CamionListRow | null>(
     null,
   );
-  const [pendingToggle, setPendingToggle] = useState<PendingToggle | null>(
+  const [pendingToggle, setPendingToggle] = useState<CamionPendingToggle | null>(
     null,
   );
   const [isToggling, setIsToggling] = useState(false);
@@ -110,130 +97,11 @@ export function CamionesListView({
 
   const columns = useMemo(
     () =>
-      [
-        {
-          id: "id",
-          header: "ID",
-          headerClassName: "whitespace-nowrap",
-          cellClassName: "whitespace-nowrap",
-          cell: (row: CamionListRow) => (
-            <span className="font-mono text-polaria-w-50">
-              {formatCamionId(row.idCamion)}
-            </span>
-          ),
-        },
-        {
-          id: "codigo",
-          header: "Cód",
-          headerClassName: "whitespace-nowrap",
-          cellClassName: "whitespace-nowrap",
-          cell: (row: CamionListRow) => (
-            <PolariaTableCode>{row.codigo}</PolariaTableCode>
-          ),
-        },
-        {
-          id: "placa",
-          header: "Placa",
-          headerClassName: "whitespace-nowrap",
-          cellClassName: "whitespace-nowrap font-medium",
-          cell: (row: CamionListRow) => row.placa,
-        },
-        {
-          id: "marca-modelo",
-          header: "Marca / Modelo",
-          headerClassName: "min-w-[14rem] whitespace-nowrap",
-          cellClassName: "min-w-[14rem] whitespace-nowrap",
-          cell: (row: CamionListRow) =>
-            formatCamionMarcaModelo(row.marca, row.modelo),
-        },
-        {
-          id: "tipo",
-          header: "Tipo",
-          headerClassName: "min-w-[7rem] whitespace-nowrap",
-          cellClassName: "min-w-[7rem] whitespace-nowrap",
-          cell: (row: CamionListRow) => getCamionTipoLabel(row.tipo),
-        },
-        {
-          id: "peso-max",
-          header: "Peso Máx",
-          headerClassName: "min-w-[7rem] whitespace-nowrap",
-          cellClassName: "min-w-[7rem] whitespace-nowrap",
-          cell: (row: CamionListRow) =>
-            formatCamionDecimal(row.capacidadKg, "kg"),
-        },
-        {
-          id: "volumen",
-          header: "Volumen",
-          headerClassName: "min-w-[6rem] whitespace-nowrap",
-          cellClassName: "min-w-[6rem] whitespace-nowrap",
-          cell: (row: CamionListRow) =>
-            formatCamionDecimal(row.capacidadM3, "m³"),
-        },
-        {
-          id: "pallets",
-          header: "Pallets",
-          headerClassName: "whitespace-nowrap",
-          cellClassName: "whitespace-nowrap",
-          cell: (row: CamionListRow) => row.capacidadPallets ?? "—",
-        },
-        {
-          id: "rango-temp",
-          header: "Rango Temp",
-          headerClassName: "min-w-[10rem] whitespace-nowrap",
-          cellClassName: "min-w-[10rem] whitespace-nowrap",
-          cell: (row: CamionListRow) => row.rangoTemperatura ?? "—",
-        },
-        {
-          id: "estado",
-          header: "Estado",
-          headerClassName: "min-w-[8rem] whitespace-nowrap",
-          cellClassName: "min-w-[8rem] whitespace-nowrap",
-          cell: (row: CamionListRow) =>
-            !row.estaActivo ? (
-              <PolariaTableBadge variant="neutral">Deshabilitado</PolariaTableBadge>
-            ) : row.disponible ? (
-              <PolariaTableBadge>Disponible</PolariaTableBadge>
-            ) : (
-              <PolariaTableBadge variant="neutral">No disponible</PolariaTableBadge>
-            ),
-        },
-        {
-          id: "creado",
-          header: "Creado",
-          headerClassName: "min-w-[7rem] whitespace-nowrap",
-          cellClassName: "min-w-[7rem] whitespace-nowrap",
-          cell: (row: CamionListRow) => formatCamionCreatedAt(row.createdAt),
-        },
-        {
-          id: "acciones",
-          header: "Acciones",
-          headerClassName: "whitespace-nowrap",
-          cellClassName: "whitespace-nowrap",
-          cell: (row: CamionListRow) => (
-            <PolariaTableActionGroup>
-              <PolariaTableEditButton
-                disabled={!row.estaActivo}
-                onClick={() => setEditingCamion(row)}
-              />
-              {row.estaActivo ? (
-                <PolariaTableDisableButton
-                  onClick={() => {
-                    setToggleError(null);
-                    setPendingToggle({ row, mode: "disable" });
-                  }}
-                />
-              ) : (
-                <PolariaTableEnableButton
-                  onClick={() => {
-                    setToggleError(null);
-                    setPendingToggle({ row, mode: "enable" });
-                  }}
-                />
-              )}
-            </PolariaTableActionGroup>
-          ),
-        },
-      ] as const,
+      buildCamionesListColumns({
+        setEditingCamion,
+        setToggleError,
+        setPendingToggle,
+      }),
     [],
   );
 

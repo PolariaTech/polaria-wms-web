@@ -71,4 +71,17 @@ describe("useAvisosValidacionOv", () => {
       }),
     ]);
   });
+
+  it("REQ-369: avisa con Total pedido MXN del origenTexto", () => {
+    const { result } = renderHook(() =>
+      useAvisosValidacionOv({
+        ...avisosBase,
+        origenTexto: "Total pedido: MXN 59,798.90",
+        totalOvCompleta: 60815.9,
+      } as never),
+    );
+    expect(result.current.avisosCatalogoValidacion).toEqual([
+      expect.objectContaining({ fieldKey: "totalSolicitud", campo: "Total" }),
+    ]);
+  });
 });

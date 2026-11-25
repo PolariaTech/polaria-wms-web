@@ -1,0 +1,209 @@
+name: CI
+
+# CI del frontend, equivalente al del api (polaria-wms-api/.github/workflows/ci.yml): construye, prueba,
+# revisa con ESLint, audita las dependencias y construye la imagen de producción. Antes de esto el repo
+# no ejecutaba `npm test` en ningún workflow.
+#
+# Qué bloquea y qué solo informa:
+#   - build-and-test: BLOQUEA (compila con `next build` y corre todas las pruebas de vitest).
+#   - lint: BLOQUEA (`npm run lint` / eslint --quiet debe quedar en 0 errores).
+#   - lint-architecture: BLOQUEA contratos BFF/Mateo y rutas críticas de ventas/procesamiento.
+#   - lint-sales-channels: BLOQUEA servicios y constantes del canal de ventas (subset acotado).
+#   - dependency-audit: BLOQUEA (severidad alta o crítica; única excepción xlsx, ADR-005).
+#   - docker-image: BLOQUEA la construcción, la prueba de humo y Trivy (CRITICAL con corrección).
+# Todas las acciones de terceros van fijadas por SHA de commit, como en el api.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Lo usa la fusión programada: tras actualizar la rama de un PR con main, un push hecho con el token
+  # del workflow no dispara `pull_request`, así que lanza este CI a mano sobre la rama.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          # La misma versión mayor que la imagen de producción (Dockerfile: node:24).
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      # Incluye src/ci/fusion-programada.workflow.test.ts, que necesita bash y jq (ubuntu-latest trae ambos;
+      # con CI=true esa prueba falla en vez de saltarse si faltara alguno).
+      - run: npm test
+
+  # ESLint de solo lectura: `npm run lint` es `eslint` sin `--fix`.
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: ESLint (bloqueante)
+        run: npm run lint
+
+      - name: Tope de líneas ventas/compras (bloqueante)
+        run: node scripts/max-lines-gate.mjs
+  lint-architecture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: ESLint arquitectura, mateo-ia y ventas (obligatorio)
+        run: |
+          npx eslint \
+            "src/lib/architecture/**" \
+            "src/lib/mateo-ia/**" \
+            "src/modules/sales/shared/services/sales-orden-venta-estado.service.ts" \
+            "src/modules/sales/shared/services/sales-api.service.ts" \
+            "src/modules/processing/shared/services/processing.service.create.ts" \
+            "src/modules/processing/shared/services/processing.service.lists.ts" \
+            "src/modules/sales/shared/constants/sales-status.ts"
+
+      - name: Checkout polaria-wms-mateo-pedido-api (contrato / SSOT)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: PolariaTech/polaria-wms-mateo-pedido-api
+          path: mateo-ia-api
+          token: ${{ secrets.MATEO_REPO_READ_TOKEN }}
+          persist-credentials: false
+
+      - name: Tests arquitectura + contrato Mateo
+        run: |
+          npx vitest run \
+            src/lib/architecture/wms-channels.test.ts \
+            src/lib/mateo-ia/mateo-ia.contract.test.ts
+        env:
+          MATEO_IA_API_SYNC_ROOT: ${{ github.workspace }}/mateo-ia-api
+
+  lint-sales-channels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: ESLint canal ventas (obligatorio)
+        run: |
+          npx eslint \
+            "src/lib/architecture/wms-channels.ts" \
+            "src/modules/sales/shared/services/sales-orden-venta-estado.service.ts" \
+            "src/modules/sales/shared/services/sales-api.service.ts" \
+            "src/modules/processing/shared/services/processing.service.create.ts" \
+            "src/modules/processing/shared/services/processing.service.lists.ts" \
+            "src/modules/sales/shared/constants/sales-status.ts"
+
+  # Escaneo de dependencias. Solo las de producción (--omit=dev): las de desarrollo no viajan en la imagen.
+  dependency-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      # Misma barra que polaria-wms-api (high+); excepción única xlsx → ADR-005.
+      - name: npm audit (producción, severidad alta o crítica)
+        run: node scripts/ci-dependency-audit.mjs
+
+  # Construye la imagen de producción (ARM64, como en AWS) y la arranca. No la sube a ningún registro.
+  docker-image:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Las NEXT_PUBLIC_* se escriben dentro de la imagen al construirla. Aquí van valores de relleno: esta
+      # imagen solo se prueba, no se despliega (el despliegue usa las variables reales en deploy.yml).
+      - name: Build linux/arm64
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          push: false
+          tags: polaria-wms-web:ci
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=https://api.example.invalid
+            NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key
+            NEXT_PUBLIC_APP_URL=http://localhost:3001
+            NEXT_PUBLIC_MATEO_URL=https://chatbot-mateo.vercel.app
+            NEXT_PUBLIC_MATEO_WIDGET_SCRIPT_URL=/assets/mateo-widget.js
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Prueba de humo (GET /, usuario no root, tamaño)
+        run: bash scripts/docker-smoke.sh polaria-wms-web:ci
+
+      # Escaneo de la imagen. ignore-unfixed: solo cuenta lo que ya tiene una versión corregida.
+      # Misma política que polaria-wms-api: falla con CRITICAL con corrección.
+      - name: Escaneo de la imagen con Trivy (falla con CRÍTICAS con corrección)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: polaria-wms-web:ci
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table

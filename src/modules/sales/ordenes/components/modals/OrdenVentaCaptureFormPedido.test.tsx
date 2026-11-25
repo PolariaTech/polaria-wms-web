@@ -18,7 +18,6 @@ function propsBase(parcial: Record<string, unknown> = {}) {
     onCentroConsumo: vi.fn(),
     moneda: "MXN",
     onBuscarMoneda: vi.fn(),
-    referenciaPedido: "",
     onClearField: vi.fn(),
     marks,
     ...parcial,
@@ -26,13 +25,13 @@ function propsBase(parcial: Record<string, unknown> = {}) {
 }
 
 describe("OrdenVentaCaptureFormPedido (REQ-278/328)", () => {
-  it("lleva OC, centro, moneda y referencia de pedido", () => {
+  it("lleva OC, centro y moneda; no muestra referencia de pedido", () => {
     render(<OrdenVentaCaptureFormPedido {...propsBase()} />);
 
     expect(screen.getByLabelText(/Orden de compra del cliente/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Centro de consumo/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Moneda$/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Referencia de pedido/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Referencia de pedido/)).not.toBeInTheDocument();
     for (const etiqueta of [/Notas generales/, /Prioridad/, /Fecha de entrega/, /Hora desde/]) {
       expect(screen.queryByLabelText(etiqueta)).not.toBeInTheDocument();
     }
@@ -46,37 +45,10 @@ describe("OrdenVentaCaptureFormPedido (REQ-278/328)", () => {
     await user.type(screen.getByLabelText(/Orden de compra del cliente/), "7");
 
     expect(props.onOrdenCompraHotel).toHaveBeenCalledWith("7");
-    expect(props.onClearField).toHaveBeenCalledWith("ordenCompraHotel");
+    expect(props.onClearField).toHaveBeenCalledWith("ordenCompraHotel", "7");
   });
 
-  it("un cliente que exige OC la pide y lo explica", () => {
-    render(<OrdenVentaCaptureFormPedido {...propsBase({ exigeOc: true })} />);
-
-    expect(screen.getByText("Este cliente exige OC para facturar.")).toBeInTheDocument();
-    expect(screen.getByLabelText(/Orden de compra del cliente/)).toBeRequired();
-  });
-
-  it("escribir el centro de consumo lo guarda y quita su marca", async () => {
-    const user = userEvent.setup();
-    const props = propsBase();
-    render(<OrdenVentaCaptureFormPedido {...props} />);
-
-    await user.type(screen.getByLabelText(/Centro de consumo/), "C");
-
-    expect(props.onCentroConsumo).toHaveBeenCalledWith("C");
-    expect(props.onClearField).toHaveBeenCalledWith("centroConsumo");
-  });
-
-  it("avisa cuando el centro de la ficha es distinto al del pedido", () => {
-    const props = propsBase({
-      marks: { ...marks, warnFields: new Set(["centroConsumo"]) },
-    });
-    render(<OrdenVentaCaptureFormPedido {...props} />);
-
-    expect(screen.getByText("Registrado en ficha distinto al del pedido")).toBeInTheDocument();
-  });
-
-  it("buscar moneda abre el selector", async () => {
+  it("abre el picker de moneda", async () => {
     const user = userEvent.setup();
     const props = propsBase();
     render(<OrdenVentaCaptureFormPedido {...props} />);
@@ -86,16 +58,36 @@ describe("OrdenVentaCaptureFormPedido (REQ-278/328)", () => {
     expect(props.onBuscarMoneda).toHaveBeenCalledOnce();
   });
 
-  it("REQ-328: la referencia es solo lectura (Mateo)", () => {
+  it("REQ-349: con varias OT aclara alcance en OC (no en centro)", () => {
+    render(<OrdenVentaCaptureFormPedido {...propsBase({ multiOt: true })} />);
+
+    expect(screen.getByText(/Aplica a todas las OT/)).toBeInTheDocument();
+    expect(screen.queryByText("Solo esta OT.")).not.toBeInTheDocument();
+  });
+
+  it("REQ-349: exigeOc + multiOt combina ambos hints en OC", () => {
     render(
       <OrdenVentaCaptureFormPedido
-        {...propsBase({ referenciaPedido: "REF-77" })}
+        {...propsBase({ multiOt: true, exigeOc: true })}
       />,
     );
+    expect(
+      screen.getByText("Este cliente exige OC para facturar. Aplica a todas las OT."),
+    ).toBeInTheDocument();
+  });
 
-    expect(screen.getByLabelText(/Referencia de pedido/)).toHaveAttribute(
-      "readonly",
+  it("REQ-349: warn de centro no usa «Solo esta OT.»", () => {
+    render(
+      <OrdenVentaCaptureFormPedido
+        {...propsBase({
+          multiOt: true,
+          marks: { ...marks, warnFields: new Set(["centroConsumo"]) },
+        })}
+      />,
     );
-    expect(screen.getByLabelText(/Referencia de pedido/)).toHaveValue("REF-77");
+    expect(
+      screen.getByText("Registrado en ficha distinto al del pedido"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Solo esta OT.")).not.toBeInTheDocument();
   });
 });

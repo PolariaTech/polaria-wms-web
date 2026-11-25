@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from "react";
+import {useMemo, useState} from "react";
 import {usePolariaToast} from "@/components/shared/toast/PolariaToastProvider";
 import {useFolioFacturaEdicion} from "../../surtido/guardar-folio-factura-captura.client";
 import {type CompradorListRow} from "@/modules/admin-panel";
@@ -6,8 +6,6 @@ import type {CompradorAltaFicha} from "@/modules/admin-panel/compradores/utils/c
 import {useCompany} from "@/providers/tenant/CompanyProvider";
 import {useAuthStore} from "@/stores/auth.store";
 import {type ProductoVentaOption} from "../../../shared/types/sales.types";
-import { getOrdenVentaDetalle } from "../../../shared/services/sales.service";
-import { resolveDenominacionComercial } from "../../utils/pedido/resolve-denominacion-comercial";
 import {type OrigenAdjunto} from "../../utils/origen/origen-adjuntos";
 import {isAfterWarehouseCutoff, todayIsoDate} from "../../utils/pedido/build-orden-venta-captura-observaciones";
 import {groupOrigenCorreoToOrdenesTrabajo, type OrigenCorreoRenglon, type OrdenTrabajoHija} from "../../utils/origen/origen-correo-ordenes-trabajo";
@@ -16,6 +14,7 @@ import {type CampoDiscrepancia} from "../../utils/pedido/map-pedido-extraido-to-
 import type {BodegaDestinoOption, CaptureStep, LineaVentaForm, OrdenVentaCreateModalProps, PickerKind, ReagrupacionAplicada, StartMode} from "../../types/orden-venta-create-modal.types";
 import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
 import {OrdenVentaModalShell} from "./OrdenVentaModalShell";
+import {useDenominacionComercialEdicionOv} from "./OrdenVentaCreateModal-denominacion-comercial";
 import {useContarProductosOt, useHandleSubmitOv} from "../../hooks/confirmar-envio-ov";
 import {useEditarLineasOv} from "../../hooks/editar-lineas-ov";
 import {useRefsOv} from "../../hooks/useRefsOv";
@@ -182,45 +181,15 @@ export function OrdenVentaCreateModal({
   const refs = useRefsOv();
   const [cantidadFocusId, setCantidadFocusId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) {
-      setDenominacionComercial("");
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open || !formDataReady || !isEditing || !editingId || !codigoCuenta) {
-      return;
-    }
-    let cancelled = false;
-    void getOrdenVentaDetalle({
-      codigoCuenta,
-      idOrdenVenta: editingId,
-    })
-      .then((detalle) => {
-        if (cancelled) return;
-        const compradorRow = compradores.find(
-          (row) => row.idComprador === (detalle.id_comprador ?? "").trim(),
-        );
-        const overrideComprador =
-          compradorRow?.denominacionComercialOverride?.trim() || "";
-        setDenominacionComercial(
-          resolveDenominacionComercial({
-            override:
-              detalle.denominacion_comercial_override?.trim() ||
-              overrideComprador ||
-              null,
-            apodoSincronizado: detalle.comprador_apodo,
-          }),
-        );
-      })
-      .catch(() => {
-        if (cancelled) return;
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, formDataReady, isEditing, editingId, codigoCuenta, compradores]);
+  useDenominacionComercialEdicionOv({
+    open,
+    formDataReady,
+    isEditing,
+    editingId,
+    codigoCuenta,
+    compradores,
+    setDenominacionComercial,
+  });
 
   const bolsa = {
     open, onClose, onCreated, onEmitSuccess, onAutoPrintResult, idOrdenVenta, codigoVenta,

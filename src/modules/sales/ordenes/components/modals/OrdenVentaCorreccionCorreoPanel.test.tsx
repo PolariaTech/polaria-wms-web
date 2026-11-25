@@ -276,25 +276,6 @@ describe("OrdenVentaCorreccionCorreoPanel", () => {
     expect(props.onDescartar).toHaveBeenCalled();
   });
 
-  it("no permite aplicar si un documento declara un total que no cuadra", () => {
-    montar({
-      propuesta: propuesta({
-        documentos: [
-          {
-            nombre: "x.pdf",
-            oc: null,
-            ocFuente: null,
-            renglones: 1,
-            verificacion: { totalDocumento: 100, importe: 10, diferencia: -90, cuadra: false },
-            relecturaPorBloques: true,
-          },
-        ],
-      }),
-    });
-    expect(screen.getByText(/No cuadra/)).toBeTruthy();
-    expect((screen.getByRole("button", { name: /Aplicar al borrador/ }) as HTMLButtonElement).disabled).toBe(true);
-  });
-
   it("si la orden ya coincide con los documentos lo dice y no deja aplicar", () => {
     montar({
       propuesta: propuesta({

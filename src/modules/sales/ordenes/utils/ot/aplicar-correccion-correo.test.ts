@@ -8,8 +8,10 @@ import {
   ESPERA_INTERPRETAR,
   ESPERA_REORGANIZAR,
   ESPERA_RELEER,
+  documentosConTotalQueNoCuadra,
   documentosSinVerificar,
   formatearImporte,
+  mensajeEstadoCorreccion,
   origenCorreoDePropuesta,
   puedeAplicarCorreccion,
   type DocumentoCorreccionApi,
@@ -84,7 +86,7 @@ describe("puedeAplicarCorreccion", () => {
     expect(puedeAplicarCorreccion(propuesta())).toBe(true);
   });
 
-  it("no si un documento declara un total que no cuadra", () => {
+  it("sí con cambios aunque un documento no cuadre el total (REQ-372)", () => {
     const p = propuesta({
       documentos: [
         documento({
@@ -92,7 +94,9 @@ describe("puedeAplicarCorreccion", () => {
         }),
       ],
     });
-    expect(puedeAplicarCorreccion(p)).toBe(false);
+    expect(puedeAplicarCorreccion(p)).toBe(true);
+    expect(documentosConTotalQueNoCuadra(p)).toHaveLength(1);
+    expect(mensajeEstadoCorreccion(p)?.tono).toBe("aviso");
   });
 
   it("no si la propuesta no cambia nada", () => {
@@ -100,6 +104,7 @@ describe("puedeAplicarCorreccion", () => {
       diff: { otNuevas: [], otEliminadas: [], renglonesAgregados: 0, renglonesQuitados: 0 },
     });
     expect(puedeAplicarCorreccion(p)).toBe(false);
+    expect(mensajeEstadoCorreccion(p)?.texto).toMatch(/ya coincide/i);
   });
 
   it("no si no hay OT", () => {
@@ -114,6 +119,25 @@ describe("puedeAplicarCorreccion", () => {
     });
     expect(puedeAplicarCorreccion(p)).toBe(true);
     expect(documentosSinVerificar(p)).toHaveLength(1);
+  });
+
+  it("sin cambios y total que no cuadra: no dice que ya coincide (REQ-372)", () => {
+    const p = propuesta({
+      diff: { otNuevas: [], otEliminadas: [], renglonesAgregados: 0, renglonesQuitados: 0 },
+      documentos: [
+        documento({
+          verificacion: {
+            totalDocumento: 59798.9,
+            importe: 60815.9,
+            diferencia: 1017,
+            cuadra: false,
+          },
+        }),
+      ],
+    });
+    expect(puedeAplicarCorreccion(p)).toBe(false);
+    expect(mensajeEstadoCorreccion(p)?.texto).toMatch(/no cuadra con el total/i);
+    expect(mensajeEstadoCorreccion(p)?.texto).not.toMatch(/ya coincide/i);
   });
 });
 

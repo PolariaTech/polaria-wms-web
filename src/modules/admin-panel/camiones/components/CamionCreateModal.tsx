@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   PolariaFormField,
   PolariaFormInput,
@@ -10,31 +10,23 @@ import { DomainServiceError } from "@/lib/utils/domain-service-error";
 import { JefeBodegaModalSearchField } from "@/modules/jefe-bodega/components/modals/jefe-bodega-modal-ui";
 import { useCompany } from "@/providers/tenant/CompanyProvider";
 import {
-  CAMION_TIPO_CATALOG,
   formatRangoTemperatura,
   getCamionTipoCatalogItem,
 } from "../catalog/camion-tipo-temperatura";
-import {
-  CAMION_MARCAS_CATALOG,
-  CAMION_SEGMENTO_LABEL,
-  getCamionMarcaById,
-  listModelosByMarcaId,
-  type CamionMarcaCatalogItem,
-  type CamionModeloCatalogItem,
-  type CamionSegmentoCatalog,
-} from "../catalog/camion-vehiculos.catalog";
 import type { CamionTipo } from "../constants/camion-types";
 import { createCamionAdmin } from "../services/camiones.service";
-import { CamionCatalogTablePickerModal } from "./CamionCatalogTablePickerModal";
+import {
+  parseOptionalNumberInput,
+  type CamionPickerKind,
+} from "./camion-modal.helpers";
 import { CamionTemperaturaSlider } from "./CamionTemperaturaSlider";
+import { CamionVehiculoPickers } from "./CamionVehiculoPickers";
 
 interface CamionCreateModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
 }
-
-type PickerKind = "marca" | "modelo" | "tipo" | null;
 
 const INITIAL_FORM = {
   placa: "",
@@ -50,14 +42,6 @@ const INITIAL_FORM = {
   tempMax: 15,
 };
 
-function parseOptionalNumberInput(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  const parsed = Number(trimmed.replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 export function CamionCreateModal({
   open,
   onClose,
@@ -67,7 +51,7 @@ export function CamionCreateModal({
   const [form, setForm] = useState(INITIAL_FORM);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [picker, setPicker] = useState<PickerKind>(null);
+  const [picker, setPicker] = useState<CamionPickerKind>(null);
   const [segmentoFilter, setSegmentoFilter] = useState("");
 
   useEffect(() => {
@@ -89,18 +73,6 @@ export function CamionCreateModal({
     if (isSubmitting) return;
     onClose();
   }, [isSubmitting, onClose]);
-
-  const marcasFiltradas = useMemo(() => {
-    if (!segmentoFilter) return CAMION_MARCAS_CATALOG;
-    return CAMION_MARCAS_CATALOG.filter(
-      (marca) => marca.segmento === segmentoFilter,
-    );
-  }, [segmentoFilter]);
-
-  const modelosDeMarca = useMemo(() => {
-    if (!form.marcaId) return [];
-    return listModelosByMarcaId(form.marcaId);
-  }, [form.marcaId]);
 
   const tipoLabel =
     getCamionTipoCatalogItem(form.tipo)?.label ?? form.tipo;
@@ -150,10 +122,6 @@ export function CamionCreateModal({
       setIsSubmitting(false);
     }
   };
-
-  const segmentoOptions = (
-    Object.entries(CAMION_SEGMENTO_LABEL) as [CamionSegmentoCatalog, string][]
-  ).map(([value, label]) => ({ value, label }));
 
   return (
     <>
@@ -301,41 +269,16 @@ export function CamionCreateModal({
         />
       </PolariaFormModal>
 
-      <CamionCatalogTablePickerModal
-        open={picker === "marca"}
+      <CamionVehiculoPickers
+        picker={picker}
         onClose={() => setPicker(null)}
-        title="Seleccionar marca"
-        description="Marcas de camiones de carga. Editá el catálogo en camion-vehiculos.catalog.ts."
-        rows={marcasFiltradas}
-        columns={[
-          {
-            id: "nombre",
-            header: "Marca",
-            cell: (row: CamionMarcaCatalogItem) => row.nombre,
-          },
-          {
-            id: "origen",
-            header: "Origen",
-            cell: (row) => row.origen,
-            className: "text-polaria-w-50",
-          },
-          {
-            id: "segmento",
-            header: "Segmento",
-            cell: (row) => CAMION_SEGMENTO_LABEL[row.segmento],
-          },
-        ]}
-        getRowKey={(row) => row.id}
-        getSearchHaystack={(row) =>
-          `${row.nombre} ${row.origen} ${CAMION_SEGMENTO_LABEL[row.segmento]}`
-        }
-        selectedKey={form.marcaId || null}
-        searchPlaceholder="Buscar marca u origen"
-        filterLabel="Segmento"
-        filterOptions={segmentoOptions}
-        filterValue={segmentoFilter}
-        onFilterChange={setSegmentoFilter}
-        onSelect={(marca) => {
+        segmentoFilter={segmentoFilter}
+        onSegmentoFilterChange={setSegmentoFilter}
+        marcaId={form.marcaId}
+        marca={form.marca}
+        modeloId={form.modeloId}
+        tipo={form.tipo}
+        onSelectMarca={(marca) => {
           setForm((current) => ({
             ...current,
             marcaId: marca.id,
@@ -344,75 +287,14 @@ export function CamionCreateModal({
             modelo: "",
           }));
         }}
-      />
-
-      <CamionCatalogTablePickerModal
-        open={picker === "modelo"}
-        onClose={() => setPicker(null)}
-        title={`Modelos · ${form.marca || "marca"}`}
-        description={`Modelos de ${getCamionMarcaById(form.marcaId)?.nombre ?? "la marca"}. Actualizá en camion-vehiculos.catalog.ts.`}
-        rows={modelosDeMarca}
-        columns={[
-          {
-            id: "nombre",
-            header: "Modelo",
-            cell: (row: CamionModeloCatalogItem) => row.nombre,
-          },
-          {
-            id: "segmento",
-            header: "Segmento",
-            cell: (row) => CAMION_SEGMENTO_LABEL[row.segmento],
-            className: "text-polaria-w-50",
-          },
-        ]}
-        getRowKey={(row) => row.id}
-        getSearchHaystack={(row) =>
-          `${row.nombre} ${CAMION_SEGMENTO_LABEL[row.segmento]}`
-        }
-        selectedKey={form.modeloId || null}
-        searchPlaceholder="Buscar modelo"
-        emptyMessage="No hay modelos para esta marca en el catálogo."
-        onSelect={(modelo) => {
+        onSelectModelo={(modelo) => {
           setForm((current) => ({
             ...current,
             modeloId: modelo.id,
             modelo: modelo.nombre,
           }));
         }}
-      />
-
-      <CamionCatalogTablePickerModal
-        open={picker === "tipo"}
-        onClose={() => setPicker(null)}
-        title="Tipo de vehículo"
-        description="Elegí el tipo; el rango térmico se puede afinar con el slider."
-        rows={CAMION_TIPO_CATALOG}
-        columns={[
-          {
-            id: "tipo",
-            header: "Tipo",
-            cell: (row) => row.label,
-          },
-          {
-            id: "rango",
-            header: "Rango térmico",
-            cell: (row) => row.rangoTipico,
-            className: "text-polaria-teal",
-          },
-          {
-            id: "desc",
-            header: "Descripción",
-            cell: (row) => row.descripcion,
-            className: "text-polaria-w-50",
-          },
-        ]}
-        getRowKey={(row) => row.value}
-        getSearchHaystack={(row) =>
-          `${row.label} ${row.rangoTipico} ${row.descripcion}`
-        }
-        selectedKey={form.tipo}
-        searchPlaceholder="Buscar tipo o rango"
-        onSelect={(tipo) => {
+        onSelectTipo={(tipo) => {
           setForm((current) => ({
             ...current,
             tipo: tipo.value,

@@ -1,6 +1,16 @@
+"use client";
+
+import dynamic from "next/dynamic";
 import { WmsRol } from "@/constants/wms/roles";
 import { RoleGate } from "@/components/auth/guards/RoleGate";
-import { AdministradorBodegaEstadoPageContent } from "@/modules/administrador-bodega";
+
+const AdministradorBodegaEstadoPageContent = dynamic(
+  () =>
+    import("@/modules/administrador-bodega").then((m) => ({
+      default: m.AdministradorBodegaEstadoPageContent,
+    })),
+  { loading: () => null, ssr: false },
+);
 
 export default function AdministradorBodegaEstadoPage() {
   return (

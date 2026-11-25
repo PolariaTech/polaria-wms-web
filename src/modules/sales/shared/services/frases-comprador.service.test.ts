@@ -20,6 +20,7 @@ function crearCliente() {
           filtrosEq.push([columna, valor]);
           return consulta;
         },
+        limit: () => consulta,
         then: (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) =>
           Promise.resolve({
             data: [

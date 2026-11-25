@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ROUTES } from "@/config/routes";
 
@@ -28,12 +28,16 @@ describe("página del código de despacho (REQ-306)", () => {
 
   it.each(["administrador_cuenta", "operador_cuenta"])(
     "deja entrar al rol %s",
-    (idRol) => {
+    async (idRol) => {
       estado.idRol = idRol;
       render(<DashboardVentasCodigoDespachoPage />);
 
-      expect(screen.getByText("Pantalla del código de despacho")).toBeInTheDocument();
-      expect(estado.replace).not.toHaveBeenCalled();
+      expect(
+        await screen.findByText("Pantalla del código de despacho"),
+      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(estado.replace).not.toHaveBeenCalled();
+      });
     },
   );
 

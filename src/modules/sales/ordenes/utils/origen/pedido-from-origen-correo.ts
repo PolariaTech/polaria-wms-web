@@ -20,6 +20,8 @@ import {
   sanitizeOrigenCorreoNumeroPedido,
 } from "../pedido/normalize-numero-pedido";
 import { filtrarRenglonesOrigenPedibles } from "./renglon-origen-pedible";
+import { atributosCalidadDesdeSolicitado } from "../pedido/atributos-calidad-desde-solicitado";
+import { unidadMateoDesdeRaw } from "../pedido/resolve-unidad-pedido-linea";
 
 function mostFrequent(values: string[]): string | null {
   const counts = new Map<string, number>();
@@ -90,22 +92,44 @@ export function buildPedidoExtraidoFromOrigenCorreo(params: {
     textoFuente: origenTexto,
     madurezPorRenglon: rows.map((row) => madurezDesdeRegistro(row)),
   });
-  const lineasSinPiezas: LineaExtraida[] = rows.map((row, index) => ({
-    textoOriginal: textos[index] ?? "",
-    productoCatalogo: null,
-    cantidad: parseCantidad(row.Cantidad),
-    unidad: null,
-    cajas: null,
-    presentacion: null,
-    especificacion: niveles[index] ?? null,
-    numeroPedido: row["Numero pedido"]?.trim() || null,
-    almacen: row.Almacen?.trim() || null,
-    numeroAlmacen: row["Numero almacen"]?.trim() || null,
-    referenciaPedido: row["Referencia pedido"]?.trim() || null,
-    codigoProductoCliente: row["Codigo producto"]?.trim() || null,
-    responsableExterno: row["Responsable externo"]?.trim() || null,
-    precioUnitario: parsePrecio(row.Precio),
-  }));
+  const lineasSinPiezas: LineaExtraida[] = rows.map((row, index) => {
+    const textoOriginal = textos[index] ?? "";
+    const especMadurez = niveles[index]?.trim() || "";
+    const especOrigen =
+      (typeof row.Especificacion === "string"
+        ? row.Especificacion.trim()
+        : "") || "";
+    // REQ-363: no descartar Unidad del renglón; calidad del nombre → especificación.
+    const calidadNombre = atributosCalidadDesdeSolicitado(textoOriginal);
+    const especPartes = [
+      especOrigen,
+      especMadurez,
+      ...calidadNombre,
+    ].filter(Boolean);
+    const especUnica = [
+      ...new Set(
+        especPartes.map((p) => p.trim()).filter(Boolean),
+      ),
+    ].join("; ");
+    return {
+      textoOriginal,
+      productoCatalogo: null,
+      cantidad: parseCantidad(row.Cantidad),
+      unidad: unidadMateoDesdeRaw(
+        typeof row.Unidad === "string" ? row.Unidad : null,
+      ),
+      cajas: null,
+      presentacion: null,
+      especificacion: especUnica || null,
+      numeroPedido: row["Numero pedido"]?.trim() || null,
+      almacen: row.Almacen?.trim() || null,
+      numeroAlmacen: row["Numero almacen"]?.trim() || null,
+      referenciaPedido: row["Referencia pedido"]?.trim() || null,
+      codigoProductoCliente: row["Codigo producto"]?.trim() || null,
+      responsableExterno: row["Responsable externo"]?.trim() || null,
+      precioUnitario: parsePrecio(row.Precio),
+    };
+  });
   const lineasRaw = aplicarPiezasAproxKg(
     lineasSinPiezas,
     origenTexto,

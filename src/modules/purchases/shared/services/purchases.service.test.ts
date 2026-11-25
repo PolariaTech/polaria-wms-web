@@ -52,3 +52,11 @@ describe("purchases.service", () => {
     ).rejects.toBeInstanceOf(DomainServiceError);
   });
 });
+
+describe("purchases.service (barrel)", () => {
+  it("reexporta funciones públicas", () => {
+    expect(listSolicitudesCompra).toBeTypeOf("function");
+    expect(listOrdenesCompra).toBeTypeOf("function");
+    expect(listRecepciones).toBeTypeOf("function");
+  });
+});

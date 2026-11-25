@@ -1,28 +1,25 @@
 # src/services/
 
-Capa de servicios: comunicación con APIs externas y backend.
+Capa de servicios **compartidos** de comunicación HTTP con backends.
 
 ## Propósito
 
-Centraliza toda la comunicación con servicios externos. Los componentes y módulos no hacen `fetch` directamente; usan estos servicios.
+- Cliente HTTP base hacia Nest (`api.ts` → `/api` en browser, host Nest en SSR).
+- No es el único camino de datos: la mayoría de lecturas tenant van por Supabase (`src/lib/supabase` + `runDomainQuery` en módulos).
 
-## Archivos previstos
+## Frontera oficial
 
-| Archivo        | Descripción                                           |
-|----------------|-------------------------------------------------------|
-| `api.ts`       | Cliente HTTP base (fetch/axios) con interceptores     |
-| `supabase.ts`  | Cliente de Supabase (auth, database, storage)         |
+Ver [docs/ARQUITECTURA-COMUNICACION.md](../../docs/ARQUITECTURA-COMUNICACION.md):
+
+| Canal | Dónde |
+|-------|--------|
+| **A** Supabase + RLS | `src/lib/supabase/*`, servicios de módulo con `runDomainQuery` |
+| **B** Nest API | este directorio + `*-api.service.ts` en módulos |
+| **C** mateo-ia-api | solo BFF Next / Nest (nunca browser) |
+| **D** BFF Next | `src/app/api/*` y rutas server afines |
 
 ## Convención
 
-- Los servicios devuelven datos tipados o lanzan errores estandarizados.
-- Maneja autenticación (headers, tokens) en un solo lugar.
-- Los servicios específicos de un módulo pueden vivir en `src/modules/<modulo>/services/`; los genéricos van aquí.
-
-## Ejemplo de uso
-
-```typescript
-import { supabase } from '@/services/supabase';
-
-const { data, error } = await supabase.from('products').select('*');
-```
+- Los módulos de dominio ponen sus servicios en `src/modules/<dominio>/services/`.
+- Aquí solo van clientes genéricos (auth headers, base URL, errores).
+- Trabajo nuevo: seguir la regla de frontera del doc (no mezclar canales “porque sí”).

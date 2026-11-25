@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { listAlmacenamientoVentaUbicacionIds } from "@/modules/warehouses/estado-bodega/utils/estado-bodega-zone-ubicaciones";
 import type { UbicacionEstadoBodegaDbRow } from "@/modules/warehouses/estado-bodega/types/estado-bodega.types";
@@ -16,6 +15,17 @@ import {
   UNIDAD_MEDIDA_VENTA_DEFAULT,
   type ProductoVentaOption,
 } from "../types/sales.types";
+import {
+  getProductosVentaCatalogoCache,
+  setProductosVentaCatalogoCache,
+} from "./sales-catalog-cache.server";
+import {
+  resolveTenantSchemaForCuenta,
+  tenantFrom,
+  type TenantFrom,
+} from "./sales-catalog-tenant.server";
+
+export { resolveTenantSchemaForCuenta };
 
 function isProductoMercanciaVenta(row: {
   metadatos_catalogo?: unknown;
@@ -53,8 +63,6 @@ interface ProductoCatalogoRow {
   esta_activo?: boolean | null;
 }
 
-type TenantFrom = ReturnType<SupabaseClient["from"]>;
-
 function parseCantidadKg(value: string | number | null | undefined): number {
   if (value === null || value === undefined || value === "") return 0;
   const parsed = typeof value === "number" ? value : Number.parseFloat(value);
@@ -82,95 +90,6 @@ function mapProductoToOption(input: {
     precioUnitario: input.precioUnitario,
     unidadMedida: input.unidadMedida.trim() || UNIDAD_MEDIDA_VENTA_DEFAULT,
   };
-}
-
-/**
- * Resuelve el schema de negocio (public | emp_*) donde vive la cuenta.
- * Sin esto el admin de Supabase solo lee `public` y el catálogo queda vacío
- * para tenants en schemas propios.
- */
-export async function resolveTenantSchemaForCuenta(
-  admin: SupabaseClient,
-  codigoCuenta: string,
-): Promise<string | null> {
-  const codigo = codigoCuenta.trim();
-  if (!codigo) return null;
-
-  const { data: publicCuenta, error: publicError } = await admin
-    .from("cuenta")
-    .select("codigo_cuenta,codigo_empresa")
-    .eq("codigo_cuenta", codigo)
-    .eq("esta_activa", true)
-    .limit(1)
-    .maybeSingle();
-
-  if (publicError) {
-    throw new Error(publicError.message);
-  }
-
-  if (publicCuenta?.codigo_empresa) {
-    const { data: empresa, error: empresaError } = await admin
-      .from("empresa")
-      .select("schema_name")
-      .eq("codigo_empresa", publicCuenta.codigo_empresa)
-      .limit(1)
-      .maybeSingle();
-
-    if (empresaError) {
-      throw new Error(empresaError.message);
-    }
-
-    const schemaName = empresa?.schema_name?.trim() || null;
-    // Si la empresa tiene schema propio, el negocio (producto, bodega, …) vive ahí.
-    if (schemaName) return schemaName;
-    return null;
-  }
-
-  const { data: empresas, error: listError } = await admin
-    .from("empresa")
-    .select("schema_name")
-    .not("schema_name", "is", null)
-    .limit(500);
-
-  if (listError) {
-    throw new Error(listError.message);
-  }
-
-  for (const empresa of empresas ?? []) {
-    const schemaName = empresa.schema_name?.trim();
-    if (!schemaName) continue;
-
-    const { data, error } = await admin
-      .schema(schemaName)
-      .from("cuenta")
-      .select("codigo_cuenta")
-      .eq("codigo_cuenta", codigo)
-      .eq("esta_activa", true)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.warn(
-        `[sales-catalog.server] cuenta ${schemaName}:`,
-        error.message,
-      );
-      continue;
-    }
-
-    if (data?.codigo_cuenta) return schemaName;
-  }
-
-  return null;
-}
-
-function tenantFrom(
-  admin: SupabaseClient,
-  schemaName: string | null,
-): (table: string) => TenantFrom {
-  return (table: string) =>
-    schemaName
-      ? (admin.schema(schemaName).from(table) as TenantFrom)
-      : admin.from(table);
 }
 
 async function fetchPreciosProductoMap(
@@ -237,6 +156,11 @@ export async function listProductosVentaCatalogoServer(
   const cuenta = codigoCuenta.trim();
   if (!cuenta) return [];
 
+  const cached = getProductosVentaCatalogoCache(cuenta);
+  if (cached) {
+    return cached as ProductoVentaOption[];
+  }
+
   const admin = getSupabaseAdminClient();
   if (!admin) {
     throw new Error("Supabase admin no configurado.");
@@ -245,81 +169,73 @@ export async function listProductosVentaCatalogoServer(
   const schemaName = await resolveTenantSchemaForCuenta(admin, cuenta);
   const from = tenantFrom(admin, schemaName);
 
-  const { data: bodegaRows, error: bodegaError } = await from("bodega")
-    .select("id_bodega")
-    .eq("codigo_cuenta", cuenta)
-    .eq("esta_activa", true)
-    .order("nombre", { ascending: true })
-    .limit(50);
+  const [bodegaRes, productoRes] = await Promise.all([
+    from("bodega")
+      .select("id_bodega")
+      .eq("codigo_cuenta", cuenta)
+      .eq("esta_activa", true)
+      .order("nombre", { ascending: true })
+      .limit(50),
+    from("producto")
+      .select(PRODUCTO_CATALOGO_SELECT)
+      .eq("codigo_cuenta", cuenta)
+      .eq("esta_activo", true)
+      .order("descripcion", { ascending: true })
+      .limit(1000),
+  ]);
 
-  if (bodegaError) {
-    throw new Error(bodegaError.message);
-  }
+  if (bodegaRes.error) throw new Error(bodegaRes.error.message);
+  if (productoRes.error) throw new Error(productoRes.error.message);
 
-  const bodegaIds = (bodegaRows ?? [])
+  const bodegaIds = (bodegaRes.data ?? [])
     .map((row) => row.id_bodega)
     .filter((id): id is string => Boolean(id?.trim()));
   const defaultBodegaId = bodegaIds[0] ?? "";
 
-  const { data: productoRows, error: productoError } = await from("producto")
-    .select(PRODUCTO_CATALOGO_SELECT)
-    .eq("codigo_cuenta", cuenta)
-    .eq("esta_activo", true)
-    .order("descripcion", { ascending: true })
-    .limit(1000);
-
-  if (productoError) {
-    throw new Error(productoError.message);
-  }
-
-  const productos = ((productoRows ?? []) as ProductoCatalogoRow[]).filter(
+  const productos = ((productoRes.data ?? []) as ProductoCatalogoRow[]).filter(
     isProductoMercanciaVenta,
   );
-  if (productos.length === 0) return [];
-
-  let stockRows: WarehouseStockVentaRow[] = [];
-
-  if (bodegaIds.length > 0) {
-    const { data, error } = await from("warehouse_state")
-      .select(WAREHOUSE_STOCK_VENTA_SELECT)
-      .in("id_bodega", bodegaIds)
-      .limit(2000);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    stockRows = (data ?? []) as unknown as WarehouseStockVentaRow[];
+  if (productos.length === 0) {
+    setProductosVentaCatalogoCache(cuenta, []);
+    return [];
   }
 
+  const stockPromise =
+    bodegaIds.length > 0
+      ? from("warehouse_state")
+          .select(WAREHOUSE_STOCK_VENTA_SELECT)
+          .in("id_bodega", bodegaIds)
+          .limit(2000)
+      : Promise.resolve({ data: null, error: null });
+  const ubicacionPromise =
+    bodegaIds.length > 0
+      ? from("ubicacion")
+          .select(UBICACION_VENTA_SELECT)
+          .in("id_bodega", bodegaIds)
+          .eq("esta_activa", true)
+          .limit(500)
+      : Promise.resolve({ data: null, error: null });
+
+  const [stockRes, ubicacionRes] = await Promise.all([
+    stockPromise,
+    ubicacionPromise,
+  ]);
+
+  if (stockRes.error) throw new Error(stockRes.error.message);
+  if (ubicacionRes.error) throw new Error(ubicacionRes.error.message);
+
+  let stockRows = (stockRes.data ?? []) as unknown as WarehouseStockVentaRow[];
   if (stockRows.length === 0) {
-    const { data, error } = await from("warehouse_state")
+    const fallback = await from("warehouse_state")
       .select(WAREHOUSE_STOCK_VENTA_SELECT)
       .eq("codigo_cuenta", cuenta)
       .limit(2000);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    stockRows = (data ?? []) as unknown as WarehouseStockVentaRow[];
+    if (fallback.error) throw new Error(fallback.error.message);
+    stockRows = (fallback.data ?? []) as unknown as WarehouseStockVentaRow[];
   }
 
-  let ubicaciones: UbicacionEstadoBodegaDbRow[] = [];
-  if (bodegaIds.length > 0) {
-    const { data, error } = await from("ubicacion")
-      .select(UBICACION_VENTA_SELECT)
-      .in("id_bodega", bodegaIds)
-      .eq("esta_activa", true)
-      .limit(500);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    ubicaciones = (data ?? []) as unknown as UbicacionEstadoBodegaDbRow[];
-  }
-
+  const ubicaciones = (ubicacionRes.data ??
+    []) as unknown as UbicacionEstadoBodegaDbRow[];
   const almacenamientoUbicacionIds =
     listAlmacenamientoVentaUbicacionIds(ubicaciones);
   const filtrarPorZona = ubicaciones.length > 0;
@@ -351,7 +267,7 @@ export async function listProductosVentaCatalogoServer(
   const productoIds = productos.map((row) => row.id_producto);
   const precioMap = await fetchPreciosProductoMap(from, cuenta, productoIds);
 
-  return productos
+  const options = productos
     .map((row) => {
       const stock = kgByProducto.get(row.id_producto);
       const codigo = row.sku?.trim() || row.id_producto.slice(0, 8);
@@ -370,4 +286,7 @@ export async function listProductosVentaCatalogoServer(
     })
     .filter((row) => Boolean(row.idBodega))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+
+  setProductosVentaCatalogoCache(cuenta, options);
+  return options;
 }

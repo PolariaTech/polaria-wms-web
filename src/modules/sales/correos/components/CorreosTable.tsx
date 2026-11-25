@@ -2,6 +2,7 @@
 
 import { RotateCw } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { PolariaStatusLoading } from "@/components/shared/status/PolariaStatusLoading";
 import { getTableBodyMinHeightStyle } from "@/components/shared/table/polaria-table-layout";
 import { PolariaTablePaginationFooter } from "@/components/shared/table/PolariaTablePaginationFooter";
@@ -15,6 +16,7 @@ import { guardarRecorrido } from "../utils/recorrido-correos";
 import { BOTON_SECUNDARIO } from "./AccionIngreso";
 import { CorreosCuerpoTabla } from "./CorreosCuerpoTabla";
 import { CorreosFiltros } from "./CorreosFiltros";
+import { CorreosReintentarModal } from "./CorreosReintentarModal";
 
 const TEXTOS_VACIO: Record<ModoCorreos, { sinFiltros: string; conFiltros: string }> = {
   todos: {
@@ -147,6 +149,7 @@ export function CorreosTable({ modo }: { modo: ModoCorreos }) {
   const router = useRouter();
   const correos = useCorreosIngreso(modo);
   const { abierto, marcarAbierto } = useUltimoCorreoAbierto();
+  const [modalReintentar, setModalReintentar] = useState(false);
 
   const primeraCarga = correos.cargando && correos.filas.length === 0;
   const alIngresar = (messageId: string) => void correos.ingresar(messageId);
@@ -160,31 +163,40 @@ export function CorreosTable({ modo }: { modo: ModoCorreos }) {
   const textos = TEXTOS_VACIO[modo];
 
   return (
-    <section
-      className={cn(
-        "overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-sm",
-        TABLA_COMPACTA_PANTALLA_BAJA,
-      )}
-    >
-      <EncabezadoLista
-        total={primeraCarga ? null : correos.total}
-        cargando={correos.cargando}
-        onActualizar={correos.recargar}
+    <>
+      <section
+        className={cn(
+          "overflow-hidden rounded-2xl border border-polaria-t-20 bg-polaria-t-08 backdrop-blur-sm",
+          TABLA_COMPACTA_PANTALLA_BAJA,
+        )}
+      >
+        <EncabezadoLista
+          total={primeraCarga ? null : correos.total}
+          cargando={correos.cargando}
+          onActualizar={correos.recargar}
+        />
+        <CorreosFiltros
+          filtros={correos.filtros}
+          onChange={correos.setFiltro}
+          onLimpiar={correos.limpiarFiltros}
+          hayFiltros={correos.hayFiltros}
+          onAbrirReintentar={() => setModalReintentar(true)}
+        />
+        <ContenidoDeLista
+          correos={correos}
+          primeraCarga={primeraCarga}
+          textoVacio={correos.hayFiltros ? textos.conFiltros : textos.sinFiltros}
+          abierto={abierto}
+          onVerDetalle={verDetalle}
+          onIngresar={alIngresar}
+        />
+      </section>
+      {/* Fuera del section: overflow-hidden recortaba el modal a lo ancho de la tarjeta. */}
+      <CorreosReintentarModal
+        open={modalReintentar}
+        onClose={() => setModalReintentar(false)}
+        onTerminado={correos.recargar}
       />
-      <CorreosFiltros
-        filtros={correos.filtros}
-        onChange={correos.setFiltro}
-        onLimpiar={correos.limpiarFiltros}
-        hayFiltros={correos.hayFiltros}
-      />
-      <ContenidoDeLista
-        correos={correos}
-        primeraCarga={primeraCarga}
-        textoVacio={correos.hayFiltros ? textos.conFiltros : textos.sinFiltros}
-        abierto={abierto}
-        onVerDetalle={verDetalle}
-        onIngresar={alIngresar}
-      />
-    </section>
+    </>
   );
 }

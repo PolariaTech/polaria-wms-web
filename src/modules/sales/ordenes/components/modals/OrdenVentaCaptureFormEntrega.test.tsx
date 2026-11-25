@@ -58,7 +58,7 @@ describe("OrdenVentaCaptureFormEntrega (REQ-217/254)", () => {
     await user.type(screen.getByLabelText(/Dirección de entrega/), "A");
 
     expect(props.onDireccion).toHaveBeenCalledWith("A");
-    expect(props.onClearField).toHaveBeenCalledWith("direccion");
+    expect(props.onClearField).toHaveBeenCalledWith("direccion", "A");
   });
 
   it("al cambiar de cliente avisa de revisar la dirección", () => {
@@ -67,6 +67,16 @@ describe("OrdenVentaCaptureFormEntrega (REQ-217/254)", () => {
 
     rerender(<OrdenVentaCaptureFormEntrega {...propsBase({ avisoVerificarDireccion: true })} />);
     expect(screen.getByText(/Cambiaste el cliente/)).toBeInTheDocument();
+  });
+
+  it("REQ-349: con multiOt marca que la entrega aplica a todas las OT", () => {
+    render(<OrdenVentaCaptureFormEntrega {...propsBase({ multiOt: true })} />);
+    expect(screen.getByText("Aplica a todas las OT")).toBeInTheDocument();
+  });
+
+  it("REQ-349: sin multiOt no muestra el alcance de entrega", () => {
+    render(<OrdenVentaCaptureFormEntrega {...propsBase()} />);
+    expect(screen.queryByText("Aplica a todas las OT")).not.toBeInTheDocument();
   });
 
   it.each([
@@ -81,6 +91,6 @@ describe("OrdenVentaCaptureFormEntrega (REQ-217/254)", () => {
     await user.type(screen.getByLabelText(etiqueta), "x");
 
     expect((props as Record<string, ReturnType<typeof vi.fn>>)[manejador]).toHaveBeenCalledWith("x");
-    expect(props.onClearField).toHaveBeenCalledWith(campo);
+    expect(props.onClearField).toHaveBeenCalledWith(campo, "x");
   });
 });

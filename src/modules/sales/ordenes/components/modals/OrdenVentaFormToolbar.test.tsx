@@ -265,5 +265,28 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
       expect(screen.getAllByLabelText(/Folio de factura/)).toHaveLength(1);
       expect(screen.getByLabelText("Folio de factura")).toBeInTheDocument();
     });
+
+    it("REQ-349: con una sola OT no muestra hints de alcance", () => {
+      const { estado } = estadoCompleto({
+        ordenesTrabajoForm: [ot("ot-1", "OT 1")],
+        hijaFormActiva: ot("ot-1", "OT 1"),
+      });
+      render(<OrdenVentaFormStep {...estado} />);
+
+      expect(screen.queryByText(/Aplica a todas las OT/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Solo esta OT.")).not.toBeInTheDocument();
+    });
+
+    it("REQ-349: con varias OT muestra hints global y por OT", () => {
+      const { estado } = estadoCompleto({
+        ordenesTrabajoForm: [ot("ot-1", "OT 1"), ot("ot-2", "OT 2")],
+        hijaFormActiva: ot("ot-1", "OT 1"),
+      });
+      render(<OrdenVentaFormStep {...estado} />);
+
+      expect(screen.getAllByText(/Aplica a todas las OT/).length).toBeGreaterThanOrEqual(1);
+      // Referencia de pedido (único «Solo esta OT.») está oculta en captura.
+      expect(screen.queryByText("Solo esta OT.")).not.toBeInTheDocument();
+    });
   });
 });

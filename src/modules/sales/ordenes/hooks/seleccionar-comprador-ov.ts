@@ -201,7 +201,7 @@ export function useSeleccionarCompradorModal(estado: OrdenVentaFormEstado) {
         setDenominacionComercial,
       });
     },
-    [applyCompradorPrefill, codigoCuenta, setDenominacionComercial],
+    [applyCompradorPrefill, codigoCuenta, setDenominacionComercial, selectedCompradorIdRef, setAvisoVerificarDireccion, setCompradorLabel, setCompradorNombreIa, setCompradorSugerencias, setEquivalenciaByProducto, setError, setExigeOc, setIdComprador, setMissingFields, setPrecioOverrideByProducto, setTelefono, setWarnFields],
   );
   return { handleSelectComprador };
 }

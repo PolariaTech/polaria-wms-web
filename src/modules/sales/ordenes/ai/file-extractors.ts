@@ -1,5 +1,4 @@
 import path from "node:path";
-import { convert as htmlToText } from "html-to-text";
 import { simpleParser } from "mailparser";
 import { extractText, getDocumentProxy } from "unpdf";
 import * as XLSX from "xlsx";
@@ -8,6 +7,9 @@ import {
   formatMailAddress,
   prependCorreoChromeToBody,
 } from "../utils/origen/correo-chrome";
+import { extractCuerpoCorreo, extractFromHtml } from "./file-extractors-html";
+
+export { plainPareceTablaAplastada } from "./file-extractors-html";
 
 const TEXT_EXTENSIONS = new Set([".csv", ".txt"]);
 const IMAGE_MIME_PREFIX = "image/";
@@ -67,56 +69,6 @@ function extractFromExcel(buffer: Buffer): string {
 async function extractFromDocx(buffer: Buffer): Promise<string> {
   const result = await mammoth.extractRawText({ buffer });
   return result.value.trim();
-}
-
-// Adjunto/cuerpo .html real encontrado en correos de sistemas automáticos de PO
-// (Marriott/Sheraton): traen la orden de compra completa renderizada como HTML. Se
-// convierte a texto plano en vez de mandarle el markup crudo a la IA (ruido de tags,
-// estilos, y entidades HTML sin decodificar como "&Oacute;").
-// Tablas HTML → dataTable (columnas alineadas); el default de html-to-text aplasta
-// celdas en una sola línea o en lista vertical ilegible.
-function extractFromHtml(buffer: Buffer): string {
-  return htmlToText(buffer.toString("utf8"), {
-    wordwrap: false,
-    selectors: [
-      { selector: "a", options: { ignoreHref: true } },
-      { selector: "img", format: "skip" },
-      {
-        selector: "table",
-        format: "dataTable",
-        options: {
-          uppercaseHeaderCells: false,
-          // 32 cortaba celdas (“Baja” / “California”) y rompía la tabla.
-          maxColumnWidth: 200,
-        },
-      },
-    ],
-  }).trim();
-}
-
-function htmlTieneTabla(html: string): boolean {
-  return /<table[\s>]/i.test(html);
-}
-
-/**
- * El text/plain de Outlook/Gmail suele “aplastar” tablas (una celda por línea).
- * Si hay HTML con <table>, preferimos ese camino con dataTable.
- */
-function extractCuerpoCorreo(parsed: {
-  text?: string | null;
-  html?: string | false | null;
-}): string {
-  const plain = parsed.text?.trim() || "";
-  const htmlRaw =
-    typeof parsed.html === "string" && parsed.html.trim()
-      ? parsed.html
-      : "";
-  const fromHtml = htmlRaw ? extractFromHtml(Buffer.from(htmlRaw)) : "";
-
-  if (htmlRaw && htmlTieneTabla(htmlRaw) && fromHtml) {
-    return fromHtml;
-  }
-  return plain || fromHtml;
 }
 
 /**

@@ -110,9 +110,15 @@ export function findPrimeraRevisionPendiente(params: {
   for (let i = 0; i < hijas.length; i += 1) {
     const hija = hijas[i]!;
     const otLabel = otShortLabel(i, hijas.length);
+    // REQ-170: con una sola OT, todas las líneas cuentan (aunque otId no calce
+    // exactamente con el id de la hija — p. ej. almacen de cabecera vs línea).
     const indexed = params.lineas
       .map((linea, lineaIndex) => ({ linea, lineaIndex }))
-      .filter(({ linea }) => (hija.id ? linea.otId === hija.id : true));
+      .filter(({ linea }) => {
+        if (hijas.length === 1) return true;
+        if (!hija.id) return true;
+        return linea.otId === hija.id;
+      });
 
     if (indexed.length === 0) {
       return {

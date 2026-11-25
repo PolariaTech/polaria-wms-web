@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { CapturaOrdenCard } from "./CapturaOrdenCard";
 import type { CapturaOrdenMetaView } from "./captura-orden.types";
 
@@ -41,13 +42,12 @@ export function CapturaOrdenView({
 
       <div className="relative z-10 mx-auto flex w-full max-w-sm flex-1 flex-col items-center justify-center px-6 py-10">
         <header className="mb-8 flex flex-col items-center text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element -- página pública mínima sin Image optimizer */}
-          <img
+          <Image
             src="/logo.png"
             alt="Polaria"
             width={160}
             height={43}
-            decoding="async"
+            priority
             className="h-auto w-28 sm:w-32"
           />
         </header>

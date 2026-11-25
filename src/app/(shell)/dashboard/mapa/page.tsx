@@ -1,8 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { ROLES_MAPA_BODEGA } from "@/constants/wms/roles";
 import { OperationalModuleShell } from "@/components/shared/module/OperationalModuleShell";
-import { MapaInventarioPageContent } from "@/modules/inventory";
+
+const MapaInventarioPageContent = dynamic(
+  () =>
+    import("@/modules/inventory").then((m) => ({
+      default: m.MapaInventarioPageContent,
+    })),
+  { loading: () => null, ssr: false },
+);
 
 export default function DashboardMapaPage() {
   return (

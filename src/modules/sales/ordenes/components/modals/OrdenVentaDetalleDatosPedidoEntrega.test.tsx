@@ -50,7 +50,6 @@ describe("OrdenVentaDetalleDatosPedidoEntrega (REQ-305)", () => {
         ordenCompraHotel="OC-9"
         folioFactura="F-1"
         centroConsumo="Banquetes"
-        referenciaPedido="REF-1"
         moneda="USD"
         fechaEntrega="2026-11-12"
         ventanaEntrega="06:00 – 09:00"

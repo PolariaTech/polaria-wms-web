@@ -117,8 +117,11 @@ export function CapturaOrdenCamera({
   const videoRef = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream>(stream);
-  streamRef.current = stream;
   const goodStreakRef = useRef(0);
+
+  useEffect(() => {
+    streamRef.current = stream;
+  }, [stream]);
   const [ready, setReady] = useState(false);
   const [hojaOk, setHojaOk] = useState(false);
   const [error, setError] = useState<string | null>(null);

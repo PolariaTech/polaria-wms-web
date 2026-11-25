@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { extractFiles } from "@/modules/sales/ordenes/ai/file-extractors";
-import {
-  extraerPedido,
-  type PedidoExtraido,
-} from "@/modules/sales/ordenes/ai/openai-pedido.client";
 import { listProductoCatalogoClavesServer } from "@/modules/sales/shared/services/sales-catalog.server";
 import { mergeCorreoChromeIntoTexto } from "@/modules/sales/ordenes/utils/origen/correo-chrome";
-import { buildTextoOrigenPedido } from "@/modules/sales/ordenes/utils/origen/texto-origen-pedido";
-import OpenAI from "openai";
+import { leerPedidoEnMateoIa } from "@/lib/mateo-ia/mateo-ia.client";
+import {
+  buildLeerPedidoCacheKey,
+  getLeerPedidoCache,
+  setLeerPedidoCache,
+} from "@/lib/mateo-ia/leer-pedido-cache";
 
 const PRESENTACIONES = [
   "",
@@ -21,8 +20,8 @@ const MAX_FILES = 8;
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 /**
- * BFF local: misma lógica que antes (extractors + OpenAI + catálogo).
- * Excluido del rewrite a Nest en next.config para no depender del API en esta pantalla.
+ * BFF: resuelve catálogo de la cuenta y delega la lectura IA a mateo-ia-api.
+ * Excluido del rewrite a Nest en next.config.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const authHeader = request.headers.get("authorization");
@@ -32,16 +31,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   if (!accessToken) {
     return NextResponse.json({ error: "Sesión requerida." }, { status: 401 });
-  }
-
-  if (!process.env.OPENAI_API_KEY?.trim()) {
-    return NextResponse.json(
-      {
-        error:
-          "Falta configurar OPENAI_API_KEY en el servidor para leer pedidos con IA.",
-      },
-      { status: 503 },
-    );
   }
 
   let form: FormData;
@@ -86,7 +75,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   const inicio = Date.now();
 
   try {
-    const catalogoClaves = await listProductoCatalogoClavesServer(codigoCuenta);
+    // Catálogo y base64 de archivos son independientes: en paralelo.
+    const [catalogoClaves, archivosB64] = await Promise.all([
+      listProductoCatalogoClavesServer(codigoCuenta),
+      Promise.all(
+        archivos.map(async (file) => ({
+          nombre: file.name,
+          mime: file.type || "application/octet-stream",
+          base64: Buffer.from(await file.arrayBuffer()).toString("base64"),
+        })),
+      ),
+    ]);
 
     if (catalogoClaves.length === 0) {
       return NextResponse.json(
@@ -98,82 +97,87 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    const uploaded = await Promise.all(
-      archivos.map(async (file) => ({
-        originalname: file.name,
-        mimetype: file.type || "application/octet-stream",
-        buffer: Buffer.from(await file.arrayBuffer()),
-      })),
-    );
-
-    const archivosExtraidos = await extractFiles(uploaded);
-    const textoOrigenCrudo = buildTextoOrigenPedido(texto, archivosExtraidos);
-    const hoyISO = new Date().toISOString().slice(0, 10);
-
-    const { pedido, uso } = await extraerPedido({
+    const cacheKey = buildLeerPedidoCacheKey({
+      codigoCuenta,
       texto,
-      archivosExtraidos,
-      hoyISO,
+      archivos: archivosB64.map((a) => ({
+        nombre: a.nombre,
+        size: a.base64.length,
+        base64Head: a.base64.slice(0, 64),
+      })),
+    });
+    const cached = getLeerPedidoCache(cacheKey);
+    if (cached && typeof cached === "object") {
+      console.info(
+        JSON.stringify({
+          evento: "leer-pedido",
+          exito: true,
+          via: "cache",
+          codigoCuenta,
+          duracionMs: Date.now() - inicio,
+        }),
+      );
+      return NextResponse.json(cached);
+    }
+
+    const lectura = await leerPedidoEnMateoIa({
+      texto: texto || undefined,
+      archivos: archivosB64,
       catalogoClaves,
       presentaciones: [...PRESENTACIONES],
+      hoyISO: new Date().toISOString().slice(0, 10),
     });
 
-    // Cabeceras De/Asunto del .eml + cuerpo (IA o crudo). No perder remitente/asunto.
+    const pedido = lectura.pedido as {
+      textoOrigen?: string | null;
+      [clave: string]: unknown;
+    };
     const textoOrigen = mergeCorreoChromeIntoTexto(
-      textoOrigenCrudo,
-      pedido.textoOrigen?.trim() || textoOrigenCrudo,
+      lectura.textoOrigen || texto,
+      pedido.textoOrigen?.trim() || lectura.textoOrigen || texto,
     );
 
-    console.log(
+    const payload = {
+      ...pedido,
+      textoOrigen: textoOrigen || null,
+      grupos: lectura.grupos,
+      documentos: lectura.documentos,
+      advertencias: lectura.advertencias,
+    };
+    setLeerPedidoCache(cacheKey, payload);
+
+    console.info(
       JSON.stringify({
         evento: "leer-pedido",
         exito: true,
+        via: "mateo-ia-api",
         cliente: cliente || "(sin cliente)",
         codigoCuenta,
         catalogoProductos: catalogoClaves.length,
         archivos: archivos.length,
         textoOrigenChars: textoOrigen.length,
         duracionMs: Date.now() - inicio,
-        tokensEntrada: uso?.tokensEntrada ?? null,
-        tokensSalida: uso?.tokensSalida ?? null,
-        tokensTotal: uso?.tokensTotal ?? null,
-        costoUSD: uso?.costoUSD ?? null,
+        tokensTotal: lectura.tokensTotal,
+        costoUSD: lectura.costoUSD,
       }),
     );
 
-    const response: PedidoExtraido = {
-      ...pedido,
-      textoOrigen: textoOrigen || null,
-    };
-    return NextResponse.json(response);
+    return NextResponse.json(payload);
   } catch (err) {
-    console.log(
+    const mensaje = err instanceof Error ? err.message : String(err);
+    console.error(
       JSON.stringify({
         evento: "leer-pedido",
         exito: false,
-        cliente: cliente || "(sin cliente)",
+        via: "mateo-ia-api",
         codigoCuenta,
-        archivos: archivos.length,
+        error: mensaje,
         duracionMs: Date.now() - inicio,
       }),
     );
-    console.error("Error en /api/ventas/leer-pedido:", err);
-
-    if (err instanceof OpenAI.APIError) {
-      return NextResponse.json(
-        {
-          error:
-            "El servicio de IA no está disponible en este momento. Intenta de nuevo.",
-        },
-        { status: 502 },
-      );
-    }
-
-    const message =
-      err instanceof Error && /OPENAI_API_KEY/i.test(err.message)
-        ? err.message
-        : "No se pudo leer el pedido. Intenta de nuevo.";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = /Falta MATEO_IA|No se pudo contactar|503/.test(mensaje)
+      ? 503
+      : 500;
+    return NextResponse.json({ error: mensaje }, { status });
   }
 }
