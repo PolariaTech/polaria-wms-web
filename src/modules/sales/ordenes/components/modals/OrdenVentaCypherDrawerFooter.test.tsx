@@ -43,7 +43,7 @@ describe("OrdenVentaCypherDrawerFooter (REQ-350)", () => {
     expect(screen.getByRole("button", { name: "Borrar" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Borrar" })).toHaveAttribute(
       "title",
-      "Solo disponible en órdenes por confirmar, confirmadas o en alistamiento",
+      "Solo disponible en órdenes por confirmar",
     );
   });
 });

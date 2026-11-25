@@ -107,12 +107,10 @@ export function puedeEditarOrdenVentaDesdeLista(estado: string): boolean {
 /**
  * Soft-delete / cancelar («Borrar» en UI).
  * REQ-255: por confirmar (duplicados).
- * REQ-350: también confirmada y alistamiento (antes de despacho).
+ * REQ-419: solo por_confirmar; confirmada y posteriores deshabilitan el botón (sin ocultarlo).
  */
 const ESTADOS_ORDEN_VENTA_CANCELABLES: ReadonlySet<EstadoOrdenVenta> = new Set([
   "por_confirmar",
-  "confirmada",
-  "alistamiento",
 ]);
 
 export function puedeBorrarOrdenVenta(estado: string): boolean {
