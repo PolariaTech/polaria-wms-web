@@ -3,7 +3,6 @@ import {
   runDomainQuery,
 } from "@/lib/supabase/domain-query";
 import { claveEnvioDesdeOrigenArchivos } from "../../ordenes/utils/match/annotate-correo-partido-ov";
-import { parseOrigenArchivos } from "../../ordenes/utils/origen/origen-adjuntos";
 
 /** Una OV que salió del mismo correo (REQ-313 / REQ-347). */
 export interface OvDelMismoCorreo {
@@ -20,14 +19,12 @@ interface FilaOv {
   origen_archivos: string | null;
 }
 
-function mapFilas(filas: FilaOv[], pathExacto: string | null): OvDelMismoCorreo[] {
+function mapFilas(filas: FilaOv[], uuidEnvio: string | null): OvDelMismoCorreo[] {
   return filas
     .filter((fila) => (fila.estado ?? "").toLowerCase() !== "cancelada")
     .filter((fila) => {
-      if (!pathExacto) return true;
-      return parseOrigenArchivos(fila.origen_archivos).some(
-        (adjunto) => adjunto.path?.trim() === pathExacto,
-      );
+      if (!uuidEnvio) return true;
+      return claveEnvioDesdeOrigenArchivos(fila.origen_archivos) === uuidEnvio;
     })
     .map((fila) => ({
       idOrdenVenta: fila.id_orden_venta,
@@ -63,9 +60,9 @@ async function consultarHermanas(input: {
 }
 
 /**
- * REQ-313 / REQ-347: OV de la cuenta del mismo envío (adjunto con uuid en path).
+ * REQ-313 / REQ-347 / REQ-361: OV de la cuenta del mismo envío (adjunto con uuid en path).
  * 1) Igualdad exacta de `origen_archivos` (hermanas con el mismo JSON).
- * 2) Si hace falta, LIKE por el path con uuid (cada OV puede guardar solo su PDF).
+ * 2) Si hace falta, LIKE por el uuid del envío (cada OV puede guardar solo su PDF).
  * Si el origen es legado (sin path/uuid) no hay con qué buscar.
  */
 export async function buscarOvsDelMismoCorreo(input: {
@@ -74,7 +71,7 @@ export async function buscarOvsDelMismoCorreo(input: {
 }): Promise<OvDelMismoCorreo[]> {
   const cuenta = requireCodigoCuenta(input.codigoCuenta);
   const origenExacto = input.origenArchivos?.trim() || "";
-  const path = claveEnvioDesdeOrigenArchivos(input.origenArchivos);
+  const uuidEnvio = claveEnvioDesdeOrigenArchivos(input.origenArchivos);
 
   if (origenExacto) {
     const exactas = mapFilas(
@@ -84,7 +81,7 @@ export async function buscarOvsDelMismoCorreo(input: {
     if (exactas.length >= 2) return exactas;
   }
 
-  if (!path) return [];
+  if (!uuidEnvio) return [];
 
-  return mapFilas(await consultarHermanas({ cuenta, likePath: path }), path);
+  return mapFilas(await consultarHermanas({ cuenta, likePath: uuidEnvio }), uuidEnvio);
 }

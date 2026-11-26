@@ -7,6 +7,8 @@ import {
 
 const PATH =
   '[{"nombre":"a.pdf","path":"1YW43/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-a.pdf"}]';
+const PATH_MISMO_ENVIO =
+  '[{"nombre":"b.pdf","path":"1YW43/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-b.pdf"}]';
 const PATH_B =
   '[{"nombre":"b.pdf","path":"1YW43/11111111-2222-3333-4444-555555555555-b.pdf"}]';
 
@@ -38,6 +40,20 @@ describe("annotateCorreoPartidoOv (REQ-338)", () => {
     expect(map.get("a")?.correoPartidoDe).toEqual(["OV-00001883"]);
     expect(map.get("b")?.correoPartidoDe).toEqual(["OV-00001882"]);
     expect(map.get("c")?.correoPartido).toBe(false);
+  });
+
+  it("REQ-361: dos OV del mismo envío con adjuntos distintos se marcan como correo partido", () => {
+    const map = annotateCorreoPartidoOv([
+      { idOrdenVenta: "a", codigo: "OV-00001882", origenArchivos: PATH },
+      { idOrdenVenta: "b", codigo: "OV-00001883", origenArchivos: PATH_MISMO_ENVIO },
+    ]);
+    expect(claveEnvioDesdeOrigenArchivos(PATH)).toBe("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    expect(claveEnvioDesdeOrigenArchivos(PATH_MISMO_ENVIO)).toBe(
+      "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    );
+    expect(map.get("a")?.correoPartido).toBe(true);
+    expect(map.get("a")?.correoPartidoDe).toEqual(["OV-00001883"]);
+    expect(map.get("b")?.correoPartidoDe).toEqual(["OV-00001882"]);
   });
 
   it("ignora canceladas al agrupar", () => {

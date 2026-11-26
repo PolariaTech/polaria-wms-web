@@ -260,4 +260,39 @@ describe("armarPaqueteConOc", () => {
     expect(await anchosDe(partes[0]!.pdf)).toEqual([612, 101, 201, 102, 301]);
     expect(resumenPdf.notas).toBeUndefined();
   });
+
+  it("REQ-361: registra tiposArchivo (pdf/html/excel) y marca sinArchivoOc cuando una OV no tiene archivo", async () => {
+    const hojas = [...hojaDe("a", 1), ...hojaDe("b", 1), ...hojaDe("c", 1)];
+    const bytesPdf = (await ocDe(1, 201)).documentos[0]!.bytes;
+    const base = await pdfConAnchos(101, 102, 103);
+    const deps: DependenciasPaquete = {
+      prepararOc: vi.fn(async (oc) => ({
+        documentos: oc.documentos.map((d) => ({ nombre: d.nombre, bytes: bytesPdf, paginas: 1 })),
+        paginas: oc.documentos.length,
+        avisos: [],
+      })),
+      construirBaseOt: vi.fn(async () => base),
+    };
+    const origenExcel = JSON.stringify([
+      { nombre: "OC-1.xlsx", path: "cuenta/OC-1.xlsx", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+    ]);
+    const origenHtml = JSON.stringify([
+      { nombre: "OC-2.html", path: "cuenta/OC-2.html", mime: "text/html" },
+    ]);
+
+    const { resumenPdf } = await armarPaqueteConOc(
+      {
+        hojas,
+        resumen: [ov("a"), ov("b"), ov("c")],
+        origenPorOv: new Map([["a", origenExcel], ["b", origenHtml], ["c", null]]),
+        subtitulo: "x",
+        generado: "y",
+      },
+      deps,
+    );
+
+    expect(resumenPdf.filas[0]?.tiposArchivo).toEqual(["excel"]);
+    expect(resumenPdf.filas[1]?.tiposArchivo).toEqual(["html"]);
+    expect(resumenPdf.filas[2]?.sinArchivoOc).toBe(true);
+  });
 });

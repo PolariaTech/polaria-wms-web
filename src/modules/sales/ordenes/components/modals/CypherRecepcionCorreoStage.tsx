@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import {
   isCuerpoMensajeFormato,
@@ -12,6 +13,7 @@ import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 import type { OvDelMismoCorreo } from "../../../shared/services/ovs-del-mismo-correo";
 import { OrigenPedidoBodyView } from "../shared/OrigenPedidoBodyView";
 import { CypherCorreoPartidoAviso } from "./CypherCorreoPartidoAviso";
+import { CypherMoverAdjuntosPanel } from "./CypherMoverAdjuntosPanel";
 import { CypherOrigenAdjuntosBlock } from "./CypherOrigenAdjuntosBlock";
 import { CypherStageAccordion } from "./CypherStageAccordion";
 import type { CypherStageId } from "./cypher-stages";
@@ -102,6 +104,12 @@ export function CypherRecepcionCorreoStage({
     fallbackHermanas,
   });
   const partido = hermanas.length >= 2;
+  const [movidosPorOv, setMovidosPorOv] = useState<Record<string, readonly string[]>>({});
+  const movidosEstaOv = new Set(movidosPorOv[orden.id_orden_venta] ?? []);
+  const adjuntosVisibles = origenAdjuntos.filter((a) => !a.path || !movidosEstaOv.has(a.path.trim()));
+  const storedVisibles = origenAdjuntosStored.filter((a) => !a.path || !movidosEstaOv.has(a.path.trim()));
+  const puedeReasignar =
+    partido && (orden.estado ?? "").toLowerCase() === "por_confirmar" && storedVisibles.length > 0;
 
   return (
     <CypherStageAccordion
@@ -165,13 +173,26 @@ export function CypherRecepcionCorreoStage({
               <p className="polaria-text-caption text-polaria-w-50">Leyendo adjuntos del correo…</p>
             ) : null}
             <CypherOrigenAdjuntosBlock
-              adjuntos={origenAdjuntos}
+              adjuntos={adjuntosVisibles}
               esDeEstaOv={
                 partido
                   ? (adjunto) => nombreTraeOc(adjunto.nombre, orden.orden_compra_hotel)
                   : undefined
               }
             />
+            {puedeReasignar ? (
+              <CypherMoverAdjuntosPanel
+                idOrdenVenta={orden.id_orden_venta}
+                adjuntos={storedVisibles}
+                hermanas={hermanas}
+                onAdjuntoMovido={(path) =>
+                  setMovidosPorOv((prev) => ({
+                    ...prev,
+                    [orden.id_orden_venta]: [...(prev[orden.id_orden_venta] ?? []), path],
+                  }))
+                }
+              />
+            ) : null}
           </div>
         </div>
       ) : null}

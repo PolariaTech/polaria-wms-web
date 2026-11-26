@@ -1,5 +1,6 @@
 import { formatIsoToDdMonAbrev } from "@/lib/utils/fecha-dd-mm-yyyy";
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
+import type { TipoArchivoResumen } from "../print/render-resumen-archivo-badge";
 import type { ResumenImpresionPdf } from "../print/render-resumen-impresion-pdf";
 import { diaEntregaDeOv, type ResumenOvBatch } from "./batch-seleccion";
 
@@ -33,7 +34,10 @@ export function armarResumenImpresion(input: {
    * Si el paquete lleva OC: por OV, cuántas páginas de OC van y qué no se pudo imprimir. Una OV sin
    * ninguna OC y sin avisos recibe una nota que lo dice, para que no parezca un olvido.
    */
-  ocPorOv?: ReadonlyMap<string, { paginas: number; avisos: readonly string[] }>;
+  ocPorOv?: ReadonlyMap<
+    string,
+    { paginas: number; avisos: readonly string[]; tipos?: readonly TipoArchivoResumen[] }
+  >;
 }): ResumenImpresionPdf {
   const { orden, hojas, subtitulo, generado, parteDeOv, ocPorOv } = input;
   const hojasPorOv = new Map<string, OrdenTareaAlmacenPrintData[]>();
@@ -51,6 +55,7 @@ export function armarResumenImpresion(input: {
       }
     }
     const hojasDeOv = hojasPorOv.get(row.idOrdenVenta) ?? [];
+    const tiposArchivo = oc?.tipos && oc.tipos.length > 0 ? [...new Set(oc.tipos)] : undefined;
     return {
       venta: row.venta,
       cliente: row.comprador,
@@ -59,6 +64,8 @@ export function armarResumenImpresion(input: {
       ordenCliente: ordenClienteDeHojas(hojasDeOv),
       hojas: hojasDeOv.length || ots.length,
       ...(oc && oc.paginas > 0 ? { oc: oc.paginas } : {}),
+      ...(tiposArchivo ? { tiposArchivo } : {}),
+      ...(oc && oc.paginas === 0 ? { sinArchivoOc: true } : {}),
       ...(parteDeOv?.has(row.idOrdenVenta) ? { parte: parteDeOv.get(row.idOrdenVenta) } : {}),
     };
   });

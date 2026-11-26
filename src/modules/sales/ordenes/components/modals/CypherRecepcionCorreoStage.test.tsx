@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 import type { OvDelMismoCorreo } from "../../../shared/services/ovs-del-mismo-correo";
@@ -21,9 +21,34 @@ vi.mock("./use-ovs-del-mismo-correo", () => ({
   },
 }));
 
+vi.mock("./CypherMoverAdjuntosPanel", () => ({
+  CypherMoverAdjuntosPanel: ({
+    idOrdenVenta,
+    adjuntos,
+    onAdjuntoMovido,
+  }: {
+    idOrdenVenta: string;
+    adjuntos: Array<{ path?: string }>;
+    onAdjuntoMovido: (path: string) => void;
+  }) => (
+    <div data-testid="panel-mover">
+      {`${idOrdenVenta}:${adjuntos.length}`}
+      <button type="button" onClick={() => onAdjuntoMovido(adjuntos[0]?.path ?? "")}>
+        mover-primero
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("./CypherOrigenAdjuntosBlock", () => ({
-  CypherOrigenAdjuntosBlock: ({ esDeEstaOv }: { esDeEstaOv?: (a: { nombre: string }) => boolean }) => (
-    <div data-testid="adjuntos">
+  CypherOrigenAdjuntosBlock: ({
+    adjuntos,
+    esDeEstaOv,
+  }: {
+    adjuntos: Array<{ nombre: string }>;
+    esDeEstaOv?: (a: { nombre: string }) => boolean;
+  }) => (
+    <div data-testid="adjuntos" data-nombres={adjuntos.map((a) => a.nombre).join(",")}>
       {esDeEstaOv
         ? `propia:${esDeEstaOv({ nombre: "OC-140188.pdf" })}/${esDeEstaOv({ nombre: "OC-140182.pdf" })}`
         : "sin-insignia"}
@@ -128,5 +153,80 @@ describe("CypherRecepcionCorreoStage (REQ-271, REQ-313)", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByText("AGUACATE")).toBeInTheDocument();
     expect(document.querySelector("pre")).toBeNull();
+  });
+});
+
+const HERMANAS_PARTIDO: OvDelMismoCorreo[] = [
+  { idOrdenVenta: "ov-1", codigo: "OV-00001874", ordenCompra: "4500140188" },
+  { idOrdenVenta: "ov-2", codigo: "OV-00001873", ordenCompra: "4500140182" },
+];
+
+const ADJUNTOS_GUARDADOS = [
+  { nombre: "OC-140188.pdf", path: "cuenta/aaa-OC-140188.pdf" },
+  { nombre: "OC-140182.pdf", path: "cuenta/aaa-OC-140182.pdf" },
+];
+
+function pintarReasignable(extra?: { estado?: string; guardados?: typeof ADJUNTOS_GUARDADOS }) {
+  const guardados = extra?.guardados ?? ADJUNTOS_GUARDADOS;
+  return render(
+    <CypherRecepcionCorreoStage
+      openStages={new Set(["correo"])}
+      toggleAccordionStage={vi.fn()}
+      correoChrome={{}}
+      origenNombres={[]}
+      recibida=""
+      cuerpoCompleto=""
+      cuerpoMensaje=""
+      origenAdjuntosStored={guardados}
+      emlInnerAdjuntos={[]}
+      emlInnerLoading={false}
+      origenAdjuntos={guardados}
+      orden={{ ...orden, estado: extra?.estado ?? "por_confirmar" } as OrdenVentaDetalleRow}
+      codigoCuenta="1YW43"
+    />,
+  );
+}
+
+describe("CypherRecepcionCorreoStage: reasignar adjunto entre OV (REQ-361)", () => {
+  beforeEach(() => {
+    hermanasSimuladas = HERMANAS_PARTIDO;
+  });
+
+  it("muestra el panel con correo partido, por confirmar y adjuntos guardados", () => {
+    pintarReasignable();
+
+    expect(screen.getByTestId("panel-mover")).toHaveTextContent("ov-1:2");
+  });
+
+  it("no muestra el panel si la OV ya no está por confirmar", () => {
+    pintarReasignable({ estado: "confirmada" });
+
+    expect(screen.queryByTestId("panel-mover")).not.toBeInTheDocument();
+  });
+
+  it("no muestra el panel si el correo no se partió", () => {
+    hermanasSimuladas = [];
+    pintarReasignable();
+
+    expect(screen.queryByTestId("panel-mover")).not.toBeInTheDocument();
+  });
+
+  it("no muestra el panel si no hay adjuntos guardados", () => {
+    pintarReasignable({ guardados: [] });
+
+    expect(screen.queryByTestId("panel-mover")).not.toBeInTheDocument();
+  });
+
+  it("al mover un adjunto lo oculta del bloque de adjuntos y del panel", () => {
+    pintarReasignable();
+    expect(screen.getByTestId("adjuntos")).toHaveAttribute(
+      "data-nombres",
+      "OC-140188.pdf,OC-140182.pdf",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "mover-primero" }));
+
+    expect(screen.getByTestId("adjuntos")).toHaveAttribute("data-nombres", "OC-140182.pdf");
+    expect(screen.getByTestId("panel-mover")).toHaveTextContent("ov-1:1");
   });
 });

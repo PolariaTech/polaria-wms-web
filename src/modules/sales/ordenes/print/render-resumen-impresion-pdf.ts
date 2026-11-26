@@ -1,4 +1,9 @@
 import { jsPDF } from "jspdf";
+import {
+  dibujarCeldaArchivo,
+  pintarFondoFilaResumen,
+  type TipoArchivoResumen,
+} from "./render-resumen-archivo-badge";
 
 /** Una OV del paquete, en el orden en que salen sus hojas. */
 export interface FilaResumenImpresion {
@@ -14,6 +19,10 @@ export interface FilaResumenImpresion {
   hojas: number;
   /** Páginas de OC (adjuntos HTML, PDF o Excel) que van detrás de las hojas de OT de la OV. */
   oc?: number;
+  /** REQ-361: tipos de archivo fuente de la OC impresa (PDF, HTML, Excel). */
+  tiposArchivo?: readonly TipoArchivoResumen[];
+  /** REQ-361: true cuando el paquete lleva OC pero esta OV no tuvo archivo de OC para imprimir. */
+  sinArchivoOc?: boolean;
   /**
    * En qué envío (desde 1) sale la OV, cuando el paquete se parte por su tamaño. Con más de una
    * parte el resumen añade la columna «Parte» y «Desde la hoja» cuenta dentro de cada parte.
@@ -54,6 +63,7 @@ interface Columna {
 }
 
 const COL_NUMERO: Columna = { clave: "#", ancho: 10, alinea: "center" };
+const COL_ARCHIVO: Columna = { clave: "Archivo", ancho: 17, alinea: "center" };
 const COL_OV: Columna = { clave: "Orden de venta", ancho: 22, alinea: "left" };
 const COL_CLIENTE: Columna = { clave: "Cliente", ancho: 76, alinea: "left" };
 const COL_ENTREGA: Columna = { clave: "Entrega", ancho: 16, alinea: "center" };
@@ -64,15 +74,17 @@ const COL_PARTE: Columna = { clave: "Parte", ancho: 12, alinea: "center" };
 const COL_DESDE: Columna = { clave: "Desde la hoja", ancho: 24, alinea: "center" };
 
 /**
- * Las columnas «Págs. OC», «Parte» y «Entrega» solo aparecen si hacen falta; el ancho sale del cliente,
+ * Las columnas «Archivo», «Págs. OC», «Parte» y «Entrega» solo aparecen si hacen falta; el ancho sale del cliente,
  * que es el que más sobra. Sin «Entrega» (todas las OV salen el mismo día, que ya dice el subtítulo) el
  * espacio libre pasa a la orden de compra, para que su número salga completo.
  */
 function columnasDe(conOc: boolean, conParte: boolean, conEntrega: boolean): Columna[] {
-  const extra = (conOc ? COL_OC.ancho : 0) + (conParte ? COL_PARTE.ancho : 0);
+  const extra =
+    (conOc ? COL_OC.ancho + COL_ARCHIVO.ancho : 0) + (conParte ? COL_PARTE.ancho : 0);
   const ordenCliente = conEntrega ? COL_ORDEN_CLIENTE : { ...COL_ORDEN_CLIENTE, ancho: COL_ORDEN_CLIENTE.ancho + COL_ENTREGA.ancho };
   const columnas = [
     COL_NUMERO,
+    ...(conOc ? [COL_ARCHIVO] : []),
     COL_OV,
     { ...COL_CLIENTE, ancho: COL_CLIENTE.ancho - extra },
     ...(conEntrega ? [COL_ENTREGA] : []),
@@ -167,7 +179,12 @@ function dibujarPagina(
     return;
   }
 
-  const conOc = resumen.filas.some((fila) => (fila.oc ?? 0) > 0);
+  const conOc = resumen.filas.some(
+    (fila) =>
+      (fila.oc ?? 0) > 0 ||
+      Boolean(fila.sinArchivoOc) ||
+      (fila.tiposArchivo?.length ?? 0) > 0,
+  );
   const conParte = resumen.filas.some((fila) => (fila.parte ?? 1) > 1);
   // Con todas las OV del mismo día la fecha ya está en el subtítulo: la columna sobra.
   const conEntrega = new Set(resumen.filas.map((fila) => fila.entrega)).size > 1;
@@ -213,13 +230,11 @@ function dibujarPagina(
   const visibles = resumen.filas.slice(desde, desde + FILAS_POR_PAGINA_RESUMEN);
 
   visibles.forEach((fila, indice) => {
-    if (indice % 2 === 1) {
-      doc.setFillColor(238, 238, 238);
-      doc.rect(MARGIN, cursorY, CONTENT_W, FILA_H, "F");
-    }
+    pintarFondoFilaResumen(doc, { x: MARGIN, y: cursorY, ancho: CONTENT_W, alto: FILA_H, indice, sinArchivo: fila.sinArchivoOc });
     doc.rect(MARGIN, cursorY, CONTENT_W, FILA_H, "S");
     const valores = [
       String(desde + indice + 1),
+      ...(conOc ? [""] : []),
       fila.venta,
       fila.cliente,
       ...(conEntrega ? [fila.entrega] : []),
@@ -231,11 +246,15 @@ function dibujarPagina(
     ];
     let columnaX = MARGIN;
     columnas.forEach((col, i) => {
-      doc.setFont("helvetica", i === 1 ? "bold" : "normal");
-      doc.setFontSize(7.5);
-      const texto = textoQueCabe(doc, valores[i]!, col.ancho);
-      const posicionTexto = col.alinea === "center" ? columnaX + col.ancho / 2 : columnaX + 1.2;
-      doc.text(texto, posicionTexto, cursorY + FILA_H / 2, { align: col.alinea, baseline: "middle" });
+      if (col.clave === COL_ARCHIVO.clave) {
+        dibujarCeldaArchivo(doc, { x: columnaX, y: cursorY, ancho: col.ancho, alto: FILA_H, tipos: fila.tiposArchivo, sinArchivo: fila.sinArchivoOc });
+      } else {
+        doc.setFont("helvetica", col.clave === COL_OV.clave ? "bold" : "normal");
+        doc.setFontSize(7.5);
+        const texto = textoQueCabe(doc, valores[i]!, col.ancho);
+        const posicionTexto = col.alinea === "center" ? columnaX + col.ancho / 2 : columnaX + 1.2;
+        doc.text(texto, posicionTexto, cursorY + FILA_H / 2, { align: col.alinea, baseline: "middle" });
+      }
       columnaX += col.ancho;
       if (i < columnas.length - 1) doc.line(columnaX, cursorY, columnaX, cursorY + FILA_H);
     });
