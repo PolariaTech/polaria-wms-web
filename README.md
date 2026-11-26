@@ -1,6 +1,6 @@
 # Polaria WMS Web
 
-**Versión de producto: 2.13.53** (misma en `polaria-wms-api` y `polaria-wms-db` — ver `docs/VERSIONADO.md`)
+**Versión de producto: 2.13.55** (misma en `polaria-wms-api` y `polaria-wms-db` — ver `docs/VERSIONADO.md`)
 
 Frontend web del **Sistema de Gestión de Almacenes (WMS)** Polaria. Construido con [Next.js 16](https://nextjs.org), React 19 y TypeScript.
 
