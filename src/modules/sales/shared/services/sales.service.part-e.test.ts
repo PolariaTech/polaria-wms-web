@@ -135,6 +135,7 @@ describe("sales.service", () => {
         presentacion: null,
         unidad_medida: null,
         match_producto: null,
+        posicion: 0,
       },
     ]);
   });
@@ -253,6 +254,7 @@ describe("sales.service", () => {
         presentacion: "Caja 6 kg",
         unidad_medida: null,
         match_producto: null,
+        posicion: 0,
       },
     ]);
     expect(row.venta).toBe("OV-001");

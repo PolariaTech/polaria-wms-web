@@ -200,6 +200,13 @@ describe("materializeOrdenVentaDesdeOrigenSiVacia", () => {
     });
   });
 
+  it("REQ-370: el insert guarda posicion 0, 1… en el orden en que vienen en la OC", async () => {
+    await materializeOrdenVentaDesdeOrigenSiVacia(params);
+
+    expect(estadoSimulado.lineas.map((linea) => linea.id_producto)).toEqual(["p1", "p2"]);
+    expect(estadoSimulado.lineas.map((linea) => linea.posicion)).toEqual([0, 1]);
+  });
+
   it("si el insert falla libera la reserva y deja reintentar", async () => {
     estadoSimulado.insertFalla = true;
 

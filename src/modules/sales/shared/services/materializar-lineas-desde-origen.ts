@@ -200,7 +200,12 @@ export async function materializeOrdenVentaDesdeOrigenSiVacia(params: {
       await runDomainMutation((client) => {
         const query = client
           .from("orden_venta_linea")
-          .insert(buildFilasInsertarOrdenVentaLinea(idOrdenVenta, plan.lineas));
+          .insert(
+            // REQ-370: `posicion` guarda el orden en que vienen en la OC.
+            buildFilasInsertarOrdenVentaLinea(idOrdenVenta, plan.lineas).map(
+              (fila, posicion) => ({ ...fila, posicion }),
+            ),
+          );
 
         return query as unknown as Promise<{
           data: unknown;

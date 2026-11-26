@@ -62,6 +62,26 @@ function mapOrdenVentaLineaDetalleRow(
   };
 }
 
+/**
+ * REQ-370: las líneas salen en el orden de la OC (`posicion`). Las anteriores a esa columna no la
+ * tienen (null): van al final y conservan el orden en que llegaron.
+ */
+export function ordenarLineasPorPosicion(
+  lineas: readonly OrdenVentaLineaDetalleDbRow[],
+): OrdenVentaLineaDetalleDbRow[] {
+  return lineas
+    .map((linea, indice) => ({ linea, indice }))
+    .sort((a, b) => {
+      const posicionA = a.linea.posicion ?? null;
+      const posicionB = b.linea.posicion ?? null;
+      if (posicionA === null && posicionB === null) return a.indice - b.indice;
+      if (posicionA === null) return 1;
+      if (posicionB === null) return -1;
+      return posicionA - posicionB || a.indice - b.indice;
+    })
+    .map(({ linea }) => linea);
+}
+
 function mapOrdenVentaDetalleRow(
   row: OrdenVentaDetalleDbRow,
   bodegaLabels: Map<string, string>,
@@ -81,7 +101,9 @@ function mapOrdenVentaDetalleRow(
     bodega_destino_nombre: orden.id_bodega_destino
       ? (bodegaLabels.get(orden.id_bodega_destino) ?? null)
       : null,
-    lineas: (orden_venta_linea ?? []).map(mapOrdenVentaLineaDetalleRow),
+    lineas: ordenarLineasPorPosicion(orden_venta_linea ?? []).map(
+      mapOrdenVentaLineaDetalleRow,
+    ),
   };
 }
 
