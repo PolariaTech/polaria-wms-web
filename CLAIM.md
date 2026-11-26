@@ -10,6 +10,9 @@
 ### Zonas que voy a tocar
 - `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleModal.tsx`
 - `src/modules/sales/ordenes/hooks/use-orden-venta-detalle-ot.test.ts`
+- `VERSION` — autorizada por el usuario el 2026-11-26
+- `package.json` — autorizada por el usuario el 2026-11-26
+- `package-lock.json` — autorizada por el usuario el 2026-11-26
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
