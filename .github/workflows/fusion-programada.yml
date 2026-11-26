@@ -5,9 +5,9 @@ name: Fusión programada
 # (workflow_dispatch con solo_simular=false; decisión de Daniel, 2026-11-26). No usa el `schedule` de GitHub porque
 # creaba la ejecución con 7 a 11 horas de retraso. Si n8n no corre, no hay fusión. Si no hay ningún PR listo, no hace nada.
 #
-# El DESPLIEGUE no está en este workflow: Vercel despliega solo con cada merge a main (auto-deploy
-# de Vercel). Por eso, fusionar a las 06:00 es lo que programa el despliegue a esa hora.
-# Cuando se migre a AWS, el despliegue a AWS se agrega como un paso posterior a la fusión.
+# DESPLIEGUE: Vercel despliega solo con cada merge a main (auto-deploy de Vercel). Además,
+# para AWS, cuando ya no quedan fusiones por hacer y se fusionó al menos un PR, el robot lanza el workflow
+# `Deploy` una sola vez con el commit en que quedó main (decisión de Daniel, 2026-11-26).
 #
 # Qué se fusiona (todas las condiciones a la vez):
 #   - PR hacia main, que no sea borrador;
@@ -273,6 +273,23 @@ jobs:
               echo "- NO se pudo fusionar #${numero}" >> "${GITHUB_STEP_SUMMARY}"
             fi
           done < candidatos.txt
+
+          # Despliegue a AWS (decisión de Daniel, 2026-11-26): una sola vez, cuando ya no quedan fusiones por hacer
+          # y solo si se fusionó algo. Se despliega el commit en que quedó main. Un `workflow_dispatch` lanzado con
+          # el token del workflow sí arranca la otra ejecución.
+          if [ "${SOLO_SIMULAR}" = "true" ]; then
+            echo "- (simulación) al terminar lanzaría el Deploy a AWS" >> "${GITHUB_STEP_SUMMARY}"
+          elif [ "${fusionados}" -gt 0 ]; then
+            if sha="$(gh api "repos/${REPO}/git/ref/heads/main" --jq '.object.sha')" &&
+              url="$(gh api --method POST "repos/${REPO}/actions/workflows/deploy.yml/dispatches" \
+                -f ref=main -f "inputs[ref]=${sha}" -F return_run_details=true --jq '.html_url')"; then
+              echo "- Deploy a AWS lanzado con el commit ${sha:0:7}: ${url}" >> "${GITHUB_STEP_SUMMARY}"
+            else
+              fallos=$((fallos + 1))
+              echo "::error::Se fusionó a main, pero no se pudo lanzar el Deploy a AWS. Lánzalo a mano en Actions > Deploy."
+              echo "- NO se pudo lanzar el Deploy a AWS" >> "${GITHUB_STEP_SUMMARY}"
+            fi
+          fi
 
           {
             echo "- Fusionados: ${fusionados}"
