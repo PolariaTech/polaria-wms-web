@@ -102,7 +102,7 @@ describe("buscarOvsDelMismoCorreo", () => {
     expect(llamadas).toContainEqual(["eq", "origen_archivos", json]);
   });
 
-  it("escapa % y _ de la ruta en el patrón LIKE", async () => {
+  it("busca por LIKE usando el uuid del envío cuando no hay >=2 exactas", async () => {
     const path = `c/${UUID}-100%_oc.pdf`;
     // Exactas < 2 → cae al LIKE
     filas = [fila("OV-unica", "1", [path])];
@@ -110,16 +110,17 @@ describe("buscarOvsDelMismoCorreo", () => {
     await buscarOvsDelMismoCorreo({ codigoCuenta: "c", origenArchivos: origen(path) });
 
     const like = llamadas.find((l) => l[0] === "like")!;
-    expect(like[2]).toContain("100\\%\\_oc");
+    expect(like[2]).toBe(`%${UUID}%`);
   });
 
-  it("descarta las filas cuyo origen no contiene esa misma ruta y devuelve las demás", async () => {
+  it("REQ-361: incluye hermanas del mismo envío con adjunto distinto y descarta otro uuid", async () => {
+    const OTRO_UUID = "99999999-8888-4777-8666-555555555555";
     colaFilas = [
       [fila("OV-unica", "1", [PATH])],
       [
         fila("OV-00001873", "4500140182", [PATH]),
-        fila("OV-00001874", "4500140188", [PATH, "c/otro"]),
-        fila("OV-00009999", null, [`c/${UUID}-OTRO.pdf`]),
+        fila("OV-00001874", "4500140188", [`c/${UUID}-OC-140188.pdf`]),
+        fila("OV-00009999", null, [`c/${OTRO_UUID}-OTRO.pdf`]),
       ],
     ];
 

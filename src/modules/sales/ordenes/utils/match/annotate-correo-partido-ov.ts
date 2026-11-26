@@ -1,7 +1,11 @@
 import { parseOrigenArchivos } from "../origen/origen-adjuntos";
 
-/** El uuid del envío va en la ruta (`cuenta/uuid-nombre`); une OV del mismo correo (REQ-313/338). */
-const UUID_EN_RUTA = /[0-9a-f]{8}-[0-9a-f]{4}-/i;
+/**
+ * El uuid del envío va en la ruta (`cuenta/uuid-nombre`); une OV del mismo correo (REQ-313/338/361).
+ * Se compara solo el uuid, porque tras dividir por OC cada OV hermana guarda solo sus propios adjuntos.
+ */
+const UUID_EN_RUTA =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 export type OvCorreoPartidoCandidate = {
   idOrdenVenta: string;
@@ -16,14 +20,15 @@ export type OvCorreoPartidoAnnotation = {
   correoPartidoDe: string[];
 };
 
-/** Path con uuid del envío, o null si el origen es legado / vacío. */
+/** UUID del envío (en minúsculas), o null si el origen es legado / vacío. */
 export function claveEnvioDesdeOrigenArchivos(
   origenArchivos: string | null | undefined,
 ): string | null {
-  const path = parseOrigenArchivos(origenArchivos)
-    .map((adjunto) => adjunto.path?.trim() ?? "")
-    .find((ruta) => UUID_EN_RUTA.test(ruta));
-  return path || null;
+  for (const adjunto of parseOrigenArchivos(origenArchivos)) {
+    const match = UUID_EN_RUTA.exec(adjunto.path?.trim() ?? "");
+    if (match) return match[0].toLowerCase();
+  }
+  return null;
 }
 
 /** Texto del tooltip en listado (REQ-338). */

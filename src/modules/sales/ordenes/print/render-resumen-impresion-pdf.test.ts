@@ -252,6 +252,33 @@ describe("paginasDeResumen con notas", () => {
   });
 });
 
+describe("columna Archivo y aviso sin archivo (REQ-361)", () => {
+  it("con OC muestra la columna Archivo con íconos por tipo y alerta ámbar en filas sin archivo", () => {
+    const pdf = pdfConDosHojas();
+    anadirResumenAlPdf(
+      pdf,
+      resumen([
+        fila(1, { oc: 2, tiposArchivo: ["pdf"] }),
+        fila(2, { oc: 1, tiposArchivo: ["excel"] }),
+        fila(3, { sinArchivoOc: true }),
+      ]),
+    );
+
+    const texto = contenido(pdf, 1);
+    expect(texto).toContain("(Archivo) Tj");
+    expect(texto).toContain("0.86 0.15 0.15 rg");
+    expect(texto).toContain("0.09 0.64 0.29 rg");
+    expect(texto).toContain("0.96 0.62 0.04 rg");
+  });
+
+  it("sin OC no agrega la columna Archivo", () => {
+    const pdf = pdfConDosHojas();
+    anadirResumenAlPdf(pdf, resumen([fila(1), fila(2)]));
+
+    expect(contenido(pdf, 1)).not.toContain("(Archivo) Tj");
+  });
+});
+
 describe("construirPdfResumen", () => {
   it("devuelve un PDF con solo las hojas del resumen", async () => {
     const pdf = construirPdfResumen({ ...resumen([fila(1), fila(2)]), notas: ["una nota"] });

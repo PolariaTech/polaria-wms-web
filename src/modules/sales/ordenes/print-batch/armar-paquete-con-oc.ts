@@ -2,7 +2,7 @@ import { construirPdfResumen, type ResumenImpresionPdf } from "../print/render-r
 import type { OrdenTareaAlmacenPrintData } from "../print/orden-tarea-almacen.types";
 import type { ResumenOvBatch } from "./batch-seleccion";
 import { ensamblarPaquete, type BloqueOv } from "./ensamblar-paquete";
-import { ocDeOv, type OcDeOv } from "./oc-documentos";
+import { ocDeOv, type OcDeOv, type TipoDocumentoOc } from "./oc-documentos";
 import { ocPropiaDeOv } from "./oc-propia-de-ov";
 import {
   parteDeCadaOv,
@@ -36,6 +36,17 @@ export function dependenciasReales(construirBaseOt: DependenciasPaquete["constru
     prepararOc: (oc) => prepararOcDeOv(oc),
     construirBaseOt,
   };
+}
+
+/**
+ * REQ-361: tipo de archivo (PDF, HTML o Excel) de las OC que de verdad se imprimen de una OV. Sale del
+ * adjunto original, porque el PDF ya convertido no lo guarda.
+ */
+function tiposDeOc(oc: OcDeOv | undefined, convertida: OcPreparada): TipoDocumentoOc[] {
+  const tipoPorNombre = new Map((oc?.documentos ?? []).map((d) => [d.nombre, d.tipo]));
+  return convertida.documentos
+    .map((documento) => tipoPorNombre.get(documento.nombre))
+    .filter((tipo): tipo is TipoDocumentoOc => tipo !== undefined);
 }
 
 /** Procesa `items` de a `limite` a la vez, conservando el orden del resultado. */
@@ -109,7 +120,12 @@ export async function armarPaqueteConOc(
     subtitulo: `${subtitulo}${partes.length > 1 ? ` · en ${partes.length} partes` : ""}`,
     generado,
     parteDeOv: partes.length > 1 ? parteDeCadaOv(partes) : undefined,
-    ocPorOv: new Map([...ocPorOv].map(([id, oc]) => [id, { paginas: oc.paginas, avisos: oc.avisos }])),
+    ocPorOv: new Map(
+      [...ocPorOv].map(([id, oc]) => [
+        id,
+        { paginas: oc.paginas, avisos: oc.avisos, tipos: tiposDeOc(aBajar.get(id), oc) },
+      ]),
+    ),
   });
 
   alProgreso?.("Armando el PDF…");

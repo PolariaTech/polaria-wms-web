@@ -114,6 +114,24 @@ describe("orden de compra del cliente en el resumen", () => {
     expect(resumen.filas.map((f) => f.ordenCliente)).toEqual(["OC-10, OC-11", "", ""]);
   });
 
+  it("REQ-361: incluye tiposArchivo y marca sinArchivoOc cuando la OV no tiene páginas de OC", () => {
+    const resumen = armarResumenImpresion({
+      orden: [item("a", {}, [1]), item("b", {}, [1])],
+      hojas: [hoja("a"), hoja("b")],
+      subtitulo: "",
+      generado: "",
+      ocPorOv: new Map([
+        ["a", { paginas: 2, avisos: [], tipos: ["pdf", "pdf", "excel"] }],
+        ["b", { paginas: 0, avisos: [], tipos: [] }],
+      ]),
+    });
+
+    expect(resumen.filas[0]?.tiposArchivo).toEqual(["pdf", "excel"]);
+    expect(resumen.filas[0]?.sinArchivoOc).toBeUndefined();
+    expect(resumen.filas[1]?.tiposArchivo).toBeUndefined();
+    expect(resumen.filas[1]?.sinArchivoOc).toBe(true);
+  });
+
   it("la entrega sale como DD-MMM-AAAA (REQ-320)", () => {
     const resumen = armarResumenImpresion({
       orden: [item("a", { fechaEntrega: "2026-11-03" }, [1])],
