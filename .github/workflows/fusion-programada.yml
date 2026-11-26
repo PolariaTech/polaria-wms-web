@@ -1,8 +1,9 @@
 name: Fusión programada
 
-# Fusiona a main, una vez al día, los PR que ya están listos (decisión de Daniel, 2026-11-19).
-# Se ejecuta todos los días a las 06:00 hora de Colombia (11:00 UTC; Colombia es UTC-5 y no cambia de
-# horario). Si no hay ningún PR listo, no hace nada.
+# Fusiona a main, una vez al día de lunes a viernes, los PR que ya están listos (decisión de Daniel, 2026-11-19).
+# La dispara de lunes a viernes a las 06:00 hora de Colombia el flujo de n8n «Polaria - Disparo Fusión Programada»
+# (workflow_dispatch con solo_simular=false; decisión de Daniel, 2026-11-26). No usa el `schedule` de GitHub porque
+# creaba la ejecución con 7 a 11 horas de retraso. Si n8n no corre, no hay fusión. Si no hay ningún PR listo, no hace nada.
 #
 # El DESPLIEGUE no está en este workflow: Vercel despliega solo con cada merge a main (auto-deploy
 # de Vercel). Por eso, fusionar a las 06:00 es lo que programa el despliegue a esa hora.
@@ -47,13 +48,11 @@ name: Fusión programada
 # fusiona a mano. El hijo reapuntado queda desactualizado frente a main: el robot lo actualiza en la
 # próxima ejecución, como a cualquier otro.
 #
-# Límites conocidos: GitHub puede retrasar unos minutos un workflow programado; los PR fusionados con el
+# Límites conocidos: los PR fusionados con el
 # token del workflow no disparan otros workflows de GitHub (el auto-deploy de Vercel sí se
 # dispara, porque lo activa el push a main).
 
 on:
-  schedule:
-    - cron: "0 11 * * *" # 11:00 UTC = 06:00 en Colombia (UTC-5)
   workflow_dispatch:
     inputs:
       solo_simular:
@@ -94,6 +93,8 @@ jobs:
           PRESUPUESTO_SEGUNDOS: "2400"
         run: |
           set -euo pipefail
+          # Copia el resumen al registro: el flujo de n8n lo lee de ahí para el correo (2026-11-26).
+          trap 'echo "===RESUMEN-FUSION==="; cat "${GITHUB_STEP_SUMMARY}" 2>/dev/null || true; echo "===FIN-RESUMEN==="' EXIT
           gh pr list --repo "${REPO}" --base main --state open --limit 100 \
             --json number,title,isDraft,mergeable,labels,statusCheckRollup,createdAt,headRefName > prs.json
 
