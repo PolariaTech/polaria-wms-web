@@ -16,6 +16,7 @@
 - `src/modules/sales/shared/services/sales-orden-venta.db.test.ts`
 - `src/modules/sales/shared/services/sales-orden-venta-detalle.service.ts`
 - `src/modules/sales/shared/services/sales-orden-venta-detalle.service.test.ts`
+- `src/modules/sales/shared/services/sales.service.part-b.test.ts` — autorizada por el usuario el 2026-11-26
 
 ### Compartidos (cambio mínimo y aviso)
 - `src/modules/sales/shared/types/sales.types.ts`
