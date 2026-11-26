@@ -16,6 +16,7 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleProductos.test.tsx` — autorizada por el usuario el 2026-11-26
 - `src/modules/sales/ordenes/components/modals/OrdenVentaFormToolbar.test.tsx` — autorizada por el usuario el 2026-11-26
 - `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleContent.test.tsx` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/components/modals/OrdenVentaFormToolbar.req-259.test.tsx` — autorizada por el usuario el 2026-11-26
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
