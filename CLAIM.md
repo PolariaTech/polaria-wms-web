@@ -11,6 +11,16 @@
 - `src/modules/sales/ordenes/components/modals/CypherRecepcionCorreoStage.tsx`
 - `src/modules/sales/ordenes/print-batch/oc-propia-de-ov.ts`
 - `src/modules/sales/ordenes/print-batch/armar-paquete-con-oc.ts`
+- `src/modules/sales/ordenes/print-batch/resumen-impresion.ts` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/print-batch/resumen-impresion.test.ts` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/print/render-resumen-impresion-pdf.ts` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/print/render-resumen-impresion-pdf.test.ts` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/print-batch/armar-paquete-con-oc.test.ts` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/components/modals/cypher-drawer-origen-adjuntos.ts` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/shared/services/ovs-del-mismo-correo.ts` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/shared/services/ovs-del-mismo-correo.test.ts` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/utils/match/annotate-correo-partido-ov.ts` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/utils/match/annotate-correo-partido-ov.test.ts` — autorizada por el usuario el 2026-11-26
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
