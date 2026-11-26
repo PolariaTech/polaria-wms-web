@@ -320,8 +320,21 @@ jobs:
           # revierte solo si la tarea nueva no arranca) y se comprueba que el despliegue terminó.
           if [[ "${desired_after}" -gt 0 ]]; then
             aws ecs wait services-stable --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}"
-            rollout="$(aws ecs describe-services --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}" \
-              --query "services[0].deployments[?status=='PRIMARY'].rolloutState | [0]" --output text)"
+            # services-stable puede volver antes de que ECS marque el despliegue como terminado: se
+            # vuelve a preguntar (hasta 5 minutos) mientras la revisión nueva siga IN_PROGRESS.
+            for _ in $(seq 1 30); do
+              state="$(aws ecs describe-services --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}" \
+                --query "services[0].deployments[?status=='PRIMARY'] | [0].[rolloutState, taskDefinition]" \
+                --output text)"
+              read -r rollout active_arn <<<"${state}"
+              [[ "${rollout}" == "IN_PROGRESS" && "${active_arn}" == "${new_arn}" ]] || break
+              sleep 10
+            done
+            # Si ECS volvió a la revisión anterior, ese retorno también puede quedar COMPLETED.
+            if [[ "${active_arn}" != "${new_arn}" ]]; then
+              echo "::error::La revisión nueva no quedó activa: el servicio está en ${active_arn}. Revisa los logs de la tarea en CloudWatch."
+              exit 1
+            fi
             if [[ "${rollout}" != "COMPLETED" ]]; then
               echo "::error::El despliegue terminó en estado ${rollout}."
               exit 1
