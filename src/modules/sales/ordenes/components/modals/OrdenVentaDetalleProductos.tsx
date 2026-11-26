@@ -8,6 +8,7 @@ import {
 import type { OrdenTrabajoHija } from "../../utils/origen/origen-correo-ordenes-trabajo";
 import { textoConteoProductos } from "./detalle-venta-presentacion";
 import { ETIQUETA_TAREA } from "./etiqueta-tarea-ot";
+import { TotalOvConAviso, type AvisoTotalOc } from "./TotalOvConAviso";
 
 export type FilaProductoDetalle = {
   linea: OrdenVentaLineaRow;
@@ -26,6 +27,7 @@ export function OrdenVentaDetalleProductos({
   total,
   mostrarTotalOv,
   totalOv,
+  avisoTotal = null,
 }: {
   filas: FilaProductoDetalle[];
   hija: OrdenTrabajoHija | null;
@@ -34,6 +36,8 @@ export function OrdenVentaDetalleProductos({
   total: number;
   mostrarTotalOv: boolean;
   totalOv: number;
+  /** REQ-371: el total de la OV no coincide con el de la OC. */
+  avisoTotal?: AvisoTotalOc | null;
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-polaria-w-08">
@@ -143,7 +147,10 @@ export function OrdenVentaDetalleProductos({
                 {mostrarTotalOv ? `Total ${ETIQUETA_TAREA}` : "Total"}
               </td>
               <td className="pt-1 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
-                ${formatPrecioEs(total)}
+                {/* Con varias tareas el total que se compara es «Total OV», no este. */}
+                <TotalOvConAviso aviso={mostrarTotalOv ? null : avisoTotal}>
+                  ${formatPrecioEs(total)}
+                </TotalOvConAviso>
               </td>
             </tr>
             {mostrarTotalOv ? (
@@ -152,7 +159,9 @@ export function OrdenVentaDetalleProductos({
                   Total OV
                 </td>
                 <td className="pt-1 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
-                  ${formatPrecioEs(totalOv)}
+                  <TotalOvConAviso aviso={avisoTotal}>
+                    ${formatPrecioEs(totalOv)}
+                  </TotalOvConAviso>
                 </td>
               </tr>
             ) : null}

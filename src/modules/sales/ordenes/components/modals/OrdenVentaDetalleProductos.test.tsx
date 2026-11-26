@@ -59,4 +59,69 @@ describe("OrdenVentaDetalleProductos", () => {
     expect(screen.queryByText("Desc%")).not.toBeInTheDocument();
     expect(screen.queryByText("Descuentos")).not.toBeInTheDocument();
   });
+
+  describe("alerta de total OV vs OC (REQ-371)", () => {
+    const filas = [
+      {
+        linea: lineaBase,
+        titulo: "Producto demo",
+        especificacion: "",
+        ivaPct: 0,
+        importe: 20,
+      },
+    ];
+    const aviso = { db: "Solicitud $99.00" };
+
+    it("sin aviso no resalta ningún total", () => {
+      const { container } = render(
+        <OrdenVentaDetalleProductos
+          filas={filas}
+          hija={null}
+          subtotal={20}
+          iva={0}
+          total={20}
+          mostrarTotalOv={false}
+          totalOv={20}
+        />,
+      );
+      expect(container.querySelector("[data-total-ov-aviso]")).toBeNull();
+    });
+
+    it("con una sola tarea resalta el Total y muestra el tooltip", () => {
+      const { container } = render(
+        <OrdenVentaDetalleProductos
+          filas={filas}
+          hija={null}
+          subtotal={20}
+          iva={0}
+          total={20}
+          mostrarTotalOv={false}
+          totalOv={20}
+          avisoTotal={aviso}
+        />,
+      );
+      const resaltados = container.querySelectorAll("[data-total-ov-aviso]");
+      expect(resaltados).toHaveLength(1);
+      expect(resaltados[0]).toHaveTextContent("$20.00");
+      expect(resaltados[0].getAttribute("title")).toContain("Solicitud $99.00");
+    });
+
+    it("con varias tareas resalta solo Total OV, no el Total de la tarea", () => {
+      const { container } = render(
+        <OrdenVentaDetalleProductos
+          filas={filas}
+          hija={null}
+          subtotal={20}
+          iva={0}
+          total={20}
+          mostrarTotalOv
+          totalOv={50}
+          avisoTotal={aviso}
+        />,
+      );
+      const resaltados = container.querySelectorAll("[data-total-ov-aviso]");
+      expect(resaltados).toHaveLength(1);
+      expect(resaltados[0]).toHaveTextContent("$50.00");
+    });
+  });
 });
