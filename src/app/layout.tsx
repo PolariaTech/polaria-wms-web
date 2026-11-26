@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthSessionBootstrap } from "@/components/auth/session/AuthSessionBootstrap";
 import { AuthSessionScript } from "@/components/auth/session/AuthSessionScript";
+import { SessionExpiredGate } from "@/components/auth/session/SessionExpiredGate";
 import { ProductVersionGate } from "@/components/product-version/ProductVersionGate";
 import { ThemeBootScript } from "@/components/theme/ThemeBootScript";
 import { ThemeSync } from "@/components/theme/ThemeSync";
@@ -48,6 +49,7 @@ export default function RootLayout({
           <PolariaToastProvider>
             <AuthSessionBootstrap />
             <ProductVersionGate />
+            <SessionExpiredGate />
             {children}
           </PolariaToastProvider>
         </AuthProvider>
