@@ -1,21 +1,9 @@
 import { jsPDF } from "jspdf";
 import { describe, expect, it } from "vitest";
-import { dibujarCeldaArchivo, etiquetasTiposArchivo } from "./render-resumen-archivo-badge";
+import { dibujarCeldaArchivo } from "./render-resumen-archivo-badge";
 
 const contenido = (pdf: jsPDF): string =>
   (pdf.internal as unknown as { pages: string[][] }).pages[1]!.join("\n");
-
-describe("etiquetasTiposArchivo (REQ-361)", () => {
-  it("traduce tipos a etiquetas únicas en el orden recibido", () => {
-    expect(etiquetasTiposArchivo(["pdf", "pdf", "excel", "html"])).toEqual([
-      "PDF",
-      "XLSX",
-      "HTML",
-    ]);
-    expect(etiquetasTiposArchivo([])).toEqual([]);
-    expect(etiquetasTiposArchivo(undefined)).toEqual([]);
-  });
-});
 
 describe("dibujarCeldaArchivo con íconos vectoriales (REQ-361)", () => {
   it("dibuja ícono rojo para PDF, azul para HTML y verde para Excel sin texto", () => {

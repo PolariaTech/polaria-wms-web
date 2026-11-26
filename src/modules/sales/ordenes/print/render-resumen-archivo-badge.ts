@@ -3,15 +3,14 @@ import type { jsPDF } from "jspdf";
 export type TipoArchivoResumen = "pdf" | "html" | "excel";
 
 interface PaletaIcono {
-  etiqueta: string;
   fondo: readonly [number, number, number];
   borde: readonly [number, number, number];
 }
 
 const PALETA_TIPO: Record<TipoArchivoResumen, PaletaIcono> = {
-  pdf: { etiqueta: "PDF", fondo: [220, 38, 38], borde: [153, 27, 27] },
-  html: { etiqueta: "HTML", fondo: [37, 99, 235], borde: [29, 78, 216] },
-  excel: { etiqueta: "XLSX", fondo: [22, 163, 74], borde: [21, 128, 61] },
+  pdf: { fondo: [220, 38, 38], borde: [153, 27, 27] },
+  html: { fondo: [37, 99, 235], borde: [29, 78, 216] },
+  excel: { fondo: [22, 163, 74], borde: [21, 128, 61] },
 };
 
 /** Fondo amarillo suave para la fila completa cuando la OV sale sin archivo de OC (REQ-361). */
@@ -20,19 +19,6 @@ export const COLOR_FILA_SIN_ARCHIVO: readonly [number, number, number] = [254, 2
 const ICONO_W = 3.8;
 const ICONO_H = 4.4;
 const ICONO_GAP = 1.2;
-
-/** Etiquetas únicas en el orden en que aparecen (p. ej. `["PDF"]` o `["PDF", "XLSX"]`). */
-export function etiquetasTiposArchivo(tipos?: readonly TipoArchivoResumen[]): string[] {
-  if (!tipos || tipos.length === 0) return [];
-  const vistas = new Set<TipoArchivoResumen>();
-  const resultado: string[] = [];
-  for (const tipo of tipos) {
-    if (vistas.has(tipo)) continue;
-    vistas.add(tipo);
-    resultado.push(PALETA_TIPO[tipo].etiqueta);
-  }
-  return resultado;
-}
 
 /** Pinta el fondo de la fila: amarillo si falta archivo de OC, gris alterno en filas impares. */
 export function pintarFondoFilaResumen(
