@@ -3,12 +3,14 @@ import { preciosYEquivalenciasDeComprador } from "./useClienteOv";
 
 describe("preciosYEquivalenciasDeComprador", () => {
   it("el precio del alias reemplaza el último precio", () => {
-    const { overrides, equivalencias } = preciosYEquivalenciasDeComprador(
+    const { overrides, equivalencias, preciosUltimos, preciosEquivalencia } = preciosYEquivalenciasDeComprador(
       [{ idProducto: "p1", precioOverride: 12, alias: "Palta" }],
       { p1: 40, p2: 5 },
     );
     expect(overrides).toEqual({ p1: 12, p2: 5 });
     expect(equivalencias).toEqual({ p1: ["Palta"] });
+    expect(preciosUltimos).toEqual({ p1: 40, p2: 5 });
+    expect(preciosEquivalencia).toEqual({ p1: 12 });
   });
 
   it("conserva todas las frases y pone primero la de la fila con precio", () => {

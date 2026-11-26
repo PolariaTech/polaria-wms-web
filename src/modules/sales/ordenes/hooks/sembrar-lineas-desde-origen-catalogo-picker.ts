@@ -4,9 +4,10 @@ import { useEffect, useMemo } from "react";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
 import {
   collectSugerenciasLinea,
-  formatPrecioInput,
 } from "../utils/pedido/orden-venta-create-helpers";
 import { resolverCompradorPickerSugerencias } from "../utils/match/resolver-comprador-picker-priority-ids";
+import { aplicarPrecioFaltanteALinea } from "../utils/pedido/precio-cuando-falta-solicitud";
+import { usePreciosSeparados } from "./precios-comprador-separados";
 
 export function useCatalogoPickerOv(estado: OrdenVentaFormEstado) {
   const {
@@ -23,6 +24,13 @@ export function useCatalogoPickerOv(estado: OrdenVentaFormEstado) {
     precioOverrideByProducto,
     productosBase,
   } = estado;
+  const preciosSeparados = usePreciosSeparados();
+  const firmaPrecio = lineas
+    .map(
+      (linea) =>
+        `${linea.idProducto}:${linea.precioManual === false ? "0" : "1"}:${linea.catalogPending ? "p" : "l"}:${linea.precioUnitario}`,
+    )
+    .join("|");
 
   const productosParaPicker = useMemo(() => {
     if (replaceLineaIndex == null) return productosParaAgregar;
@@ -98,38 +106,26 @@ export function useCatalogoPickerOv(estado: OrdenVentaFormEstado) {
   );
 
   useEffect(() => {
+    const separados =
+      Object.keys(precioOverrideByProducto).length === 0
+        ? { ultimos: {}, equivalencia: {} }
+        : preciosSeparados;
     setLineas((prev) => {
       let changed = false;
       const next = prev.map((linea) => {
-        if (linea.precioManual || !linea.idProducto || linea.catalogPending) {
-          return linea;
-        }
-        const override = precioOverrideByProducto[linea.idProducto];
-        if (override != null) {
-          if (linea.precioUnitario === override) return linea;
-          changed = true;
-          return {
-            ...linea,
-            precioUnitario: override,
-            precioInput: formatPrecioInput(override),
-          };
-        }
-        const base = productosBase.find(
-          (row) => row.idProducto === linea.idProducto,
+        const aplicada = aplicarPrecioFaltanteALinea(
+          linea,
+          separados,
+          productosBase,
+          precioOverrideByProducto[linea.idProducto],
         );
-        if (!base || linea.precioUnitario === base.precioUnitario) {
-          return linea;
-        }
+        if (aplicada === linea) return linea;
         changed = true;
-        return {
-          ...linea,
-          precioUnitario: base.precioUnitario,
-          precioInput: formatPrecioInput(base.precioUnitario),
-        };
+        return aplicada;
       });
       return changed ? next : prev;
     });
-  }, [precioOverrideByProducto, productosBase, setLineas]);
+  }, [firmaPrecio, precioOverrideByProducto, preciosSeparados, productosBase, setLineas]);
 
   return {
     productosParaPicker,

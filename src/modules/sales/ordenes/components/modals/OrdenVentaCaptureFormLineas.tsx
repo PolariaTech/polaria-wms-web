@@ -241,12 +241,19 @@ function CeldaPrecio({
         className={cn(
           POLARIA_FORM_INPUT_CLASS_COMPACT,
           "h-full min-h-full px-2 tabular-nums",
-          fieldControlClass({
-            missing:
-              Boolean(linea.precioInput.trim()) &&
-              (parseDecimalEs(linea.precioInput) ?? -1) < 0,
-          }),
+          linea.precioManual === false
+            ? "!border-polaria-warning-border !bg-polaria-warning-bg"
+            : fieldControlClass({
+                missing:
+                  Boolean(linea.precioInput.trim()) &&
+                  (parseDecimalEs(linea.precioInput) ?? -1) < 0,
+              }),
         )}
+        title={
+          linea.precioManual === false && linea.precioUnitario > 0
+            ? "Precio sugerido"
+            : undefined
+        }
       />
     </div>
   );

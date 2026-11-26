@@ -13,6 +13,7 @@ import { flattenOrdenesTrabajoToOrigenCorreo } from "../utils/origen/origen-corr
 import { resolverCabeceraFormConSelloUsuario } from "./aplicar-cabecera-con-sello-usuario";
 import { rankCompradoresFromNombre, sugerenciasCompradorParaPicker, shouldAutoAssignComprador } from "../utils/match/match-comprador-from-nombre";
 import type { OrdenVentaFormEstado } from "../types/orden-venta-form-estado";
+import { publicarPreciosSeparados } from "./precios-comprador-separados";
 import { preciosYEquivalenciasDeComprador } from "./useClienteOv";
 
 export { aplicarDetalleSinMateo } from "./aplicar-detalle-sin-mateo";
@@ -55,14 +56,20 @@ export function cargarFichaYPreciosDeComprador(input: {
   ])
     .then(([aliases, ultimos]) => {
       if (selectedCompradorIdRef.current !== idCompradorDetalle) return;
-      const { overrides, equivalencias } = preciosYEquivalenciasDeComprador(aliases, ultimos);
+      const { overrides, equivalencias, preciosUltimos, preciosEquivalencia } =
+        preciosYEquivalenciasDeComprador(aliases, ultimos);
       setPrecioOverrideByProducto(overrides);
       setEquivalenciaByProducto(equivalencias);
+      publicarPreciosSeparados({
+        ultimos: preciosUltimos,
+        equivalencia: preciosEquivalencia,
+      });
     })
     .catch(() => {
       if (selectedCompradorIdRef.current !== idCompradorDetalle) return;
       setPrecioOverrideByProducto({});
       setEquivalenciaByProducto({});
+      publicarPreciosSeparados({ ultimos: {}, equivalencia: {} });
     });
 }
 
