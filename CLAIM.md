@@ -10,6 +10,12 @@
 ### Zonas que voy a tocar
 - `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.tsx`
 - `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleProductos.tsx`
+- `src/modules/sales/ordenes/components/modals/OrdenVentaFormToolbar.tsx` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleContent.tsx` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/components/modals/OrdenVentaCaptureFormLineas.test.tsx` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleProductos.test.tsx` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/components/modals/OrdenVentaFormToolbar.test.tsx` — autorizada por el usuario el 2026-11-26
+- `src/modules/sales/ordenes/components/modals/OrdenVentaDetalleContent.test.tsx` — autorizada por el usuario el 2026-11-26
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
