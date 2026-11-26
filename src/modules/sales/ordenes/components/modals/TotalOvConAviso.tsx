@@ -27,7 +27,6 @@ export function TotalOvConAviso({
     <span
       data-total-ov-aviso=""
       title={tooltip}
-      aria-label={tooltip}
       className="inline-flex items-center gap-1 rounded-md border border-polaria-warning-border bg-polaria-warning-bg px-1.5 py-0.5 text-polaria-warning"
     >
       <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
