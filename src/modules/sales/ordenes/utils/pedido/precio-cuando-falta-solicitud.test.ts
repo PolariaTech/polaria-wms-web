@@ -4,6 +4,7 @@ import {
   aplicarPrecioFaltanteALinea,
   precioCuandoLaSolicitudNoTrajo,
 } from "./precio-cuando-falta-solicitud";
+import { resolveCantidadPrecioParaPersistir } from "./persist-linea-avance";
 
 function linea(parcial: Partial<LineaVentaForm> = {}): LineaVentaForm {
   return {
@@ -66,6 +67,30 @@ describe("precioCuandoLaSolicitudNoTrajo", () => {
 
   it("deja 0 si no hay ninguno", () => {
     expect(precioCuandoLaSolicitudNoTrajo({})).toBe(0);
+  });
+
+  it("un precio negativo no se propone", () => {
+    expect(
+      precioCuandoLaSolicitudNoTrajo({ ultimo: -1, lista: -5 }),
+    ).toBe(0);
+  });
+});
+
+describe("contrato de precio vacío o 0 al confirmar", () => {
+  it("persiste 0 y no devuelve mensaje de bloqueo", () => {
+    for (const precioInput of ["", "0"]) {
+      const result = resolveCantidadPrecioParaPersistir({
+        isDraft: false,
+        cantidadInput: "0.3",
+        precioInput,
+        nombreProducto: "EPAZOTE",
+      });
+      expect(result).toEqual({
+        ok: true,
+        cantidadPedida: 0.3,
+        precioUnitario: 0,
+      });
+    }
   });
 });
 
