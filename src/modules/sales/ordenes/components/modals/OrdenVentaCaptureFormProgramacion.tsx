@@ -96,6 +96,7 @@ export function OrdenVentaCaptureFormProgramacion(
         controlClassName={fieldControlClass({
           field: "ventanaDesde",
           ...props.marks,
+          vacio: !props.ventanaDesde.trim(),
           missing: isVentanaDesdeMayorQueHasta(
             props.ventanaDesde,
             props.ventanaHasta,
@@ -122,6 +123,7 @@ export function OrdenVentaCaptureFormProgramacion(
         controlClassName={fieldControlClass({
           field: "ventanaHasta",
           ...props.marks,
+          vacio: !props.ventanaHasta.trim(),
           missing: isVentanaDesdeMayorQueHasta(
             props.ventanaDesde,
             props.ventanaHasta,

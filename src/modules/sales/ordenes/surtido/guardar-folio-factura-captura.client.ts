@@ -2,6 +2,7 @@ import { createElement, useEffect, useRef, useState, type ChangeEvent } from "re
 import { PolariaFormInput } from "@/components/shared/form/PolariaFormField";
 import { requireCodigoCuenta, runDomainMutation } from "@/lib/supabase/domain-query";
 import { normalizeIdOrdenTrabajo } from "../utils/origen/origen-correo-ordenes-trabajo";
+import { fieldControlClass } from "../utils/pedido/orden-venta-create-helpers";
 import {
   FOLIO_FACTURA_ACTUALIZADO,
   escribirFolioFactura,
@@ -186,6 +187,8 @@ export function FolioFacturaCampos({
         onChange: (event: ChangeEvent<HTMLInputElement>) =>
           onChange(ot.id, event.target.value),
         placeholder: "Opcional",
+        // REQ-428: en blanco se resalta en ámbar para que el operario revise si hace falta.
+        controlClassName: fieldControlClass({ vacio: !(valores[ot.id] ?? "").trim() }),
         compact: true,
       }),
     ),

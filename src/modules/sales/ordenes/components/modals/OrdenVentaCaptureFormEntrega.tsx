@@ -85,7 +85,7 @@ export function OrdenVentaCaptureFormEntrega({
             onContacto(event.target.value);
             onClearField("contacto", event.target.value);
           }}
-          controlClassName={fieldControlClass({ field: "contacto", ...marks })}
+          controlClassName={fieldControlClass({ field: "contacto", ...marks, vacio: !contacto.trim() })}
           compact
         />
         <PolariaFormInput
@@ -97,7 +97,7 @@ export function OrdenVentaCaptureFormEntrega({
             onTelefono(event.target.value);
             onClearField("telefono", event.target.value);
           }}
-          controlClassName={fieldControlClass({ field: "telefono", ...marks })}
+          controlClassName={fieldControlClass({ field: "telefono", ...marks, vacio: !telefono.trim() })}
           compact
         />
         <PolariaFormInput
@@ -109,7 +109,7 @@ export function OrdenVentaCaptureFormEntrega({
             onCorreo(event.target.value);
             onClearField("correo", event.target.value);
           }}
-          controlClassName={fieldControlClass({ field: "correo", ...marks })}
+          controlClassName={fieldControlClass({ field: "correo", ...marks, vacio: !correo.trim() })}
           compact
         />
         <DireccionEntregaField
@@ -127,7 +127,7 @@ export function OrdenVentaCaptureFormEntrega({
             onDireccion(next);
             onClearField("direccion", next);
           }}
-          controlClassName={fieldControlClass({ field: "direccion", ...marks })}
+          controlClassName={fieldControlClass({ field: "direccion", ...marks, vacio: !direccion.trim() })}
           footer={
             avisoVerificarDireccion ? (
               <p className="mt-1.5 rounded-lg border border-polaria-warning-border bg-polaria-warning-bg px-3 py-2 polaria-text-caption text-polaria-warning">
