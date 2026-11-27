@@ -134,6 +134,19 @@ describe("OrdenVentaModalShell — pie y encabezado (REQ-199 / REQ-232)", () => 
     expect(screen.queryByRole("button", { name: /Eliminar esta tarea/ })).not.toBeInTheDocument();
   });
 
+  it("al editar un pedido por confirmar el pie dice Salir (REQ-406)", () => {
+    const { estado } = estadoShell({
+      isEditing: true,
+      editingEstado: "por_confirmar",
+      folioVisible: "OV-00002636",
+    });
+    render(<OrdenVentaModalShell estado={estado} />);
+
+    expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
+  });
+
   it("en edición el título identifica el pedido y no hay subtítulo (REQ-220)", () => {
     const { estado } = estadoShell({ isEditing: true, folioVisible: "OV-00001395" });
     render(<OrdenVentaModalShell estado={estado} />);
