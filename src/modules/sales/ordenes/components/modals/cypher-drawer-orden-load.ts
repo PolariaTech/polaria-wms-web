@@ -6,6 +6,11 @@ import { getOrdenVentaDetalle } from "../../../shared/services/sales.service";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 import type { CypherStageId } from "./cypher-stages";
 
+/** REQ-400: al abrir el Cypher solo «00 Recepción de correo» sale desplegada. */
+function seccionesAbiertasAlAbrir(): ReadonlySet<CypherStageId> {
+  return new Set<CypherStageId>(["correo"]);
+}
+
 interface UseCypherDrawerOrdenLoadArgs {
   idOrdenVenta: string | null;
   codigoCuenta: string | null;
@@ -24,7 +29,7 @@ export function useCypherDrawerOrdenLoad({
   const [error, setError] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<CypherStageId>("correo");
   const [openStages, setOpenStages] = useState<ReadonlySet<CypherStageId>>(
-    () => new Set<CypherStageId>(),
+    seccionesAbiertasAlAbrir,
   );
 
   const loadDetalle = useCallback(
@@ -48,7 +53,7 @@ export function useCypherDrawerOrdenLoad({
     setError(null);
     setOrden(null);
     setActiveStage("correo");
-    setOpenStages(new Set<CypherStageId>());
+    setOpenStages(seccionesAbiertasAlAbrir());
 
     void loadDetalle(idOrdenVenta, codigoCuenta)
       .then((detalle) => {
