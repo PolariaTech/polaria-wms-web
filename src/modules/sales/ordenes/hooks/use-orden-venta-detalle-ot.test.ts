@@ -52,6 +52,13 @@ describe("useOrdenVentaDetalleOt", () => {
     expect(result.current.hijaId).toBe(result.current.ordenesTrabajo[0]!.id);
   });
 
+  it("acepta origen_correo ya parseado (jsonb como lista), no solo texto", () => {
+    const lista = [renglon("A", "1", 5), renglon("B", "2", 7)];
+    const { result } = armar({ origenCorreo: lista });
+    expect(result.current.ordenesTrabajo).toHaveLength(2);
+    expect(result.current.hijaActiva?.id).toBe(result.current.ordenesTrabajo[0]!.id);
+  });
+
   it("cambiar hijaId mueve la OT activa y el índice", () => {
     const { result } = armar();
     const segunda = result.current.ordenesTrabajo[1]!.id;

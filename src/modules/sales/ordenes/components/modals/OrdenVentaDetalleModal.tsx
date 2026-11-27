@@ -70,8 +70,7 @@ export function OrdenVentaDetalleModal({
   } = useOrdenVentaDetalleData({ idOrdenVenta, codigoCuenta, inspect, resetHija });
 
   const { ordenesTrabajo, hijaActiva, indiceOt } = useOrdenVentaDetalleOt({
-    origenCorreo:
-      typeof orden?.origen_correo === "string" ? orden.origen_correo : null,
+    origenCorreo: orden?.origen_correo ?? null,
     idOrdenVenta,
     hijaId,
     setHijaId,
