@@ -64,6 +64,7 @@ export function OrdenVentaCaptureFormLineas(props: {
             <Colgroup />
             <thead>
               <tr className="border-b border-polaria-t-20">
+                <Th><span title="Posición en la orden de compra">#</span></Th>
                 <Th>Producto <span className="font-bold text-polaria-danger">*</span></Th>
                 <Th>Especificación</Th>
                 <Th>Cantidad <span className="font-bold text-polaria-danger">*</span></Th>
@@ -77,7 +78,7 @@ export function OrdenVentaCaptureFormLineas(props: {
             <tbody>
               {props.lineas.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-1 py-4 text-center polaria-text-caption text-polaria-w-50">
+                  <td colSpan={9} className="px-1 py-4 text-center polaria-text-caption text-polaria-w-50">
                     Sin productos. Agrega al menos uno para crear la venta.
                   </td>
                 </tr>
@@ -118,6 +119,7 @@ function Colgroup() {
   const widths = ["8.5rem", "4.25rem", "4.75rem", "4.75rem", "5rem", "5.5rem", "2.25rem"];
   return (
     <colgroup>
+      <col style={{ width: "2rem" }} />
       <col />
       {widths.map((width, index) => (
         <col key={`${width}-${index}`} style={{ width }} />
@@ -186,6 +188,10 @@ function LineaFila({ row, handlers }: { row: LineaConIndice; handlers: LineaHand
   const { importe } = lineAmounts(linea);
   return (
     <tr key={`ov-linea-${index}`} className="border-b border-polaria-w-08 last:border-b-0">
+      {/* REQ-411: posición en la OV (la misma del PDF de la OC), también al ver una sola OT. */}
+      <td data-ov-numero className="px-1 py-2 text-center align-middle font-mono polaria-text-caption text-polaria-w-50">
+        {index + 1}
+      </td>
       <td className="px-1 py-2 align-middle">
         <CeldaProducto linea={linea} index={index} onOpenReplace={handlers.onOpenReplace} />
       </td>
