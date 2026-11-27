@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  ADJUNTO_PREVIEW_BROWSER_PDF_ZOOM_PCT,
+  ADJUNTO_PREVIEW_PDF_ZOOM_FIT,
   ADJUNTO_PREVIEW_ZOOM_DEFAULT,
   ADJUNTO_PREVIEW_ZOOM_MAX,
   ADJUNTO_PREVIEW_ZOOM_MIN,
   clampAdjuntoPreviewZoom,
+  htmlFitZoom,
   withBrowserPdfZoom,
 } from "./adjunto-preview-zoom";
 
@@ -13,14 +14,20 @@ describe("adjunto-preview-zoom", () => {
     expect(ADJUNTO_PREVIEW_ZOOM_DEFAULT).toBe(1);
   });
 
-  it("REQ-327: el PDF del navegador abre al 75%", () => {
-    expect(ADJUNTO_PREVIEW_BROWSER_PDF_ZOOM_PCT).toBe(75);
+  it("el PDF abre al ancho del panel y sin la barra nativa", () => {
+    expect(ADJUNTO_PREVIEW_PDF_ZOOM_FIT).toBe("page-width");
     expect(withBrowserPdfZoom("blob:http://localhost/abc")).toBe(
-      "blob:http://localhost/abc#zoom=75",
+      "blob:http://localhost/abc#toolbar=0&navpanes=0&zoom=page-width",
     );
-    expect(withBrowserPdfZoom("blob:http://localhost/abc#page=2")).toBe(
-      "blob:http://localhost/abc#zoom=75",
+    expect(withBrowserPdfZoom("blob:http://localhost/abc#page=2", 1.25)).toBe(
+      "blob:http://localhost/abc#toolbar=0&navpanes=0&zoom=125",
     );
+  });
+
+  it("htmlFitZoom solo achica lo que no cabe al ancho", () => {
+    expect(htmlFitZoom(0, 400)).toBeNull();
+    expect(htmlFitZoom(400, 400)).toBeNull();
+    expect(htmlFitZoom(400, 800)).toBe(0.5);
   });
 });
 

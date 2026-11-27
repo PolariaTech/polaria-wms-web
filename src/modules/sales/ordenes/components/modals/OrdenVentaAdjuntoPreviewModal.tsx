@@ -11,6 +11,7 @@ import { labelTipoOrigenAdjunto } from "../../utils/origen/origen-adjuntos";
 import { AdjuntoPreviewZoomControls } from "./AdjuntoPreviewZoomControls";
 import {
   ADJUNTO_PREVIEW_ZOOM_DEFAULT,
+  htmlFitZoom,
   withBrowserPdfZoom,
 } from "./adjunto-preview-zoom";
 import { CypherResizeRail } from "./CypherResizeRail";
@@ -56,6 +57,11 @@ export function OrdenVentaAdjuntoPreviewModal({
   const title = adjunto?.nombre?.trim() || "Adjunto";
   const tipo = adjunto ? labelTipoOrigenAdjunto(adjunto) : "";
   const esImagen = adjunto ? esAdjuntoImagen(adjunto) : false;
+  const esPdf = Boolean(
+    adjunto &&
+      ((adjunto.mime ?? "").toLowerCase() === "application/pdf" ||
+        adjunto.nombre.toLowerCase().endsWith(".pdf")),
+  );
 
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [htmlSrcDoc, setHtmlSrcDoc] = useState<string | null>(null);
@@ -106,8 +112,7 @@ export function OrdenVentaAdjuntoPreviewModal({
           const blob = await response.blob();
           if (cancelled) return;
           created = URL.createObjectURL(blob);
-          // REQ-327: visor PDF del navegador al 75%; controles Polaria siguen en 100%.
-          setObjectUrl(withBrowserPdfZoom(created));
+          setObjectUrl(created);
           setHtmlSrcDoc(null);
         }
       } catch (err: unknown) {
@@ -143,7 +148,9 @@ export function OrdenVentaAdjuntoPreviewModal({
   if (!open || typeof document === "undefined") return null;
 
   const panelWidth = cypherPanelWidthClass(cypherWidthMode);
-  const zoomStyle = buildAdjuntoZoomStyle(zoom);
+  const zoomStyle = esPdf ? undefined : buildAdjuntoZoomStyle(zoom);
+  const iframeSrc =
+    objectUrl && esPdf ? withBrowserPdfZoom(objectUrl, "fit") : objectUrl;
 
   return createPortal(
     <div
@@ -209,7 +216,15 @@ export function OrdenVentaAdjuntoPreviewModal({
             </p>
           </div>
           <div className="relative z-10 flex shrink-0 items-center gap-2">
-            <AdjuntoPreviewZoomControls zoom={zoom} onZoomChange={setZoom} />
+            <AdjuntoPreviewZoomControls
+              zoom={zoom}
+              etiqueta={
+                esPdf && zoom === ADJUNTO_PREVIEW_ZOOM_DEFAULT
+                  ? "Ancho"
+                  : undefined
+              }
+              onZoomChange={setZoom}
+            />
             <button
               type="button"
               onClick={onClose}
@@ -256,15 +271,23 @@ export function OrdenVentaAdjuntoPreviewModal({
                 sandbox="allow-same-origin"
                 style={zoomStyle}
                 className="block border-0 bg-white"
+                onLoad={(event) => {
+                  const frame = event.currentTarget;
+                  const fit = htmlFitZoom(
+                    frame.clientWidth,
+                    frame.contentDocument?.documentElement.scrollWidth ?? 0,
+                  );
+                  if (fit != null) setZoom(fit);
+                }}
               />
             </div>
           ) : objectUrl ? (
-            <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute inset-0 overflow-auto">
               <iframe
                 title={title}
-                src={objectUrl}
-                style={zoomStyle}
+                src={iframeSrc ?? undefined}
                 className="block border-0 bg-polaria-bg"
+                style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
               />
             </div>
           ) : (
