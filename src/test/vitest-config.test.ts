@@ -9,4 +9,8 @@ describe("vitest.config", () => {
   it("falla el proceso si no hay tests ejecutables (CI no en verde por error)", () => {
     expect(vitestConfig.test?.passWithNoTests).toBe(false);
   });
+
+  it("excluye scripts/ para no romper Vitest/Rolldown con shebangs de .mjs", () => {
+    expect(vitestConfig.test?.exclude).toContain("scripts/**");
+  });
 });

@@ -3,8 +3,8 @@ name: Deploy
 # Despliegue del frontend (Next.js) a ECS Fargate (POL-349, decisión D1; mismo patrón que el
 # deploy.yml de la API, POL-357 / ADR-006).
 #
-# Cómo se usa: a mano (pestaña Actions > "Deploy" > Run workflow, rama main, escribiendo en `ref` el
-# tag a desplegar, por ejemplo v2.13.23) o lanzado por la fusión programada con el commit en que quedó
+# Cómo se usa: a mano (pestaña Actions > "Deploy" > Run workflow, rama main, con `ref` vacío para el
+# último commit de main o con un tag, por ejemplo v2.13.23) o lanzado por la fusión programada con el commit en que quedó
 # main (decisión de Daniel, 2026-11-26).
 #   1. build:  construye la imagen linux/arm64 con el código del tag y el Dockerfile de main, la
 #              prueba con scripts/docker-smoke.sh y la sube a ECR. Asume github-actions-build-role-web
@@ -37,11 +37,11 @@ on:
     inputs:
       ref:
         description: >-
-          Tag a desplegar (por ejemplo v2.13.23) o el commit en que está main. Es obligatorio. La fusión
-          programada lo lanza con ese commit después de fusionar. El workflow se lanza SIEMPRE desde
-          main (los roles de AWS solo confían en main); este campo solo elige qué código se construye
-          y se despliega.
-        required: true
+          Opcional. Vacío: despliega el último commit de main. O un tag de versión (por ejemplo
+          v2.13.23). El workflow se lanza SIEMPRE desde main (los roles de AWS solo confían en
+          main); este campo solo elige qué código se construye y se despliega.
+        required: false
+        default: ""
         type: string
 
 # Sin permisos por defecto; cada job pide solo lo que necesita.
@@ -85,7 +85,8 @@ jobs:
       # Va por env (nunca dentro de la expresión del run) para que no pueda inyectar comandos.
       - name: Validar ref (tag de versión o commit actual de main)
         env:
-          REF: ${{ inputs.ref }}
+          # Vacío = el commit de main desde el que se lanzó.
+          REF: ${{ inputs.ref || github.sha }}
         run: |
           # La fusión programada lanza este workflow con el commit en que quedó main (2026-11-26).
           if [[ ! "${REF}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "${REF}" != "${GITHUB_SHA}" ]]; then
@@ -118,11 +119,11 @@ jobs:
           done
           exit "${missing}"
 
-      # 1) El código: el tag elegido.
-      - name: Checkout del código (tag elegido)
+      # 1) El código: el tag elegido o, sin tag, el último commit de main.
+      - name: Checkout del código (tag elegido o último commit de main)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.sha }}
           path: app
           persist-credentials: false
 
