@@ -209,7 +209,8 @@ export async function getOrdenVentaDetalle(
   );
   const [bodegaLabels, recibidoCorreoEn] = await Promise.all([
     fetchBodegaDestinoLabels(bodegaIds),
-    fetchRecibidoCorreoDeOrden(codigoCuenta, idOrdenVenta),
+    // La fecha del correo es un dato extra: si no se puede leer, el detalle de la OV igual se abre.
+    fetchRecibidoCorreoDeOrden(codigoCuenta, idOrdenVenta).catch(() => null),
   ]);
 
   return {
