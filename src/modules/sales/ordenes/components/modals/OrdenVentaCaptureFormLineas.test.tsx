@@ -198,6 +198,31 @@ describe("OrdenVentaCaptureFormLineas — pie de Productos (REQ-224)", () => {
     const { container } = render(<OrdenVentaCaptureFormLineas {...propsBase()} />);
     const columnas = container.querySelectorAll("col");
 
-    expect(columnas[1]?.getAttribute("style")).toContain("8.5rem");
+    // columnas[0] es la de numeración (REQ-411) y columnas[1] la de producto, sin ancho fijo.
+    expect(columnas[2]?.getAttribute("style")).toContain("8.5rem");
+  });
+
+  describe("numeración de productos (REQ-411)", () => {
+    it("numera cada producto desde 1, como la columna # del PDF", () => {
+      const { container } = render(<OrdenVentaCaptureFormLineas {...propsBase({ lineas: conIndice(3) })} />);
+      const numeros = Array.from(container.querySelectorAll("[data-ov-numero]")).map((celda) => celda.textContent);
+
+      expect(screen.getByRole("columnheader", { name: "#" })).toBeInTheDocument();
+      expect(numeros).toEqual(["1", "2", "3"]);
+    });
+
+    it("al ver solo una tarea conserva la posición que tiene el producto en toda la OV", () => {
+      const soloTareaDos = conIndice(5).slice(2, 4);
+      const { container } = render(<OrdenVentaCaptureFormLineas {...propsBase({ lineas: soloTareaDos })} />);
+      const numeros = Array.from(container.querySelectorAll("[data-ov-numero]")).map((celda) => celda.textContent);
+
+      expect(numeros).toEqual(["3", "4"]);
+    });
+
+    it("sin productos el aviso ocupa todas las columnas", () => {
+      render(<OrdenVentaCaptureFormLineas {...propsBase({ lineas: [] })} />);
+
+      expect(screen.getByText(/Sin productos/).closest("td")).toHaveAttribute("colspan", "9");
+    });
   });
 });
