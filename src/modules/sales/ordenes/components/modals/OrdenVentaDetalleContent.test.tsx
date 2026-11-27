@@ -17,9 +17,14 @@ vi.mock("./OrdenVentaDetalleDatosPedidoEntrega", () => ({
   ),
 }));
 vi.mock("./OrdenVentaDetalleProductos", () => ({
-  OrdenVentaDetalleProductos: (p: { filas: unknown[]; total: number }) => (
+  OrdenVentaDetalleProductos: (p: {
+    filas: unknown[];
+    total: number;
+    avisoTotal?: { db: string } | null;
+  }) => (
     <div data-testid="productos">
       {p.filas.length} filas · total {p.total}
+      {p.avisoTotal ? ` · aviso ${p.avisoTotal.db}` : ""}
     </div>
   ),
 }));
@@ -71,6 +76,38 @@ describe("OrdenVentaDetalleContent", () => {
       ],
     } as unknown as OrdenVentaDetalleRow);
     expect(screen.getByTestId("productos")).toHaveTextContent("1 filas · total 20");
+  });
+
+  describe("alerta de total OV vs OC (REQ-371)", () => {
+    const conLineas = (origenTexto: string | null) =>
+      ({
+        ...base,
+        origen_texto: origenTexto,
+        lineas: [
+          {
+            id_linea_orden_venta: "l1",
+            id_producto: "p1",
+            cantidad_pedida: 2,
+            precio_unitario: 10,
+            producto: { sku: "P1", descripcion: "PAPAYA" },
+          },
+        ],
+      }) as unknown as OrdenVentaDetalleRow;
+
+    it("si el total de la OC no cuadra con el de la OV, pasa el aviso a productos", () => {
+      renderContenido(conLineas("Pedido\nTotal pedido: MXN 99.00"));
+      expect(screen.getByTestId("productos")).toHaveTextContent("aviso Solicitud $99.00");
+    });
+
+    it("si el total de la OC cuadra con el de la OV, no hay aviso", () => {
+      renderContenido(conLineas("Pedido\nTotal pedido: MXN 20.00"));
+      expect(screen.getByTestId("productos")).not.toHaveTextContent("aviso");
+    });
+
+    it("si el texto de origen no trae total, no hay aviso", () => {
+      renderContenido(conLineas("Favor de surtir mañana"));
+      expect(screen.getByTestId("productos")).not.toHaveTextContent("aviso");
+    });
   });
 
   it("sin líneas pero con renglones del correo muestra el respaldo del origen", () => {

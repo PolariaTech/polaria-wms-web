@@ -1,3 +1,6 @@
+import { groupOrigenCorreoToOrdenesTrabajo } from "@/modules/sales/ordenes/utils/origen/origen-correo-ordenes-trabajo";
+import { parseOrigenCorreoJson } from "@/modules/sales/ordenes/utils/origen/origen-correo-renglon";
+
 export const ESTADO_ALISTADA = "alistada";
 export const ESTADO_ALISTAMIENTO = "alistamiento";
 export const ESTADO_DESPACHADA = "despachada";
@@ -15,6 +18,9 @@ export interface OrdenDespachoPublico {
   estado: typeof ESTADO_ALISTADA | typeof ESTADO_ALISTAMIENTO;
   codigoCuenta: string;
   nombreCliente: string;
+  denominacionComercial: string;
+  cantidadOrdenesTrabajo: number;
+  ordenCompraCliente: string;
 }
 
 export interface ConfirmacionDespacho {
@@ -40,6 +46,32 @@ export function cuentaDespachoDesdeQuery(
   return texto(raw);
 }
 
+function textoVisible(value: unknown): string {
+  const textoPlano = texto(value);
+  return textoPlano || "—";
+}
+
+/** Denominación de la OV, si no la del comprador, si no el apodo. */
+export function denominacionComercialDespacho(input: {
+  orden: unknown;
+  comprador: unknown;
+  apodo: unknown;
+}): string {
+  return textoVisible(texto(input.orden) || texto(input.comprador) || texto(input.apodo));
+}
+
+export function ordenCompraClienteDespacho(value: unknown): string {
+  return textoVisible(value);
+}
+
+export function cantidadOrdenesTrabajoDespacho(origen: unknown): number {
+  return groupOrigenCorreoToOrdenesTrabajo(parseOrigenCorreoJson(origen)).length;
+}
+
+export function despachadorDistintoDelDefault(actual: string, defecto: string): boolean {
+  return actual.trim() !== defecto.trim();
+}
+
 export function preguntaConfirmacionDespacho(
   codigo: string,
   nombreCliente: string,
@@ -59,6 +91,19 @@ function nombrePersona(value: unknown): string | null {
   const nombre = texto(value);
   if (!nombre || nombre.length > LARGO_MAXIMO_NOMBRE) return null;
   return nombre;
+}
+
+export function validarNombreDespachador(
+  value: unknown,
+): { ok: true; value: string } | { ok: false; error: string } {
+  const validacion = validarConfirmacionDespacho({
+    idOrdenVenta: "qr",
+    codigoCuenta: "qr",
+    despachador: value,
+    transportista: "qr",
+  });
+  if (!validacion.ok) return validacion;
+  return { ok: true, value: validacion.value.despachador };
 }
 
 export function validarConfirmacionDespacho(

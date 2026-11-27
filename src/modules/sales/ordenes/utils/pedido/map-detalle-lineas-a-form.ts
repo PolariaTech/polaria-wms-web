@@ -125,7 +125,7 @@ export function mapDetalleLineasAForm(params: {
         UNIDAD_MEDIDA_VENTA_DEFAULT,
       precioUnitario: linea.precio_unitario,
       precioInput: formatPrecioInputMx(linea.precio_unitario),
-      precioManual: true as const,
+      precioManual: Number(linea.precio_unitario) > 0,
       aliasCliente,
       // REQ-201: línea ya en BD = producto verificado (no volver a pedir match).
       catalogPending: false,

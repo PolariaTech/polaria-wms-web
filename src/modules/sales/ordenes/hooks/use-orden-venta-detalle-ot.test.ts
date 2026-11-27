@@ -1,7 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { calcularMontosDetalle } from "../components/modals/detalle-venta-montos";
 import type { CypherCompanionOtPicker } from "../components/modals/OrdenVentaCypherDrawer";
+import type { OrdenVentaLineaRow } from "../../shared/types/sales.types";
 import { useOrdenVentaDetalleOt } from "./use-orden-venta-detalle-ot";
 
 const renglon = (almacen: string, pedido: string, cantidad: number) => ({
@@ -38,6 +40,36 @@ function armar(
 }
 
 describe("useOrdenVentaDetalleOt", () => {
+  it("REQ-429: origen_correo como arreglo (jsonb) arma las OT y la activa", () => {
+    const { result } = armar({
+      origenCorreo: [renglon("A", "1", 5), renglon("B", "2", 7)],
+    });
+    expect(result.current.ordenesTrabajo).toHaveLength(2);
+    expect(result.current.hijaActiva?.id).toBe(result.current.ordenesTrabajo[0]!.id);
+  });
+
+  it("REQ-429: con origen como arreglo, el detalle muestra la especificación guardada por OT", () => {
+    const { result } = armar({ origenCorreo: [renglon("A", "1", 5)] });
+    const hija = result.current.hijaActiva;
+    expect(hija).not.toBeNull();
+    const lineas: OrdenVentaLineaRow[] = [
+      {
+        id_linea_orden_venta: "l-prod-1",
+        id_producto: "prod-1",
+        cantidad_pedida: 5,
+        precio_unitario: 10,
+        producto: { sku: "prod-1", descripcion: "JITOMATE GUAJE" },
+      },
+    ];
+    const montos = calcularMontosDetalle({
+      lineItems: lineas,
+      todasLineas: lineas,
+      notasLineas: `ot:${hija!.id}|pid:prod-1: Madurez: Rojo`,
+      hija,
+    });
+    expect(montos.montosLinea[0]?.especificacion).toBe("Madurez: Rojo");
+  });
+
   it("sin origen no hay OT ni OT activa", () => {
     const { result } = armar({ origenCorreo: null });
     expect(result.current.ordenesTrabajo).toEqual([]);

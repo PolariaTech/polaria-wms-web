@@ -97,6 +97,44 @@ describe("filterLineasByOrdenTrabajoHija", () => {
 
     expect(matched.map((l) => l.id_linea_orden_venta)).toEqual(["b1", "f1"]);
   });
+
+  it("REQ-436: no toma COLIFLOR por COL MORADA aunque esté antes y tenga la misma cantidad", () => {
+    const all = [
+      linea({ id: "cf2", nombre: "COLIFLOR", sku: "105001501", kg: 2 }),
+      linea({ id: "cf3", nombre: "COLIFLOR", sku: "105001501", kg: 3 }),
+      linea({ id: "cm2", nombre: "COL MORADA", sku: "10501533", kg: 2 }),
+    ];
+
+    const matched = filterLineasByOrdenTrabajoHija(
+      all,
+      hija([
+        {
+          Producto: "COL MORADA DE 14 A 18 CM",
+          "Codigo producto": "10501533",
+          Cantidad: 2,
+        },
+        { Producto: "COLIFLOR", "Codigo producto": "105001501", Cantidad: 3 },
+      ]),
+    );
+
+    expect(matched.map((l) => l.id_linea_orden_venta)).toEqual(["cm2", "cf3"]);
+  });
+
+  it("REQ-436: el código igual gana aunque la cantidad no coincida", () => {
+    const all = [
+      linea({ id: "cf2", nombre: "COLIFLOR", sku: "105001501", kg: 2 }),
+      linea({ id: "cm5", nombre: "COL MORADA", sku: "10501533", kg: 5 }),
+    ];
+
+    const matched = filterLineasByOrdenTrabajoHija(
+      all,
+      hija([
+        { Producto: "COL MORADA", "Codigo producto": "10501533", Cantidad: 2 },
+      ]),
+    );
+
+    expect(matched.map((l) => l.id_linea_orden_venta)).toEqual(["cm5"]);
+  });
 });
 
 describe("buildOtIdByDetalleLineaId", () => {
@@ -134,6 +172,38 @@ describe("buildOtIdByDetalleLineaId", () => {
     const map = buildOtIdByDetalleLineaId(all, hijas);
     expect(map.get("a1")).toBe("ot-a");
     expect(map.get("b1")).toBe("ot-b");
+  });
+
+  it("REQ-436: reparte COLIFLOR y COL MORADA a su OT aunque los nombres se parezcan", () => {
+    const all = [
+      linea({ id: "cf2", nombre: "COLIFLOR", sku: "105001501", kg: 2 }),
+      linea({ id: "cm2", nombre: "COL MORADA", sku: "10501533", kg: 2 }),
+    ];
+    const hijas: OrdenTrabajoHija[] = [
+      {
+        ...hija([
+          {
+            Producto: "COL MORADA DE 14 A 18 CM",
+            "Codigo producto": "10501533",
+            Cantidad: 2,
+          },
+        ]),
+        id: "ot-isla",
+      },
+      {
+        ...hija([
+          { Producto: "COLIFLOR", "Codigo producto": "105001501", Cantidad: 2 },
+        ]),
+        id: "ot-market",
+        label: "451 — Market",
+        numeroPedido: "451",
+        almacen: "Market",
+      },
+    ];
+
+    const map = buildOtIdByDetalleLineaId(all, hijas);
+    expect(map.get("cm2")).toBe("ot-isla");
+    expect(map.get("cf2")).toBe("ot-market");
   });
 });
 

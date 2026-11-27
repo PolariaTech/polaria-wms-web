@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from "@/config/env";
+import { notifySessionExpired } from "@/lib/auth/session-expired";
 import { applyTenantHeaders } from "@/lib/utils/tenant-headers";
 
 export class ApiError extends Error {
@@ -131,6 +132,9 @@ export async function apiRequest<T>(
     }
   };
 
+  // Solo hay "sesión expirada" si realmente enviamos un token que el API rechazó.
+  const sentToken = auth && Boolean(accessTokenGetter?.());
+
   let response = await doFetch();
 
   if (!response.ok && response.status === 401 && auth) {
@@ -138,6 +142,11 @@ export async function apiRequest<T>(
     const refreshed = await refreshAuthTokens();
     if (refreshed) {
       response = await doFetch();
+    }
+
+    // Token rechazado y sin forma de renovarlo: el usuario debe iniciar sesión de nuevo.
+    if (!response.ok && response.status === 401 && sentToken) {
+      notifySessionExpired(path);
     }
   }
 

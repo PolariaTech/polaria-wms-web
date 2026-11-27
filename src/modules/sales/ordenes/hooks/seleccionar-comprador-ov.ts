@@ -13,6 +13,7 @@ import {
 import { debeAvisarVerificarDireccion } from "../utils/pedido/debe-avisar-direccion";
 import { formatCompradorLabel } from "../utils/pedido/orden-venta-create-helpers";
 import { resolveDenominacionComercial } from "../utils/pedido/resolve-denominacion-comercial";
+import { publicarPreciosSeparados } from "./precios-comprador-separados";
 import { preciosYEquivalenciasDeComprador } from "./useClienteOv";
 
 type SeleccionOptions = {
@@ -150,17 +151,20 @@ export function seleccionarCompradorOv(input: {
   ])
     .then(([aliases, ultimos]) => {
       if (selectedCompradorIdRef.current !== row.idComprador) return;
-      const { overrides, equivalencias } = preciosYEquivalenciasDeComprador(
-        aliases,
-        ultimos,
-      );
+      const { overrides, equivalencias, preciosUltimos, preciosEquivalencia } =
+        preciosYEquivalenciasDeComprador(aliases, ultimos);
       setPrecioOverrideByProducto(overrides);
       setEquivalenciaByProducto(equivalencias);
+      publicarPreciosSeparados({
+        ultimos: preciosUltimos,
+        equivalencia: preciosEquivalencia,
+      });
     })
     .catch(() => {
       if (selectedCompradorIdRef.current !== row.idComprador) return;
       setPrecioOverrideByProducto({});
       setEquivalenciaByProducto({});
+      publicarPreciosSeparados({ ultimos: {}, equivalencia: {} });
     });
 }
 

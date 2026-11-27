@@ -117,6 +117,7 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
       totalVenta: 0,
       totalOvCompleta: 0,
       mostrarTotalOv: false,
+      avisosValidacion: [],
       puedeAgregarProducto: true,
       aceptaSustituciones: "",
       requiereLote: "",
@@ -167,6 +168,38 @@ describe("OrdenVentaFormStep — secciones con catálogo (REQ-216/217/254)", () 
     render(<OrdenVentaFormStep {...estadoCompleto().estado} />);
 
     expect(within(seccion("Productos")).getByText("0 productos")).toBeInTheDocument();
+  });
+
+  it("REQ-371: sin aviso de total no resalta el total de la OV", () => {
+    const { container } = render(
+      <OrdenVentaFormStep {...estadoCompleto({ totalVenta: 100 }).estado} />,
+    );
+
+    expect(container.querySelector("[data-total-ov-aviso]")).toBeNull();
+  });
+
+  it("REQ-371: si el total no cuadra con la OC, resalta el total con tooltip", () => {
+    const { estado } = estadoCompleto({
+      totalVenta: 100,
+      avisosValidacion: [
+        { campo: "Total", fieldKey: "totalSolicitud", db: "Solicitud $120.00", ia: "OV $100.00" },
+        { campo: "Cliente", fieldKey: "cliente", db: "A", ia: "B" },
+      ],
+    });
+    render(<OrdenVentaFormStep {...estado} />);
+
+    const resaltado = within(seccion("Productos")).getByTitle(/Solicitud \$120\.00/);
+    expect(resaltado).toHaveAttribute("data-total-ov-aviso");
+    expect(resaltado).toHaveTextContent("$100.00");
+  });
+
+  it("REQ-371: otros avisos de validación no resaltan el total", () => {
+    const { estado } = estadoCompleto({
+      avisosValidacion: [{ campo: "Cliente", fieldKey: "cliente", db: "A", ia: "B" }],
+    });
+    const { container } = render(<OrdenVentaFormStep {...estado} />);
+
+    expect(container.querySelector("[data-total-ov-aviso]")).toBeNull();
   });
 
   it("REQ-241: denominación comercial es editable (no readOnly)", () => {

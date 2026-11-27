@@ -90,31 +90,36 @@ function namesLooselyMatch(a: string, b: string): boolean {
   return shared.length / Math.min(ta.length, tb.length) >= 0.5;
 }
 
-function matchesProducto(
+/**
+ * Nivel de coincidencia de producto (mayor = más confiable):
+ * 2 código igual · 1 nombre sin códigos en conflicto · 0 nombre parecido pero
+ * códigos distintos (REQ-436: COLIFLOR ≈ COL MORADA) · -1 no coincide.
+ */
+function nivelMatchProducto(
   linea: LineaFiltrable,
   row: OrigenCorreoRenglon,
-): boolean {
+): number {
   const prod = (row.Producto ?? "").trim().toLowerCase();
   const cod = (row["Codigo producto"] ?? "").trim().toLowerCase();
-  if (!prod && !cod) return false;
+  if (!prod && !cod) return -1;
 
   const titulo = lineaTitulo(linea);
   const sku = lineaSku(linea);
 
   if (cod && sku && (sku === cod || sku.includes(cod) || cod.includes(sku))) {
-    return true;
+    return 2;
   }
+  const codigosEnConflicto = Boolean(cod && sku);
   if (prod && namesLooselyMatch(titulo, prod)) {
-    return true;
+    return codigosEnConflicto ? 0 : 1;
   }
   if (cod && (titulo === cod || titulo.includes(cod))) {
-    return true;
+    return 1;
   }
-  return false;
+  return -1;
 }
 
-export function scoreMatch(linea: LineaFiltrable, row: OrigenCorreoRenglon): number {
-  if (!matchesProducto(linea, row)) return -1;
+function puntajeCantidad(linea: LineaFiltrable, row: OrigenCorreoRenglon): number {
   const qty = parseCantidadRenglon(row.Cantidad);
   const lineaQty = lineaCantidad(linea);
   if (qty <= 0) return 1;
@@ -122,6 +127,13 @@ export function scoreMatch(linea: LineaFiltrable, row: OrigenCorreoRenglon): num
   if (delta < 0.001) return 3;
   if (delta / qty < 0.05) return 2;
   return 1;
+}
+
+/** -1 sin match; el nivel de producto pesa más que la cantidad. */
+export function scoreMatch(linea: LineaFiltrable, row: OrigenCorreoRenglon): number {
+  const nivel = nivelMatchProducto(linea, row);
+  if (nivel < 0) return -1;
+  return nivel * 10 + puntajeCantidad(linea, row);
 }
 
 export type FilterLineasOtOptions = {

@@ -59,6 +59,7 @@ function estadoConRfc(parcial: Record<string, unknown> = {}) {
     totalVenta: 0,
     totalOvCompleta: 0,
     mostrarTotalOv: false,
+    avisosValidacion: [],
     puedeAgregarProducto: true,
     aceptaSustituciones: "",
     requiereLote: "",

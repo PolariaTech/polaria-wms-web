@@ -70,7 +70,8 @@ export function OrdenVentaDetalleModal({
   } = useOrdenVentaDetalleData({ idOrdenVenta, codigoCuenta, inspect, resetHija });
 
   const { ordenesTrabajo, hijaActiva, indiceOt } = useOrdenVentaDetalleOt({
-    origenCorreo: orden?.origen_correo ?? null,
+    // REQ-429: `origen_correo` es jsonb y llega como arreglo; el hook acepta texto o arreglo.
+    origenCorreo: orden?.origen_correo,
     idOrdenVenta,
     hijaId,
     setHijaId,

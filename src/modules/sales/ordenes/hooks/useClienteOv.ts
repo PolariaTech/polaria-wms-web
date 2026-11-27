@@ -4,15 +4,21 @@ export type AliasPrecioComprador = {
   alias?: string | null;
 };
 
-/** REQ-135: el alias con precio gana; si no, queda el último precio de ese cliente. */
+/**
+ * REQ-135: en el catálogo el alias con precio gana; si no, queda el último precio.
+ * REQ-366: además separa último y equivalencia para la línea que llegó sin precio.
+ */
 export function preciosYEquivalenciasDeComprador(
   aliases: readonly AliasPrecioComprador[],
   ultimos: Record<string, number>,
 ): {
   overrides: Record<string, number>;
   equivalencias: Record<string, string[]>;
+  preciosUltimos: Record<string, number>;
+  preciosEquivalencia: Record<string, number>;
 } {
   const overrides: Record<string, number> = { ...ultimos };
+  const preciosEquivalencia: Record<string, number> = {};
   const porProducto = new Map<
     string,
     { frases: string[]; fraseConPrecio: string | null }
@@ -20,6 +26,7 @@ export function preciosYEquivalenciasDeComprador(
   for (const alias of aliases) {
     if (alias.precioOverride != null) {
       overrides[alias.idProducto] = alias.precioOverride;
+      preciosEquivalencia[alias.idProducto] = alias.precioOverride;
     }
     const nombreAlias = alias.alias?.trim();
     if (!nombreAlias) continue;
@@ -42,5 +49,10 @@ export function preciosYEquivalenciasDeComprador(
       ? [principal, ...unicas.filter((frase) => frase !== principal)]
       : unicas;
   }
-  return { overrides, equivalencias };
+  return {
+    overrides,
+    equivalencias,
+    preciosUltimos: { ...ultimos },
+    preciosEquivalencia,
+  };
 }
