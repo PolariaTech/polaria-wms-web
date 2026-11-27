@@ -15,8 +15,10 @@ const botonZoomClass =
 export function AdjuntoPreviewZoomControls(props: {
   zoom: number;
   onZoomChange: (next: number) => void;
+  /** Sustituye el porcentaje. El PDF en ajuste al ancho muestra «Ancho». */
+  etiqueta?: string;
 }) {
-  const { zoom, onZoomChange } = props;
+  const { zoom, onZoomChange, etiqueta } = props;
   return (
     <div
       className="inline-flex shrink-0 items-center gap-1.5"
@@ -42,7 +44,7 @@ export function AdjuntoPreviewZoomControls(props: {
         onClick={() => onZoomChange(ADJUNTO_PREVIEW_ZOOM_DEFAULT)}
         className="inline-flex h-9 min-w-12 shrink-0 items-center justify-center rounded-lg border border-polaria-t-20 px-2 polaria-text-body-sm text-polaria-w-50 transition hover:bg-polaria-t-08 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-polaria-teal focus-visible:ring-offset-2 focus-visible:ring-offset-polaria-bg"
       >
-        {Math.round(zoom * 100)}%
+        {etiqueta ?? `${Math.round(zoom * 100)}%`}
       </button>
       <button
         type="button"
