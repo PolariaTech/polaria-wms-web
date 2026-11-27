@@ -221,6 +221,11 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                   total={totalVenta}
                   totalOv={totalOvCompleta}
                   mostrarTotalOv={mostrarTotalOv}
+                  avisoTotal={
+                    input.avisosValidacion.find(
+                      (aviso) => aviso.fieldKey === "totalSolicitud",
+                    ) ?? null
+                  }
                   otCount={ordenesTrabajoForm.length}
                   puedeAgregar={puedeAgregarProducto}
                   onAgregar={() => {

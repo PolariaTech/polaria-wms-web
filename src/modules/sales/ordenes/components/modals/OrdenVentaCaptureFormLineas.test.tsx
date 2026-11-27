@@ -52,6 +52,42 @@ function propsBase(parcial: Record<string, unknown> = {}) {
   };
 }
 
+describe("OrdenVentaCaptureFormLineas — alerta de total OV vs OC (REQ-371)", () => {
+  const aviso = { db: "Solicitud $999.00" };
+
+  it("sin aviso no resalta ningún total", () => {
+    const { container } = render(
+      <OrdenVentaCaptureFormLineas {...propsBase()} />,
+    );
+    expect(container.querySelector("[data-total-ov-aviso]")).toBeNull();
+  });
+
+  it("con una sola tarea resalta el Total con tooltip", () => {
+    const { container } = render(
+      <OrdenVentaCaptureFormLineas {...propsBase({ avisoTotal: aviso })} />,
+    );
+    const resaltados = container.querySelectorAll("[data-total-ov-aviso]");
+    expect(resaltados).toHaveLength(1);
+    expect(resaltados[0].getAttribute("title")).toContain("Solicitud $999.00");
+  });
+
+  it("con varias tareas resalta solo Total OV", () => {
+    const { container } = render(
+      <OrdenVentaCaptureFormLineas
+        {...propsBase({
+          avisoTotal: aviso,
+          mostrarTotalOv: true,
+          otCount: 2,
+          totalOv: 500,
+        })}
+      />,
+    );
+    const resaltados = container.querySelectorAll("[data-total-ov-aviso]");
+    expect(resaltados).toHaveLength(1);
+    expect(resaltados[0]).toHaveTextContent("$500.00");
+  });
+});
+
 describe("OrdenVentaCaptureFormLineas — pie de Productos (REQ-224)", () => {
   it("muestra a la izquierda cuántos productos hay, sin unidad", () => {
     render(<OrdenVentaCaptureFormLineas {...propsBase()} />);

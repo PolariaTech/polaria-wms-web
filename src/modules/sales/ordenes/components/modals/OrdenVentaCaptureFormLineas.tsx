@@ -17,6 +17,7 @@ import {
 } from "../../utils/pedido/orden-venta-create-helpers";
 import { CaptureSection } from "./CaptureSection";
 import { ETIQUETA_TAREA } from "./etiqueta-tarea-ot";
+import { TotalOvConAviso, type AvisoTotalOc } from "./TotalOvConAviso";
 import { CeldaUnidad } from "./OrdenVentaCaptureFormCeldaUnidad";
 import {
   CeldaCantidad,
@@ -47,6 +48,8 @@ export function OrdenVentaCaptureFormLineas(props: {
   totalOv: number;
   mostrarTotalOv: boolean;
   otCount: number;
+  /** REQ-371: el total de la OV no coincide con el de la OC. */
+  avisoTotal?: AvisoTotalOc | null;
   puedeAgregar: boolean;
   onAgregar: () => void;
 } & LineaHandlers) {
@@ -130,6 +133,7 @@ function Totales(props: {
   mostrarTotalOv: boolean;
   otCount: number;
   cantidadProductos: number;
+  avisoTotal?: AvisoTotalOc | null;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 border-t border-polaria-t-20 bg-polaria-w-08 px-4 py-3">
@@ -152,7 +156,10 @@ function Totales(props: {
               {props.mostrarTotalOv ? `Total ${ETIQUETA_TAREA}` : "Total"}
             </td>
             <td className="pt-2 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
-              ${formatPrecioEs(props.total)}
+              {/* Con varias tareas el total que se compara es «Total OV», no este. */}
+              <TotalOvConAviso aviso={props.mostrarTotalOv ? null : props.avisoTotal}>
+                ${formatPrecioEs(props.total)}
+              </TotalOvConAviso>
             </td>
           </tr>
           {props.mostrarTotalOv ? (
@@ -161,7 +168,9 @@ function Totales(props: {
                 Total OV ({props.otCount} {ETIQUETA_TAREA})
               </td>
               <td className="pt-1 font-mono polaria-text-body-sm font-semibold text-polaria-teal">
-                ${formatPrecioEs(props.totalOv)}
+                <TotalOvConAviso aviso={props.avisoTotal}>
+                  ${formatPrecioEs(props.totalOv)}
+                </TotalOvConAviso>
               </td>
             </tr>
           ) : null}
