@@ -85,9 +85,9 @@ describe("totalDocumentoQueFormularioNoCuadra (REQ-425)", () => {
 
 describe("corrección con el formulario desviado del documento (REQ-425)", () => {
   it("sin cambios estructurales, deja aplicar y avisa los dos totales", () => {
-    const p = propuesta();
-    expect(puedeAplicarCorreccion(p, 1793)).toBe(true);
-    const estado = mensajeEstadoCorreccion(p, 1793);
+    const propuestaSinCambios = propuesta();
+    expect(puedeAplicarCorreccion(propuestaSinCambios, 1793)).toBe(true);
+    const estado = mensajeEstadoCorreccion(propuestaSinCambios, 1793);
     expect(estado?.tono).toBe("aviso");
     expect(estado?.texto).toContain("1,793.00");
     expect(estado?.texto).toContain("1,869.00");
