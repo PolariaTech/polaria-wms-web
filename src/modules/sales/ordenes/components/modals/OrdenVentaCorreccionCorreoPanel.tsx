@@ -32,6 +32,8 @@ const BOTON_PRIMARIO = cn(
 
 export interface OrdenVentaCorreccionCorreoPanelProps {
   propuesta: PropuestaCorreccionCorreoApi;
+  /** REQ-425: total de las líneas del formulario; si no cuadra con el documento se puede aplicar. */
+  importeFormulario?: number;
   /** Lo que el servidor entendió de la instrucción; se muestra como texto. */
   motivo?: string;
   /** Aplica la propuesta al formulario como borrador. Lanza si no se puede. */
@@ -46,13 +48,14 @@ export interface OrdenVentaCorreccionCorreoPanelProps {
  */
 export function OrdenVentaCorreccionCorreoPanel({
   propuesta,
+  importeFormulario,
   motivo,
   onAplicar,
   onDescartar,
 }: OrdenVentaCorreccionCorreoPanelProps) {
   const sinVerificar = documentosSinVerificar(propuesta);
-  const puedeAplicar = puedeAplicarCorreccion(propuesta);
-  const estadoAplicar = mensajeEstadoCorreccion(propuesta);
+  const puedeAplicar = puedeAplicarCorreccion(propuesta, importeFormulario);
+  const estadoAplicar = mensajeEstadoCorreccion(propuesta, importeFormulario);
 
   return (
     <div className="flex w-full flex-1 flex-col gap-5 px-1">

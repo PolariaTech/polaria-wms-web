@@ -68,6 +68,7 @@ export function OrdenVentaReagruparOtModal(
       {propuestaCorreccion ? (
         <OrdenVentaCorreccionCorreoPanel
           propuesta={propuestaCorreccion.propuesta!}
+          importeFormulario={propuestaCorreccion.importeFormulario}
           motivo={propuestaCorreccion.motivo}
           onAplicar={m.handleAplicarCorreccion}
           onDescartar={m.descartarCorreccion}

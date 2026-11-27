@@ -10,7 +10,20 @@ import {
   firmaEstadoReagrupacion,
   type PropuestaReagrupacionApi,
 } from "../utils/ot/reagrupar-ordenes-trabajo";
-import { parseCantidadReagrupacion } from "../utils/pedido/orden-venta-create-helpers";
+import {
+  lineAmounts,
+  parseCantidadReagrupacion,
+} from "../utils/pedido/orden-venta-create-helpers";
+import type { LineaVentaForm } from "../types/orden-venta-create-modal.types";
+
+/** Total con IVA de todas las líneas del formulario (todas las OT), como el «Total OV». */
+export function totalConIvaDeLineas(lineas: readonly LineaVentaForm[]): number {
+  const total = lineas.reduce((suma, linea) => {
+    const importes = lineAmounts(linea);
+    return suma + Math.max(0, importes.bruto + importes.iva);
+  }, 0);
+  return Math.round(total * 100) / 100;
+}
 
 export function useAplicarReagrupacionOv(estado: OrdenVentaFormEstado) {
   const {
@@ -39,6 +52,7 @@ export function useAplicarReagrupacionOv(estado: OrdenVentaFormEstado) {
     return {
       estadoBase: conDiaYHorario(estadoBase, hijas),
       firma: firmaEstadoReagrupacion(hijas, lineas),
+      importeFormulario: totalConIvaDeLineas(lineas),
     };
   }, [lineas, syncActiveOtFromForm]);
 

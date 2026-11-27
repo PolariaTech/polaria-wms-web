@@ -93,5 +93,7 @@ export interface EstadoCorreccion {
   motivo: string;
   /** Firma del formulario al pedirla; si cambia, la propuesta ya no aplica. */
   firmaBase: string;
+  /** REQ-425: total de las líneas del formulario al pedir la corrección. */
+  importeFormulario?: number;
   propuesta?: PropuestaCorreccionCorreoApi;
 }

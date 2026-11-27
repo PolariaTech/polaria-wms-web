@@ -159,6 +159,21 @@ describe("useReagruparOtGenerar", () => {
     expect(args.enCursoRef.current).toBe(false);
   });
 
+  it("REQ-425: la corrección conserva el total del formulario con el que se pidió", async () => {
+    const { args, generar } = armar({
+      obtenerSolicitud: vi.fn(() => ({ ...solicitud, importeFormulario: 1793 })),
+      onAplicarCorreccion: vi.fn(),
+      interpretar: vi.fn().mockResolvedValue({ intencion: "releer_documentos", motivo: "total" }),
+      solicitarCorreccion: vi.fn().mockResolvedValue({ id: "corr" }),
+    });
+    await generar();
+    const llamadas = (args.setCorreccion as ReturnType<typeof vi.fn>).mock.calls.map(
+      (llamada) => llamada[0] as EstadoCorreccion,
+    );
+    expect(llamadas.map((estadoCorreccion) => estadoCorreccion.fase)).toEqual(["leyendo", "propuesta"]);
+    expect(llamadas.map((estadoCorreccion) => estadoCorreccion.importeFormulario)).toEqual([1793, 1793]);
+  });
+
   it("si releer falla muestra el mensaje del CorreccionCorreoApiError o el genérico", async () => {
     const interpretar = vi.fn().mockResolvedValue({
       intencion: "releer_documentos",

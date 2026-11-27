@@ -1,81 +1,57 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import type { OrdenVentaFormEstado } from "../../types/orden-venta-form-estado";
+import {
+  leerTotalOcDesdeAdjuntos,
+  rutasAdjuntosConTotal,
+} from "./total-oc-desde-adjuntos";
 
 /**
  * REQ-279: si al reabrir la OV el total solo está en PDF/EML adjuntos,
- * pide a resolve-occ el `totalSolicitud` (misma lectura de storage que OCC).
- * Requiere que resolve-occ devuelva `totalSolicitud` (autorizar esa zona).
+ * pide a resolve-occ el total. REQ-425: con varias OC en el mismo correo
+ * se toma el de las OC de esta OV, no el primero que aparezca.
  */
 export function useLeerTotalDesdeAdjuntos(estado: OrdenVentaFormEstado) {
   const {
     step,
     open,
     origenAdjuntos,
+    ordenCompraHotel,
+    ordenesTrabajoForm,
     totalSolicitudDetectado,
     setTotalSolicitudDetectado,
   } = estado;
 
-  useEffect(() => {
-    if (step !== "form" || !open) return;
-    if (
-      typeof totalSolicitudDetectado === "number" &&
-      totalSolicitudDetectado > 0
-    ) {
-      return;
-    }
+  // Claves en texto: el arreglo cambia de identidad en cada carga y cancelaría la lectura.
+  const rutasClave = rutasAdjuntosConTotal(origenAdjuntos ?? []).join("\n");
+  const ocsClave = [
+    ordenCompraHotel,
+    ...(ordenesTrabajoForm ?? []).map((hija) => hija.numeroPedido ?? ""),
+  ]
+    .map((oc) => (oc ?? "").trim())
+    .filter(Boolean)
+    .join("\n");
+  const yaDetectado =
+    typeof totalSolicitudDetectado === "number" && totalSolicitudDetectado > 0;
+  const rutas = useMemo(() => rutasClave.split("\n").filter(Boolean), [rutasClave]);
+  const ocsOv = useMemo(() => ocsClave.split("\n").filter(Boolean), [ocsClave]);
 
-    const paths = [
-      ...new Set(
-        origenAdjuntos
-          .filter((item) => {
-            if (!item.path?.trim()) return false;
-            const name = item.nombre.toLowerCase();
-            const mime = (item.mime ?? "").toLowerCase();
-            return (
-              name.endsWith(".eml") ||
-              mime.includes("message") ||
-              name.endsWith(".pdf") ||
-              mime.includes("pdf")
-            );
-          })
-          .map((item) => item.path!.trim()),
-      ),
-    ];
-    if (paths.length === 0) return;
+  useEffect(() => {
+    if (step !== "form" || !open || yaDetectado) return;
+    if (rutas.length === 0) return;
 
     let cancelled = false;
-    void (async () => {
-      for (const path of paths) {
-        try {
-          const response = await fetch(
-            `/api/ov-adjuntos/resolve-occ?path=${encodeURIComponent(path)}`,
-          );
-          if (!response.ok) continue;
-          const data = (await response.json()) as {
-            totalSolicitud?: number | null;
-          };
-          if (cancelled) return;
-          const total = data.totalSolicitud;
-          if (typeof total === "number" && Number.isFinite(total) && total > 0) {
-            setTotalSolicitudDetectado(total);
-            return;
-          }
-        } catch {
-          /* silencioso: el aviso solo aparece si hay total */
-        }
-      }
-    })();
+    void leerTotalOcDesdeAdjuntos({
+      rutas,
+      ocsOv,
+      cancelado: () => cancelled,
+    }).then((total) => {
+      if (!cancelled && total != null) setTotalSolicitudDetectado(total);
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [
-    open,
-    origenAdjuntos,
-    setTotalSolicitudDetectado,
-    step,
-    totalSolicitudDetectado,
-  ]);
+  }, [ocsOv, open, rutas, setTotalSolicitudDetectado, step, yaDetectado]);
 }

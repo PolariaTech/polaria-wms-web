@@ -1,6 +1,11 @@
 import type { OrdenVentaLineaRow } from "../../../shared/types/sales.types";
 import { productNamesLooselyMatch } from "../match/find-closest-producto-catalogo";
 import { resolveOrdenVentaLineaTitulo } from "../display/orden-venta-display";
+import {
+  emparejarLineasConRenglones,
+  normalizarTextoProducto,
+  textoClienteDeLinea,
+} from "./emparejar-lineas-renglones";
 import type {
   OrdenTrabajoHija,
   OrigenCorreoRenglon,
@@ -13,6 +18,10 @@ type LineaFiltrable = {
   matchNombre?: string | null;
   /** Código / SKU de captura (formulario). */
   matchCodigo?: string | null;
+  /** Texto del cliente (formulario); en BD viene en `match_producto.textoCliente`. */
+  matchTextoCliente?: string | null;
+  match_producto?: unknown;
+  precio_unitario?: number | string | null;
 };
 
 function parseCantidadRenglon(value: number | string | undefined): number {
@@ -136,6 +145,50 @@ export function scoreMatch(linea: LineaFiltrable, row: OrigenCorreoRenglon): num
   return nivel * 10 + puntajeCantidad(linea, row);
 }
 
+/** REQ-425: el texto del cliente idéntico al renglón gana a cualquier parecido. */
+const BONO_TEXTO_CLIENTE = 100;
+
+function puntajeEmparejamiento(
+  linea: LineaFiltrable,
+  row: OrigenCorreoRenglon,
+): number {
+  const base = scoreMatch(linea, row);
+  const textoRenglon = normalizarTextoProducto(row.Producto);
+  const texto = textoClienteDeLinea(linea);
+  if (!texto || texto !== textoRenglon) {
+    // Sin texto del cliente (legado): el mismo nombre desempata entre parecidos.
+    const mismoNombre = normalizarTextoProducto(lineaTitulo(linea)) === textoRenglon;
+    return base >= 0 && mismoNombre ? base + 5 : base;
+  }
+  const desempatePrecio = mismoPrecio(linea, row) ? 1 : 0;
+  return (
+    BONO_TEXTO_CLIENTE +
+    Math.max(base, 10 + puntajeCantidad(linea, row)) +
+    desempatePrecio
+  );
+}
+
+/** Mismo producto y cantidad en dos tareas: el precio dice cuál es cuál. */
+function mismoPrecio(linea: LineaFiltrable, row: OrigenCorreoRenglon): boolean {
+  const precioLinea = parseCantidadRenglon(linea.precio_unitario ?? undefined);
+  const precioRenglon = parseCantidadRenglon(row.Precio);
+  return Math.abs(precioLinea - precioRenglon) < 0.001;
+}
+
+function emparejarConHijas<L extends LineaFiltrable>(
+  lineas: readonly L[],
+  hijas: readonly OrdenTrabajoHija[],
+): Map<number, string> {
+  const renglones = hijas.flatMap((hija) => hija.renglones);
+  const otPorRenglon = hijas.flatMap((hija) => hija.renglones.map(() => hija.id));
+  const pares = emparejarLineasConRenglones(lineas, renglones, puntajeEmparejamiento);
+  const otPorLinea = new Map<number, string>();
+  for (const [indiceLinea, indiceRenglon] of pares) {
+    otPorLinea.set(indiceLinea, otPorRenglon[indiceRenglon]!);
+  }
+  return otPorLinea;
+}
+
 export type FilterLineasOtOptions = {
   /**
    * Si no hubo match:
@@ -158,27 +211,14 @@ export function filterLineasByOrdenTrabajoHija<T extends LineaFiltrable>(
   if (!hija) return [...allLineItems];
   if (hija.renglones.length === 0) return [...allLineItems];
 
-  const used = new Set<number>();
-  const matched: T[] = [];
-
-  for (const row of hija.renglones) {
-    let bestIndex = -1;
-    let bestScore = -1;
-
-    for (let i = 0; i < allLineItems.length; i++) {
-      if (used.has(i)) continue;
-      const score = scoreMatch(allLineItems[i]!, row);
-      if (score > bestScore) {
-        bestScore = score;
-        bestIndex = i;
-      }
-    }
-
-    if (bestIndex >= 0) {
-      used.add(bestIndex);
-      matched.push(allLineItems[bestIndex]!);
-    }
-  }
+  const pares = emparejarLineasConRenglones(
+    allLineItems,
+    hija.renglones,
+    puntajeEmparejamiento,
+  );
+  const matched = [...pares.entries()]
+    .sort((izq, der) => izq[1] - der[1])
+    .map(([indiceLinea]) => allLineItems[indiceLinea]!);
 
   if (matched.length > 0) return matched;
   return (options?.emptyFallback ?? "none") === "all"
@@ -197,27 +237,9 @@ export function buildOtIdByDetalleLineaId(
   hijas: readonly OrdenTrabajoHija[],
 ): Map<string, string> {
   const result = new Map<string, string>();
-  const used = new Set<number>();
-
-  for (const hija of hijas) {
-    for (const row of hija.renglones) {
-      let bestIndex = -1;
-      let bestScore = -1;
-      for (let i = 0; i < lineas.length; i++) {
-        if (used.has(i)) continue;
-        const score = scoreMatch(lineas[i]!, row);
-        if (score > bestScore) {
-          bestScore = score;
-          bestIndex = i;
-        }
-      }
-      if (bestIndex >= 0) {
-        used.add(bestIndex);
-        result.set(lineas[bestIndex]!.id_linea_orden_venta, hija.id);
-      }
-    }
+  for (const [indiceLinea, otId] of emparejarConHijas(lineas, hijas)) {
+    result.set(lineas[indiceLinea]!.id_linea_orden_venta, otId);
   }
-
   return result;
 }
 
@@ -225,6 +247,8 @@ type LineaFormOt = {
   nombre: string;
   codigo: string;
   cantidadInput: string;
+  aliasCliente?: string | null;
+  precioUnitario?: number | string | null;
   otId?: string;
 };
 
@@ -238,40 +262,19 @@ export function assignOtIdsToFormLineas<T extends LineaFormOt>(
 ): Array<T & { otId?: string }> {
   if (hijas.length === 0) return lineas.map((linea) => ({ ...linea }));
 
-  const wrapped = lineas.map((linea, index) => ({
-    index,
-    linea,
+  const wrapped = lineas.map((linea) => ({
     cantidad_pedida: parseCantidad(linea.cantidadInput),
     matchNombre: linea.nombre,
     matchCodigo: linea.codigo,
+    matchTextoCliente: linea.aliasCliente ?? null,
+    precio_unitario: linea.precioUnitario ?? null,
     producto: {
       sku: normalizeMatchCodigo(linea.codigo) || null,
       descripcion: linea.nombre,
       metadatos_catalogo: null,
     },
   }));
-
-  const used = new Set<number>();
-  const otByIndex = new Map<number, string>();
-
-  for (const hija of hijas) {
-    for (const row of hija.renglones) {
-      let bestIndex = -1;
-      let bestScore = -1;
-      for (const item of wrapped) {
-        if (used.has(item.index)) continue;
-        const score = scoreMatch(item, row);
-        if (score > bestScore) {
-          bestScore = score;
-          bestIndex = item.index;
-        }
-      }
-      if (bestIndex >= 0) {
-        used.add(bestIndex);
-        otByIndex.set(bestIndex, hija.id);
-      }
-    }
-  }
+  const otByIndex = emparejarConHijas(wrapped, hijas);
 
   return lineas.map((linea, index) => ({
     ...linea,

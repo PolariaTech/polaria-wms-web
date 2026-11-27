@@ -46,6 +46,38 @@ describe("GET /api/ov-adjuntos/resolve-occ", () => {
     expect(body.totalSolicitud).toBe(2450);
   });
 
+  it("REQ-425: devuelve el total de cada OC cuando el correo trae varias", async () => {
+    vi.mocked(getSupabaseAdminClient).mockReturnValue({
+      storage: {
+        from: () => ({
+          download: vi.fn().mockResolvedValue({
+            data: new Blob(["dummy"]),
+            error: null,
+          }),
+        }),
+      },
+    } as never);
+    vi.mocked(extractFiles).mockResolvedValue([
+      { nombre: "correo.eml — cuerpo", tipo: "texto", contenido: "Confirmo OC 4503007904 y 4503007927" },
+      {
+        nombre: "correo.eml → PROVEEDOR_4503007904.pdf",
+        tipo: "texto",
+        contenido: "Orden de compra 4503007904\nTotal pedido: MXN 27,325.35",
+      },
+      {
+        nombre: "correo.eml → PROVEEDOR_4503007927.pdf",
+        tipo: "texto",
+        contenido: "Orden de compra 4503007927\nTotal pedido: MXN 22,671.75",
+      },
+    ]);
+
+    const response = await GET(
+      new Request("http://localhost/api/ov-adjuntos/resolve-occ?path=cuenta%2Fcorreo.eml"),
+    );
+    const body = (await response.json()) as { totalesPorOc: Record<string, number> };
+    expect(body.totalesPorOc).toEqual({ "4503007904": 27325.35, "4503007927": 22671.75 });
+  });
+
   it("rechaza path inválido", async () => {
     const response = await GET(
       new Request("http://localhost/api/ov-adjuntos/resolve-occ?path=../x"),

@@ -16,6 +16,8 @@ export interface SolicitudReagrupacion {
   estadoBase: EstadoBaseApi;
   /** Firma del estado del formulario; si cambia, la propuesta ya no aplica. */
   firma: string;
+  /** REQ-425: total (con IVA) de las líneas que el formulario tiene ahora. */
+  importeFormulario?: number;
 }
 
 export interface OrdenVentaReagruparOtModalProps {
