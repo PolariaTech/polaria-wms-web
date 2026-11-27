@@ -19,6 +19,9 @@ export default defineConfig({
       "**/cypress/**",
       "**/.{idea,git,cache,output,temp}/**",
       "**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*",
+      // Los .mjs de scripts/ llevan shebang; Vitest/Rolldown en Node 26 los rompe al
+      // transformar el import. Esos scripts se ejecutan en jobs dedicados de ci.yml.
+      "scripts/**",
     ],
   },
   resolve: {
