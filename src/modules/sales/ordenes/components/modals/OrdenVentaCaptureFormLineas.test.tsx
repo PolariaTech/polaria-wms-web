@@ -102,6 +102,54 @@ describe("OrdenVentaCaptureFormLineas — pie de Productos (REQ-224)", () => {
     expect(screen.queryByText("1 productos")).not.toBeInTheDocument();
   });
 
+  it("marca precio sugerido y el fondo de aviso cuando la solicitud no trajo precio", () => {
+    render(
+      <OrdenVentaCaptureFormLineas
+        {...propsBase({
+          lineas: [
+            {
+              linea: linea({
+                nombre: "EPAZOTE",
+                precioUnitario: 16,
+                precioInput: "16",
+                precioManual: false,
+              }),
+              index: 0,
+            },
+          ],
+        })}
+      />,
+    );
+    const campo = screen.getByLabelText("Precio de EPAZOTE");
+    expect(campo).toHaveAttribute("title", "Precio sugerido");
+    expect(campo.className).toContain("bg-polaria-warning-bg");
+  });
+
+  it("un precio vacío no muestra mensaje de bloqueo", () => {
+    render(
+      <OrdenVentaCaptureFormLineas
+        {...propsBase({
+          lineas: [
+            {
+              linea: linea({
+                nombre: "EPAZOTE",
+                precioUnitario: 0,
+                precioInput: "",
+                precioManual: false,
+              }),
+              index: 0,
+            },
+          ],
+        })}
+      />,
+    );
+    const campo = screen.getByLabelText("Precio de EPAZOTE");
+    expect(campo).toHaveValue("");
+    expect(campo).not.toHaveAttribute("title", "Precio sugerido");
+    expect(screen.queryByText(/no puede ser negativo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/bloque/i)).not.toBeInTheDocument();
+  });
+
   it("sin productos el conteo es 0 y se invita a agregar uno", () => {
     render(<OrdenVentaCaptureFormLineas {...propsBase({ lineas: [], subtotal: 0, total: 0, totalOv: 0 })} />);
 
