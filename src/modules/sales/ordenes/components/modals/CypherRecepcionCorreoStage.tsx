@@ -8,7 +8,7 @@ import {
 } from "../../utils/origen/texto-origen-pedido";
 import type { CorreoChrome } from "../../utils/origen/correo-chrome";
 import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
-import { nombreTraeOc } from "../../utils/origen/oc-en-nombre-de-archivo";
+import { documentosDeOc } from "../../utils/origen/oc-en-nombre-de-archivo";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 import type { OvDelMismoCorreo } from "../../../shared/services/ovs-del-mismo-correo";
 import { OrigenPedidoBodyView } from "../shared/OrigenPedidoBodyView";
@@ -107,6 +107,18 @@ export function CypherRecepcionCorreoStage({
   const [movidosPorOv, setMovidosPorOv] = useState<Record<string, readonly string[]>>({});
   const movidosEstaOv = new Set(movidosPorOv[orden.id_orden_venta] ?? []);
   const adjuntosVisibles = origenAdjuntos.filter((a) => !a.path || !movidosEstaOv.has(a.path.trim()));
+  // REQ-404: la OC de esta OV se marca por su nombre o, si el nombre está mal, por no ser de una hermana.
+  const nombresDeEstaOv = partido
+    ? new Set(
+        documentosDeOc(
+          adjuntosVisibles,
+          orden.orden_compra_hotel,
+          hermanas
+            .filter((h) => h.idOrdenVenta !== orden.id_orden_venta)
+            .map((h) => h.ordenCompra),
+        ).map((a) => a.nombre),
+      )
+    : null;
   const storedVisibles = origenAdjuntosStored.filter((a) => !a.path || !movidosEstaOv.has(a.path.trim()));
   const puedeReasignar =
     partido && (orden.estado ?? "").toLowerCase() === "por_confirmar" && storedVisibles.length > 0;
@@ -175,8 +187,8 @@ export function CypherRecepcionCorreoStage({
             <CypherOrigenAdjuntosBlock
               adjuntos={adjuntosVisibles}
               esDeEstaOv={
-                partido
-                  ? (adjunto) => nombreTraeOc(adjunto.nombre, orden.orden_compra_hotel)
+                nombresDeEstaOv
+                  ? (adjunto) => nombresDeEstaOv.has(adjunto.nombre)
                   : undefined
               }
             />

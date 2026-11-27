@@ -20,3 +20,26 @@ export function nombreTraeOc(nombre: string, oc: string | null | undefined): boo
     return tramo.includes(finales) || digitosOc.endsWith(tramo);
   });
 }
+
+/** El correo entero y las imágenes de la firma nunca son la OC. */
+const NO_ES_OC_RE = /\.(eml|msg|png|jpe?g|gif|webp|svg|bmp|ics|txt)$/i;
+
+/**
+ * REQ-404: cuáles de los adjuntos de una OV son su OC. Primero los que el nombre trae. Si ninguno la
+ * trae (el nombre está mal puesto: «…_4503002535» con la OC 4503002534 dentro del PDF), quedan los
+ * que no nombran la OC de una OV hermana del mismo correo. Así el documento mal nombrado no se pierde
+ * y el de la hermana no se le asigna a esta OV.
+ */
+export function documentosDeOc<T extends { nombre: string }>(
+  docs: readonly T[],
+  oc: string | null | undefined,
+  ocsHermanas: readonly (string | null | undefined)[] = [],
+): T[] {
+  const candidatos = docs.filter((doc) => !NO_ES_OC_RE.test(doc.nombre.trim()));
+  const propios = candidatos.filter((doc) => nombreTraeOc(doc.nombre, oc));
+  if (propios.length > 0) return propios;
+  const hermanas = ocsHermanas.filter(
+    (otra): otra is string => Boolean(otra?.trim()) && otra !== oc,
+  );
+  return candidatos.filter((doc) => !hermanas.some((otra) => nombreTraeOc(doc.nombre, otra)));
+}

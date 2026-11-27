@@ -296,3 +296,37 @@ describe("armarPaqueteConOc", () => {
     expect(resumenPdf.filas[2]?.sinArchivoOc).toBe(true);
   });
 });
+
+describe("armarPaqueteConOc — REQ-404: documento mal nombrado en un correo partido", () => {
+  const conOc = (id: string, occ: string): ResumenOvBatch => ({ ...ov(id), row: { ...ov(id).row, occ } as OrdenVentaOperadorRow });
+
+  it("cada OV baja su propia OC: el PDF mal nombrado es de su OV y el de la hermana no se le asigna", async () => {
+    // OV-00002635 (OC 4503002534): el PDF …535 dice 534 por dentro. OV-00002636 (OC 4503002532) trae el …532.
+    const origen = JSON.stringify([
+      { nombre: "AGUACATES DE PUEBLA_4503002535_AVA.pdf", path: "c/535.pdf", mime: "application/pdf" },
+      { nombre: "AGUACATES DE PUEBLA_4503002532_AVA.pdf", path: "c/532.pdf", mime: "application/pdf" },
+      { nombre: "correo.eml", path: "c/correo.eml", mime: "message/rfc822" },
+    ]);
+    const deps = await dependencias({}, 2);
+
+    await armarPaqueteConOc(
+      {
+        hojas: [...hojaDe("a", 1), ...hojaDe("b", 1)],
+        resumen: [conOc("a", "4503002534"), conOc("b", "4503002532")],
+        origenPorOv: new Map([["a", origen], ["b", origen]]),
+        subtitulo: "x",
+        generado: "y",
+      },
+      deps,
+    );
+
+    const documentosBajados = vi.mocked(deps.prepararOc).mock.calls.map(([oc]) => oc.documentos.map((d) => d.nombre));
+    expect(documentosBajados).toHaveLength(2);
+    expect(documentosBajados).toEqual(
+      expect.arrayContaining([
+        ["AGUACATES DE PUEBLA_4503002535_AVA.pdf"],
+        ["AGUACATES DE PUEBLA_4503002532_AVA.pdf"],
+      ]),
+    );
+  });
+});

@@ -88,11 +88,13 @@ export async function armarPaqueteConOc(
   const { hojas, resumen, origenPorOv, subtitulo, generado, alProgreso } = input;
   const orden = ordenDeImpresion({ hojas: [...hojas], resumen: [...resumen] });
 
+  // REQ-404: las OC de todas las OV del lote; un documento de otra OV no se le asigna a esta si no la nombra.
+  const ocsDelLote = orden.map((item) => item.row.occ);
   const { ocPorOv: aBajar, avisosPorOv } = quitarOcRepetidas(
     orden.map((item) => ({
       idOrdenVenta: item.row.idOrdenVenta,
       venta: item.row.venta,
-      oc: ocPropiaDeOv(ocDeOv(origenPorOv.get(item.row.idOrdenVenta)), item.row.occ),
+      oc: ocPropiaDeOv(ocDeOv(origenPorOv.get(item.row.idOrdenVenta)), item.row.occ, ocsDelLote),
     })),
   );
 
