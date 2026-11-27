@@ -5,6 +5,7 @@ import {
   alternarOt,
   alternarOv,
   clientesDeOv,
+  contarPorImpresion,
   contarSeleccion,
   diaEntregaDeOv,
   estadoSeleccionOv,
@@ -116,6 +117,47 @@ describe("filtrarOvBatch por impresión", () => {
   it("«todas» no mira el log, y mientras el log no llega ningún filtro de impresión excluye nada", () => {
     expect(filtrarOvBatch(rows, FILTROS_BATCH_INICIALES, impresas)).toHaveLength(rows.length);
     expect(filtrarOvBatch(rows, { ...FILTROS_BATCH_INICIALES, impresion: "impresas" })).toHaveLength(rows.length);
+  });
+});
+
+describe("contarPorImpresion (REQ-432)", () => {
+  const rows = [
+    ov("a", { fechaEntrega: "2026-11-06" }),
+    ov("b", { fechaEntrega: "2026-11-06" }),
+    ov("c", { fechaEntrega: "2026-11-07", comprador: "Hotel Luna" }),
+    ov("d", { fechaEntrega: "2026-11-07", comprador: "Hotel Luna" }),
+    ov("e", { fechaEntrega: "2026-11-08" }),
+  ];
+  const impresas = new Set(["a", "c", "d"]);
+
+  it("sin filtros cuenta todas las OV", () => {
+    expect(contarPorImpresion(rows, FILTROS_BATCH_INICIALES, impresas)).toEqual({ todas: 5, sinImprimir: 2, impresas: 3 });
+  });
+
+  it("con filtro de fecha cuenta solo las OV de ese día, no el total general", () => {
+    const filtros = { ...FILTROS_BATCH_INICIALES, fechaEntrega: "2026-11-06" };
+
+    expect(contarPorImpresion(rows, filtros, impresas)).toEqual({ todas: 2, sinImprimir: 1, impresas: 1 });
+  });
+
+  it("respeta también cliente y búsqueda", () => {
+    const porCliente = { ...FILTROS_BATCH_INICIALES, cliente: "Hotel Luna" };
+    const porTexto = { ...FILTROS_BATCH_INICIALES, texto: "ov-e" };
+
+    expect(contarPorImpresion(rows, porCliente, impresas)).toEqual({ todas: 2, sinImprimir: 0, impresas: 2 });
+    expect(contarPorImpresion(rows, porTexto, impresas)).toEqual({ todas: 1, sinImprimir: 1, impresas: 0 });
+  });
+
+  it("no depende de la pestaña elegida: «Sin imprimir» sigue contando las tres cifras del día", () => {
+    const filtros = { ...FILTROS_BATCH_INICIALES, fechaEntrega: "2026-11-07", impresion: "sin_imprimir" as const };
+
+    expect(contarPorImpresion(rows, filtros, impresas)).toEqual({ todas: 2, sinImprimir: 0, impresas: 2 });
+  });
+
+  it("mientras no se sabe qué se imprimió, solo cuenta «todas» (del día elegido)", () => {
+    const filtros = { ...FILTROS_BATCH_INICIALES, fechaEntrega: "2026-11-08" };
+
+    expect(contarPorImpresion(rows, filtros, null)).toEqual({ todas: 1, sinImprimir: null, impresas: null });
   });
 });
 

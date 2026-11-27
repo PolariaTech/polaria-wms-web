@@ -122,6 +122,22 @@ export function filtrarOvBatch(
   });
 }
 
+/**
+ * Cuántas OV hay en «Todas / Sin imprimir / Ya impresas» dentro de lo que dejan pasar los demás
+ * filtros (fecha, cliente, tipo, búsqueda), para que los totales cuadren con la lista (REQ-432).
+ * `sinImprimir` e `impresas` son `null` mientras no se sabe qué se imprimió (`yaImpresas` es `null`).
+ */
+export function contarPorImpresion(
+  rows: readonly OrdenVentaOperadorRow[],
+  filtros: FiltrosBatch,
+  yaImpresas: ReadonlySet<string> | null,
+): { todas: number; sinImprimir: number | null; impresas: number | null } {
+  const enAlcance = filtrarOvBatch(rows, { ...filtros, impresion: "todas" });
+  if (!yaImpresas) return { todas: enAlcance.length, sinImprimir: null, impresas: null };
+  const impresas = enAlcance.filter((row) => yaImpresas.has(row.idOrdenVenta)).length;
+  return { todas: enAlcance.length, sinImprimir: enAlcance.length - impresas, impresas };
+}
+
 export function clientesDeOv(
   rows: readonly OrdenVentaOperadorRow[],
 ): string[] {
