@@ -21,6 +21,10 @@ vi.mock("./use-ovs-del-mismo-correo", () => ({
   },
 }));
 
+vi.mock("@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria", () => ({
+  useCuentaZonaHoraria: () => "America/Bogota",
+}));
+
 vi.mock("./CypherMoverAdjuntosPanel", () => ({
   CypherMoverAdjuntosPanel: ({
     idOrdenVenta,
@@ -85,6 +89,38 @@ function pintar(extra?: { cuerpoCompleto?: string; cuerpoMensaje?: string }) {
 describe("CypherRecepcionCorreoStage (REQ-271, REQ-313)", () => {
   beforeEach(() => {
     hermanasSimuladas = [];
+  });
+
+  it("separa la llegada del correo de la fecha de creación de la OV", () => {
+    const ordenCreada = {
+      ...orden,
+      created_at: "2026-11-25T03:15:46.507Z",
+      fecha_pedido: "2026-11-25",
+    } as unknown as OrdenVentaDetalleRow;
+
+    render(
+      <CypherRecepcionCorreoStage
+        openStages={new Set(["correo"])}
+        toggleAccordionStage={vi.fn()}
+        correoChrome={{}}
+        origenNombres={[]}
+        recibida="12/11/26, 3:27 p.m."
+        cuerpoCompleto=""
+        cuerpoMensaje=""
+        origenAdjuntosStored={[]}
+        emlInnerAdjuntos={[]}
+        emlInnerLoading={false}
+        origenAdjuntos={[]}
+        orden={ordenCreada}
+        codigoCuenta="1YW43"
+      />,
+    );
+
+    expect(screen.getByText("CORREO RECIBIDO")).toBeInTheDocument();
+    expect(screen.getByText("12/11/26, 3:27 p.m.")).toBeInTheDocument();
+    expect(screen.getByText("OV CREADA")).toBeInTheDocument();
+    expect(screen.getByText(/24\/11\/26/)).toBeInTheDocument();
+    expect(screen.queryByText("LLEGADA")).not.toBeInTheDocument();
   });
 
   it("usa número 00 — primera etapa de Cypher", () => {
