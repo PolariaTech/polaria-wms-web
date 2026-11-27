@@ -52,6 +52,9 @@ vi.mock("./CypherOrigenAdjuntosBlock", () => ({
       {esDeEstaOv
         ? `propia:${esDeEstaOv({ nombre: "OC-140188.pdf" })}/${esDeEstaOv({ nombre: "OC-140182.pdf" })}`
         : "sin-insignia"}
+      <span data-testid="propias">
+        {adjuntos.filter((a) => esDeEstaOv?.(a)).map((a) => a.nombre).join(",")}
+      </span>
     </div>
   ),
 }));
@@ -228,5 +231,85 @@ describe("CypherRecepcionCorreoStage: reasignar adjunto entre OV (REQ-361)", () 
 
     expect(screen.getByTestId("adjuntos")).toHaveAttribute("data-nombres", "OC-140182.pdf");
     expect(screen.getByTestId("panel-mover")).toHaveTextContent("ov-1:1");
+  });
+});
+
+describe("CypherRecepcionCorreoStage: OC de esta OV con nombre mal puesto (REQ-404)", () => {
+  // OV-00002635 (OC 4503002534): el PDF …535 dice 534 por dentro; el …532 es de OV-00002636.
+  const ADJUNTOS_REQ_404 = [
+    { nombre: "AGUACATES DE PUEBLA_4503002535_AVA.pdf", path: "cuenta/aaa-535.pdf" },
+    { nombre: "AGUACATES DE PUEBLA_4503002532_AVA.pdf", path: "cuenta/aaa-532.pdf" },
+  ];
+  const ORDEN_REQ_404 = { ...orden, id_orden_venta: "ov-2635", orden_compra_hotel: "4503002534" } as OrdenVentaDetalleRow;
+
+  function pintarReq404() {
+    return render(
+      <CypherRecepcionCorreoStage
+        openStages={new Set(["correo"])}
+        toggleAccordionStage={vi.fn()}
+        correoChrome={{}}
+        origenNombres={[]}
+        recibida=""
+        cuerpoCompleto=""
+        cuerpoMensaje=""
+        origenAdjuntosStored={ADJUNTOS_REQ_404}
+        emlInnerAdjuntos={[]}
+        emlInnerLoading={false}
+        origenAdjuntos={ADJUNTOS_REQ_404}
+        orden={ORDEN_REQ_404}
+        codigoCuenta="1YW43"
+      />,
+    );
+  }
+
+  it("con las OC de las hermanas conocidas marca solo el PDF de esta OV, aunque su nombre esté mal", () => {
+    hermanasSimuladas = [
+      { idOrdenVenta: "ov-2635", codigo: "OV-00002635", ordenCompra: "4503002534" },
+      { idOrdenVenta: "ov-2636", codigo: "OV-00002636", ordenCompra: "4503002532" },
+    ];
+
+    pintarReq404();
+
+    expect(screen.getByTestId("propias")).toHaveTextContent("AGUACATES DE PUEBLA_4503002535_AVA.pdf");
+    expect(screen.getByTestId("propias")).not.toHaveTextContent("4503002532");
+  });
+
+  it("si una hermana no tiene OC conocida, no marca por exclusión: ningún PDF se marca con nombre mal puesto", () => {
+    hermanasSimuladas = [
+      { idOrdenVenta: "ov-2635", codigo: "OV-00002635", ordenCompra: "4503002534" },
+      { idOrdenVenta: "ov-2636", codigo: "OV-00002636", ordenCompra: null },
+    ];
+
+    pintarReq404();
+
+    expect(screen.getByTestId("propias").textContent).toBe("");
+  });
+
+  it("si el nombre sí trae la OC de esta OV, la marca aunque una hermana no tenga OC conocida", () => {
+    hermanasSimuladas = [
+      { idOrdenVenta: "ov-2635", codigo: "OV-00002635", ordenCompra: "4503002534" },
+      { idOrdenVenta: "ov-2636", codigo: "OV-00002636", ordenCompra: null },
+    ];
+    const adjuntos = [{ nombre: "AGUACATES_4503002534.pdf", path: "cuenta/aaa-534.pdf" }, ...ADJUNTOS_REQ_404];
+
+    render(
+      <CypherRecepcionCorreoStage
+        openStages={new Set(["correo"])}
+        toggleAccordionStage={vi.fn()}
+        correoChrome={{}}
+        origenNombres={[]}
+        recibida=""
+        cuerpoCompleto=""
+        cuerpoMensaje=""
+        origenAdjuntosStored={adjuntos}
+        emlInnerAdjuntos={[]}
+        emlInnerLoading={false}
+        origenAdjuntos={adjuntos}
+        orden={ORDEN_REQ_404}
+        codigoCuenta="1YW43"
+      />,
+    );
+
+    expect(screen.getByTestId("propias").textContent).toBe("AGUACATES_4503002534.pdf");
   });
 });

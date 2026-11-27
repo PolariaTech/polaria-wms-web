@@ -8,7 +8,7 @@ import {
 } from "../../utils/origen/texto-origen-pedido";
 import type { CorreoChrome } from "../../utils/origen/correo-chrome";
 import type { OrigenAdjunto } from "../../utils/origen/origen-adjuntos";
-import { documentosDeOc } from "../../utils/origen/oc-en-nombre-de-archivo";
+import { documentosDeOc, nombreTraeOc } from "../../utils/origen/oc-en-nombre-de-archivo";
 import type { OrdenVentaDetalleRow } from "../../../shared/types/sales.types";
 import type { OvDelMismoCorreo } from "../../../shared/services/ovs-del-mismo-correo";
 import { OrigenPedidoBodyView } from "../shared/OrigenPedidoBodyView";
@@ -107,15 +107,17 @@ export function CypherRecepcionCorreoStage({
   const [movidosPorOv, setMovidosPorOv] = useState<Record<string, readonly string[]>>({});
   const movidosEstaOv = new Set(movidosPorOv[orden.id_orden_venta] ?? []);
   const adjuntosVisibles = origenAdjuntos.filter((a) => !a.path || !movidosEstaOv.has(a.path.trim()));
-  // REQ-404: la OC de esta OV se marca por su nombre o, si el nombre está mal, por no ser de una hermana.
+  // REQ-404: la OC de esta OV se marca por su nombre. Si el nombre está mal, se usa la exclusión por
+  // hermanas solo cuando se conocen las OC de todas: si falta una, no se puede saber cuál es de quién.
+  const ocsOtrasHermanas = hermanas
+    .filter((h) => h.idOrdenVenta !== orden.id_orden_venta)
+    .map((h) => h.ordenCompra);
+  const todasLasHermanasConOc = ocsOtrasHermanas.every((oc) => Boolean(oc?.trim()));
   const nombresDeEstaOv = partido
     ? new Set(
-        documentosDeOc(
-          adjuntosVisibles,
-          orden.orden_compra_hotel,
-          hermanas
-            .filter((h) => h.idOrdenVenta !== orden.id_orden_venta)
-            .map((h) => h.ordenCompra),
+        (todasLasHermanasConOc
+          ? documentosDeOc(adjuntosVisibles, orden.orden_compra_hotel, ocsOtrasHermanas)
+          : adjuntosVisibles.filter((a) => nombreTraeOc(a.nombre, orden.orden_compra_hotel))
         ).map((a) => a.nombre),
       )
     : null;
