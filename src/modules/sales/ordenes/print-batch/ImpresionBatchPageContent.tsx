@@ -13,6 +13,7 @@ import {
   alternarOt,
   alternarOv,
   clientesDeOv,
+  contarPorImpresion,
   contarSeleccion,
   estadoSeleccionOv,
   FILTROS_BATCH_INICIALES,
@@ -92,11 +93,11 @@ export function ImpresionBatchPageContent() {
     () => ordenarOvPorEntrega(filtrarOvBatch(rows, filtros, yaImpresas.ids ?? undefined)),
     [rows, filtros, yaImpresas.ids],
   );
-  const conteos = useMemo(() => {
-    const ids = yaImpresas.ids;
-    const impresas = ids ? rows.filter((row) => ids.has(row.idOrdenVenta)).length : null;
-    return { todas: rows.length, sinImprimir: impresas === null ? null : rows.length - impresas, impresas };
-  }, [rows, yaImpresas.ids]);
+  // Los totales de «Estado de impresión» respetan los demás filtros (fecha, cliente, tipo, búsqueda).
+  const conteos = useMemo(
+    () => contarPorImpresion(rows, filtros, yaImpresas.ids),
+    [rows, filtros, yaImpresas.ids],
+  );
   const resumen = useMemo(() => resumenSeleccion(seleccion, rows), [seleccion, rows]);
   const totales = contarSeleccion(resumen);
 
