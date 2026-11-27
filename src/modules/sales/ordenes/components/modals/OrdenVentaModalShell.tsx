@@ -62,14 +62,7 @@ export function OrdenVentaModalShell({ estado }: { estado: OrdenVentaFormEstado 
         }}
         error={estado.step === "form" ? null : estado.error}
         isSubmitting={estado.isSaving}
-        cancelLabel={
-          soloLectura ||
-          (estado.isEditing &&
-            estado.editingEstado !== "por_confirmar" &&
-            !estado.pendingEmitId)
-            ? "Salir"
-            : "Cancelar"
-        }
+        cancelLabel={soloLectura || estado.isEditing ? "Salir" : "Cancelar"}
         submitDisabled={
           soloLectura ||
           estado.step === "preview" ||
