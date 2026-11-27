@@ -24,9 +24,10 @@ import {useAplicarCorreccionCorreoOv, useDeshacerReagrupacionOv} from "../../hoo
 import {useAplicarReagrupacionOv, useCamposDeLaOtActiva, useEfectosFormularioOt} from "../../hooks/aplicar-reagrupacion-ov";
 import {useAplicarDivisionOv} from "../../hooks/aplicar-division-ov";
 import {useBloqueoPaintEdicionOv} from "../../hooks/bloqueo-paint-edicion-ov";
-import {useAbrirCapturaOv, useAvisosValidacionOv, usePrefillYDiscrepanciasOv} from "../../utils/pedido/campos-faltantes-ov";
+import {useAbrirCapturaOv, usePrefillYDiscrepanciasOv} from "../../utils/pedido/campos-faltantes-ov";
 import {useCierreCapturaOv, useFolioDesdeLista} from "../../utils/pedido/aviso-direccion-ov";
-import {useSyncOtFormulario, useTotalesVentaOv} from "../../hooks/sync-ot-formulario";
+import {useSyncOtFormulario} from "../../hooks/sync-ot-formulario";
+import { useTotalesYAvisosOv } from "../../hooks/use-totales-y-avisos-ov";
 import {useScrollFormularioOv, useSeleccionarCompradorModal} from "../../hooks/seleccionar-comprador-ov";
 import {useOrdenVentaCreateCabeceraState} from "../../hooks/use-orden-venta-create-cabecera-state";
 
@@ -251,9 +252,7 @@ export function OrdenVentaCreateModal({
   useEfectosCompaneroOv(bolsa);
   useEfectosFormularioOt(bolsa);
   Object.assign(bolsa, useSembrarLineasDesdeOrigen(bolsa));
-  Object.assign(bolsa, useTotalesVentaOv(bolsa));
-  // REQ-425: va después de useTotalesVentaOv; el aviso de total OV vs OC necesita totalOvCompleta.
-  Object.assign(bolsa, useAvisosValidacionOv(bolsa));
+  useTotalesYAvisosOv(bolsa);
   useFolioDesdeLista(bolsa);
   Object.assign(bolsa, usePrefillYDiscrepanciasOv(bolsa));
   Object.assign(bolsa, useSeleccionarCompradorModal(bolsa));
