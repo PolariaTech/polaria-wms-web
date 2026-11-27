@@ -241,7 +241,6 @@ export function OrdenVentaCreateModal({
     if (ordenesTrabajoPreview.length > 0) return ordenesTrabajoPreview;
     return groupOrigenCorreoToOrdenesTrabajo(origenCorreoDraft);
   }, [ordenesTrabajoPreview, origenCorreoDraft]);
-  Object.assign(bolsa, useAvisosValidacionOv(bolsa));
   Object.assign(bolsa, useContarProductosOt());
   useForzarFormularioAlEditar(bolsa);
   Object.assign(bolsa, useSyncOtFormulario(bolsa));
@@ -253,6 +252,8 @@ export function OrdenVentaCreateModal({
   useEfectosFormularioOt(bolsa);
   Object.assign(bolsa, useSembrarLineasDesdeOrigen(bolsa));
   Object.assign(bolsa, useTotalesVentaOv(bolsa));
+  // REQ-425: va después de useTotalesVentaOv; el aviso de total OV vs OC necesita totalOvCompleta.
+  Object.assign(bolsa, useAvisosValidacionOv(bolsa));
   useFolioDesdeLista(bolsa);
   Object.assign(bolsa, usePrefillYDiscrepanciasOv(bolsa));
   Object.assign(bolsa, useSeleccionarCompradorModal(bolsa));

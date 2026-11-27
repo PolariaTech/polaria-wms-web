@@ -1,6 +1,7 @@
 import { parseDecimalEs } from "@/lib/utils/decimal-es";
 import type { OrigenCorreoRenglon } from "../origen/origen-correo-ordenes-trabajo";
 import { afinidadDeNombres } from "../origen/identidad-nombres-producto";
+import { normalizarTextoProducto } from "../ot/emparejar-lineas-renglones";
 
 /** Lo mínimo que se necesita de una línea ya guardada para saber de qué renglón viene. */
 export type LineaParaEmparejar = {
@@ -8,6 +9,8 @@ export type LineaParaEmparejar = {
   nombre: string;
   codigo: string;
   cantidadInput: string;
+  /** REQ-425: texto del cliente con el que se guardó la línea. */
+  aliasCliente?: string | null;
 };
 
 function norm(value: string | null | undefined): string {
@@ -26,6 +29,12 @@ function puntaje(
   cercania: number,
 ): number {
   const idLinea = linea.idProducto.trim();
+  const cantidadIgual =
+    Math.abs((parseDecimalEs(linea.cantidadInput) ?? 0) - cantidadRenglon(row)) < 0.001;
+  const textoCliente = normalizarTextoProducto(linea.aliasCliente);
+  if (textoCliente && textoCliente === normalizarTextoProducto(row.Producto)) {
+    return 20 + (cantidadIgual ? 0.5 : 0) - 0.01 * cercania;
+  }
   if (idLinea && norm(row._idProducto) === norm(idLinea)) return 10;
   const afinidad = afinidadDeNombres(row.Producto, linea.nombre);
   if (afinidad < 0) return 0;
@@ -33,9 +42,7 @@ function puntaje(
   const codigoRenglon = norm(row["Codigo producto"]);
   if (codigoRenglon && codigoRenglon === norm(linea.codigo)) puntos += 3;
   if (puntos <= 0) return 0;
-  const cantidadLinea = parseDecimalEs(linea.cantidadInput) ?? 0;
-  const cantidadDoc = cantidadRenglon(row);
-  if (Math.abs(cantidadLinea - cantidadDoc) < 0.001) {
+  if (cantidadIgual) {
     puntos += 0.5;
   } else if (afinidad >= 0.75) {
     // REQ-311: qty convertida (8 PZ → 40 LTR) no debe impedir el empareje.

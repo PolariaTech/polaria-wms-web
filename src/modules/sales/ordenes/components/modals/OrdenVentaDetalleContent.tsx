@@ -13,10 +13,8 @@ import {
 } from "../../utils/display/orden-venta-display";
 import { filterLineasByOrdenTrabajoHija } from "../../utils/ot/filter-lineas-by-orden-trabajo";
 import { parseOrdenVentaCapturaObservaciones } from "../../utils/pedido/build-orden-venta-captura-observaciones";
-import {
-  buildAvisoTotalSolicitudVsOv,
-  extractTotalSolicitudFromTexto,
-} from "../../utils/pedido/total-solicitud-vs-ov";
+import { buildAvisoTotalSolicitudVsOv } from "../../utils/pedido/total-solicitud-vs-ov";
+import { useTotalOcDetalle } from "../../utils/pedido/use-total-oc-detalle";
 import {
   parseOrigenCorreoJson,
   type OrdenTrabajoHija,
@@ -84,6 +82,7 @@ export function OrdenVentaDetalleContent({
     tareaTotal,
     ventanaFlat,
   );
+  const totalOc = useTotalOcDetalle(orden);
   const folioFactura = useFolioFacturaDetalle(
     codigoCuenta,
     idOrdenVenta,
@@ -101,10 +100,10 @@ export function OrdenVentaDetalleContent({
       notasLineas: captura.notasLineas,
       hija,
     });
-  // REQ-371: si el total de la OV no cuadra con el de la OC, se resalta.
+  // REQ-371 / REQ-425: si el total de la OV no cuadra con el de la OC (cuerpo o PDF), se resalta.
   const avisoTotal = buildAvisoTotalSolicitudVsOv({
     totalOv,
-    totalSolicitud: extractTotalSolicitudFromTexto(orden.origen_texto),
+    totalSolicitud: totalOc,
   });
 
   return (

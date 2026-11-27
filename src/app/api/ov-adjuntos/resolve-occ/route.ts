@@ -79,6 +79,8 @@ export async function GET(request: Request): Promise<NextResponse> {
     const byAlmacen: Record<string, string> = {};
     const occs: string[] = [];
     const chunks: string[] = [];
+    // REQ-425: un correo puede traer varias OC; cada OV debe compararse con la suya.
+    const totalesPorOc: Record<string, number> = {};
 
     for (const file of extracted) {
       if (file.tipo !== "texto" || !file.contenido?.trim()) continue;
@@ -86,6 +88,8 @@ export async function GET(request: Request): Promise<NextResponse> {
       const occ = detectOrdenCompraFromSource(file.contenido, [file.nombre]);
       if (!occ || isGarbageOcValue(occ)) continue;
       occs.push(occ);
+      const totalArchivo = extractTotalSolicitudFromTexto(file.contenido);
+      if (totalArchivo != null) totalesPorOc[occ] = totalArchivo;
       const dep = departamentoFromText(file.contenido);
       if (dep) byAlmacen[dep] = occ;
     }
@@ -104,6 +108,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       byAlmacen,
       occs: [...new Set(occs)],
       totalSolicitud,
+      totalesPorOc,
     });
   } catch (err: unknown) {
     return NextResponse.json(

@@ -132,6 +132,50 @@ describe("useLeerTotalDesdeAdjuntos", () => {
     expect(setTotalSolicitudDetectado).not.toHaveBeenCalled();
   });
 
+  it("REQ-425: correo con dos OC → total de la OC de esta OV", async () => {
+    const setTotalSolicitudDetectado = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          totalSolicitud: 27325.35,
+          totalesPorOc: { "4503007904": 27325.35, "4503007927": 22671.75 },
+        }),
+      }),
+    );
+
+    renderHook(() =>
+      useLeerTotalDesdeAdjuntos(
+        estadoBase({
+          setTotalSolicitudDetectado,
+          ordenCompraHotel: "4503007927",
+          ordenesTrabajoForm: [],
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(setTotalSolicitudDetectado).toHaveBeenCalledWith(22671.75);
+    });
+  });
+
+  it("REQ-425: otro arreglo de adjuntos con las mismas rutas no repite la lectura", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const setTotalSolicitudDetectado = vi.fn();
+    const { rerender } = renderHook(
+      (estado: OrdenVentaFormEstado) => useLeerTotalDesdeAdjuntos(estado),
+      { initialProps: estadoBase({ setTotalSolicitudDetectado }) },
+    );
+    rerender(estadoBase({ setTotalSolicitudDetectado }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("no llama fetch si ya hay totalSolicitudDetectado > 0", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

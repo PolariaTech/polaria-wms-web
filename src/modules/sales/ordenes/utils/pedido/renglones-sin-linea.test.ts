@@ -59,6 +59,16 @@ describe("indicesRenglonesSinLinea (REQ-309)", () => {
     expect(indicesRenglonesSinLinea([linea("OTRA COSA", "9")], rows)).toEqual([1]);
   });
 
+  it("REQ-425: el texto del cliente empareja aunque nuestro nombre no se parezca", () => {
+    const rows: OrigenCorreoRenglon[] = [
+      { Producto: "MIX DE LECHUGAS (4632)", Cantidad: 10 },
+      { Producto: "TORONJA KILO (4522)", Cantidad: 10 },
+    ];
+    const pomelo = linea("POMELO", "10", { aliasCliente: "toronja kilo (4522)" });
+    expect(indicesRenglonesSinLinea([pomelo], rows)).toEqual([0]);
+    expect(indicesRenglonesSinLinea([linea("POMELO", "10")], rows)).toEqual([1]);
+  });
+
   it("control: nunca devuelve más pendientes que renglones - líneas", () => {
     const lineas = [linea("X1", "1"), linea("X2", "1")];
     expect(indicesRenglonesSinLinea(lineas, RENGLONES)).toHaveLength(1);
