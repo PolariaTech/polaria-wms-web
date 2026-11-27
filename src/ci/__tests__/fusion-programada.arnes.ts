@@ -11,6 +11,8 @@ import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 
 export const REPO = "org/repo";
+export const SHA_MAIN = "0123456789abcdef0123456789abcdef01234567";
+export const URL_DEPLOY = "https://github.com/org/repo/actions/runs/1";
 const RUTA_WORKFLOW = resolve(process.cwd(), ".github/workflows/fusion-programada.yml");
 
 // gh simulado: lee su comportamiento de archivos del escenario y deja cada llamada en llamadas.log.
@@ -32,6 +34,14 @@ const GH_SIMULADO =
     '  if [ -f "${ESCENARIO}/hijos-${clave}" ]; then cat "${ESCENARIO}/hijos-${clave}"; fi',
     "  exit 0",
     "fi",
+    'if [ "$1" = "api" ]; then',
+    '  case "$*" in',
+    '    *git/ref/heads/main*) if [ -f "${ESCENARIO}/sha-main.fallo" ]; then exit 1; fi; echo "${SHA_MAIN}" ;;',
+    '    *deploy.yml/dispatches*) if [ -f "${ESCENARIO}/lanzar-deploy.fallo" ]; then exit 1; fi; echo "${URL_DEPLOY}" ;;',
+    '    *) exit 99 ;;',
+    '  esac',
+    '  exit 0',
+    'fi',
     'numero="$3"',
     'contar() { previo="$(cat "${ESCENARIO}/$1.contador" 2>/dev/null || echo 0)"; echo $((previo + 1)) > "${ESCENARIO}/$1.contador"; echo "${previo}"; }',
     'case "${sub}" in',
@@ -207,6 +217,8 @@ export function ejecutar(escenario: Escenario): Resultado {
       PATH: `${carpeta}/bin${delimiter}${process.env.PATH ?? ""}`,
       ESCENARIO: carpeta,
       REPO,
+      SHA_MAIN,
+      URL_DEPLOY,
       SOLO_SIMULAR: escenario.soloSimular ? "true" : "false",
       // Sin esperas reales: 3 consultas del CI sin pausa.
       ESPERA_INTENTOS: "3",

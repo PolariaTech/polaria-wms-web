@@ -1,14 +1,15 @@
 name: Deploy
 
-# Despliegue MANUAL del frontend (Next.js) a ECS Fargate (POL-349, decisión D1; mismo patrón que el
+# Despliegue del frontend (Next.js) a ECS Fargate (POL-349, decisión D1; mismo patrón que el
 # deploy.yml de la API, POL-357 / ADR-006).
 #
-# Cómo se usa: pestaña Actions > "Deploy" > Run workflow, eligiendo la rama main y escribiendo en
-# `ref` el tag a desplegar (por ejemplo v2.13.23).
+# Cómo se usa: a mano (pestaña Actions > "Deploy" > Run workflow, rama main, escribiendo en `ref` el
+# tag a desplegar, por ejemplo v2.13.23) o lanzado por la fusión programada con el commit en que quedó
+# main (decisión de Daniel, 2026-11-26).
 #   1. build:  construye la imagen linux/arm64 con el código del tag y el Dockerfile de main, la
 #              prueba con scripts/docker-smoke.sh y la sube a ECR. Asume github-actions-build-role-web
 #              (solo ECR).
-#   2. deploy: espera la aprobación del Environment "aws-production" (Daniel o Lucho). Con ella asume
+#   2. deploy: corre en el Environment "aws-production" (si tiene revisores, espera su aprobación) y asume
 #              github-actions-deploy-role-web (solo ECS), registra una revisión nueva de la task
 #              definition con esa imagen y actualiza el servicio.
 #
@@ -24,11 +25,11 @@ name: Deploy
 #
 # Lo que este workflow NUNCA hace: subir ni bajar desired_count (es una acción manual aprobada por
 # la regla de costos), usar llaves de acceso (todo es OIDC), guardar secretos en la imagen (los de
-# servidor van en Secrets Manager) ni correr solo con cada merge (sin despliegue continuo).
+# servidor van en Secrets Manager) ni dispararse por un push (lo lanza una persona o la fusión programada).
 #
 # Requisitos fuera de este archivo (ver infra/github/polaria-wms-web/README.md en el repo de
 # infraestructura): variables del repositorio (AWS_ACCOUNT_ID y las NEXT_PUBLIC_*), Environment
-# "aws-production" con revisores y regla «Deployment branches: solo main», y los dos roles de AWS ya
+# "aws-production" con la regla «Deployment branches: solo main», y los dos roles de AWS ya
 # aplicados con Terraform.
 
 on:
@@ -36,9 +37,10 @@ on:
     inputs:
       ref:
         description: >-
-          Tag a desplegar (por ejemplo v2.13.23). Es obligatorio: AWS queda fijo en un tag y solo
-          cambia cuando alguien elige otro a mano. El workflow se lanza SIEMPRE desde main (los
-          roles de AWS solo confían en main); este campo solo elige qué código se construye.
+          Tag a desplegar (por ejemplo v2.13.23) o el commit en que está main. Es obligatorio. La fusión
+          programada lo lanza con ese commit después de fusionar. El workflow se lanza SIEMPRE desde
+          main (los roles de AWS solo confían en main); este campo solo elige qué código se construye
+          y se despliega.
         required: true
         type: string
 
@@ -79,14 +81,15 @@ jobs:
           echo "::error::Este workflow solo se ejecuta desde la rama main (ref actual: ${GITHUB_REF})."
           exit 1
 
-      # `ref` es texto libre: aceptaría una rama o un SHA. AWS debe quedar fijo en un TAG de versión.
+      # `ref` es texto libre: aceptaría una rama o un SHA. Solo se admite un tag de versión o el commit actual de main.
       # Va por env (nunca dentro de la expresión del run) para que no pueda inyectar comandos.
-      - name: Validar que ref sea un tag de versión
+      - name: Validar ref (tag de versión o commit actual de main)
         env:
           REF: ${{ inputs.ref }}
         run: |
-          if [[ ! "${REF}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::ref debe ser un tag de versión como v2.13.23 (recibido: ${REF:0:60})."
+          # La fusión programada lanza este workflow con el commit en que quedó main (2026-11-26).
+          if [[ ! "${REF}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "${REF}" != "${GITHUB_SHA}" ]]; then
+            echo "::error::ref debe ser un tag de versión como v2.13.23 o el commit actual de main (recibido: ${REF:0:60})."
             exit 1
           fi
 
@@ -245,7 +248,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    # La aprobación de Daniel o Lucho se configura en el Environment, no aquí. El token OIDC de un
+    # Los revisores, si los hay, se configuran en el Environment, no aquí. El token OIDC de un
     # job con Environment lleva sub = repo:PolariaTech/polaria-wms-web:environment:aws-production, que
     # es lo único que acepta github-actions-deploy-role-web.
     environment:
@@ -317,8 +320,21 @@ jobs:
           # revierte solo si la tarea nueva no arranca) y se comprueba que el despliegue terminó.
           if [[ "${desired_after}" -gt 0 ]]; then
             aws ecs wait services-stable --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}"
-            rollout="$(aws ecs describe-services --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}" \
-              --query "services[0].deployments[?status=='PRIMARY'].rolloutState | [0]" --output text)"
+            # services-stable puede volver antes de que ECS marque el despliegue como terminado: se
+            # vuelve a preguntar (hasta 5 minutos) mientras la revisión nueva siga IN_PROGRESS.
+            for _ in $(seq 1 30); do
+              state="$(aws ecs describe-services --cluster "${ECS_CLUSTER}" --services "${ECS_SERVICE}" \
+                --query "services[0].deployments[?status=='PRIMARY'] | [0].[rolloutState, taskDefinition]" \
+                --output text)"
+              read -r rollout active_arn <<<"${state}"
+              [[ "${rollout}" == "IN_PROGRESS" && "${active_arn}" == "${new_arn}" ]] || break
+              sleep 10
+            done
+            # Si ECS volvió a la revisión anterior, ese retorno también puede quedar COMPLETED.
+            if [[ "${active_arn}" != "${new_arn}" ]]; then
+              echo "::error::La revisión nueva no quedó activa: el servicio está en ${active_arn}. Revisa los logs de la tarea en CloudWatch."
+              exit 1
+            fi
             if [[ "${rollout}" != "COMPLETED" ]]; then
               echo "::error::El despliegue terminó en estado ${rollout}."
               exit 1
