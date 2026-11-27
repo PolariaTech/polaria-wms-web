@@ -118,6 +118,7 @@ export function useReagruparOtGenerar(args: UseReagruparOtGenerarArgs) {
         fase: "leyendo",
         motivo: interpretacion.motivo,
         firmaBase: solicitud.firma,
+        importeFormulario: solicitud.importeFormulario,
       });
       try {
         const propuesta = await solicitarCorreccion({
@@ -131,6 +132,7 @@ export function useReagruparOtGenerar(args: UseReagruparOtGenerarArgs) {
           fase: "propuesta",
           motivo: interpretacion.motivo,
           firmaBase: solicitud.firma,
+          importeFormulario: solicitud.importeFormulario,
           propuesta,
         });
       } catch (error) {

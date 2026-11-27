@@ -1,4 +1,5 @@
 import type { OrigenCorreoRenglon } from "../origen/origen-correo-ordenes-trabajo";
+import { totalDocumentoQueFormularioNoCuadra } from "./total-formulario-correccion";
 
 /**
  * Corrección de OT contra el correo (REQ-187) — lado cliente.
@@ -108,14 +109,17 @@ export function documentosConTotalQueNoCuadra(
 }
 
 /**
- * Hay OT y cambios estructurales que aplicar.
+ * Hay OT y cambios que aplicar: estructurales o, REQ-425, un formulario cuyo total
+ * no cuadra con el de los documentos (aplicar rehace las líneas desde la relectura).
  * REQ-372: un total que no cuadra ya no bloquea (el panel avisa; el usuario decide).
  */
 export function puedeAplicarCorreccion(
   propuesta: Pick<PropuestaCorreccionCorreoApi, "ots" | "documentos" | "diff">,
+  importeFormulario?: number | null,
 ): boolean {
   if (propuesta.ots.length === 0) return false;
-  return hayCambiosEstructurales(propuesta);
+  if (hayCambiosEstructurales(propuesta)) return true;
+  return totalDocumentoQueFormularioNoCuadra(propuesta, importeFormulario) !== null;
 }
 
 /** Documentos cuyo total no se pudo verificar (el documento no declara «Total pedido»). */
@@ -134,15 +138,30 @@ export function mensajeEstadoCorreccion(
     PropuestaCorreccionCorreoApi,
     "ots" | "documentos" | "diff" | "expectativas" | "resumen"
   >,
+  importeFormulario?: number | null,
 ): { tono: "aviso" | "bloqueo" | "ok"; texto: string } | null {
   const noCuadran = documentosConTotalQueNoCuadra(propuesta);
-  const puede = puedeAplicarCorreccion(propuesta);
+  const puede = puedeAplicarCorreccion(propuesta, importeFormulario);
+  const totalDocumento = totalDocumentoQueFormularioNoCuadra(propuesta, importeFormulario);
 
   if (puede && noCuadran.length > 0) {
     return {
       tono: "aviso",
       texto:
         "La suma de la relectura no cuadra con el «Total pedido» del documento. Puedes aplicar igual (mejor esfuerzo) o corregir a mano.",
+    };
+  }
+  if (puede && totalDocumento !== null && !hayCambiosEstructurales(propuesta)) {
+    const formulario = formatearImporte(importeFormulario ?? 0);
+    const documento = formatearImporte(totalDocumento);
+    return {
+      tono: "aviso",
+      texto:
+        "La relectura coincide con lo guardado del correo, pero el total del formulario (" +
+        formulario +
+        ") no cuadra con el del documento (" +
+        documento +
+        "). Aplicar rehace las líneas desde el correo.",
     };
   }
   if (puede) return null;
