@@ -1,12 +1,17 @@
+import { env } from "@/config/env";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { despachoLocalPuedeEscribirEstado } from "@/modules/sales/ordenes/despacho/despacho-publico-local";
 import { avanzarEstadoSurtidoEnNest } from "@/modules/sales/ordenes/surtido/avanzar-estado-surtido.server";
 import { recordOrdenVentaLogServer } from "@/modules/sales/ordenes/services/orden-venta-log.server";
 import { resolveTenantSchemaForCuenta } from "@/modules/sales/shared/services/sales-catalog.server";
 import {
   ESTADO_DESPACHADA,
   ESTADOS_ORIGEN_DESPACHO,
+  cantidadOrdenesTrabajoDespacho,
+  denominacionComercialDespacho,
   esEstadoOrigenDespacho,
   nombreClienteDeComprador,
+  ordenCompraClienteDespacho,
   type ConfirmacionDespacho,
   type OrdenDespachoPublico,
 } from "@/modules/sales/ordenes/despacho/despacho-publico";
@@ -18,6 +23,9 @@ interface OrdenRow {
   codigo: string | null;
   estado: string | null;
   codigo_cuenta: string | null;
+  orden_compra_hotel?: string | null;
+  denominacion_comercial_override?: string | null;
+  origen_correo?: unknown;
   comprador?: unknown;
 }
 
@@ -41,7 +49,7 @@ async function leerOrdenesEnSchema(
   const from = fromSchema(admin, schemaName);
   const { data, error } = await from("orden_venta")
     .select(
-      "id_orden_venta,codigo,estado,codigo_cuenta,comprador:comprador(nombre)",
+      "id_orden_venta,codigo,estado,codigo_cuenta,orden_compra_hotel,denominacion_comercial_override,origen_correo,comprador:comprador(nombre,apodo,denominacion_comercial_override)",
     )
     .in("estado", [...ESTADOS_ORIGEN_DESPACHO])
     .limit(500);
@@ -59,13 +67,28 @@ function aOrdenPublica(
   const idOrdenVenta = row.id_orden_venta?.trim();
   const codigoCuenta = row.codigo_cuenta?.trim();
   if (!idOrdenVenta || !codigoCuenta) return null;
+  const comprador = compradorDeFila(row.comprador);
   return {
     idOrdenVenta,
     codigo: row.codigo?.trim() || idOrdenVenta,
     estado: row.estado,
     codigoCuenta,
     nombreCliente: nombreClienteDeComprador(row.comprador),
+    denominacionComercial: denominacionComercialDespacho({
+      orden: row.denominacion_comercial_override,
+      comprador: comprador.denominacion,
+      apodo: comprador.apodo,
+    }),
+    cantidadOrdenesTrabajo: cantidadOrdenesTrabajoDespacho(row.origen_correo),
+    ordenCompraCliente: ordenCompraClienteDespacho(row.orden_compra_hotel),
   };
+}
+
+function compradorDeFila(comprador: unknown): { denominacion: unknown; apodo: unknown } {
+  const rel = Array.isArray(comprador) ? comprador[0] : comprador;
+  if (!rel || typeof rel !== "object") return { denominacion: null, apodo: null };
+  const fila = rel as { denominacion_comercial_override?: unknown; apodo?: unknown };
+  return { denominacion: fila.denominacion_comercial_override, apodo: fila.apodo };
 }
 
 export async function listarOrdenesDespachoPublico(
@@ -128,7 +151,16 @@ export async function confirmarDespachoPublico(
   }
 
   const escrito = await escribirEstadoDespachoEnNest(input);
-  if (escrito) return escrito;
+  if (escrito === "local") {
+    const local = await escribirEstadoDespachadaLocal(
+      admin,
+      encontrada.schemaName,
+      input,
+    );
+    if (!local.ok) return local;
+  } else if (escrito) {
+    return escrito;
+  }
 
   try {
     await recordOrdenVentaLogServer({
@@ -151,10 +183,10 @@ export async function confirmarDespachoPublico(
   }
 }
 
-/** El estado lo escribe Nest (mismo writer que el surtido QR). */
+/** El estado lo escribe Nest. Si el API local no tiene la ruta, lo escribe este servidor. */
 async function escribirEstadoDespachoEnNest(
   input: ConfirmacionDespacho,
-): Promise<ResultadoDespacho | null> {
+): Promise<ResultadoDespacho | "local" | null> {
   try {
     await avanzarEstadoSurtidoEnNest({
       idOrdenVenta: input.idOrdenVenta,
@@ -173,6 +205,26 @@ async function escribirEstadoDespachoEnNest(
         error: "La orden ya no está en alistada ni en alistamiento.",
       };
     }
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? env.apiBaseUrl;
+    if (despachoLocalPuedeEscribirEstado(detalle, apiBaseUrl)) return "local";
     return { ok: false, error: "No se pudo confirmar el despacho." };
   }
+}
+
+async function escribirEstadoDespachadaLocal(
+  admin: AdminClient,
+  schemaName: string | null,
+  input: ConfirmacionDespacho,
+): Promise<ResultadoDespacho> {
+  const from = fromSchema(admin, schemaName);
+  const { data, error } = await from("orden_venta")
+    .update({ estado: ESTADO_DESPACHADA })
+    .eq("id_orden_venta", input.idOrdenVenta)
+    .eq("codigo_cuenta", input.codigoCuenta)
+    .in("estado", [...ESTADOS_ORIGEN_DESPACHO])
+    .select("id_orden_venta");
+  if (error || !Array.isArray(data) || data.length === 0) {
+    return { ok: false, error: "No se pudo confirmar el despacho." };
+  }
+  return { ok: true };
 }
