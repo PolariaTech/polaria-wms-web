@@ -179,10 +179,8 @@ export function useOrdenVentaCypherDrawerContent({
     (orden ? formatCompradorOrdenVenta(orden) : null) || row?.comprador || "—";
   const occRaw = row?.occ || orden?.orden_compra_hotel?.trim() || "";
   const occ = resolveOrdenCompraLimpia(occRaw, orden?.origen_texto ?? "") || "—";
-  const recibida = formatDateTime(
-    orden?.created_at || orden?.fecha_pedido || row?.fecha || "",
-    zonaHoraria,
-  );
+  /** Llegada del correo de origen; "—" si la OV no vino por correo. La fecha de creación de la OV va aparte. */
+  const recibida = formatDateTime(orden?.recibido_correo_en ?? "", zonaHoraria);
 
   const lineas = orden?.lineas ?? [];
 

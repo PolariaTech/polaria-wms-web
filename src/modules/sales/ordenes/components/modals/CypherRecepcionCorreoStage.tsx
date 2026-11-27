@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { formatDateTime } from "@/components/shared/utils/formatters";
 import { cn } from "@/lib/utils/cn";
+import { useCuentaZonaHoraria } from "@/modules/configurator/cuentas/hooks/useCuentaZonaHoraria";
 import {
   isCuerpoMensajeFormato,
   looksLikeAsciiTableRow,
@@ -90,6 +92,8 @@ export function CypherRecepcionCorreoStage({
   correoPartido,
   correoPartidoDe,
 }: CypherRecepcionCorreoStageProps) {
+  const zonaHoraria = useCuentaZonaHoraria(codigoCuenta);
+  const ovCreada = formatDateTime(orden.created_at || orden.fecha_pedido, zonaHoraria);
   const fallbackHermanas = hermanasDesdeListadoPartido({
     idOrdenVenta: orden.id_orden_venta,
     codigoOv: (codigoOvListado?.trim() || orden.codigo || "").trim() || orden.id_orden_venta,
@@ -121,7 +125,8 @@ export function CypherRecepcionCorreoStage({
     >
       <div className="grid grid-cols-1 gap-y-2.5 rounded-xl border border-polaria-t-20 bg-polaria-t-08 px-3 py-3 @sm/cypher:grid-cols-[6rem_minmax(0,1fr)] @sm/cypher:gap-x-3.5 @sm/cypher:gap-y-2 @sm/cypher:px-4 @sm/cypher:py-3.5">
         <MetaRow label="REMITENTE">{correoChrome.from || "—"}</MetaRow>
-        <MetaRow label="LLEGADA">{recibida}</MetaRow>
+        <MetaRow label="CORREO RECIBIDO">{recibida}</MetaRow>
+        <MetaRow label="OV CREADA">{ovCreada}</MetaRow>
         <MetaRow label="ASUNTO">
           <span className="font-semibold">
             {correoChrome.subject ||

@@ -72,7 +72,7 @@ export function OrdenVentaCypherDrawerChrome({
               <span className="font-semibold text-polaria-w-50">{comprador}</span>
               {" · OCC "}
               {occ}
-              {" · Recibida "}
+              {" · Correo recibido "}
               {recibida}
             </p>
           </div>

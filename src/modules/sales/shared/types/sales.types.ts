@@ -171,6 +171,8 @@ export interface OrdenVentaLineaRow {
 }
 
 export interface OrdenVentaDetalleRow extends OrdenVentaRow {
+  /** Cuándo llegó el correo de origen (`correo_pedido_entrada.recibido_en`). Null si la OV no vino por correo. */
+  recibido_correo_en?: string | null;
   comprador_nombre: string | null;
   comprador_codigo: string | null;
   /** Razón social fiscal del comprador (hoja de la OT, REQ-178). */

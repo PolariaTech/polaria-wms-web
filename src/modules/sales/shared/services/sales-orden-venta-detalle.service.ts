@@ -107,6 +107,57 @@ function mapOrdenVentaDetalleRow(
   };
 }
 
+interface IngresoCorreoDbRow {
+  message_id: string;
+}
+
+interface EntradaCorreoDbRow {
+  recibido_en: string | null;
+}
+
+/**
+ * Cuándo llegó el correo que originó la OV (`correo_pedido_entrada.recibido_en`).
+ * No es `created_at`: ese es cuándo se creó la OV en el sistema. Null si no hay correo.
+ */
+async function fetchRecibidoCorreoDeOrden(
+  codigoCuenta: string,
+  idOrdenVenta: string,
+): Promise<string | null> {
+  const ingresos = await runDomainQuery<IngresoCorreoDbRow[] | null>((client) => {
+    const query = client
+      .from("correo_pedido_ingreso")
+      .select("message_id")
+      .eq("codigo_cuenta", codigoCuenta)
+      .eq("id_orden_venta", idOrdenVenta);
+
+    return query as unknown as Promise<{
+      data: IngresoCorreoDbRow[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  const messageIds = (ingresos ?? []).map((fila) => fila.message_id);
+  if (messageIds.length === 0) return null;
+
+  const entradas = await runDomainQuery<EntradaCorreoDbRow[] | null>((client) => {
+    const query = client
+      .from("correo_pedido_entrada")
+      .select("recibido_en")
+      .eq("codigo_cuenta", codigoCuenta)
+      .in("message_id", messageIds)
+      .not("recibido_en", "is", null)
+      .order("recibido_en", { ascending: true })
+      .limit(1);
+
+    return query as unknown as Promise<{
+      data: EntradaCorreoDbRow[] | null;
+      error: { message: string } | null;
+    }>;
+  });
+
+  return entradas?.[0]?.recibido_en ?? null;
+}
+
 export interface GetOrdenVentaDetalleParams {
   codigoCuenta: string;
   idOrdenVenta: string;
@@ -156,7 +207,13 @@ export async function getOrdenVentaDetalle(
   const bodegaIds = [row.id_bodega, row.id_bodega_destino].filter(
     (id): id is string => Boolean(id?.trim()),
   );
-  const bodegaLabels = await fetchBodegaDestinoLabels(bodegaIds);
+  const [bodegaLabels, recibidoCorreoEn] = await Promise.all([
+    fetchBodegaDestinoLabels(bodegaIds),
+    fetchRecibidoCorreoDeOrden(codigoCuenta, idOrdenVenta),
+  ]);
 
-  return mapOrdenVentaDetalleRow(row, bodegaLabels);
+  return {
+    ...mapOrdenVentaDetalleRow(row, bodegaLabels),
+    recibido_correo_en: recibidoCorreoEn,
+  };
 }
