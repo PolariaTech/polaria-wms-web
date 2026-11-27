@@ -11,11 +11,13 @@ import {
   llamadasA,
   numerosDe,
   pr,
+  ciEnVerde,
   REPO,
 } from "./__tests__/fusion-programada.arnes";
 
 const describeSiHayHerramientas = hayHerramientas ? describe : describe.skip;
-const fusionar = (numero: number): string => `pr merge ${numero} --repo ${REPO} --merge`;
+const fusionar = (numero: number, sha = `aaa${numero}`): string =>
+  `pr merge ${numero} --repo ${REPO} --merge --match-head-commit ${sha}`;
 
 afterEach(limpiarEscenarios);
 
@@ -33,7 +35,7 @@ describeSiHayHerramientas("fusión programada: qué PR se fusiona", () => {
         pr(8, { statusCheckRollup: [{ conclusion: null }] }),
         pr(9, {
           statusCheckRollup: [
-            { conclusion: "SUCCESS" },
+            ...ciEnVerde(),
             { conclusion: "SKIPPED" },
             { conclusion: "NEUTRAL" },
             { state: "SUCCESS" },
@@ -68,7 +70,7 @@ describeSiHayHerramientas("fusión programada: qué PR se fusiona", () => {
     expect(resultado.resumen).toContain("omitido #2: es borrador");
     expect(resultado.resumen).toContain("omitido #3: tiene la etiqueta no-fusionar");
     expect(resultado.resumen).toContain("omitido #4: no se puede fusionar (CONFLICTING)");
-    expect(resultado.resumen).toContain("omitido #5: no tiene comprobaciones");
+    expect(resultado.resumen).toContain("omitido #5: le faltan comprobaciones obligatorias");
     expect(resultado.resumen).toContain("omitido #6: tiene comprobaciones pendientes o en rojo");
   });
 
@@ -104,6 +106,7 @@ describeSiHayHerramientas("fusión programada: PR apilados y simulación", () =>
     ]);
     expect(numerosDe(resultado, "pr comment")).toEqual(["11", "12"]);
     expect(resultado.resumen).toContain("reapuntado a main el PR apilado #11");
+    expect(numerosDe(resultado, "pr merge")).toEqual(["10", "11", "12"]);
   });
 
   it("si no puede reapuntar un hijo, sigue con el otro y termina en rojo", () => {
@@ -129,7 +132,6 @@ describeSiHayHerramientas("fusión programada: PR apilados y simulación", () =>
     expect(llamadasA(resultado, "pr edit")).toEqual([]);
     expect(llamadasA(resultado, "pr comment")).toEqual([]);
     expect(llamadasA(resultado, "pr update-branch")).toEqual([]);
-    expect(llamadasA(resultado, "workflow run")).toEqual([]);
     expect(resultado.salida).toContain("SIMULACIÓN: fusionaría el PR #10");
     expect(resultado.salida).toContain("SIMULACIÓN: reapuntaría el PR apilado #11 a main");
   });
@@ -137,9 +139,8 @@ describeSiHayHerramientas("fusión programada: PR apilados y simulación", () =>
 
 describeSiHayHerramientas("fusión programada: PR desactualizados (el robot actualiza la rama)", () => {
   const actualizar = (numero: number): string => `pr update-branch ${numero} --repo ${REPO}`;
-  const lanzarCi = (rama: string): string => `workflow run ci.yml --repo ${REPO} --ref ${rama}`;
 
-  it("actualiza la rama, lanza el CI, espera a que termine y fusiona", () => {
+  it("actualiza la rama con el token de la App, espera el CI y fusiona", () => {
     const resultado = ejecutar({
       prs: [pr(10)],
       estados: { 10: "BEHIND" },
@@ -148,16 +149,16 @@ describeSiHayHerramientas("fusión programada: PR desactualizados (el robot actu
     expect(resultado.codigo).toBe(0);
     const secuencia = resultado.llamadas.filter(
       (llamada) =>
-        llamada.startsWith("pr update-branch") || llamada.startsWith("workflow run") || llamada.startsWith("pr merge"),
+        llamada.startsWith("pr update-branch") || llamada.startsWith("pr merge"),
     );
-    expect(secuencia).toEqual([actualizar(10), lanzarCi("dani/pr-10"), fusionar(10)]);
+    expect(secuencia).toEqual([actualizar(10), fusionar(10, "bbb10")]);
+      expect(resultado.tokensDeActualizar).toEqual(["token-de-la-app"]);
     expect(resultado.resumen).toContain("rama de #10 actualizada con main y comprobaciones en verde");
   });
 
   it("no toca un PR que ya está al día", () => {
     const resultado = ejecutar({ prs: [pr(10)] });
     expect(llamadasA(resultado, "pr update-branch")).toEqual([]);
-    expect(llamadasA(resultado, "workflow run")).toEqual([]);
     expect(llamadasA(resultado, "pr merge")).toEqual([fusionar(10)]);
   });
 
@@ -184,39 +185,26 @@ describeSiHayHerramientas("fusión programada: PR desactualizados (el robot actu
     expect(resultado.resumen).toContain("En espera para la próxima ejecución: 1");
   });
 
-  it("si no se ve un commit nuevo tras actualizar: fallo real y no lanza el CI", () => {
+  it("si no se ve un commit nuevo tras actualizar: fallo real y no se fusiona", () => {
     const resultado = ejecutar({
       prs: [pr(10), pr(11)],
       estados: { 10: "BEHIND" },
       sinCommitNuevo: [10],
     });
     expect(resultado.codigo).toBe(1);
-    expect(llamadasA(resultado, "workflow run")).toEqual([]);
     expect(llamadasA(resultado, "pr merge")).toEqual([fusionar(11)]);
     expect(resultado.resumen).toContain("NO se pudo actualizar la rama de #10");
   });
 
-  it("si GitHub no puede actualizar la rama (conflicto): fallo real y no lanza el CI", () => {
+  it("si GitHub no puede actualizar la rama (conflicto o permisos): fallo real y no se fusiona", () => {
     const resultado = ejecutar({
       prs: [pr(10)],
       estados: { 10: "BEHIND" },
       fallan: ["actualizar-10"],
     });
     expect(resultado.codigo).toBe(1);
-    expect(llamadasA(resultado, "workflow run")).toEqual([]);
     expect(llamadasA(resultado, "pr merge")).toEqual([]);
   });
-
-  it("si no puede lanzar el CI: fallo real y no se fusiona", () => {
-    const resultado = ejecutar({
-      prs: [pr(10)],
-      estados: { 10: "BEHIND" },
-      fallan: ["lanzar-ci"],
-    });
-    expect(resultado.codigo).toBe(1);
-    expect(llamadasA(resultado, "pr merge")).toEqual([]);
-  });
-
   it("si no queda tiempo en la ejecución: queda en espera sin tocar la rama", () => {
     const resultado = ejecutar({
       prs: [pr(10)],
@@ -238,7 +226,6 @@ describeSiHayHerramientas("fusión programada: PR desactualizados (el robot actu
     expect(resultado.codigo).toBe(0);
     expect(resultado.salida).toContain("SIMULACIÓN: antes actualizaría la rama del PR #10");
     expect(llamadasA(resultado, "pr update-branch")).toEqual([]);
-    expect(llamadasA(resultado, "workflow run")).toEqual([]);
   });
 });
 
