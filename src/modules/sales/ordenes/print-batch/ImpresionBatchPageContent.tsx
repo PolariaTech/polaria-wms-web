@@ -29,6 +29,7 @@ import { armarPreviaDetallada } from "./armar-previa-detallada";
 import { cargarCentrosConsumo, cargarHojasBatch } from "./cargar-hojas-batch";
 import { ImpresionBatchBarra } from "./ImpresionBatchBarra";
 import { ImpresionBatchFiltroImpresion } from "./ImpresionBatchFiltroImpresion";
+import { ImpresionBatchRefrescar } from "./ImpresionBatchRefrescar";
 import { ImpresionBatchFiltros, filtrosActivos } from "./ImpresionBatchFiltros";
 import { ImpresionBatchLista } from "./ImpresionBatchLista";
 import { ImpresionBatchMensaje } from "./ImpresionBatchMensaje";
@@ -79,7 +80,7 @@ export function ImpresionBatchPageContent() {
     const rows = await runScoped(() => listOrdenesVentaOperador({ codigoCuenta }));
     return rows.filter((row) => puedeImprimirEnBatch(row.estado));
   }, [codigoCuenta, runScoped]);
-  const { data, isLoading, error: errorLista, reload } = useAsyncQuery(
+  const { data, isLoading, isRefreshing, error: errorLista, reload } = useAsyncQuery(
     fetchOrdenes,
     Boolean(codigoCuenta),
   );
@@ -104,6 +105,11 @@ export function ImpresionBatchPageContent() {
   const cambiarFiltros = (siguientes: FiltrosBatch) => {
     setFiltros(siguientes);
     setError(null);
+  };
+  // Recarga la lista y el registro de impresiones; filtros y selección se quedan como están.
+  const refrescar = () => {
+    void reload();
+    yaImpresas.recargar();
   };
   const cambiarSeleccion = (cambio: (actual: SeleccionBatch) => SeleccionBatch) => {
     setSeleccion(cambio);
@@ -216,6 +222,7 @@ export function ImpresionBatchPageContent() {
               sinRevisar={yaImpresas.fallidas}
               onChange={(impresion) => cambiarFiltros({ ...filtros, impresion })}
             />
+            <ImpresionBatchRefrescar onRefrescar={refrescar} disabled={isLoading || cargando} refrescando={isRefreshing} />
             <div className="w-full sm:w-72">
               <ImpresionRapidaTipos value={tipos} onChange={setTipos} disabled={cargando} />
             </div>
