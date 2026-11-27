@@ -18,6 +18,7 @@
 - `src/modules/sales/ordenes/components/modals/OrdenVentaAdjuntoPreviewModal-helpers.test.ts`
 - `src/modules/sales/ordenes/components/modals/AdjuntoPreviewZoomControls.tsx`
 - `src/modules/sales/ordenes/components/modals/AdjuntoPreviewZoomControls.test.tsx`
+- `src/modules/sales/ordenes/components/modals/CypherOrigenAdjuntosBlock.test.tsx` — autorizada por el usuario el 2026-11-27
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
