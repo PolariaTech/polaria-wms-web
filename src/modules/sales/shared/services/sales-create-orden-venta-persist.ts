@@ -210,7 +210,7 @@ export async function insertLineasOrdenVenta(
 
   await runDomainMutation((client) => {
     const query = client.from("orden_venta_linea").insert(
-      lineas.map((linea) => {
+      lineas.map((linea, posicion) => {
         const idProducto = linea.idProducto.trim();
         const catalogPrecio = preciosUnitarios.get(idProducto) ?? 0;
         const precioUnitario =
@@ -227,6 +227,8 @@ export async function insertLineasOrdenVenta(
           presentacion: linea.presentacion?.trim() || null,
           unidad_medida: linea.unidadMedida?.trim() || null,
           match_producto: linea.matchProducto ?? null,
+          // REQ-370: lugar de la línea en la OC; la lectura ordena por esta columna.
+          posicion,
         };
       }),
     );

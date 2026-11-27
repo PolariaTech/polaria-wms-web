@@ -246,6 +246,7 @@ describe("sales.service", () => {
         presentacion: null,
         unidad_medida: null,
         match_producto: null,
+        posicion: 0,
       },
     ]);
   });

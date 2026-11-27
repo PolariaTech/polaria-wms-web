@@ -27,7 +27,7 @@ export const COMPRADOR_COLUMNS = "id_comprador,nombre";
 export const ORDEN_VENTA_DETALLE_SELECT =
   `${ORDEN_VENTA_COLUMNS},${ORDEN_VENTA_DETALLE_FLAT_COLUMNS},` +
   "comprador:comprador(nombre,codigo,razon_social,apodo,rfc,denominacion_comercial_override)," +
-  "orden_venta_linea(id_linea_orden_venta,id_producto,cantidad_pedida,precio_unitario,cajas,presentacion,unidad_medida,match_producto,producto(sku,descripcion,metadatos_catalogo))";
+  "orden_venta_linea(id_linea_orden_venta,id_producto,cantidad_pedida,precio_unitario,cajas,presentacion,unidad_medida,match_producto,posicion,producto(sku,descripcion,metadatos_catalogo))";
 
 export interface OrdenVentaLineaDetalleDbRow {
   id_linea_orden_venta: string;
@@ -38,6 +38,8 @@ export interface OrdenVentaLineaDetalleDbRow {
   presentacion?: string | null;
   unidad_medida?: string | null;
   match_producto?: OrdenVentaLineaRow["match_producto"];
+  /** REQ-370: lugar de la línea en la OC (0, 1, 2…); null en líneas anteriores. */
+  posicion?: number | null;
   producto:
     | OrdenVentaLineaRow["producto"]
     | NonNullable<OrdenVentaLineaRow["producto"]>[]

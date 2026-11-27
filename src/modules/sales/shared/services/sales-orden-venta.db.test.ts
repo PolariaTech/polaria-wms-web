@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { OrdenVentaRow } from "../types/sales.types";
 import {
   ORDEN_VENTA_COLUMNS,
+  ORDEN_VENTA_DETALLE_SELECT,
   ORDEN_VENTA_OPERADOR_LIST_COLUMNS,
   parseCantidadKg,
   sortOrdenesVentaPorCreacionDesc,
@@ -12,6 +13,10 @@ describe("sales-orden-venta.db", () => {
     expect(ORDEN_VENTA_OPERADOR_LIST_COLUMNS.startsWith(ORDEN_VENTA_COLUMNS)).toBe(
       true,
     );
+  });
+
+  it("REQ-370: el detalle pide la posicion de cada línea para ordenarla", () => {
+    expect(ORDEN_VENTA_DETALLE_SELECT).toMatch(/orden_venta_linea\([^)]*\bposicion\b/);
   });
 
   it("parseCantidadKg normaliza valores vacíos e inválidos", () => {
