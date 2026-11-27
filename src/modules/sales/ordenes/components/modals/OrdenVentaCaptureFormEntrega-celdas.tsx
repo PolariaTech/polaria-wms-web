@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import { AlertTriangle, CheckCircle2, Replace, XCircle } from "lucide-react";
 import { POLARIA_FORM_INPUT_CLASS_COMPACT } from "@/components/shared/form/PolariaFormField";
 import { parseDecimalEs } from "@/lib/utils/decimal-es";
@@ -93,6 +94,15 @@ export function EstadoProducto({ pending, warn }: { pending: boolean; warn: bool
   );
 }
 
+function altoDelParrafo(campo: HTMLTextAreaElement) {
+  const minimoAnterior = campo.style.minHeight;
+  campo.style.minHeight = "0px";
+  campo.style.height = "auto";
+  const alto = campo.scrollHeight;
+  campo.style.minHeight = minimoAnterior;
+  campo.style.height = `${alto}px`;
+}
+
 export function CeldaEspecificacion({
   linea,
   index,
@@ -102,16 +112,26 @@ export function CeldaEspecificacion({
   index: number;
   onChange: (index: number, value: string) => void;
 }) {
+  const campoRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    if (campoRef.current) altoDelParrafo(campoRef.current);
+  }, [linea.especificacion]);
+
   return (
     <div className="flex h-full min-h-full items-stretch">
-      <input
+      <textarea
+        ref={campoRef}
         aria-label={`Especificación de ${linea.nombre}`}
-        type="text"
+        rows={1}
         value={linea.especificacion}
-        onChange={(event) => onChange(index, event.target.value)}
+        onChange={(event) => {
+          onChange(index, event.target.value);
+          altoDelParrafo(event.currentTarget);
+        }}
         className={cn(
           POLARIA_FORM_INPUT_CLASS_COMPACT,
-          "h-full min-h-full px-2",
+          "h-auto min-h-full resize-none overflow-hidden whitespace-pre-wrap break-words px-2 py-1.5 leading-snug",
           linea.filledByIa && linea.especificacion && "!border-polaria-teal/50 !bg-polaria-t-08",
         )}
       />

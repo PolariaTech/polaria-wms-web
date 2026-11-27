@@ -114,7 +114,8 @@ function Th({ children }: { children: ReactNode }) {
 }
 
 function Colgroup() {
-  const widths = ["6.25rem", "4.25rem", "4.75rem", "4.75rem", "5rem", "5.5rem", "2.25rem"];
+  // REQ-396: la especificación envuelve el texto; el ancho solo sube un poco (antes 6.25rem).
+  const widths = ["8.5rem", "4.25rem", "4.75rem", "4.75rem", "5rem", "5.5rem", "2.25rem"];
   return (
     <colgroup>
       <col />

@@ -193,4 +193,11 @@ describe("OrdenVentaCaptureFormLineas — pie de Productos (REQ-224)", () => {
 
     expect(screen.getByRole("button", { name: /Agregar producto/ })).toBeDisabled();
   });
+
+  it("REQ-396: la columna de especificación queda un poco más ancha", () => {
+    const { container } = render(<OrdenVentaCaptureFormLineas {...propsBase()} />);
+    const columnas = container.querySelectorAll("col");
+
+    expect(columnas[1]?.getAttribute("style")).toContain("8.5rem");
+  });
 });
