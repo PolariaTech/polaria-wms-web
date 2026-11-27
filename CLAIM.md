@@ -12,6 +12,13 @@
 - `src/modules/sales/ordenes/utils/origen/oc-en-nombre-de-archivo.test.ts`
 - `src/modules/sales/ordenes/components/modals/CypherRecepcionCorreoStage.tsx`
 - `src/modules/sales/ordenes/components/shared/OrigenAdjuntosCards.tsx`
+- `src/modules/sales/ordenes/print-batch/oc-propia-de-ov.ts` — autorizada por el usuario el 2026-11-27
+- `src/modules/sales/ordenes/print-batch/oc-propia-de-ov.test.ts` — autorizada por el usuario el 2026-11-27
+- `src/modules/sales/ordenes/print-batch/armar-paquete-con-oc.ts` — autorizada por el usuario el 2026-11-27
+- `src/modules/sales/ordenes/print-batch/armar-paquete-con-oc.test.ts` — autorizada por el usuario el 2026-11-27
+- `src/modules/sales/ordenes/components/modals/CypherRecepcionCorreoStage.test.tsx` — autorizada por el usuario el 2026-11-27
+- `src/modules/sales/ordenes/utils/pedido/normalize-numero-pedido.ts` — autorizada por el usuario el 2026-11-27
+- `src/modules/sales/ordenes/utils/pedido/normalize-numero-pedido.test.ts` — autorizada por el usuario el 2026-11-27
 
 ### Compartidos (cambio mínimo y aviso)
 Ninguno.
