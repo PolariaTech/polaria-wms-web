@@ -3,7 +3,7 @@
  *
  * Extrae el bloque `run:` real del workflow y lo ejecuta con bash, con un `gh` simulado y el `jq` de
  * verdad (así también se prueba el filtro de los PR que se fusionan). Las pruebas están en
- * `../fusion-programada.workflow.test.ts`.
+ * `../fusion-programada.*.test.ts`.
  */
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -15,55 +15,18 @@ export const SHA_MAIN = "0123456789abcdef0123456789abcdef01234567";
 export const URL_DEPLOY = "https://github.com/org/repo/actions/runs/1";
 const RUTA_WORKFLOW = resolve(process.cwd(), ".github/workflows/fusion-programada.yml");
 
-// gh simulado: lee su comportamiento de archivos del escenario y deja cada llamada en llamadas.log.
-const GH_SIMULADO =
-  [
-    "#!/usr/bin/env bash",
-    "set -u",
-    'echo "$*" >> "${ESCENARIO}/llamadas.log"',
-    'sub="$1 $2"',
-    'if [ "${sub}" = "pr list" ]; then',
-    '  base=""; previo=""',
-    '  for argumento in "$@"; do',
-    '    if [ "${previo}" = "--base" ]; then base="${argumento}"; fi',
-    '    previo="${argumento}"',
-    "  done",
-    '  if [ "${base}" = "main" ]; then cat "${ESCENARIO}/lista-de-prs.json"; exit 0; fi',
-    '  clave="${base//\\//_}"',
-    '  if [ -f "${ESCENARIO}/hijos-${clave}.fallo" ]; then exit 1; fi',
-    '  if [ -f "${ESCENARIO}/hijos-${clave}" ]; then cat "${ESCENARIO}/hijos-${clave}"; fi',
-    "  exit 0",
-    "fi",
-    'if [ "$1" = "api" ]; then',
-    '  case "$*" in',
-    '    *git/ref/heads/main*) if [ -f "${ESCENARIO}/sha-main.fallo" ]; then exit 1; fi; echo "${SHA_MAIN}" ;;',
-    '    *deploy.yml/dispatches*) if [ -f "${ESCENARIO}/lanzar-deploy.fallo" ]; then exit 1; fi; echo "${URL_DEPLOY}" ;;',
-    '    *) exit 99 ;;',
-    '  esac',
-    '  exit 0',
-    'fi',
-    'numero="$3"',
-    'contar() { previo="$(cat "${ESCENARIO}/$1.contador" 2>/dev/null || echo 0)"; echo $((previo + 1)) > "${ESCENARIO}/$1.contador"; echo "${previo}"; }',
-    'case "${sub}" in',
-    '  "pr view")',
-    '    if [ -f "${ESCENARIO}/ver-${numero}.fallo" ]; then exit 1; fi',
-    '    case "$*" in',
-    "      *headRefOid*)",
-    '        consultas="$(contar "oid-${numero}")"',
-    '        if [ "${consultas}" = "0" ] || [ -f "${ESCENARIO}/oid-${numero}.nocambia" ]; then echo \'{"headRefOid":"aaa"}\'; else echo \'{"headRefOid":"bbb"}\'; fi ;;',
-    "      *statusCheckRollup*)",
-    '        consultas="$(contar "comprobaciones-${numero}")"',
-    '        jq -c --argjson consultas "${consultas}" \'{statusCheckRollup: .[([$consultas, (length - 1)] | min)]}\' "${ESCENARIO}/comprobaciones-${numero}.json" ;;',
-    '      *) cat "${ESCENARIO}/estado-${numero}" ;;',
-    "    esac ;;",
-    '  "pr merge") if [ -f "${ESCENARIO}/fusionar-${numero}.fallo" ]; then exit 1; fi ;;',
-    '  "pr update-branch") if [ -f "${ESCENARIO}/actualizar-${numero}.fallo" ]; then exit 1; fi ;;',
-    '  "workflow run") if [ -f "${ESCENARIO}/lanzar-ci.fallo" ]; then exit 1; fi ;;',
-    '  "pr edit") if [ -f "${ESCENARIO}/reapuntar-${numero}.fallo" ]; then exit 1; fi ;;',
-    '  "pr comment") ;;',
-    "  *) exit 99 ;;",
-    "esac",
-  ].join("\n") + "\n";
+// gh simulado (en su propio archivo): lee su comportamiento de los archivos del escenario.
+const leerGhSimulado = (): string =>
+  readFileSync(resolve(process.cwd(), "src/ci/__tests__/fusion-programada.gh-simulado.sh"), "utf8").replace(/\r/g, "");
+
+/** Nombres de las comprobaciones que el workflow exige, leídos del propio archivo. */
+export const OBLIGATORIAS = JSON.parse(
+  /CHECKS_OBLIGATORIOS: .(\[.*\])./.exec(readFileSync(RUTA_WORKFLOW, "utf8"))?.[1] ?? "[]",
+) as string[];
+
+export const VERCEL = { context: "Vercel", state: "SUCCESS" };
+export const ciEnVerde = (): { name: string; conclusion: string }[] =>
+  OBLIGATORIAS.map((name) => ({ name, conclusion: "SUCCESS" }));
 
 export interface Pr {
   number: number;
@@ -72,9 +35,14 @@ export interface Pr {
   reviewDecision: string;
   mergeable: string;
   labels: { name: string }[];
-  statusCheckRollup: { conclusion?: string | null; state?: string }[];
+  statusCheckRollup: { name?: string; context?: string; conclusion?: string | null; state?: string }[];
   createdAt: string;
   headRefName: string;
+  headRefOid: string;
+  baseRefName: string;
+  state: string;
+  isCrossRepository: boolean;
+  mergeStateStatus: string;
 }
 
 export interface Escenario {
@@ -91,18 +59,23 @@ export interface Escenario {
    * su rama (la última se repite). Por defecto, verde.
    */
   comprobaciones?: Record<number, EstadoComprobaciones[]>;
+  /** Commits de main que le faltan a cada PR; por defecto 0 (al día). */
+  atras?: Record<number, number>;
+  /** Cuántas veces la lista de PR responde UNKNOWN antes de tener la respuesta. */
+  listasSinCalcular?: number;
   /** PR cuya rama no cambia de commit tras `pr update-branch`. */
   sinCommitNuevo?: number[];
   /** Segundos de PRESUPUESTO_SEGUNDOS; por defecto, de sobra. */
   presupuesto?: number;
 }
 
-export type EstadoComprobaciones = "verde" | "rojo" | "pendiente";
+export type EstadoComprobaciones = "verde" | "rojo" | "pendiente" | "sinCi";
 
-const COMPROBACION: Record<EstadoComprobaciones, object[]> = {
-  verde: [{ conclusion: "SUCCESS" }],
-  rojo: [{ conclusion: "FAILURE" }],
-  pendiente: [{ conclusion: null, status: "IN_PROGRESS" }],
+const COMPROBACION: Record<EstadoComprobaciones, () => object[]> = {
+  verde: ciEnVerde,
+  rojo: () => [{ name: OBLIGATORIAS[0], conclusion: "FAILURE" }],
+  pendiente: () => [{ name: OBLIGATORIAS[0], conclusion: "", status: "IN_PROGRESS" }],
+  sinCi: () => [VERCEL],
 };
 
 export interface Resultado {
@@ -110,6 +83,8 @@ export interface Resultado {
   llamadas: string[];
   resumen: string;
   salida: string;
+  /** Token con el que se pidió cada `pr update-branch`. */
+  tokensDeActualizar: string[];
 }
 
 /** PR listo para fusionar; `cambios` rompe una condición. Los números menores son más antiguos. */
@@ -121,7 +96,12 @@ export function pr(numero: number, cambios: Partial<Pr> = {}): Pr {
     reviewDecision: "APPROVED",
     mergeable: "MERGEABLE",
     labels: [],
-    statusCheckRollup: [{ conclusion: "SUCCESS" }],
+    statusCheckRollup: ciEnVerde(),
+    headRefOid: `aaa${numero}`,
+    baseRefName: "main",
+    state: "OPEN",
+    isCrossRepository: false,
+    mergeStateStatus: "CLEAN",
     createdAt: new Date(Date.UTC(2026, 10, 1, 0, 0, numero)).toISOString(),
     headRefName: `dani/pr-${numero}`,
     ...cambios,
@@ -173,25 +153,37 @@ function envolverJqEnWindows(carpeta: string): void {
   writeFileSync(`${carpeta}/bin/jq`, `#!/usr/bin/env bash\nexec "${real}" --binary "$@"\n`, { mode: 0o755 });
 }
 
+function escribirPrs(carpeta: string, escenario: Escenario): void {
+  // Los PR apilados que solo se nombran en `hijos` se crean listos para fusionar.
+  const nombrados = Object.values(escenario.hijos ?? {}).flat();
+  const faltantes = nombrados.filter((numero) => !escenario.prs.some((p) => p.number === numero));
+  const todos = [...escenario.prs, ...faltantes.map((numero) => pr(numero))].map((p) => ({
+    ...p,
+    mergeStateStatus: escenario.estados?.[p.number] ?? p.mergeStateStatus,
+  }));
+  const haciaMain = todos.filter((p) => p.baseRefName === "main" && !faltantes.includes(p.number));
+  writeFileSync(`${carpeta}/lista-de-prs.json`, JSON.stringify(haciaMain));
+  for (const p of todos) {
+    writeFileSync(`${carpeta}/pr-${p.number}.json`, JSON.stringify(p));
+    writeFileSync(`${carpeta}/atras-${p.headRefOid}`, String(escenario.atras?.[p.number] ?? 0));
+    const secuencia = escenario.comprobaciones?.[p.number] ?? ["verde"];
+    writeFileSync(
+      `${carpeta}/comprobaciones-${p.number}.json`,
+      JSON.stringify(secuencia.map((estado) => COMPROBACION[estado]())),
+    );
+  }
+}
+
 function prepararEscenario(escenario: Escenario): string {
   const carpeta = mkdtempSync(join(tmpdir(), "fusion-programada-")).replace(/\\/g, "/");
   carpetas.push(carpeta);
   mkdirSync(`${carpeta}/bin`);
-  writeFileSync(`${carpeta}/bin/gh`, GH_SIMULADO, { mode: 0o755 });
+  writeFileSync(`${carpeta}/bin/gh`, leerGhSimulado(), { mode: 0o755 });
   envolverJqEnWindows(carpeta);
-  writeFileSync(`${carpeta}/lista-de-prs.json`, JSON.stringify(escenario.prs));
-  for (const { number } of escenario.prs) {
-    writeFileSync(`${carpeta}/estado-${number}`, escenario.estados?.[number] ?? "CLEAN");
-  }
+  writeFileSync(`${carpeta}/listas-sin-calcular`, String(escenario.listasSinCalcular ?? 0));
+  escribirPrs(carpeta, escenario);
   for (const [rama, numeros] of Object.entries(escenario.hijos ?? {})) {
     writeFileSync(`${carpeta}/hijos-${claveDeRama(rama)}`, numeros.join("\n") + "\n");
-  }
-  for (const { number } of escenario.prs) {
-    const secuencia = escenario.comprobaciones?.[number] ?? ["verde"];
-    writeFileSync(
-      `${carpeta}/comprobaciones-${number}.json`,
-      JSON.stringify(secuencia.map((estado) => COMPROBACION[estado])),
-    );
   }
   for (const numero of escenario.sinCommitNuevo ?? []) writeFileSync(`${carpeta}/oid-${numero}.nocambia`, "");
   for (const marcador of escenario.fallan ?? []) writeFileSync(`${carpeta}/${marcador}.fallo`, "");
@@ -220,7 +212,12 @@ export function ejecutar(escenario: Escenario): Resultado {
       SHA_MAIN,
       URL_DEPLOY,
       SOLO_SIMULAR: escenario.soloSimular ? "true" : "false",
-      // Sin esperas reales: 3 consultas del CI sin pausa.
+      GH_TOKEN: "token-del-workflow",
+      APP_TOKEN: "token-de-la-app",
+      CHECKS_OBLIGATORIOS: JSON.stringify(OBLIGATORIAS),
+      // Sin esperas reales: 3 consultas sin pausa.
+      CALCULO_INTENTOS: "3",
+      CALCULO_INTERVALO: "0",
       ESPERA_INTENTOS: "3",
       ESPERA_INTERVALO: "0",
       PRESUPUESTO_SEGUNDOS: String(escenario.presupuesto ?? 100000),
@@ -232,6 +229,7 @@ export function ejecutar(escenario: Escenario): Resultado {
     llamadas: leerArchivo(`${carpeta}/llamadas.log`).split("\n").filter(Boolean),
     resumen: leerArchivo(`${carpeta}/resumen.md`),
     salida: `${proceso.stdout}${proceso.stderr}`,
+    tokensDeActualizar: leerArchivo(`${carpeta}/tokens-actualizar.log`).split("\n").filter(Boolean),
   };
 }
 
