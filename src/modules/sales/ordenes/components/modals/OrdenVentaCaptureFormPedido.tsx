@@ -53,6 +53,7 @@ export function OrdenVentaCaptureFormPedido(props: {
           field: "ordenCompraHotel",
           ...props.marks,
           missing: props.exigeOc && !props.ordenCompraHotel.trim(),
+          vacio: !props.ordenCompraHotel.trim(),
         })}
         compact
       />
@@ -67,6 +68,7 @@ export function OrdenVentaCaptureFormPedido(props: {
         controlClassName={fieldControlClass({
           field: "centroConsumo",
           ...props.marks,
+          vacio: !props.centroConsumo.trim(),
         })}
         hint={hintCentro}
         compact

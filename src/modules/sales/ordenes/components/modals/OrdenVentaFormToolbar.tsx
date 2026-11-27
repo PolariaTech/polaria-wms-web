@@ -9,6 +9,7 @@ import { OrdenVentaCaptureFormCliente, OrdenVentaCaptureFormOcultos } from "./Or
 import { OrdenVentaCaptureFormLineas } from "./OrdenVentaCaptureFormLineas";
 import { OrdenVentaCaptureFormPedido } from "./OrdenVentaCaptureFormPedido";
 import { OrdenVentaCaptureFormProgramacion } from "./OrdenVentaCaptureFormProgramacion";
+import { fieldControlClass } from "../../utils/pedido/orden-venta-create-helpers";
 import { resolveRfcClienteCatalogo } from "../../utils/pedido/rfc-cliente-ov";
 
 export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
@@ -124,6 +125,7 @@ export function OrdenVentaFormStep(input: OrdenVentaFormEstado) {
                       label="Denominación comercial"
                       value={denominacionComercial}
                       onChange={(e) => setDenominacionComercial(e.target.value)}
+                      controlClassName={fieldControlClass({ vacio: !denominacionComercial.trim() })}
                       placeholder="—"
                       fieldClassName="sm:col-span-2"
                       compact

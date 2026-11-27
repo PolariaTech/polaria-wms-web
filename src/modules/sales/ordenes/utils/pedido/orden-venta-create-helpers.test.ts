@@ -125,6 +125,17 @@ describe("fieldControlClass", () => {
       }),
     ).toBe("!border-polaria-danger-border !bg-polaria-danger-bg");
   });
+
+  it("REQ-428: un campo opcional vacío se pinta en ámbar, sin pisar al faltante ni al autollenado", () => {
+    const ambar = "!border-polaria-warning-border !bg-polaria-warning-bg";
+
+    expect(fieldControlClass({ field: "contacto", vacio: true })).toBe(ambar);
+    expect(fieldControlClass({ field: "contacto", vacio: true, autoFields: new Set(["contacto"]) })).toBe(ambar);
+    expect(fieldControlClass({ field: "contacto", vacio: true, missingFields: new Set(["contacto"]) })).toBe(
+      "!border-polaria-danger-border !bg-polaria-danger-bg",
+    );
+    expect(fieldControlClass({ field: "contacto", vacio: false })).toBeUndefined();
+  });
 });
 
 describe("collectSugerenciasLinea", () => {

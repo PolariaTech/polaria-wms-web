@@ -89,12 +89,14 @@ export function fieldControlClass(params: {
   warnFields?: Set<string>;
   missingFields?: Set<string>;
   missing?: boolean;
+  /** REQ-428: campo opcional que está en blanco; borde ámbar para que el operario lo revise. */
+  vacio?: boolean;
 }): string | undefined {
-  const { field, autoFields, warnFields, missingFields, missing } = params;
+  const { field, autoFields, warnFields, missingFields, missing, vacio } = params;
   if (missing || (field && missingFields?.has(field))) {
     return "!border-polaria-danger-border !bg-polaria-danger-bg";
   }
-  if (field && warnFields?.has(field)) {
+  if (vacio || (field && warnFields?.has(field))) {
     return "!border-polaria-warning-border !bg-polaria-warning-bg";
   }
   if (field && autoFields?.has(field)) {
